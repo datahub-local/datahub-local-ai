@@ -37,7 +37,7 @@
               {
                 "id": "d8be99d5-516c-496a-9138-39704db8b53c",
                 "name": "template_vars",
-                "value": "={{ $json.template_vars || {\"RULES\":\"SOME_RULES\",\"EXTRA_RULES\":\"SDOME_EXTRA_RULES\",\"URL\":\"SOME_URL\",\"TEXT\":\"SOME_TEXT\"} }}",
+                "value": "={{ $json.template_vars || {\"RULES\":\"SOME_RULES\",\"EXTRA_PROMPT\":\"SDOME_EXTRA_PROMPT\",\"URL\":\"SOME_URL\",\"TEXT\":\"SOME_TEXT\"} }}",
                 "type": "object"
               }
             ]
@@ -528,7 +528,7 @@
             {
               "id": "d8be99d5-516c-496a-9138-39704db8b53c",
               "name": "template_vars",
-              "value": "={{ $json.template_vars || {\"RULES\":\"SOME_RULES\",\"EXTRA_RULES\":\"SDOME_EXTRA_RULES\",\"URL\":\"SOME_URL\",\"TEXT\":\"SOME_TEXT\"} }}",
+              "value": "={{ $json.template_vars || {\"RULES\":\"SOME_RULES\",\"EXTRA_PROMPT\":\"SDOME_EXTRA_PROMPT\",\"URL\":\"SOME_URL\",\"TEXT\":\"SOME_TEXT\"} }}",
               "type": "object"
             }
           ]

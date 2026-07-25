@@ -6,17 +6,17 @@
 
 ## 1. Naming & Propagation
 
-| Artifact | Name |
-|---|---|
-| Project | `bodega` |
-| Kafka topic | `bodega_invoices` |
-| Bronze catalog / schema | `bronze.bodega` |
-| Silver catalog / schema | `silver.bodega` |
-| Gold catalog / schema | `gold.bodega` |
-| Airflow DAG | `bodega_daily` |
-| dlt ingest pipeline path | `workflows/dlt/bodega/` |
+| Artifact                   | Name                    |
+| -------------------------- | ----------------------- |
+| Project                    | `bodega`                |
+| Kafka topic                | `bodega_invoices`       |
+| Bronze catalog / schema    | `bronze.bodega`         |
+| Silver catalog / schema    | `silver.bodega`         |
+| Gold catalog / schema      | `gold.bodega`           |
+| Airflow DAG                | `bodega_daily`          |
+| dlt ingest pipeline path   | `workflows/dlt/bodega/` |
 | dbt transform project path | `workflows/dbt/bodega/` |
-| Superset dashboard | `Bodega` |
+| Superset dashboard         | `Bodega`                |
 
 ### n8n propagation
 
@@ -49,13 +49,13 @@ Catalogs `bronze`, `silver`, `gold` are provisioned in Apache Polaris and expose
 
 ## 2. Infrastructure Addresses
 
-| Service | Internal DNS | Port | Notes |
-|---|---|---|---|
-| Redpanda (Kafka) broker-0 | `datahub-local-core-data-redpanda-0.datahub-local-core-data-redpanda.data.svc.cluster.local` | `9093` | no auth, no TLS |
-| Redpanda (Kafka) broker-1 | `datahub-local-core-data-redpanda-1.datahub-local-core-data-redpanda.data.svc.cluster.local` | `9093` | |
-| Redpanda (Kafka) broker-2 | `datahub-local-core-data-redpanda-2.datahub-local-core-data-redpanda.data.svc.cluster.local` | `9093` | |
-| Trino | `datahub-local-core-data-trino-trino.data.svc.cluster.local` | `8080` | query engine for all layers |
-| Superset | `datahub-local-core-data-superset.data.svc.cluster.local` | `8088` | |
+| Service                   | Internal DNS                                                                                 | Port   | Notes                       |
+| ------------------------- | -------------------------------------------------------------------------------------------- | ------ | --------------------------- |
+| Redpanda (Kafka) broker-0 | `datahub-local-core-data-redpanda-0.datahub-local-core-data-redpanda.data.svc.cluster.local` | `9093` | no auth, no TLS             |
+| Redpanda (Kafka) broker-1 | `datahub-local-core-data-redpanda-1.datahub-local-core-data-redpanda.data.svc.cluster.local` | `9093` |                             |
+| Redpanda (Kafka) broker-2 | `datahub-local-core-data-redpanda-2.datahub-local-core-data-redpanda.data.svc.cluster.local` | `9093` |                             |
+| Trino                     | `datahub-local-core-data-trino-trino.data.svc.cluster.local`                                 | `8080` | query engine for all layers |
+| Superset                  | `datahub-local-core-data-superset.data.svc.cluster.local`                                    | `8088` |                             |
 
 **`KAFKA_BOOTSTRAP_SERVERS`** (all three brokers for reliability):
 ```
@@ -110,14 +110,14 @@ The `parse_mercadona_invoice` n8n node produces one JSON object per invoice. Eac
 
 ### Field notes (from reading the JS parser)
 
-| Field | Type | Notes |
-|---|---|---|
-| `invoice.date` | `string` | Format `YYYY-MM-DDTHH:MM:00` — seconds hard-coded to `00`, **no timezone** |
-| `items[*].quantity` | `number` | Integer for packaged; float (kg) for weighted items |
-| `items[*].unit_price` | `number` | EUR per unit **or** EUR/kg for weighted |
-| `totals.card_number` | `string` | Always masked as `**** **** **** NNNN` |
-| `taxes[*].rate` | `string` | Pattern `^\d+%$` — not an enum, rates can change by law |
-| `invoice.number` | `string` | Natural dedup key. Pattern: `DDDD-DDD-DDDDDD` |
+| Field                 | Type     | Notes                                                                      |
+| --------------------- | -------- | -------------------------------------------------------------------------- |
+| `invoice.date`        | `string` | Format `YYYY-MM-DDTHH:MM:00` — seconds hard-coded to `00`, **no timezone** |
+| `items[*].quantity`   | `number` | Integer for packaged; float (kg) for weighted items                        |
+| `items[*].unit_price` | `number` | EUR per unit **or** EUR/kg for weighted                                    |
+| `totals.card_number`  | `string` | Always masked as `**** **** **** NNNN`                                     |
+| `taxes[*].rate`       | `string` | Pattern `^\d+%$` — not an enum, rates can change by law                    |
+| `invoice.number`      | `string` | Natural dedup key. Pattern: `DDDD-DDD-DDDDDD`                              |
 
 ### Three item line variants
 
@@ -191,24 +191,24 @@ Consumer group `bodega-dlt-bronze` is stable across runs. The first run uses `au
 
 ### Table: `bronze.bodega.raw_invoices`
 
-| Column | Type | Notes |
-|---|---|---|
-| `invoice_number` | `VARCHAR` | Primary key / dedup key |
-| `invoice_date` | `VARCHAR` | Raw string `YYYY-MM-DDTHH:MM:00` — parsed in Silver |
-| `operator_id` | `VARCHAR` | |
-| `store_name` | `VARCHAR` | Raw, uppercased in Silver |
-| `store_vat_id` | `VARCHAR` | |
-| `store_address` | `VARCHAR` | |
-| `store_phone` | `VARCHAR` | |
-| `total_amount` | `DOUBLE` | EUR |
-| `payment_method` | `VARCHAR` | |
-| `card_type` | `VARCHAR` | |
-| `card_number_masked` | `VARCHAR` | |
-| `items_json` | `VARCHAR` | JSON array string |
-| `taxes_json` | `VARCHAR` | JSON array string |
-| `supermarket` | `VARCHAR` | Hardcoded `MERCADONA` |
-| `_kafka_offset` | `BIGINT` | |
-| `_ingested_at` | `TIMESTAMP` | |
+| Column               | Type        | Notes                                               |
+| -------------------- | ----------- | --------------------------------------------------- |
+| `invoice_number`     | `VARCHAR`   | Primary key / dedup key                             |
+| `invoice_date`       | `VARCHAR`   | Raw string `YYYY-MM-DDTHH:MM:00` — parsed in Silver |
+| `operator_id`        | `VARCHAR`   |                                                     |
+| `store_name`         | `VARCHAR`   | Raw, uppercased in Silver                           |
+| `store_vat_id`       | `VARCHAR`   |                                                     |
+| `store_address`      | `VARCHAR`   |                                                     |
+| `store_phone`        | `VARCHAR`   |                                                     |
+| `total_amount`       | `DOUBLE`    | EUR                                                 |
+| `payment_method`     | `VARCHAR`   |                                                     |
+| `card_type`          | `VARCHAR`   |                                                     |
+| `card_number_masked` | `VARCHAR`   |                                                     |
+| `items_json`         | `VARCHAR`   | JSON array string                                   |
+| `taxes_json`         | `VARCHAR`   | JSON array string                                   |
+| `supermarket`        | `VARCHAR`   | Hardcoded `MERCADONA`                               |
+| `_kafka_offset`      | `BIGINT`    |                                                     |
+| `_ingested_at`       | `TIMESTAMP` |                                                     |
 
 ### dlt ingest pipeline
 
@@ -414,41 +414,41 @@ GROUP BY store_vat_id, store_name, store_address, store_phone, supermarket
 
 **Category taxonomy** (fixed set, returned by LLM):
 
-| Code | Label |
-|---|---|
-| `FRUITS_VEGETABLES` | Fruits & Vegetables |
-| `MEAT_FISH` | Meat, Poultry & Fish |
-| `DAIRY_EGGS` | Dairy, Eggs & Alternatives |
-| `BAKERY_PASTRY` | Bakery & Pastry |
-| `BEVERAGES` | Beverages |
-| `SNACKS_CONFECTIONERY` | Snacks & Confectionery |
-| `CLEANING_HOUSEHOLD` | Cleaning & Household |
-| `PERSONAL_CARE` | Personal Care & Health |
-| `BABY_PRODUCTS` | Baby Products |
-| `FROZEN_FOODS` | Frozen Foods |
-| `CANNED_PRESERVED` | Canned & Preserved |
-| `PASTA_GRAINS` | Pasta, Rice & Grains |
-| `CONDIMENTS_SAUCES` | Condiments, Sauces & Oils |
-| `READY_MEALS` | Ready Meals & Convenience |
-| `OTHER` | Other / Unclassifiable |
+| Code                   | Label                      |
+| ---------------------- | -------------------------- |
+| `FRUITS_VEGETABLES`    | Fruits & Vegetables        |
+| `MEAT_FISH`            | Meat, Poultry & Fish       |
+| `DAIRY_EGGS`           | Dairy, Eggs & Alternatives |
+| `BAKERY_PASTRY`        | Bakery & Pastry            |
+| `BEVERAGES`            | Beverages                  |
+| `SNACKS_CONFECTIONERY` | Snacks & Confectionery     |
+| `CLEANING_HOUSEHOLD`   | Cleaning & Household       |
+| `PERSONAL_CARE`        | Personal Care & Health     |
+| `BABY_PRODUCTS`        | Baby Products              |
+| `FROZEN_FOODS`         | Frozen Foods               |
+| `CANNED_PRESERVED`     | Canned & Preserved         |
+| `PASTA_GRAINS`         | Pasta, Rice & Grains       |
+| `CONDIMENTS_SAUCES`    | Condiments, Sauces & Oils  |
+| `READY_MEALS`          | Ready Meals & Convenience  |
+| `OTHER`                | Other / Unclassifiable     |
 
 **Subcategory**: free-text, max 30 chars. The LLM picks a more specific label within the category (e.g. "Pork" under `MEAT_FISH`, "Citrus" under `FRUITS_VEGETABLES`).
 
-**Model**: `deepseek/deepseek-v4-flash` via OpenRouter (confirmed). Parameterised via `OPENROUTER_MODEL` env var — change it without touching pipeline code.
+**Model**: `xiaomi/mimo-v2.5:nitro` via OpenRouter (confirmed). Parameterised via `OPENROUTER_MODEL` env var — change it without touching pipeline code.
 
 **Failure handling**: if the LLM call fails or returns an unparseable response, fall back to `OTHER` with subcategory `PARSE_ERROR`. Never block the pipeline.
 
 #### Schema
 
-| Column | Type |
-|---|---|
-| `description_clean` | `VARCHAR` |
-| `supermarket` | `VARCHAR` |
-| `category` | `VARCHAR` |
-| `subcategory` | `VARCHAR` |
-| `is_weighted` | `BOOLEAN` |
-| `categorized_at` | `TIMESTAMP` |
-| `llm_model` | `VARCHAR` |
+| Column              | Type        |
+| ------------------- | ----------- |
+| `description_clean` | `VARCHAR`   |
+| `supermarket`       | `VARCHAR`   |
+| `category`          | `VARCHAR`   |
+| `subcategory`       | `VARCHAR`   |
+| `is_weighted`       | `BOOLEAN`   |
+| `categorized_at`    | `TIMESTAMP` |
+| `llm_model`         | `VARCHAR`   |
 
 - **Strategy**: incremental, merge on `(description_clean, supermarket)`
 
@@ -507,7 +507,7 @@ def _categorize_batch(descriptions: list, api_key: str, model_id: str) -> list:
     write_disposition="merge",
     primary_key=["description_clean", "supermarket"],
 )
-def products(trino_dsn: str, api_key: str, model_id: str = "deepseek/deepseek-v4-flash"):
+def products(trino_dsn: str, api_key: str, model_id: str = "xiaomi/mimo-v2.5:nitro"):
     from datetime import datetime, timezone
 
     engine = create_engine(trino_dsn)
@@ -734,7 +734,7 @@ import os
 KAFKA_BOOTSTRAP_SERVERS = os.environ["KAFKA_BOOTSTRAP_SERVERS"]
 KAFKA_TOPIC_BODEGA      = os.environ.get("KAFKA_TOPIC_BODEGA", "bodega_invoices")
 OPENROUTER_API_KEY      = os.environ["OPENROUTER_API_KEY"]
-OPENROUTER_MODEL        = os.environ.get("OPENROUTER_MODEL", "deepseek/deepseek-v4-flash")
+OPENROUTER_MODEL        = os.environ.get("OPENROUTER_MODEL", "xiaomi/mimo-v2.5:nitro")
 TRINO_DSN               = os.environ["TRINO_DSN"]  # for enrich step to read silver tables
 ```
 
@@ -827,17 +827,17 @@ Update `workflows/dlt/Dockerfile` to install these (or merge into the main depen
 
 Connect Superset to the Iceberg catalog via the existing Trino endpoint. One dataset per Gold table.
 
-| Chart | Type | Dataset | Key metric |
-|---|---|---|---|
-| Weekly spend trend | Line | `gold.bodega.spending_by_week` | `total_amount` by `week_start` |
-| Monthly spend heatmap | Calendar | `gold.bodega.spending_by_day` | `total_amount` |
-| Spend by category (this month) | Pie / Treemap | `gold.bodega.category_spending` | `total_spent` by `category` |
-| Category trend over time | Stacked area | `gold.bodega.category_spending` | `total_spent` by `week_start` + `category` |
-| Top 20 products (amount) | H-bar | `gold.bodega.top_products` | `total_spent` |
-| Top 20 products (frequency) | H-bar | `gold.bodega.top_products` | `purchase_count` |
-| Price evolution | Line + filter | `gold.bodega.price_trends` | `avg_unit_price` by `week_start` (filter by product) |
-| Tax breakdown by month | Stacked bar | `gold.bodega.tax_summary` | `tax_amount` by `tax_rate` |
-| Average basket size | Dual-axis line | `gold.bodega.spending_by_week` | `avg_basket_amount` + `total_items` |
+| Chart                          | Type           | Dataset                         | Key metric                                           |
+| ------------------------------ | -------------- | ------------------------------- | ---------------------------------------------------- |
+| Weekly spend trend             | Line           | `gold.bodega.spending_by_week`  | `total_amount` by `week_start`                       |
+| Monthly spend heatmap          | Calendar       | `gold.bodega.spending_by_day`   | `total_amount`                                       |
+| Spend by category (this month) | Pie / Treemap  | `gold.bodega.category_spending` | `total_spent` by `category`                          |
+| Category trend over time       | Stacked area   | `gold.bodega.category_spending` | `total_spent` by `week_start` + `category`           |
+| Top 20 products (amount)       | H-bar          | `gold.bodega.top_products`      | `total_spent`                                        |
+| Top 20 products (frequency)    | H-bar          | `gold.bodega.top_products`      | `purchase_count`                                     |
+| Price evolution                | Line + filter  | `gold.bodega.price_trends`      | `avg_unit_price` by `week_start` (filter by product) |
+| Tax breakdown by month         | Stacked bar    | `gold.bodega.tax_summary`       | `tax_amount` by `tax_rate`                           |
+| Average basket size            | Dual-axis line | `gold.bodega.spending_by_week`  | `avg_basket_amount` + `total_items`                  |
 
 Apply a global date-range filter to all charts.
 
@@ -845,25 +845,25 @@ Apply a global date-range filter to all charts.
 
 ## 12. Phased Delivery
 
-| Phase | Deliverable | Effort |
-|---|---|---|
-| **P0** | Kafka topic, dlt/dbt project scaffolds, config | 0.5 day |
-| **P1** | `bronze.bodega.raw_invoices` dlt ingest pipeline + Docker deps | 1 day |
-| **P2** | Silver SQL tables (invoices, invoice_items, invoice_taxes, stores) | 1 day |
-| **P3** | `silver.bodega.products` LLM enrichment dlt pipeline | 1 day |
-| **P4** | All Gold SQL tables | 1 day |
-| **P5** | Airflow DAG + Kubernetes Secret | 0.5 day |
-| **P6** | Superset datasets + dashboard | 1 day |
+| Phase  | Deliverable                                                        | Effort  |
+| ------ | ------------------------------------------------------------------ | ------- |
+| **P0** | Kafka topic, dlt/dbt project scaffolds, config                     | 0.5 day |
+| **P1** | `bronze.bodega.raw_invoices` dlt ingest pipeline + Docker deps     | 1 day   |
+| **P2** | Silver SQL tables (invoices, invoice_items, invoice_taxes, stores) | 1 day   |
+| **P3** | `silver.bodega.products` LLM enrichment dlt pipeline               | 1 day   |
+| **P4** | All Gold SQL tables                                                | 1 day   |
+| **P5** | Airflow DAG + Kubernetes Secret                                    | 0.5 day |
+| **P6** | Superset datasets + dashboard                                      | 1 day   |
 
 ---
 
 ## 13. Remaining Open Questions
 
-| # | Question | Status | Impact |
-|---|---|---|---|
-| 1 | Kafka broker addresses | ✅ Resolved — 3 brokers at port 9093, no auth | See Section 2 |
-| 2 | Which data lands in Kafka: raw or parsed JSON? | ✅ Resolved — parsed invoice JSON from `parse_mercadona_invoice`, see [schema](../n8n/schemas/bodega_invoice.schema.json) | Bronze flatten function done |
-| 3 | OpenRouter model ID | ✅ Resolved — `deepseek/deepseek-v4-flash`, parameterised via `OPENROUTER_MODEL` | |
-| 4 | `confluent-kafka` in dlt Kubernetes pod | ⚠️ Open — test at P1; fallback to `kafka-python` if native lib fails | Bronze pipeline runtime |
-| 5 | Backfill: 1 year of emails in Kafka already? | ⚠️ Open — `bodega_invoices` topic doesn't exist yet; n8n must re-run with extended `MAX_DAYS` | First-run strategy |
-| 6 | dbt `--select silver.*` / `--select gold.*` syntax for split tasks | ⚠️ Open — verify dbt node selector works with catalog-qualified model paths | Airflow DAG design |
+| #   | Question                                                           | Status                                                                                                                   | Impact                       |
+| --- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------- |
+| 1   | Kafka broker addresses                                             | ✅ Resolved — 3 brokers at port 9093, no auth                                                                             | See Section 2                |
+| 2   | Which data lands in Kafka: raw or parsed JSON?                     | ✅ Resolved — parsed invoice JSON from `parse_mercadona_invoice`, see [schema](../n8n/schemas/bodega_invoice.schema.json) | Bronze flatten function done |
+| 3   | OpenRouter model ID                                                | ✅ Resolved — `xiaomi/mimo-v2.5:nitro`, parameterised via `OPENROUTER_MODEL`                                              |                              |
+| 4   | `confluent-kafka` in dlt Kubernetes pod                            | ⚠️ Open — test at P1; fallback to `kafka-python` if native lib fails                                                      | Bronze pipeline runtime      |
+| 5   | Backfill: 1 year of emails in Kafka already?                       | ⚠️ Open — `bodega_invoices` topic doesn't exist yet; n8n must re-run with extended `MAX_DAYS`                             | First-run strategy           |
+| 6   | dbt `--select silver.*` / `--select gold.*` syntax for split tasks | ⚠️ Open — verify dbt node selector works with catalog-qualified model paths                                               | Airflow DAG design           |

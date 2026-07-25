@@ -148,8 +148,8 @@
                 "removed": true
               },
               {
-                "id": "EXTRA_RULES",
-                "displayName": "EXTRA_RULES",
+                "id": "EXTRA_PROMPT",
+                "displayName": "EXTRA_PROMPT",
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
@@ -644,8 +644,8 @@
               "removed": true
             },
             {
-              "id": "EXTRA_RULES",
-              "displayName": "EXTRA_RULES",
+              "id": "EXTRA_PROMPT",
+              "displayName": "EXTRA_PROMPT",
               "required": false,
               "defaultMatch": false,
               "display": true,

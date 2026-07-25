@@ -193,15 +193,15 @@
             "value": {
               "MAX_WORDS": "={{ $('select_article_to_post').item.json.MAX_WORDS || 300 }}",
               "URL": "={{ $('select_article_to_post').item.json.URL }}",
-              "EXTRA_RULES": "={{ $('select_article_to_post').item.json.EXTRA_RULES }}",
+              "EXTRA_PROMPT": "={{ $('select_article_to_post').item.json.EXTRA_PROMPT }}",
               "CONTENT": "={{ $('download_content').item.json.contentMkdown }}",
               "ENABLE_CHECK": true
             },
             "matchingColumns": [],
             "schema": [
               {
-                "id": "EXTRA_RULES",
-                "displayName": "EXTRA_RULES",
+                "id": "EXTRA_PROMPT",
+                "displayName": "EXTRA_PROMPT",
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
@@ -817,8 +817,8 @@
                 "removed": true
               },
               {
-                "id": "EXTRA_RULES",
-                "displayName": "EXTRA_RULES",
+                "id": "EXTRA_PROMPT",
+                "displayName": "EXTRA_PROMPT",
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
@@ -911,7 +911,11 @@
             "interval": [
               {
                 "field": "cronExpression",
-                "expression": "0 0 13 * * 1,4"
+                "expression": "0 0 16 * * 1"
+              },
+              {
+                "field": "cronExpression",
+                "expression": "0 30 10 * * 3,5"
               }
             ]
           }
@@ -923,7 +927,8 @@
           -752
         ],
         "id": "5256f53f-2ec9-4c79-a19f-77b779eedf2f",
-        "name": "schedule_trigger"
+        "name": "schedule_trigger",
+        "notes": "Mon 16:00, Wed 10:30, Fri 10:30 Europe/Madrid - even 2-day spacing so posts never compete.\nWed gets the prime 10-12 slot because it is the strongest B2B day. Fri keeps the morning, since Friday afternoon is the weakest slot of the week.\nMon 16:00 is 10:00 US Eastern: Monday morning is the weaker half of the EU window, so it is the cheapest slot to spend testing whether your audience is actually US. Compare LINKEDIN_URL engagement after 8-10 weeks and move it if not."
       },
       {
         "parameters": {
@@ -2454,15 +2459,15 @@
           "value": {
             "MAX_WORDS": "={{ $('select_article_to_post').item.json.MAX_WORDS || 300 }}",
             "URL": "={{ $('select_article_to_post').item.json.URL }}",
-            "EXTRA_RULES": "={{ $('select_article_to_post').item.json.EXTRA_RULES }}",
+            "EXTRA_PROMPT": "={{ $('select_article_to_post').item.json.EXTRA_PROMPT }}",
             "CONTENT": "={{ $('download_content').item.json.contentMkdown }}",
             "ENABLE_CHECK": true
           },
           "matchingColumns": [],
           "schema": [
             {
-              "id": "EXTRA_RULES",
-              "displayName": "EXTRA_RULES",
+              "id": "EXTRA_PROMPT",
+              "displayName": "EXTRA_PROMPT",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -2535,10 +2540,8 @@
         },
         "sheetName": {
           "__rl": true,
-          "value": "gid=0",
-          "mode": "list",
-          "cachedResultName": "articles_2_linkedin",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit#gid=0"
+          "value": "content_queue",
+          "mode": "name"
         },
         "options": {
           "dataLocationOnSheet": {
@@ -2566,7 +2569,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const priorityOrder = {\n  VERY_HIGH: 0,\n  HIGH: 1,\n  MEDIUM: 2,\n  LOW: 3\n};\nconst filteredEntries = $input.all().map(item=>item.json).filter(item => item.URL && /^(QUEUE)$/.test(item.STATUS)).toSorted((a, b) => {\n  const aPriority = priorityOrder[a.PRIORITY] ?? 4;\n  const bPriority = priorityOrder[b.PRIORITY] ?? 4;\n\n  if (aPriority !== bPriority) {\n    return aPriority - bPriority; // sort by priority\n  }\n\n  return a.row_number - b.row_number; // sort by row_number ascending\n});\n\n//console.log(filteredEntries.slice(0))\n\nreturn filteredEntries.slice(0, 1);"
+        "jsCode": "// Pick the one article this run publishes, out of the curator's backlog.\n//\n// Topic rotation, added when content_queue became a durable backlog: the curator used to\n// hand over a fresh five-item slate whose diversity caps were fought over inside a single\n// run, and the four it did not publish were expired. Now it just tops the backlog up, and\n// variety is decided here instead - where it can be guaranteed across a week rather than\n// inside one slate. Skipping the topics of the last AVOID_LAST published posts is enough:\n// it is deterministic, needs no state of its own, and costs nothing.\n//\n// Deliberately NOT random. Random selection would throw away the ranking the curator paid\n// an LLM to produce, and it only pays for itself as exploration - which needs a reward\n// signal. Nothing reads LinkedIn engagement back into this sheet yet, so there is nothing\n// to explore against. Revisit if that changes.\n// AVOID_LAST must leave at least TWO categories eligible, or rotation stops being a\n// tiebreak and becomes a strict round-robin that overrides the ranking entirely. It was 2\n// while the curator ran five categories; the curator now runs three (Data/AI/DevOps), so 2\n// would leave exactly one eligible category and a VERY_HIGH row would wait behind a LOW one\n// purely because of publish order. At 1 the same topic can never go out twice in a row -\n// which is the whole point - and PRIORITY still chooses between the other two.\nconst AVOID_LAST = 1;\n\nconst priorityOrder = {\n  VERY_HIGH: 0,\n  HIGH: 1,\n  MEDIUM: 2,\n  LOW: 3\n};\nconst topicOf = (r) => String(r.TOPIC || '').trim();\nconst byPriorityThenRow = (a, b) => {\n  const aPriority = priorityOrder[a.PRIORITY] ?? 4;\n  const bPriority = priorityOrder[b.PRIORITY] ?? 4;\n  if (aPriority !== bPriority) {\n    return aPriority - bPriority; // sort by priority\n  }\n  return a.row_number - b.row_number; // sort by row_number ascending\n};\n\nconst rows = $input.all().map((item) => item.json).filter((item) => item && item.URL);\n\n// Most recently published first. RELEASE_DATE is written by update_status_published_a;\n// rows that predate it fall back to UPDATE_DATE so the rotation still sees them.\nconst recentTopics = rows\n  .filter((r) => /^PUBLISHED$/.test(String(r.STATUS || '').trim()))\n  .map((r) => ({ topic: topicOf(r), at: Date.parse(r.RELEASE_DATE || '') || Date.parse(r.UPDATE_DATE || '') || 0 }))\n  .filter((r) => r.topic && r.at)\n  .sort((a, b) => b.at - a.at)\n  .slice(0, AVOID_LAST)\n  .map((r) => r.topic);\n\nconst queue = rows.filter((item) => /^(QUEUE)$/.test(item.STATUS)).toSorted(byPriorityThenRow);\nconst rotated = queue.filter((r) => !recentTopics.includes(topicOf(r)));\n\n// Rotation must never be the reason nothing gets published: if every queued row is on a\n// topic we just covered, publish the best one anyway rather than skipping the slot.\nconst pool = rotated.length ? rotated : queue;\nconsole.log(\n  'select_article_to_post: ' + queue.length + ' queued, avoiding [' + recentTopics.join(', ') + '], ' +\n    rotated.length + ' on a fresh topic' + (rotated.length ? '' : ' - rotation relaxed to fill the slot')\n);\n\nreturn pool.slice(0, 1);\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -2756,10 +2759,8 @@
         },
         "sheetName": {
           "__rl": true,
-          "value": "gid=0",
-          "mode": "list",
-          "cachedResultName": "articles_2_linkedin",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit#gid=0"
+          "value": "content_queue",
+          "mode": "name"
         },
         "columns": {
           "mappingMode": "defineBelow",
@@ -2783,13 +2784,24 @@
               "removed": true
             },
             {
+              "id": "TITLE",
+              "displayName": "TITLE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
               "id": "STATUS",
               "displayName": "STATUS",
               "required": false,
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "PRIORITY",
@@ -2802,17 +2814,48 @@
               "removed": true
             },
             {
-              "id": "UPDATE_DATE",
-              "displayName": "UPDATE_DATE",
+              "id": "SCORE",
+              "displayName": "SCORE",
               "required": false,
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": true
             },
             {
-              "id": "RELEASE_DATE",
-              "displayName": "RELEASE_DATE",
+              "id": "ORIGIN",
+              "displayName": "ORIGIN",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "TOPIC",
+              "displayName": "TOPIC",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "SOURCE",
+              "displayName": "SOURCE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "RATIONALE",
+              "displayName": "RATIONALE",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -2831,8 +2874,78 @@
               "removed": true
             },
             {
+              "id": "MAX_WORDS",
+              "displayName": "MAX_WORDS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "PUBLISHED_AT",
+              "displayName": "PUBLISHED_AT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "UPDATE_DATE",
+              "displayName": "UPDATE_DATE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "RELEASE_DATE",
+              "displayName": "RELEASE_DATE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
               "id": "LINKEDIN_URL",
               "displayName": "LINKEDIN_URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "ENTRY_ID",
+              "displayName": "ENTRY_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "ERROR",
+              "displayName": "ERROR",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "EXECUTION_ID",
+              "displayName": "EXECUTION_ID",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -2846,7 +2959,7 @@
               "required": false,
               "defaultMatch": false,
               "display": true,
-              "type": "string",
+              "type": "number",
               "canBeUsedToMatch": true,
               "readOnly": true,
               "removed": false
@@ -2884,17 +2997,16 @@
         },
         "sheetName": {
           "__rl": true,
-          "value": "gid=0",
-          "mode": "list",
-          "cachedResultName": "articles_2_linkedin",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit#gid=0"
+          "value": "content_queue",
+          "mode": "name"
         },
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
             "UPDATE_DATE": "={{ (new Date()).toISOString() }}",
             "STATUS": "CANCELED",
-            "row_number": "={{ $('select_article_to_post').item.json.row_number }}"
+            "row_number": "={{ $('select_article_to_post').item.json.row_number }}",
+            "EXECUTION_ID": "={{ $execution.id }}"
           },
           "matchingColumns": [
             "row_number"
@@ -2911,13 +3023,24 @@
               "removed": true
             },
             {
+              "id": "TITLE",
+              "displayName": "TITLE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
               "id": "STATUS",
               "displayName": "STATUS",
               "required": false,
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "PRIORITY",
@@ -2930,17 +3053,48 @@
               "removed": true
             },
             {
-              "id": "UPDATE_DATE",
-              "displayName": "UPDATE_DATE",
+              "id": "SCORE",
+              "displayName": "SCORE",
               "required": false,
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": true
             },
             {
-              "id": "RELEASE_DATE",
-              "displayName": "RELEASE_DATE",
+              "id": "ORIGIN",
+              "displayName": "ORIGIN",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "TOPIC",
+              "displayName": "TOPIC",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "SOURCE",
+              "displayName": "SOURCE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "RATIONALE",
+              "displayName": "RATIONALE",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -2959,6 +3113,46 @@
               "removed": true
             },
             {
+              "id": "MAX_WORDS",
+              "displayName": "MAX_WORDS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "PUBLISHED_AT",
+              "displayName": "PUBLISHED_AT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "UPDATE_DATE",
+              "displayName": "UPDATE_DATE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "RELEASE_DATE",
+              "displayName": "RELEASE_DATE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
               "id": "LINKEDIN_URL",
               "displayName": "LINKEDIN_URL",
               "required": false,
@@ -2969,12 +3163,42 @@
               "removed": true
             },
             {
+              "id": "ENTRY_ID",
+              "displayName": "ENTRY_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "ERROR",
+              "displayName": "ERROR",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "EXECUTION_ID",
+              "displayName": "EXECUTION_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
               "id": "row_number",
               "displayName": "row_number",
               "required": false,
               "defaultMatch": false,
               "display": true,
-              "type": "string",
+              "type": "number",
               "canBeUsedToMatch": true,
               "readOnly": true,
               "removed": false
@@ -3012,10 +3236,8 @@
         },
         "sheetName": {
           "__rl": true,
-          "value": "gid=0",
-          "mode": "list",
-          "cachedResultName": "articles_2_linkedin",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit#gid=0"
+          "value": "content_queue",
+          "mode": "name"
         },
         "columns": {
           "mappingMode": "defineBelow",
@@ -3040,17 +3262,108 @@
               "removed": true
             },
             {
+              "id": "TITLE",
+              "displayName": "TITLE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
               "id": "STATUS",
               "displayName": "STATUS",
               "required": false,
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "PRIORITY",
               "displayName": "PRIORITY",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "SCORE",
+              "displayName": "SCORE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "ORIGIN",
+              "displayName": "ORIGIN",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "TOPIC",
+              "displayName": "TOPIC",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "SOURCE",
+              "displayName": "SOURCE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "RATIONALE",
+              "displayName": "RATIONALE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "EXTRA_PROMPT",
+              "displayName": "EXTRA_PROMPT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "MAX_WORDS",
+              "displayName": "MAX_WORDS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "PUBLISHED_AT",
+              "displayName": "PUBLISHED_AT",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -3065,7 +3378,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "RELEASE_DATE",
@@ -3078,18 +3392,28 @@
               "removed": true
             },
             {
-              "id": "EXTRA_RULES",
-              "displayName": "EXTRA_RULES",
+              "id": "LINKEDIN_URL",
+              "displayName": "LINKEDIN_URL",
               "required": false,
               "defaultMatch": false,
               "display": true,
               "type": "string",
               "canBeUsedToMatch": true,
-              "removed": false
+              "removed": true
             },
             {
-              "id": "LINKEDIN_URL",
-              "displayName": "LINKEDIN_URL",
+              "id": "ENTRY_ID",
+              "displayName": "ENTRY_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "ERROR",
+              "displayName": "ERROR",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -3172,7 +3496,11 @@
           "interval": [
             {
               "field": "cronExpression",
-              "expression": "0 0 13 * * 1,4"
+              "expression": "0 0 16 * * 1"
+            },
+            {
+              "field": "cronExpression",
+              "expression": "0 30 10 * * 3,5"
             }
           ]
         }
@@ -3184,7 +3512,8 @@
         -752
       ],
       "id": "5256f53f-2ec9-4c79-a19f-77b779eedf2f",
-      "name": "schedule_trigger"
+      "name": "schedule_trigger",
+      "notes": "Mon 16:00, Wed 10:30, Fri 10:30 Europe/Madrid - even 2-day spacing so posts never compete.\nWed gets the prime 10-12 slot because it is the strongest B2B day. Fri keeps the morning, since Friday afternoon is the weakest slot of the week.\nMon 16:00 is 10:00 US Eastern: Monday morning is the weaker half of the EU window, so it is the cheapest slot to spend testing whether your audience is actually US. Compare LINKEDIN_URL engagement after 8-10 weeks and move it if not."
     },
     {
       "parameters": {
@@ -3198,17 +3527,17 @@
         },
         "sheetName": {
           "__rl": true,
-          "value": "gid=0",
-          "mode": "list",
-          "cachedResultName": "articles_2_linkedin",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit#gid=0"
+          "value": "content_queue",
+          "mode": "name"
         },
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
             "UPDATE_DATE": "={{ (new Date()).toISOString() }}",
             "STATUS": "ERROR",
-            "row_number": "={{ $('select_article_to_post').item.json.row_number }}"
+            "row_number": "={{ $('select_article_to_post').item.json.row_number }}",
+            "ERROR": "={{ $json.ERROR || $json.error || '' }}",
+            "EXECUTION_ID": "={{ $execution.id }}"
           },
           "matchingColumns": [
             "row_number"
@@ -3217,6 +3546,16 @@
             {
               "id": "URL",
               "displayName": "URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "TITLE",
+              "displayName": "TITLE",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -3245,17 +3584,48 @@
               "removed": true
             },
             {
-              "id": "UPDATE_DATE",
-              "displayName": "UPDATE_DATE",
+              "id": "SCORE",
+              "displayName": "SCORE",
               "required": false,
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": true
             },
             {
-              "id": "RELEASE_DATE",
-              "displayName": "RELEASE_DATE",
+              "id": "ORIGIN",
+              "displayName": "ORIGIN",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "TOPIC",
+              "displayName": "TOPIC",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "SOURCE",
+              "displayName": "SOURCE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "RATIONALE",
+              "displayName": "RATIONALE",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -3274,6 +3644,46 @@
               "removed": true
             },
             {
+              "id": "MAX_WORDS",
+              "displayName": "MAX_WORDS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "PUBLISHED_AT",
+              "displayName": "PUBLISHED_AT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "UPDATE_DATE",
+              "displayName": "UPDATE_DATE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "RELEASE_DATE",
+              "displayName": "RELEASE_DATE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
               "id": "LINKEDIN_URL",
               "displayName": "LINKEDIN_URL",
               "required": false,
@@ -3284,12 +3694,42 @@
               "removed": true
             },
             {
+              "id": "ENTRY_ID",
+              "displayName": "ENTRY_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "ERROR",
+              "displayName": "ERROR",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "EXECUTION_ID",
+              "displayName": "EXECUTION_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
               "id": "row_number",
               "displayName": "row_number",
               "required": false,
               "defaultMatch": false,
               "display": true,
-              "type": "string",
+              "type": "number",
               "canBeUsedToMatch": true,
               "readOnly": true,
               "removed": false
@@ -3405,10 +3845,8 @@
         },
         "sheetName": {
           "__rl": true,
-          "value": "gid=0",
-          "mode": "list",
-          "cachedResultName": "articles_2_linkedin",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit#gid=0"
+          "value": "content_queue",
+          "mode": "name"
         },
         "columns": {
           "mappingMode": "defineBelow",
@@ -3434,17 +3872,108 @@
               "removed": true
             },
             {
+              "id": "TITLE",
+              "displayName": "TITLE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
               "id": "STATUS",
               "displayName": "STATUS",
               "required": false,
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "PRIORITY",
               "displayName": "PRIORITY",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "SCORE",
+              "displayName": "SCORE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "ORIGIN",
+              "displayName": "ORIGIN",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "TOPIC",
+              "displayName": "TOPIC",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "SOURCE",
+              "displayName": "SOURCE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "RATIONALE",
+              "displayName": "RATIONALE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "EXTRA_PROMPT",
+              "displayName": "EXTRA_PROMPT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "MAX_WORDS",
+              "displayName": "MAX_WORDS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "PUBLISHED_AT",
+              "displayName": "PUBLISHED_AT",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -3459,7 +3988,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "RELEASE_DATE",
@@ -3468,17 +3998,8 @@
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "EXTRA_PROMPT",
-              "displayName": "EXTRA_PROMPT",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
               "canBeUsedToMatch": true,
-              "removed": true
+              "removed": false
             },
             {
               "id": "LINKEDIN_URL",
@@ -3487,7 +4008,38 @@
               "defaultMatch": false,
               "display": true,
               "type": "string",
-              "canBeUsedToMatch": true
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ENTRY_ID",
+              "displayName": "ENTRY_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "ERROR",
+              "displayName": "ERROR",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "EXECUTION_ID",
+              "displayName": "EXECUTION_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
             },
             {
               "id": "row_number",
@@ -3495,7 +4047,7 @@
               "required": false,
               "defaultMatch": false,
               "display": true,
-              "type": "string",
+              "type": "number",
               "canBeUsedToMatch": true,
               "readOnly": true,
               "removed": false
@@ -3852,7 +4404,8 @@
     "errorWorkflow": "yOLSrRQsp4rv1Wjv",
     "timeSavedMode": "fixed",
     "binaryMode": "separate",
-    "availableInMCP": false
+    "availableInMCP": false,
+    "timezone": "Europe/Madrid"
   },
   "shared": [
     {

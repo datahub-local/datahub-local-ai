@@ -75,7 +75,7 @@ class TestCategorizeBatch:
                 "choices": [{"message": {"content": json.dumps([{"category": "OTHER", "subcategory": "", "is_weighted": False}])}}]
             }
             from bodega.enrich import _categorize_batch
-            _categorize_batch(["X"], base_url="https://openrouter.ai/api/v1", api_key="sk-or-test", model_id="deepseek/deepseek-v4-flash")
+            _categorize_batch(["X"], base_url="https://openrouter.ai/api/v1", api_key="sk-or-test", model_id="deepseek/deepseek-v4-flash:nitro")
         headers = mock_post.call_args.kwargs["headers"]
         assert headers["Authorization"] == "Bearer sk-or-test"
 

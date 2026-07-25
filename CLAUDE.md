@@ -9,7 +9,7 @@ A monorepo of data workflow definitions for a local/homelab Datahub stack. Five 
 - `workflows/dbt/` — dbt Core pipelines on **Trino** (homelab) / **DuckDB** (local), Iceberg + Apache Polaris, medallion architecture; a thin Python `dbt_runner` wraps `dbt build`
 - `workflows/dlt/` — [dlt](https://dlthub.com) ingest/export pipelines (CSV → bronze; silver/gold → Postgres) that run *around* dbt
 - `workflows/airflow/` — Airflow DAGs that orchestrate the dlt + dbt tasks via Kubernetes pods
-- `n8n/` — n8n workflow JSON exports and prompts (no Python code)
+- `n8n/` — n8n workflow JSON exports, LLM prompt templates and JSON config datasets (no Python code); see [n8n workflows](#n8n-workflows)
 - `superset/` — Superset dashboard export bundles per project (`superset/projects/<name>/dashboard_export/` YAML) plus a Helm release (`superset/release/`) that ships them as ConfigMaps labeled `superset_dashboard=1` for the dashboard sidecar in datahub-local-core. After editing YAML: `python3 superset/scripts/build_bundles.py` rebuilds the reproducible zips under `release/files/`, then `helmfile apply` from `superset/release/` deploys them. Object `uuid`s are the stable identity across re-imports — never regenerate them once deployed.
 
 ## Naming conventions
@@ -141,6 +141,99 @@ Trino and DuckDB both have real catalogs, so each medallion layer is its own cat
 - `dags/tasks/dbt.py` — `DbtTaskConfig` + `create_dbt_task` (dbt image, `python -m dbt_runner`). The shared `build_pod_env_vars` / `build_pod_resources` and the `SecretEnvVarRef`/`ConfigMapEnvVarRef` dataclasses live here. Pod env is just the explicit env/secret/configmap refs — the pods only need to connect to Trino/Postgres/S3.
 - `dags/tasks/dlt.py` — `DltTaskConfig` + `create_dlt_task` (dlt image, `python -m dlt_runner`), reusing the dbt builders.
 - Images: `ghcr.io/datahub-local/datahub-local-ai-dbt:main` and `...-dlt:main`.
+
+### n8n workflows
+
+`n8n/` holds no code that runs in this repo — it is the **git mirror of a live n8n instance**. The `Backup N8N Workflows` workflow (`X0gxarZXHgGj5fl5`) reads every workflow through the n8n API and commits it back here, so the repo is a backup *and* the source the workflows read their prompts and configs from at runtime.
+
+```
+n8n/
+  workflows/   <snake_case_name>.workflow.json   full n8n export, one file per workflow
+  prompts/     <domain>_<step>.md                LLM prompt templates with {{ VAR }} placeholders
+  datasets/    <domain>_<thing>.json             tuning knobs / reference data, no secrets
+```
+
+**File names are generated, not chosen.** `sanitize_filename` in the backup workflow derives the file name from the workflow's display name: camelCase split on the boundary, spaces/dots/dashes → `_`, non-alphanumerics dropped, lowercased, then `.workflow.json`. So `LinkedIn Post Sharing` → `linked_in_post_sharing.workflow.json`. Never rename a file by hand — rename the workflow in n8n and let the backup rewrite it, otherwise the next run creates a second file.
+
+#### Naming conventions inside a workflow
+
+| What | Convention | Examples |
+| --- | --- | --- |
+| Workflow display name | Title Case with spaces | `Content Feed Curator`, `LinkedIn Post Sharing` |
+| Node name | `snake_case`, `<verb>_<object>` | `fetch_miniflux_entries`, `build_digest`, `update_status_error` |
+| Manual trigger | always `click_trigger` | |
+| Cron trigger | always `schedule_trigger` | |
+| Sub-workflow entry point | always `main_trigger` | `executeWorkflowTrigger` |
+| Branch nodes | `if_*` / `check_*` / `switch_*` | `if_has_candidates`, `switch_user_accept` |
+| Sub-workflow calls | `download_*` / `execute_*` | `download_judge_prompt`, `execute_post_creator` |
+| Slack posts | `notify_*` / `send_*_notification` | `notify_digest`, `send_error_notification` |
+| Loops | `loop_*` (`splitInBatches`) | `loop_triage_batches` |
+| Sub-workflow I/O fields | `UPPER_SNAKE_CASE` | `URL`, `POST_CONTENT`, `MAX_WORDS`, `ERROR` |
+| Sticky notes | `sticky_<topic>`, or n8n's default `Sticky Note<n>` | `sticky_overview`, `sticky_testing` |
+
+Node names are the addressing scheme (`$('build_digest').first().json`), so renaming a node silently breaks every expression that references it — grep the file for the old name first.
+
+#### `set_workflow_vars` — the config head of every workflow
+
+Long-running workflows open with a `set` node named `set_workflow_vars` (`includeOtherFields: true`) that resolves every tunable into one item, read downstream as `$('set_workflow_vars').first().json.<NAME>`:
+
+- Field names are `UPPER_SNAKE_CASE`.
+- Values that come from the pod environment are `={{ $env["NAME"] }}`, normalised inline where it matters — e.g. `={{ ($env["N8N_API_URL"] || "http://…/api/v1").replace(/\/+$/, "") }}`.
+- Model ids live here (`MODEL`, `MODEL_FALLBACK`, `MODEL_BULK`) and are wired to the LLM nodes by expression, so swapping a model is a one-node edit.
+- n8n *instance* variables (`$vars`) are deliberately unused — everything is `$env` or a dataset file, so config is reviewable in git.
+
+Env vars in use on the n8n pod: `BACKUP_GITHUB_REPO_OWNER`, `BACKUP_GITHUB_REPO_NAME`, `BACKUP_GITHUB_REPO_PATH`, `N8N_API_URL`, `MINIFLUX_URL`, `MINIFLUX_API_USER`, `MINIFLUX_API_PASSWORD`. **Secrets never go in the JSON** — credentials are referenced by n8n credential name only (`Slack account`, `GitHub account`, `OpenRouter account`, …).
+
+#### Prompts and datasets are fetched at runtime, not embedded
+
+No workflow inlines a prompt. `DownloadTemplate` (`09xEuVQj207pjK4x`) is called as a sub-workflow with `{template_name, template_vars}`, pulls `n8n/<template_name>` from GitHub, substitutes `{{ VAR }}` placeholders and returns `{output}`. It **fails loudly** — `check_template_vars_present` diffs the placeholders found in the file against the keys supplied and routes to `stop_and_error` listing the missing ones.
+
+Consequences to respect when editing:
+
+- Adding a `{{ VAR }}` to a prompt without adding it to every caller's `template_vars` breaks that workflow at runtime.
+- The substituter matches on the **last dotted segment** of a placeholder, so keep placeholders flat and `UPPER_SNAKE_CASE`.
+- Prompt files are `prompts/<domain>_<step>.md` (`linkedin_post_review.md`, `curator_judge.md`); a `*_system.md` file is the system message of a `chainLlm` node.
+- The same mechanism loads config: `datasets/curator_config.json`, `datasets/credential_expiry.json` are downloaded as text and parsed by a `parse_*_config` code node that **defaults every key**, so a partial or broken file degrades instead of failing the run. Keep the two in sync when adding a knob.
+- Datasets document themselves with sibling `_comment_<key>` keys next to the key they explain. Keep that pattern; there is no schema file.
+
+#### Standard workflow skeleton
+
+```
+click_trigger ─┐
+schedule_trigger ─┴─> set_workflow_vars -> download_*_config -> parse_*_config
+   -> fetch/normalise/filter (code nodes)
+   -> if_has_candidates ──false──> notify_empty
+              └──true──> loop_* -> download_*_prompt -> *_llm -> parse_* (code)
+   -> build_digest -> notify_* -> if_write_* -> googleSheets append/update
+```
+
+- Every workflow that can be run by hand has **both** `click_trigger` and `schedule_trigger` wired into the same first node — never a manual-only or schedule-only path.
+- Schedules are cron expressions with an explicit `timezone: Europe/Madrid` in workflow settings (`0 0 6 * * 1,3,5`), not interval rules.
+- `settings` for a scheduled workflow: `executionOrder: v1`, `callerPolicy: workflowsFromSameOwner`, `executionTimeout`, `errorWorkflow`, `timezone`.
+
+#### Error handling
+
+Three layers, used together:
+
+1. **Instance-wide catch** — `errorWorkflow` points at `Catch Errors` (`fejq5nN6LP3F820w`), a two-node workflow that posts the failing workflow, message and execution URL to `#workflows`. Set it on anything scheduled. A workflow with domain-specific cleanup gets its own error workflow instead (`LinkedIn Post Sharing` → `linked_in_post_sharing_error`, which also writes the failure back to the sheet).
+2. **`ERROR` envelope between sub-workflows** — a sub-workflow that fails a business rule returns an item with `ERROR` set to a screaming-snake reason (`CANCELLED`, `MAX_RETRIES_EXCEEDED`) rather than throwing. Callers branch on it with a `check_subworkflow_error` switch testing `{{ $json.ERROR || "" }}` is empty, `fallbackOutput: extra`. Keep new reasons in that vocabulary.
+3. **Per-node tolerance** — LLM and flaky HTTP nodes set `retryOnFail` with `maxTries` 2–5 and `waitBetweenTries: 5000`; nodes whose absence is a valid state (`read_legacy_sheet`, the `probe_*` nodes, `download_full_content`) set `onError: continueRegularOutput` + `alwaysOutputData: true` so the downstream code node sees an empty item instead of the run dying.
+
+#### LLM nodes
+
+`chainLlm` + `lmChatOpenRouter` (Gemini in the image workflows). Conventions: `promptType: define` with the text coming from a `download_*_prompt` node; `needsFallback: true` with a second model node named `ai_model_fallback`; a dedicated `ai_model_bulk` for the cheap high-volume step. Model output is always parsed by a following `parse_*` code node that tolerates fenced JSON and bad output rather than trusting the model.
+
+#### Code node conventions
+
+Plain JS, no npm imports. They read named nodes (`$('parse_curator_config').first().json`) rather than relying on positional input, iterate `$input.all()`, and `return [{ json: ... }]`. HTTP from inside a code node uses `this.helpers.httpRequest`. Each non-trivial code node opens with a comment explaining **why** the step exists — several of the current ones record the incident that motivated them; match that when adding one.
+
+#### Editing checklist
+
+1. Prefer editing in the n8n UI and letting `Backup N8N Workflows` commit the export; hand-editing JSON is fine for prompts/datasets and small parameter tweaks, but the export will overwrite structural drift.
+2. Keep node `id`s and workflow `id`s stable — they are the identity across re-imports, same rule as Superset `uuid`s.
+3. Sticky notes are the docs: each workflow has one describing schedule, data flow, env vars and open TODOs. Update it in the same change.
+4. Validate a hand-edited file with `jq . n8n/workflows/<file>.workflow.json` before committing; grep for `$('old_node_name')` after any rename.
+5. Commit messages for automated backups look like `chore(n8n): update backup workflow <file> (<date>)`; hand-authored changes use the normal `feat(n8n): …` / `fix(n8n): …` form.
 
 ### Test structure
 

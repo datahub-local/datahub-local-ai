@@ -16,7 +16,7 @@ Always include an explanation with:
 
 ## Extra Validation
 
-{{ EXTRA_RULES }}
+{{ EXTRA_PROMPT }}
 
 ## Variety Directives To Enforce
 

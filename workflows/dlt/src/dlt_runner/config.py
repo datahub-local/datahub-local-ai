@@ -130,7 +130,7 @@ def openrouter_api_key() -> str:
 
 
 def openrouter_model() -> str:
-    return env("OPENROUTER_MODEL", "deepseek/deepseek-v4-flash")
+    return env("OPENROUTER_MODEL", "deepseek/deepseek-v4-flash:nitro")
 
 
 def ollama_base_url() -> str:

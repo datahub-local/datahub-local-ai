@@ -1,0 +1,229 @@
+{
+  "_comment": "Tuning knobs for the Content Feed Curator workflow. Loaded at run time via the DownloadTemplate sub-workflow (template_name: datasets/curator_config.json), so edits here take effect on the next run without touching the workflow. Keys are consumed by parse_curator_config, which defaults every one of them - a partial or broken file degrades, it does not fail the run.",
+  "_comment_pipeline": "The pipeline is: fetch_candidates (Miniflux + Hacker News) -> filter_candidates (free drops and same-story merge) -> rank_candidates (free pre-rank, quota-allocated pool) -> fetch_hn_signal (measured attention) -> pick_finalists (cut to judge_n) -> one judge LLM call per finalist on the full article -> admit_to_backlog (floor + backlog capacity). ONE LLM stage. There is no triage pass and no clustering pass: batched triage silently deleted a whole batch of 20 candidates when one response came back unparseable, and its headline-only relevance score was the noisiest input in the run while carrying the largest weight.",
+  "_comment_lookback": "Must cover the longest gap between runs plus slack for a failed one. The curator now runs DAILY at 12:00, so the gap is 1 day and 5 leaves room for four consecutive failures. It also sets the TTL floor (see _comment_backlog_ttl_floor), so do not lower it without checking that. mark_read prunes the window each run, so a wider lookback does not mean more entries fetched.",
+  "lookback_days": 5,
+
+  "_comment_max_entries_per_category": "Per-category Miniflux fetch cap. Two runs in a row truncated at 690/800 and 695/769, so one category was overflowing 600. The cost of raising it is one larger Miniflux response, not more LLM tokens - max_candidates and judge_n are what bound the spend.",
+  "max_entries_per_category": 1000,
+
+  "_comment_adding_feeds": "ADDING MINIFLUX FEEDS DOES NOT INCREASE OUTPUT. The funnel is 834 raw -> 60 pool -> 24 judged -> 4 admitted, and 648 of the raw candidates were already discarded by the pool cap. More feeds move raw from 834 to 1500 and `over cap` from 648 to 1314; pool, judged and admitted do not change, because max_candidates and judge_n are the binding constraints, not supply. What feeds DO change is the QUALITY of the 60, since the pool is filled best-first inside each category quota - and that raises the judge yield, which is the only thing that raises output. So add feeds where a category cannot fill its quota: Data filled 12 of a quota of 13 on the run that motivated this, and each of Data/AI/DevOps now has a quota of ~20 rather than ~13, so all three need more supply than before. Read `quota -> filled` in the digest and feed whichever comes in under quota.",
+  "min_title_chars": 15,
+
+  "_comment_min_content_words": "Below this a candidate is thin_content and the judge loop fetches the real article through the Download Content sub-workflow first. Hacker News candidates are always thin - they are bare links - so they always take that path.",
+  "min_content_words": 120,
+
+  "_comment_caps": "max_candidates bounds the HN engagement lookup (one to two HTTP calls each); judge_n bounds the LLM spend (one call per finalist, each reading up to 12k characters of article). Everything before those two numbers is free.",
+  "max_candidates": 60,
+
+  "_comment_pool_allocation": "There is deliberately no max_per_category knob. The pool is allocated by category_weights, normalised over the categories present in the run, so each category competes only against itself. A flat ceiling of 20 gave Tech 20 of the 60 slots while Hacker News contributed 40 candidates and got 1: a bare link has no excerpt for the keyword match, so it loses to any full Miniflux article and the cap then deleted 39/40 of a source that had just been added. Both of those categories are gone now - Tech is excluded, HN candidates are routed into the three real categories - so the 60 slots split roughly Data 21 / AI 20 / DevOps 19. Watch the `quota -> filled` line in the digest.",
+  "_comment_max_per_host": "cncf.io took 8 of 60 pool slots on one run - 8 judge calls that can only return the same argument eight times. The slate caps hosts too, but it can only pick from what the pool contains.",
+  "max_per_host": 3,
+
+  "_comment_judge_n": "Ceiling on judge calls per run, not a target. pick_finalists cuts it to 4x the free backlog slots, because a call only buys an admission and a full backlog can accept none - that is what makes a daily run cheap. Yield has been running near a quarter, hence the 4x.",
+  "judge_n": 24,
+
+  "_comment_min_postability": "The judge's scale puts 0-3 at \"nothing to build on\" and 4-7 at \"on-topic and usable but thin\". Set to 4, not 5: with a durable backlog a thin-but-usable article is worth keeping, because it lands at PRIORITY LOW and select_article_to_post drains by PRIORITY - so it only ever publishes on a day when nothing better exists, and its TTL bins it if that day never comes. At 5 it was thrown away instead, and the run admitted 2. This is the only floor in the run; the old min_score floor was applied to a blended five-signal score that could not reach its own maximum, so it silently cut 55 candidates on one run and emptied the Data category.",
+  "min_postability": 4,
+
+  "_comment_backlog": "content_queue is a DURABLE BACKLOG, not a slate rebuilt each run. LinkedIn Post Sharing publishes exactly one row per run (select_article_to_post ends in slice(0,1)), so the old design spent 16 judge calls to produce five options, published one, and expired the other four - then re-fetched and re-judged them from scratch. Now the curator tops the backlog up and nothing is thrown away until it goes stale or over cap. That is why there is no top_n, max_per_domain or max_per_category_in_top any more: variety is decided on the way OUT, by topic rotation in select_article_to_post, which guarantees it across a week instead of fighting for it inside one slate.",
+  "_comment_backlog_per_category": "One backlog per category, sized by max_per_category, keyed on the TOPIC column. A link lives in exactly one of them: admit_to_backlog rejects any URL already anywhere in the sheet whatever its STATUS or category, on top of the same check filter_candidates does upstream.",
+  "_comment_backlog_ttl": "Keyed on the judge's hook, read back from the \"Hook: X.\" prefix on EXTRA_PROMPT since content_queue has no HOOK column. Age is measured from PUBLISHED_AT - the article's own date - because a launch note is stale ten days after the launch regardless of when it reached the sheet. Hooks not listed here take `default`; an unknown hook deliberately gets the long TTL rather than the short one, so a missing prefix cannot quietly bin evergreen rows.",
+  "_comment_backlog_ttl_floor": "EVERY ttl MUST exceed lookback_days plus the longest gap between publish slots, or rows are admitted already dead. NEWS_REACTION was 4 against a lookback of 5: an article at the intake edge was judged, admitted, and expired before it ever reached a slot, and one at 2.65 days old (postability 8, VERY_HIGH) got exactly one shot at the Monday 16:00 slot before the Tuesday curator run binned it - which topic rotation then has to spend on that category or lose it. Longest publish gap is Fri -> Mon = 3 days, so the floor is 5 + 3 = 8. build_digest warns if any value here drops under it.",
+  "_comment_backlog_ttl_lengths": "HARD_NUMBER is the best material in the run and had the shortest non-news TTL, which was backwards: \"we cut GPU idle from 60% to 15%\" does not go stale, the launch note reacting to it does. NEWS_REACTION stays deliberately short - that hook only works while the news is news.",
+  "_comment_backlog_sizing": "max_total must be at least max_per_category x the number of categories (3 = 30), or the global cap silently overrides the per-category one. The depth is now roughly matched to the drain: rotation avoids only the LAST published topic, so with three categories each publishes about once a week, and 10 deep drains in ~10 weeks against a 60-day default TTL - about 8.5 weeks. That is the first time these two numbers have been in the same range; under five categories a category published ~0.6 times a week and its 10th row would have needed a 100+ day TTL to ever reach a slot. Expect some tail expiry, not most of the backlog. The cost is judge calls and it is self-limiting: pick_finalists skips categories already at max_per_category.",
+  "publish_per_week": 3,
+  "backlog": {
+    "max_per_category": 10,
+    "max_total": 60,
+    "ttl_days": {
+      "NEWS_REACTION": 10,
+      "HARD_NUMBER": 45,
+      "default": 60
+    }
+  },
+
+  "_comment_write_to_sheet": "ON. Until this was true every run was a dry run, so the backlog never accumulated: the digest reported \"Backlog 0 -> 4\" three runs in a row, the sheet dedupe had nothing to match against, and the same articles were re-judged at full cost every time. That is the whole reason the queue never covered a week. Only rows the curator wrote itself can ever be deleted again - build_expire_rows filters on ORIGIN === 'AUTO' as an allow-list, so anything placed by hand is untouchable whatever its age.",
+  "write_to_sheet": true,
+
+  "_comment_mark_read": "ON. Held off until one real run had appended cleanly, which it did - five rows, correct columns, ORIGIN=AUTO. It marks the entire fetched Miniflux window read, around 800 entries, which is bulk and awkward to undo; it runs AFTER the append precisely so a failed append cannot lose the window. This is what stops the same ~650 over-cap candidates being re-fetched every run, and with a daily schedule that matters more than it did at three runs a week.",
+  "mark_read": true,
+
+  "_comment_http_concurrency": "fetch_hn_signal issues up to two independent calls per candidate. Serial, that is minutes of pure wall clock. The Algolia HN API is fine with this.",
+  "http_concurrency": 6,
+
+  "_comment_score": "score = (postability / 10) x category_weight, + hn_boost if the story is hot on Hacker News, + starred_boost if it was starred in Miniflux. Postability is the only number in the pipeline read off the full article, so it is the score; the two boosts exist to break ties between articles the judge rated the same, not to outvote it.",
+  "hn_engagement": true,
+  "hn_hot_points": 100,
+  "hn_boost": 0.1,
+  "starred_boost": 0.05,
+
+  "_comment_sources": "Miniflux is always fetched and its feed list lives in datahub-local-core (releases/media/files/scripts/miniflux/miniflux_config.yaml) - add anything with an RSS feed there, not here. hn_top is the one source with no usable feed: the Hacker News front page above a points floor, which arrives with a vote count (free engagement data) and is pre-triaged by a crowd. Each source is fetched in its own try/catch: a dead source shows up as a :rotating_light: line in the Slack digest and the run continues on whatever answered.",
+  "_comment_reddit_removed": "Reddit was a third source and is gone. top.json 403s unauthenticated clients outright ('blocked due to a network policy'); top.rss worked for exactly one run and then began returning 429 per subreddit even at 7s spacing with the order rotated by day - including subs that had succeeded the run before. Its best run contributed 5 candidates out of 839 and admitted none, for 8 requests and up to a minute of wall clock. Bringing it back needs a registered OAuth app; without one it is pure error noise. Note that reddit.com stays in aggregator_hosts and reddit.com/r/ stays in domain_blocklist - Miniflux still carries the r/programming RSS feed, whose entry URLs point at comment threads.",
+  "sources": {
+    "hn_top": {
+      "_comment": "min_points is the entire filter - the crowd already did the triage. Raise it if the front page starts crowding out the feeds; lower it to widen the net on thin days.",
+      "enabled": true,
+      "min_points": 80,
+      "limit": 40
+    }
+  },
+
+  "_comment_priority_bands": "Applied to the final score, which is roughly postability/10 now, so these read directly as postability thresholds: 8+, 6.5+, 5+. PRIORITY is the drain order: select_article_to_post sorts the backlog by it, then by row_number.",
+  "priority_bands": {
+    "VERY_HIGH": 0.8,
+    "HIGH": 0.65,
+    "MEDIUM": 0.5
+  },
+
+  "_comment_categories": "Three categories only: Data, AI and DevOps. They scale the final score AND set each category's share of the candidate pool (see _comment_pool_allocation). Keys match the Miniflux category titles from datahub-local-core/releases/media/files/scripts/miniflux/miniflux_config.yaml. Tech and News are in exclude_categories now rather than carrying a low weight - a weight of 0.65 still bought Tech 14 of 60 pool slots on one run because unfilled quota redistributes, and Tech is the category the judge blocks hardest. HN is deliberately NOT a category any more: it is a source, and its candidates are classified into these three by title against category_keywords (see _comment_hn_routing). With three weights, a run holding all of them allocates roughly Data 21 / AI 20 / DevOps 19 of 60 - triple what any of them got before.",
+  "category_weights": {
+    "Data": 1.0,
+    "AI": 1.0,
+    "DevOps": 0.95,
+    "default": 0.0
+  },
+
+  "_comment_category_weights_default": "default is 0.0, not 0.8: with only three categories wanted, anything that is neither excluded nor one of the three is something new in Miniflux that nobody has decided about yet. A weight of 0 gives it zero pool slots instead of quietly letting it compete, and the `quota -> filled` line in the digest shows it arriving so you can weight it deliberately.",
+  "_comment_exclude_categories": "Dropped before anything is spent on them - Miniflux is never even asked for these categories, so they cost nothing at all. News is world news (NY Times, BBC, CNN, Al Jazeera, Guardian, NPR, DW); it can never become a technical LinkedIn post. Tech is The Verge / TechCrunch / Engadget / Wired - consumer tech that rarely supports a post for technical peers. Tech used to carry weight 0.65 instead, which was not enough: unfilled quota from other categories redistributes by weight, so Tech took 14 of 60 pool slots on one run against a quota of 9, and the judge blocked most of them. Excluding it outright is the honest version.",
+  "exclude_categories": [
+    "News",
+    "Tech"
+  ],
+
+  "_comment_aggregator_hosts": "When the same story arrives from both an aggregator and the original blog, the original wins the slot regardless of which was published first - but filter_candidates merges the aggregator's vote count onto it first, so nothing is lost by preferring the publisher.",
+  "aggregator_hosts": [
+    "news.ycombinator.com",
+    "reddit.com",
+    "lobste.rs",
+    "slashdot.org",
+    "techmeme.com"
+  ],
+
+  "_comment_domain_blocklist": "reddit.com/r/ is blocked because Reddit RSS entry URLs point at the comment thread, not the article - queueing one would send the post generator to scrape a Reddit page. Miniflux still carries the r/programming feed, so this still fires.",
+  "domain_blocklist": [
+    "reddit.com/r/",
+    "medium.com/@",
+    "prnewswire.com",
+    "businesswire.com",
+    "globenewswire.com"
+  ],
+
+  "_comment_title_blocklist": "Case-insensitive substring match on the title. Cheap pre-LLM filter for material that can never carry a technical post. [ainews] is the latent.space daily digest - an aggregated roundup of many stories, not a source for one post. \"quoting \" catches simonwillison link-blog quote posts, which are two-line excerpts with nothing to build on. \" weekly:\" catches the \"<Something> Weekly: item, item, item\" newsletter format - one of these was admitted at postability 6 with the evidence \"Cursor Router cuts costs 60%\", a factoid lifted from a link list with no article behind it, which is exactly the shape the judge cannot tell apart from a real writeup because the roundup genuinely does contain numbers.",
+  "title_blocklist": [
+    "webinar",
+    "sponsored",
+    "podcast",
+    "episode ",
+    "newsletter",
+    "weekly roundup",
+    " weekly:",
+    "week in review",
+    "this week in",
+    "[ainews]",
+    "quoting ",
+    "hiring",
+    "join our team",
+    "job alert",
+    "case study",
+    "customer story",
+    "press release",
+    "top 10 ",
+    "top 5 ",
+    "best practices for beginners",
+    "getting started with",
+    "beginner's guide",
+    "black friday",
+    "discount",
+    "sale ends"
+  ],
+
+  "_comment_category_keywords": "The niche, split by category. Two jobs. (1) rank_candidates counts how many of these a candidate's title and opening mention - title hits count double, across ALL categories' lists plus shared_keywords - and that affinity carries 0.45 of the free pre-rank that decides which 60 candidates survive the cap. (2) fetch_candidates uses the per-category lists to route Hacker News candidates, which arrive with no category of their own. parse_curator_config derives the flat topic_keywords list as the union of these plus shared_keywords, so there is one place to edit. This is what the buzz index became: measuring the same words against a 28-day baseline cost ~140 Miniflux count queries per run to produce 0.9 for anything on this list and 0.25 for anything else. Add terms as your interests move.",
+  "category_keywords": {
+    "Data": [
+      "iceberg",
+      "delta lake",
+      "hudi",
+      "lakehouse",
+      "duckdb",
+      "polaris",
+      "trino",
+      "presto",
+      "spark",
+      "flink",
+      "kafka",
+      "clickhouse",
+      "snowflake",
+      "databricks",
+      "bigquery",
+      "redshift",
+      "dbt",
+      "airflow",
+      "dagster",
+      "prefect",
+      "data contract",
+      "data mesh",
+      "data catalog",
+      "data quality",
+      "lineage",
+      "cdc",
+      "change data capture",
+      "streaming",
+      "parquet",
+      "arrow",
+      "postgres",
+      "postgresql",
+      "sql",
+      "object storage",
+      "s3"
+    ],
+    "AI": [
+      "vector database",
+      "embedding",
+      "rag",
+      "mcp",
+      "model context protocol",
+      "agent",
+      "agentic",
+      "llm",
+      "fine-tuning",
+      "inference",
+      "gpu",
+      "quantization",
+      "context window",
+      "openai",
+      "anthropic",
+      "claude",
+      "gemini",
+      "llama",
+      "mistral",
+      "deepseek"
+    ],
+    "DevOps": [
+      "kubernetes",
+      "k8s",
+      "helm",
+      "terraform",
+      "opentofu",
+      "argocd",
+      "gitops",
+      "observability",
+      "opentelemetry",
+      "prometheus",
+      "ebpf",
+      "wasm",
+      "serverless",
+      "platform engineering",
+      "finops"
+    ]
+  },
+
+  "_comment_shared_keywords": "Terms that mark a candidate as on-topic without pointing at one category, so they count for affinity but never decide where a Hacker News candidate is filed.",
+  "shared_keywords": [
+    "rust",
+    "python"
+  ],
+
+  "_comment_hn_routing": "Hacker News candidates carry no category, and giving them one of their own was a mistake: the HN category drew a quota of 12 and filled 2, because most HN links are correctly merged into the publisher's copy by filter_candidates before ranking - which is where HN's real value is, since only HN knows the vote count. The 2 that survive are the unsyndicated engineering writeups the source was added for, so they are routed to whichever of Data/AI/DevOps their TITLE matches most (ties break toward the heavier category). A bare link has no excerpt, so the title is all there is; one matching no list at all is dropped and counted as hn_unrouted in the digest, because a candidate with zero affinity would have lost its quota race anyway.",
+  "_comment_schedule": "Daily, 12:00 Europe/Madrid. Noon falls after the Wed/Fri 10:30 posts and before the Mon 16:00 one, so on two days of three the run sees the slot that morning's post just freed and refills it the same day; nothing depends on that ordering, since a durable backlog capping at 30 always has inventory for the publisher. It was Sun/Tue/Thu 06:00, one run before each publish slot, which made the curator a batch job that had to fill the whole week in three runs. Daily is a TOP-UP job and it is nearly free once the backlog is deep: pick_finalists sets the judge budget from the room each category actually has, so a full category spends zero calls. The expensive 24-call runs happen while filling - roughly the first fortnight - and then the cost falls to whatever published yesterday left room for. Daily also means a NEWS_REACTION article is admitted within a day of publication instead of up to three, which is most of what that hook is worth. The publisher keeps its own schedule of 3 posts a week; filling faster never publishes more."
+}

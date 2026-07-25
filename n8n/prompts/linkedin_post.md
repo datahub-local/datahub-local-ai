@@ -4,7 +4,7 @@ You are a writing assistant for creating LinkedIn posts.
 
 Extra Rules:
 
-{{ EXTRA_RULES }}
+{{ EXTRA_PROMPT }}
 
 ## Variety Directives For This Post
 

@@ -1,9 +1,9 @@
 {
   "active": true,
   "activeVersion": {
-    "updatedAt": "2026-07-08T20:14:51.039Z",
-    "createdAt": "2026-07-08T20:14:49.385Z",
-    "versionId": "fcae9d48-edbf-430e-bdf9-7f3b86ea7f4f",
+    "updatedAt": "2026-07-26T17:21:00.876Z",
+    "createdAt": "2026-07-26T17:20:57.413Z",
+    "versionId": "ccf204e4-cf6b-4643-b477-d563b275fee6",
     "workflowId": "oxARWWyxenKgmv6A",
     "nodes": [
       {
@@ -63,10 +63,10 @@
         "type": "n8n-nodes-base.switch",
         "typeVersion": 3.2,
         "position": [
-          1744,
-          -624
+          8272,
+          -416
         ],
-        "id": "dab2b53b-5d45-4c07-9e96-f6fc728bc01a",
+        "id": "4b742835-c0e4-48d4-afe3-eaa18d0c5234",
         "name": "switch_user_accept"
       },
       {
@@ -86,10 +86,10 @@
         "type": "n8n-nodes-base.set",
         "typeVersion": 3.4,
         "position": [
-          2640,
-          -800
+          9168,
+          -592
         ],
-        "id": "5ff8c36c-9749-4b1b-948a-49f92c466c23",
+        "id": "52e95220-4a1b-451d-b353-f8bb67cafe87",
         "name": "set_error_cancelled"
       },
       {
@@ -131,10 +131,10 @@
         "type": "n8n-nodes-base.executeWorkflow",
         "typeVersion": 1.2,
         "position": [
-          624,
-          -656
+          7152,
+          -448
         ],
-        "id": "2834f481-703a-4f9c-af24-47235959363c",
+        "id": "281f262b-a49a-4ae5-8ec7-a347b8efeea1",
         "name": "download_content"
       },
       {
@@ -173,10 +173,10 @@
         "type": "n8n-nodes-base.switch",
         "typeVersion": 3.2,
         "position": [
-          1072,
-          -720
+          7600,
+          -512
         ],
-        "id": "1bf7bafc-c4bf-45a9-a050-c1c0624e03fb",
+        "id": "fa2b4e25-6f7e-4e7c-a531-5011f985a2a2",
         "name": "check_subworkflow_error"
       },
       {
@@ -256,10 +256,10 @@
         "type": "n8n-nodes-base.executeWorkflow",
         "typeVersion": 1.2,
         "position": [
-          848,
-          -656
+          7376,
+          -448
         ],
-        "id": "fb59d2c6-3a2a-432d-9e82-d255d6e4bcd9",
+        "id": "ad490fa9-6df9-42ed-a207-25868fe4a39d",
         "name": "execute_post_creator",
         "notesInFlow": false
       },
@@ -274,10 +274,8 @@
           },
           "sheetName": {
             "__rl": true,
-            "value": "gid=0",
-            "mode": "list",
-            "cachedResultName": "articles_2_linkedin",
-            "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit#gid=0"
+            "value": "content_queue",
+            "mode": "name"
           },
           "options": {
             "dataLocationOnSheet": {
@@ -291,10 +289,10 @@
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
         "position": [
-          -48,
-          -656
+          6480,
+          -448
         ],
-        "id": "ca44dc64-da53-4e5d-ab23-9b6702fbf10e",
+        "id": "20f6727d-e1f6-433e-9e9a-cd4e4161ece3",
         "name": "read_articles_sheet",
         "credentials": {
           "googleSheetsOAuth2Api": {
@@ -305,15 +303,15 @@
       },
       {
         "parameters": {
-          "jsCode": "const priorityOrder = {\n  VERY_HIGH: 0,\n  HIGH: 1,\n  MEDIUM: 2,\n  LOW: 3\n};\nconst filteredEntries = $input.all().map(item=>item.json).filter(item => item.URL && /^(QUEUE)$/.test(item.STATUS)).toSorted((a, b) => {\n  const aPriority = priorityOrder[a.PRIORITY] ?? 4;\n  const bPriority = priorityOrder[b.PRIORITY] ?? 4;\n\n  if (aPriority !== bPriority) {\n    return aPriority - bPriority; // sort by priority\n  }\n\n  return a.row_number - b.row_number; // sort by row_number ascending\n});\n\n//console.log(filteredEntries.slice(0))\n\nreturn filteredEntries.slice(0, 1);"
+          "jsCode": "// Pick the one article this run publishes, out of the curator's backlog.\n//\n// Topic rotation, added when content_queue became a durable backlog: the curator used to\n// hand over a fresh five-item slate whose diversity caps were fought over inside a single\n// run, and the four it did not publish were expired. Now it just tops the backlog up, and\n// variety is decided here instead - where it can be guaranteed across a week rather than\n// inside one slate. Skipping the topics of the last AVOID_LAST published posts is enough:\n// it is deterministic, needs no state of its own, and costs nothing.\n//\n// Deliberately NOT random. Random selection would throw away the ranking the curator paid\n// an LLM to produce, and it only pays for itself as exploration - which needs a reward\n// signal. Nothing reads LinkedIn engagement back into this sheet yet, so there is nothing\n// to explore against. Revisit if that changes.\n// AVOID_LAST must leave at least TWO categories eligible, or rotation stops being a\n// tiebreak and becomes a strict round-robin that overrides the ranking entirely. It was 2\n// while the curator ran five categories; the curator now runs three (Data/AI/DevOps), so 2\n// would leave exactly one eligible category and a VERY_HIGH row would wait behind a LOW one\n// purely because of publish order. At 1 the same topic can never go out twice in a row -\n// which is the whole point - and PRIORITY still chooses between the other two.\nconst AVOID_LAST = 1;\n\nconst priorityOrder = {\n  VERY_HIGH: 0,\n  HIGH: 1,\n  MEDIUM: 2,\n  LOW: 3\n};\nconst topicOf = (r) => String(r.TOPIC || '').trim();\nconst byPriorityThenRow = (a, b) => {\n  const aPriority = priorityOrder[a.PRIORITY] ?? 4;\n  const bPriority = priorityOrder[b.PRIORITY] ?? 4;\n  if (aPriority !== bPriority) {\n    return aPriority - bPriority; // sort by priority\n  }\n  return a.row_number - b.row_number; // sort by row_number ascending\n};\n\nconst rows = $input.all().map((item) => item.json).filter((item) => item && item.URL);\n\n// Most recently published first. RELEASE_DATE is written by update_status_published_a;\n// rows that predate it fall back to UPDATE_DATE so the rotation still sees them.\nconst recentTopics = rows\n  .filter((r) => /^PUBLISHED$/.test(String(r.STATUS || '').trim()))\n  .map((r) => ({ topic: topicOf(r), at: Date.parse(r.RELEASE_DATE || '') || Date.parse(r.UPDATE_DATE || '') || 0 }))\n  .filter((r) => r.topic && r.at)\n  .sort((a, b) => b.at - a.at)\n  .slice(0, AVOID_LAST)\n  .map((r) => r.topic);\n\nconst queue = rows.filter((item) => /^(QUEUE)$/.test(item.STATUS)).toSorted(byPriorityThenRow);\nconst rotated = queue.filter((r) => !recentTopics.includes(topicOf(r)));\n\n// Rotation must never be the reason nothing gets published: if every queued row is on a\n// topic we just covered, publish the best one anyway rather than skipping the slot.\nconst pool = rotated.length ? rotated : queue;\nconsole.log(\n  'select_article_to_post: ' + queue.length + ' queued, avoiding [' + recentTopics.join(', ') + '], ' +\n    rotated.length + ' on a fresh topic' + (rotated.length ? '' : ' - rotation relaxed to fill the slot')\n);\n\nreturn pool.slice(0, 1);\n"
         },
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          176,
-          -656
+          6704,
+          -448
         ],
-        "id": "42f684c2-9691-4bad-90cd-9fa7068e53b2",
+        "id": "b3088b5a-8df7-4ff0-ac0a-5c572fcdc263",
         "name": "select_article_to_post"
       },
       {
@@ -333,10 +331,10 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          2864,
-          -896
+          9392,
+          -688
         ],
-        "id": "877b1dba-6480-46fa-bd79-5aad974cc880",
+        "id": "783a2cf3-a323-4c68-bfd2-10edea59b294",
         "name": "send_error_notification",
         "webhookId": "faa5f272-06d5-4d4d-ad75-e17f49c6fbc8",
         "credentials": {
@@ -403,10 +401,10 @@
         "type": "n8n-nodes-base.switch",
         "typeVersion": 3.2,
         "position": [
-          2192,
-          -800
+          8720,
+          -592
         ],
-        "id": "7a35b33b-c475-4b7b-99eb-fad9374dd740",
+        "id": "bc5639d4-e726-4145-b4f9-999934e7151c",
         "name": "switch_user_retry"
       },
       {
@@ -434,10 +432,10 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          1968,
-          -800
+          8496,
+          -592
         ],
-        "id": "1ab6a69f-784e-44e7-be8e-776ef8fbf1a0",
+        "id": "8bed5417-dced-4989-84c1-30b3243530c0",
         "name": "notification_retry_or_cancel",
         "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
         "credentials": {
@@ -470,10 +468,10 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          1520,
-          -624
+          8048,
+          -416
         ],
-        "id": "e8ab2146-d27a-4afb-8a49-788eb4b163f2",
+        "id": "40d1dbaf-9968-4c34-934b-bf7d492e0b1a",
         "name": "notification_accept",
         "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
         "credentials": {
@@ -495,10 +493,8 @@
           },
           "sheetName": {
             "__rl": true,
-            "value": "gid=0",
-            "mode": "list",
-            "cachedResultName": "articles_2_linkedin",
-            "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit#gid=0"
+            "value": "content_queue",
+            "mode": "name"
           },
           "columns": {
             "mappingMode": "defineBelow",
@@ -522,13 +518,24 @@
                 "removed": true
               },
               {
+                "id": "TITLE",
+                "displayName": "TITLE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
                 "id": "STATUS",
                 "displayName": "STATUS",
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
                 "type": "string",
-                "canBeUsedToMatch": true
+                "canBeUsedToMatch": true,
+                "removed": false
               },
               {
                 "id": "PRIORITY",
@@ -541,17 +548,48 @@
                 "removed": true
               },
               {
-                "id": "UPDATE_DATE",
-                "displayName": "UPDATE_DATE",
+                "id": "SCORE",
+                "displayName": "SCORE",
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
                 "type": "string",
-                "canBeUsedToMatch": true
+                "canBeUsedToMatch": true,
+                "removed": true
               },
               {
-                "id": "RELEASE_DATE",
-                "displayName": "RELEASE_DATE",
+                "id": "ORIGIN",
+                "displayName": "ORIGIN",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "TOPIC",
+                "displayName": "TOPIC",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "SOURCE",
+                "displayName": "SOURCE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "RATIONALE",
+                "displayName": "RATIONALE",
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
@@ -570,8 +608,78 @@
                 "removed": true
               },
               {
+                "id": "MAX_WORDS",
+                "displayName": "MAX_WORDS",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "PUBLISHED_AT",
+                "displayName": "PUBLISHED_AT",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "UPDATE_DATE",
+                "displayName": "UPDATE_DATE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              },
+              {
+                "id": "RELEASE_DATE",
+                "displayName": "RELEASE_DATE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
                 "id": "LINKEDIN_URL",
                 "displayName": "LINKEDIN_URL",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "ENTRY_ID",
+                "displayName": "ENTRY_ID",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "ERROR",
+                "displayName": "ERROR",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "EXECUTION_ID",
+                "displayName": "EXECUTION_ID",
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
@@ -585,7 +693,7 @@
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
-                "type": "string",
+                "type": "number",
                 "canBeUsedToMatch": true,
                 "readOnly": true,
                 "removed": false
@@ -599,10 +707,10 @@
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
         "position": [
-          1296,
-          -624
+          7824,
+          -416
         ],
-        "id": "2c7bac05-6d9f-4e89-970c-0f306ddc1814",
+        "id": "0c8e6e1a-aa72-4a1b-974a-2acfff727424",
         "name": "update_status_waiting_approval",
         "credentials": {
           "googleSheetsOAuth2Api": {
@@ -623,145 +731,15 @@
           },
           "sheetName": {
             "__rl": true,
-            "value": "gid=0",
-            "mode": "list",
-            "cachedResultName": "articles_2_linkedin",
-            "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit#gid=0"
+            "value": "content_queue",
+            "mode": "name"
           },
           "columns": {
             "mappingMode": "defineBelow",
             "value": {
               "UPDATE_DATE": "={{ (new Date()).toISOString() }}",
               "STATUS": "CANCELED",
-              "row_number": "={{ $('select_article_to_post').item.json.row_number }}"
-            },
-            "matchingColumns": [
-              "row_number"
-            ],
-            "schema": [
-              {
-                "id": "URL",
-                "displayName": "URL",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": true,
-                "removed": true
-              },
-              {
-                "id": "STATUS",
-                "displayName": "STATUS",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": true
-              },
-              {
-                "id": "PRIORITY",
-                "displayName": "PRIORITY",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": true,
-                "removed": true
-              },
-              {
-                "id": "UPDATE_DATE",
-                "displayName": "UPDATE_DATE",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": true
-              },
-              {
-                "id": "RELEASE_DATE",
-                "displayName": "RELEASE_DATE",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": true,
-                "removed": true
-              },
-              {
-                "id": "EXTRA_PROMPT",
-                "displayName": "EXTRA_PROMPT",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": true,
-                "removed": true
-              },
-              {
-                "id": "LINKEDIN_URL",
-                "displayName": "LINKEDIN_URL",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": true,
-                "removed": true
-              },
-              {
-                "id": "row_number",
-                "displayName": "row_number",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": true,
-                "readOnly": true,
-                "removed": false
-              }
-            ],
-            "attemptToConvertTypes": false,
-            "convertFieldsToString": false
-          },
-          "options": {}
-        },
-        "type": "n8n-nodes-base.googleSheets",
-        "typeVersion": 4.6,
-        "position": [
-          2416,
-          -800
-        ],
-        "id": "6da06054-47c0-4ea7-8eb6-a6e8229a408a",
-        "name": "update_status_cancelled",
-        "credentials": {
-          "googleSheetsOAuth2Api": {
-            "id": "pGARJmt50qz64xOo",
-            "name": "Google Sheets account"
-          }
-        }
-      },
-      {
-        "parameters": {
-          "operation": "update",
-          "documentId": {
-            "__rl": true,
-            "value": "1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI",
-            "mode": "list",
-            "cachedResultName": "content_planner",
-            "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit?usp=drivesdk"
-          },
-          "sheetName": {
-            "__rl": true,
-            "value": "gid=0",
-            "mode": "list",
-            "cachedResultName": "articles_2_linkedin",
-            "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit#gid=0"
-          },
-          "columns": {
-            "mappingMode": "defineBelow",
-            "value": {
-              "UPDATE_DATE": "={{ (new Date()).toISOString() }}",
-              "STATUS": "IN_PROGRESS",
-              "row_number": "={{ $json.row_number }}",
+              "row_number": "={{ $('select_article_to_post').item.json.row_number }}",
               "EXECUTION_ID": "={{ $execution.id }}"
             },
             "matchingColumns": [
@@ -779,13 +757,24 @@
                 "removed": true
               },
               {
+                "id": "TITLE",
+                "displayName": "TITLE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
                 "id": "STATUS",
                 "displayName": "STATUS",
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
                 "type": "string",
-                "canBeUsedToMatch": true
+                "canBeUsedToMatch": true,
+                "removed": false
               },
               {
                 "id": "PRIORITY",
@@ -798,17 +787,48 @@
                 "removed": true
               },
               {
-                "id": "UPDATE_DATE",
-                "displayName": "UPDATE_DATE",
+                "id": "SCORE",
+                "displayName": "SCORE",
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
                 "type": "string",
-                "canBeUsedToMatch": true
+                "canBeUsedToMatch": true,
+                "removed": true
               },
               {
-                "id": "RELEASE_DATE",
-                "displayName": "RELEASE_DATE",
+                "id": "ORIGIN",
+                "displayName": "ORIGIN",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "TOPIC",
+                "displayName": "TOPIC",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "SOURCE",
+                "displayName": "SOURCE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "RATIONALE",
+                "displayName": "RATIONALE",
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
@@ -824,11 +844,71 @@
                 "display": true,
                 "type": "string",
                 "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "MAX_WORDS",
+                "displayName": "MAX_WORDS",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "PUBLISHED_AT",
+                "displayName": "PUBLISHED_AT",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "UPDATE_DATE",
+                "displayName": "UPDATE_DATE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
                 "removed": false
+              },
+              {
+                "id": "RELEASE_DATE",
+                "displayName": "RELEASE_DATE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
               },
               {
                 "id": "LINKEDIN_URL",
                 "displayName": "LINKEDIN_URL",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "ENTRY_ID",
+                "displayName": "ENTRY_ID",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "ERROR",
+                "displayName": "ERROR",
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
@@ -866,69 +946,17 @@
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
         "position": [
-          400,
-          -656
+          8944,
+          -592
         ],
-        "id": "4ed38509-c5d5-422e-8db6-09d45fc3b501",
-        "name": "update_status_in_progress",
+        "id": "fa844545-1795-4136-82b1-fa545b75da10",
+        "name": "update_status_cancelled",
         "credentials": {
           "googleSheetsOAuth2Api": {
             "id": "pGARJmt50qz64xOo",
             "name": "Google Sheets account"
           }
         }
-      },
-      {
-        "parameters": {
-          "content": "## Link to the [Google Sheet](https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI)",
-          "height": 376,
-          "width": 852
-        },
-        "type": "n8n-nodes-base.stickyNote",
-        "typeVersion": 1,
-        "position": [
-          160,
-          -1152
-        ],
-        "id": "11711e47-453b-4f4a-969a-7896254f9437",
-        "name": "Sticky Note",
-        "disabled": true
-      },
-      {
-        "parameters": {},
-        "type": "n8n-nodes-base.manualTrigger",
-        "typeVersion": 1,
-        "position": [
-          -272,
-          -560
-        ],
-        "id": "903bdc99-3f96-4b57-bc92-d97cadc95bdd",
-        "name": "click_trigger"
-      },
-      {
-        "parameters": {
-          "rule": {
-            "interval": [
-              {
-                "field": "cronExpression",
-                "expression": "0 0 16 * * 1"
-              },
-              {
-                "field": "cronExpression",
-                "expression": "0 30 10 * * 3,5"
-              }
-            ]
-          }
-        },
-        "type": "n8n-nodes-base.scheduleTrigger",
-        "typeVersion": 1.2,
-        "position": [
-          -272,
-          -752
-        ],
-        "id": "5256f53f-2ec9-4c79-a19f-77b779eedf2f",
-        "name": "schedule_trigger",
-        "notes": "Mon 16:00, Wed 10:30, Fri 10:30 Europe/Madrid - even 2-day spacing so posts never compete.\nWed gets the prime 10-12 slot because it is the strongest B2B day. Fri keeps the morning, since Friday afternoon is the weakest slot of the week.\nMon 16:00 is 10:00 US Eastern: Monday morning is the weaker half of the EU window, so it is the cheapest slot to spend testing whether your audience is actually US. Compare LINKEDIN_URL engagement after 8-10 weeks and move it if not."
       },
       {
         "parameters": {
@@ -942,17 +970,16 @@
           },
           "sheetName": {
             "__rl": true,
-            "value": "gid=0",
-            "mode": "list",
-            "cachedResultName": "articles_2_linkedin",
-            "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit#gid=0"
+            "value": "content_queue",
+            "mode": "name"
           },
           "columns": {
             "mappingMode": "defineBelow",
             "value": {
               "UPDATE_DATE": "={{ (new Date()).toISOString() }}",
-              "STATUS": "ERROR",
-              "row_number": "={{ $('select_article_to_post').item.json.row_number }}"
+              "STATUS": "IN_PROGRESS",
+              "row_number": "={{ $json.row_number }}",
+              "EXECUTION_ID": "={{ $execution.id }}"
             },
             "matchingColumns": [
               "row_number"
@@ -961,6 +988,16 @@
               {
                 "id": "URL",
                 "displayName": "URL",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "TITLE",
+                "displayName": "TITLE",
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
@@ -989,17 +1026,48 @@
                 "removed": true
               },
               {
-                "id": "UPDATE_DATE",
-                "displayName": "UPDATE_DATE",
+                "id": "SCORE",
+                "displayName": "SCORE",
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
                 "type": "string",
-                "canBeUsedToMatch": true
+                "canBeUsedToMatch": true,
+                "removed": true
               },
               {
-                "id": "RELEASE_DATE",
-                "displayName": "RELEASE_DATE",
+                "id": "ORIGIN",
+                "displayName": "ORIGIN",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "TOPIC",
+                "displayName": "TOPIC",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "SOURCE",
+                "displayName": "SOURCE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "RATIONALE",
+                "displayName": "RATIONALE",
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
@@ -1018,6 +1086,46 @@
                 "removed": true
               },
               {
+                "id": "MAX_WORDS",
+                "displayName": "MAX_WORDS",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "PUBLISHED_AT",
+                "displayName": "PUBLISHED_AT",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "UPDATE_DATE",
+                "displayName": "UPDATE_DATE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              },
+              {
+                "id": "RELEASE_DATE",
+                "displayName": "RELEASE_DATE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
                 "id": "LINKEDIN_URL",
                 "displayName": "LINKEDIN_URL",
                 "required": false,
@@ -1028,12 +1136,42 @@
                 "removed": true
               },
               {
+                "id": "ENTRY_ID",
+                "displayName": "ENTRY_ID",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "ERROR",
+                "displayName": "ERROR",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "EXECUTION_ID",
+                "displayName": "EXECUTION_ID",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              },
+              {
                 "id": "row_number",
                 "displayName": "row_number",
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
-                "type": "string",
+                "type": "number",
                 "canBeUsedToMatch": true,
                 "readOnly": true,
                 "removed": false
@@ -1047,10 +1185,302 @@
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
         "position": [
-          2416,
-          -992
+          6928,
+          -448
         ],
-        "id": "70c09205-a039-4014-9d5e-4004a0a5fdc7",
+        "id": "579f8845-af0e-46bf-8928-ec7a32b193e8",
+        "name": "update_status_in_progress",
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "pGARJmt50qz64xOo",
+            "name": "Google Sheets account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "content": "## Link to the [Google Sheet](https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI)",
+          "height": 376,
+          "width": 852
+        },
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          6688,
+          -944
+        ],
+        "id": "0570ab37-0c1f-4b77-8f55-d5b15e176f10",
+        "name": "Sticky Note",
+        "disabled": true
+      },
+      {
+        "parameters": {},
+        "type": "n8n-nodes-base.manualTrigger",
+        "typeVersion": 1,
+        "position": [
+          6256,
+          -352
+        ],
+        "id": "18374c94-03fa-4e39-85ad-60ad5972cb8c",
+        "name": "click_trigger"
+      },
+      {
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "cronExpression",
+                "expression": "0 0 16 * * 1"
+              },
+              {
+                "field": "cronExpression",
+                "expression": "0 30 10 * * 3,5"
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [
+          6256,
+          -544
+        ],
+        "id": "affcb6d5-870f-4d9c-b251-87f67411607b",
+        "name": "schedule_trigger",
+        "notes": "Mon 16:00, Wed 10:30, Fri 10:30 Europe/Madrid - even 2-day spacing so posts never compete.\nWed gets the prime 10-12 slot because it is the strongest B2B day. Fri keeps the morning, since Friday afternoon is the weakest slot of the week.\nMon 16:00 is 10:00 US Eastern: Monday morning is the weaker half of the EU window, so it is the cheapest slot to spend testing whether your audience is actually US. Compare LINKEDIN_URL engagement after 8-10 weeks and move it if not."
+      },
+      {
+        "parameters": {
+          "operation": "update",
+          "documentId": {
+            "__rl": true,
+            "value": "1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI",
+            "mode": "list",
+            "cachedResultName": "content_planner",
+            "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit?usp=drivesdk"
+          },
+          "sheetName": {
+            "__rl": true,
+            "value": "content_queue",
+            "mode": "name"
+          },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "UPDATE_DATE": "={{ (new Date()).toISOString() }}",
+              "STATUS": "ERROR",
+              "row_number": "={{ $('select_article_to_post').item.json.row_number }}",
+              "ERROR": "={{ $json.ERROR || $json.error || '' }}",
+              "EXECUTION_ID": "={{ $execution.id }}"
+            },
+            "matchingColumns": [
+              "row_number"
+            ],
+            "schema": [
+              {
+                "id": "URL",
+                "displayName": "URL",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "TITLE",
+                "displayName": "TITLE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "STATUS",
+                "displayName": "STATUS",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              },
+              {
+                "id": "PRIORITY",
+                "displayName": "PRIORITY",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "SCORE",
+                "displayName": "SCORE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "ORIGIN",
+                "displayName": "ORIGIN",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "TOPIC",
+                "displayName": "TOPIC",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "SOURCE",
+                "displayName": "SOURCE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "RATIONALE",
+                "displayName": "RATIONALE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "EXTRA_PROMPT",
+                "displayName": "EXTRA_PROMPT",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "MAX_WORDS",
+                "displayName": "MAX_WORDS",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "PUBLISHED_AT",
+                "displayName": "PUBLISHED_AT",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "UPDATE_DATE",
+                "displayName": "UPDATE_DATE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              },
+              {
+                "id": "RELEASE_DATE",
+                "displayName": "RELEASE_DATE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "LINKEDIN_URL",
+                "displayName": "LINKEDIN_URL",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "ENTRY_ID",
+                "displayName": "ENTRY_ID",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "ERROR",
+                "displayName": "ERROR",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              },
+              {
+                "id": "EXECUTION_ID",
+                "displayName": "EXECUTION_ID",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              },
+              {
+                "id": "row_number",
+                "displayName": "row_number",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "number",
+                "canBeUsedToMatch": true,
+                "readOnly": true,
+                "removed": false
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": false
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4.6,
+        "position": [
+          8944,
+          -784
+        ],
+        "id": "0de0113b-26f7-430b-ab84-53911f52904e",
         "name": "update_status_error",
         "credentials": {
           "googleSheetsOAuth2Api": {
@@ -1076,10 +1506,10 @@
         "type": "n8n-nodes-base.set",
         "typeVersion": 3.4,
         "position": [
-          2640,
-          -992
+          9168,
+          -784
         ],
-        "id": "adc0cfdc-bbd9-47a7-bc8f-a33cd38830f5",
+        "id": "32bdb90c-eb73-43fb-a4c2-dc21c413cf49",
         "name": "set_error_error"
       },
       {
@@ -1095,10 +1525,10 @@
         "type": "n8n-nodes-base.linkedIn",
         "typeVersion": 1,
         "position": [
-          3312,
-          -656
+          9840,
+          -448
         ],
-        "id": "2d14d780-2f81-478f-9d1e-f732732888f1",
+        "id": "464da8d8-0743-41d7-a52f-b60cdd894aa2",
         "name": "send_2_linkedin_omImage",
         "credentials": {
           "linkedInOAuth2Api": {
@@ -1124,10 +1554,10 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          3536,
-          -656
+          10064,
+          -448
         ],
-        "id": "de31b4ab-fe9a-49e5-9619-4ca687364347",
+        "id": "6f8d77c8-9dcf-476c-957d-64750d41f3c9",
         "name": "send_published_notification_a",
         "webhookId": "faa5f272-06d5-4d4d-ad75-e17f49c6fbc8",
         "credentials": {
@@ -1149,10 +1579,8 @@
           },
           "sheetName": {
             "__rl": true,
-            "value": "gid=0",
-            "mode": "list",
-            "cachedResultName": "articles_2_linkedin",
-            "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit#gid=0"
+            "value": "content_queue",
+            "mode": "name"
           },
           "columns": {
             "mappingMode": "defineBelow",
@@ -1178,17 +1606,108 @@
                 "removed": true
               },
               {
+                "id": "TITLE",
+                "displayName": "TITLE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
                 "id": "STATUS",
                 "displayName": "STATUS",
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
                 "type": "string",
-                "canBeUsedToMatch": true
+                "canBeUsedToMatch": true,
+                "removed": false
               },
               {
                 "id": "PRIORITY",
                 "displayName": "PRIORITY",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "SCORE",
+                "displayName": "SCORE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "ORIGIN",
+                "displayName": "ORIGIN",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "TOPIC",
+                "displayName": "TOPIC",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "SOURCE",
+                "displayName": "SOURCE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "RATIONALE",
+                "displayName": "RATIONALE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "EXTRA_PROMPT",
+                "displayName": "EXTRA_PROMPT",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "MAX_WORDS",
+                "displayName": "MAX_WORDS",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "PUBLISHED_AT",
+                "displayName": "PUBLISHED_AT",
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
@@ -1203,7 +1722,8 @@
                 "defaultMatch": false,
                 "display": true,
                 "type": "string",
-                "canBeUsedToMatch": true
+                "canBeUsedToMatch": true,
+                "removed": false
               },
               {
                 "id": "RELEASE_DATE",
@@ -1212,17 +1732,8 @@
                 "defaultMatch": false,
                 "display": true,
                 "type": "string",
-                "canBeUsedToMatch": true
-              },
-              {
-                "id": "EXTRA_PROMPT",
-                "displayName": "EXTRA_PROMPT",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
                 "canBeUsedToMatch": true,
-                "removed": true
+                "removed": false
               },
               {
                 "id": "LINKEDIN_URL",
@@ -1231,7 +1742,38 @@
                 "defaultMatch": false,
                 "display": true,
                 "type": "string",
-                "canBeUsedToMatch": true
+                "canBeUsedToMatch": true,
+                "removed": false
+              },
+              {
+                "id": "ENTRY_ID",
+                "displayName": "ENTRY_ID",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "ERROR",
+                "displayName": "ERROR",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "EXECUTION_ID",
+                "displayName": "EXECUTION_ID",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
               },
               {
                 "id": "row_number",
@@ -1239,7 +1781,7 @@
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
-                "type": "string",
+                "type": "number",
                 "canBeUsedToMatch": true,
                 "readOnly": true,
                 "removed": false
@@ -1253,10 +1795,10 @@
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
         "position": [
-          3760,
-          -656
+          10288,
+          -448
         ],
-        "id": "baa3ae57-ffd0-4131-99ae-6ebfe6fdcfbb",
+        "id": "8287b17f-db01-46df-9b04-f469eefe8da8",
         "name": "update_status_published_a",
         "credentials": {
           "googleSheetsOAuth2Api": {
@@ -1301,10 +1843,10 @@
         "type": "n8n-nodes-base.switch",
         "typeVersion": 3.2,
         "position": [
-          2192,
-          -608
+          8720,
+          -400
         ],
-        "id": "92697ed0-a9a3-4c53-8f2c-e2f5f8fb7ffa",
+        "id": "1b0a21e7-408c-44f2-a8d5-663bfc4881e2",
         "name": "check_subworkflow_error_image"
       },
       {
@@ -1330,10 +1872,10 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          2864,
-          -560
+          9392,
+          -352
         ],
-        "id": "deafe59b-fe97-44f3-b4b4-f00ca90a4ac4",
+        "id": "638fc8f9-7e5b-4952-b565-1a6a1f09e99c",
         "name": "notification_accept_image",
         "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
         "credentials": {
@@ -1400,10 +1942,10 @@
         "type": "n8n-nodes-base.switch",
         "typeVersion": 3.2,
         "position": [
-          3088,
-          -560
+          9616,
+          -352
         ],
-        "id": "85fdffa9-6013-4ef7-a387-9ec73981c661",
+        "id": "68149631-bfb8-4c90-a129-0daa6566a2f2",
         "name": "switch_user_accept_image"
       },
       {
@@ -1431,10 +1973,10 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          3312,
-          -464
+          9840,
+          -256
         ],
-        "id": "07d3f5fc-2ba9-457d-94e8-623f516f014d",
+        "id": "9a7f9f7c-ac38-4871-aac9-b3b88347cb66",
         "name": "notification_retry_or_cancel_image",
         "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
         "credentials": {
@@ -1481,10 +2023,10 @@
         "type": "n8n-nodes-base.executeWorkflow",
         "typeVersion": 1.3,
         "position": [
-          1968,
-          -528
+          8496,
+          -320
         ],
-        "id": "4fa85ba4-929c-4ba1-a3c1-ead9ae6fc9f8",
+        "id": "35b6bd81-077c-4fd7-aa47-9020746baaa9",
         "name": "execute_image_creator"
       },
       {
@@ -1544,10 +2086,10 @@
         "type": "n8n-nodes-base.switch",
         "typeVersion": 3.2,
         "position": [
-          3536,
-          -384
+          10064,
+          -176
         ],
-        "id": "0b0245c0-8703-410a-aadf-9a4b628d8c05",
+        "id": "57d35f48-b6ad-41a0-b83a-9c9aef6790d0",
         "name": "switch_user_retry_image"
       },
       {
@@ -1561,10 +2103,10 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          2640,
-          -560
+          9168,
+          -352
         ],
-        "id": "a4ef2f7e-7857-4a51-9134-fe7d1086b30d",
+        "id": "c5a2f765-f902-4fa1-b072-649f1cc3c95a",
         "name": "notification_sent_image",
         "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
         "credentials": {
@@ -1581,10 +2123,10 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          2416,
-          -560
+          8944,
+          -352
         ],
-        "id": "fd416f3c-3abf-465a-b0d1-57a2102a7d50",
+        "id": "ee17af7d-9518-4f57-9ca2-0e53ac69c51e",
         "name": "convert_image"
       }
     ],
@@ -1924,11 +2466,11 @@
     },
     "nodeGroups": [],
     "authors": "no name",
-    "name": "Version fcae9d48",
+    "name": "Version ccf204e4",
     "description": "",
-    "autosaved": false
+    "autosaved": true
   },
-  "activeVersionId": "fcae9d48-edbf-430e-bdf9-7f3b86ea7f4f",
+  "activeVersionId": "ccf204e4-cf6b-4643-b477-d563b275fee6",
   "connections": {
     "switch_user_accept": {
       "main": [
@@ -2329,10 +2871,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        1744,
-        -624
+        8272,
+        -416
       ],
-      "id": "dab2b53b-5d45-4c07-9e96-f6fc728bc01a",
+      "id": "4b742835-c0e4-48d4-afe3-eaa18d0c5234",
       "name": "switch_user_accept"
     },
     {
@@ -2352,10 +2894,10 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        2640,
-        -800
+        9168,
+        -592
       ],
-      "id": "5ff8c36c-9749-4b1b-948a-49f92c466c23",
+      "id": "52e95220-4a1b-451d-b353-f8bb67cafe87",
       "name": "set_error_cancelled"
     },
     {
@@ -2397,10 +2939,10 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        624,
-        -656
+        7152,
+        -448
       ],
-      "id": "2834f481-703a-4f9c-af24-47235959363c",
+      "id": "281f262b-a49a-4ae5-8ec7-a347b8efeea1",
       "name": "download_content"
     },
     {
@@ -2439,10 +2981,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        1072,
-        -720
+        7600,
+        -512
       ],
-      "id": "1bf7bafc-c4bf-45a9-a050-c1c0624e03fb",
+      "id": "fa2b4e25-6f7e-4e7c-a531-5011f985a2a2",
       "name": "check_subworkflow_error"
     },
     {
@@ -2522,10 +3064,10 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        848,
-        -656
+        7376,
+        -448
       ],
-      "id": "fb59d2c6-3a2a-432d-9e82-d255d6e4bcd9",
+      "id": "ad490fa9-6df9-42ed-a207-25868fe4a39d",
       "name": "execute_post_creator",
       "notesInFlow": false
     },
@@ -2555,10 +3097,10 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
       "position": [
-        -48,
-        -656
+        6480,
+        -448
       ],
-      "id": "ca44dc64-da53-4e5d-ab23-9b6702fbf10e",
+      "id": "20f6727d-e1f6-433e-9e9a-cd4e4161ece3",
       "name": "read_articles_sheet",
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -2574,10 +3116,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        176,
-        -656
+        6704,
+        -448
       ],
-      "id": "42f684c2-9691-4bad-90cd-9fa7068e53b2",
+      "id": "b3088b5a-8df7-4ff0-ac0a-5c572fcdc263",
       "name": "select_article_to_post"
     },
     {
@@ -2597,10 +3139,10 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        2864,
-        -896
+        9392,
+        -688
       ],
-      "id": "877b1dba-6480-46fa-bd79-5aad974cc880",
+      "id": "783a2cf3-a323-4c68-bfd2-10edea59b294",
       "name": "send_error_notification",
       "webhookId": "faa5f272-06d5-4d4d-ad75-e17f49c6fbc8",
       "credentials": {
@@ -2667,10 +3209,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        2192,
-        -800
+        8720,
+        -592
       ],
-      "id": "7a35b33b-c475-4b7b-99eb-fad9374dd740",
+      "id": "bc5639d4-e726-4145-b4f9-999934e7151c",
       "name": "switch_user_retry"
     },
     {
@@ -2698,10 +3240,10 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        1968,
-        -800
+        8496,
+        -592
       ],
-      "id": "1ab6a69f-784e-44e7-be8e-776ef8fbf1a0",
+      "id": "8bed5417-dced-4989-84c1-30b3243530c0",
       "name": "notification_retry_or_cancel",
       "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
       "credentials": {
@@ -2734,10 +3276,10 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        1520,
-        -624
+        8048,
+        -416
       ],
-      "id": "e8ab2146-d27a-4afb-8a49-788eb4b163f2",
+      "id": "40d1dbaf-9968-4c34-934b-bf7d492e0b1a",
       "name": "notification_accept",
       "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
       "credentials": {
@@ -2973,10 +3515,10 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
       "position": [
-        1296,
-        -624
+        7824,
+        -416
       ],
-      "id": "2c7bac05-6d9f-4e89-970c-0f306ddc1814",
+      "id": "0c8e6e1a-aa72-4a1b-974a-2acfff727424",
       "name": "update_status_waiting_approval",
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -3212,10 +3754,10 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
       "position": [
-        2416,
-        -800
+        8944,
+        -592
       ],
-      "id": "6da06054-47c0-4ea7-8eb6-a6e8229a408a",
+      "id": "fa844545-1795-4136-82b1-fa545b75da10",
       "name": "update_status_cancelled",
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -3451,10 +3993,10 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
       "position": [
-        400,
-        -656
+        6928,
+        -448
       ],
-      "id": "4ed38509-c5d5-422e-8db6-09d45fc3b501",
+      "id": "579f8845-af0e-46bf-8928-ec7a32b193e8",
       "name": "update_status_in_progress",
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -3472,10 +4014,10 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        160,
-        -1152
+        6688,
+        -944
       ],
-      "id": "11711e47-453b-4f4a-969a-7896254f9437",
+      "id": "0570ab37-0c1f-4b77-8f55-d5b15e176f10",
       "name": "Sticky Note",
       "disabled": true
     },
@@ -3484,10 +4026,10 @@
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
       "position": [
-        -272,
-        -560
+        6256,
+        -352
       ],
-      "id": "903bdc99-3f96-4b57-bc92-d97cadc95bdd",
+      "id": "18374c94-03fa-4e39-85ad-60ad5972cb8c",
       "name": "click_trigger"
     },
     {
@@ -3508,10 +4050,10 @@
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
-        -272,
-        -752
+        6256,
+        -544
       ],
-      "id": "5256f53f-2ec9-4c79-a19f-77b779eedf2f",
+      "id": "affcb6d5-870f-4d9c-b251-87f67411607b",
       "name": "schedule_trigger",
       "notes": "Mon 16:00, Wed 10:30, Fri 10:30 Europe/Madrid - even 2-day spacing so posts never compete.\nWed gets the prime 10-12 slot because it is the strongest B2B day. Fri keeps the morning, since Friday afternoon is the weakest slot of the week.\nMon 16:00 is 10:00 US Eastern: Monday morning is the weaker half of the EU window, so it is the cheapest slot to spend testing whether your audience is actually US. Compare LINKEDIN_URL engagement after 8-10 weeks and move it if not."
     },
@@ -3743,10 +4285,10 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
       "position": [
-        2416,
-        -992
+        8944,
+        -784
       ],
-      "id": "70c09205-a039-4014-9d5e-4004a0a5fdc7",
+      "id": "0de0113b-26f7-430b-ab84-53911f52904e",
       "name": "update_status_error",
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -3772,10 +4314,10 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        2640,
-        -992
+        9168,
+        -784
       ],
-      "id": "adc0cfdc-bbd9-47a7-bc8f-a33cd38830f5",
+      "id": "32bdb90c-eb73-43fb-a4c2-dc21c413cf49",
       "name": "set_error_error"
     },
     {
@@ -3791,10 +4333,10 @@
       "type": "n8n-nodes-base.linkedIn",
       "typeVersion": 1,
       "position": [
-        3312,
-        -656
+        9840,
+        -448
       ],
-      "id": "2d14d780-2f81-478f-9d1e-f732732888f1",
+      "id": "464da8d8-0743-41d7-a52f-b60cdd894aa2",
       "name": "send_2_linkedin_omImage",
       "credentials": {
         "linkedInOAuth2Api": {
@@ -3820,10 +4362,10 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        3536,
-        -656
+        10064,
+        -448
       ],
-      "id": "de31b4ab-fe9a-49e5-9619-4ca687364347",
+      "id": "6f8d77c8-9dcf-476c-957d-64750d41f3c9",
       "name": "send_published_notification_a",
       "webhookId": "faa5f272-06d5-4d4d-ad75-e17f49c6fbc8",
       "credentials": {
@@ -4061,10 +4603,10 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
       "position": [
-        3760,
-        -656
+        10288,
+        -448
       ],
-      "id": "baa3ae57-ffd0-4131-99ae-6ebfe6fdcfbb",
+      "id": "8287b17f-db01-46df-9b04-f469eefe8da8",
       "name": "update_status_published_a",
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -4109,10 +4651,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        2192,
-        -608
+        8720,
+        -400
       ],
-      "id": "92697ed0-a9a3-4c53-8f2c-e2f5f8fb7ffa",
+      "id": "1b0a21e7-408c-44f2-a8d5-663bfc4881e2",
       "name": "check_subworkflow_error_image"
     },
     {
@@ -4138,10 +4680,10 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        2864,
-        -560
+        9392,
+        -352
       ],
-      "id": "deafe59b-fe97-44f3-b4b4-f00ca90a4ac4",
+      "id": "638fc8f9-7e5b-4952-b565-1a6a1f09e99c",
       "name": "notification_accept_image",
       "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
       "credentials": {
@@ -4208,10 +4750,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        3088,
-        -560
+        9616,
+        -352
       ],
-      "id": "85fdffa9-6013-4ef7-a387-9ec73981c661",
+      "id": "68149631-bfb8-4c90-a129-0daa6566a2f2",
       "name": "switch_user_accept_image"
     },
     {
@@ -4239,10 +4781,10 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        3312,
-        -464
+        9840,
+        -256
       ],
-      "id": "07d3f5fc-2ba9-457d-94e8-623f516f014d",
+      "id": "9a7f9f7c-ac38-4871-aac9-b3b88347cb66",
       "name": "notification_retry_or_cancel_image",
       "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
       "credentials": {
@@ -4289,10 +4831,10 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
       "position": [
-        1968,
-        -528
+        8496,
+        -320
       ],
-      "id": "4fa85ba4-929c-4ba1-a3c1-ead9ae6fc9f8",
+      "id": "35b6bd81-077c-4fd7-aa47-9020746baaa9",
       "name": "execute_image_creator"
     },
     {
@@ -4352,10 +4894,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        3536,
-        -384
+        10064,
+        -176
       ],
-      "id": "0b0245c0-8703-410a-aadf-9a4b628d8c05",
+      "id": "57d35f48-b6ad-41a0-b83a-9c9aef6790d0",
       "name": "switch_user_retry_image"
     },
     {
@@ -4369,10 +4911,10 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        2640,
-        -560
+        9168,
+        -352
       ],
-      "id": "a4ef2f7e-7857-4a51-9134-fe7d1086b30d",
+      "id": "c5a2f765-f902-4fa1-b072-649f1cc3c95a",
       "name": "notification_sent_image",
       "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
       "credentials": {
@@ -4389,10 +4931,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2416,
-        -560
+        8944,
+        -352
       ],
-      "id": "fd416f3c-3abf-465a-b0d1-57a2102a7d50",
+      "id": "ee17af7d-9518-4f57-9ca2-0e53ac69c51e",
       "name": "convert_image"
     }
   ],
@@ -4404,8 +4946,7 @@
     "errorWorkflow": "yOLSrRQsp4rv1Wjv",
     "timeSavedMode": "fixed",
     "binaryMode": "separate",
-    "availableInMCP": false,
-    "timezone": "Europe/Madrid"
+    "availableInMCP": false
   },
   "shared": [
     {
@@ -4422,15 +4963,17 @@
     },
     "node:schedule_trigger": {
       "recurrenceRules": [
+        null,
         null
       ],
       "recurrenceRuleSignatures": [
+        null,
         null
       ]
     }
   },
   "tags": [],
   "triggerCount": 1,
-  "updatedAt": "2026-07-08T20:14:49.381Z",
-  "versionId": "fcae9d48-edbf-430e-bdf9-7f3b86ea7f4f"
+  "updatedAt": "2026-07-26T17:20:56.543Z",
+  "versionId": "ccf204e4-cf6b-4643-b477-d563b275fee6"
 }

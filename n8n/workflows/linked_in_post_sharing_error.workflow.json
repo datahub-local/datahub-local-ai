@@ -1,9 +1,9 @@
 {
   "active": true,
   "activeVersion": {
-    "updatedAt": "2026-03-01T14:56:56.524Z",
-    "createdAt": "2026-03-01T14:56:54.275Z",
-    "versionId": "a2bc292b-36ac-4ffa-9381-3a9254bd3cdc",
+    "updatedAt": "2026-07-25T15:27:10.056Z",
+    "createdAt": "2026-07-25T15:27:08.027Z",
+    "versionId": "abbe3156-8839-48a0-a50e-2b3b2401ca54",
     "workflowId": "yOLSrRQsp4rv1Wjv",
     "nodes": [
       {
@@ -34,10 +34,10 @@
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
         "position": [
-          656,
-          0
+          976,
+          -144
         ],
-        "id": "900eb6e4-243f-453f-a90a-6e8345107e47",
+        "id": "1646cbc5-a8de-46fa-a578-fe5423dbcae6",
         "name": "read_articles_sheet_error",
         "credentials": {
           "googleSheetsOAuth2Api": {
@@ -53,10 +53,10 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          880,
-          0
+          1200,
+          -144
         ],
-        "id": "f3f06a29-eef6-47aa-8117-c9926c341dc2",
+        "id": "281d4d77-4875-47d9-bc1b-f3ceb316af97",
         "name": "select_article_with_error"
       },
       {
@@ -64,10 +64,10 @@
         "type": "n8n-nodes-base.errorTrigger",
         "typeVersion": 1,
         "position": [
-          0,
-          0
+          320,
+          -144
         ],
-        "id": "f626e2b9-244e-4721-b7b4-e37f37cd9d06",
+        "id": "362249d6-1c68-4c95-b4e2-9d5264e89784",
         "name": "error_trigger"
       },
       {
@@ -207,10 +207,10 @@
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
         "position": [
-          1104,
-          0
+          1424,
+          -144
         ],
-        "id": "15c95223-64f0-40ae-8fbe-98f7c3829706",
+        "id": "404c9408-0833-4ebb-b58c-2eddc22ee7a2",
         "name": "update_status_error_trigger",
         "credentials": {
           "googleSheetsOAuth2Api": {
@@ -236,10 +236,10 @@
         "type": "n8n-nodes-base.set",
         "typeVersion": 3.4,
         "position": [
-          1328,
-          0
+          1648,
+          -144
         ],
-        "id": "f5c14645-b11c-4fb7-aa6e-8d069788d3ad",
+        "id": "3086e119-857a-4e51-a508-4d5d6f2785c2",
         "name": "set_error_trigger"
       },
       {
@@ -259,10 +259,10 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          1536,
-          176
+          1856,
+          32
         ],
-        "id": "644856cc-3908-4cbd-9a49-7dfeb0a3182c",
+        "id": "6c4affe5-d3de-4895-9063-a7d65595a741",
         "name": "send_error_trigger_notification",
         "webhookId": "faa5f272-06d5-4d4d-ad75-e17f49c6fbc8",
         "credentials": {
@@ -289,10 +289,10 @@
         "type": "n8n-nodes-base.set",
         "typeVersion": 3.4,
         "position": [
-          208,
-          0
+          528,
+          -144
         ],
-        "id": "9caea1cb-f9d4-4bfd-868d-77bdee7974bc",
+        "id": "4bb7401f-d142-4429-b445-2e5214de3355",
         "name": "set_workflow_vars"
       },
       {
@@ -323,10 +323,10 @@
         "type": "n8n-nodes-base.if",
         "typeVersion": 2.3,
         "position": [
-          432,
-          0
+          752,
+          -144
         ],
-        "id": "007a9f62-f1f8-45ea-9f32-4da4bdd7928c",
+        "id": "994f9ebd-5a69-46ef-9817-409e88176060",
         "name": "if_workfowId"
       }
     ],
@@ -411,11 +411,11 @@
     },
     "nodeGroups": [],
     "authors": "no name",
-    "name": "Version a2bc292b",
+    "name": "Version abbe3156",
     "description": "",
     "autosaved": true
   },
-  "activeVersionId": "a2bc292b-36ac-4ffa-9381-3a9254bd3cdc",
+  "activeVersionId": "abbe3156-8839-48a0-a50e-2b3b2401ca54",
   "connections": {
     "read_articles_sheet_error": {
       "main": [
@@ -530,10 +530,10 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
       "position": [
-        656,
-        0
+        976,
+        -144
       ],
-      "id": "900eb6e4-243f-453f-a90a-6e8345107e47",
+      "id": "1646cbc5-a8de-46fa-a578-fe5423dbcae6",
       "name": "read_articles_sheet_error",
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -549,10 +549,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        880,
-        0
+        1200,
+        -144
       ],
-      "id": "f3f06a29-eef6-47aa-8117-c9926c341dc2",
+      "id": "281d4d77-4875-47d9-bc1b-f3ceb316af97",
       "name": "select_article_with_error"
     },
     {
@@ -560,10 +560,10 @@
       "type": "n8n-nodes-base.errorTrigger",
       "typeVersion": 1,
       "position": [
-        0,
-        0
+        320,
+        -144
       ],
-      "id": "f626e2b9-244e-4721-b7b4-e37f37cd9d06",
+      "id": "362249d6-1c68-4c95-b4e2-9d5264e89784",
       "name": "error_trigger"
     },
     {
@@ -703,10 +703,10 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
       "position": [
-        1104,
-        0
+        1424,
+        -144
       ],
-      "id": "15c95223-64f0-40ae-8fbe-98f7c3829706",
+      "id": "404c9408-0833-4ebb-b58c-2eddc22ee7a2",
       "name": "update_status_error_trigger",
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -732,10 +732,10 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        1328,
-        0
+        1648,
+        -144
       ],
-      "id": "f5c14645-b11c-4fb7-aa6e-8d069788d3ad",
+      "id": "3086e119-857a-4e51-a508-4d5d6f2785c2",
       "name": "set_error_trigger"
     },
     {
@@ -755,10 +755,10 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        1536,
-        176
+        1856,
+        32
       ],
-      "id": "644856cc-3908-4cbd-9a49-7dfeb0a3182c",
+      "id": "6c4affe5-d3de-4895-9063-a7d65595a741",
       "name": "send_error_trigger_notification",
       "webhookId": "faa5f272-06d5-4d4d-ad75-e17f49c6fbc8",
       "credentials": {
@@ -785,10 +785,10 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        208,
-        0
+        528,
+        -144
       ],
-      "id": "9caea1cb-f9d4-4bfd-868d-77bdee7974bc",
+      "id": "4bb7401f-d142-4429-b445-2e5214de3355",
       "name": "set_workflow_vars"
     },
     {
@@ -819,10 +819,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
-        432,
-        0
+        752,
+        -144
       ],
-      "id": "007a9f62-f1f8-45ea-9f32-4da4bdd7928c",
+      "id": "994f9ebd-5a69-46ef-9817-409e88176060",
       "name": "if_workfowId"
     }
   ],
@@ -844,6 +844,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 0,
-  "updatedAt": "2026-03-01T14:56:54.272Z",
-  "versionId": "a2bc292b-36ac-4ffa-9381-3a9254bd3cdc"
+  "updatedAt": "2026-07-25T15:27:07.266Z",
+  "versionId": "abbe3156-8839-48a0-a50e-2b3b2401ca54"
 }

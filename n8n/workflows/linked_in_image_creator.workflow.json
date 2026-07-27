@@ -1,335 +1,465 @@
 {
-  "name": "LinkedIn Image Creator",
-  "nodes": [
-    {
-      "parameters": {
-        "assignments": {
-          "assignments": [
-            {
-              "id": "ccca262b-f5ad-4784-88a6-36ac5077ccf8",
-              "name": "POST_CONTENT",
-              "value": "={{ $json.POST_CONTENT || \"I've spent enough time debugging data pipelines to know that the role of a data engineer is shifting faster than most are willing to admit. \\n\\nI saw this post from Joe Reis regarding his concept of the Great Data Reckoning. He argues that we have moved past the demo phase of AI. Models are now capable of generating production-quality pipelines, SQL, and infrastructure configurations that previously took weeks of manual effort.\\n\\nWhat caught my eye in his reflection is the distinction between configuration knowledge and business judgment. Many of us built careers on knowing exactly which YAML parameters to tweak in a dbt project or how to tune a specific Kafka connector. While that technical depth was a moat five years ago, it is quickly becoming a commodity.\\n\\nIn my experience building Enterprise AI platforms, the actual code is rarely the hardest part. The difficulty lies in the institutional knowledge—knowing why a specific warehouse schema was designed that way or how to handle data quality issues that AI cannot perceive without deep context.\\n\\nIf your daily work is mostly following documented procedures to move data, the automation risk is real. The shift is moving away from being a tool expert toward being a domain expert who uses these models to eliminate toil. We have to move from being cost centers to being directly tied to revenue-generating activities.\\n\\nAre you already using the latest models to handle your boilerplate infrastructure code, or is your team still doing the heavy lifting manually?\" }}",
-              "type": "string"
-            },
-            {
-              "id": "b072d171-1af0-407c-8b16-ee61278bbd52",
-              "name": "ERROR",
-              "value": "",
-              "type": "string"
-            },
-            {
-              "id": "52b87bd1-627b-4af4-b73a-433a1b3caccd",
-              "name": "IMAGE_MODEL",
-              "value": "google/gemini-3.1-flash-image",
-              "type": "string"
-            },
-            {
-              "id": "708efbf7-5a7f-4dd7-a5b4-1eb73ac77883",
-              "name": "IMAGE_MODEL_FALLBACK",
-              "value": "google/gemini-3.1-flash-lite-image",
-              "type": "string"
-            },
-            {
-              "id": "c5c01700-e75b-4be5-afd4-bba2e2324bea",
-              "name": "TEXT_MODEL",
-              "value": "deepseek/deepseek-v4-flash:nitro",
-              "type": "string"
-            },
-            {
-              "id": "2f650b34-52f6-4aec-9375-8aa7abcb7d8b",
-              "name": "TEXT_MODEL_FALLBACK",
-              "value": "xiaomi/mimo-v2.5:nitro",
-              "type": "string"
-            }
-          ]
-        },
-        "includeOtherFields": true,
-        "options": {}
-      },
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        -1776,
-        608
-      ],
-      "id": "d3e6c76f-f4d4-4750-b975-1375dfabe833",
-      "name": "set_workflow_vars"
-    },
-    {
-      "parameters": {
-        "assignments": {
-          "assignments": [
-            {
-              "id": "59d2348a-a3bb-49eb-b8f6-27faa0fe801f",
-              "name": "omImage ",
-              "value": "={{ $json.choices[0].message.images[0].image_url }}",
-              "type": "string"
-            },
-            {
-              "id": "eb7a859b-2738-4fea-83c0-e80d5bc089d2",
-              "name": "prompt",
-              "value": "={{ $('parse_llm_output').item.json.text }}",
-              "type": "string"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        -304,
-        704
-      ],
-      "id": "afe73aee-ab98-4090-bd01-291d289b8624",
-      "name": "set_output"
-    },
-    {
-      "parameters": {
-        "workflowInputs": {
-          "values": [
-            {
-              "name": "POST_CONTENT"
-            }
-          ]
-        }
-      },
-      "type": "n8n-nodes-base.executeWorkflowTrigger",
-      "typeVersion": 1.1,
-      "position": [
-        -2000,
-        608
-      ],
-      "id": "00862c4f-4ea2-4b5a-a821-740c1448287c",
-      "name": "main_trigger"
-    },
-    {
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "09xEuVQj207pjK4x",
-          "mode": "list",
-          "cachedResultUrl": "/workflow/09xEuVQj207pjK4x",
-          "cachedResultName": "DownloadTemplate"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "template_vars": "={{ {\n\"POST_CONTENT\": $('set_workflow_vars').item.json.POST_CONTENT,\n\"ART_DIRECTION\": [\n'cinematic 3D render: near-black background, one glowing focal object, volumetric light, subtle depth of field',\n'dramatic macro photography of a physical metaphor: shallow depth of field, moody studio lighting, dark backdrop',\n'isometric miniature scene: highly detailed tiny world on a dark backdrop, single saturated accent color',\n'retro-futurist poster: bold flat shapes, heavy grain texture, strong diagonal composition, two-color palette',\n'blueprint noir: dark navy technical blueprint background, precise white and cyan line work, one orange highlighted element',\n'glass-and-neon minimalism: translucent 3D glass shapes on near-black, one neon accent color, soft reflections',\n'papercraft diorama: layered cut-paper scene, strong directional shadows, one saturated accent color on a dark base',\n'chalk on black slate: expressive hand-drawn strokes, white chalk with a single element in vivid colored chalk'\n][Math.floor(Math.random() * 8)]\n} }}",
-            "template_name": "prompts/linkedin_image_prompt.md"
+  "active": true,
+  "activeVersion": {
+    "updatedAt": "2026-07-26T14:13:30.268Z",
+    "createdAt": "2026-07-26T14:13:28.972Z",
+    "versionId": "55fe4d51-a738-4705-ae19-f1db69f834d0",
+    "workflowId": "a9tFFs8qkRu8taC2",
+    "nodes": [
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "ccca262b-f5ad-4784-88a6-36ac5077ccf8",
+                "name": "POST_CONTENT",
+                "value": "={{ $json.POST_CONTENT || \"I've spent enough time debugging data pipelines to know that the role of a data engineer is shifting faster than most are willing to admit. \\n\\nI saw this post from Joe Reis regarding his concept of the Great Data Reckoning. He argues that we have moved past the demo phase of AI. Models are now capable of generating production-quality pipelines, SQL, and infrastructure configurations that previously took weeks of manual effort.\\n\\nWhat caught my eye in his reflection is the distinction between configuration knowledge and business judgment. Many of us built careers on knowing exactly which YAML parameters to tweak in a dbt project or how to tune a specific Kafka connector. While that technical depth was a moat five years ago, it is quickly becoming a commodity.\\n\\nIn my experience building Enterprise AI platforms, the actual code is rarely the hardest part. The difficulty lies in the institutional knowledge—knowing why a specific warehouse schema was designed that way or how to handle data quality issues that AI cannot perceive without deep context.\\n\\nIf your daily work is mostly following documented procedures to move data, the automation risk is real. The shift is moving away from being a tool expert toward being a domain expert who uses these models to eliminate toil. We have to move from being cost centers to being directly tied to revenue-generating activities.\\n\\nAre you already using the latest models to handle your boilerplate infrastructure code, or is your team still doing the heavy lifting manually?\" }}",
+                "type": "string"
+              },
+              {
+                "id": "b072d171-1af0-407c-8b16-ee61278bbd52",
+                "name": "ERROR",
+                "value": "",
+                "type": "string"
+              },
+              {
+                "id": "52b87bd1-627b-4af4-b73a-433a1b3caccd",
+                "name": "IMAGE_MODEL",
+                "value": "google/gemini-3.1-flash-image",
+                "type": "string"
+              },
+              {
+                "id": "708efbf7-5a7f-4dd7-a5b4-1eb73ac77883",
+                "name": "IMAGE_MODEL_FALLBACK",
+                "value": "google/gemini-3.1-flash-lite-image",
+                "type": "string"
+              },
+              {
+                "id": "c5c01700-e75b-4be5-afd4-bba2e2324bea",
+                "name": "TEXT_MODEL",
+                "value": "deepseek/deepseek-v4-flash:nitro",
+                "type": "string"
+              },
+              {
+                "id": "2f650b34-52f6-4aec-9375-8aa7abcb7d8b",
+                "name": "TEXT_MODEL_FALLBACK",
+                "value": "xiaomi/mimo-v2.5:nitro",
+                "type": "string"
+              }
+            ]
           },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "template_name",
-              "displayName": "template_name",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string"
-            },
-            {
-              "id": "template_vars",
-              "displayName": "template_vars",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "object"
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
+          "includeOtherFields": true,
+          "options": {}
         },
-        "options": {}
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          -2320,
+          544
+        ],
+        "id": "fe86f7ca-1213-456e-9077-0fa381ebad73",
+        "name": "set_workflow_vars"
       },
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        -1552,
-        608
-      ],
-      "id": "d5ce7a2c-d143-4d8e-8c6e-02b2a71a396b",
-      "name": "download_image_prompt"
-    },
-    {
-      "parameters": {
-        "jsCode": "// Parse the <visual> block: mode decides whether we render Mermaid or call the image model.\nconst raw = $input.first().json.text || '';\nconst grab = (tag) => {\n  const m = raw.match(new RegExp('<' + tag + '>([\\\\s\\\\S]*?)</' + tag + '>'));\n  return m ? m[1].trim() : '';\n};\nconst mode = (grab('mode') || 'hero').toLowerCase();\nconst mermaid = grab('mermaid').replace(/^```(mermaid)?\\s*/, '').replace(/```\\s*$/, '').trim();\nconst imagePrompt = grab('image_prompt');\nreturn [{\n  json: {\n    mode,\n    concept: grab('concept'),\n    headline: grab('headline'),\n    text: mode === 'diagram' && mermaid ? mermaid : (imagePrompt || raw),\n  },\n}];\n"
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "59d2348a-a3bb-49eb-b8f6-27faa0fe801f",
+                "name": "omImage ",
+                "value": "={{ $json.choices[0].message.images[0].image_url }}",
+                "type": "string"
+              },
+              {
+                "id": "eb7a859b-2738-4fea-83c0-e80d5bc089d2",
+                "name": "prompt",
+                "value": "={{ $('parse_llm_output').item.json.text }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          -848,
+          640
+        ],
+        "id": "8d375870-00b0-4164-b70b-308c369e8604",
+        "name": "set_output"
       },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        -976,
-        608
-      ],
-      "id": "e4ac2bf2-3fc0-43ed-92d5-638d75a818e0",
-      "name": "parse_llm_output"
-    },
-    {
-      "parameters": {
-        "promptType": "define",
-        "text": "={{ $('download_image_prompt').item.json.output }}",
-        "needsFallback": true
+      {
+        "parameters": {
+          "workflowInputs": {
+            "values": [
+              {
+                "name": "POST_CONTENT"
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          -2544,
+          544
+        ],
+        "id": "3d79bcac-5484-4576-a65d-df6def79aa88",
+        "name": "main_trigger"
       },
-      "type": "@n8n/n8n-nodes-langchain.chainLlm",
-      "typeVersion": 1.6,
-      "position": [
-        -1328,
-        608
-      ],
-      "id": "1def57a9-a2e0-4dbe-b256-1469f3f9ae62",
-      "name": "create_image_prompt_ai",
-      "retryOnFail": true,
-      "maxTries": 5,
-      "waitBetweenTries": 5000
-    },
-    {
-      "parameters": {
-        "conditions": {
+      {
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "09xEuVQj207pjK4x",
+            "mode": "list",
+            "cachedResultUrl": "/workflow/09xEuVQj207pjK4x",
+            "cachedResultName": "DownloadTemplate"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "template_vars": "={{ {\n\"POST_CONTENT\": $('set_workflow_vars').item.json.POST_CONTENT,\n\"ART_DIRECTION\": [\n'cinematic 3D render: near-black background, one glowing focal object, volumetric light, subtle depth of field',\n'dramatic macro photography of a physical metaphor: shallow depth of field, moody studio lighting, dark backdrop',\n'isometric miniature scene: highly detailed tiny world on a dark backdrop, single saturated accent color',\n'retro-futurist poster: bold flat shapes, heavy grain texture, strong diagonal composition, two-color palette',\n'blueprint noir: dark navy technical blueprint background, precise white and cyan line work, one orange highlighted element',\n'glass-and-neon minimalism: translucent 3D glass shapes on near-black, one neon accent color, soft reflections',\n'papercraft diorama: layered cut-paper scene, strong directional shadows, one saturated accent color on a dark base',\n'chalk on black slate: expressive hand-drawn strokes, white chalk with a single element in vivid colored chalk'\n][Math.floor(Math.random() * 8)]\n} }}",
+              "template_name": "prompts/linkedin_image_prompt.md"
+            },
+            "matchingColumns": [],
+            "schema": [
+              {
+                "id": "template_name",
+                "displayName": "template_name",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string"
+              },
+              {
+                "id": "template_vars",
+                "displayName": "template_vars",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "object"
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          -2096,
+          544
+        ],
+        "id": "16344aa7-a811-4c9a-9ad3-b153f1910bd0",
+        "name": "download_image_prompt"
+      },
+      {
+        "parameters": {
+          "jsCode": "// Parse the <visual> block: mode decides whether we render Mermaid or call the image model.\nconst raw = $input.first().json.text || '';\nconst grab = (tag) => {\n  const m = raw.match(new RegExp('<' + tag + '>([\\\\s\\\\S]*?)</' + tag + '>'));\n  return m ? m[1].trim() : '';\n};\nconst mode = (grab('mode') || 'hero').toLowerCase();\nconst mermaid = grab('mermaid').replace(/^```(mermaid)?\\s*/, '').replace(/```\\s*$/, '').trim();\nconst imagePrompt = grab('image_prompt');\nreturn [{\n  json: {\n    mode,\n    concept: grab('concept'),\n    headline: grab('headline'),\n    text: mode === 'diagram' && mermaid ? mermaid : (imagePrompt || raw),\n  },\n}];\n"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -1520,
+          544
+        ],
+        "id": "7b40b2b5-a86c-4b6b-922d-33eb55e32bc6",
+        "name": "parse_llm_output"
+      },
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "={{ $('download_image_prompt').item.json.output }}",
+          "needsFallback": true
+        },
+        "type": "@n8n/n8n-nodes-langchain.chainLlm",
+        "typeVersion": 1.6,
+        "position": [
+          -1872,
+          544
+        ],
+        "id": "05c33f97-fcaa-4594-9912-3b11c270d16f",
+        "name": "create_image_prompt_ai",
+        "retryOnFail": true,
+        "maxTries": 5,
+        "waitBetweenTries": 5000
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "c1d2e3f4-a5b6-4c7d-8e9f-0a1b2c3d4e5f",
+                "leftValue": "={{ $json.mode }}",
+                "rightValue": "diagram",
+                "operator": {
+                  "type": "string",
+                  "operation": "equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          -1296,
+          544
+        ],
+        "id": "d1af3c11-5c36-42c6-8fb7-854c3a0b1160",
+        "name": "if_diagram_mode"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://kroki.io/mermaid/png",
+          "sendBody": true,
+          "contentType": "raw",
+          "rawContentType": "text/plain",
+          "body": "={{ $json.text }}",
           "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 2
-          },
-          "conditions": [
-            {
-              "id": "c1d2e3f4-a5b6-4c7d-8e9f-0a1b2c3d4e5f",
-              "leftValue": "={{ $json.mode }}",
-              "rightValue": "diagram",
-              "operator": {
-                "type": "string",
-                "operation": "equals"
+            "response": {
+              "response": {
+                "responseFormat": "file"
               }
             }
-          ],
-          "combinator": "and"
+          }
         },
-        "options": {}
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          -1072,
+          448
+        ],
+        "id": "61abb3bf-7c06-4b12-adfd-4c014b6c951e",
+        "name": "render_mermaid"
       },
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        -752,
-        608
-      ],
-      "id": "28bab485-1473-4eca-a69f-52f2abe084c4",
-      "name": "if_diagram_mode"
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://kroki.io/mermaid/png",
-        "sendBody": true,
-        "contentType": "raw",
-        "rawContentType": "text/plain",
-        "body": "={{ $json.text }}",
-        "options": {
-          "response": {
-            "response": {
-              "responseFormat": "file"
-            }
+      {
+        "parameters": {
+          "jsCode": "// Convert the rendered PNG to the same data-URL JSON shape the hero branch produces.\nconst buffer = await this.helpers.getBinaryDataBuffer(0, 'data');\nreturn [{\n  json: {\n    'omImage ': JSON.stringify({ url: 'data:image/png;base64,' + buffer.toString('base64') }),\n    prompt: $('parse_llm_output').item.json.text,\n  },\n}];\n"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -848,
+          448
+        ],
+        "id": "4795c9d4-b698-4a75-afb9-12064ff95b80",
+        "name": "set_output_diagram"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://openrouter.ai/api/v1/chat/completions",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpBearerAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"model\": \"{{ $('set_workflow_vars').item.json.IMAGE_MODEL }}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": {{ $json.text.toJsonString() }}\n    }\n  ],\n  \"modalities\": [\n    \"image\",\n    \"text\"\n  ]\n}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          -1072,
+          640
+        ],
+        "id": "08f5d5e0-5fd0-4f7d-94da-86cc19b61a35",
+        "name": "generate_image",
+        "retryOnFail": true,
+        "maxTries": 2,
+        "waitBetweenTries": 5000,
+        "credentials": {
+          "httpBearerAuth": {
+            "id": "w1lsvBaScdYqzahC",
+            "name": "OpenRouter account"
           }
         }
       },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        -528,
-        512
-      ],
-      "id": "8946cc13-7421-47db-baa8-c2ccdf0c10a8",
-      "name": "render_mermaid"
-    },
-    {
-      "parameters": {
-        "jsCode": "// Convert the rendered PNG to the same data-URL JSON shape the hero branch produces.\nconst buffer = await this.helpers.getBinaryDataBuffer(0, 'data');\nreturn [{\n  json: {\n    'omImage ': JSON.stringify({ url: 'data:image/png;base64,' + buffer.toString('base64') }),\n    prompt: $('parse_llm_output').item.json.text,\n  },\n}];\n"
+      {
+        "parameters": {
+          "model": "={{ $('set_workflow_vars').item.json.TEXT_MODEL_FALLBACK }}",
+          "options": {
+            "maxRetries": 2
+          }
+        },
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+        "typeVersion": 1,
+        "position": [
+          -1736,
+          776
+        ],
+        "id": "9a78d740-4aa0-4169-8c74-6db68db2e904",
+        "name": "ai_model_fallback",
+        "credentials": {
+          "openRouterApi": {
+            "id": "QBmSiBlACt26uQAX",
+            "name": "OpenRouter account"
+          }
+        }
       },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        -304,
-        512
-      ],
-      "id": "e772fc9b-073e-41db-b8be-b77d534b4ab9",
-      "name": "set_output_diagram"
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://openrouter.ai/api/v1/chat/completions",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpBearerAuth",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"model\": \"{{ $('set_workflow_vars').item.json.IMAGE_MODEL }}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": {{ $json.text.toJsonString() }}\n    }\n  ],\n  \"modalities\": [\n    \"image\",\n    \"text\"\n  ]\n}",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        -528,
-        704
-      ],
-      "id": "397b206d-d84c-438a-ba49-93d796d697b3",
-      "name": "generate_image",
-      "retryOnFail": true,
-      "maxTries": 2,
-      "waitBetweenTries": 5000,
-      "credentials": {
-        "httpBearerAuth": {
-          "id": "w1lsvBaScdYqzahC",
-          "name": "OpenRouter account"
+      {
+        "parameters": {
+          "model": "={{ $('set_workflow_vars').item.json.TEXT_MODEL }}",
+          "options": {
+            "maxRetries": 2
+          }
+        },
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+        "typeVersion": 1,
+        "position": [
+          -1864,
+          776
+        ],
+        "id": "83b250d6-2dec-41c8-b4c0-464dce9cc1eb",
+        "name": "ai_model",
+        "credentials": {
+          "openRouterApi": {
+            "id": "QBmSiBlACt26uQAX",
+            "name": "OpenRouter account"
+          }
         }
       }
-    },
-    {
-      "parameters": {
-        "model": "={{ $('set_workflow_vars').item.json.TEXT_MODEL_FALLBACK }}",
-        "options": {
-          "maxRetries": 2
-        }
+    ],
+    "connections": {
+      "set_workflow_vars": {
+        "main": [
+          [
+            {
+              "node": "download_image_prompt",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
       },
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
-      "typeVersion": 1,
-      "position": [
-        -1200,
-        848
-      ],
-      "id": "7da55293-3c32-47b6-b1ba-625bd5fa1399",
-      "name": "ai_model_fallback",
-      "credentials": {
-        "openRouterApi": {
-          "id": "QBmSiBlACt26uQAX",
-          "name": "OpenRouter account"
-        }
+      "main_trigger": {
+        "main": [
+          [
+            {
+              "node": "set_workflow_vars",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "download_image_prompt": {
+        "main": [
+          [
+            {
+              "node": "create_image_prompt_ai",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "parse_llm_output": {
+        "main": [
+          [
+            {
+              "node": "if_diagram_mode",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "create_image_prompt_ai": {
+        "main": [
+          [
+            {
+              "node": "parse_llm_output",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "generate_image": {
+        "main": [
+          [
+            {
+              "node": "set_output",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "ai_model_fallback": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "create_image_prompt_ai",
+              "type": "ai_languageModel",
+              "index": 1
+            }
+          ]
+        ]
+      },
+      "if_diagram_mode": {
+        "main": [
+          [
+            {
+              "node": "render_mermaid",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "generate_image",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "render_mermaid": {
+        "main": [
+          [
+            {
+              "node": "set_output_diagram",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "ai_model": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "create_image_prompt_ai",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
       }
     },
-    {
-      "parameters": {
-        "model": "={{ $('set_workflow_vars').item.json.TEXT_MODEL }}",
-        "options": {
-          "maxRetries": 2
-        }
-      },
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
-      "typeVersion": 1,
-      "position": [
-        -1328,
-        848
-      ],
-      "id": "a41819c6-acec-4e8f-a2f7-b8bfb56033d2",
-      "name": "ai_model",
-      "credentials": {
-        "openRouterApi": {
-          "id": "QBmSiBlACt26uQAX",
-          "name": "OpenRouter account"
-        }
-      }
-    }
-  ],
-  "pinData": {},
+    "nodeGroups": [],
+    "authors": "no name",
+    "name": "Version 55fe4d51",
+    "description": "",
+    "autosaved": false
+  },
+  "activeVersionId": "55fe4d51-a738-4705-ae19-f1db69f834d0",
   "connections": {
     "set_workflow_vars": {
       "main": [
@@ -449,20 +579,363 @@
       ]
     }
   },
-  "active": true,
+  "createdAt": "2026-03-02T21:20:32.904Z",
+  "id": "a9tFFs8qkRu8taC2",
+  "isArchived": false,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "name": "LinkedIn Image Creator",
+  "nodeGroups": [],
+  "nodes": [
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ccca262b-f5ad-4784-88a6-36ac5077ccf8",
+              "name": "POST_CONTENT",
+              "value": "={{ $json.POST_CONTENT || \"I've spent enough time debugging data pipelines to know that the role of a data engineer is shifting faster than most are willing to admit. \\n\\nI saw this post from Joe Reis regarding his concept of the Great Data Reckoning. He argues that we have moved past the demo phase of AI. Models are now capable of generating production-quality pipelines, SQL, and infrastructure configurations that previously took weeks of manual effort.\\n\\nWhat caught my eye in his reflection is the distinction between configuration knowledge and business judgment. Many of us built careers on knowing exactly which YAML parameters to tweak in a dbt project or how to tune a specific Kafka connector. While that technical depth was a moat five years ago, it is quickly becoming a commodity.\\n\\nIn my experience building Enterprise AI platforms, the actual code is rarely the hardest part. The difficulty lies in the institutional knowledge—knowing why a specific warehouse schema was designed that way or how to handle data quality issues that AI cannot perceive without deep context.\\n\\nIf your daily work is mostly following documented procedures to move data, the automation risk is real. The shift is moving away from being a tool expert toward being a domain expert who uses these models to eliminate toil. We have to move from being cost centers to being directly tied to revenue-generating activities.\\n\\nAre you already using the latest models to handle your boilerplate infrastructure code, or is your team still doing the heavy lifting manually?\" }}",
+              "type": "string"
+            },
+            {
+              "id": "b072d171-1af0-407c-8b16-ee61278bbd52",
+              "name": "ERROR",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "52b87bd1-627b-4af4-b73a-433a1b3caccd",
+              "name": "IMAGE_MODEL",
+              "value": "google/gemini-3.1-flash-image",
+              "type": "string"
+            },
+            {
+              "id": "708efbf7-5a7f-4dd7-a5b4-1eb73ac77883",
+              "name": "IMAGE_MODEL_FALLBACK",
+              "value": "google/gemini-3.1-flash-lite-image",
+              "type": "string"
+            },
+            {
+              "id": "c5c01700-e75b-4be5-afd4-bba2e2324bea",
+              "name": "TEXT_MODEL",
+              "value": "deepseek/deepseek-v4-flash:nitro",
+              "type": "string"
+            },
+            {
+              "id": "2f650b34-52f6-4aec-9375-8aa7abcb7d8b",
+              "name": "TEXT_MODEL_FALLBACK",
+              "value": "xiaomi/mimo-v2.5:nitro",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -2320,
+        544
+      ],
+      "id": "fe86f7ca-1213-456e-9077-0fa381ebad73",
+      "name": "set_workflow_vars"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "59d2348a-a3bb-49eb-b8f6-27faa0fe801f",
+              "name": "omImage ",
+              "value": "={{ $json.choices[0].message.images[0].image_url }}",
+              "type": "string"
+            },
+            {
+              "id": "eb7a859b-2738-4fea-83c0-e80d5bc089d2",
+              "name": "prompt",
+              "value": "={{ $('parse_llm_output').item.json.text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -848,
+        640
+      ],
+      "id": "8d375870-00b0-4164-b70b-308c369e8604",
+      "name": "set_output"
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "POST_CONTENT"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -2544,
+        544
+      ],
+      "id": "3d79bcac-5484-4576-a65d-df6def79aa88",
+      "name": "main_trigger"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "09xEuVQj207pjK4x",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/09xEuVQj207pjK4x",
+          "cachedResultName": "DownloadTemplate"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "template_vars": "={{ {\n\"POST_CONTENT\": $('set_workflow_vars').item.json.POST_CONTENT,\n\"ART_DIRECTION\": [\n'cinematic 3D render: near-black background, one glowing focal object, volumetric light, subtle depth of field',\n'dramatic macro photography of a physical metaphor: shallow depth of field, moody studio lighting, dark backdrop',\n'isometric miniature scene: highly detailed tiny world on a dark backdrop, single saturated accent color',\n'retro-futurist poster: bold flat shapes, heavy grain texture, strong diagonal composition, two-color palette',\n'blueprint noir: dark navy technical blueprint background, precise white and cyan line work, one orange highlighted element',\n'glass-and-neon minimalism: translucent 3D glass shapes on near-black, one neon accent color, soft reflections',\n'papercraft diorama: layered cut-paper scene, strong directional shadows, one saturated accent color on a dark base',\n'chalk on black slate: expressive hand-drawn strokes, white chalk with a single element in vivid colored chalk'\n][Math.floor(Math.random() * 8)]\n} }}",
+            "template_name": "prompts/linkedin_image_prompt.md"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "template_name",
+              "displayName": "template_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "template_vars",
+              "displayName": "template_vars",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -2096,
+        544
+      ],
+      "id": "16344aa7-a811-4c9a-9ad3-b153f1910bd0",
+      "name": "download_image_prompt"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse the <visual> block: mode decides whether we render Mermaid or call the image model.\nconst raw = $input.first().json.text || '';\nconst grab = (tag) => {\n  const m = raw.match(new RegExp('<' + tag + '>([\\\\s\\\\S]*?)</' + tag + '>'));\n  return m ? m[1].trim() : '';\n};\nconst mode = (grab('mode') || 'hero').toLowerCase();\nconst mermaid = grab('mermaid').replace(/^```(mermaid)?\\s*/, '').replace(/```\\s*$/, '').trim();\nconst imagePrompt = grab('image_prompt');\nreturn [{\n  json: {\n    mode,\n    concept: grab('concept'),\n    headline: grab('headline'),\n    text: mode === 'diagram' && mermaid ? mermaid : (imagePrompt || raw),\n  },\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1520,
+        544
+      ],
+      "id": "7b40b2b5-a86c-4b6b-922d-33eb55e32bc6",
+      "name": "parse_llm_output"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('download_image_prompt').item.json.output }}",
+        "needsFallback": true
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.6,
+      "position": [
+        -1872,
+        544
+      ],
+      "id": "05c33f97-fcaa-4594-9912-3b11c270d16f",
+      "name": "create_image_prompt_ai",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1d2e3f4-a5b6-4c7d-8e9f-0a1b2c3d4e5f",
+              "leftValue": "={{ $json.mode }}",
+              "rightValue": "diagram",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1296,
+        544
+      ],
+      "id": "d1af3c11-5c36-42c6-8fb7-854c3a0b1160",
+      "name": "if_diagram_mode"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://kroki.io/mermaid/png",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "text/plain",
+        "body": "={{ $json.text }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -1072,
+        448
+      ],
+      "id": "61abb3bf-7c06-4b12-adfd-4c014b6c951e",
+      "name": "render_mermaid"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Convert the rendered PNG to the same data-URL JSON shape the hero branch produces.\nconst buffer = await this.helpers.getBinaryDataBuffer(0, 'data');\nreturn [{\n  json: {\n    'omImage ': JSON.stringify({ url: 'data:image/png;base64,' + buffer.toString('base64') }),\n    prompt: $('parse_llm_output').item.json.text,\n  },\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -848,
+        448
+      ],
+      "id": "4795c9d4-b698-4a75-afb9-12064ff95b80",
+      "name": "set_output_diagram"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"{{ $('set_workflow_vars').item.json.IMAGE_MODEL }}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": {{ $json.text.toJsonString() }}\n    }\n  ],\n  \"modalities\": [\n    \"image\",\n    \"text\"\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -1072,
+        640
+      ],
+      "id": "08f5d5e0-5fd0-4f7d-94da-86cc19b61a35",
+      "name": "generate_image",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "w1lsvBaScdYqzahC",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "={{ $('set_workflow_vars').item.json.TEXT_MODEL_FALLBACK }}",
+        "options": {
+          "maxRetries": 2
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        -1736,
+        776
+      ],
+      "id": "9a78d740-4aa0-4169-8c74-6db68db2e904",
+      "name": "ai_model_fallback",
+      "credentials": {
+        "openRouterApi": {
+          "id": "QBmSiBlACt26uQAX",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "={{ $('set_workflow_vars').item.json.TEXT_MODEL }}",
+        "options": {
+          "maxRetries": 2
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        -1864,
+        776
+      ],
+      "id": "83b250d6-2dec-41c8-b4c0-464dce9cc1eb",
+      "name": "ai_model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "QBmSiBlACt26uQAX",
+          "name": "OpenRouter account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
   "settings": {
     "executionOrder": "v1",
-    "binaryMode": "separate",
     "callerPolicy": "workflowsFromSameOwner",
     "timeSavedMode": "fixed",
+    "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "57912d30-7f00-4349-bb3c-d9c8b98fd7f0",
-  "meta": {
-    "templateCredsSetupCompleted": true,
-    "instanceId": "70ab6edfed5e49d335db704f293d96a545a20f1c152b6030fc4c9574919e0470"
-  },
-  "nodeGroups": [],
-  "id": "a9tFFs8qkRu8taC2",
-  "tags": []
+  "shared": [
+    {
+      "updatedAt": "2026-03-02T21:20:32.904Z",
+      "createdAt": "2026-03-02T21:20:32.904Z",
+      "role": "workflow:owner",
+      "workflowId": "a9tFFs8qkRu8taC2",
+      "projectId": "zcGU09G6dy4Oah3l"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2026-07-26T14:13:28.272Z",
+  "versionId": "55fe4d51-a738-4705-ae19-f1db69f834d0"
 }

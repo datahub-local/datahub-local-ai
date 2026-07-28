@@ -1,13 +1,10 @@
-[build-system]
-requires = ["setuptools>=68.0", "wheel"]
-build-backend = "setuptools.build_meta"
-
 [project]
 name = "datahub-local-ai"
 version = "0.1.0"
 description = "Centralized collection of workflow definitions for Datahub.local and related tools"
 readme = "README.md"
-license = { text = "See LICENSE for details" }
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
 authors = [
     { name = "DataHub Local Contributors" }
@@ -54,4 +51,9 @@ python_files = ["test_*.py", "*_test.py"]
 addopts = "-v --tb=short"
 
 [tool.uv]
-# Optional uv settings for the monorepo can be added here.
+# The repo root holds no importable Python package — the runners live in
+# workflows/<tool>/src/. Treat it as a virtual project so uv installs the
+# dependency groups without trying to build/install the root itself
+# (setuptools flat-layout discovery would otherwise choke on n8n/, superset/,
+# workflows/).
+package = false

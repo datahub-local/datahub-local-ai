@@ -1,10 +1,10 @@
 {
   "active": true,
   "activeVersion": {
-    "updatedAt": "2026-07-07T16:15:08.191Z",
-    "createdAt": "2026-07-07T16:15:01.908Z",
-    "versionId": "ef4631bd-8d20-4a73-813e-bf0cd7c80587",
-    "workflowId": "qUfjfWLGEjV96ljf",
+    "updatedAt": "2026-07-27T18:59:59.468Z",
+    "createdAt": "2026-07-27T18:59:58.144Z",
+    "versionId": "0c9abfdc-c7c0-4279-ad42-1eebcd618ec0",
+    "workflowId": "09xEuVQj207pjK4x",
     "nodes": [
       {
         "parameters": {
@@ -19,10 +19,10 @@
         "type": "n8n-nodes-base.executeWorkflowTrigger",
         "typeVersion": 1.1,
         "position": [
-          -544,
-          -512
+          176,
+          224
         ],
-        "id": "4d141064-70a0-4d7e-8e28-79693871e0b7",
+        "id": "1318dce5-2ee6-4271-b1df-28ce785c80df",
         "name": "main_trigger"
       },
       {
@@ -36,10 +36,10 @@
         "type": "n8n-nodes-base.markdown",
         "typeVersion": 1,
         "position": [
-          1696,
-          -416
+          2416,
+          320
         ],
-        "id": "deb20501-bfe7-4a54-8b5e-b4c1c8ef5952",
+        "id": "fe6f23e1-6388-45f6-a655-955d360d900b",
         "name": "convert_2_markdown"
       },
       {
@@ -59,10 +59,10 @@
         "type": "n8n-nodes-base.set",
         "typeVersion": 3.4,
         "position": [
-          -320,
-          -416
+          400,
+          320
         ],
-        "id": "8715e1c0-7f3d-42d6-8c6f-987b734e1b32",
+        "id": "d05f6f9b-0dcd-4f28-bd0d-ca5bfcfcd760",
         "name": "parse_input"
       },
       {
@@ -72,10 +72,10 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          1472,
-          -416
+          2192,
+          320
         ],
-        "id": "10f80111-320a-4a3d-a3c9-a8a4dcb5e3e4",
+        "id": "d6ec1803-c407-4ec5-bcb0-9ba6ed147374",
         "name": "normalize_content"
       },
       {
@@ -96,10 +96,10 @@
         "type": "n8n-nodes-base.set",
         "typeVersion": 3.4,
         "position": [
-          1920,
-          -416
+          2640,
+          320
         ],
-        "id": "5915e4bb-64da-4ee1-bb56-408863fc38d7",
+        "id": "0abd8353-f3ca-4ae9-86fa-b42ae71091be",
         "name": "set_output"
       },
       {
@@ -109,10 +109,10 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          1024,
-          -416
+          1744,
+          320
         ],
-        "id": "a2eeff4f-bcd6-4c06-8d46-435e9ce892f5",
+        "id": "2bfaeff5-26c1-4501-a473-a194cda6e1d3",
         "name": "find_og_image_url"
       },
       {
@@ -144,10 +144,10 @@
         "type": "n8n-nodes-base.set",
         "typeVersion": 3.4,
         "position": [
-          800,
-          -496
+          1520,
+          256
         ],
-        "id": "d9424866-fee8-430b-8815-80961b338d00",
+        "id": "869502ec-bfa9-4b71-b592-08a6fa0f87db",
         "name": "set_body"
       },
       {
@@ -177,10 +177,10 @@
         "type": "n8n-nodes-base.if",
         "typeVersion": 2.2,
         "position": [
-          128,
-          -352
+          848,
+          400
         ],
-        "id": "d2463fd4-76e8-49b9-830c-1e78d33a48c6",
+        "id": "b3c74b4e-05cc-42ce-9c61-5626fcf51536",
         "name": "if_medium"
       },
       {
@@ -201,10 +201,10 @@
         "type": "n8n-nodes-base.set",
         "typeVersion": 3.4,
         "position": [
-          352,
-          -416
+          1072,
+          320
         ],
-        "id": "2109e9be-f451-48af-ab8b-95859295e4f0",
+        "id": "d4006cfd-94cd-4f18-b12c-dc78d3e4f2bc",
         "name": "set_freedium"
       },
       {
@@ -212,10 +212,10 @@
         "type": "n8n-nodes-base.manualTrigger",
         "typeVersion": 1,
         "position": [
-          -544,
-          -320
+          176,
+          416
         ],
-        "id": "c7bf634e-e6a1-4f73-abe4-68cfb3480cd8",
+        "id": "1eb07114-bd7b-4169-9d17-56a90d319491",
         "name": "click_trigger",
         "disabled": true
       },
@@ -240,10 +240,10 @@
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.2,
         "position": [
-          576,
-          -496
+          1296,
+          256
         ],
-        "id": "07dff05e-106d-4333-804b-ba61ccd83c97",
+        "id": "5176dc85-e6d3-47a9-bb0e-39830a3f3331",
         "name": "anti_captcha_service",
         "retryOnFail": true
       },
@@ -254,10 +254,10 @@
         "type": "CUSTOM.webpageContentExtractor",
         "typeVersion": 1,
         "position": [
-          1248,
-          -416
+          1968,
+          320
         ],
-        "id": "9355ecde-f3de-4fd3-b3b6-3eb38dff1dd3",
+        "id": "fa811cd3-b9b1-4fe6-a2ca-d502f6b92733",
         "name": "extract_content1"
       },
       {
@@ -273,10 +273,10 @@
         "type": "CUSTOM.puppeteer",
         "typeVersion": 1,
         "position": [
-          -96,
-          -432
+          624,
+          320
         ],
-        "id": "5132120e-3b07-4788-a25d-42770df96d56",
+        "id": "c2725971-6ab7-4819-8d6c-62455f87c78b",
         "name": "puppeteer",
         "onError": "continueErrorOutput"
       }
@@ -431,11 +431,11 @@
     },
     "nodeGroups": [],
     "authors": "no name",
-    "name": "Version ef4631bd",
+    "name": "Version 0c9abfdc",
     "description": "",
     "autosaved": false
   },
-  "activeVersionId": "ef4631bd-8d20-4a73-813e-bf0cd7c80587",
+  "activeVersionId": "0c9abfdc-c7c0-4279-ad42-1eebcd618ec0",
   "connections": {
     "main_trigger": {
       "main": [
@@ -584,8 +584,8 @@
       ]
     }
   },
-  "createdAt": "2025-05-21T13:55:57.395Z",
-  "id": "qUfjfWLGEjV96ljf",
+  "createdAt": "2025-07-27T08:56:10.305Z",
+  "id": "09xEuVQj207pjK4x",
   "isArchived": false,
   "meta": {
     "templateCredsSetupCompleted": true
@@ -606,10 +606,10 @@
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
       "position": [
-        -544,
-        -512
+        176,
+        224
       ],
-      "id": "4d141064-70a0-4d7e-8e28-79693871e0b7",
+      "id": "1318dce5-2ee6-4271-b1df-28ce785c80df",
       "name": "main_trigger"
     },
     {
@@ -623,10 +623,10 @@
       "type": "n8n-nodes-base.markdown",
       "typeVersion": 1,
       "position": [
-        1696,
-        -416
+        2416,
+        320
       ],
-      "id": "deb20501-bfe7-4a54-8b5e-b4c1c8ef5952",
+      "id": "fe6f23e1-6388-45f6-a655-955d360d900b",
       "name": "convert_2_markdown"
     },
     {
@@ -646,10 +646,10 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        -320,
-        -416
+        400,
+        320
       ],
-      "id": "8715e1c0-7f3d-42d6-8c6f-987b734e1b32",
+      "id": "d05f6f9b-0dcd-4f28-bd0d-ca5bfcfcd760",
       "name": "parse_input"
     },
     {
@@ -659,10 +659,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1472,
-        -416
+        2192,
+        320
       ],
-      "id": "10f80111-320a-4a3d-a3c9-a8a4dcb5e3e4",
+      "id": "d6ec1803-c407-4ec5-bcb0-9ba6ed147374",
       "name": "normalize_content"
     },
     {
@@ -683,10 +683,10 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        1920,
-        -416
+        2640,
+        320
       ],
-      "id": "5915e4bb-64da-4ee1-bb56-408863fc38d7",
+      "id": "0abd8353-f3ca-4ae9-86fa-b42ae71091be",
       "name": "set_output"
     },
     {
@@ -696,10 +696,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1024,
-        -416
+        1744,
+        320
       ],
-      "id": "a2eeff4f-bcd6-4c06-8d46-435e9ce892f5",
+      "id": "2bfaeff5-26c1-4501-a473-a194cda6e1d3",
       "name": "find_og_image_url"
     },
     {
@@ -731,10 +731,10 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        800,
-        -496
+        1520,
+        256
       ],
-      "id": "d9424866-fee8-430b-8815-80961b338d00",
+      "id": "869502ec-bfa9-4b71-b592-08a6fa0f87db",
       "name": "set_body"
     },
     {
@@ -764,10 +764,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        128,
-        -352
+        848,
+        400
       ],
-      "id": "d2463fd4-76e8-49b9-830c-1e78d33a48c6",
+      "id": "b3c74b4e-05cc-42ce-9c61-5626fcf51536",
       "name": "if_medium"
     },
     {
@@ -788,10 +788,10 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        352,
-        -416
+        1072,
+        320
       ],
-      "id": "2109e9be-f451-48af-ab8b-95859295e4f0",
+      "id": "d4006cfd-94cd-4f18-b12c-dc78d3e4f2bc",
       "name": "set_freedium"
     },
     {
@@ -799,10 +799,10 @@
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
       "position": [
-        -544,
-        -320
+        176,
+        416
       ],
-      "id": "c7bf634e-e6a1-4f73-abe4-68cfb3480cd8",
+      "id": "1eb07114-bd7b-4169-9d17-56a90d319491",
       "name": "click_trigger",
       "disabled": true
     },
@@ -827,10 +827,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        576,
-        -496
+        1296,
+        256
       ],
-      "id": "07dff05e-106d-4333-804b-ba61ccd83c97",
+      "id": "5176dc85-e6d3-47a9-bb0e-39830a3f3331",
       "name": "anti_captcha_service",
       "retryOnFail": true
     },
@@ -841,10 +841,10 @@
       "type": "CUSTOM.webpageContentExtractor",
       "typeVersion": 1,
       "position": [
-        1248,
-        -416
+        1968,
+        320
       ],
-      "id": "9355ecde-f3de-4fd3-b3b6-3eb38dff1dd3",
+      "id": "fa811cd3-b9b1-4fe6-a2ca-d502f6b92733",
       "name": "extract_content1"
     },
     {
@@ -860,10 +860,10 @@
       "type": "CUSTOM.puppeteer",
       "typeVersion": 1,
       "position": [
-        -96,
-        -432
+        624,
+        320
       ],
-      "id": "5132120e-3b07-4788-a25d-42770df96d56",
+      "id": "c2725971-6ab7-4819-8d6c-62455f87c78b",
       "name": "puppeteer",
       "onError": "continueErrorOutput"
     }
@@ -871,21 +871,20 @@
   "pinData": {},
   "settings": {
     "executionOrder": "v1",
-    "callerPolicy": "workflowsFromSameOwner",
     "binaryMode": "separate"
   },
   "shared": [
     {
-      "updatedAt": "2025-05-21T13:55:57.395Z",
-      "createdAt": "2025-05-21T13:55:57.395Z",
+      "updatedAt": "2025-07-27T08:56:10.305Z",
+      "createdAt": "2025-07-27T08:56:10.305Z",
       "role": "workflow:owner",
-      "workflowId": "qUfjfWLGEjV96ljf",
+      "workflowId": "09xEuVQj207pjK4x",
       "projectId": "zcGU09G6dy4Oah3l"
     }
   ],
   "staticData": null,
   "tags": [],
   "triggerCount": 0,
-  "updatedAt": "2026-07-07T16:15:01.905Z",
-  "versionId": "ef4631bd-8d20-4a73-813e-bf0cd7c80587"
+  "updatedAt": "2026-07-27T18:59:57.185Z",
+  "versionId": "0c9abfdc-c7c0-4279-ad42-1eebcd618ec0"
 }

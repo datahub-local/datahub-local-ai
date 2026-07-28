@@ -1,9 +1,9 @@
 {
   "active": true,
   "activeVersion": {
-    "updatedAt": "2026-07-26T14:13:43.179Z",
-    "createdAt": "2026-07-26T14:13:41.618Z",
-    "versionId": "3edc74e2-5b48-4b66-bc82-b645097cfc21",
+    "updatedAt": "2026-07-27T19:03:46.770Z",
+    "createdAt": "2026-07-27T19:03:44.537Z",
+    "versionId": "0791a63c-f0c3-4c1d-a93f-2e5c2a28fecc",
     "workflowId": "PaeHFdCsdoVbQx11",
     "nodes": [
       {
@@ -22,10 +22,10 @@
         "type": "@n8n/n8n-nodes-langchain.chainLlm",
         "typeVersion": 1.6,
         "position": [
-          -4272,
-          384
+          -13504,
+          -112
         ],
-        "id": "17ad86aa-93b7-4fb5-aca3-297626e33090",
+        "id": "de842925-bb7b-4a11-ac2c-0679b712e8ef",
         "name": "create_post_ai",
         "alwaysOutputData": false,
         "retryOnFail": true,
@@ -41,10 +41,10 @@
         "type": "@n8n/n8n-nodes-langchain.chainLlm",
         "typeVersion": 1.6,
         "position": [
-          -3248,
-          400
+          -12480,
+          -96
         ],
-        "id": "7a49d731-69e1-4f76-b36d-d90c961bff55",
+        "id": "0794e0e1-d2dd-4369-9cac-78ad9f521206",
         "name": "check_rules_llm",
         "retryOnFail": true,
         "waitBetweenTries": 5000,
@@ -107,10 +107,10 @@
         "type": "n8n-nodes-base.switch",
         "typeVersion": 3.2,
         "position": [
-          -2672,
-          448
+          -11904,
+          -48
         ],
-        "id": "75737106-4c55-4dba-8e64-99683b13cd81",
+        "id": "a86a1206-d9c1-461a-9ace-35c1dc37b825",
         "name": "switch_check_rules_llm"
       },
       {
@@ -130,10 +130,10 @@
         "type": "n8n-nodes-base.set",
         "typeVersion": 3.4,
         "position": [
-          -2448,
-          512
+          -11680,
+          16
         ],
-        "id": "66dd9603-f8f2-406e-9900-6f25baafbcf1",
+        "id": "036ce387-b418-4bc7-8630-94368d5700d8",
         "name": "set_error_max_tries"
       },
       {
@@ -153,10 +153,10 @@
         "type": "n8n-nodes-base.set",
         "typeVersion": 3.4,
         "position": [
-          -3920,
-          320
+          -13152,
+          -176
         ],
-        "id": "722207ae-3235-40f3-92d2-89500830c13e",
+        "id": "357b0adc-9b94-4ef8-9580-3abbf08425c5",
         "name": "parse_llm_output"
       },
       {
@@ -219,10 +219,10 @@
         "type": "n8n-nodes-base.set",
         "typeVersion": 3.4,
         "position": [
-          -5744,
-          384
+          -14976,
+          -112
         ],
-        "id": "50c136cc-525b-4f6c-ab22-8c0374eb3a96",
+        "id": "a0120c89-7629-4a60-ba8e-6604e198eb53",
         "name": "set_workflow_vars"
       },
       {
@@ -232,10 +232,10 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          -4944,
-          384
+          -14176,
+          -112
         ],
-        "id": "49690cb0-e274-43dc-9c22-f69cfad679e7",
+        "id": "212ae89d-b1fd-499d-8f30-f17111353230",
         "name": "set_variety_directives"
       },
       {
@@ -261,10 +261,10 @@
         "type": "n8n-nodes-base.set",
         "typeVersion": 3.4,
         "position": [
-          -2448,
-          288
+          -11680,
+          -208
         ],
-        "id": "06332520-c925-43b3-a21d-2e64384ba7b8",
+        "id": "c1844ccd-2127-44f2-a1ea-d3412f1d422f",
         "name": "set_output"
       },
       {
@@ -311,10 +311,10 @@
         "type": "n8n-nodes-base.executeWorkflow",
         "typeVersion": 1.2,
         "position": [
-          -4720,
-          384
+          -13952,
+          -112
         ],
-        "id": "3f326692-c53d-4923-a77d-a68d3745414e",
+        "id": "959e1616-3f0c-45dc-b2ef-cf183af86653",
         "name": "download_post_prompt"
       },
       {
@@ -361,10 +361,10 @@
         "type": "n8n-nodes-base.executeWorkflow",
         "typeVersion": 1.2,
         "position": [
-          -4496,
-          384
+          -13728,
+          -112
         ],
-        "id": "98e07e24-1595-4b56-ae06-b0703bdbe2be",
+        "id": "89f441d7-5398-4fbf-bfc8-e68d42dae509",
         "name": "download_post_system_prompt"
       },
       {
@@ -410,10 +410,10 @@
         "type": "n8n-nodes-base.executeWorkflow",
         "typeVersion": 1.2,
         "position": [
-          -3472,
-          400
+          -12704,
+          -96
         ],
-        "id": "d0e8deb6-91ba-40bb-930f-8ee9dbca0f20",
+        "id": "a0825044-1f75-4239-9231-b66f6698209d",
         "name": "download_post_review_prompt"
       },
       {
@@ -459,10 +459,10 @@
         "type": "n8n-nodes-base.executeWorkflow",
         "typeVersion": 1.2,
         "position": [
-          -5968,
-          384
+          -15200,
+          -112
         ],
-        "id": "ce3cc0bd-085f-4fee-8f43-96f5df0d9745",
+        "id": "fd123587-b93e-4fc2-b5d7-dbaecfc510e3",
         "name": "download_post_rules_prompt"
       },
       {
@@ -491,10 +491,10 @@
         "type": "n8n-nodes-base.executeWorkflowTrigger",
         "typeVersion": 1.1,
         "position": [
-          -6192,
-          384
+          -15424,
+          -112
         ],
-        "id": "53ab673e-58bc-4d76-b982-f5387e4fde6a",
+        "id": "58a56b7c-8215-4abc-9501-614d2550227b",
         "name": "main_trigger"
       },
       {
@@ -504,10 +504,10 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          -2896,
-          400
+          -12128,
+          -96
         ],
-        "id": "436702e7-6cdc-4fe6-b40d-5c7410d7097f",
+        "id": "1bf53426-c786-4ed2-a576-7c3e7635c0d4",
         "name": "parse_llm_check_output"
       },
       {
@@ -539,10 +539,10 @@
         "type": "n8n-nodes-base.if",
         "typeVersion": 2.2,
         "position": [
-          -3696,
-          320
+          -12928,
+          -176
         ],
-        "id": "ca93bdf1-c918-48ba-9b2a-d2588b90378b",
+        "id": "aaad4b15-51ef-4db7-9b42-c69e7aa5d899",
         "name": "if_enabled_check"
       },
       {
@@ -555,10 +555,10 @@
         "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
         "typeVersion": 1,
         "position": [
-          -5160,
-          616
+          -14400,
+          128
         ],
-        "id": "fd6760de-6f49-491e-837c-4554c3fab2fd",
+        "id": "7caabe89-97dc-42da-b8cb-77fda330a8de",
         "name": "ai_model_fallback",
         "credentials": {
           "openRouterApi": {
@@ -611,10 +611,10 @@
         "type": "n8n-nodes-base.executeWorkflow",
         "typeVersion": 1.2,
         "position": [
-          -5520,
-          384
+          -14752,
+          -112
         ],
-        "id": "7acec263-a675-4af3-864a-6ed0a52fade8",
+        "id": "fdaf2345-c57d-47fa-92a0-84acb0215690",
         "name": "download_post_classify_prompt"
       },
       {
@@ -626,10 +626,10 @@
         "type": "@n8n/n8n-nodes-langchain.chainLlm",
         "typeVersion": 1.6,
         "position": [
-          -5296,
-          384
+          -14528,
+          -112
         ],
-        "id": "0ea9bc1d-c7c9-494f-ba0f-a31c35a50493",
+        "id": "ec85f01c-0312-4824-9740-fdcfbf3bf8ce",
         "name": "classify_content",
         "retryOnFail": true,
         "maxTries": 5,
@@ -645,10 +645,10 @@
         "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
         "typeVersion": 1,
         "position": [
-          -5288,
-          616
+          -14528,
+          128
         ],
-        "id": "e6faa35b-04d4-41f6-9937-8e8bd59fdbd2",
+        "id": "685dfd6c-b22c-4a1e-a5a6-7607e192d537",
         "name": "ai_model",
         "credentials": {
           "openRouterApi": {
@@ -890,11 +890,11 @@
     },
     "nodeGroups": [],
     "authors": "no name",
-    "name": "Version 3edc74e2",
+    "name": "Version 0791a63c",
     "description": "",
-    "autosaved": false
+    "autosaved": true
   },
-  "activeVersionId": "3edc74e2-5b48-4b66-bc82-b645097cfc21",
+  "activeVersionId": "0791a63c-f0c3-4c1d-a93f-2e5c2a28fecc",
   "connections": {
     "create_post_ai": {
       "main": [
@@ -1150,10 +1150,10 @@
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "typeVersion": 1.6,
       "position": [
-        -4272,
-        384
+        -13504,
+        -112
       ],
-      "id": "17ad86aa-93b7-4fb5-aca3-297626e33090",
+      "id": "de842925-bb7b-4a11-ac2c-0679b712e8ef",
       "name": "create_post_ai",
       "alwaysOutputData": false,
       "retryOnFail": true,
@@ -1169,10 +1169,10 @@
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "typeVersion": 1.6,
       "position": [
-        -3248,
-        400
+        -12480,
+        -96
       ],
-      "id": "7a49d731-69e1-4f76-b36d-d90c961bff55",
+      "id": "0794e0e1-d2dd-4369-9cac-78ad9f521206",
       "name": "check_rules_llm",
       "retryOnFail": true,
       "waitBetweenTries": 5000,
@@ -1235,10 +1235,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        -2672,
-        448
+        -11904,
+        -48
       ],
-      "id": "75737106-4c55-4dba-8e64-99683b13cd81",
+      "id": "a86a1206-d9c1-461a-9ace-35c1dc37b825",
       "name": "switch_check_rules_llm"
     },
     {
@@ -1258,10 +1258,10 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        -2448,
-        512
+        -11680,
+        16
       ],
-      "id": "66dd9603-f8f2-406e-9900-6f25baafbcf1",
+      "id": "036ce387-b418-4bc7-8630-94368d5700d8",
       "name": "set_error_max_tries"
     },
     {
@@ -1281,10 +1281,10 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        -3920,
-        320
+        -13152,
+        -176
       ],
-      "id": "722207ae-3235-40f3-92d2-89500830c13e",
+      "id": "357b0adc-9b94-4ef8-9580-3abbf08425c5",
       "name": "parse_llm_output"
     },
     {
@@ -1347,10 +1347,10 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        -5744,
-        384
+        -14976,
+        -112
       ],
-      "id": "50c136cc-525b-4f6c-ab22-8c0374eb3a96",
+      "id": "a0120c89-7629-4a60-ba8e-6604e198eb53",
       "name": "set_workflow_vars"
     },
     {
@@ -1360,10 +1360,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -4944,
-        384
+        -14176,
+        -112
       ],
-      "id": "49690cb0-e274-43dc-9c22-f69cfad679e7",
+      "id": "212ae89d-b1fd-499d-8f30-f17111353230",
       "name": "set_variety_directives"
     },
     {
@@ -1389,10 +1389,10 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        -2448,
-        288
+        -11680,
+        -208
       ],
-      "id": "06332520-c925-43b3-a21d-2e64384ba7b8",
+      "id": "c1844ccd-2127-44f2-a1ea-d3412f1d422f",
       "name": "set_output"
     },
     {
@@ -1439,10 +1439,10 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        -4720,
-        384
+        -13952,
+        -112
       ],
-      "id": "3f326692-c53d-4923-a77d-a68d3745414e",
+      "id": "959e1616-3f0c-45dc-b2ef-cf183af86653",
       "name": "download_post_prompt"
     },
     {
@@ -1489,10 +1489,10 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        -4496,
-        384
+        -13728,
+        -112
       ],
-      "id": "98e07e24-1595-4b56-ae06-b0703bdbe2be",
+      "id": "89f441d7-5398-4fbf-bfc8-e68d42dae509",
       "name": "download_post_system_prompt"
     },
     {
@@ -1538,10 +1538,10 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        -3472,
-        400
+        -12704,
+        -96
       ],
-      "id": "d0e8deb6-91ba-40bb-930f-8ee9dbca0f20",
+      "id": "a0825044-1f75-4239-9231-b66f6698209d",
       "name": "download_post_review_prompt"
     },
     {
@@ -1587,10 +1587,10 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        -5968,
-        384
+        -15200,
+        -112
       ],
-      "id": "ce3cc0bd-085f-4fee-8f43-96f5df0d9745",
+      "id": "fd123587-b93e-4fc2-b5d7-dbaecfc510e3",
       "name": "download_post_rules_prompt"
     },
     {
@@ -1619,10 +1619,10 @@
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
       "position": [
-        -6192,
-        384
+        -15424,
+        -112
       ],
-      "id": "53ab673e-58bc-4d76-b982-f5387e4fde6a",
+      "id": "58a56b7c-8215-4abc-9501-614d2550227b",
       "name": "main_trigger"
     },
     {
@@ -1632,10 +1632,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -2896,
-        400
+        -12128,
+        -96
       ],
-      "id": "436702e7-6cdc-4fe6-b40d-5c7410d7097f",
+      "id": "1bf53426-c786-4ed2-a576-7c3e7635c0d4",
       "name": "parse_llm_check_output"
     },
     {
@@ -1667,10 +1667,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        -3696,
-        320
+        -12928,
+        -176
       ],
-      "id": "ca93bdf1-c918-48ba-9b2a-d2588b90378b",
+      "id": "aaad4b15-51ef-4db7-9b42-c69e7aa5d899",
       "name": "if_enabled_check"
     },
     {
@@ -1683,10 +1683,10 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
       "typeVersion": 1,
       "position": [
-        -5160,
-        616
+        -14400,
+        128
       ],
-      "id": "fd6760de-6f49-491e-837c-4554c3fab2fd",
+      "id": "7caabe89-97dc-42da-b8cb-77fda330a8de",
       "name": "ai_model_fallback",
       "credentials": {
         "openRouterApi": {
@@ -1739,10 +1739,10 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        -5520,
-        384
+        -14752,
+        -112
       ],
-      "id": "7acec263-a675-4af3-864a-6ed0a52fade8",
+      "id": "fdaf2345-c57d-47fa-92a0-84acb0215690",
       "name": "download_post_classify_prompt"
     },
     {
@@ -1754,10 +1754,10 @@
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "typeVersion": 1.6,
       "position": [
-        -5296,
-        384
+        -14528,
+        -112
       ],
-      "id": "0ea9bc1d-c7c9-494f-ba0f-a31c35a50493",
+      "id": "ec85f01c-0312-4824-9740-fdcfbf3bf8ce",
       "name": "classify_content",
       "retryOnFail": true,
       "maxTries": 5,
@@ -1773,10 +1773,10 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
       "typeVersion": 1,
       "position": [
-        -5288,
-        616
+        -14528,
+        128
       ],
-      "id": "e6faa35b-04d4-41f6-9937-8e8bd59fdbd2",
+      "id": "685dfd6c-b22c-4a1e-a5a6-7607e192d537",
       "name": "ai_model",
       "credentials": {
         "openRouterApi": {
@@ -1806,6 +1806,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 0,
-  "updatedAt": "2026-07-26T14:13:40.914Z",
-  "versionId": "3edc74e2-5b48-4b66-bc82-b645097cfc21"
+  "updatedAt": "2026-07-27T19:03:43.573Z",
+  "versionId": "0791a63c-f0c3-4c1d-a93f-2e5c2a28fecc"
 }

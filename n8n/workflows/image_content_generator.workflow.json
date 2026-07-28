@@ -1,9 +1,9 @@
 {
   "active": true,
   "activeVersion": {
-    "updatedAt": "2026-07-26T14:13:16.595Z",
-    "createdAt": "2026-07-26T14:13:10.516Z",
-    "versionId": "5cd330f6-e980-4f28-a91f-a98fbf0222ad",
+    "updatedAt": "2026-07-27T19:05:33.618Z",
+    "createdAt": "2026-07-27T19:05:32.266Z",
+    "versionId": "ef417d3e-a8ef-43b1-b311-8574df338b45",
     "workflowId": "8cRfhWwzFYvma7OI",
     "nodes": [
       {
@@ -23,15 +23,15 @@
             "customCss": ":root {\n\t--font-family: 'Open Sans', sans-serif;\n\t--font-weight-normal: 400;\n\t--font-weight-bold: 600;\n\t--font-size-body: 12px;\n\t--font-size-label: 14px;\n\t--font-size-test-notice: 12px;\n\t--font-size-input: 14px;\n\t--font-size-header: 20px;\n\t--font-size-paragraph: 14px;\n\t--font-size-link: 12px;\n\t--font-size-error: 12px;\n\t--font-size-html-h1: 28px;\n\t--font-size-html-h2: 20px;\n\t--font-size-html-h3: 16px;\n\t--font-size-html-h4: 14px;\n\t--font-size-html-h5: 12px;\n\t--font-size-html-h6: 10px;\n\t--font-size-subheader: 14px;\n\n\t/* Colors */\n\t--color-background: #fbfcfe;\n\t--color-test-notice-text: #e6a23d;\n\t--color-test-notice-bg: #fefaf6;\n\t--color-test-notice-border: #f6dcb7;\n\t--color-card-bg: #ffffff;\n\t--color-card-border: #dbdfe7;\n\t--color-card-shadow: rgba(99, 77, 255, 0.06);\n\t--color-link: #7e8186;\n\t--color-header: #525356;\n\t--color-label: #555555;\n\t--color-input-border: #dbdfe7;\n\t--color-input-text: #71747A;\n\t--color-focus-border: rgb(90, 76, 194);\n\t--color-submit-btn-bg: #ff6d5a;\n\t--color-submit-btn-text: #ffffff;\n\t--color-error: #ea1f30;\n\t--color-required: #ff6d5a;\n\t--color-clear-button-bg: #7e8186;\n\t--color-html-text: #555;\n\t--color-html-link: #ff6d5a;\n\t--color-header-subtext: #7e8186;\n\n\t/* Border Radii */\n\t--border-radius-card: 8px;\n\t--border-radius-input: 6px;\n\t--border-radius-clear-btn: 50%;\n\t--card-border-radius: 8px;\n\n\t/* Spacing */\n\t--padding-container-top: 24px;\n\t--padding-card: 24px;\n\t--padding-test-notice-vertical: 12px;\n\t--padding-test-notice-horizontal: 24px;\n\t--margin-bottom-card: 16px;\n\t--padding-form-input: 12px;\n\t--card-padding: 24px;\n\t--card-margin-bottom: 16px;\n\n\t/* Dimensions */\n\t--container-width: 675px;\n\t--submit-btn-height: 48px;\n\t--checkbox-size: 18px;\n\n\t/* Others */\n\t--box-shadow-card: 0px 4px 16px 0px var(--color-card-shadow);\n\t--opacity-placeholder: 0.5;\n}\n\ntextarea {\n  min-height: 300px;\n  max-height: 300px;\n}"
           }
         },
-        "id": "1a667f7b-5037-470d-9df0-79609a17dd2c",
+        "id": "93b96807-b168-4f23-92ea-800555768368",
         "name": "Init: Diagram Generator Form",
         "type": "n8n-nodes-base.formTrigger",
         "position": [
-          400,
-          -368
+          1728,
+          224
         ],
         "typeVersion": 2.2,
-        "webhookId": "d4fe75b9-4d8f-4ad7-b79e-68313f31c97f"
+        "webhookId": "23c77d49-080c-4b7c-91d8-3b0ebdc906e7"
       },
       {
         "parameters": {
@@ -89,12 +89,12 @@
           },
           "options": {}
         },
-        "id": "01492dc8-aa17-475d-83c2-6a3e3179c277",
+        "id": "af43d9e1-0b13-440c-93d5-79810e0ba0c6",
         "name": "Init: Set GitHub Config",
         "type": "n8n-nodes-base.set",
         "position": [
-          624,
-          -368
+          1952,
+          224
         ],
         "typeVersion": 3.4
       },
@@ -118,12 +118,12 @@
             "reference": "={{ $('Init: Set GitHub Config').first().json.githubBranch }}"
           }
         },
-        "id": "3129a8e1-e6bd-47f3-b6a5-92147b937acb",
+        "id": "b8d4e0a3-265f-4eaf-8432-652cac9124b0",
         "name": "Fetch: Diagram Types Dataset",
         "type": "n8n-nodes-base.github",
         "position": [
-          848,
-          -512
+          2176,
+          80
         ],
         "typeVersion": 1,
         "webhookId": "c2877290-e24b-46ae-8798-9097d2b35319",
@@ -138,12 +138,12 @@
         "parameters": {
           "jsCode": "// GitHub node returns file content as base64 in $json.content\nconst decode = (b64) => Buffer.from(b64.replace(/\\n/g, ''), 'base64').toString('utf8');\n\nconst diagramTypesRaw = decode($('Fetch: Diagram Types Dataset').first().json.content);\nconst promptTemplate = decode($('Fetch: Prompt Template').first().json.content);\nconst visualStylesRaw = decode($('Fetch: Visual Styles Dataset').first().json.content);\nconst colorPresetsRaw = decode($('Fetch: Color Presets Dataset').first().json.content);\nconst config = $('Init: Set GitHub Config').first().json;\n\nconst diagramTypes = JSON.parse(diagramTypesRaw);\nconst visualStyles = JSON.parse(visualStylesRaw);\nconst colorPresets = JSON.parse(colorPresetsRaw);\n\nreturn [{\n  diagramTypes,\n  visualStyles,\n  colorPresets,\n  promptTemplate,\n  diagramDescription: config.diagramDescription,\n  githubOwner: config.githubOwner,\n  githubRepo: config.githubRepo,\n  githubBranch: config.githubBranch\n}];"
         },
-        "id": "b59b98d5-77ad-4028-82de-e930bda798ca",
+        "id": "c2dc9bcd-f279-4630-a9b2-5d0dd227c85e",
         "name": "Parse: Dataset & Template",
         "type": "n8n-nodes-base.code",
         "position": [
-          1296,
-          -272
+          2624,
+          320
         ],
         "typeVersion": 2
       },
@@ -151,12 +151,12 @@
         "parameters": {
           "jsCode": "const selection = $input.first().json;\nconst parsedData = $('Parse: Dataset & Template').first().json;\n\n// Extract diagram type id from the dropdown selection (format: \"emoji id — Name\")\nconst diagramTypeRaw = selection['Diagram Type'] || '';\nconst diagramTypeId = diagramTypeRaw.replace(/^\\S+\\s+/, '').split(' — ')[0].trim();\n\n// Find the full diagram type object\nconst diagramType = parsedData.diagramTypes.find(d => d.id === diagramTypeId) || {};\n\nconst model = selection['Image Generation Model'] || '@openai-aifoundry-swc-001/gpt-image-1';\nconst additionalContext = selection['Additional Context (optional)'] || 'None';\nconst description = parsedData.diagramDescription;\n\n// Filter visual styles compatible with this diagram type\nconst compatibleStyles = parsedData.visualStyles.filter(\n  s => s.compatible_types.includes(diagramTypeId)\n);\n// Fallback: if no compatible styles found, return all styles\nconst visualStyles = compatibleStyles.length > 0 ? compatibleStyles : parsedData.visualStyles;\n\nreturn [{\n  diagramTypeId,\n  diagramTypeName: diagramType.name || diagramTypeId,\n  diagramTypeDescription: diagramType.description || '',\n  styleHint: diagramType.style_hint || '',\n  colorPalette: diagramType.color_palette || 'White background',\n  diagramDescription: description,\n  promptTemplate: parsedData.promptTemplate,\n  model,\n  additionalContext,\n  visualStyles,\n  colorPresets: parsedData.colorPresets\n}];"
         },
-        "id": "52466466-25ed-4d1e-a026-f70dcd6e4f02",
+        "id": "3b4f57c1-c4fa-43e0-b514-bd3c058042f1",
         "name": "Build: Diagram Prompt",
         "type": "n8n-nodes-base.code",
         "position": [
-          1744,
-          -272
+          3072,
+          320
         ],
         "typeVersion": 2
       },
@@ -253,12 +253,12 @@
             "customCss": ":root {\n\t--font-family: 'Open Sans', sans-serif;\n\t--font-weight-normal: 400;\n\t--font-weight-bold: 600;\n\t--font-size-body: 12px;\n\t--font-size-label: 14px;\n\t--font-size-test-notice: 12px;\n\t--font-size-input: 14px;\n\t--font-size-header: 20px;\n\t--font-size-paragraph: 14px;\n\t--font-size-link: 12px;\n\t--font-size-error: 12px;\n\t--font-size-html-h1: 28px;\n\t--font-size-html-h2: 20px;\n\t--font-size-html-h3: 16px;\n\t--font-size-html-h4: 14px;\n\t--font-size-html-h5: 12px;\n\t--font-size-html-h6: 10px;\n\t--font-size-subheader: 14px;\n\n\t/* Colors */\n\t--color-background: #fbfcfe;\n\t--color-test-notice-text: #e6a23d;\n\t--color-test-notice-bg: #fefaf6;\n\t--color-test-notice-border: #f6dcb7;\n\t--color-card-bg: #ffffff;\n\t--color-card-border: #dbdfe7;\n\t--color-card-shadow: rgba(99, 77, 255, 0.06);\n\t--color-link: #7e8186;\n\t--color-header: #525356;\n\t--color-label: #555555;\n\t--color-input-border: #dbdfe7;\n\t--color-input-text: #71747A;\n\t--color-focus-border: rgb(90, 76, 194);\n\t--color-submit-btn-bg: #ff6d5a;\n\t--color-submit-btn-text: #ffffff;\n\t--color-error: #ea1f30;\n\t--color-required: #ff6d5a;\n\t--color-clear-button-bg: #7e8186;\n\t--color-html-text: #555;\n\t--color-html-link: #ff6d5a;\n\t--color-header-subtext: #7e8186;\n\n\t/* Border Radii */\n\t--border-radius-card: 8px;\n\t--border-radius-input: 6px;\n\t--border-radius-clear-btn: 50%;\n\t--card-border-radius: 8px;\n\n\t/* Spacing */\n\t--padding-container-top: 24px;\n\t--padding-card: 24px;\n\t--padding-test-notice-vertical: 12px;\n\t--padding-test-notice-horizontal: 24px;\n\t--margin-bottom-card: 16px;\n\t--padding-form-input: 12px;\n\t--card-padding: 24px;\n\t--card-margin-bottom: 16px;\n\n\t/* Dimensions */\n\t--container-width: 675px;\n\t--submit-btn-height: 48px;\n\t--checkbox-size: 18px;\n\n\t/* Others */\n\t--box-shadow-card: 0px 4px 16px 0px var(--color-card-shadow);\n\t--opacity-placeholder: 0.5;\n}\n\ntextarea {\n  min-height: 300px;\n  max-height: 300px;\n}"
           }
         },
-        "id": "0c448700-e549-4ab6-a0c9-17448851a681",
+        "id": "ff134ac8-3dd6-4fb0-9581-8d819dc7b6e9",
         "name": "Edit: Review Generated Prompt",
         "type": "n8n-nodes-base.form",
         "position": [
-          2768,
-          -336
+          4096,
+          256
         ],
         "typeVersion": 2.3,
         "webhookId": "d1a9f3e2-3333-4abc-8def-000000000003"
@@ -287,12 +287,12 @@
           },
           "options": {}
         },
-        "id": "c71547ca-a00e-4966-8367-59b4532faeaf",
+        "id": "e79b1717-9762-4be0-a82d-302035c4347f",
         "name": "Retry Prompt?",
         "type": "n8n-nodes-base.if",
         "position": [
-          2992,
-          -336
+          4320,
+          256
         ],
         "typeVersion": 2
       },
@@ -300,12 +300,12 @@
         "parameters": {
           "jsCode": "return [$('Apply: Style to Prompt').first().json];"
         },
-        "id": "872a4b6d-365f-4521-a69d-a84acb66ff20",
+        "id": "605128c9-fe5d-45c1-abf4-c3b66ff3b620",
         "name": "Prepare: Prompt Retry",
         "type": "n8n-nodes-base.code",
         "position": [
-          3216,
-          -336
+          4544,
+          256
         ],
         "typeVersion": 2
       },
@@ -313,12 +313,12 @@
         "parameters": {
           "jsCode": "const formData = $input.first().json;\nconst applyData = $('Apply: Style to Prompt').first().json;\n\nconst imageSizeLabel = formData['Image Size'];\nconst aspectRatioMatch = imageSizeLabel.match(/^(\\d+:\\d+)/);\nconst imageAspectRatio = aspectRatioMatch ? aspectRatioMatch[1] : null;\n\nreturn [{\n  finalPrompt: formData['Image Prompt'],\n  model: 'google/' + formData['Image Model'],\n  imageSize: imageSizeLabel,\n  imageAspectRatio,\n  imageQuality: formData['Image Quality'],\n  diagramTypeName: applyData.diagramTypeName,\n  visualStyleName: applyData.visualStyleName\n}];"
         },
-        "id": "311c3f0e-865c-438d-8e13-a2be241f3117",
+        "id": "90319c32-04a5-4e25-8e42-aa62e3a68c8d",
         "name": "Set: Generation Params",
         "type": "n8n-nodes-base.code",
         "position": [
-          3216,
-          -144
+          4544,
+          448
         ],
         "typeVersion": 2
       },
@@ -360,12 +360,12 @@
             "customCss": ":root {\n\t--font-family: 'Open Sans', sans-serif;\n\t--font-weight-normal: 400;\n\t--font-weight-bold: 600;\n\t--font-size-body: 12px;\n\t--font-size-label: 14px;\n\t--font-size-test-notice: 12px;\n\t--font-size-input: 14px;\n\t--font-size-header: 20px;\n\t--font-size-paragraph: 14px;\n\t--font-size-link: 12px;\n\t--font-size-error: 12px;\n\t--font-size-html-h1: 28px;\n\t--font-size-html-h2: 20px;\n\t--font-size-html-h3: 16px;\n\t--font-size-html-h4: 14px;\n\t--font-size-html-h5: 12px;\n\t--font-size-html-h6: 10px;\n\t--font-size-subheader: 14px;\n\t--color-background: #fbfcfe;\n\t--color-test-notice-text: #e6a23d;\n\t--color-test-notice-bg: #fefaf6;\n\t--color-test-notice-border: #f6dcb7;\n\t--color-card-bg: #ffffff;\n\t--color-card-border: #dbdfe7;\n\t--color-card-shadow: rgba(99, 77, 255, 0.06);\n\t--color-link: #7e8186;\n\t--color-header: #525356;\n\t--color-label: #555555;\n\t--color-input-border: #dbdfe7;\n\t--color-input-text: #71747A;\n\t--color-focus-border: rgb(90, 76, 194);\n\t--color-submit-btn-bg: #ff6d5a;\n\t--color-submit-btn-text: #ffffff;\n\t--color-error: #ea1f30;\n\t--color-required: #ff6d5a;\n\t--color-clear-button-bg: #7e8186;\n\t--color-html-text: #555;\n\t--color-html-link: #ff6d5a;\n\t--color-header-subtext: #7e8186;\n\t--border-radius-card: 8px;\n\t--border-radius-input: 6px;\n\t--border-radius-clear-btn: 50%;\n\t--card-border-radius: 8px;\n\t--padding-container-top: 24px;\n\t--padding-card: 24px;\n\t--padding-test-notice-vertical: 12px;\n\t--padding-test-notice-horizontal: 24px;\n\t--margin-bottom-card: 16px;\n\t--padding-form-input: 12px;\n\t--card-padding: 24px;\n\t--card-margin-bottom: 16px;\n\t--container-width: 675px;\n\t--submit-btn-height: 48px;\n\t--checkbox-size: 18px;\n\t--box-shadow-card: 0px 4px 16px 0px var(--color-card-shadow);\n\t--opacity-placeholder: 0.5;\n}"
           }
         },
-        "id": "155fc6a8-13ae-4ede-a606-89d99eae546f",
+        "id": "821d7236-a62d-4eb5-b463-edaef0b6c52f",
         "name": "Show: Image & Retry Option",
         "type": "n8n-nodes-base.form",
         "position": [
-          4336,
-          -240
+          5664,
+          352
         ],
         "typeVersion": 2.3,
         "webhookId": "d1a9f3e2-4444-4abc-8def-000000000004"
@@ -394,12 +394,12 @@
           },
           "options": {}
         },
-        "id": "145ada6a-8ce7-481a-9c3d-5229e6b9ce3c",
+        "id": "202920bc-eda1-43e5-ae02-3980f25a0a7e",
         "name": "Retry?",
         "type": "n8n-nodes-base.if",
         "position": [
-          4560,
-          -240
+          5888,
+          352
         ],
         "typeVersion": 2
       },
@@ -407,12 +407,12 @@
         "parameters": {
           "jsCode": "const formData = $input.first().json;\nconst prevParams = $('Set: Generation Params').first().json;\n\nreturn [{\n  finalPrompt: formData['Image Prompt'] || prevParams.finalPrompt,\n  imageSize: prevParams.imageSize,\n  imageAspectRatio: prevParams.imageAspectRatio,\n  imageQuality: prevParams.imageQuality,\n  model: prevParams.model,\n  diagramTypeName: prevParams.diagramTypeName,\n  visualStyleName: prevParams.visualStyleName\n}];"
         },
-        "id": "afcf88d2-d1e0-4bd8-95f6-42033cc86f07",
+        "id": "ef168e83-fa9c-4068-8a0b-13fd60fefac8",
         "name": "Prepare: Retry Params",
         "type": "n8n-nodes-base.code",
         "position": [
-          4784,
-          -224
+          6112,
+          368
         ],
         "typeVersion": 2
       },
@@ -431,12 +431,12 @@
             "customCss": ":root {\n\t--font-family: 'Open Sans', sans-serif;\n\t--font-weight-normal: 400;\n\t--font-weight-bold: 600;\n\t--font-size-body: 12px;\n\t--font-size-label: 14px;\n\t--font-size-test-notice: 12px;\n\t--font-size-input: 14px;\n\t--font-size-header: 20px;\n\t--font-size-paragraph: 14px;\n\t--font-size-link: 12px;\n\t--font-size-error: 12px;\n\t--font-size-html-h1: 28px;\n\t--font-size-html-h2: 20px;\n\t--font-size-html-h3: 16px;\n\t--font-size-html-h4: 14px;\n\t--font-size-html-h5: 12px;\n\t--font-size-html-h6: 10px;\n\t--font-size-subheader: 14px;\n\n\t/* Colors */\n\t--color-background: #fbfcfe;\n\t--color-test-notice-text: #e6a23d;\n\t--color-test-notice-bg: #fefaf6;\n\t--color-test-notice-border: #f6dcb7;\n\t--color-card-bg: #ffffff;\n\t--color-card-border: #dbdfe7;\n\t--color-card-shadow: rgba(99, 77, 255, 0.06);\n\t--color-link: #7e8186;\n\t--color-header: #525356;\n\t--color-label: #555555;\n\t--color-input-border: #dbdfe7;\n\t--color-input-text: #71747A;\n\t--color-focus-border: rgb(90, 76, 194);\n\t--color-submit-btn-bg: #ff6d5a;\n\t--color-submit-btn-text: #ffffff;\n\t--color-error: #ea1f30;\n\t--color-required: #ff6d5a;\n\t--color-clear-button-bg: #7e8186;\n\t--color-html-text: #555;\n\t--color-html-link: #ff6d5a;\n\t--color-header-subtext: #7e8186;\n\n\t/* Border Radii */\n\t--border-radius-card: 8px;\n\t--border-radius-input: 6px;\n\t--border-radius-clear-btn: 50%;\n\t--card-border-radius: 8px;\n\n\t/* Spacing */\n\t--padding-container-top: 24px;\n\t--padding-card: 24px;\n\t--padding-test-notice-vertical: 12px;\n\t--padding-test-notice-horizontal: 24px;\n\t--margin-bottom-card: 16px;\n\t--padding-form-input: 12px;\n\t--card-padding: 24px;\n\t--card-margin-bottom: 16px;\n\n\t/* Dimensions */\n\t--container-width: 675px;\n\t--submit-btn-height: 48px;\n\t--checkbox-size: 18px;\n\n\t/* Others */\n\t--box-shadow-card: 0px 4px 16px 0px var(--color-card-shadow);\n\t--opacity-placeholder: 0.5;\n}\n\ntextarea {\n  min-height: 80px;\n  max-height: 80px;\n}\n\ntextarea#field-1 {\n  min-height: 200px;\n  max-height: 200px;\n}"
           }
         },
-        "id": "d6362953-ef52-4dbd-adf2-141313c50935",
+        "id": "89f142c1-e927-4ad3-b6e1-9d6816469c07",
         "name": "End: Diagram Done",
         "type": "n8n-nodes-base.form",
         "position": [
-          4784,
-          -32
+          6112,
+          560
         ],
         "typeVersion": 2.3,
         "webhookId": "d1a9f3e2-5555-4abc-8def-000000000005"
@@ -451,12 +451,12 @@
             "customCss": ":root {\n\t--font-family: 'Open Sans', sans-serif;\n\t--font-weight-normal: 400;\n\t--font-weight-bold: 600;\n\t--font-size-body: 12px;\n\t--font-size-label: 14px;\n\t--font-size-header: 20px;\n\t--font-size-input: 14px;\n\t--color-background: #fbfcfe;\n\t--color-card-bg: #ffffff;\n\t--color-card-border: #dbdfe7;\n\t--color-card-shadow: rgba(99, 77, 255, 0.06);\n\t--color-header: #525356;\n\t--color-label: #555555;\n\t--color-input-border: #dbdfe7;\n\t--color-focus-border: rgb(90, 76, 194);\n\t--color-submit-btn-bg: #ff6d5a;\n\t--color-submit-btn-text: #ffffff;\n\t--color-error: #ea1f30;\n\t--color-required: #ff6d5a;\n\t--color-html-text: #555;\n\t--color-html-link: #ff6d5a;\n\t--border-radius-card: 8px;\n\t--border-radius-input: 6px;\n\t--container-width: 675px;\n\t--submit-btn-height: 48px;\n\t--box-shadow-card: 0px 4px 16px 0px var(--color-card-shadow);\n}"
           }
         },
-        "id": "69d11689-e3d2-4fd0-8927-c0e95aa13d1c",
+        "id": "6137da57-0398-4c3b-aa82-956540f77561",
         "name": "Select: Visual Style",
         "type": "n8n-nodes-base.form",
         "position": [
-          1968,
-          -272
+          3296,
+          320
         ],
         "typeVersion": 2.3,
         "webhookId": "d1a9f3e2-6666-4abc-8def-000000000006"
@@ -465,12 +465,12 @@
         "parameters": {
           "jsCode": "const styleSelection = $input.first().json;\nconst buildData = $('Build: Diagram Prompt').first().json;\n\n// Extract visual style id from selection (format: \"emoji id — Name\")\nconst visualStyleRaw = styleSelection['Visual Style'] || '';\nconst visualStyleId = visualStyleRaw.replace(/^\\S+\\s+/, '').split(' — ')[0].trim();\nconst visualStyleObj = buildData.visualStyles.find(s => s.id === visualStyleId) || {};\nconst visualStyleName = visualStyleObj.name || visualStyleId;\nconst visualStyleDescription = visualStyleObj.description || '';\n\n// Extract color preset id from selection (format: \"emoji id — Name\")\nconst colorPresetRaw = styleSelection['Color Preset'] || '';\nconst colorPresetId = colorPresetRaw.replace(/^\\S+\\s+/, '').split(' — ')[0].trim();\nconst colorPresetObj = buildData.colorPresets.find(c => c.id === colorPresetId) || {};\nconst colorPresetName = colorPresetObj.name || colorPresetId;\nconst colorPresetDescription = colorPresetObj.description || '';\n\n// Substitute all placeholders — prompt is fully agnostic, all content comes from the datasets\nlet prompt = buildData.promptTemplate;\nprompt = prompt.replace(/\\{\\{DIAGRAM_TYPE\\}\\}/g, buildData.diagramTypeName);\nprompt = prompt.replace(/\\{\\{DIAGRAM_TYPE_DESCRIPTION\\}\\}/g, buildData.diagramTypeDescription + ' ' + buildData.styleHint);\nprompt = prompt.replace(/\\{\\{DIAGRAM_TOPIC\\}\\}/g, buildData.diagramDescription);\nprompt = prompt.replace(/\\{\\{VISUAL_STYLE\\}\\}/g, visualStyleName);\nprompt = prompt.replace(/\\{\\{VISUAL_STYLE_DESCRIPTION\\}\\}/g, visualStyleDescription);\nprompt = prompt.replace(/\\{\\{COLOR_PRESET\\}\\}/g, colorPresetName + ': ' + colorPresetDescription);\nprompt = prompt.replace(/\\{\\{DIAGRAM_CONTEXT\\}\\}/g, buildData.additionalContext);\n\n// Build a concise suggested image prompt (pre-filled in the edit form)\nconst suggestedImagePrompt = `\"${buildData.diagramTypeName} diagram of ${buildData.diagramDescription}. Show at most 4-6 key elements. If flow matters, use A -> B -> C. Style: ${visualStyleName}. Palette: ${colorPresetName}. Clean vector lines, short labels.\"`;\n\nreturn [{\n  diagramTypeId: buildData.diagramTypeId,\n  diagramTypeName: buildData.diagramTypeName,\n  diagramDescription: buildData.diagramDescription,\n  visualStyleId,\n  visualStyleName,\n  colorPresetId,\n  colorPresetName,\n  model: buildData.model,\n  additionalContext: buildData.additionalContext,\n  generatedSystemPrompt: prompt,\n  suggestedImagePrompt\n}];"
         },
-        "id": "30bc8ff1-b41b-4f5f-ab07-6ac72e5cf7c9",
+        "id": "483725bd-359f-4803-9161-33b887019a98",
         "name": "Apply: Style to Prompt",
         "type": "n8n-nodes-base.code",
         "position": [
-          2192,
-          -272
+          3520,
+          320
         ],
         "typeVersion": 2
       },
@@ -492,12 +492,12 @@
           "asBinaryProperty": false,
           "additionalParameters": {}
         },
-        "id": "2d07ef71-a6e7-4971-8d24-6486071cc804",
+        "id": "963e608f-5f28-4896-8eb3-39f703723634",
         "name": "Fetch: Prompt Template",
         "type": "n8n-nodes-base.github",
         "position": [
-          848,
-          -320
+          2176,
+          272
         ],
         "typeVersion": 1,
         "webhookId": "1ff01096-3dbd-4204-ae5e-732fea49b81b",
@@ -526,12 +526,12 @@
           "asBinaryProperty": false,
           "additionalParameters": {}
         },
-        "id": "72e2f753-eec1-41ea-ae51-acae3225e2f7",
+        "id": "79a91eab-ed94-48d4-b936-d184ea3842ed",
         "name": "Fetch: Visual Styles Dataset",
         "type": "n8n-nodes-base.github",
         "position": [
-          848,
-          -128
+          2176,
+          464
         ],
         "typeVersion": 1,
         "webhookId": "1ceb5c45-4e50-4189-8382-44ba07b04cea",
@@ -552,10 +552,10 @@
         "type": "@n8n/n8n-nodes-langchain.agent",
         "typeVersion": 3.1,
         "position": [
-          2416,
-          -272
+          3744,
+          320
         ],
-        "id": "a4b5a26d-83d2-4d0c-aec0-3674454e9d88",
+        "id": "757e67d1-12e0-49ca-94e1-5bc532f20f91",
         "name": "AI Agent"
       },
       {
@@ -567,12 +567,12 @@
             "customCss": ":root {\n\t--font-family: 'Open Sans', sans-serif;\n\t--font-weight-normal: 400;\n\t--font-weight-bold: 600;\n\t--font-size-body: 12px;\n\t--font-size-label: 14px;\n\t--font-size-test-notice: 12px;\n\t--font-size-input: 14px;\n\t--font-size-header: 20px;\n\t--font-size-paragraph: 14px;\n\t--font-size-link: 12px;\n\t--font-size-error: 12px;\n\t--font-size-html-h1: 28px;\n\t--font-size-html-h2: 20px;\n\t--font-size-html-h3: 16px;\n\t--font-size-html-h4: 14px;\n\t--font-size-html-h5: 12px;\n\t--font-size-html-h6: 10px;\n\t--font-size-subheader: 14px;\n\t--color-background: #fbfcfe;\n\t--color-test-notice-text: #e6a23d;\n\t--color-test-notice-bg: #fefaf6;\n\t--color-test-notice-border: #f6dcb7;\n\t--color-card-bg: #ffffff;\n\t--color-card-border: #dbdfe7;\n\t--color-card-shadow: rgba(99, 77, 255, 0.06);\n\t--color-link: #7e8186;\n\t--color-header: #525356;\n\t--color-label: #555555;\n\t--color-input-border: #dbdfe7;\n\t--color-input-text: #71747A;\n\t--color-focus-border: rgb(90, 76, 194);\n\t--color-submit-btn-bg: #ff6d5a;\n\t--color-submit-btn-text: #ffffff;\n\t--color-error: #ea1f30;\n\t--color-required: #ff6d5a;\n\t--color-clear-button-bg: #7e8186;\n\t--color-html-text: #555;\n\t--color-html-link: #ff6d5a;\n\t--color-header-subtext: #7e8186;\n\t--border-radius-card: 8px;\n\t--border-radius-input: 6px;\n\t--border-radius-clear-btn: 50%;\n\t--card-border-radius: 8px;\n\t--padding-container-top: 24px;\n\t--padding-card: 24px;\n\t--padding-test-notice-vertical: 12px;\n\t--padding-test-notice-horizontal: 24px;\n\t--margin-bottom-card: 16px;\n\t--padding-form-input: 12px;\n\t--card-padding: 24px;\n\t--card-margin-bottom: 16px;\n\t--container-width: 675px;\n\t--submit-btn-height: 48px;\n\t--checkbox-size: 18px;\n\t--box-shadow-card: 0px 4px 16px 0px var(--color-card-shadow);\n\t--opacity-placeholder: 0.5;\n}"
           }
         },
-        "id": "2c6b0a55-bb12-41da-ae53-acdddb60ae74",
+        "id": "92e85ea3-5865-42f7-9aeb-cc2664af711e",
         "name": "Select: Diagram Type & Context",
         "type": "n8n-nodes-base.form",
         "position": [
-          1520,
-          -272
+          2848,
+          320
         ],
         "typeVersion": 2.3,
         "webhookId": "d1a9f3e2-2222-4abc-8def-000000000002"
@@ -582,10 +582,10 @@
         "type": "n8n-nodes-base.merge",
         "typeVersion": 3.2,
         "position": [
-          3440,
-          -144
+          4768,
+          448
         ],
-        "id": "c8398b98-c46e-4109-bf8f-37f1adf45f4f",
+        "id": "54aab0bb-68d6-43a6-98c8-3ef25ea5e53d",
         "name": "Merge Prompts"
       },
       {
@@ -595,22 +595,22 @@
         "type": "n8n-nodes-base.merge",
         "typeVersion": 3.2,
         "position": [
-          1072,
-          -304
+          2400,
+          288
         ],
-        "id": "72ba83bd-fef7-4861-93f5-dc4c892d2ed1",
+        "id": "977c16b4-e35b-47b4-bfd8-6c5ed8a20efa",
         "name": "Merge Github"
       },
       {
         "parameters": {
           "jsCode": "const response = $input.first().json;\nconst params = $('Set: Generation Params').first().json;\n\nconst choice = response.choices && response.choices[0];\nif (!choice || !choice.message) {\n  throw new Error('No response from OpenRouter. Response: ' + JSON.stringify(response));\n}\n\nconst msg = choice.message;\nconst imageEntry = msg.images && msg.images[0];\nif (!imageEntry || !imageEntry.image_url || !imageEntry.image_url.url) {\n  throw new Error('No image in OpenRouter response. Message: ' + JSON.stringify(msg));\n}\n\nconst dataUrl = imageEntry.image_url.url;\nconst image = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;\n\nconst fileId = $execution.id + \"_\" + (Math.random() + 1).toString(36).substring(6);\nconst revisedPrompt = params.finalPrompt;\n\nreturn [{\n  image,\n  fileId,\n  revisedPrompt,\n  originalPrompt: params.finalPrompt,\n  model: params.model,\n  diagramTypeName: params.diagramTypeName,\n  visualStyleName: params.visualStyleName,\n  imageSize: params.imageSize,\n  generatedAt: new Date().toISOString()\n}];"
         },
-        "id": "26139e35-c5dd-4f96-9d36-ce6b49bba589",
+        "id": "8464ebab-c320-45e1-9a07-a36ac5fe9e70",
         "name": "Extract: Image",
         "type": "n8n-nodes-base.code",
         "position": [
-          3888,
-          -240
+          5216,
+          352
         ],
         "typeVersion": 2
       },
@@ -671,10 +671,10 @@
         "type": "n8n-nodes-base.dataTable",
         "typeVersion": 1.1,
         "position": [
-          4112,
-          -240
+          5440,
+          352
         ],
-        "id": "43dc9f7a-06a2-40d1-b3c1-f93640a0da8c",
+        "id": "43f4adc7-a4b4-4323-88ce-4e16b5b45f14",
         "name": "Insert Temp File"
       },
       {
@@ -695,12 +695,12 @@
           "asBinaryProperty": false,
           "additionalParameters": {}
         },
-        "id": "2edb7468-b36d-4e8a-9ef7-76c2bbb6833d",
+        "id": "8c35904f-f6c8-4dc6-a494-48cffa2a0152",
         "name": "Fetch: Color Presets Dataset",
         "type": "n8n-nodes-base.github",
         "position": [
-          848,
-          64
+          2176,
+          656
         ],
         "typeVersion": 1,
         "webhookId": "c3d4e5f6-0000-4000-8000-000000000099",
@@ -725,10 +725,10 @@
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
         "position": [
-          3664,
-          -240
+          4992,
+          352
         ],
-        "id": "526e2635-ec63-4b96-b7ea-2f817850180a",
+        "id": "fe4570e9-33b4-4eac-ad26-a07b73213691",
         "name": "generate_image",
         "retryOnFail": true,
         "maxTries": 2,
@@ -748,10 +748,10 @@
         "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
         "typeVersion": 1,
         "position": [
-          2424,
-          -40
+          3752,
+          552
         ],
-        "id": "152f158d-0097-42e5-be9c-efdcf4771750",
+        "id": "5e283418-98fe-43a9-a342-ee9652687d4b",
         "name": "OpenRouter Chat Model",
         "credentials": {
           "openRouterApi": {
@@ -768,10 +768,10 @@
         "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
         "typeVersion": 1,
         "position": [
-          2552,
-          -40
+          3880,
+          552
         ],
-        "id": "73449aea-7a83-404d-8a6a-24e6f9377629",
+        "id": "c751a4b5-8581-48c6-91df-844168252953",
         "name": "OpenRouter Chat Model Fallback",
         "credentials": {
           "openRouterApi": {
@@ -1100,11 +1100,11 @@
     },
     "nodeGroups": [],
     "authors": "no name",
-    "name": "Version 5cd330f6",
+    "name": "Version ef417d3e",
     "description": "",
-    "autosaved": true
+    "autosaved": false
   },
-  "activeVersionId": "5cd330f6-e980-4f28-a91f-a98fbf0222ad",
+  "activeVersionId": "ef417d3e-a8ef-43b1-b311-8574df338b45",
   "connections": {
     "Init: Diagram Generator Form": {
       "main": [
@@ -1448,15 +1448,15 @@
           "customCss": ":root {\n\t--font-family: 'Open Sans', sans-serif;\n\t--font-weight-normal: 400;\n\t--font-weight-bold: 600;\n\t--font-size-body: 12px;\n\t--font-size-label: 14px;\n\t--font-size-test-notice: 12px;\n\t--font-size-input: 14px;\n\t--font-size-header: 20px;\n\t--font-size-paragraph: 14px;\n\t--font-size-link: 12px;\n\t--font-size-error: 12px;\n\t--font-size-html-h1: 28px;\n\t--font-size-html-h2: 20px;\n\t--font-size-html-h3: 16px;\n\t--font-size-html-h4: 14px;\n\t--font-size-html-h5: 12px;\n\t--font-size-html-h6: 10px;\n\t--font-size-subheader: 14px;\n\n\t/* Colors */\n\t--color-background: #fbfcfe;\n\t--color-test-notice-text: #e6a23d;\n\t--color-test-notice-bg: #fefaf6;\n\t--color-test-notice-border: #f6dcb7;\n\t--color-card-bg: #ffffff;\n\t--color-card-border: #dbdfe7;\n\t--color-card-shadow: rgba(99, 77, 255, 0.06);\n\t--color-link: #7e8186;\n\t--color-header: #525356;\n\t--color-label: #555555;\n\t--color-input-border: #dbdfe7;\n\t--color-input-text: #71747A;\n\t--color-focus-border: rgb(90, 76, 194);\n\t--color-submit-btn-bg: #ff6d5a;\n\t--color-submit-btn-text: #ffffff;\n\t--color-error: #ea1f30;\n\t--color-required: #ff6d5a;\n\t--color-clear-button-bg: #7e8186;\n\t--color-html-text: #555;\n\t--color-html-link: #ff6d5a;\n\t--color-header-subtext: #7e8186;\n\n\t/* Border Radii */\n\t--border-radius-card: 8px;\n\t--border-radius-input: 6px;\n\t--border-radius-clear-btn: 50%;\n\t--card-border-radius: 8px;\n\n\t/* Spacing */\n\t--padding-container-top: 24px;\n\t--padding-card: 24px;\n\t--padding-test-notice-vertical: 12px;\n\t--padding-test-notice-horizontal: 24px;\n\t--margin-bottom-card: 16px;\n\t--padding-form-input: 12px;\n\t--card-padding: 24px;\n\t--card-margin-bottom: 16px;\n\n\t/* Dimensions */\n\t--container-width: 675px;\n\t--submit-btn-height: 48px;\n\t--checkbox-size: 18px;\n\n\t/* Others */\n\t--box-shadow-card: 0px 4px 16px 0px var(--color-card-shadow);\n\t--opacity-placeholder: 0.5;\n}\n\ntextarea {\n  min-height: 300px;\n  max-height: 300px;\n}"
         }
       },
-      "id": "1a667f7b-5037-470d-9df0-79609a17dd2c",
+      "id": "93b96807-b168-4f23-92ea-800555768368",
       "name": "Init: Diagram Generator Form",
       "type": "n8n-nodes-base.formTrigger",
       "position": [
-        400,
-        -368
+        1728,
+        224
       ],
       "typeVersion": 2.2,
-      "webhookId": "d4fe75b9-4d8f-4ad7-b79e-68313f31c97f"
+      "webhookId": "23c77d49-080c-4b7c-91d8-3b0ebdc906e7"
     },
     {
       "parameters": {
@@ -1514,12 +1514,12 @@
         },
         "options": {}
       },
-      "id": "01492dc8-aa17-475d-83c2-6a3e3179c277",
+      "id": "af43d9e1-0b13-440c-93d5-79810e0ba0c6",
       "name": "Init: Set GitHub Config",
       "type": "n8n-nodes-base.set",
       "position": [
-        624,
-        -368
+        1952,
+        224
       ],
       "typeVersion": 3.4
     },
@@ -1543,12 +1543,12 @@
           "reference": "={{ $('Init: Set GitHub Config').first().json.githubBranch }}"
         }
       },
-      "id": "3129a8e1-e6bd-47f3-b6a5-92147b937acb",
+      "id": "b8d4e0a3-265f-4eaf-8432-652cac9124b0",
       "name": "Fetch: Diagram Types Dataset",
       "type": "n8n-nodes-base.github",
       "position": [
-        848,
-        -512
+        2176,
+        80
       ],
       "typeVersion": 1,
       "webhookId": "c2877290-e24b-46ae-8798-9097d2b35319",
@@ -1563,12 +1563,12 @@
       "parameters": {
         "jsCode": "// GitHub node returns file content as base64 in $json.content\nconst decode = (b64) => Buffer.from(b64.replace(/\\n/g, ''), 'base64').toString('utf8');\n\nconst diagramTypesRaw = decode($('Fetch: Diagram Types Dataset').first().json.content);\nconst promptTemplate = decode($('Fetch: Prompt Template').first().json.content);\nconst visualStylesRaw = decode($('Fetch: Visual Styles Dataset').first().json.content);\nconst colorPresetsRaw = decode($('Fetch: Color Presets Dataset').first().json.content);\nconst config = $('Init: Set GitHub Config').first().json;\n\nconst diagramTypes = JSON.parse(diagramTypesRaw);\nconst visualStyles = JSON.parse(visualStylesRaw);\nconst colorPresets = JSON.parse(colorPresetsRaw);\n\nreturn [{\n  diagramTypes,\n  visualStyles,\n  colorPresets,\n  promptTemplate,\n  diagramDescription: config.diagramDescription,\n  githubOwner: config.githubOwner,\n  githubRepo: config.githubRepo,\n  githubBranch: config.githubBranch\n}];"
       },
-      "id": "b59b98d5-77ad-4028-82de-e930bda798ca",
+      "id": "c2dc9bcd-f279-4630-a9b2-5d0dd227c85e",
       "name": "Parse: Dataset & Template",
       "type": "n8n-nodes-base.code",
       "position": [
-        1296,
-        -272
+        2624,
+        320
       ],
       "typeVersion": 2
     },
@@ -1576,12 +1576,12 @@
       "parameters": {
         "jsCode": "const selection = $input.first().json;\nconst parsedData = $('Parse: Dataset & Template').first().json;\n\n// Extract diagram type id from the dropdown selection (format: \"emoji id — Name\")\nconst diagramTypeRaw = selection['Diagram Type'] || '';\nconst diagramTypeId = diagramTypeRaw.replace(/^\\S+\\s+/, '').split(' — ')[0].trim();\n\n// Find the full diagram type object\nconst diagramType = parsedData.diagramTypes.find(d => d.id === diagramTypeId) || {};\n\nconst model = selection['Image Generation Model'] || '@openai-aifoundry-swc-001/gpt-image-1';\nconst additionalContext = selection['Additional Context (optional)'] || 'None';\nconst description = parsedData.diagramDescription;\n\n// Filter visual styles compatible with this diagram type\nconst compatibleStyles = parsedData.visualStyles.filter(\n  s => s.compatible_types.includes(diagramTypeId)\n);\n// Fallback: if no compatible styles found, return all styles\nconst visualStyles = compatibleStyles.length > 0 ? compatibleStyles : parsedData.visualStyles;\n\nreturn [{\n  diagramTypeId,\n  diagramTypeName: diagramType.name || diagramTypeId,\n  diagramTypeDescription: diagramType.description || '',\n  styleHint: diagramType.style_hint || '',\n  colorPalette: diagramType.color_palette || 'White background',\n  diagramDescription: description,\n  promptTemplate: parsedData.promptTemplate,\n  model,\n  additionalContext,\n  visualStyles,\n  colorPresets: parsedData.colorPresets\n}];"
       },
-      "id": "52466466-25ed-4d1e-a026-f70dcd6e4f02",
+      "id": "3b4f57c1-c4fa-43e0-b514-bd3c058042f1",
       "name": "Build: Diagram Prompt",
       "type": "n8n-nodes-base.code",
       "position": [
-        1744,
-        -272
+        3072,
+        320
       ],
       "typeVersion": 2
     },
@@ -1678,12 +1678,12 @@
           "customCss": ":root {\n\t--font-family: 'Open Sans', sans-serif;\n\t--font-weight-normal: 400;\n\t--font-weight-bold: 600;\n\t--font-size-body: 12px;\n\t--font-size-label: 14px;\n\t--font-size-test-notice: 12px;\n\t--font-size-input: 14px;\n\t--font-size-header: 20px;\n\t--font-size-paragraph: 14px;\n\t--font-size-link: 12px;\n\t--font-size-error: 12px;\n\t--font-size-html-h1: 28px;\n\t--font-size-html-h2: 20px;\n\t--font-size-html-h3: 16px;\n\t--font-size-html-h4: 14px;\n\t--font-size-html-h5: 12px;\n\t--font-size-html-h6: 10px;\n\t--font-size-subheader: 14px;\n\n\t/* Colors */\n\t--color-background: #fbfcfe;\n\t--color-test-notice-text: #e6a23d;\n\t--color-test-notice-bg: #fefaf6;\n\t--color-test-notice-border: #f6dcb7;\n\t--color-card-bg: #ffffff;\n\t--color-card-border: #dbdfe7;\n\t--color-card-shadow: rgba(99, 77, 255, 0.06);\n\t--color-link: #7e8186;\n\t--color-header: #525356;\n\t--color-label: #555555;\n\t--color-input-border: #dbdfe7;\n\t--color-input-text: #71747A;\n\t--color-focus-border: rgb(90, 76, 194);\n\t--color-submit-btn-bg: #ff6d5a;\n\t--color-submit-btn-text: #ffffff;\n\t--color-error: #ea1f30;\n\t--color-required: #ff6d5a;\n\t--color-clear-button-bg: #7e8186;\n\t--color-html-text: #555;\n\t--color-html-link: #ff6d5a;\n\t--color-header-subtext: #7e8186;\n\n\t/* Border Radii */\n\t--border-radius-card: 8px;\n\t--border-radius-input: 6px;\n\t--border-radius-clear-btn: 50%;\n\t--card-border-radius: 8px;\n\n\t/* Spacing */\n\t--padding-container-top: 24px;\n\t--padding-card: 24px;\n\t--padding-test-notice-vertical: 12px;\n\t--padding-test-notice-horizontal: 24px;\n\t--margin-bottom-card: 16px;\n\t--padding-form-input: 12px;\n\t--card-padding: 24px;\n\t--card-margin-bottom: 16px;\n\n\t/* Dimensions */\n\t--container-width: 675px;\n\t--submit-btn-height: 48px;\n\t--checkbox-size: 18px;\n\n\t/* Others */\n\t--box-shadow-card: 0px 4px 16px 0px var(--color-card-shadow);\n\t--opacity-placeholder: 0.5;\n}\n\ntextarea {\n  min-height: 300px;\n  max-height: 300px;\n}"
         }
       },
-      "id": "0c448700-e549-4ab6-a0c9-17448851a681",
+      "id": "ff134ac8-3dd6-4fb0-9581-8d819dc7b6e9",
       "name": "Edit: Review Generated Prompt",
       "type": "n8n-nodes-base.form",
       "position": [
-        2768,
-        -336
+        4096,
+        256
       ],
       "typeVersion": 2.3,
       "webhookId": "d1a9f3e2-3333-4abc-8def-000000000003"
@@ -1712,12 +1712,12 @@
         },
         "options": {}
       },
-      "id": "c71547ca-a00e-4966-8367-59b4532faeaf",
+      "id": "e79b1717-9762-4be0-a82d-302035c4347f",
       "name": "Retry Prompt?",
       "type": "n8n-nodes-base.if",
       "position": [
-        2992,
-        -336
+        4320,
+        256
       ],
       "typeVersion": 2
     },
@@ -1725,12 +1725,12 @@
       "parameters": {
         "jsCode": "return [$('Apply: Style to Prompt').first().json];"
       },
-      "id": "872a4b6d-365f-4521-a69d-a84acb66ff20",
+      "id": "605128c9-fe5d-45c1-abf4-c3b66ff3b620",
       "name": "Prepare: Prompt Retry",
       "type": "n8n-nodes-base.code",
       "position": [
-        3216,
-        -336
+        4544,
+        256
       ],
       "typeVersion": 2
     },
@@ -1738,12 +1738,12 @@
       "parameters": {
         "jsCode": "const formData = $input.first().json;\nconst applyData = $('Apply: Style to Prompt').first().json;\n\nconst imageSizeLabel = formData['Image Size'];\nconst aspectRatioMatch = imageSizeLabel.match(/^(\\d+:\\d+)/);\nconst imageAspectRatio = aspectRatioMatch ? aspectRatioMatch[1] : null;\n\nreturn [{\n  finalPrompt: formData['Image Prompt'],\n  model: 'google/' + formData['Image Model'],\n  imageSize: imageSizeLabel,\n  imageAspectRatio,\n  imageQuality: formData['Image Quality'],\n  diagramTypeName: applyData.diagramTypeName,\n  visualStyleName: applyData.visualStyleName\n}];"
       },
-      "id": "311c3f0e-865c-438d-8e13-a2be241f3117",
+      "id": "90319c32-04a5-4e25-8e42-aa62e3a68c8d",
       "name": "Set: Generation Params",
       "type": "n8n-nodes-base.code",
       "position": [
-        3216,
-        -144
+        4544,
+        448
       ],
       "typeVersion": 2
     },
@@ -1785,12 +1785,12 @@
           "customCss": ":root {\n\t--font-family: 'Open Sans', sans-serif;\n\t--font-weight-normal: 400;\n\t--font-weight-bold: 600;\n\t--font-size-body: 12px;\n\t--font-size-label: 14px;\n\t--font-size-test-notice: 12px;\n\t--font-size-input: 14px;\n\t--font-size-header: 20px;\n\t--font-size-paragraph: 14px;\n\t--font-size-link: 12px;\n\t--font-size-error: 12px;\n\t--font-size-html-h1: 28px;\n\t--font-size-html-h2: 20px;\n\t--font-size-html-h3: 16px;\n\t--font-size-html-h4: 14px;\n\t--font-size-html-h5: 12px;\n\t--font-size-html-h6: 10px;\n\t--font-size-subheader: 14px;\n\t--color-background: #fbfcfe;\n\t--color-test-notice-text: #e6a23d;\n\t--color-test-notice-bg: #fefaf6;\n\t--color-test-notice-border: #f6dcb7;\n\t--color-card-bg: #ffffff;\n\t--color-card-border: #dbdfe7;\n\t--color-card-shadow: rgba(99, 77, 255, 0.06);\n\t--color-link: #7e8186;\n\t--color-header: #525356;\n\t--color-label: #555555;\n\t--color-input-border: #dbdfe7;\n\t--color-input-text: #71747A;\n\t--color-focus-border: rgb(90, 76, 194);\n\t--color-submit-btn-bg: #ff6d5a;\n\t--color-submit-btn-text: #ffffff;\n\t--color-error: #ea1f30;\n\t--color-required: #ff6d5a;\n\t--color-clear-button-bg: #7e8186;\n\t--color-html-text: #555;\n\t--color-html-link: #ff6d5a;\n\t--color-header-subtext: #7e8186;\n\t--border-radius-card: 8px;\n\t--border-radius-input: 6px;\n\t--border-radius-clear-btn: 50%;\n\t--card-border-radius: 8px;\n\t--padding-container-top: 24px;\n\t--padding-card: 24px;\n\t--padding-test-notice-vertical: 12px;\n\t--padding-test-notice-horizontal: 24px;\n\t--margin-bottom-card: 16px;\n\t--padding-form-input: 12px;\n\t--card-padding: 24px;\n\t--card-margin-bottom: 16px;\n\t--container-width: 675px;\n\t--submit-btn-height: 48px;\n\t--checkbox-size: 18px;\n\t--box-shadow-card: 0px 4px 16px 0px var(--color-card-shadow);\n\t--opacity-placeholder: 0.5;\n}"
         }
       },
-      "id": "155fc6a8-13ae-4ede-a606-89d99eae546f",
+      "id": "821d7236-a62d-4eb5-b463-edaef0b6c52f",
       "name": "Show: Image & Retry Option",
       "type": "n8n-nodes-base.form",
       "position": [
-        4336,
-        -240
+        5664,
+        352
       ],
       "typeVersion": 2.3,
       "webhookId": "d1a9f3e2-4444-4abc-8def-000000000004"
@@ -1819,12 +1819,12 @@
         },
         "options": {}
       },
-      "id": "145ada6a-8ce7-481a-9c3d-5229e6b9ce3c",
+      "id": "202920bc-eda1-43e5-ae02-3980f25a0a7e",
       "name": "Retry?",
       "type": "n8n-nodes-base.if",
       "position": [
-        4560,
-        -240
+        5888,
+        352
       ],
       "typeVersion": 2
     },
@@ -1832,12 +1832,12 @@
       "parameters": {
         "jsCode": "const formData = $input.first().json;\nconst prevParams = $('Set: Generation Params').first().json;\n\nreturn [{\n  finalPrompt: formData['Image Prompt'] || prevParams.finalPrompt,\n  imageSize: prevParams.imageSize,\n  imageAspectRatio: prevParams.imageAspectRatio,\n  imageQuality: prevParams.imageQuality,\n  model: prevParams.model,\n  diagramTypeName: prevParams.diagramTypeName,\n  visualStyleName: prevParams.visualStyleName\n}];"
       },
-      "id": "afcf88d2-d1e0-4bd8-95f6-42033cc86f07",
+      "id": "ef168e83-fa9c-4068-8a0b-13fd60fefac8",
       "name": "Prepare: Retry Params",
       "type": "n8n-nodes-base.code",
       "position": [
-        4784,
-        -224
+        6112,
+        368
       ],
       "typeVersion": 2
     },
@@ -1856,12 +1856,12 @@
           "customCss": ":root {\n\t--font-family: 'Open Sans', sans-serif;\n\t--font-weight-normal: 400;\n\t--font-weight-bold: 600;\n\t--font-size-body: 12px;\n\t--font-size-label: 14px;\n\t--font-size-test-notice: 12px;\n\t--font-size-input: 14px;\n\t--font-size-header: 20px;\n\t--font-size-paragraph: 14px;\n\t--font-size-link: 12px;\n\t--font-size-error: 12px;\n\t--font-size-html-h1: 28px;\n\t--font-size-html-h2: 20px;\n\t--font-size-html-h3: 16px;\n\t--font-size-html-h4: 14px;\n\t--font-size-html-h5: 12px;\n\t--font-size-html-h6: 10px;\n\t--font-size-subheader: 14px;\n\n\t/* Colors */\n\t--color-background: #fbfcfe;\n\t--color-test-notice-text: #e6a23d;\n\t--color-test-notice-bg: #fefaf6;\n\t--color-test-notice-border: #f6dcb7;\n\t--color-card-bg: #ffffff;\n\t--color-card-border: #dbdfe7;\n\t--color-card-shadow: rgba(99, 77, 255, 0.06);\n\t--color-link: #7e8186;\n\t--color-header: #525356;\n\t--color-label: #555555;\n\t--color-input-border: #dbdfe7;\n\t--color-input-text: #71747A;\n\t--color-focus-border: rgb(90, 76, 194);\n\t--color-submit-btn-bg: #ff6d5a;\n\t--color-submit-btn-text: #ffffff;\n\t--color-error: #ea1f30;\n\t--color-required: #ff6d5a;\n\t--color-clear-button-bg: #7e8186;\n\t--color-html-text: #555;\n\t--color-html-link: #ff6d5a;\n\t--color-header-subtext: #7e8186;\n\n\t/* Border Radii */\n\t--border-radius-card: 8px;\n\t--border-radius-input: 6px;\n\t--border-radius-clear-btn: 50%;\n\t--card-border-radius: 8px;\n\n\t/* Spacing */\n\t--padding-container-top: 24px;\n\t--padding-card: 24px;\n\t--padding-test-notice-vertical: 12px;\n\t--padding-test-notice-horizontal: 24px;\n\t--margin-bottom-card: 16px;\n\t--padding-form-input: 12px;\n\t--card-padding: 24px;\n\t--card-margin-bottom: 16px;\n\n\t/* Dimensions */\n\t--container-width: 675px;\n\t--submit-btn-height: 48px;\n\t--checkbox-size: 18px;\n\n\t/* Others */\n\t--box-shadow-card: 0px 4px 16px 0px var(--color-card-shadow);\n\t--opacity-placeholder: 0.5;\n}\n\ntextarea {\n  min-height: 80px;\n  max-height: 80px;\n}\n\ntextarea#field-1 {\n  min-height: 200px;\n  max-height: 200px;\n}"
         }
       },
-      "id": "d6362953-ef52-4dbd-adf2-141313c50935",
+      "id": "89f142c1-e927-4ad3-b6e1-9d6816469c07",
       "name": "End: Diagram Done",
       "type": "n8n-nodes-base.form",
       "position": [
-        4784,
-        -32
+        6112,
+        560
       ],
       "typeVersion": 2.3,
       "webhookId": "d1a9f3e2-5555-4abc-8def-000000000005"
@@ -1876,12 +1876,12 @@
           "customCss": ":root {\n\t--font-family: 'Open Sans', sans-serif;\n\t--font-weight-normal: 400;\n\t--font-weight-bold: 600;\n\t--font-size-body: 12px;\n\t--font-size-label: 14px;\n\t--font-size-header: 20px;\n\t--font-size-input: 14px;\n\t--color-background: #fbfcfe;\n\t--color-card-bg: #ffffff;\n\t--color-card-border: #dbdfe7;\n\t--color-card-shadow: rgba(99, 77, 255, 0.06);\n\t--color-header: #525356;\n\t--color-label: #555555;\n\t--color-input-border: #dbdfe7;\n\t--color-focus-border: rgb(90, 76, 194);\n\t--color-submit-btn-bg: #ff6d5a;\n\t--color-submit-btn-text: #ffffff;\n\t--color-error: #ea1f30;\n\t--color-required: #ff6d5a;\n\t--color-html-text: #555;\n\t--color-html-link: #ff6d5a;\n\t--border-radius-card: 8px;\n\t--border-radius-input: 6px;\n\t--container-width: 675px;\n\t--submit-btn-height: 48px;\n\t--box-shadow-card: 0px 4px 16px 0px var(--color-card-shadow);\n}"
         }
       },
-      "id": "69d11689-e3d2-4fd0-8927-c0e95aa13d1c",
+      "id": "6137da57-0398-4c3b-aa82-956540f77561",
       "name": "Select: Visual Style",
       "type": "n8n-nodes-base.form",
       "position": [
-        1968,
-        -272
+        3296,
+        320
       ],
       "typeVersion": 2.3,
       "webhookId": "d1a9f3e2-6666-4abc-8def-000000000006"
@@ -1890,12 +1890,12 @@
       "parameters": {
         "jsCode": "const styleSelection = $input.first().json;\nconst buildData = $('Build: Diagram Prompt').first().json;\n\n// Extract visual style id from selection (format: \"emoji id — Name\")\nconst visualStyleRaw = styleSelection['Visual Style'] || '';\nconst visualStyleId = visualStyleRaw.replace(/^\\S+\\s+/, '').split(' — ')[0].trim();\nconst visualStyleObj = buildData.visualStyles.find(s => s.id === visualStyleId) || {};\nconst visualStyleName = visualStyleObj.name || visualStyleId;\nconst visualStyleDescription = visualStyleObj.description || '';\n\n// Extract color preset id from selection (format: \"emoji id — Name\")\nconst colorPresetRaw = styleSelection['Color Preset'] || '';\nconst colorPresetId = colorPresetRaw.replace(/^\\S+\\s+/, '').split(' — ')[0].trim();\nconst colorPresetObj = buildData.colorPresets.find(c => c.id === colorPresetId) || {};\nconst colorPresetName = colorPresetObj.name || colorPresetId;\nconst colorPresetDescription = colorPresetObj.description || '';\n\n// Substitute all placeholders — prompt is fully agnostic, all content comes from the datasets\nlet prompt = buildData.promptTemplate;\nprompt = prompt.replace(/\\{\\{DIAGRAM_TYPE\\}\\}/g, buildData.diagramTypeName);\nprompt = prompt.replace(/\\{\\{DIAGRAM_TYPE_DESCRIPTION\\}\\}/g, buildData.diagramTypeDescription + ' ' + buildData.styleHint);\nprompt = prompt.replace(/\\{\\{DIAGRAM_TOPIC\\}\\}/g, buildData.diagramDescription);\nprompt = prompt.replace(/\\{\\{VISUAL_STYLE\\}\\}/g, visualStyleName);\nprompt = prompt.replace(/\\{\\{VISUAL_STYLE_DESCRIPTION\\}\\}/g, visualStyleDescription);\nprompt = prompt.replace(/\\{\\{COLOR_PRESET\\}\\}/g, colorPresetName + ': ' + colorPresetDescription);\nprompt = prompt.replace(/\\{\\{DIAGRAM_CONTEXT\\}\\}/g, buildData.additionalContext);\n\n// Build a concise suggested image prompt (pre-filled in the edit form)\nconst suggestedImagePrompt = `\"${buildData.diagramTypeName} diagram of ${buildData.diagramDescription}. Show at most 4-6 key elements. If flow matters, use A -> B -> C. Style: ${visualStyleName}. Palette: ${colorPresetName}. Clean vector lines, short labels.\"`;\n\nreturn [{\n  diagramTypeId: buildData.diagramTypeId,\n  diagramTypeName: buildData.diagramTypeName,\n  diagramDescription: buildData.diagramDescription,\n  visualStyleId,\n  visualStyleName,\n  colorPresetId,\n  colorPresetName,\n  model: buildData.model,\n  additionalContext: buildData.additionalContext,\n  generatedSystemPrompt: prompt,\n  suggestedImagePrompt\n}];"
       },
-      "id": "30bc8ff1-b41b-4f5f-ab07-6ac72e5cf7c9",
+      "id": "483725bd-359f-4803-9161-33b887019a98",
       "name": "Apply: Style to Prompt",
       "type": "n8n-nodes-base.code",
       "position": [
-        2192,
-        -272
+        3520,
+        320
       ],
       "typeVersion": 2
     },
@@ -1917,12 +1917,12 @@
         "asBinaryProperty": false,
         "additionalParameters": {}
       },
-      "id": "2d07ef71-a6e7-4971-8d24-6486071cc804",
+      "id": "963e608f-5f28-4896-8eb3-39f703723634",
       "name": "Fetch: Prompt Template",
       "type": "n8n-nodes-base.github",
       "position": [
-        848,
-        -320
+        2176,
+        272
       ],
       "typeVersion": 1,
       "webhookId": "1ff01096-3dbd-4204-ae5e-732fea49b81b",
@@ -1951,12 +1951,12 @@
         "asBinaryProperty": false,
         "additionalParameters": {}
       },
-      "id": "72e2f753-eec1-41ea-ae51-acae3225e2f7",
+      "id": "79a91eab-ed94-48d4-b936-d184ea3842ed",
       "name": "Fetch: Visual Styles Dataset",
       "type": "n8n-nodes-base.github",
       "position": [
-        848,
-        -128
+        2176,
+        464
       ],
       "typeVersion": 1,
       "webhookId": "1ceb5c45-4e50-4189-8382-44ba07b04cea",
@@ -1977,10 +1977,10 @@
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3.1,
       "position": [
-        2416,
-        -272
+        3744,
+        320
       ],
-      "id": "a4b5a26d-83d2-4d0c-aec0-3674454e9d88",
+      "id": "757e67d1-12e0-49ca-94e1-5bc532f20f91",
       "name": "AI Agent"
     },
     {
@@ -1992,12 +1992,12 @@
           "customCss": ":root {\n\t--font-family: 'Open Sans', sans-serif;\n\t--font-weight-normal: 400;\n\t--font-weight-bold: 600;\n\t--font-size-body: 12px;\n\t--font-size-label: 14px;\n\t--font-size-test-notice: 12px;\n\t--font-size-input: 14px;\n\t--font-size-header: 20px;\n\t--font-size-paragraph: 14px;\n\t--font-size-link: 12px;\n\t--font-size-error: 12px;\n\t--font-size-html-h1: 28px;\n\t--font-size-html-h2: 20px;\n\t--font-size-html-h3: 16px;\n\t--font-size-html-h4: 14px;\n\t--font-size-html-h5: 12px;\n\t--font-size-html-h6: 10px;\n\t--font-size-subheader: 14px;\n\t--color-background: #fbfcfe;\n\t--color-test-notice-text: #e6a23d;\n\t--color-test-notice-bg: #fefaf6;\n\t--color-test-notice-border: #f6dcb7;\n\t--color-card-bg: #ffffff;\n\t--color-card-border: #dbdfe7;\n\t--color-card-shadow: rgba(99, 77, 255, 0.06);\n\t--color-link: #7e8186;\n\t--color-header: #525356;\n\t--color-label: #555555;\n\t--color-input-border: #dbdfe7;\n\t--color-input-text: #71747A;\n\t--color-focus-border: rgb(90, 76, 194);\n\t--color-submit-btn-bg: #ff6d5a;\n\t--color-submit-btn-text: #ffffff;\n\t--color-error: #ea1f30;\n\t--color-required: #ff6d5a;\n\t--color-clear-button-bg: #7e8186;\n\t--color-html-text: #555;\n\t--color-html-link: #ff6d5a;\n\t--color-header-subtext: #7e8186;\n\t--border-radius-card: 8px;\n\t--border-radius-input: 6px;\n\t--border-radius-clear-btn: 50%;\n\t--card-border-radius: 8px;\n\t--padding-container-top: 24px;\n\t--padding-card: 24px;\n\t--padding-test-notice-vertical: 12px;\n\t--padding-test-notice-horizontal: 24px;\n\t--margin-bottom-card: 16px;\n\t--padding-form-input: 12px;\n\t--card-padding: 24px;\n\t--card-margin-bottom: 16px;\n\t--container-width: 675px;\n\t--submit-btn-height: 48px;\n\t--checkbox-size: 18px;\n\t--box-shadow-card: 0px 4px 16px 0px var(--color-card-shadow);\n\t--opacity-placeholder: 0.5;\n}"
         }
       },
-      "id": "2c6b0a55-bb12-41da-ae53-acdddb60ae74",
+      "id": "92e85ea3-5865-42f7-9aeb-cc2664af711e",
       "name": "Select: Diagram Type & Context",
       "type": "n8n-nodes-base.form",
       "position": [
-        1520,
-        -272
+        2848,
+        320
       ],
       "typeVersion": 2.3,
       "webhookId": "d1a9f3e2-2222-4abc-8def-000000000002"
@@ -2007,10 +2007,10 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
       "position": [
-        3440,
-        -144
+        4768,
+        448
       ],
-      "id": "c8398b98-c46e-4109-bf8f-37f1adf45f4f",
+      "id": "54aab0bb-68d6-43a6-98c8-3ef25ea5e53d",
       "name": "Merge Prompts"
     },
     {
@@ -2020,22 +2020,22 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3.2,
       "position": [
-        1072,
-        -304
+        2400,
+        288
       ],
-      "id": "72ba83bd-fef7-4861-93f5-dc4c892d2ed1",
+      "id": "977c16b4-e35b-47b4-bfd8-6c5ed8a20efa",
       "name": "Merge Github"
     },
     {
       "parameters": {
         "jsCode": "const response = $input.first().json;\nconst params = $('Set: Generation Params').first().json;\n\nconst choice = response.choices && response.choices[0];\nif (!choice || !choice.message) {\n  throw new Error('No response from OpenRouter. Response: ' + JSON.stringify(response));\n}\n\nconst msg = choice.message;\nconst imageEntry = msg.images && msg.images[0];\nif (!imageEntry || !imageEntry.image_url || !imageEntry.image_url.url) {\n  throw new Error('No image in OpenRouter response. Message: ' + JSON.stringify(msg));\n}\n\nconst dataUrl = imageEntry.image_url.url;\nconst image = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;\n\nconst fileId = $execution.id + \"_\" + (Math.random() + 1).toString(36).substring(6);\nconst revisedPrompt = params.finalPrompt;\n\nreturn [{\n  image,\n  fileId,\n  revisedPrompt,\n  originalPrompt: params.finalPrompt,\n  model: params.model,\n  diagramTypeName: params.diagramTypeName,\n  visualStyleName: params.visualStyleName,\n  imageSize: params.imageSize,\n  generatedAt: new Date().toISOString()\n}];"
       },
-      "id": "26139e35-c5dd-4f96-9d36-ce6b49bba589",
+      "id": "8464ebab-c320-45e1-9a07-a36ac5fe9e70",
       "name": "Extract: Image",
       "type": "n8n-nodes-base.code",
       "position": [
-        3888,
-        -240
+        5216,
+        352
       ],
       "typeVersion": 2
     },
@@ -2096,10 +2096,10 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
       "position": [
-        4112,
-        -240
+        5440,
+        352
       ],
-      "id": "43dc9f7a-06a2-40d1-b3c1-f93640a0da8c",
+      "id": "43f4adc7-a4b4-4323-88ce-4e16b5b45f14",
       "name": "Insert Temp File"
     },
     {
@@ -2120,12 +2120,12 @@
         "asBinaryProperty": false,
         "additionalParameters": {}
       },
-      "id": "2edb7468-b36d-4e8a-9ef7-76c2bbb6833d",
+      "id": "8c35904f-f6c8-4dc6-a494-48cffa2a0152",
       "name": "Fetch: Color Presets Dataset",
       "type": "n8n-nodes-base.github",
       "position": [
-        848,
-        64
+        2176,
+        656
       ],
       "typeVersion": 1,
       "webhookId": "c3d4e5f6-0000-4000-8000-000000000099",
@@ -2150,10 +2150,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        3664,
-        -240
+        4992,
+        352
       ],
-      "id": "526e2635-ec63-4b96-b7ea-2f817850180a",
+      "id": "fe4570e9-33b4-4eac-ad26-a07b73213691",
       "name": "generate_image",
       "retryOnFail": true,
       "maxTries": 2,
@@ -2173,10 +2173,10 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
       "typeVersion": 1,
       "position": [
-        2424,
-        -40
+        3752,
+        552
       ],
-      "id": "152f158d-0097-42e5-be9c-efdcf4771750",
+      "id": "5e283418-98fe-43a9-a342-ee9652687d4b",
       "name": "OpenRouter Chat Model",
       "credentials": {
         "openRouterApi": {
@@ -2193,10 +2193,10 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
       "typeVersion": 1,
       "position": [
-        2552,
-        -40
+        3880,
+        552
       ],
-      "id": "73449aea-7a83-404d-8a6a-24e6f9377629",
+      "id": "c751a4b5-8581-48c6-91df-844168252953",
       "name": "OpenRouter Chat Model Fallback",
       "credentials": {
         "openRouterApi": {
@@ -2223,6 +2223,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 1,
-  "updatedAt": "2026-07-26T14:13:09.815Z",
-  "versionId": "5cd330f6-e980-4f28-a91f-a98fbf0222ad"
+  "updatedAt": "2026-07-27T19:05:31.295Z",
+  "versionId": "ef417d3e-a8ef-43b1-b311-8574df338b45"
 }

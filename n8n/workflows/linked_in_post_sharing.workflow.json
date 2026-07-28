@@ -1,9 +1,9 @@
 {
   "active": true,
   "activeVersion": {
-    "updatedAt": "2026-07-26T17:21:00.876Z",
-    "createdAt": "2026-07-26T17:20:57.413Z",
-    "versionId": "ccf204e4-cf6b-4643-b477-d563b275fee6",
+    "updatedAt": "2026-07-27T19:45:30.505Z",
+    "createdAt": "2026-07-27T19:45:19.499Z",
+    "versionId": "4f6d0976-0831-4d9b-939c-00cf5bd7f355",
     "workflowId": "oxARWWyxenKgmv6A",
     "nodes": [
       {
@@ -63,10 +63,10 @@
         "type": "n8n-nodes-base.switch",
         "typeVersion": 3.2,
         "position": [
-          8272,
-          -416
+          9248,
+          -1264
         ],
-        "id": "4b742835-c0e4-48d4-afe3-eaa18d0c5234",
+        "id": "acba55e8-5c20-43d1-bd5d-2cf52fb0a890",
         "name": "switch_user_accept"
       },
       {
@@ -86,19 +86,19 @@
         "type": "n8n-nodes-base.set",
         "typeVersion": 3.4,
         "position": [
-          9168,
-          -592
+          10144,
+          -1440
         ],
-        "id": "52e95220-4a1b-451d-b353-f8bb67cafe87",
+        "id": "fae60bb3-a2b5-44dc-8683-b1b857840466",
         "name": "set_error_cancelled"
       },
       {
         "parameters": {
           "workflowId": {
             "__rl": true,
-            "value": "qUfjfWLGEjV96ljf",
+            "value": "09xEuVQj207pjK4x",
             "mode": "list",
-            "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
+            "cachedResultUrl": "/workflow/09xEuVQj207pjK4x",
             "cachedResultName": "Download Content"
           },
           "workflowInputs": {
@@ -117,8 +117,7 @@
                 "defaultMatch": false,
                 "display": true,
                 "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               }
             ],
             "attemptToConvertTypes": false,
@@ -131,10 +130,10 @@
         "type": "n8n-nodes-base.executeWorkflow",
         "typeVersion": 1.2,
         "position": [
-          7152,
-          -448
+          8128,
+          -1296
         ],
-        "id": "281f262b-a49a-4ae5-8ec7-a347b8efeea1",
+        "id": "849ebad2-6f59-447b-be3d-7b8337c4c31c",
         "name": "download_content"
       },
       {
@@ -173,10 +172,10 @@
         "type": "n8n-nodes-base.switch",
         "typeVersion": 3.2,
         "position": [
-          7600,
-          -512
+          8576,
+          -1360
         ],
-        "id": "fa2b4e25-6f7e-4e7c-a531-5011f985a2a2",
+        "id": "82b9e00d-9401-4121-8b73-ea3539a2ca29",
         "name": "check_subworkflow_error"
       },
       {
@@ -191,7 +190,7 @@
           "workflowInputs": {
             "mappingMode": "defineBelow",
             "value": {
-              "MAX_WORDS": "={{ $('select_article_to_post').item.json.MAX_WORDS || 300 }}",
+              "MAX_WORDS": "={{ $('select_article_to_post').item.json.MAX_WORDS.toNumber() || 300 }}",
               "URL": "={{ $('select_article_to_post').item.json.URL }}",
               "EXTRA_PROMPT": "={{ $('select_article_to_post').item.json.EXTRA_PROMPT }}",
               "CONTENT": "={{ $('download_content').item.json.contentMkdown }}",
@@ -256,10 +255,10 @@
         "type": "n8n-nodes-base.executeWorkflow",
         "typeVersion": 1.2,
         "position": [
-          7376,
-          -448
+          8352,
+          -1296
         ],
-        "id": "ad490fa9-6df9-42ed-a207-25868fe4a39d",
+        "id": "207084a5-9b0d-4935-8031-08d9df8c49f3",
         "name": "execute_post_creator",
         "notesInFlow": false
       },
@@ -289,10 +288,10 @@
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
         "position": [
-          6480,
-          -448
+          7456,
+          -1296
         ],
-        "id": "20f6727d-e1f6-433e-9e9a-cd4e4161ece3",
+        "id": "8b44d543-1399-4d6d-963e-79877bf80aaf",
         "name": "read_articles_sheet",
         "credentials": {
           "googleSheetsOAuth2Api": {
@@ -308,10 +307,10 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          6704,
-          -448
+          7680,
+          -1296
         ],
-        "id": "b3088b5a-8df7-4ff0-ac0a-5c572fcdc263",
+        "id": "b5d6ca82-1834-47f4-a4b8-f381b8eee95c",
         "name": "select_article_to_post"
       },
       {
@@ -331,10 +330,10 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          9392,
-          -688
+          10368,
+          -1536
         ],
-        "id": "783a2cf3-a323-4c68-bfd2-10edea59b294",
+        "id": "9ea4a15e-fc97-4739-9565-ad8ebd7dd549",
         "name": "send_error_notification",
         "webhookId": "faa5f272-06d5-4d4d-ad75-e17f49c6fbc8",
         "credentials": {
@@ -401,10 +400,10 @@
         "type": "n8n-nodes-base.switch",
         "typeVersion": 3.2,
         "position": [
-          8720,
-          -592
+          9696,
+          -1440
         ],
-        "id": "bc5639d4-e726-4145-b4f9-999934e7151c",
+        "id": "c9cb5037-af75-49bc-b0c2-42e3845de3cc",
         "name": "switch_user_retry"
       },
       {
@@ -432,10 +431,10 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          8496,
-          -592
+          9472,
+          -1440
         ],
-        "id": "8bed5417-dced-4989-84c1-30b3243530c0",
+        "id": "b67e019a-5801-4c03-87f1-239b8b318b48",
         "name": "notification_retry_or_cancel",
         "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
         "credentials": {
@@ -468,10 +467,10 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          8048,
-          -416
+          9024,
+          -1264
         ],
-        "id": "40d1dbaf-9968-4c34-934b-bf7d492e0b1a",
+        "id": "dfb12e7f-5e44-4289-8db5-7f5828eb503f",
         "name": "notification_accept",
         "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
         "credentials": {
@@ -707,10 +706,10 @@
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
         "position": [
-          7824,
-          -416
+          8800,
+          -1264
         ],
-        "id": "0c8e6e1a-aa72-4a1b-974a-2acfff727424",
+        "id": "ace4c6c2-2206-408e-b9b4-7b1b303593a7",
         "name": "update_status_waiting_approval",
         "credentials": {
           "googleSheetsOAuth2Api": {
@@ -946,10 +945,10 @@
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
         "position": [
-          8944,
-          -592
+          9920,
+          -1440
         ],
-        "id": "fa844545-1795-4136-82b1-fa545b75da10",
+        "id": "4d7064b7-28ec-4e35-8272-bea3223f4823",
         "name": "update_status_cancelled",
         "credentials": {
           "googleSheetsOAuth2Api": {
@@ -1185,10 +1184,10 @@
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
         "position": [
-          6928,
-          -448
+          7904,
+          -1296
         ],
-        "id": "579f8845-af0e-46bf-8928-ec7a32b193e8",
+        "id": "1ca5acfc-27a9-4516-8b82-055e51aafa44",
         "name": "update_status_in_progress",
         "credentials": {
           "googleSheetsOAuth2Api": {
@@ -1206,10 +1205,10 @@
         "type": "n8n-nodes-base.stickyNote",
         "typeVersion": 1,
         "position": [
-          6688,
-          -944
+          7664,
+          -1792
         ],
-        "id": "0570ab37-0c1f-4b77-8f55-d5b15e176f10",
+        "id": "3286d8e2-96ec-4c86-bd6f-2354d54844c3",
         "name": "Sticky Note",
         "disabled": true
       },
@@ -1218,10 +1217,10 @@
         "type": "n8n-nodes-base.manualTrigger",
         "typeVersion": 1,
         "position": [
-          6256,
-          -352
+          7232,
+          -1200
         ],
-        "id": "18374c94-03fa-4e39-85ad-60ad5972cb8c",
+        "id": "56d87db9-17ea-429a-a8e5-4e640f7a42cb",
         "name": "click_trigger"
       },
       {
@@ -1242,10 +1241,10 @@
         "type": "n8n-nodes-base.scheduleTrigger",
         "typeVersion": 1.2,
         "position": [
-          6256,
-          -544
+          7232,
+          -1392
         ],
-        "id": "affcb6d5-870f-4d9c-b251-87f67411607b",
+        "id": "607d252b-5ec8-4a44-9e88-bca212d50472",
         "name": "schedule_trigger",
         "notes": "Mon 16:00, Wed 10:30, Fri 10:30 Europe/Madrid - even 2-day spacing so posts never compete.\nWed gets the prime 10-12 slot because it is the strongest B2B day. Fri keeps the morning, since Friday afternoon is the weakest slot of the week.\nMon 16:00 is 10:00 US Eastern: Monday morning is the weaker half of the EU window, so it is the cheapest slot to spend testing whether your audience is actually US. Compare LINKEDIN_URL engagement after 8-10 weeks and move it if not."
       },
@@ -1477,10 +1476,10 @@
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
         "position": [
-          8944,
-          -784
+          9920,
+          -1632
         ],
-        "id": "0de0113b-26f7-430b-ab84-53911f52904e",
+        "id": "680f517e-f663-464f-b76e-59d07609a84b",
         "name": "update_status_error",
         "credentials": {
           "googleSheetsOAuth2Api": {
@@ -1506,10 +1505,10 @@
         "type": "n8n-nodes-base.set",
         "typeVersion": 3.4,
         "position": [
-          9168,
-          -784
+          10144,
+          -1632
         ],
-        "id": "32bdb90c-eb73-43fb-a4c2-dc21c413cf49",
+        "id": "586cb1f4-eed0-4a12-aa2a-9cc895b6d335",
         "name": "set_error_error"
       },
       {
@@ -1525,10 +1524,10 @@
         "type": "n8n-nodes-base.linkedIn",
         "typeVersion": 1,
         "position": [
-          9840,
-          -448
+          10816,
+          -1296
         ],
-        "id": "464da8d8-0743-41d7-a52f-b60cdd894aa2",
+        "id": "7331acf8-870a-42eb-8579-dcd40443bc14",
         "name": "send_2_linkedin_omImage",
         "credentials": {
           "linkedInOAuth2Api": {
@@ -1554,10 +1553,10 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          10064,
-          -448
+          11040,
+          -1296
         ],
-        "id": "6f8d77c8-9dcf-476c-957d-64750d41f3c9",
+        "id": "74d854ca-5ef2-4ee9-bf0b-d11034fdb6d1",
         "name": "send_published_notification_a",
         "webhookId": "faa5f272-06d5-4d4d-ad75-e17f49c6fbc8",
         "credentials": {
@@ -1795,10 +1794,10 @@
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
         "position": [
-          10288,
-          -448
+          11264,
+          -1296
         ],
-        "id": "8287b17f-db01-46df-9b04-f469eefe8da8",
+        "id": "d45c6035-4747-411b-bca4-55016e74a523",
         "name": "update_status_published_a",
         "credentials": {
           "googleSheetsOAuth2Api": {
@@ -1843,10 +1842,10 @@
         "type": "n8n-nodes-base.switch",
         "typeVersion": 3.2,
         "position": [
-          8720,
-          -400
+          9696,
+          -1248
         ],
-        "id": "1b0a21e7-408c-44f2-a8d5-663bfc4881e2",
+        "id": "0ccd00e1-3a39-42c3-a1eb-275faa38f03f",
         "name": "check_subworkflow_error_image"
       },
       {
@@ -1872,10 +1871,10 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          9392,
-          -352
+          10368,
+          -1200
         ],
-        "id": "638fc8f9-7e5b-4952-b565-1a6a1f09e99c",
+        "id": "d01b9e6b-29bd-402e-b9c2-c1159d16a0eb",
         "name": "notification_accept_image",
         "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
         "credentials": {
@@ -1942,10 +1941,10 @@
         "type": "n8n-nodes-base.switch",
         "typeVersion": 3.2,
         "position": [
-          9616,
-          -352
+          10592,
+          -1200
         ],
-        "id": "68149631-bfb8-4c90-a129-0daa6566a2f2",
+        "id": "52c0a91c-9177-4e0a-964f-f2185b85ec79",
         "name": "switch_user_accept_image"
       },
       {
@@ -1973,10 +1972,10 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          9840,
-          -256
+          10816,
+          -1104
         ],
-        "id": "9a7f9f7c-ac38-4871-aac9-b3b88347cb66",
+        "id": "2df5a6bd-a5ff-4183-ada3-11fa6be0d89e",
         "name": "notification_retry_or_cancel_image",
         "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
         "credentials": {
@@ -2023,10 +2022,10 @@
         "type": "n8n-nodes-base.executeWorkflow",
         "typeVersion": 1.3,
         "position": [
-          8496,
-          -320
+          9472,
+          -1168
         ],
-        "id": "35b6bd81-077c-4fd7-aa47-9020746baaa9",
+        "id": "cbc71ef1-d419-4061-a021-76f006f28fc8",
         "name": "execute_image_creator"
       },
       {
@@ -2086,10 +2085,10 @@
         "type": "n8n-nodes-base.switch",
         "typeVersion": 3.2,
         "position": [
-          10064,
-          -176
+          11040,
+          -1024
         ],
-        "id": "57d35f48-b6ad-41a0-b83a-9c9aef6790d0",
+        "id": "b2f9c476-7c18-4f44-8b36-9b0c52b075d3",
         "name": "switch_user_retry_image"
       },
       {
@@ -2103,10 +2102,10 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          9168,
-          -352
+          10144,
+          -1200
         ],
-        "id": "c5a2f765-f902-4fa1-b072-649f1cc3c95a",
+        "id": "accdc9ba-b83e-4e00-bd9c-9cd9ec72f91a",
         "name": "notification_sent_image",
         "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
         "credentials": {
@@ -2123,10 +2122,10 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          8944,
-          -352
+          9920,
+          -1200
         ],
-        "id": "ee17af7d-9518-4f57-9ca2-0e53ac69c51e",
+        "id": "18443e35-2d6e-4cb1-88f7-bfde843e8c76",
         "name": "convert_image"
       }
     ],
@@ -2466,11 +2465,11 @@
     },
     "nodeGroups": [],
     "authors": "no name",
-    "name": "Version ccf204e4",
+    "name": "Version 4f6d0976",
     "description": "",
     "autosaved": true
   },
-  "activeVersionId": "ccf204e4-cf6b-4643-b477-d563b275fee6",
+  "activeVersionId": "4f6d0976-0831-4d9b-939c-00cf5bd7f355",
   "connections": {
     "switch_user_accept": {
       "main": [
@@ -2871,10 +2870,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        8272,
-        -416
+        9248,
+        -1264
       ],
-      "id": "4b742835-c0e4-48d4-afe3-eaa18d0c5234",
+      "id": "acba55e8-5c20-43d1-bd5d-2cf52fb0a890",
       "name": "switch_user_accept"
     },
     {
@@ -2894,19 +2893,19 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        9168,
-        -592
+        10144,
+        -1440
       ],
-      "id": "52e95220-4a1b-451d-b353-f8bb67cafe87",
+      "id": "fae60bb3-a2b5-44dc-8683-b1b857840466",
       "name": "set_error_cancelled"
     },
     {
       "parameters": {
         "workflowId": {
           "__rl": true,
-          "value": "qUfjfWLGEjV96ljf",
+          "value": "09xEuVQj207pjK4x",
           "mode": "list",
-          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
+          "cachedResultUrl": "/workflow/09xEuVQj207pjK4x",
           "cachedResultName": "Download Content"
         },
         "workflowInputs": {
@@ -2925,8 +2924,7 @@
               "defaultMatch": false,
               "display": true,
               "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             }
           ],
           "attemptToConvertTypes": false,
@@ -2939,10 +2937,10 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        7152,
-        -448
+        8128,
+        -1296
       ],
-      "id": "281f262b-a49a-4ae5-8ec7-a347b8efeea1",
+      "id": "849ebad2-6f59-447b-be3d-7b8337c4c31c",
       "name": "download_content"
     },
     {
@@ -2981,10 +2979,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        7600,
-        -512
+        8576,
+        -1360
       ],
-      "id": "fa2b4e25-6f7e-4e7c-a531-5011f985a2a2",
+      "id": "82b9e00d-9401-4121-8b73-ea3539a2ca29",
       "name": "check_subworkflow_error"
     },
     {
@@ -2999,7 +2997,7 @@
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "MAX_WORDS": "={{ $('select_article_to_post').item.json.MAX_WORDS || 300 }}",
+            "MAX_WORDS": "={{ $('select_article_to_post').item.json.MAX_WORDS.toNumber() || 300 }}",
             "URL": "={{ $('select_article_to_post').item.json.URL }}",
             "EXTRA_PROMPT": "={{ $('select_article_to_post').item.json.EXTRA_PROMPT }}",
             "CONTENT": "={{ $('download_content').item.json.contentMkdown }}",
@@ -3064,10 +3062,10 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        7376,
-        -448
+        8352,
+        -1296
       ],
-      "id": "ad490fa9-6df9-42ed-a207-25868fe4a39d",
+      "id": "207084a5-9b0d-4935-8031-08d9df8c49f3",
       "name": "execute_post_creator",
       "notesInFlow": false
     },
@@ -3097,10 +3095,10 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
       "position": [
-        6480,
-        -448
+        7456,
+        -1296
       ],
-      "id": "20f6727d-e1f6-433e-9e9a-cd4e4161ece3",
+      "id": "8b44d543-1399-4d6d-963e-79877bf80aaf",
       "name": "read_articles_sheet",
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -3116,10 +3114,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        6704,
-        -448
+        7680,
+        -1296
       ],
-      "id": "b3088b5a-8df7-4ff0-ac0a-5c572fcdc263",
+      "id": "b5d6ca82-1834-47f4-a4b8-f381b8eee95c",
       "name": "select_article_to_post"
     },
     {
@@ -3139,10 +3137,10 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        9392,
-        -688
+        10368,
+        -1536
       ],
-      "id": "783a2cf3-a323-4c68-bfd2-10edea59b294",
+      "id": "9ea4a15e-fc97-4739-9565-ad8ebd7dd549",
       "name": "send_error_notification",
       "webhookId": "faa5f272-06d5-4d4d-ad75-e17f49c6fbc8",
       "credentials": {
@@ -3209,10 +3207,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        8720,
-        -592
+        9696,
+        -1440
       ],
-      "id": "bc5639d4-e726-4145-b4f9-999934e7151c",
+      "id": "c9cb5037-af75-49bc-b0c2-42e3845de3cc",
       "name": "switch_user_retry"
     },
     {
@@ -3240,10 +3238,10 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        8496,
-        -592
+        9472,
+        -1440
       ],
-      "id": "8bed5417-dced-4989-84c1-30b3243530c0",
+      "id": "b67e019a-5801-4c03-87f1-239b8b318b48",
       "name": "notification_retry_or_cancel",
       "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
       "credentials": {
@@ -3276,10 +3274,10 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        8048,
-        -416
+        9024,
+        -1264
       ],
-      "id": "40d1dbaf-9968-4c34-934b-bf7d492e0b1a",
+      "id": "dfb12e7f-5e44-4289-8db5-7f5828eb503f",
       "name": "notification_accept",
       "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
       "credentials": {
@@ -3515,10 +3513,10 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
       "position": [
-        7824,
-        -416
+        8800,
+        -1264
       ],
-      "id": "0c8e6e1a-aa72-4a1b-974a-2acfff727424",
+      "id": "ace4c6c2-2206-408e-b9b4-7b1b303593a7",
       "name": "update_status_waiting_approval",
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -3754,10 +3752,10 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
       "position": [
-        8944,
-        -592
+        9920,
+        -1440
       ],
-      "id": "fa844545-1795-4136-82b1-fa545b75da10",
+      "id": "4d7064b7-28ec-4e35-8272-bea3223f4823",
       "name": "update_status_cancelled",
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -3993,10 +3991,10 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
       "position": [
-        6928,
-        -448
+        7904,
+        -1296
       ],
-      "id": "579f8845-af0e-46bf-8928-ec7a32b193e8",
+      "id": "1ca5acfc-27a9-4516-8b82-055e51aafa44",
       "name": "update_status_in_progress",
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -4014,10 +4012,10 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        6688,
-        -944
+        7664,
+        -1792
       ],
-      "id": "0570ab37-0c1f-4b77-8f55-d5b15e176f10",
+      "id": "3286d8e2-96ec-4c86-bd6f-2354d54844c3",
       "name": "Sticky Note",
       "disabled": true
     },
@@ -4026,10 +4024,10 @@
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
       "position": [
-        6256,
-        -352
+        7232,
+        -1200
       ],
-      "id": "18374c94-03fa-4e39-85ad-60ad5972cb8c",
+      "id": "56d87db9-17ea-429a-a8e5-4e640f7a42cb",
       "name": "click_trigger"
     },
     {
@@ -4050,10 +4048,10 @@
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
-        6256,
-        -544
+        7232,
+        -1392
       ],
-      "id": "affcb6d5-870f-4d9c-b251-87f67411607b",
+      "id": "607d252b-5ec8-4a44-9e88-bca212d50472",
       "name": "schedule_trigger",
       "notes": "Mon 16:00, Wed 10:30, Fri 10:30 Europe/Madrid - even 2-day spacing so posts never compete.\nWed gets the prime 10-12 slot because it is the strongest B2B day. Fri keeps the morning, since Friday afternoon is the weakest slot of the week.\nMon 16:00 is 10:00 US Eastern: Monday morning is the weaker half of the EU window, so it is the cheapest slot to spend testing whether your audience is actually US. Compare LINKEDIN_URL engagement after 8-10 weeks and move it if not."
     },
@@ -4285,10 +4283,10 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
       "position": [
-        8944,
-        -784
+        9920,
+        -1632
       ],
-      "id": "0de0113b-26f7-430b-ab84-53911f52904e",
+      "id": "680f517e-f663-464f-b76e-59d07609a84b",
       "name": "update_status_error",
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -4314,10 +4312,10 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        9168,
-        -784
+        10144,
+        -1632
       ],
-      "id": "32bdb90c-eb73-43fb-a4c2-dc21c413cf49",
+      "id": "586cb1f4-eed0-4a12-aa2a-9cc895b6d335",
       "name": "set_error_error"
     },
     {
@@ -4333,10 +4331,10 @@
       "type": "n8n-nodes-base.linkedIn",
       "typeVersion": 1,
       "position": [
-        9840,
-        -448
+        10816,
+        -1296
       ],
-      "id": "464da8d8-0743-41d7-a52f-b60cdd894aa2",
+      "id": "7331acf8-870a-42eb-8579-dcd40443bc14",
       "name": "send_2_linkedin_omImage",
       "credentials": {
         "linkedInOAuth2Api": {
@@ -4362,10 +4360,10 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        10064,
-        -448
+        11040,
+        -1296
       ],
-      "id": "6f8d77c8-9dcf-476c-957d-64750d41f3c9",
+      "id": "74d854ca-5ef2-4ee9-bf0b-d11034fdb6d1",
       "name": "send_published_notification_a",
       "webhookId": "faa5f272-06d5-4d4d-ad75-e17f49c6fbc8",
       "credentials": {
@@ -4603,10 +4601,10 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
       "position": [
-        10288,
-        -448
+        11264,
+        -1296
       ],
-      "id": "8287b17f-db01-46df-9b04-f469eefe8da8",
+      "id": "d45c6035-4747-411b-bca4-55016e74a523",
       "name": "update_status_published_a",
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -4651,10 +4649,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        8720,
-        -400
+        9696,
+        -1248
       ],
-      "id": "1b0a21e7-408c-44f2-a8d5-663bfc4881e2",
+      "id": "0ccd00e1-3a39-42c3-a1eb-275faa38f03f",
       "name": "check_subworkflow_error_image"
     },
     {
@@ -4680,10 +4678,10 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        9392,
-        -352
+        10368,
+        -1200
       ],
-      "id": "638fc8f9-7e5b-4952-b565-1a6a1f09e99c",
+      "id": "d01b9e6b-29bd-402e-b9c2-c1159d16a0eb",
       "name": "notification_accept_image",
       "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
       "credentials": {
@@ -4750,10 +4748,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        9616,
-        -352
+        10592,
+        -1200
       ],
-      "id": "68149631-bfb8-4c90-a129-0daa6566a2f2",
+      "id": "52c0a91c-9177-4e0a-964f-f2185b85ec79",
       "name": "switch_user_accept_image"
     },
     {
@@ -4781,10 +4779,10 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        9840,
-        -256
+        10816,
+        -1104
       ],
-      "id": "9a7f9f7c-ac38-4871-aac9-b3b88347cb66",
+      "id": "2df5a6bd-a5ff-4183-ada3-11fa6be0d89e",
       "name": "notification_retry_or_cancel_image",
       "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
       "credentials": {
@@ -4831,10 +4829,10 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
       "position": [
-        8496,
-        -320
+        9472,
+        -1168
       ],
-      "id": "35b6bd81-077c-4fd7-aa47-9020746baaa9",
+      "id": "cbc71ef1-d419-4061-a021-76f006f28fc8",
       "name": "execute_image_creator"
     },
     {
@@ -4894,10 +4892,10 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        10064,
-        -176
+        11040,
+        -1024
       ],
-      "id": "57d35f48-b6ad-41a0-b83a-9c9aef6790d0",
+      "id": "b2f9c476-7c18-4f44-8b36-9b0c52b075d3",
       "name": "switch_user_retry_image"
     },
     {
@@ -4911,10 +4909,10 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        9168,
-        -352
+        10144,
+        -1200
       ],
-      "id": "c5a2f765-f902-4fa1-b072-649f1cc3c95a",
+      "id": "accdc9ba-b83e-4e00-bd9c-9cd9ec72f91a",
       "name": "notification_sent_image",
       "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
       "credentials": {
@@ -4931,10 +4929,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        8944,
-        -352
+        9920,
+        -1200
       ],
-      "id": "ee17af7d-9518-4f57-9ca2-0e53ac69c51e",
+      "id": "18443e35-2d6e-4cb1-88f7-bfde843e8c76",
       "name": "convert_image"
     }
   ],
@@ -4974,6 +4972,6 @@
   },
   "tags": [],
   "triggerCount": 1,
-  "updatedAt": "2026-07-26T17:20:56.543Z",
-  "versionId": "ccf204e4-cf6b-4643-b477-d563b275fee6"
+  "updatedAt": "2026-07-27T19:45:18.493Z",
+  "versionId": "4f6d0976-0831-4d9b-939c-00cf5bd7f355"
 }

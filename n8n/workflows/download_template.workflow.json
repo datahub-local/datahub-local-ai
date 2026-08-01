@@ -1,9 +1,9 @@
 {
   "active": true,
   "activeVersion": {
-    "updatedAt": "2026-07-25T15:26:36.709Z",
-    "createdAt": "2026-07-25T15:26:32.091Z",
-    "versionId": "44c024d1-10e1-4b7d-9851-32acd22300f4",
+    "updatedAt": "2026-07-28T14:52:26.096Z",
+    "createdAt": "2026-07-28T14:52:23.258Z",
+    "versionId": "7fa420ab-c536-4bda-b7bc-088ec02ff77a",
     "workflowId": "qUfjfWLGEjV96ljf",
     "nodes": [
       {
@@ -31,13 +31,13 @@
               {
                 "id": "338bd03e-28a3-4fd7-9c38-a3db158bebe6",
                 "name": "template_name",
-                "value": "={{ $json.template_name || 'prompts/linkedin_post_review.md' }}",
+                "value": "={{ $json.template_name }}",
                 "type": "string"
               },
               {
                 "id": "d8be99d5-516c-496a-9138-39704db8b53c",
                 "name": "template_vars",
-                "value": "={{ $json.template_vars || {\"RULES\":\"SOME_RULES\",\"EXTRA_PROMPT\":\"SDOME_EXTRA_PROMPT\",\"URL\":\"SOME_URL\",\"TEXT\":\"SOME_TEXT\"} }}",
+                "value": "={{ $json.template_vars }}",
                 "type": "object"
               }
             ]
@@ -365,11 +365,11 @@
     },
     "nodeGroups": [],
     "authors": "no name",
-    "name": "Version 44c024d1",
+    "name": "Version 7fa420ab",
     "description": "",
     "autosaved": true
   },
-  "activeVersionId": "44c024d1-10e1-4b7d-9851-32acd22300f4",
+  "activeVersionId": "7fa420ab-c536-4bda-b7bc-088ec02ff77a",
   "connections": {
     "setVars": {
       "main": [
@@ -512,13 +512,13 @@
             {
               "id": "338bd03e-28a3-4fd7-9c38-a3db158bebe6",
               "name": "template_name",
-              "value": "={{ $json.template_name || 'prompts/linkedin_post_review.md' }}",
+              "value": "={{ $json.template_name }}",
               "type": "string"
             },
             {
               "id": "d8be99d5-516c-496a-9138-39704db8b53c",
               "name": "template_vars",
-              "value": "={{ $json.template_vars || {\"RULES\":\"SOME_RULES\",\"EXTRA_PROMPT\":\"SDOME_EXTRA_PROMPT\",\"URL\":\"SOME_URL\",\"TEXT\":\"SOME_TEXT\"} }}",
+              "value": "={{ $json.template_vars }}",
               "type": "object"
             }
           ]
@@ -754,6 +754,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 0,
-  "updatedAt": "2026-07-25T15:26:31.330Z",
-  "versionId": "44c024d1-10e1-4b7d-9851-32acd22300f4"
+  "updatedAt": "2026-07-28T14:52:22.529Z",
+  "versionId": "7fa420ab-c536-4bda-b7bc-088ec02ff77a"
 }

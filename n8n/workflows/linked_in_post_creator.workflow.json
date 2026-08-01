@@ -1,9 +1,9 @@
 {
   "active": true,
   "activeVersion": {
-    "updatedAt": "2026-07-27T19:03:46.770Z",
-    "createdAt": "2026-07-27T19:03:44.537Z",
-    "versionId": "0791a63c-f0c3-4c1d-a93f-2e5c2a28fecc",
+    "updatedAt": "2026-07-28T15:30:14.670Z",
+    "createdAt": "2026-07-28T15:30:12.585Z",
+    "versionId": "562f27dd-5d91-4676-9b86-cc0ae0283544",
     "workflowId": "PaeHFdCsdoVbQx11",
     "nodes": [
       {
@@ -23,7 +23,7 @@
         "typeVersion": 1.6,
         "position": [
           -13504,
-          -112
+          -256
         ],
         "id": "de842925-bb7b-4a11-ac2c-0679b712e8ef",
         "name": "create_post_ai",
@@ -42,7 +42,7 @@
         "typeVersion": 1.6,
         "position": [
           -12480,
-          -96
+          -240
         ],
         "id": "0794e0e1-d2dd-4369-9cac-78ad9f521206",
         "name": "check_rules_llm",
@@ -108,7 +108,7 @@
         "typeVersion": 3.2,
         "position": [
           -11904,
-          -48
+          -192
         ],
         "id": "a86a1206-d9c1-461a-9ace-35c1dc37b825",
         "name": "switch_check_rules_llm"
@@ -131,33 +131,10 @@
         "typeVersion": 3.4,
         "position": [
           -11680,
-          16
+          -128
         ],
         "id": "036ce387-b418-4bc7-8630-94368d5700d8",
         "name": "set_error_max_tries"
-      },
-      {
-        "parameters": {
-          "assignments": {
-            "assignments": [
-              {
-                "id": "7f8f3783-1e58-470f-8731-866fff1519a3",
-                "name": "text",
-                "value": "={{ /<output>([\\s\\S]*?)<\\/output>/.exec($json.text)?.[1].trim().replace(\"SOME_URL\", $('set_workflow_vars').item.json.URL) || $json.text }}",
-                "type": "string"
-              }
-            ]
-          },
-          "options": {}
-        },
-        "type": "n8n-nodes-base.set",
-        "typeVersion": 3.4,
-        "position": [
-          -13152,
-          -176
-        ],
-        "id": "357b0adc-9b94-4ef8-9580-3abbf08425c5",
-        "name": "parse_llm_output"
       },
       {
         "parameters": {
@@ -220,7 +197,7 @@
         "typeVersion": 3.4,
         "position": [
           -14976,
-          -112
+          -256
         ],
         "id": "a0120c89-7629-4a60-ba8e-6604e198eb53",
         "name": "set_workflow_vars"
@@ -233,7 +210,7 @@
         "typeVersion": 2,
         "position": [
           -14176,
-          -112
+          -256
         ],
         "id": "212ae89d-b1fd-499d-8f30-f17111353230",
         "name": "set_variety_directives"
@@ -245,7 +222,7 @@
               {
                 "id": "2b0bc19a-ed15-45a0-9022-a59e2c9e56d1",
                 "name": "text",
-                "value": "={{ $('parse_llm_output').item.json.text }}",
+                "value": "={{ $('parse_llm_output').item.json.result }}",
                 "type": "string"
               },
               {
@@ -262,7 +239,7 @@
         "typeVersion": 3.4,
         "position": [
           -11680,
-          -208
+          -352
         ],
         "id": "c1844ccd-2127-44f2-a1ea-d3412f1d422f",
         "name": "set_output"
@@ -271,9 +248,9 @@
         "parameters": {
           "workflowId": {
             "__rl": true,
-            "value": "09xEuVQj207pjK4x",
+            "value": "qUfjfWLGEjV96ljf",
             "mode": "list",
-            "cachedResultUrl": "/workflow/09xEuVQj207pjK4x",
+            "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
             "cachedResultName": "DownloadTemplate"
           },
           "workflowInputs": {
@@ -312,7 +289,7 @@
         "typeVersion": 1.2,
         "position": [
           -13952,
-          -112
+          -256
         ],
         "id": "959e1616-3f0c-45dc-b2ef-cf183af86653",
         "name": "download_post_prompt"
@@ -321,16 +298,16 @@
         "parameters": {
           "workflowId": {
             "__rl": true,
-            "value": "09xEuVQj207pjK4x",
+            "value": "qUfjfWLGEjV96ljf",
             "mode": "list",
-            "cachedResultUrl": "/workflow/09xEuVQj207pjK4x",
+            "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
             "cachedResultName": "DownloadTemplate"
           },
           "workflowInputs": {
             "mappingMode": "defineBelow",
             "value": {
-              "template_vars": "={{ {} }}",
-              "template_name": "prompts/linkedin_post_system.md"
+              "template_name": "=prompts/linkedin_post_system.md",
+              "template_vars": "={{ {} }}"
             },
             "matchingColumns": [],
             "schema": [
@@ -362,7 +339,7 @@
         "typeVersion": 1.2,
         "position": [
           -13728,
-          -112
+          -256
         ],
         "id": "89f441d7-5398-4fbf-bfc8-e68d42dae509",
         "name": "download_post_system_prompt"
@@ -371,8 +348,9 @@
         "parameters": {
           "workflowId": {
             "__rl": true,
-            "value": "09xEuVQj207pjK4x",
+            "value": "qUfjfWLGEjV96ljf",
             "mode": "list",
+            "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
             "cachedResultName": "DownloadTemplate"
           },
           "workflowInputs": {
@@ -411,7 +389,7 @@
         "typeVersion": 1.2,
         "position": [
           -12704,
-          -96
+          -240
         ],
         "id": "a0825044-1f75-4239-9231-b66f6698209d",
         "name": "download_post_review_prompt"
@@ -460,7 +438,7 @@
         "typeVersion": 1.2,
         "position": [
           -15200,
-          -112
+          -256
         ],
         "id": "fd123587-b93e-4fc2-b5d7-dbaecfc510e3",
         "name": "download_post_rules_prompt"
@@ -492,7 +470,7 @@
         "typeVersion": 1.1,
         "position": [
           -15424,
-          -112
+          -256
         ],
         "id": "58a56b7c-8215-4abc-9501-614d2550227b",
         "name": "main_trigger"
@@ -505,7 +483,7 @@
         "typeVersion": 2,
         "position": [
           -12128,
-          -96
+          -240
         ],
         "id": "1bf53426-c786-4ed2-a576-7c3e7635c0d4",
         "name": "parse_llm_check_output"
@@ -540,7 +518,7 @@
         "typeVersion": 2.2,
         "position": [
           -12928,
-          -176
+          -320
         ],
         "id": "aaad4b15-51ef-4db7-9b42-c69e7aa5d899",
         "name": "if_enabled_check"
@@ -555,8 +533,8 @@
         "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
         "typeVersion": 1,
         "position": [
-          -14400,
-          128
+          -14392,
+          -24
         ],
         "id": "7caabe89-97dc-42da-b8cb-77fda330a8de",
         "name": "ai_model_fallback",
@@ -571,10 +549,10 @@
         "parameters": {
           "workflowId": {
             "__rl": true,
-            "value": "09xEuVQj207pjK4x",
+            "value": "qUfjfWLGEjV96ljf",
             "mode": "list",
-            "cachedResultName": "DownloadTemplate",
-            "cachedResultUrl": "/workflow/09xEuVQj207pjK4x"
+            "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
+            "cachedResultName": "DownloadTemplate"
           },
           "workflowInputs": {
             "mappingMode": "defineBelow",
@@ -612,7 +590,7 @@
         "typeVersion": 1.2,
         "position": [
           -14752,
-          -112
+          -256
         ],
         "id": "fdaf2345-c57d-47fa-92a0-84acb0215690",
         "name": "download_post_classify_prompt"
@@ -627,7 +605,7 @@
         "typeVersion": 1.6,
         "position": [
           -14528,
-          -112
+          -256
         ],
         "id": "ec85f01c-0312-4824-9740-fdcfbf3bf8ce",
         "name": "classify_content",
@@ -645,8 +623,8 @@
         "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
         "typeVersion": 1,
         "position": [
-          -14528,
-          128
+          -14520,
+          -24
         ],
         "id": "685dfd6c-b22c-4a1e-a5a6-7607e192d537",
         "name": "ai_model",
@@ -656,6 +634,19 @@
             "name": "OpenRouter account"
           }
         }
+      },
+      {
+        "parameters": {
+          "jsCode": "// n8n Code node — mode: \"Run Once for Each Item\"\n\nconst url = $('set_workflow_vars').item.json.URL;\nconst text = $json.text;\n\n// Pull the <output>...</output> block; fall back to the whole text if absent\nconst match = /<output>([\\s\\S]*?)<\\/output>/.exec(text);\nlet result = match ? match[1].trim() : text;\n\n// Apply the two replacements (function form = $-safe URLs)\nresult = result\n  .replace(/(Source here: ).*/g, (m, p1) => p1 + url)\n  .replace(/(.*): SOME_URL/g,   (m, p1) => p1 + ': ' + url);\n\nreturn { json: { ...$json, result } };"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -13152,
+          -320
+        ],
+        "id": "1e3dab4d-0995-48fc-a610-f40269048274",
+        "name": "parse_llm_output"
       }
     ],
     "connections": {
@@ -700,17 +691,6 @@
           [
             {
               "node": "create_post_ai",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "parse_llm_output": {
-        "main": [
-          [
-            {
-              "node": "if_enabled_check",
               "type": "main",
               "index": 0
             }
@@ -886,15 +866,26 @@
             }
           ]
         ]
+      },
+      "parse_llm_output": {
+        "main": [
+          [
+            {
+              "node": "if_enabled_check",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
       }
     },
     "nodeGroups": [],
     "authors": "no name",
-    "name": "Version 0791a63c",
+    "name": "Version 562f27dd",
     "description": "",
     "autosaved": true
   },
-  "activeVersionId": "0791a63c-f0c3-4c1d-a93f-2e5c2a28fecc",
+  "activeVersionId": "562f27dd-5d91-4676-9b86-cc0ae0283544",
   "connections": {
     "create_post_ai": {
       "main": [
@@ -937,17 +928,6 @@
         [
           {
             "node": "create_post_ai",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "parse_llm_output": {
-      "main": [
-        [
-          {
-            "node": "if_enabled_check",
             "type": "main",
             "index": 0
           }
@@ -1123,6 +1103,17 @@
           }
         ]
       ]
+    },
+    "parse_llm_output": {
+      "main": [
+        [
+          {
+            "node": "if_enabled_check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "createdAt": "2025-05-21T14:27:03.290Z",
@@ -1151,7 +1142,7 @@
       "typeVersion": 1.6,
       "position": [
         -13504,
-        -112
+        -256
       ],
       "id": "de842925-bb7b-4a11-ac2c-0679b712e8ef",
       "name": "create_post_ai",
@@ -1170,7 +1161,7 @@
       "typeVersion": 1.6,
       "position": [
         -12480,
-        -96
+        -240
       ],
       "id": "0794e0e1-d2dd-4369-9cac-78ad9f521206",
       "name": "check_rules_llm",
@@ -1236,7 +1227,7 @@
       "typeVersion": 3.2,
       "position": [
         -11904,
-        -48
+        -192
       ],
       "id": "a86a1206-d9c1-461a-9ace-35c1dc37b825",
       "name": "switch_check_rules_llm"
@@ -1259,33 +1250,10 @@
       "typeVersion": 3.4,
       "position": [
         -11680,
-        16
+        -128
       ],
       "id": "036ce387-b418-4bc7-8630-94368d5700d8",
       "name": "set_error_max_tries"
-    },
-    {
-      "parameters": {
-        "assignments": {
-          "assignments": [
-            {
-              "id": "7f8f3783-1e58-470f-8731-866fff1519a3",
-              "name": "text",
-              "value": "={{ /<output>([\\s\\S]*?)<\\/output>/.exec($json.text)?.[1].trim().replace(\"SOME_URL\", $('set_workflow_vars').item.json.URL) || $json.text }}",
-              "type": "string"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        -13152,
-        -176
-      ],
-      "id": "357b0adc-9b94-4ef8-9580-3abbf08425c5",
-      "name": "parse_llm_output"
     },
     {
       "parameters": {
@@ -1348,7 +1316,7 @@
       "typeVersion": 3.4,
       "position": [
         -14976,
-        -112
+        -256
       ],
       "id": "a0120c89-7629-4a60-ba8e-6604e198eb53",
       "name": "set_workflow_vars"
@@ -1361,7 +1329,7 @@
       "typeVersion": 2,
       "position": [
         -14176,
-        -112
+        -256
       ],
       "id": "212ae89d-b1fd-499d-8f30-f17111353230",
       "name": "set_variety_directives"
@@ -1373,7 +1341,7 @@
             {
               "id": "2b0bc19a-ed15-45a0-9022-a59e2c9e56d1",
               "name": "text",
-              "value": "={{ $('parse_llm_output').item.json.text }}",
+              "value": "={{ $('parse_llm_output').item.json.result }}",
               "type": "string"
             },
             {
@@ -1390,7 +1358,7 @@
       "typeVersion": 3.4,
       "position": [
         -11680,
-        -208
+        -352
       ],
       "id": "c1844ccd-2127-44f2-a1ea-d3412f1d422f",
       "name": "set_output"
@@ -1399,9 +1367,9 @@
       "parameters": {
         "workflowId": {
           "__rl": true,
-          "value": "09xEuVQj207pjK4x",
+          "value": "qUfjfWLGEjV96ljf",
           "mode": "list",
-          "cachedResultUrl": "/workflow/09xEuVQj207pjK4x",
+          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
           "cachedResultName": "DownloadTemplate"
         },
         "workflowInputs": {
@@ -1440,7 +1408,7 @@
       "typeVersion": 1.2,
       "position": [
         -13952,
-        -112
+        -256
       ],
       "id": "959e1616-3f0c-45dc-b2ef-cf183af86653",
       "name": "download_post_prompt"
@@ -1449,16 +1417,16 @@
       "parameters": {
         "workflowId": {
           "__rl": true,
-          "value": "09xEuVQj207pjK4x",
+          "value": "qUfjfWLGEjV96ljf",
           "mode": "list",
-          "cachedResultUrl": "/workflow/09xEuVQj207pjK4x",
+          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
           "cachedResultName": "DownloadTemplate"
         },
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "template_vars": "={{ {} }}",
-            "template_name": "prompts/linkedin_post_system.md"
+            "template_name": "=prompts/linkedin_post_system.md",
+            "template_vars": "={{ {} }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -1490,7 +1458,7 @@
       "typeVersion": 1.2,
       "position": [
         -13728,
-        -112
+        -256
       ],
       "id": "89f441d7-5398-4fbf-bfc8-e68d42dae509",
       "name": "download_post_system_prompt"
@@ -1499,8 +1467,9 @@
       "parameters": {
         "workflowId": {
           "__rl": true,
-          "value": "09xEuVQj207pjK4x",
+          "value": "qUfjfWLGEjV96ljf",
           "mode": "list",
+          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
           "cachedResultName": "DownloadTemplate"
         },
         "workflowInputs": {
@@ -1539,7 +1508,7 @@
       "typeVersion": 1.2,
       "position": [
         -12704,
-        -96
+        -240
       ],
       "id": "a0825044-1f75-4239-9231-b66f6698209d",
       "name": "download_post_review_prompt"
@@ -1588,7 +1557,7 @@
       "typeVersion": 1.2,
       "position": [
         -15200,
-        -112
+        -256
       ],
       "id": "fd123587-b93e-4fc2-b5d7-dbaecfc510e3",
       "name": "download_post_rules_prompt"
@@ -1620,7 +1589,7 @@
       "typeVersion": 1.1,
       "position": [
         -15424,
-        -112
+        -256
       ],
       "id": "58a56b7c-8215-4abc-9501-614d2550227b",
       "name": "main_trigger"
@@ -1633,7 +1602,7 @@
       "typeVersion": 2,
       "position": [
         -12128,
-        -96
+        -240
       ],
       "id": "1bf53426-c786-4ed2-a576-7c3e7635c0d4",
       "name": "parse_llm_check_output"
@@ -1668,7 +1637,7 @@
       "typeVersion": 2.2,
       "position": [
         -12928,
-        -176
+        -320
       ],
       "id": "aaad4b15-51ef-4db7-9b42-c69e7aa5d899",
       "name": "if_enabled_check"
@@ -1683,8 +1652,8 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
       "typeVersion": 1,
       "position": [
-        -14400,
-        128
+        -14392,
+        -24
       ],
       "id": "7caabe89-97dc-42da-b8cb-77fda330a8de",
       "name": "ai_model_fallback",
@@ -1699,10 +1668,10 @@
       "parameters": {
         "workflowId": {
           "__rl": true,
-          "value": "09xEuVQj207pjK4x",
+          "value": "qUfjfWLGEjV96ljf",
           "mode": "list",
-          "cachedResultName": "DownloadTemplate",
-          "cachedResultUrl": "/workflow/09xEuVQj207pjK4x"
+          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
+          "cachedResultName": "DownloadTemplate"
         },
         "workflowInputs": {
           "mappingMode": "defineBelow",
@@ -1740,7 +1709,7 @@
       "typeVersion": 1.2,
       "position": [
         -14752,
-        -112
+        -256
       ],
       "id": "fdaf2345-c57d-47fa-92a0-84acb0215690",
       "name": "download_post_classify_prompt"
@@ -1755,7 +1724,7 @@
       "typeVersion": 1.6,
       "position": [
         -14528,
-        -112
+        -256
       ],
       "id": "ec85f01c-0312-4824-9740-fdcfbf3bf8ce",
       "name": "classify_content",
@@ -1773,8 +1742,8 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
       "typeVersion": 1,
       "position": [
-        -14528,
-        128
+        -14520,
+        -24
       ],
       "id": "685dfd6c-b22c-4a1e-a5a6-7607e192d537",
       "name": "ai_model",
@@ -1784,6 +1753,19 @@
           "name": "OpenRouter account"
         }
       }
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n Code node — mode: \"Run Once for Each Item\"\n\nconst url = $('set_workflow_vars').item.json.URL;\nconst text = $json.text;\n\n// Pull the <output>...</output> block; fall back to the whole text if absent\nconst match = /<output>([\\s\\S]*?)<\\/output>/.exec(text);\nlet result = match ? match[1].trim() : text;\n\n// Apply the two replacements (function form = $-safe URLs)\nresult = result\n  .replace(/(Source here: ).*/g, (m, p1) => p1 + url)\n  .replace(/(.*): SOME_URL/g,   (m, p1) => p1 + ': ' + url);\n\nreturn { json: { ...$json, result } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -13152,
+        -320
+      ],
+      "id": "1e3dab4d-0995-48fc-a610-f40269048274",
+      "name": "parse_llm_output"
     }
   ],
   "pinData": {},
@@ -1806,6 +1788,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 0,
-  "updatedAt": "2026-07-27T19:03:43.573Z",
-  "versionId": "0791a63c-f0c3-4c1d-a93f-2e5c2a28fecc"
+  "updatedAt": "2026-07-28T15:30:11.810Z",
+  "versionId": "562f27dd-5d91-4676-9b86-cc0ae0283544"
 }

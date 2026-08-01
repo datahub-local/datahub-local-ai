@@ -1,9 +1,9 @@
 {
   "active": true,
   "activeVersion": {
-    "updatedAt": "2026-07-27T19:04:29.088Z",
-    "createdAt": "2026-07-27T19:04:27.937Z",
-    "versionId": "75efc707-ba95-4ce2-8795-0d5b95695590",
+    "updatedAt": "2026-07-28T15:02:46.918Z",
+    "createdAt": "2026-07-28T15:02:38.378Z",
+    "versionId": "372c404a-aacd-437a-869e-24967e97fd72",
     "workflowId": "a9tFFs8qkRu8taC2",
     "nodes": [
       {
@@ -112,9 +112,9 @@
         "parameters": {
           "workflowId": {
             "__rl": true,
-            "value": "09xEuVQj207pjK4x",
+            "value": "qUfjfWLGEjV96ljf",
             "mode": "list",
-            "cachedResultUrl": "/workflow/09xEuVQj207pjK4x",
+            "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
             "cachedResultName": "DownloadTemplate"
           },
           "workflowInputs": {
@@ -455,11 +455,11 @@
     },
     "nodeGroups": [],
     "authors": "no name",
-    "name": "Version 75efc707",
+    "name": "Version 372c404a",
     "description": "",
-    "autosaved": false
+    "autosaved": true
   },
-  "activeVersionId": "75efc707-ba95-4ce2-8795-0d5b95695590",
+  "activeVersionId": "372c404a-aacd-437a-869e-24967e97fd72",
   "connections": {
     "set_workflow_vars": {
       "main": [
@@ -694,9 +694,9 @@
       "parameters": {
         "workflowId": {
           "__rl": true,
-          "value": "09xEuVQj207pjK4x",
+          "value": "qUfjfWLGEjV96ljf",
           "mode": "list",
-          "cachedResultUrl": "/workflow/09xEuVQj207pjK4x",
+          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
           "cachedResultName": "DownloadTemplate"
         },
         "workflowInputs": {
@@ -936,6 +936,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 0,
-  "updatedAt": "2026-07-27T19:04:26.972Z",
-  "versionId": "75efc707-ba95-4ce2-8795-0d5b95695590"
+  "updatedAt": "2026-07-28T15:02:37.637Z",
+  "versionId": "372c404a-aacd-437a-869e-24967e97fd72"
 }

@@ -26,7 +26,7 @@
                 "id": "ab94d0a1-ef3a-4fe9-9076-6882c6fda0ac",
                 "name": "repo_path",
                 "type": "string",
-                "value": "=n8n"
+                "value": "={{ ($env[\"BACKUP_GITHUB_REPO_PATH\"] || \"agents/n8n\").replace(/\\/+$/, \"\") }}"
               },
               {
                 "id": "338bd03e-28a3-4fd7-9c38-a3db158bebe6",
@@ -507,7 +507,7 @@
               "id": "ab94d0a1-ef3a-4fe9-9076-6882c6fda0ac",
               "name": "repo_path",
               "type": "string",
-              "value": "=n8n"
+              "value": "={{ ($env[\"BACKUP_GITHUB_REPO_PATH\"] || \"agents/n8n\").replace(/\\/+$/, \"\") }}"
             },
             {
               "id": "338bd03e-28a3-4fd7-9c38-a3db158bebe6",

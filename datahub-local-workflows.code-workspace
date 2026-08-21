@@ -6,7 +6,7 @@
     },
     {
       "name": "n8n",
-      "path": "n8n"
+      "path": "agents/n8n"
     },
     {
       "name": "airflow",

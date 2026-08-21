@@ -64,25 +64,25 @@
               {
                 "id": "assign-006",
                 "name": "promptPath",
-                "value": "n8n/prompts/diagram_generator.md",
+                "value": "={{ ($env[\"BACKUP_GITHUB_REPO_PATH\"] || \"agents/n8n\").replace(/\\/+$/, \"\") }}/prompts/diagram_generator.md",
                 "type": "string"
               },
               {
                 "id": "assign-005",
                 "name": "typesDatasetPath",
-                "value": "n8n/datasets/diagram_types.json",
+                "value": "={{ ($env[\"BACKUP_GITHUB_REPO_PATH\"] || \"agents/n8n\").replace(/\\/+$/, \"\") }}/datasets/diagram_types.json",
                 "type": "string"
               },
               {
                 "id": "assign-007",
                 "name": "stylesDatasetPath",
-                "value": "n8n/datasets/diagram_visual_styles.json",
+                "value": "={{ ($env[\"BACKUP_GITHUB_REPO_PATH\"] || \"agents/n8n\").replace(/\\/+$/, \"\") }}/datasets/diagram_visual_styles.json",
                 "type": "string"
               },
               {
                 "id": "assign-008",
                 "name": "colorPresetsDatasetPath",
-                "value": "n8n/datasets/diagram_color_presets.json",
+                "value": "={{ ($env[\"BACKUP_GITHUB_REPO_PATH\"] || \"agents/n8n\").replace(/\\/+$/, \"\") }}/datasets/diagram_color_presets.json",
                 "type": "string"
               }
             ]
@@ -1489,25 +1489,25 @@
             {
               "id": "assign-006",
               "name": "promptPath",
-              "value": "n8n/prompts/diagram_generator.md",
+              "value": "={{ ($env[\"BACKUP_GITHUB_REPO_PATH\"] || \"agents/n8n\").replace(/\\/+$/, \"\") }}/prompts/diagram_generator.md",
               "type": "string"
             },
             {
               "id": "assign-005",
               "name": "typesDatasetPath",
-              "value": "n8n/datasets/diagram_types.json",
+              "value": "={{ ($env[\"BACKUP_GITHUB_REPO_PATH\"] || \"agents/n8n\").replace(/\\/+$/, \"\") }}/datasets/diagram_types.json",
               "type": "string"
             },
             {
               "id": "assign-007",
               "name": "stylesDatasetPath",
-              "value": "n8n/datasets/diagram_visual_styles.json",
+              "value": "={{ ($env[\"BACKUP_GITHUB_REPO_PATH\"] || \"agents/n8n\").replace(/\\/+$/, \"\") }}/datasets/diagram_visual_styles.json",
               "type": "string"
             },
             {
               "id": "assign-008",
               "name": "colorPresetsDatasetPath",
-              "value": "n8n/datasets/diagram_color_presets.json",
+              "value": "={{ ($env[\"BACKUP_GITHUB_REPO_PATH\"] || \"agents/n8n\").replace(/\\/+$/, \"\") }}/datasets/diagram_color_presets.json",
               "type": "string"
             }
           ]

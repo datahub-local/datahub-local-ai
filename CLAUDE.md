@@ -4,13 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository overview
 
-A monorepo of data workflow definitions for a local/homelab Datahub stack. Five separate sub-projects; the Python ones have their own `pyproject.toml` and `uv` environment:
+A monorepo of data workflow definitions for a local/homelab Datahub stack. Sub-projects are grouped by what they are: `agents/` holds AI agent definitions, `workflows/` holds the data pipelines and the dashboards built on them. The Python ones have their own `pyproject.toml` and `uv` environment:
 
+- `agents/n8n/` — n8n workflow JSON exports, LLM prompt templates and JSON config datasets (no Python code); see [n8n workflows](#n8n-workflows)
+- `agents/sympozium/` — placeholder, no content yet
+- `workflows/airflow/` — Airflow DAGs that orchestrate the dlt + dbt tasks via Kubernetes pods
 - `workflows/dbt/` — dbt Core pipelines on **Trino** (homelab) / **DuckDB** (local), Iceberg + Apache Polaris, medallion architecture; a thin Python `dbt_runner` wraps `dbt build`
 - `workflows/dlt/` — [dlt](https://dlthub.com) ingest/export pipelines (CSV → bronze; silver/gold → Postgres) that run *around* dbt
-- `workflows/airflow/` — Airflow DAGs that orchestrate the dlt + dbt tasks via Kubernetes pods
-- `n8n/` — n8n workflow JSON exports, LLM prompt templates and JSON config datasets (no Python code); see [n8n workflows](#n8n-workflows)
-- `superset/` — Superset dashboard export bundles per project (`superset/projects/<name>/dashboard_export/` YAML) plus a Helm release (`superset/release/`) that ships them as ConfigMaps labeled `superset_dashboard=1` for the dashboard sidecar in datahub-local-core. After editing YAML: `python3 superset/scripts/build_bundles.py` rebuilds the reproducible zips under `release/files/`, then `helmfile apply` from `superset/release/` deploys them. Object `uuid`s are the stable identity across re-imports — never regenerate them once deployed.
+- `workflows/superset/` — Superset dashboard export bundles per project (`workflows/superset/projects/<name>/dashboard_export/` YAML) plus a Helm release (`workflows/superset/release/`) that ships them as ConfigMaps labeled `superset_dashboard=1` for the dashboard sidecar in datahub-local-core. After editing YAML: `python3 workflows/superset/scripts/build_bundles.py` rebuilds the reproducible zips under `release/files/`, then `helmfile apply` from `workflows/superset/release/` deploys them. Object `uuid`s are the stable identity across re-imports — never regenerate them once deployed.
 
 ## Naming conventions
 
@@ -144,10 +145,10 @@ Trino and DuckDB both have real catalogs, so each medallion layer is its own cat
 
 ### n8n workflows
 
-`n8n/` holds no code that runs in this repo — it is the **git mirror of a live n8n instance**. The `Backup N8N Workflows` workflow (`X0gxarZXHgGj5fl5`) reads every workflow through the n8n API and commits it back here, so the repo is a backup *and* the source the workflows read their prompts and configs from at runtime.
+`agents/n8n/` holds no code that runs in this repo — it is the **git mirror of a live n8n instance**. The `Backup N8N Workflows` workflow (`X0gxarZXHgGj5fl5`) reads every workflow through the n8n API and commits it back here, so the repo is a backup *and* the source the workflows read their prompts and configs from at runtime.
 
 ```
-n8n/
+agents/n8n/
   workflows/   <snake_case_name>.workflow.json   full n8n export, one file per workflow
   prompts/     <domain>_<step>.md                LLM prompt templates with {{ VAR }} placeholders
   datasets/    <domain>_<thing>.json             tuning knobs / reference data, no secrets
@@ -182,11 +183,11 @@ Long-running workflows open with a `set` node named `set_workflow_vars` (`includ
 - Model ids live here (`MODEL`, `MODEL_FALLBACK`, `MODEL_BULK`) and are wired to the LLM nodes by expression, so swapping a model is a one-node edit.
 - n8n *instance* variables (`$vars`) are deliberately unused — everything is `$env` or a dataset file, so config is reviewable in git.
 
-Env vars in use on the n8n pod: `BACKUP_GITHUB_REPO_OWNER`, `BACKUP_GITHUB_REPO_NAME`, `BACKUP_GITHUB_REPO_PATH`, `N8N_API_URL`, `MINIFLUX_URL`, `MINIFLUX_API_USER`, `MINIFLUX_API_PASSWORD`. **Secrets never go in the JSON** — credentials are referenced by n8n credential name only (`Slack account`, `GitHub account`, `OpenRouter account`, …).
+Env vars in use on the n8n pod: `BACKUP_GITHUB_REPO_OWNER`, `BACKUP_GITHUB_REPO_NAME`, `BACKUP_GITHUB_REPO_PATH` (the repo folder the mirror lives in — `agents/n8n`; it is the **only** place that path is configured, both for the backup commits and for every runtime prompt/dataset fetch), `N8N_API_URL`, `MINIFLUX_URL`, `MINIFLUX_API_USER`, `MINIFLUX_API_PASSWORD`. **Secrets never go in the JSON** — credentials are referenced by n8n credential name only (`Slack account`, `GitHub account`, `OpenRouter account`, …).
 
 #### Prompts and datasets are fetched at runtime, not embedded
 
-No workflow inlines a prompt. `DownloadTemplate` (`09xEuVQj207pjK4x`) is called as a sub-workflow with `{template_name, template_vars}`, pulls `n8n/<template_name>` from GitHub, substitutes `{{ VAR }}` placeholders and returns `{output}`. It **fails loudly** — `check_template_vars_present` diffs the placeholders found in the file against the keys supplied and routes to `stop_and_error` listing the missing ones.
+No workflow inlines a prompt. `DownloadTemplate` (`09xEuVQj207pjK4x`) is called as a sub-workflow with `{template_name, template_vars}`, pulls `<BACKUP_GITHUB_REPO_PATH>/<template_name>` from GitHub (`agents/n8n/<template_name>`; the prefix is resolved from `$env` in its `setVars` node, never hardcoded, so moving the folder is an env-var change), substitutes `{{ VAR }}` placeholders and returns `{output}`. It **fails loudly** — `check_template_vars_present` diffs the placeholders found in the file against the keys supplied and routes to `stop_and_error` listing the missing ones.
 
 Consequences to respect when editing:
 
@@ -232,7 +233,7 @@ Plain JS, no npm imports. They read named nodes (`$('parse_curator_config').firs
 1. Prefer editing in the n8n UI and letting `Backup N8N Workflows` commit the export; hand-editing JSON is fine for prompts/datasets and small parameter tweaks, but the export will overwrite structural drift.
 2. Keep node `id`s and workflow `id`s stable — they are the identity across re-imports, same rule as Superset `uuid`s.
 3. Sticky notes are the docs: each workflow has one describing schedule, data flow, env vars and open TODOs. Update it in the same change.
-4. Validate a hand-edited file with `jq . n8n/workflows/<file>.workflow.json` before committing; grep for `$('old_node_name')` after any rename.
+4. Validate a hand-edited file with `jq . agents/n8n/workflows/<file>.workflow.json` before committing; grep for `$('old_node_name')` after any rename.
 5. Commit messages for automated backups look like `chore(n8n): update backup workflow <file> (<date>)`; hand-authored changes use the normal `feat(n8n): …` / `fix(n8n): …` form.
 
 ### Test structure

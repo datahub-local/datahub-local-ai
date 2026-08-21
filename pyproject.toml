@@ -54,6 +54,5 @@ addopts = "-v --tb=short"
 # The repo root holds no importable Python package — the runners live in
 # workflows/<tool>/src/. Treat it as a virtual project so uv installs the
 # dependency groups without trying to build/install the root itself
-# (setuptools flat-layout discovery would otherwise choke on n8n/, superset/,
-# workflows/).
+# (setuptools flat-layout discovery would otherwise choke on agents/, workflows/).
 package = false

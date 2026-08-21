@@ -72,7 +72,7 @@ kubectl exec -n data datahub-local-core-data-redpanda-0 -c redpanda -- \
 
 ## 3. Source Schema
 
-Formal JSON Schema: [n8n/schemas/bodega_invoice.schema.json](../n8n/schemas/bodega_invoice.schema.json)
+Formal JSON Schema: [agents/n8n/schemas/bodega_invoice.schema.json](../agents/n8n/schemas/bodega_invoice.schema.json)
 
 The `parse_mercadona_invoice` n8n node produces one JSON object per invoice. Each object becomes **one Kafka message value** on topic `bodega_invoices`. Flow: `parse_mercadona_invoice` → `loop_messages` → `set_output` (passthrough, `includeOtherFields: true`) → `Kafka`.
 
@@ -862,7 +862,7 @@ Apply a global date-range filter to all charts.
 | #   | Question                                                           | Status                                                                                                                   | Impact                       |
 | --- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------- |
 | 1   | Kafka broker addresses                                             | ✅ Resolved — 3 brokers at port 9093, no auth                                                                             | See Section 2                |
-| 2   | Which data lands in Kafka: raw or parsed JSON?                     | ✅ Resolved — parsed invoice JSON from `parse_mercadona_invoice`, see [schema](../n8n/schemas/bodega_invoice.schema.json) | Bronze flatten function done |
+| 2   | Which data lands in Kafka: raw or parsed JSON?                     | ✅ Resolved — parsed invoice JSON from `parse_mercadona_invoice`, see [schema](../agents/n8n/schemas/bodega_invoice.schema.json) | Bronze flatten function done |
 | 3   | OpenRouter model ID                                                | ✅ Resolved — `xiaomi/mimo-v2.5:nitro`, parameterised via `OPENROUTER_MODEL`                                              |                              |
 | 4   | `confluent-kafka` in dlt Kubernetes pod                            | ⚠️ Open — test at P1; fallback to `kafka-python` if native lib fails                                                      | Bronze pipeline runtime      |
 | 5   | Backfill: 1 year of emails in Kafka already?                       | ⚠️ Open — `bodega_invoices` topic doesn't exist yet; n8n must re-run with extended `MAX_DAYS`                             | First-run strategy           |

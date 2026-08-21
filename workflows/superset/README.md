@@ -13,7 +13,7 @@ deletes them from Superset when the ConfigMap disappears.
 ## Layout
 
 ```
-superset/
+workflows/superset/
   projects/
     <project>/
       dashboard_export/     Superset v1 export bundle sources (plain YAML)
@@ -65,7 +65,7 @@ superset/
      source:
        repoURL: https://github.com/datahub-local/datahub-local-ai.git
        targetRevision: HEAD
-       path: "superset/release/"
+       path: "workflows/superset/release/"
      destination:
        server: "https://kubernetes.default.svc"
        namespace: "data"

@@ -11,6 +11,9 @@ schedule:
   type: scheduled
   # 04:30 UTC = 06:30 Madrid in summer, 05:30 in winter.
   cron: "30 4 * * *"
+  # afterInterval, and stated rather than left to the CRD default: no cold
+  # run at deploy time, just the cron tick.
+  firstTick: afterInterval
   taskFile: prompts/endpoint_warden_task.md
 
 memory:
@@ -25,6 +28,7 @@ memory:
 
 mcpServers:
   - name: datahub-local-core-automation-sympozium-mcp-grafana
+    timeout: 30
     toolsPrefix: grafana
     toolsDeny:
       - grafana_api_request
@@ -42,6 +46,7 @@ mcpServers:
       - alerting_manage_rules
       - alerting_manage_routing
   - name: datahub-local-core-automation-sympozium-mcp-k8s
+    timeout: 30
     toolsPrefix: k8s
     toolsDeny:
       - pods_delete

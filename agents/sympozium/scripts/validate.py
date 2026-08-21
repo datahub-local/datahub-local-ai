@@ -73,6 +73,27 @@ PREFIX_LOOKALIKE_TOOLS = {
     "grafana": {"grafana_api_request"},
 }
 
+# Fields the Ensemble CRD schema carries a `default:` for. The API server writes
+# them into the live object at admission whether or not the manifest sets them,
+# and ArgoCD compares git against that live object — so an omitted value is
+# permanent OutOfSync drift, not a tidy default. Every one of them is therefore
+# stated in `projects/`, which is also the only place the chosen value is
+# reviewable. The alternative is another `ignoreDifferences` entry in every
+# Application that ships this chart, in a repository we do not own.
+#
+# Confirm the list after a control-plane bump:
+#
+#     kubectl get crd ensembles.sympozium.ai -o json \
+#       | jq -r '.. | objects | select(has("default")) | .default'
+#
+# Values are only quoted in the error messages; the checks accept any value.
+CRD_DEFAULTS = {
+    "mcpServers[].timeout": 30,
+    "schedule.firstTick": "immediate",
+    "memory.maxSizeKB": 256,
+    "sharedMemory.storageSize": "1Gi",
+}
+
 SCHEDULE_TYPES = {"heartbeat", "scheduled", "sweep"}
 FIRST_TICKS = {"immediate", "afterInterval"}
 
@@ -101,6 +122,16 @@ def _load_yaml(path):
     if not isinstance(loaded, dict):
         raise Fail(f"{_rel(path)}: expected a YAML mapping, got {type(loaded).__name__}")
     return loaded
+
+
+def _defaulted(where, field, qualifier=""):
+    """Message for a CRD-defaulted field left unset. See CRD_DEFAULTS."""
+    return (
+        f"{where}: {field} is not set{' ' + qualifier if qualifier else ''}. The CRD "
+        f"defaults it to {CRD_DEFAULTS[field]!r}, so the API server writes that into "
+        f"the live object and ArgoCD reports the Ensemble permanently OutOfSync "
+        f"against a manifest that omits it. State the value."
+    )
 
 
 def _check_prompt(project, ref, field, persona_name, used):
@@ -138,6 +169,8 @@ def _check_tools(persona_name, persona, warnings):
                 f"{persona_name}: MCP server {name!r} has toolsPrefix {prefix!r}, "
                 f"but the cluster catalog provisions it as {MCP_SERVERS[name]!r}"
             )
+        if server.get("timeout") is None:
+            raise Fail(_defaulted(persona_name, "mcpServers[].timeout", f"on {name!r}"))
         wired[prefix] = name
         lookalikes = PREFIX_LOOKALIKE_TOOLS.get(prefix, set())
         for denied in server.get("toolsDeny", []):
@@ -179,7 +212,9 @@ def _check_schedule(persona_name, schedule):
     if "cron" in schedule and "interval" in schedule:
         raise Fail(f"{persona_name}: schedule sets both cron and interval — pick one")
     first_tick = schedule.get("firstTick")
-    if first_tick is not None and first_tick not in FIRST_TICKS:
+    if first_tick is None:
+        raise Fail(_defaulted(persona_name, "schedule.firstTick"))
+    if first_tick not in FIRST_TICKS:
         raise Fail(
             f"{persona_name}: schedule.firstTick {first_tick!r} is not one of "
             f"{', '.join(sorted(FIRST_TICKS))}"
@@ -216,6 +251,10 @@ def _check_persona(project, path, used, warnings):
             f"{', '.join(sorted(SKILLS))}"
         )
 
+    memory = persona.get("memory")
+    if memory is not None and memory.get("maxSizeKB") is None:
+        raise Fail(_defaulted(name, "memory.maxSizeKB"))
+
     schedule = persona.get("schedule")
     if schedule is not None:
         if "task" in schedule:
@@ -249,6 +288,10 @@ def check(project):
                 f"(per-cluster knobs live in values/default.yaml.gotmpl, "
                 f"personas in agents/)"
             )
+
+    shared_memory = spec.get("sharedMemory")
+    if shared_memory is not None and shared_memory.get("storageSize") is None:
+        raise Fail(_defaulted("ensemble.yaml", "sharedMemory.storageSize"))
 
     unknown_defaults = sorted(set(source.get("defaults") or {}) - set(DEFAULTABLE))
     if unknown_defaults:

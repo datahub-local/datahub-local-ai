@@ -28,6 +28,7 @@ memory:
 
 mcpServers:
   - name: datahub-local-core-automation-sympozium-mcp-grafana
+    timeout: 30
     toolsPrefix: grafana
     toolsDeny:
       - grafana_api_request
@@ -45,6 +46,7 @@ mcpServers:
       - alerting_manage_rules
       - alerting_manage_routing
   - name: datahub-local-core-automation-sympozium-mcp-k8s
+    timeout: 30
     toolsPrefix: k8s
     toolsDeny:
       - pods_delete

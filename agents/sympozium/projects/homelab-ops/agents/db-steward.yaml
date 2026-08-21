@@ -12,6 +12,9 @@ schedule:
   # 05:30 UTC = 07:30 Madrid in summer. Half an hour after the warden so the
   # two do not contend for the GPU.
   cron: "30 5 * * *"
+  # afterInterval, and stated rather than left to the CRD default: no cold
+  # run at deploy time, just the cron tick.
+  firstTick: afterInterval
   taskFile: prompts/db_steward_task.md
 
 memory:
@@ -25,6 +28,7 @@ memory:
 
 mcpServers:
   - name: datahub-local-core-automation-sympozium-mcp-postgres
+    timeout: 30
     toolsPrefix: pg
     # execute_sql is the one write-capable tool on this server, and postgres-mcp
     # defaults to unrestricted access mode. The analyze_* tools answer
@@ -32,6 +36,7 @@ mcpServers:
     toolsDeny:
       - execute_sql
   - name: datahub-local-core-automation-sympozium-mcp-grafana
+    timeout: 30
     toolsPrefix: grafana
     toolsDeny:
       - grafana_api_request
@@ -49,6 +54,7 @@ mcpServers:
       - alerting_manage_rules
       - alerting_manage_routing
   - name: datahub-local-core-automation-sympozium-mcp-k8s
+    timeout: 30
     toolsPrefix: k8s
     toolsDeny:
       - pods_delete

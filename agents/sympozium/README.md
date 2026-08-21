@@ -53,9 +53,11 @@ agents/sympozium/
    ```
 
 3. Deploy — either `helmfile apply` from `agents/sympozium/`, or let ArgoCD sync
-   it. Note the two `ignoreDifferences` entries: the Sympozium controller writes
-   back `memory.maxSizeKB` and `schedule.firstTick`, so without them every sync
-   shows permanent drift.
+   it. The two `ignoreDifferences` entries are a backstop only: every
+   CRD-defaulted field is stated in `projects/` (see *CRD defaults are stated*
+   below), so there is nothing for them to hide today. Keep them anyway — a
+   control-plane bump that adds a new `default:` would otherwise show up as
+   permanent drift on the next sync.
 
    ```bash
    kubectl apply -f - <<EOF
@@ -89,7 +91,10 @@ agents/sympozium/
 
 With a cluster reachable, `kubectl apply --dry-run=server` on the rendered output
 checks it against the real CRD schemas and the admission webhook — worth doing
-before committing, since rendering is the only build step there is.
+before committing, since rendering is the only build step there is. Diff its
+output against the rendered manifest, too: any field the server adds is a
+CRD default this repository has not stated, which is exactly the drift ArgoCD
+will report. `kubectl diff` will *not* show it — it defaults both sides.
 
 ## The ensembles
 
@@ -155,6 +160,16 @@ wired.
   `mcpServers[].toolsDeny` lists the server's own names (`pods_delete`), because
   that filter runs at the server. Getting this backwards produces a deny that
   matches nothing — see below. The build script checks both directions.
+- **CRD defaults are stated.** Every field the Ensemble CRD carries a
+  `default:` for — `mcpServers[].timeout`, `schedule.firstTick`,
+  `memory.maxSizeKB`, `sharedMemory.storageSize` — is written out in
+  `projects/`, even where the value chosen *is* the default. The API server
+  applies those defaults at admission, so an omitted value exists in the live
+  object and not in git, and ArgoCD reports the Ensemble OutOfSync on every
+  sync forever. Stating them also puts the value where it is reviewable instead
+  of in a CRD in another repository. The validator enforces the list; re-derive
+  it after a control-plane bump with
+  `kubectl get crd ensembles.sympozium.ai -o json | jq -r '.. | objects | select(has("default"))'`.
 - **Schedules are UTC.** No Sympozium CRD has a timezone field, unlike the n8n
   workflows which set `Europe/Madrid` explicitly. Every cron here is written in
   UTC with the local time in a comment, and shifts by an hour twice a year.
@@ -324,6 +339,79 @@ rather than applied here:
 
 Once 2 or 3 lands, `endpoint-warden` gains the check by adding the metric to its
 prompt — no structural change.
+
+A fifth, unrelated change to `releases/automation/` is what currently stops the
+fleet running at all — see below.
+
+### The agent NetworkPolicy blocks shared memory and every MCP server
+
+Every first run failed on 2026-08-21, and neither cause is in this repository.
+The Sympozium chart's own `sympozium-agent-deny-all` selects
+`sympozium.ai/role=agent` (Ingress + Egress) and `sympozium-agent-allow-eventbus`
+punches the holes back. On port 8080 it allows exactly three destinations —
+`sympozium.ai/component=memory`, `app.kubernetes.io/name=model`,
+`app.kubernetes.io/component=apiserver` — and the two things our agents need most
+are labelled neither:
+
+| Destination | Its labels | Reachable from an agent pod |
+| --- | --- | --- |
+| per-persona memory server | `sympozium.ai/component=memory` | yes |
+| **shared memory server** | `sympozium.ai/component=shared-memory` | **no** |
+| **MCP servers** | `app.kubernetes.io/name=mcpserver` | **no** |
+| Ollama | — (bare `11434` rule, core's `extraEgressPorts`) | yes |
+
+Measured, not inferred — a throwaway pod labelled `sympozium.ai/role=agent`
+reproduces it exactly. Note that the first request or two *succeed*: k3s programs
+the policy a second or so after the pod starts, so a probe that runs immediately
+sees a working network.
+
+The two failure modes follow directly:
+
+- **`homelab-ops` (all five personas).** `sharedMemory.enabled: true` gives every
+  agent pod a `wait-for-shared-memory` init container that polls
+  `homelab-ops-shared-memory:8080/health` for 120s and then `exit 1`. The Job
+  exhausts its backoff limit and the AgentRun reports `Job failed` with
+  `reason: infra` — the pod never got past `PodInitializing`, so there are no
+  agent logs to read, which is what makes this one look mysterious.
+- **`homelab-reviewer`.** No shared memory, so the pod starts and reaches Ollama
+  — but every MCP tool call is blocked, and the run died with
+  `exceeded maximum tool-call iterations (50)`.
+
+`policyRef: permissive` does not help: these policies come from the chart's
+`networkPolicies.enabled` and select *all* agent pods regardless of the
+`SympoziumPolicy` bound to the ensemble.
+
+The fix belongs in core, next to `sympozium_mcp_servers.yaml`, and is deliberately
+narrower than adding `8080` to `extraEgressPorts` (which renders as a rule with no
+`to:` — port 8080 open to the whole cluster):
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sympozium-agent-allow-shared-memory-and-mcp
+  namespace: automation
+spec:
+  podSelector:
+    matchLabels:
+      sympozium.ai/role: agent
+  policyTypes: [Egress]
+  egress:
+    - ports:
+        - { port: 8080, protocol: TCP }
+      to:
+        - podSelector:
+            matchLabels:
+              sympozium.ai/component: shared-memory
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: mcpserver
+```
+
+Worth reporting upstream too: a chart that ships both a shared-memory server and
+an MCP catalog, and a policy that reaches neither, is broken for anything but the
+single-agent case. Re-check the label names after an image bump before assuming
+this entry still applies.
 
 ## Known gaps
 

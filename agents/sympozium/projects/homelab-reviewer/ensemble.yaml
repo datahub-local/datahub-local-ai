@@ -18,6 +18,10 @@ spec:
   # team, and a smaller surface is the point of splitting the ensemble.
   sharedMemory:
     enabled: false
+    # Spelled out only because the CRD defaults it: an omitted value is written
+    # into the live object at admission and ArgoCD then reports drift forever.
+    # Nothing is provisioned while enabled is false.
+    storageSize: 1Gi
 
 defaults:
   provider: ollama

@@ -13,6 +13,9 @@ schedule:
   # not hourly: a 4B model re-reviewing the same PR every hour is noise, and
   # it would hold the GPU against the four ops agents.
   cron: "0 6 * * 1-5"
+  # afterInterval, and stated rather than left to the CRD default: no cold
+  # run at deploy time, just the cron tick.
+  firstTick: afterInterval
   taskFile: prompts/renovate_reviewer_task.md
 
 memory:
@@ -25,6 +28,7 @@ memory:
 
 mcpServers:
   - name: datahub-local-core-automation-sympozium-mcp-github
+    timeout: 30
     toolsPrefix: github
     # add_issue_comment is the only write this agent is allowed. Everything
     # else this server can do to a repository is denied at the server edge,
@@ -42,6 +46,7 @@ mcpServers:
       - create_issue
       - update_issue
   - name: datahub-local-core-automation-sympozium-mcp-argocd
+    timeout: 30
     toolsPrefix: argocd
 
 toolPolicy:

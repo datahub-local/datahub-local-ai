@@ -25,6 +25,7 @@ mcpServers:
   # The ArgoCD MCP server exposes no write tools at all, so no toolsDeny is
   # needed here — unlike the k8s and github servers.
   - name: datahub-local-core-automation-sympozium-mcp-argocd
+    timeout: 30
     toolsPrefix: argocd
 
 toolPolicy:

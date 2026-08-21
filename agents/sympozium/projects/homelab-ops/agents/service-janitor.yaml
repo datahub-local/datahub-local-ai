@@ -12,6 +12,9 @@ schedule:
   # UTC — no Sympozium CRD has a timezone field, unlike the n8n workflows.
   # 05:00 UTC is 07:00 Madrid in summer, 06:00 in winter.
   cron: "0 5 * * 1"
+  # afterInterval, and stated rather than left to the CRD default: no cold
+  # run at deploy time, just the cron tick.
+  firstTick: afterInterval
   taskFile: prompts/service_janitor_task.md
 
 memory:
@@ -25,6 +28,7 @@ memory:
 
 mcpServers:
   - name: datahub-local-core-automation-sympozium-mcp-k8s
+    timeout: 30
     toolsPrefix: k8s
     toolsDeny:
       - pods_delete
@@ -34,6 +38,7 @@ mcpServers:
       - resources_delete
       - resources_scale
   - name: datahub-local-core-automation-sympozium-mcp-grafana
+    timeout: 30
     toolsPrefix: grafana
     toolsDeny:
       - grafana_api_request

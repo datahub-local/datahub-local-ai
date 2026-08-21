@@ -331,9 +331,18 @@ agents/sympozium/
 - **Schedules are UTC.** No Sympozium CRD has a timezone field, unlike the n8n
   workflows which set `Europe/Madrid` explicitly. Write cron in UTC with the
   local time in a comment.
-- **ArgoCD needs `ignoreDifferences`** on `.spec.agentConfigs[]?.memory.maxSizeKB`
-  and `.schedule.firstTick` — the controller writes both back. Core's
-  ApplicationSet already carries them; any new Application must too.
+- **Every CRD-defaulted field is stated.** `mcpServers[].timeout`,
+  `schedule.firstTick`, `memory.maxSizeKB` and `sharedMemory.storageSize` all
+  carry a `default:` in the Ensemble CRD, so the API server writes them into the
+  live object at admission and ArgoCD reports permanent drift against a manifest
+  that omits them. Write the value out even when it *is* the default;
+  `scripts/validate.py` enforces the list, and re-derive it after a control-plane
+  bump (`kubectl get crd ensembles.sympozium.ai -o json | jq '.. | objects |
+  select(has("default"))'`). Note that `kubectl diff` cannot see this class of
+  drift — it defaults both sides; diff a `--dry-run=server` apply against the
+  rendered manifest instead. Core's ApplicationSet also carries
+  `ignoreDifferences` on `memory.maxSizeKB` and `schedule.firstTick`; keep them
+  as a backstop for a future default, not as the mechanism.
 
 #### The thinking to carry forward
 

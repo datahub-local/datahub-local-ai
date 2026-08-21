@@ -8,7 +8,7 @@ Definitions are grouped by what they are, then by tool or platform.
 
 - `agents/` holds AI agent definitions.
   - `agents/n8n/` includes n8n workflow definitions and related files (prompts, datasets).
-  - `agents/sympozium/` is a placeholder for upcoming work.
+  - `agents/sympozium/` includes Sympozium agent ensembles per team and a Helm release that deploys them to the Sympozium control plane.
 - `workflows/` holds all data workflow definitions, organized by tool or format:
   - `workflows/airflow/` is an Airflow project to orchestrate data workflows.
   - `workflows/dbt/` is a dbt Core project (Trino / DuckDB, Iceberg + Apache Polaris) for the data transformation pipelines.

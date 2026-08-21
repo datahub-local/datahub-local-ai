@@ -1,0 +1,5 @@
+# The validator is not part of the chart.
+/scripts/
+# Docs. projects/**/prompts/*.md must NOT be ignored — the templates read them.
+/README.md
+projects/*/README.md

@@ -1,0 +1,71 @@
+name: db-steward
+displayName: DB Steward
+
+systemPromptFile: prompts/db_steward_system.md
+
+skills:
+  - k8s-ops
+  - memory
+
+schedule:
+  type: scheduled
+  # 05:30 UTC = 07:30 Madrid in summer. Half an hour after the warden so the
+  # two do not contend for the GPU.
+  cron: "30 5 * * *"
+  taskFile: prompts/db_steward_task.md
+
+memory:
+  enabled: true
+  maxSizeKB: 256
+  seeds:
+    - Record database and volume sizes each run. Growth rate is what predicts a full disk; a single size reading does not.
+    - "Valkey is scraped by a redis exporter, so its metrics are named redis_* and never valkey_*."
+    - A rising cnpg_pg_stat_archiver_failed_count means WAL archiving is broken, which silently invalidates point-in-time recovery. Treat it as the most serious finding available here.
+    - Record which slow queries were already reported, so the same query is not raised from scratch every day.
+
+mcpServers:
+  - name: datahub-local-core-automation-sympozium-mcp-postgres
+    toolsPrefix: pg
+    # execute_sql is the one write-capable tool on this server, and postgres-mcp
+    # defaults to unrestricted access mode. The analyze_* tools answer
+    # everything this agent needs.
+    toolsDeny:
+      - execute_sql
+  - name: datahub-local-core-automation-sympozium-mcp-grafana
+    toolsPrefix: grafana
+    toolsDeny:
+      - grafana_api_request
+      - update_dashboard
+      - update_datasource
+      - create_datasource
+      - create_folder
+      - create_annotation
+      - update_annotation
+      - create_snapshot
+      - delete_snapshot
+      - create_incident
+      - add_activity_to_incident
+      - install_plugin
+      - alerting_manage_rules
+      - alerting_manage_routing
+  - name: datahub-local-core-automation-sympozium-mcp-k8s
+    toolsPrefix: k8s
+    toolsDeny:
+      - pods_delete
+      - pods_exec
+      - pods_run
+      - resources_create_or_update
+      - resources_delete
+      - resources_scale
+
+toolPolicy:
+  allow:
+    - pg_analyze_db_health
+    - pg_get_top_queries
+    - grafana_query_prometheus
+    - k8s_resources_list
+    - memory_search
+    - memory_store
+  deny:
+    - write_file
+    - execute_command

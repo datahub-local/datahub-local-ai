@@ -1,0 +1,63 @@
+name: Test Agents
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/test-agents.yaml"
+      - "agents/sympozium/**"
+      - "pyproject.toml"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/test-agents.yaml"
+      - "agents/sympozium/**"
+      - "pyproject.toml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-agents-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sympozium:
+    name: Sympozium ensembles
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install Python with uv
+        run: uv python install 3.13
+
+      - name: Sync dependencies
+        run: uv sync --extra sympozium --extra dev
+
+      - name: Lint validator
+        run: uv run -- ruff check agents/sympozium/scripts/
+
+      # Field-level checks the Helm templates cannot do: skills, MCP server
+      # names and prefixes, tool/server coherence, schedule enums, orphaned
+      # prompts. Each of these fails silently at runtime if wrong.
+      - name: Validate ensemble sources
+        run: uv run python agents/sympozium/scripts/validate.py
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      # The templates assemble the Ensembles from projects/ at render time —
+      # nothing is generated into the repository — so rendering is the build,
+      # and a render failure here is a broken deploy.
+      - name: Render ensembles
+        working-directory: agents/sympozium
+        run: |
+          helm template datahub-local-ai-sympozium . \
+            --namespace automation \
+            --values values/default.yaml.gotmpl

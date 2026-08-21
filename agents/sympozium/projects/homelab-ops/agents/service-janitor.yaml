@@ -1,0 +1,63 @@
+name: service-janitor
+displayName: Service Janitor
+
+systemPromptFile: prompts/service_janitor_system.md
+
+skills:
+  - k8s-ops
+  - memory
+
+schedule:
+  type: scheduled
+  # UTC — no Sympozium CRD has a timezone field, unlike the n8n workflows.
+  # 05:00 UTC is 07:00 Madrid in summer, 06:00 in winter.
+  cron: "0 5 * * 1"
+  taskFile: prompts/service_janitor_task.md
+
+memory:
+  enabled: true
+  maxSizeKB: 256
+  seeds:
+    - Record the age of the newest successful backup per system each run. A backup system that silently stopped is the most expensive fault in the homelab.
+    - Record each expiry date reported and when it was reported, so the same certificate is not raised from scratch every week.
+    - Never report an expiry without a date read off the resource. A guess is worse than silence.
+    - n8n credential expiry belongs to the Credentials Expiry Review workflow in agents/n8n. Out of scope here.
+
+mcpServers:
+  - name: datahub-local-core-automation-sympozium-mcp-k8s
+    toolsPrefix: k8s
+    toolsDeny:
+      - pods_delete
+      - pods_exec
+      - pods_run
+      - resources_create_or_update
+      - resources_delete
+      - resources_scale
+  - name: datahub-local-core-automation-sympozium-mcp-grafana
+    toolsPrefix: grafana
+    toolsDeny:
+      - grafana_api_request
+      - update_dashboard
+      - update_datasource
+      - create_datasource
+      - create_folder
+      - create_annotation
+      - update_annotation
+      - create_snapshot
+      - delete_snapshot
+      - create_incident
+      - add_activity_to_incident
+      - install_plugin
+      - alerting_manage_rules
+      - alerting_manage_routing
+
+toolPolicy:
+  allow:
+    - k8s_resources_list
+    - k8s_resources_get
+    - grafana_query_prometheus
+    - memory_search
+    - memory_store
+  deny:
+    - write_file
+    - execute_command

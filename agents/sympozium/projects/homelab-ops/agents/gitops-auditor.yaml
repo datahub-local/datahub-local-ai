@@ -1,0 +1,40 @@
+name: gitops-auditor
+displayName: GitOps Auditor
+
+systemPromptFile: prompts/gitops_auditor_system.md
+
+skills:
+  - k8s-ops
+  - memory
+
+schedule:
+  type: sweep
+  interval: 1h
+  firstTick: afterInterval
+  taskFile: prompts/gitops_auditor_task.md
+
+memory:
+  enabled: true
+  maxSizeKB: 256
+  seeds:
+    - Record which ArgoCD applications were drifted on each run, so persistent drift can be told from a mid-sync snapshot.
+    - Drift that survives two consecutive runs is a real finding; drift seen once is usually a sync in progress.
+    - OutOfSync with Healthy is still drift and must be reported.
+
+mcpServers:
+  # The ArgoCD MCP server exposes no write tools at all, so no toolsDeny is
+  # needed here — unlike the k8s and github servers.
+  - name: datahub-local-core-automation-sympozium-mcp-argocd
+    toolsPrefix: argocd
+
+toolPolicy:
+  allow:
+    - argocd_list_applications
+    - argocd_get_application
+    - argocd_get_application_events
+    - argocd_get_application_resource_tree
+    - memory_search
+    - memory_store
+  deny:
+    - write_file
+    - execute_command

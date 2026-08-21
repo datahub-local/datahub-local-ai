@@ -1,0 +1,73 @@
+{{/*
+  Assembles one Ensemble per projects/<name>/ at render time: the team-level spec
+  from ensemble.yaml, one agentConfig per agents/*.yaml, and each persona's
+  prompts read straight out of prompts/*.md.
+
+  Nothing is generated into the repository — this template *is* the build step,
+  which is why the chart root is agents/sympozium/ rather than a release/
+  subdirectory: Helm's .Files cannot read above the chart directory, and
+  projects/ has to be inside it.
+
+  Field-level validation lives in scripts/validate.py (skills, MCP server names
+  and prefixes, tool/server coherence, orphaned prompts). Only the errors that
+  would silently produce a broken manifest are re-checked here.
+*/}}
+{{- range $ensemblePath, $_ := .Files.Glob "projects/*/ensemble.yaml" }}
+{{-   $project := dir $ensemblePath }}
+{{-   $name := base $project }}
+{{-   $source := $.Files.Get $ensemblePath | fromYaml }}
+{{-   if not $source.spec }}
+{{-     fail (printf "%s: no spec block" $ensemblePath) }}
+{{-   end }}
+{{-   if ne ($source.name | toString) $name }}
+{{-     fail (printf "%s: name %q does not match its directory %q" $ensemblePath $source.name $name) }}
+{{-   end }}
+{{-   $spec := $source.spec }}
+{{-   $defaults := $source.defaults | default dict }}
+{{-   $personaFiles := $.Files.Glob (printf "%s/agents/*.yaml" $project) }}
+{{-   if not $personaFiles }}
+{{-     fail (printf "%s: no personas in agents/" $project) }}
+{{-   end }}
+{{-   $personas := list }}
+{{-   range $personaPath, $_ := $personaFiles }}
+{{-     $persona := $.Files.Get $personaPath | fromYaml }}
+{{-     if ne ($persona.name | toString) (base $personaPath | trimSuffix ".yaml") }}
+{{-       fail (printf "%s: name %q does not match its file name" $personaPath $persona.name) }}
+{{-     end }}
+{{-     $promptRef := $persona.systemPromptFile }}
+{{-     if not $promptRef }}
+{{-       fail (printf "%s: missing systemPromptFile" $personaPath) }}
+{{-     end }}
+{{-     $prompt := $.Files.Get (printf "%s/%s" $project $promptRef) }}
+{{-     if not $prompt }}
+{{-       fail (printf "%s: systemPromptFile %q is empty or unreadable (is it excluded by .helmignore?)" $personaPath $promptRef) }}
+{{-     end }}
+{{-     $_ := unset $persona "systemPromptFile" }}
+{{-     $_ := set $persona "systemPrompt" (trimSuffix "\n" $prompt) }}
+{{-     if $persona.schedule }}
+{{-       $taskRef := $persona.schedule.taskFile }}
+{{-       if not $taskRef }}
+{{-         fail (printf "%s: schedule is set but schedule.taskFile is missing" $personaPath) }}
+{{-       end }}
+{{-       $task := $.Files.Get (printf "%s/%s" $project $taskRef) }}
+{{-       if not $task }}
+{{-         fail (printf "%s: schedule.taskFile %q is empty or unreadable" $personaPath $taskRef) }}
+{{-       end }}
+{{-       $_ := unset $persona.schedule "taskFile" }}
+{{-       $_ := set $persona.schedule "task" (trimSuffix "\n" $task) }}
+{{-     end }}
+{{-     $personas = append $personas (mergeOverwrite (deepCopy $defaults) $persona) }}
+{{-   end }}
+{{-   $_ := set $spec "agentConfigs" $personas }}
+{{- /* Per-cluster knobs (enabled, baseURL, policyRef) win over anything in source. */}}
+{{-   $overrides := index ($.Values.sympozium_ensembles | default dict) $name | default dict }}
+{{-   $_ := mergeOverwrite $spec $overrides }}
+---
+apiVersion: sympozium.ai/v1alpha1
+kind: Ensemble
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Release.Namespace }}
+spec:
+{{ toYaml $spec | indent 2 }}
+{{- end }}

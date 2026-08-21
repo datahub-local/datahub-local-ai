@@ -1,0 +1,33 @@
+# Common values shared for all charts
+release_name: datahub-local-ai
+
+# Per-cluster knobs merged into each Ensemble's spec, keyed by the directory name
+# under projects/. Everything describing *what an agent is* — prompts, skills,
+# schedules, tool policy — lives in projects/ and is read from there by
+# templates/ensembles.yaml at render time. Only settings that could legitimately
+# differ between clusters belong here.
+sympozium_ensembles:
+  homelab-ops:
+    # Ensembles ship disabled by default in the CRD ("catalog-only"). All six
+    # agents are wanted here, so both ensembles are switched on explicitly.
+    enabled: true
+
+    # Cluster-local Ollama, deployed by datahub-local-core
+    # (releases/data/values/ollama.yaml.gotmpl). No credentials: provider
+    # "ollama" needs none, which is why no authRefs secret appears anywhere in
+    # this chart. The Sympozium NetworkPolicy already allows egress on 11434
+    # (extraEgressPorts in core's sympozium values), and Ollama serves an
+    # OpenAI-compatible API under /v1.
+    baseURL: http://datahub-local-core-data-ollama.data.svc:11434/v1
+
+    # permissive, deliberately — see ../../README.md#why-the-permissive-policy.
+    # The built-in restrictive and network-isolated policies both set
+    # networkPolicy.denyAll, which would cut the agents off from Ollama and
+    # from every MCP server. Restriction is enforced per-agent instead, by the
+    # toolPolicy allowlists and the MCP toolsDeny lists in projects/.
+    policyRef: permissive
+
+  homelab-reviewer:
+    enabled: true
+    baseURL: http://datahub-local-core-data-ollama.data.svc:11434/v1
+    policyRef: permissive

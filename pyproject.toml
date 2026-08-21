@@ -32,6 +32,9 @@ dlt = [
     "trino[sqlalchemy]>=0.330",
     "duckdb-engine>=0.13",
 ]
+sympozium = [
+    "pyyaml>=6",
+]
 dev = [
     "pytest>=9.0.0",
     "ruff",

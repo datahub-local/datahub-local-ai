@@ -1,0 +1,32 @@
+# Ensemble-level spec for the homelab-ops team. Personas live in agents/,
+# their prompts in prompts/. Deploy-time knobs (enabled, baseURL, policyRef)
+# are NOT here — they come from values/default.yaml.gotmpl.
+name: homelab-ops
+
+spec:
+  description: >-
+    Read-only agents covering between them what an IT crew would: on-call alert
+    triage, node hardware, databases, backup continuity and ArgoCD drift.
+  category: platform
+  version: "1.0.0"
+
+  # autonomous, not delegation: delegation needs a model that reliably emits
+  # delegate_to_persona tool calls, and a 4B local model is not it.
+  # Each persona runs on its own schedule instead — and each persona is one
+  # question with a handful of tools, because breadth at this model size comes
+  # from having more narrow agents, not fatter ones.
+  workflowType: autonomous
+
+  # Shared pool so the personas can see each other's notes (the warden's disk
+  # trend explains the sentinel's evicted pods). Each keeps private memory too.
+  sharedMemory:
+    enabled: true
+    storageSize: 512Mi
+
+# Stamped onto every persona in agents/ that does not set the key itself.
+defaults:
+  provider: ollama
+  model: qwen3.5:4b
+  # One 4B model on a single 6 GiB GPU is slow, and the 10m default is not
+  # enough for a multi-tool sweep. See ../../README.md#the-model-constrains-the-design.
+  runTimeout: 30m

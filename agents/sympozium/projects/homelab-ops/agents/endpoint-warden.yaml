@@ -1,0 +1,64 @@
+name: endpoint-warden
+displayName: Endpoint Warden
+
+systemPromptFile: prompts/endpoint_warden_system.md
+
+skills:
+  - sre-observability
+  - memory
+
+schedule:
+  type: scheduled
+  # 04:30 UTC = 06:30 Madrid in summer, 05:30 in winter.
+  cron: "30 4 * * *"
+  taskFile: prompts/endpoint_warden_task.md
+
+memory:
+  enabled: true
+  maxSizeKB: 256
+  seeds:
+    - Record per-node disk usage, temperature and PSI stall rates each run. A trend is the finding; a single reading rarely is.
+    - Record EDAC correctable error counts per node. A count that climbs steadily means failing RAM, even while the machine looks fine.
+    - Kernel and OS versions should match across nodes. The odd one out is the finding.
+    - "SMART and UPS metrics are currently missing on datahublocal-orpi-0, datahublocal-amd-2 and datahublocal-nas, and present on the other four nodes. Report that as a visibility gap every run until it is fixed — a NAS with no disk-health data is the worst place to be blind."
+    - "Known kernel drift: datahublocal-orpi-0 runs 7.1.2-edge-rockchip64 while orpi-1, orpi-2 and orpi-3 run 6.1.115-vendor-rk35xx. Report it while it persists, but as one line, not a fresh discovery each run."
+
+mcpServers:
+  - name: datahub-local-core-automation-sympozium-mcp-grafana
+    toolsPrefix: grafana
+    toolsDeny:
+      - grafana_api_request
+      - update_dashboard
+      - update_datasource
+      - create_datasource
+      - create_folder
+      - create_annotation
+      - update_annotation
+      - create_snapshot
+      - delete_snapshot
+      - create_incident
+      - add_activity_to_incident
+      - install_plugin
+      - alerting_manage_rules
+      - alerting_manage_routing
+  - name: datahub-local-core-automation-sympozium-mcp-k8s
+    toolsPrefix: k8s
+    toolsDeny:
+      - pods_delete
+      - pods_exec
+      - pods_run
+      - resources_create_or_update
+      - resources_delete
+      - resources_scale
+
+toolPolicy:
+  allow:
+    - grafana_query_prometheus
+    - grafana_list_prometheus_metric_names
+    - k8s_nodes_top
+    - k8s_pods_list
+    - memory_search
+    - memory_store
+  deny:
+    - write_file
+    - execute_command

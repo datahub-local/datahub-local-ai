@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 A monorepo of data workflow definitions for a local/homelab Datahub stack. Sub-projects are grouped by what they are: `agents/` holds AI agent definitions, `workflows/` holds the data pipelines and the dashboards built on them. The Python ones have their own `pyproject.toml` and `uv` environment:
 
 - `agents/n8n/` — n8n workflow JSON exports, LLM prompt templates and JSON config datasets (no Python code); see [n8n workflows](#n8n-workflows)
-- `agents/sympozium/` — placeholder, no content yet
+- `agents/sympozium/` — Sympozium agent ensembles (Kubernetes CRs) plus a Helm release that deploys them onto the control plane datahub-local-core runs in `automation`; see [Sympozium agents](#sympozium-agents)
 - `workflows/airflow/` — Airflow DAGs that orchestrate the dlt + dbt tasks via Kubernetes pods
 - `workflows/dbt/` — dbt Core pipelines on **Trino** (homelab) / **DuckDB** (local), Iceberg + Apache Polaris, medallion architecture; a thin Python `dbt_runner` wraps `dbt build`
 - `workflows/dlt/` — [dlt](https://dlthub.com) ingest/export pipelines (CSV → bronze; silver/gold → Postgres) that run *around* dbt
@@ -43,6 +43,26 @@ Both `dbt` and `dlt` use a `src/` layout with a `projects/` directory:
 | Container entry point | `python -m <tool>_runner`     | `ENTRYPOINT ["python", "-m", "dbt_runner"]` |
 | Project dir           | lowercase, underscores        | `example_db`, `pi`                          |
 | Test subdirs          | per-project, mirroring source | `tests/example_db/`, `tests/pi/`            |
+
+Two sub-projects ship Helm releases instead of Python entry points and keep their
+reviewable source under `projects/` rather than following the table above:
+
+- `workflows/superset/` builds `projects/` into committed zips under
+  `release/files/` with `scripts/build_bundles.py`, because a Superset bundle is
+  a **binary** zip and Helm cannot assemble one. ArgoCD points at `release/`.
+- `agents/sympozium/` generates **nothing**: its Helm templates read `projects/`
+  at render time, so the sub-project root is the chart root (Helm's `.Files`
+  cannot read above the chart directory) and ArgoCD points at
+  `agents/sympozium/`. `scripts/validate.py` only validates.
+
+Prefer the sympozium shape for anything textual. A committed generated file is a
+second copy that can fall out of date with its source; only reach for a build
+step when the artifact genuinely cannot be produced by a template.
+
+One exception to "lowercase, underscores": names that become Kubernetes object
+names must be DNS-1123, so `agents/sympozium/projects/` uses kebab-case
+(`homelab-ops`, `sre-sentinel`). Prompt *files* there stay `snake_case.md`, as in
+`agents/n8n/prompts/`.
 
 ## Commands
 
@@ -94,6 +114,31 @@ uv sync
 uv run pytest          # all tests
 uv run pytest tests/tasks/test_dlt.py  # single file
 ```
+
+### Sympozium (`agents/sympozium/`)
+
+No runner and no `pyproject.toml` of its own — the validator uses the root
+`sympozium` extra. Run from the **repository root**:
+
+```bash
+uv sync --extra sympozium
+uv run python agents/sympozium/scripts/validate.py
+
+cd agents/sympozium
+helm template datahub-local-ai-sympozium . -n automation -f values/default.yaml.gotmpl
+helmfile apply                                              # or let ArgoCD sync it
+```
+
+With a cluster reachable, validate against the real CRD schemas and the
+admission webhook before committing — this persists nothing:
+
+```bash
+helm template datahub-local-ai-sympozium . -n automation -f values/default.yaml.gotmpl \
+  | kubectl apply --dry-run=server -f -
+```
+
+Rendering **is** the build step, so a render failure is a broken deploy. The
+templates `fail` loudly on a missing prompt file or a name/directory mismatch.
 
 ## Architecture
 
@@ -236,8 +281,126 @@ Plain JS, no npm imports. They read named nodes (`$('parse_curator_config').firs
 4. Validate a hand-edited file with `jq . agents/n8n/workflows/<file>.workflow.json` before committing; grep for `$('old_node_name')` after any rename.
 5. Commit messages for automated backups look like `chore(n8n): update backup workflow <file> (<date>)`; hand-authored changes use the normal `feat(n8n): …` / `fix(n8n): …` form.
 
+### Sympozium agents
+
+`agents/sympozium/` holds the **agents**; datahub-local-core holds the
+**platform**. Core deploys the Sympozium control plane into `automation` along
+with the `MCPServer` catalog, the `SkillPack`s and the built-in
+`SympoziumPolicy`s. This sub-project only declares `Ensemble`s — teams of
+personas — and never re-declares platform objects.
+
+An `Ensemble` is the unit of deployment: installing one stamps out an `Agent` and
+a `SympoziumSchedule` per persona and seeds their memory. **Ensembles default to
+disabled** in the CRD ("catalog-only"), so a manifest without `enabled: true`
+deploys but never runs. The chart's own eight example ensembles are all sitting
+in the cluster disabled; ours are separate objects and must not be confused with
+them.
+
+```
+agents/sympozium/
+  Chart.yaml, helmfile.yaml.gotmpl   the sub-project root IS the chart root
+  values/default.yaml.gotmpl         per-cluster knobs only
+  templates/ensembles.yaml           assembles the Ensembles at render time
+  projects/<ensemble>/
+    ensemble.yaml       team-level spec + `defaults:` stamped onto each persona
+    agents/<persona>.yaml   skills, schedule, MCP servers, tool policy, memory seeds
+    prompts/<persona>_{system,task}.md
+  scripts/validate.py   field checks the Go templates cannot do
+```
+
+#### Conventions
+
+- **Prompts are files, never inlined.** A persona sets `systemPromptFile` and
+  `schedule.taskFile`; the build script *rejects* a literal `systemPrompt` or
+  `schedule.task`. Same reasoning as `agents/n8n/prompts/`.
+- **Nothing is generated into the repository.** `templates/ensembles.yaml` reads
+  `projects/` at render time, so the sources are the only copy. Do not reintroduce
+  a committed manifest — it is a second copy that silently drifts from its source.
+- **Source describes the agent; values describe the cluster.** Only `enabled`,
+  `baseURL` and `policyRef` live in `release/values/default.yaml.gotmpl`, merged
+  over `spec` at render time. The build script rejects those keys in
+  `ensemble.yaml`. Per-persona `model`/`provider`/`runTimeout` come from the
+  project's `defaults:` block, because they describe the agent, not the cluster.
+- **`toolPolicy` is prefixed, `toolsDeny` is not.** `toolPolicy.allow` uses
+  agent-facing names (`k8s_pods_list`) because that is what the model sees;
+  `mcpServers[].toolsDeny` uses the server's own names (`pods_delete`) because
+  that filter runs at the server. Backwards means a deny that matches nothing.
+- **`toolPolicy.allow` is a strict allowlist.** Omitting a tool disables it, so
+  adding a capability means adding the tool name *and* wiring its MCP server on
+  that persona. The build script cross-checks the two.
+- **Schedules are UTC.** No Sympozium CRD has a timezone field, unlike the n8n
+  workflows which set `Europe/Madrid` explicitly. Write cron in UTC with the
+  local time in a comment.
+- **ArgoCD needs `ignoreDifferences`** on `.spec.agentConfigs[]?.memory.maxSizeKB`
+  and `.schedule.firstTick` — the controller writes both back. Core's
+  ApplicationSet already carries them; any new Application must too.
+
+#### The thinking to carry forward
+
+These are the judgement calls behind the current fleet. Apply the same reasoning
+rather than copying the outcomes, since the constraints will change.
+
+- **Verify names against the running system; never infer them.** Every skill,
+  MCP server and tool name here was read off the cluster (`kubectl get
+  skillpacks`, and a `tools/list` call against each MCP server) because a wrong
+  name fails *silently* — the tool simply never appears and the agent produces a
+  blander report. Core's own catalog has this bug twice: its k8s server denies
+  `delete_resource`/`create_resource`/`update_resource` and its postgres server
+  denies `execute_write_query`, and **none of those tool names exist**, so both
+  servers are write-capable today. Personas here re-deny the real names
+  themselves. Re-check after image bumps — every MCP image is pinned `:latest`.
+- **Split ensembles on trust boundaries, not on subject.** Ensemble-level
+  settings apply to every persona inside, so the one agent holding a write tool
+  (`renovate-reviewer`, which may only comment) lives in its own ensemble. The
+  blast radius is then visible in the directory listing.
+- **Breadth comes from more personas, not fatter ones.** A persona carries
+  exactly one schedule, so "same agent, different focus on a different day" is
+  not expressible — it has to be another persona. When a role grows a second tool
+  surface, split it (`db-steward` came out of `service-janitor` for exactly
+  that reason) rather than growing the checklist. Keep each run to one question
+  and roughly five to seven tools.
+- **Verify the telemetry exists before writing a prompt against it.** Every
+  metric named in a prompt was confirmed present in this Prometheus. Two traps
+  found this way: Valkey is scraped by a redis exporter so its metrics are
+  `redis_*` and never `valkey_*`, and node-exporter's SMART series is
+  `smartmon_temperature_celcius` (upstream typo). A small model cannot recover
+  from a plausible-but-wrong metric name. Where telemetry is genuinely missing —
+  systemd units, OS package updates, Garage/S3 — the prompt must not pretend
+  otherwise; record the enabling change instead
+  (`agents/sympozium/README.md#follow-ups-to-share-with-the-other-repos`).
+- **Seed the noise.** Most alerts in this cluster fire permanently, including
+  `KubeSchedulerDown`/`KubeControllerManagerDown`, which are artifacts of k3s
+  embedding those components with no separate metrics endpoint. A small model
+  cannot deduce that, so the known-chronic set lives in `sre-sentinel`'s memory
+  seeds and reports are shaped new / still firing / resolved. Re-seed when the
+  chronic set changes.
+- **Read-only by default.** Every persona denies `write_file` and
+  `execute_command` — the latter is a shell, and with MCP servers wired it is
+  also redundant. An agent that changes things should be a separate, explicitly
+  authorised one, not a capability quietly added to a reporter.
+- **The model constrains the design.** Inference is cluster-local Ollama
+  (`qwen3.5:4b`, one 6 GiB GPU, one resident model, 32k context). Hence
+  `workflowType: autonomous` rather than `delegation` (too small to be trusted
+  with `delegate_to_persona`), five-to-eleven-tool allowlists, two skills per
+  persona, `runTimeout: 30m` against a 10m default, and staggered schedules with
+  `firstTick: afterInterval` so enabling everything does not queue five cold runs
+  on one GPU. Prompts name the tools to call in order and end with a required
+  section layout and a "no report, no run" rule. Loosen all of this if a hosted
+  model is wired in — that is a `baseURL` change plus an `authRefs` secret.
+- **`policyRef: permissive` is deliberate.** `restrictive` and
+  `network-isolated` both set `networkPolicy.denyAll` with no `allowedEgress`,
+  which would cut agents off from Ollama *and* every MCP server; `restrictive`
+  also gates tools deny-by-default against a rule list containing only built-in
+  names, denying every MCP tool. Restriction is enforced per-persona in
+  `projects/`, where it is reviewable, instead.
+- **Don't duplicate n8n.** `agents/n8n/workflows/credentials_expiry_review`
+  owns n8n credential expiry; `service-janitor` stays strictly cluster-side
+  (certificates, tokens, secrets). Check the n8n workflows before giving a
+  Sympozium agent a job.
+
 ### Test structure
 
 - dbt `tests/` are lightweight: project/profile structure, model SQL, and `dbt parse` — no warehouse. `tests/example_db/test_integration.py` seeds the bronze source in DuckDB, runs `dbt build` **in a subprocess** (avoids DuckDB's per-process "file already attached" conflict), and asserts the medallion tables.
 - dlt `tests/example_db/` covers the local DuckDB ingest+export integration test; `tests/test_config.py` covers `projects/example_db/config.py` helpers (cross-project, stays at the tests root).
 - airflow `tests/` import the DAGs and check the dbt/dlt task arguments, env, and ordering — `test_pi_dag.py` covers the pi DAG; `test_example_db_dag.py` covers example_db.
+- `agents/sympozium/` has no pytest suite — the checks live in `scripts/validate.py` (skills, MCP server names and prefixes, tool/server coherence, schedule enums, prompt references, orphaned prompts, DNS-1123 names) and run in CI via `.github/workflows/test-agents.yaml`, which then renders the chart. Both matter: the validator catches what would fail *silently* at runtime, the render catches what would fail the deploy.

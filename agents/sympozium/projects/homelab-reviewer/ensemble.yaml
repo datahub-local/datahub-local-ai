@@ -1,0 +1,26 @@
+# Ensemble-level spec for the homelab-reviewer team. Separate from homelab-ops
+# on a trust boundary: this is the only ensemble with a write tool of any kind
+# (github_add_issue_comment), so it gets its own policy binding and its own
+# blast radius. Per-cluster knobs come from values/default.yaml.gotmpl.
+name: homelab-reviewer
+
+spec:
+  description: >-
+    Change management for the datahub-local repositories: judges Renovate
+    dependency bumps, spells out what a migration would cost, and tracks the
+    health of the repositories themselves. Comments only — never merges.
+  category: devops
+  version: "1.0.0"
+
+  workflowType: autonomous
+
+  # No shared memory: nothing here needs to be visible to the read-only ops
+  # team, and a smaller surface is the point of splitting the ensemble.
+  sharedMemory:
+    enabled: false
+
+defaults:
+  provider: ollama
+  model: qwen3.5:4b
+  # Reading a changelog and a diff is the longest job in the fleet.
+  runTimeout: 45m

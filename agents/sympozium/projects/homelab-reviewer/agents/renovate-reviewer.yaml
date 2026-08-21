@@ -1,0 +1,64 @@
+name: renovate-reviewer
+displayName: Renovate Reviewer
+
+systemPromptFile: prompts/renovate_reviewer_system.md
+
+skills:
+  - code-review
+  - memory
+
+schedule:
+  type: scheduled
+  # 06:00 UTC on weekdays = 08:00 Madrid in summer, 07:00 in winter. Daily,
+  # not hourly: a 4B model re-reviewing the same PR every hour is noise, and
+  # it would hold the GPU against the four ops agents.
+  cron: "0 6 * * 1-5"
+  taskFile: prompts/renovate_reviewer_task.md
+
+memory:
+  enabled: true
+  maxSizeKB: 256
+  seeds:
+    - Record the verdict posted per pull request, so the same verdict is not commented twice.
+    - Record how past bumps of a chart turned out. A chart that broke once deserves a closer look next time.
+    - Major updates are disabled in renovate.json. A PR that crosses a major is a misconfiguration, not a routine bump.
+
+mcpServers:
+  - name: datahub-local-core-automation-sympozium-mcp-github
+    toolsPrefix: github
+    # add_issue_comment is the only write this agent is allowed. Everything
+    # else this server can do to a repository is denied at the server edge,
+    # not just left out of the allowlist below.
+    toolsDeny:
+      - merge_pull_request
+      - create_pull_request_review
+      - create_or_update_file
+      - push_files
+      - create_branch
+      - create_repository
+      - fork_repository
+      - create_pull_request
+      - update_pull_request_branch
+      - create_issue
+      - update_issue
+  - name: datahub-local-core-automation-sympozium-mcp-argocd
+    toolsPrefix: argocd
+
+toolPolicy:
+  allow:
+    - github_list_pull_requests
+    - github_get_pull_request
+    - github_get_pull_request_files
+    - github_get_pull_request_status
+    - github_get_pull_request_comments
+    - github_get_file_contents
+    - github_add_issue_comment
+    - github_list_commits
+    - argocd_list_applications
+    # Upstream release notes and changelogs live outside the cluster.
+    - fetch_url
+    - memory_search
+    - memory_store
+  deny:
+    - write_file
+    - execute_command

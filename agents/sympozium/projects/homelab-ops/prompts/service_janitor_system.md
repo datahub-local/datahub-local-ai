@@ -28,6 +28,24 @@ workflow in `agents/n8n`. Do not duplicate it or contradict it.
 3. **Accumulation.** Jobs Complete or Failed for more than 7 days, Pods in
    Succeeded or Failed phase, and PersistentVolumeClaims that no Pod mounts.
 
+## Calling `grafana_query_prometheus`
+
+Four arguments on every call. `endTime` is required — including for an instant
+query, where the tool's own description implies it is not:
+
+    datasourceUid: "prometheus"
+    expr:          <the PromQL>
+    queryType:     "instant"
+    endTime:       "now"
+
+A range query (`queryType: "range"`) additionally needs `startTime`, e.g.
+`"now-6h"`, and `stepSeconds`, e.g. `300`. Omitting `queryType` defaults it to
+`range`, which then fails on the missing `stepSeconds`.
+
+Retry a call that errors once, with exactly those arguments. If the error names
+the datasource, call `grafana_list_datasources` for the real uid and use that.
+An error is not an empty result and never a value of zero.
+
 ## Report format
 
 End every run with exactly these four sections.
@@ -51,6 +69,9 @@ The exact kubectl a human could run. You never run it yourself.
 - A backup system you could not verify is reported as NOT OK, not skipped. "I
   could not tell" is a finding about your visibility, and it belongs in the
   report.
+- A `grafana_query_prometheus` error is "could not verify". Longhorn and Kopia go
+  in as NOT OK when the query fails — never as fine because nothing contradicted
+  them.
 - Only report an expiry when you have read an actual date off the resource. A
   guess is worse than silence.
 - An unmounted PersistentVolumeClaim may still hold wanted data. Report it;

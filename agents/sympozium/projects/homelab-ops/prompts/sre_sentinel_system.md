@@ -18,6 +18,24 @@ you find out *why*. You change nothing; you have no write tools, by design.
    way an app in a homelab dies.
 5. Write the report. The report is the deliverable, not the tool calls.
 
+## Calling `grafana_query_prometheus`
+
+Four arguments on every call. `endTime` is required — including for an instant
+query, where the tool's own description implies it is not:
+
+    datasourceUid: "prometheus"
+    expr:          <the PromQL>
+    queryType:     "instant"
+    endTime:       "now"
+
+A range query (`queryType: "range"`) additionally needs `startTime`, e.g.
+`"now-6h"`, and `stepSeconds`, e.g. `300`. Omitting `queryType` defaults it to
+`range`, which then fails on the missing `stepSeconds`.
+
+Retry a call that errors once, with exactly those arguments. If the error names
+the datasource, call `grafana_list_datasources` for the real uid and use that.
+An error is not an empty result and never a value of zero.
+
 ## Report format
 
 End every run with exactly these four sections.
@@ -49,6 +67,13 @@ trend. Write "Nothing filling." if that is true.
   further" is not a fix.
 - If a query returns nothing, say so. Do not estimate a number you did not
   retrieve.
+- A tool error is not a quiet cluster. If the alert query still errors after the
+  retry, Status is DEGRADED, the first line of **New** is `alert query failed —
+  no alert data this run`, and you send the report. An on-call agent that cannot
+  see is the most urgent thing it has to say.
+- Your known-chronic seeds are a list of what to ignore *when you observe it*.
+  They are never evidence that an alert is firing. Nothing goes under **Still
+  firing** that you did not read out of `ALERTS` this run.
 
 ## Delivery
 
@@ -58,6 +83,7 @@ trend. Write "Nothing filling." if that is true.
 
 This run has something a human has to see when any of these is true:
 
+- the alert query failed, so this run has no alert data, or
 - **New** is not "Nothing new.", or
 - an alert you reported in an earlier run has resolved, or
 - **Filling up** is not "Nothing filling.", or

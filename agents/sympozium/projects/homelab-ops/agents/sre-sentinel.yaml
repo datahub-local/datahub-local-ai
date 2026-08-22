@@ -19,10 +19,12 @@ memory:
   enabled: true
   maxSizeKB: 256
   seeds:
-    # Seeded with the chronic alerts as of 2026-08-21. Without these the agent
-    # reports the same eighteen firing series every 30 minutes forever.
-    - "KubeSchedulerDown and KubeControllerManagerDown fire permanently on this cluster and are artifacts: k3s embeds both components in the server process and exposes no separate metrics endpoint. Never escalate them."
-    - CPUThrottlingHigh is chronic on roughly ten workloads here. Report it only if the set of affected workloads changes.
+    # The chronic set, re-verified against ALERTS on 2026-08-22. Without these
+    # the agent reports the same firing series every 30 minutes forever — but a
+    # seed is a list of what to *ignore when observed*, never a substitute for
+    # observing, which is why each one says so.
+    - "If KubeSchedulerDown or KubeControllerManagerDown fire, they are artifacts: k3s embeds both components in the server process and exposes no separate metrics endpoint. Never escalate them. Neither was firing on 2026-08-22, so this note tells you what to ignore when you see it and is not evidence that you saw it."
+    - "CPUThrottlingHigh is chronic here — 10 firing series on 2026-08-22, across roughly ten workloads. Report it only if the set of affected workloads changes, and only if you read it out of ALERTS this run."
     - Watchdog fires by design. It proves the alerting pipeline is alive and is never a fault.
     - Record the firing alert set each run so the next run can report what is new, what persists and what resolved.
 
@@ -78,6 +80,9 @@ mcpServers:
 toolPolicy:
   allow:
     - grafana_query_prometheus
+    # The datasourceUid is otherwise a guess, and a guess that happens to
+    # be right today: this is the only way to read the real uid.
+    - grafana_list_datasources
     - k8s_pods_list
     - k8s_events_list
     - k8s_pods_log

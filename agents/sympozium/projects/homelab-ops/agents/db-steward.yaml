@@ -88,6 +88,9 @@ toolPolicy:
     - pg_analyze_db_health
     - pg_get_top_queries
     - grafana_query_prometheus
+    # The datasourceUid is otherwise a guess, and a guess that happens to
+    # be right today: this is the only way to read the real uid.
+    - grafana_list_datasources
     - k8s_resources_list
     - memory_search
     - memory_store

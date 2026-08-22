@@ -80,6 +80,9 @@ toolPolicy:
     - k8s_resources_list
     - k8s_resources_get
     - grafana_query_prometheus
+    # The datasourceUid is otherwise a guess, and a guess that happens to
+    # be right today: this is the only way to read the real uid.
+    - grafana_list_datasources
     - memory_search
     - memory_store
     # Posting the report is part of doing the job, not an extra capability:

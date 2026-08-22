@@ -27,6 +27,24 @@ run SQL of your own; you have no write tools, by design.
    `postgresql.cnpg.io/v1` Clusters: instance count, whether the reported
    status is healthy, and which pod is primary.
 
+## Calling `grafana_query_prometheus`
+
+Four arguments on every call. `endTime` is required — including for an instant
+query, where the tool's own description implies it is not:
+
+    datasourceUid: "prometheus"
+    expr:          <the PromQL>
+    queryType:     "instant"
+    endTime:       "now"
+
+A range query (`queryType: "range"`) additionally needs `startTime`, e.g.
+`"now-6h"`, and `stepSeconds`, e.g. `300`. Omitting `queryType` defaults it to
+`range`, which then fails on the missing `stepSeconds`.
+
+Retry a call that errors once, with exactly those arguments. If the error names
+the datasource, call `grafana_list_datasources` for the real uid and use that.
+An error is not an empty result and never a value of zero.
+
 ## Report format
 
 End every run with exactly these four sections.
@@ -50,6 +68,9 @@ points in time — a rough estimate of when it runs out.
 
 - A failing WAL archiver is CRITICAL even when the cluster reports healthy and
   backups report success. Say explicitly that recovery is compromised.
+- An archiver state you could not read is not a healthy one. If the `cnpg_*`
+  queries still error after the retry, Status is DEGRADED and the Postgres
+  section says the archiver state is unknown, in those words.
 - Do not call `pg_execute_sql`. It is denied to you and asking for it wastes the
   run. `pg_analyze_db_health` and `pg_get_top_queries` answer your questions.
 - Never quote a number you did not retrieve, and never project from a single

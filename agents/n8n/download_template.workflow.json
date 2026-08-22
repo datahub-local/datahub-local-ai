@@ -1,0 +1,759 @@
+{
+  "active": true,
+  "activeVersion": {
+    "updatedAt": "2026-08-21T06:18:56.201Z",
+    "createdAt": "2026-08-21T06:18:44.139Z",
+    "versionId": "5d3ff1c1-c5d0-44dd-bb37-e9196b553cfe",
+    "workflowId": "qUfjfWLGEjV96ljf",
+    "nodes": [
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "22e8a3b0-bd53-485c-b971-7f1dd0686f0e",
+                "name": "repo_owner",
+                "type": "string",
+                "value": "={{ $env[\"BACKUP_GITHUB_REPO_OWNER\"] }}"
+              },
+              {
+                "id": "150618c5-09b1-4f8b-a7b4-984662bf3381",
+                "name": "repo_name",
+                "type": "string",
+                "value": "={{ $env[\"BACKUP_GITHUB_REPO_NAME\"] }}"
+              },
+              {
+                "id": "ab94d0a1-ef3a-4fe9-9076-6882c6fda0ac",
+                "name": "repo_path",
+                "type": "string",
+                "value": "={{ ($env[\"BACKUP_GITHUB_REPO_PATH\"] || \"agents/n8n\").replace(/\\/+$/, \"\") }}"
+              },
+              {
+                "id": "338bd03e-28a3-4fd7-9c38-a3db158bebe6",
+                "name": "template_name",
+                "value": "={{ $json.template_name }}",
+                "type": "string"
+              },
+              {
+                "id": "d8be99d5-516c-496a-9138-39704db8b53c",
+                "name": "template_vars",
+                "value": "={{ $json.template_vars }}",
+                "type": "object"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "b55c7807-3534-4ce3-ac02-246d87178079",
+        "name": "setVars",
+        "type": "n8n-nodes-base.set",
+        "position": [
+          752,
+          -48
+        ],
+        "typeVersion": 3.4
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "combinator": "and",
+            "conditions": [
+              {
+                "id": "2717a7e5-095a-42bf-8b5b-8050c3389ec5",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                },
+                "leftValue": "={{ $json.success }}",
+                "rightValue": "={{ $('check_template_vars_present').item.json.keys()}}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "7c398a22-71a9-4031-ad9e-5982f81a8996",
+        "name": "If",
+        "type": "n8n-nodes-base.if",
+        "position": [
+          1872,
+          -48
+        ],
+        "typeVersion": 2.2
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "57a9625b-adea-4ee7-a72a-2be8db15f3d4",
+                "name": "output",
+                "type": "string",
+                "value": "={{ $json.output }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "c5483092-29f6-496c-9193-de300e63e957",
+        "name": "set_output",
+        "type": "n8n-nodes-base.set",
+        "position": [
+          2320,
+          -144
+        ],
+        "typeVersion": 3.4
+      },
+      {
+        "parameters": {
+          "jsCode": "// Fetch the template text\nconst template = $('set_template').first().json.data;  // Ensure the template contains placeholders like {{ some.node.value }}\n\n// Function to replace placeholders dynamically\nconst replaceVariables = (text, vars) => {\n  return text.replace(/{{(.*?)}}/g, (match, key) => {\n    const trimmedKey = key.trim();\n    \n    // Extract last part after the last dot\n    const finalKey = trimmedKey.split('.').pop();\n\n    // Replace if key exists, otherwise leave placeholder unchanged\n    return vars.hasOwnProperty(finalKey) ? vars[finalKey] : match;\n  });\n};\n\n// Replace and return result\nreturn [{\n  output: replaceVariables(template, $('setVars').first().json.template_vars)\n}];\n"
+        },
+        "id": "b4e8a992-986d-4306-a13a-8e726c539ff3",
+        "name": "replace_variables",
+        "type": "n8n-nodes-base.code",
+        "position": [
+          2096,
+          -144
+        ],
+        "typeVersion": 2
+      },
+      {
+        "parameters": {
+          "jsCode": "// Get template text\nconst template = $json.data;\n\n// Extract variables inside {{ }} dynamically\nconst matches = [...template.matchAll(/{{(.*?)}}/g)];\nconst uniqueVars = [...new Set(matches.map(match => match[1].trim().split('.').pop()))];\n\n// Get variables from the Set Node\nconst setNodeVariables = $('setVars').first().json.template_vars;\n\n// Log extracted variables and Set Node keys\nconsole.log(\"Extracted Variables:\", uniqueVars);\nconsole.log(\"Set Node Keys:\", Object.keys(setNodeVariables));\n\n// Check if all required variables are present in the Set Node\nconst missingKeys = uniqueVars.filter(varName => !setNodeVariables.hasOwnProperty(varName));\n\nconsole.log(\"Missing Keys:\", missingKeys);\n\n// Return false if any required variable is missing, otherwise return true\nreturn [{\n  success: missingKeys.length === 0,\n  missingKeys: missingKeys\n}];\n"
+        },
+        "id": "01a7d29f-e55c-4444-969d-70fd9f657206",
+        "name": "check_template_vars_present",
+        "type": "n8n-nodes-base.code",
+        "position": [
+          1648,
+          -48
+        ],
+        "typeVersion": 2
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "335b450d-542a-4714-83d8-ccc237188fc5",
+                "name": "data",
+                "type": "string",
+                "value": "={{ $json.data }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "af4df9ba-518a-4370-8f6c-a77fd3e3139d",
+        "name": "set_template",
+        "type": "n8n-nodes-base.set",
+        "position": [
+          1424,
+          -48
+        ],
+        "typeVersion": 3.4
+      },
+      {
+        "parameters": {
+          "operation": "text",
+          "options": {}
+        },
+        "id": "71f2e06d-ba8f-477c-bee7-63e821773a33",
+        "name": "extract_template",
+        "type": "n8n-nodes-base.extractFromFile",
+        "position": [
+          1200,
+          -48
+        ],
+        "typeVersion": 1
+      },
+      {
+        "parameters": {
+          "resource": "file",
+          "operation": "get",
+          "owner": {
+            "__rl": true,
+            "value": "={{ $json.repo_owner }}",
+            "mode": "name"
+          },
+          "repository": {
+            "__rl": true,
+            "value": "={{ $json.repo_name }}",
+            "mode": "name"
+          },
+          "filePath": "={{ $json.repo_path }}/{{ $json.template_name }}",
+          "additionalParameters": {}
+        },
+        "id": "2a4c82ef-d6af-4446-b157-7011fcf9b3c0",
+        "name": "download_template",
+        "type": "n8n-nodes-base.github",
+        "position": [
+          976,
+          -48
+        ],
+        "typeVersion": 1,
+        "webhookId": "c46af261-581d-4c60-899e-48ca96011a25",
+        "credentials": {
+          "githubApi": {
+            "id": "x1DjxYsMLFm3vUiv",
+            "name": "GitHub account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "errorMessage": "=Missing Prompt Variables : {{ $('check_template_vars_present').item.json.missingKeys }}\n"
+        },
+        "id": "2ad929b0-c74a-4c35-8d0e-58347b33fa60",
+        "name": "stop_and_error",
+        "type": "n8n-nodes-base.stopAndError",
+        "position": [
+          2096,
+          48
+        ],
+        "typeVersion": 1
+      },
+      {
+        "parameters": {},
+        "id": "e08c82ce-c4bc-40dd-92ec-4abb4f98b14f",
+        "name": "click_trigger",
+        "type": "n8n-nodes-base.manualTrigger",
+        "position": [
+          528,
+          -144
+        ],
+        "typeVersion": 1,
+        "disabled": true
+      },
+      {
+        "parameters": {
+          "workflowInputs": {
+            "values": [
+              {
+                "name": "template_name"
+              },
+              {
+                "name": "template_vars",
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          528,
+          48
+        ],
+        "id": "e18c7875-0f63-40f5-8845-c3afa586d64a",
+        "name": "main_trigger"
+      }
+    ],
+    "connections": {
+      "setVars": {
+        "main": [
+          [
+            {
+              "node": "download_template",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "If": {
+        "main": [
+          [
+            {
+              "node": "replace_variables",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "stop_and_error",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "replace_variables": {
+        "main": [
+          [
+            {
+              "node": "set_output",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "check_template_vars_present": {
+        "main": [
+          [
+            {
+              "node": "If",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "set_template": {
+        "main": [
+          [
+            {
+              "node": "check_template_vars_present",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "extract_template": {
+        "main": [
+          [
+            {
+              "node": "set_template",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "download_template": {
+        "main": [
+          [
+            {
+              "node": "extract_template",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "click_trigger": {
+        "main": [
+          [
+            {
+              "node": "setVars",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "main_trigger": {
+        "main": [
+          [
+            {
+              "node": "setVars",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "nodeGroups": [],
+    "authors": "no name",
+    "name": "Version 5d3ff1c1",
+    "description": "",
+    "autosaved": true
+  },
+  "activeVersionId": "5d3ff1c1-c5d0-44dd-bb37-e9196b553cfe",
+  "connections": {
+    "setVars": {
+      "main": [
+        [
+          {
+            "node": "download_template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "replace_variables",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "stop_and_error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "replace_variables": {
+      "main": [
+        [
+          {
+            "node": "set_output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check_template_vars_present": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "set_template": {
+      "main": [
+        [
+          {
+            "node": "check_template_vars_present",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "extract_template": {
+      "main": [
+        [
+          {
+            "node": "set_template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "download_template": {
+      "main": [
+        [
+          {
+            "node": "extract_template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "click_trigger": {
+      "main": [
+        [
+          {
+            "node": "setVars",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "main_trigger": {
+      "main": [
+        [
+          {
+            "node": "setVars",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2025-05-21T13:55:57.395Z",
+  "id": "qUfjfWLGEjV96ljf",
+  "isArchived": false,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "name": "DownloadTemplate",
+  "nodeGroups": [],
+  "nodes": [
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "22e8a3b0-bd53-485c-b971-7f1dd0686f0e",
+              "name": "repo_owner",
+              "type": "string",
+              "value": "={{ $env[\"BACKUP_GITHUB_REPO_OWNER\"] }}"
+            },
+            {
+              "id": "150618c5-09b1-4f8b-a7b4-984662bf3381",
+              "name": "repo_name",
+              "type": "string",
+              "value": "={{ $env[\"BACKUP_GITHUB_REPO_NAME\"] }}"
+            },
+            {
+              "id": "ab94d0a1-ef3a-4fe9-9076-6882c6fda0ac",
+              "name": "repo_path",
+              "type": "string",
+              "value": "={{ ($env[\"BACKUP_GITHUB_REPO_PATH\"] || \"agents/n8n\").replace(/\\/+$/, \"\") }}"
+            },
+            {
+              "id": "338bd03e-28a3-4fd7-9c38-a3db158bebe6",
+              "name": "template_name",
+              "value": "={{ $json.template_name }}",
+              "type": "string"
+            },
+            {
+              "id": "d8be99d5-516c-496a-9138-39704db8b53c",
+              "name": "template_vars",
+              "value": "={{ $json.template_vars }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b55c7807-3534-4ce3-ac02-246d87178079",
+      "name": "setVars",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        752,
+        -48
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "2717a7e5-095a-42bf-8b5b-8050c3389ec5",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.success }}",
+              "rightValue": "={{ $('check_template_vars_present').item.json.keys()}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "7c398a22-71a9-4031-ad9e-5982f81a8996",
+      "name": "If",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        1872,
+        -48
+      ],
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "57a9625b-adea-4ee7-a72a-2be8db15f3d4",
+              "name": "output",
+              "type": "string",
+              "value": "={{ $json.output }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c5483092-29f6-496c-9193-de300e63e957",
+      "name": "set_output",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        2320,
+        -144
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fetch the template text\nconst template = $('set_template').first().json.data;  // Ensure the template contains placeholders like {{ some.node.value }}\n\n// Function to replace placeholders dynamically\nconst replaceVariables = (text, vars) => {\n  return text.replace(/{{(.*?)}}/g, (match, key) => {\n    const trimmedKey = key.trim();\n    \n    // Extract last part after the last dot\n    const finalKey = trimmedKey.split('.').pop();\n\n    // Replace if key exists, otherwise leave placeholder unchanged\n    return vars.hasOwnProperty(finalKey) ? vars[finalKey] : match;\n  });\n};\n\n// Replace and return result\nreturn [{\n  output: replaceVariables(template, $('setVars').first().json.template_vars)\n}];\n"
+      },
+      "id": "b4e8a992-986d-4306-a13a-8e726c539ff3",
+      "name": "replace_variables",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        2096,
+        -144
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get template text\nconst template = $json.data;\n\n// Extract variables inside {{ }} dynamically\nconst matches = [...template.matchAll(/{{(.*?)}}/g)];\nconst uniqueVars = [...new Set(matches.map(match => match[1].trim().split('.').pop()))];\n\n// Get variables from the Set Node\nconst setNodeVariables = $('setVars').first().json.template_vars;\n\n// Log extracted variables and Set Node keys\nconsole.log(\"Extracted Variables:\", uniqueVars);\nconsole.log(\"Set Node Keys:\", Object.keys(setNodeVariables));\n\n// Check if all required variables are present in the Set Node\nconst missingKeys = uniqueVars.filter(varName => !setNodeVariables.hasOwnProperty(varName));\n\nconsole.log(\"Missing Keys:\", missingKeys);\n\n// Return false if any required variable is missing, otherwise return true\nreturn [{\n  success: missingKeys.length === 0,\n  missingKeys: missingKeys\n}];\n"
+      },
+      "id": "01a7d29f-e55c-4444-969d-70fd9f657206",
+      "name": "check_template_vars_present",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1648,
+        -48
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "335b450d-542a-4714-83d8-ccc237188fc5",
+              "name": "data",
+              "type": "string",
+              "value": "={{ $json.data }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "af4df9ba-518a-4370-8f6c-a77fd3e3139d",
+      "name": "set_template",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        1424,
+        -48
+      ],
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "operation": "text",
+        "options": {}
+      },
+      "id": "71f2e06d-ba8f-477c-bee7-63e821773a33",
+      "name": "extract_template",
+      "type": "n8n-nodes-base.extractFromFile",
+      "position": [
+        1200,
+        -48
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "get",
+        "owner": {
+          "__rl": true,
+          "value": "={{ $json.repo_owner }}",
+          "mode": "name"
+        },
+        "repository": {
+          "__rl": true,
+          "value": "={{ $json.repo_name }}",
+          "mode": "name"
+        },
+        "filePath": "={{ $json.repo_path }}/{{ $json.template_name }}",
+        "additionalParameters": {}
+      },
+      "id": "2a4c82ef-d6af-4446-b157-7011fcf9b3c0",
+      "name": "download_template",
+      "type": "n8n-nodes-base.github",
+      "position": [
+        976,
+        -48
+      ],
+      "typeVersion": 1,
+      "webhookId": "c46af261-581d-4c60-899e-48ca96011a25",
+      "credentials": {
+        "githubApi": {
+          "id": "x1DjxYsMLFm3vUiv",
+          "name": "GitHub account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "errorMessage": "=Missing Prompt Variables : {{ $('check_template_vars_present').item.json.missingKeys }}\n"
+      },
+      "id": "2ad929b0-c74a-4c35-8d0e-58347b33fa60",
+      "name": "stop_and_error",
+      "type": "n8n-nodes-base.stopAndError",
+      "position": [
+        2096,
+        48
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {},
+      "id": "e08c82ce-c4bc-40dd-92ec-4abb4f98b14f",
+      "name": "click_trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "position": [
+        528,
+        -144
+      ],
+      "typeVersion": 1,
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "template_name"
+            },
+            {
+              "name": "template_vars",
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        528,
+        48
+      ],
+      "id": "e18c7875-0f63-40f5-8845-c3afa586d64a",
+      "name": "main_trigger"
+    }
+  ],
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "binaryMode": "separate"
+  },
+  "shared": [
+    {
+      "updatedAt": "2025-05-21T13:55:57.395Z",
+      "createdAt": "2025-05-21T13:55:57.395Z",
+      "role": "workflow:owner",
+      "workflowId": "qUfjfWLGEjV96ljf",
+      "projectId": "zcGU09G6dy4Oah3l"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2026-08-21T06:18:43.870Z",
+  "versionId": "5d3ff1c1-c5d0-44dd-bb37-e9196b553cfe"
+}

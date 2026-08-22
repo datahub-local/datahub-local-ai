@@ -232,7 +232,7 @@ Env vars in use on the n8n pod: `BACKUP_GITHUB_REPO_OWNER`, `BACKUP_GITHUB_REPO_
 
 #### Prompts and datasets are fetched at runtime, not embedded
 
-No workflow inlines a prompt. `DownloadTemplate` (`09xEuVQj207pjK4x`) is called as a sub-workflow with `{template_name, template_vars}`, pulls `<BACKUP_GITHUB_REPO_PATH>/<template_name>` from GitHub (`agents/n8n/<template_name>`; the prefix is resolved from `$env` in its `setVars` node, never hardcoded, so moving the folder is an env-var change), substitutes `{{ VAR }}` placeholders and returns `{output}`. It **fails loudly** — `check_template_vars_present` diffs the placeholders found in the file against the keys supplied and routes to `stop_and_error` listing the missing ones.
+No workflow inlines a prompt. `DownloadTemplate` (`qUfjfWLGEjV96ljf` — **not** `09xEuVQj207pjK4x`, which is `Download Content`, a URL scraper taking `{URL}`; a node pointing there returns no `output` and the caller silently falls back to its defaults) is called as a sub-workflow with `{template_name, template_vars}`, pulls `<BACKUP_GITHUB_REPO_PATH>/<template_name>` from GitHub (`agents/n8n/<template_name>`; the prefix is resolved from `$env` in its `setVars` node, never hardcoded, so moving the folder is an env-var change), substitutes `{{ VAR }}` placeholders and returns `{output}`. It **fails loudly** — `check_template_vars_present` diffs the placeholders found in the file against the keys supplied and routes to `stop_and_error` listing the missing ones.
 
 Consequences to respect when editing:
 

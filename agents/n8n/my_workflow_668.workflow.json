@@ -1,0 +1,103 @@
+{
+  "active": false,
+  "activeVersion": null,
+  "activeVersionId": null,
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Form",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Form": {
+      "main": [
+        [
+          {
+            "node": "Form1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2026-03-10T11:15:12.180Z",
+  "id": "0EQ0Typ46WmhBbEI",
+  "isArchived": true,
+  "meta": null,
+  "name": "My workflow 668",
+  "nodeGroups": [],
+  "nodes": [
+    {
+      "parameters": {
+        "options": {
+          "formTitle": "Step 2"
+        }
+      },
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.3,
+      "position": [
+        352,
+        0
+      ],
+      "id": "72db5745-1d87-4f44-87d5-3f226cc7f2f4",
+      "name": "Form",
+      "webhookId": "14aefcf5-30bb-4419-8e8a-3e4b54539765"
+    },
+    {
+      "parameters": {
+        "formTitle": "Step 1",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "f6dda455-3ef7-4f38-b97f-6229fa04c5b7",
+      "name": "On form submission",
+      "webhookId": "1f24c73e-e536-4efe-944f-61700f73c023"
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "completionTitle": "Step 3",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.3,
+      "position": [
+        560,
+        0
+      ],
+      "id": "c0b01020-3037-458c-b169-724e7a48e8a6",
+      "name": "Form1",
+      "webhookId": "f4f5d407-3569-44d2-8ac0-8da5e1241db5"
+    }
+  ],
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "shared": [
+    {
+      "updatedAt": "2026-03-10T11:15:12.180Z",
+      "createdAt": "2026-03-10T11:15:12.180Z",
+      "role": "workflow:owner",
+      "workflowId": "0EQ0Typ46WmhBbEI",
+      "projectId": "zcGU09G6dy4Oah3l"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2026-03-14T05:56:13.571Z",
+  "versionId": "1481b226-4156-4efe-b124-bc6fad9178b4"
+}

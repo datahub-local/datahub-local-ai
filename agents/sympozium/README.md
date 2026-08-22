@@ -24,8 +24,12 @@ because its bundles are binary zips. Nothing is generated into the repository.
 agents/sympozium/
   Chart.yaml
   helmfile.yaml.gotmpl
-  values/default.yaml.gotmpl   per-cluster knobs: enabled, baseURL, policyRef
+  values/default.yaml.gotmpl   per-cluster knobs: enabled, baseURL, policyRef,
+                               channelConfigs, and the sympozium_delivery tree
   templates/ensembles.yaml     assembles one Ensemble per projects/<name>/
+  prompts/
+    delivery/<level>.md        how much detail to post   (quiet|normal|verbose)
+    notify/<level>.md          when to post at all       (always|onChange|never)
   projects/
     <ensemble>/
       ensemble.yaml            team-level spec, plus the `defaults:` stamped
@@ -128,9 +132,11 @@ different day" is not expressible; it has to be another persona.
 
 Its one write tool is `github_add_issue_comment`. Merging, pushing, approving
 and branch creation are denied at the server edge, not merely left out of the
-allowlist. That comment is also the only notification path there is — a
-`DO NOT MERGE` verdict on the PR *is* the alert, since no Slack channel is
-wired.
+allowlist. That comment is also its only notification path — a `DO NOT MERGE`
+verdict on the PR *is* the alert. This is the one ensemble deliberately *not*
+bound to Slack: a channel binding is bidirectional, and an inbound trigger on
+the only agent holding a write tool is exactly the blast radius the split
+ensemble exists to keep visible.
 
 ## Conventions
 
@@ -151,10 +157,27 @@ wired.
   prompt as Markdown rather than the assembled CR — run `helm template` to see
   what the cluster will actually get.
 - **Source describes the agent; values describe the cluster.** Prompts, skills,
-  schedules and tool policy live in `projects/`. Only `enabled`, `baseURL` and
-  `policyRef` — the three things that could legitimately differ between clusters
-  — live in `values/default.yaml.gotmpl`, merged over `spec` at render time. The
+  schedules and tool policy live in `projects/`. Only `enabled`, `baseURL`,
+  `policyRef`, `channelConfigs` and the `sympozium_delivery` tree — the things
+  that could legitimately differ between clusters — live in
+  `values/default.yaml.gotmpl`, merged over `spec` at render time. The
   validator rejects those keys in `ensemble.yaml`.
+- **A channel binding is split across both, and so is delivery.** The persona
+  carries the type (`channels: [slack]`), `send_channel_message` in the
+  allowlist, and a `{{ DELIVERY }}` token in its system prompt. Values carry the
+  credential secret (`channelConfigs`) and the knobs (`sympozium_delivery`:
+  `channel`, `verbosity`, `notify`, with per-persona overrides). Any one half
+  alone deploys cleanly and posts nothing, or posts to nowhere, so the validator
+  cross-checks all of it — including a typo under `personas:`, `notify:
+  onChange` on a prompt with no *What counts as a change* section, and
+  `slackOptions` on a persona that is not on Slack.
+- **Prompt tokens are substituted by name, never with `tpl`.** The templates
+  replace exactly `{{ DELIVERY }}` and `{{ CHANNEL }}`, then `fail` on any token
+  left standing — the same contract as `check_template_vars_present` in
+  `agents/n8n`. `tpl` would execute arbitrary template code inside a prompt and
+  turn a future literal `{{` in prompt text into a render error. The cost is
+  real either way: a prompt file is no longer exactly what the model sees. Run
+  `helm template` to read the assembled version.
 - **`toolPolicy` is prefixed, `toolsDeny` is not.** `toolPolicy.allow` lists
   agent-facing names (`k8s_pods_list`), because that is what the model sees.
   `mcpServers[].toolsDeny` lists the server's own names (`pods_delete`), because
@@ -415,13 +438,34 @@ this entry still applies.
 
 ## Known gaps
 
-- **No Slack.** `send_channel_message` is allowlisted nowhere, so reports live in
-  the agent run history and the Sympozium UI
-  (`https://automation-sympozium.<gateway>/auth`). Wiring it needs `slack-auth`
-  projected into `automation` by
+- **Slack is wired for `homelab-ops` only, and two things about it are
+  unverified.** The secret exists — `mcp-slack-token` in `automation`, projected
+  by
   [datahub-local-secrets](https://github.com/datahub-local/datahub-local-secrets)
-  — today it exists only in `monitoring` — and then `channelConfigs` on the
-  ensemble.
+  with `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN` — the channels exist, and the app
+  is in them. What could not be checked without applying it: (1) that the
+  controller turns `channelConfigs` into a `ConfigRef` on each generated Agent —
+  confirm with
+  `kubectl get agent homelab-ops-sre-sentinel -o jsonpath='{.spec.channels}'`
+  after the sync; (2) that the runtime reads those two key names and that
+  `send_channel_message` takes the channel as an argument at all. If it does not,
+  the destination is not expressible from the prompt and `sympozium_delivery.channel`
+  becomes documentation until the runtime grows a field for it.
+- **Channels are named, not `C0…` ids.** Slack accepts a name for
+  `chat.postMessage`, but it is the legacy form and it breaks silently on a
+  rename. Swapping is a one-line values change per channel.
+- **`#monitoring-ai-runs` has no producer yet.** A failed `AgentRun` notifies
+  nobody: an agent that cannot run cannot report that it cannot run, which is
+  exactly how the Ollama restart on 2026-08-22 cost three runs in silence. That
+  signal has to come from outside the fleet — an alert on `AgentRun` phase, or an
+  n8n workflow polling it, alongside `Catch Errors` which already does this job
+  for n8n.
+- **A Slack binding is also an inbound path.** `slackOptions.allowedTriggers:
+  [mention]` keeps it to an explicit @-mention rather than every message in the
+  channel, which matters when one GPU serves the whole fleet. Narrow it further
+  with ensemble-level `channelAccessControl` (`allowedChats`, `allowedSenders`)
+  once the channel and user ids are known; today anyone in the workspace who
+  @-mentions the bot can start a read-only run.
 - **`endpoint-warden` has no host access.** "Maintaining the machines" is done
   through node-exporter metrics in Grafana, not host mounts, so the agent stays
   unprivileged. Stalls, disk health, temperature, memory errors, power, version

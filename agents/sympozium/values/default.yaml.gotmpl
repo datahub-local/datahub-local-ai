@@ -1,6 +1,47 @@
 # Common values shared for all charts
 release_name: datahub-local-ai
 
+# Delivery knobs, consumed by templates/ensembles.yaml and substituted into each
+# persona's system prompt. Deliberately kept out of the tree below: everything
+# under sympozium_ensembles is merged into the Ensemble spec, and the CRD webhook
+# decodes strictly — an unknown key is rejected outright ("unknown field
+# spec.verbosity"), not pruned. Chart-only knobs need their own tree.
+#
+# Keys are the ensemble directory name, with optional per-persona overrides.
+#   channel    where send_channel_message posts. No CRD field carries a
+#              destination, so this only ever reaches the agent as prompt text.
+#   verbosity  quiet | normal | verbose  -> prompts/delivery/<level>.md
+#   notify     always | onChange | never -> prompts/notify/<level>.md
+#
+# Channel names rather than C0… ids, so this file stays readable. Slack accepts
+# a name for chat.postMessage, but it is the legacy form and breaks silently on
+# a rename — swap in the ids if these channels start moving. The bot has to be a
+# member of every channel named here.
+sympozium_delivery:
+  homelab-ops:
+    # The daily and weekly personas report here every run — hardware, the
+    # databases, the weekly cleanup. Scan-later reading, so this is the channel
+    # whose notifications can be off.
+    channel: "#monitoring-ai-health"
+    verbosity: normal
+    notify: always
+
+    # Split by what a reader would do about it, not by which agent produced it:
+    # a channel is really one notification setting. Keeping the two frequent
+    # personas out of -health is what lets -alerts keep notifications on without
+    # the daily hardware report training you to mute it.
+    personas:
+      sre-sentinel:
+        channel: "#monitoring-ai-alerts"
+        notify: onChange
+      gitops-auditor:
+        channel: "#monitoring-ai-drift"
+        notify: onChange
+
+  # homelab-reviewer is absent on purpose: it is bound to no channel, and its
+  # DO NOT MERGE comment on the pull request is the alert. See
+  # projects/homelab-reviewer/README.md#notification.
+
 # Per-cluster knobs merged into each Ensemble's spec, keyed by the directory name
 # under projects/. Everything describing *what an agent is* — prompts, skills,
 # schedules, tool policy — lives in projects/ and is read from there by
@@ -11,6 +52,20 @@ sympozium_ensembles:
     # Ensembles ship disabled by default in the CRD ("catalog-only"). All six
     # agents are wanted here, so both ensembles are switched on explicitly.
     enabled: true
+
+    # Channel type -> the Secret holding its credentials. The controller reads
+    # this to set ConfigRef on every generated Agent whose agentConfig lists the
+    # type in `channels`, so a persona bound to a type with no entry here binds
+    # to nothing at all — scripts/validate.py cross-checks the two.
+    #
+    # A secret name is a property of the cluster, not of the agent, which is why
+    # it lives here and is rejected in ensemble.yaml. mcp-slack-token is
+    # projected into `automation` by datahub-local-secrets and carries
+    # SLACK_BOT_TOKEN (outbound chat:write) and SLACK_APP_TOKEN (Socket Mode,
+    # the inbound half). Until it appeared the only Slack secret in this cluster
+    # was `slack-auth` in `monitoring`, which is why nothing here could notify.
+    channelConfigs:
+      slack: mcp-slack-token
 
     # Cluster-local Ollama, deployed by datahub-local-core
     # (releases/data/values/ollama.yaml.gotmpl). No credentials: provider

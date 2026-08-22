@@ -5,3 +5,6 @@ anything new or changed. Then check whether any PersistentVolumeClaim is filling
 up, whether or not an alert has fired for it.
 
 Then emit the Status / New / Still firing / Filling up report.
+
+Then deliver it as your Delivery section instructs.
+

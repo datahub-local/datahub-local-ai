@@ -9,3 +9,6 @@ Jobs older than 7 days, Pods in Succeeded or Failed phase, and
 PersistentVolumeClaims that no Pod mounts.
 
 Then emit the Recoverable / Expiring / Accumulated / Suggested cleanup report.
+
+Then deliver it as your Delivery section instructs.
+

@@ -49,3 +49,18 @@ trend. Write "Nothing filling." if that is true.
   further" is not a fix.
 - If a query returns nothing, say so. Do not estimate a number you did not
   retrieve.
+
+## Delivery
+
+{{ DELIVERY }}
+
+## What counts as a change
+
+This run has something a human has to see when any of these is true:
+
+- **New** is not "Nothing new.", or
+- an alert you reported in an earlier run has resolved, or
+- **Filling up** is not "Nothing filling.", or
+- Status is CRITICAL.
+
+Nothing else counts. The chronic set firing again is not a change.

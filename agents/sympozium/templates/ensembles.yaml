@@ -24,6 +24,10 @@
 {{-   end }}
 {{-   $spec := $source.spec }}
 {{-   $defaults := $source.defaults | default dict }}
+{{- /* Delivery knobs (channel, verbosity, notify) are chart-only: the CRD webhook
+       decodes spec strictly, so they cannot ride along in sympozium_ensembles.
+       See values/default.yaml.gotmpl. */}}
+{{-   $delivery := index ($.Values.sympozium_delivery | default dict) $name | default dict }}
 {{-   $personaFiles := $.Files.Glob (printf "%s/agents/*.yaml" $project) }}
 {{-   if not $personaFiles }}
 {{-     fail (printf "%s: no personas in agents/" $project) }}
@@ -42,6 +46,34 @@
 {{-     if not $prompt }}
 {{-       fail (printf "%s: systemPromptFile %q is empty or unreadable (is it excluded by .helmignore?)" $personaPath $promptRef) }}
 {{-     end }}
+{{- /* Substitute the delivery tokens. Deliberately a fixed token set replaced by
+       name rather than `tpl`, which would execute arbitrary template code inside
+       a prompt and turn any future literal {{ in prompt text into a render
+       error. A token left standing fails the render, the same contract as
+       DownloadTemplate's check_template_vars_present in agents/n8n. */}}
+{{-     $pd := index ($delivery.personas | default dict) ($persona.name | toString) | default dict }}
+{{-     $channel := $pd.channel | default $delivery.channel | default "" }}
+{{-     $verbosity := lower ($pd.verbosity | default $delivery.verbosity | default "normal" | toString) }}
+{{-     $notify := lower ($pd.notify | default $delivery.notify | default "always" | toString) }}
+{{-     if $persona.channels }}
+{{-       if not $channel }}
+{{-         fail (printf "%s: bound to a channel, but sympozium_delivery.%s sets no channel for %s" $personaPath $name $persona.name) }}
+{{-       end }}
+{{-       $verbosityText := $.Files.Get (printf "prompts/delivery/%s.md" $verbosity) }}
+{{-       if not $verbosityText }}
+{{-         fail (printf "%s: verbosity %q has no prompts/delivery/%s.md" $personaPath $verbosity $verbosity) }}
+{{-       end }}
+{{-       $notifyText := $.Files.Get (printf "prompts/notify/%s.md" $notify) }}
+{{-       if not $notifyText }}
+{{-         fail (printf "%s: notify %q has no prompts/notify/%s.md" $personaPath $notify $notify) }}
+{{-       end }}
+{{-       $block := printf "%s\n\n%s" (trimSuffix "\n" $verbosityText) (trimSuffix "\n" $notifyText) }}
+{{-       $prompt = replace "{{ DELIVERY }}" $block $prompt }}
+{{-       $prompt = replace "{{ CHANNEL }}" $channel $prompt }}
+{{-     end }}
+{{-     if contains "{{" $prompt }}
+{{-       fail (printf "%s: %s still holds an unsubstituted token. Known tokens are {{ DELIVERY }} and {{ CHANNEL }}, and they are only substituted on a persona bound to a channel." $personaPath $promptRef) }}
+{{-     end }}
 {{-     $_ := unset $persona "systemPromptFile" }}
 {{-     $_ := set $persona "systemPrompt" (trimSuffix "\n" $prompt) }}
 {{-     if $persona.schedule }}
@@ -52,6 +84,9 @@
 {{-       $task := $.Files.Get (printf "%s/%s" $project $taskRef) }}
 {{-       if not $task }}
 {{-         fail (printf "%s: schedule.taskFile %q is empty or unreadable" $personaPath $taskRef) }}
+{{-       end }}
+{{-       if contains "{{" $task }}
+{{-         fail (printf "%s: %s holds a template token; task prompts take no substitution" $personaPath $taskRef) }}
 {{-       end }}
 {{-       $_ := unset $persona.schedule "taskFile" }}
 {{-       $_ := set $persona.schedule "task" (trimSuffix "\n" $task) }}

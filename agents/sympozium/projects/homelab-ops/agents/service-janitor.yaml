@@ -26,6 +26,25 @@ memory:
     - Never report an expiry without a date read off the resource. A guess is worse than silence.
     - n8n credential expiry belongs to the Credentials Expiry Review workflow in agents/n8n. Out of scope here.
 
+# Outbound: the agent posts its finished report with send_channel_message. The
+# run history and the Sympozium UI are not a notification - a report nobody is
+# told about is the same as no report.
+#
+# Binding a channel is bidirectional, so this is also an inbound path: a Slack
+# message can start an AgentRun. allowedTriggers keeps that to an explicit
+# @-mention, because "channel" would let any message in a channel the bot sits
+# in queue a run against the one GPU. These five personas are read-only, so an
+# unwanted run costs GPU time and nothing else - the write-capable
+# renovate-reviewer is deliberately not bound. Narrow it further with
+# channelAccessControl (allowedChats/allowedSenders) once the channel and user
+# ids are known.
+channels:
+  - slack
+
+slackOptions:
+  allowedTriggers:
+    - mention
+
 mcpServers:
   - name: datahub-local-core-automation-sympozium-mcp-k8s
     timeout: 30
@@ -63,6 +82,9 @@ toolPolicy:
     - grafana_query_prometheus
     - memory_search
     - memory_store
+    # Posting the report is part of doing the job, not an extra capability:
+    # every other tool here only reads.
+    - send_channel_message
   deny:
     - write_file
     - execute_command

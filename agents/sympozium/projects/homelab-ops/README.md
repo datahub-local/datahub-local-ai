@@ -70,3 +70,44 @@ scraped as `redis_*`, that three nodes legitimately report no SMART data.
 `workflowType` is `autonomous`, not `delegation`, and each persona is one
 question with five to seven tools — see
 [the model constrains the design](../../README.md#the-model-constrains-the-design).
+
+## Notification
+
+All five post with `send_channel_message`, using the `mcp-slack-token` secret
+named in `channelConfigs`. Where they post, how much they say and whether they
+say it at all come from the `sympozium_delivery` tree in
+[values/default.yaml.gotmpl](../../values/default.yaml.gotmpl), substituted into
+each system prompt's `{{ DELIVERY }}` token at render time — no CRD field
+carries a destination, so prompt text is the only route there is.
+
+| Persona | Channel | notify |
+| --- | --- | --- |
+| `sre-sentinel` | `#monitoring-ai-alerts` | `onChange` |
+| `gitops-auditor` | `#monitoring-ai-drift` | `onChange` |
+| `endpoint-warden`, `db-steward`, `service-janitor` | `#monitoring-ai-health` | `always` |
+
+**Split by what a reader would do about it, not by who produced it.** A channel
+is really one notification setting, so mixing the 30-minute alert stream with
+the daily hardware report means either the report wakes you or the alert does
+not. Keeping them apart is what lets `-alerts` keep notifications on.
+
+**`onChange` is not a detail — it is what makes `-alerts` usable.**
+`sre-sentinel` runs every 30 minutes and `gitops-auditor` hourly against a
+cluster where most findings are permanent; posting every run is 48 and 24
+messages a day of mostly the same content. Each of those two carries a *What
+counts as a change* section defining its own test — the criteria are
+persona-specific and cannot live in the shared `prompts/notify/onchange.md`, and
+the validator fails a persona set to `onChange` without one. The report is still
+written on a quiet run; it is only the message that is skipped.
+
+`verbosity` (`quiet`/`normal`/`verbose`) is the other axis: how much of the
+report goes in the message. It is deliberately separate from `notify`, and each
+level is written in countable terms — *at most five bullets*, *drop the recap
+sections* — because a 4B model does nothing useful with "be concise".
+
+Binding a channel also opens an inbound path — a Slack message can start an
+`AgentRun` — so `slackOptions.allowedTriggers` is `[mention]` on every persona.
+These five hold no write tool, so an unwanted run costs GPU time and nothing
+else; `renovate-reviewer`, which can comment on pull requests, is deliberately
+not bound. See [Known gaps](../../README.md#known-gaps) for what is still
+unverified about the Slack path.

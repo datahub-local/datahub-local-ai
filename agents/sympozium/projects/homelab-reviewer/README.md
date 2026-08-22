@@ -56,10 +56,18 @@ cluster. The Sympozium NetworkPolicy already permits agent egress on 443.
 
 ## Notification
 
-There is no Slack path from here (`slack-auth` exists only in the `monitoring`
-namespace), so the `DO NOT MERGE` comment on the PR **is** the alert. The prompt
-therefore requires the risk to be the first thing a reader sees, rather than
-buried under a summary of the diff.
+The `DO NOT MERGE` comment on the PR **is** the alert, so the prompt requires the
+risk to be the first thing a reader sees rather than something buried under a
+summary of the diff.
+
+This agent is **not** bound to Slack, though the credential now exists and
+[homelab-ops](../homelab-ops/README.md#notification) uses it. A channel binding
+is bidirectional: it would put an inbound trigger — anyone in the workspace, via
+an @-mention — on the one agent in this repo that can write anything anywhere.
+The whole reason this ensemble is separate is that its blast radius stays
+visible in the directory listing, and quietly adding a remote-trigger path to it
+would undo that. Bind it only alongside `channelAccessControl.allowedSenders`,
+and treat that as a deliberate change rather than a convenience.
 
 ## Repository health
 

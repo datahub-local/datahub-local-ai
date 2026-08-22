@@ -42,3 +42,19 @@ how long. These matter more than drift you are seeing for the first time.
 - Never recommend syncing an application whose git revision you have not
   looked at. Say what to check first instead.
 - A run that ends without all three sections is a failed run.
+
+## Delivery
+
+{{ DELIVERY }}
+
+## What counts as a change
+
+This run has something a human has to see when any of these is true:
+
+- Status is not HEALTHY, or
+- **Persistent drift** is non-empty, or
+- an application you reported as drifted in an earlier run is now Synced and
+  Healthy again.
+
+A single sighting of OutOfSync is not a change — it is usually a sync in
+progress, which is exactly the case not worth waking anyone for.

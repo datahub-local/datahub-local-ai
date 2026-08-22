@@ -325,6 +325,19 @@ agents/sympozium/
   agent-facing names (`k8s_pods_list`) because that is what the model sees;
   `mcpServers[].toolsDeny` uses the server's own names (`pods_delete`) because
   that filter runs at the server. Backwards means a deny that matches nothing.
+- **A channel binding is split across source and values.** The persona carries
+  the type (`channels: [slack]`), `send_channel_message` in the allowlist and a
+  `{{ DELIVERY }}` token in its system prompt; values carry the credential
+  secret (`channelConfigs`) and the `sympozium_delivery` knobs — `channel`,
+  `verbosity` (`quiet|normal|verbose`), `notify` (`always|onChange|never`), with
+  per-persona overrides. No CRD field carries a destination, so the channel only
+  ever reaches the agent as prompt text: the templates substitute exactly
+  `{{ DELIVERY }}` and `{{ CHANNEL }}` and `fail` on any token left standing.
+  Chart-only knobs must stay out of `sympozium_ensembles` — the webhook decodes
+  `spec` strictly and rejects an unknown key outright. `scripts/validate.py`
+  cross-checks every half. Note the binding is *bidirectional* — an inbound
+  Slack message can start an `AgentRun` — which is why `homelab-reviewer`, the
+  only ensemble with a write tool, is not bound.
 - **`toolPolicy.allow` is a strict allowlist.** Omitting a tool disables it, so
   adding a capability means adding the tool name *and* wiring its MCP server on
   that persona. The build script cross-checks the two.

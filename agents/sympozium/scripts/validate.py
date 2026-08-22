@@ -95,6 +95,22 @@ CRD_DEFAULTS = {
 }
 
 SCHEDULE_TYPES = {"heartbeat", "scheduled", "sweep"}
+
+# Channel types the Agent CRD accepts (`ChannelSpec.Type`). A type outside this
+# set is silently never connected, like every other name in this file.
+CHANNEL_TYPES = {"discord", "slack", "telegram", "whatsapp"}
+
+# Delivery levels, each backed by a file the templates substitute into the
+# persona's `{{ DELIVERY }}` token. The prose lives in Markdown rather than in
+# the Go template for the same reason the system prompts do: a 4B model acts on
+# countable instructions, and those have to be reviewable in a diff.
+VERBOSITY_LEVELS = {"quiet", "normal", "verbose"}
+NOTIFY_LEVELS = {"always", "onchange", "never"}
+
+# Tokens templates/ensembles.yaml substitutes into a system prompt. Anything
+# else left in braces fails the render, so it is caught here with a better
+# message than Helm's.
+PROMPT_TOKENS = ("{{ DELIVERY }}", "{{ CHANNEL }}")
 FIRST_TICKS = {"immediate", "afterInterval"}
 
 # Keys the Helm templates stamp onto a persona from the project's `defaults:`
@@ -103,7 +119,7 @@ DEFAULTABLE = ("provider", "model", "runTimeout")
 
 # Keys that belong to the cluster, not the agent, and are merged in from
 # release values at render time.
-VALUES_ONLY_KEYS = ("enabled", "baseURL", "policyRef")
+VALUES_ONLY_KEYS = ("enabled", "baseURL", "policyRef", "channelConfigs")
 
 DNS_1123 = re.compile(r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$")
 
@@ -144,6 +160,190 @@ def _check_prompt(project, ref, field, persona_name, used):
     used.add(path.resolve())
     if not path.read_text(encoding="utf-8").strip():
         raise Fail(f"{persona_name}: {ref} is empty")
+
+
+def _values():
+    """Parse the release values, or None when they stop being plain YAML.
+
+    The file is a .gotmpl. It holds no Go template directives today, and the
+    cross-checks that need it degrade to a warning rather than a hard failure if
+    that changes — a template in the values must not start failing validation of
+    the sources.
+    """
+    path = BASE / "values" / "default.yaml.gotmpl"
+    try:
+        with path.open(encoding="utf-8") as handle:
+            values = yaml.safe_load(handle)
+    except yaml.YAMLError:
+        return None
+    return values if isinstance(values, dict) else None
+
+
+def _delivery_config(ensemble_name):
+    """Delivery knobs for one ensemble: channel, verbosity, notify, personas."""
+    values = _values()
+    if values is None:
+        return None
+    entry = (values.get("sympozium_delivery") or {}).get(ensemble_name) or {}
+    return entry if isinstance(entry, dict) else {}
+
+
+def _check_delivery(project, persona_name, persona, delivery, warnings):
+    """Cross-check the delivery knobs against the persona and its prompt.
+
+    Delivery is the one setting split across three files — the binding on the
+    persona, the knobs in values, the wording in prompts/ — so every way of
+    getting it half-right deploys cleanly and posts nothing, or posts the wrong
+    thing to nowhere. Each check below is one of those.
+    """
+    if delivery is None:
+        return  # values are not plain YAML; _check_channels already warned
+
+    per_persona = delivery.get("personas") or {}
+    override = per_persona.get(persona_name) or {}
+
+    channel = override.get("channel") or delivery.get("channel")
+    verbosity = str(override.get("verbosity") or delivery.get("verbosity") or "normal").lower()
+    notify = str(override.get("notify") or delivery.get("notify") or "always").lower()
+
+    bound = bool(persona.get("channels"))
+    prompt = (project / persona["systemPromptFile"]).read_text(encoding="utf-8")
+
+    if not bound:
+        for token in PROMPT_TOKENS:
+            if token in prompt:
+                raise Fail(
+                    f"{persona_name}: its system prompt holds {token}, but the "
+                    f"persona is bound to no channel, so nothing substitutes it "
+                    f"and the render fails"
+                )
+        if override:
+            warnings.append(
+                f"{persona_name}: has sympozium_delivery overrides but is bound "
+                f"to no channel, so they do nothing"
+            )
+        return
+
+    if not channel:
+        raise Fail(
+            f"{persona_name}: bound to a channel, but neither the ensemble nor "
+            f"its persona override sets sympozium_delivery.channel — nothing "
+            f"tells send_channel_message where to post"
+        )
+    if verbosity not in VERBOSITY_LEVELS:
+        raise Fail(
+            f"{persona_name}: verbosity {verbosity!r} is not one of "
+            f"{', '.join(sorted(VERBOSITY_LEVELS))}"
+        )
+    if notify not in NOTIFY_LEVELS:
+        raise Fail(
+            f"{persona_name}: notify {notify!r} is not one of always, onChange, never"
+        )
+    for kind, level in (("delivery", verbosity), ("notify", notify)):
+        if not (BASE / "prompts" / kind / f"{level}.md").is_file():
+            raise Fail(f"{persona_name}: no prompts/{kind}/{level}.md for {level!r}")
+
+    if "{{ DELIVERY }}" not in prompt:
+        raise Fail(
+            f"{persona_name}: bound to a channel and allowed to post, but its "
+            f"system prompt has no {{{{ DELIVERY }}}} token, so no delivery rule "
+            f"ever reaches the model and it will decide for itself"
+        )
+    if notify == "onchange" and "## What counts as a change" not in prompt:
+        raise Fail(
+            f"{persona_name}: notify is onChange, but its system prompt has no "
+            f"'## What counts as a change' section for prompts/notify/onchange.md "
+            f"to point at — the criteria are persona-specific and cannot live in "
+            f"the shared file"
+        )
+
+
+def _check_unknown_delivery_personas(ensemble_name, persona_names):
+    """A typo under `personas:` silently leaves that agent on the defaults."""
+    delivery = _delivery_config(ensemble_name)
+    if not delivery:
+        return
+    unknown = sorted(set(delivery.get("personas") or {}) - set(persona_names))
+    if unknown:
+        raise Fail(
+            f"sympozium_delivery.{ensemble_name}.personas names "
+            f"{', '.join(unknown)}, which is not a persona in this ensemble"
+        )
+
+
+def _channel_secrets(ensemble_name):
+    """Read spec.channelConfigs for one ensemble out of the release values.
+
+    A channel binding needs two halves that live in different files: the type on
+    the persona (`channels: [slack]`, in projects/) and the secret holding that
+    type's credentials (`channelConfigs: {slack: ...}`, in values/, because a
+    secret name describes the cluster). Miss the second half and the controller
+    has no ConfigRef to set — the agent deploys, connects to nothing, and its
+    report goes nowhere, which is the exact failure this script exists to catch.
+
+    The values file is a .gotmpl. It is plain YAML today, and the cross-check is
+    skipped with a warning rather than a hard failure if that ever stops being
+    true — a Go template in it must not start failing validation of the sources.
+    """
+    values = _values()
+    if values is None:
+        return None
+    ensembles = values.get("sympozium_ensembles") or {}
+    entry = ensembles.get(ensemble_name) or {}
+    configs = entry.get("channelConfigs")
+    return configs if isinstance(configs, dict) else {}
+
+
+def _check_channels(persona_name, persona, channel_secrets, warnings):
+    """Cross-check channel bindings, their credentials, and the posting tool.
+
+    Three ways to bind a channel and still be silent, all of which deploy
+    cleanly: a type with no `channelConfigs` entry (nothing to authenticate
+    with), `send_channel_message` allowlisted with no channel to send to, and
+    slackOptions on a persona that is not on Slack.
+    """
+    channels = persona.get("channels") or []
+    if not isinstance(channels, list):
+        raise Fail(f"{persona_name}: channels must be a list of channel types")
+
+    unknown = sorted(set(channels) - CHANNEL_TYPES)
+    if unknown:
+        raise Fail(
+            f"{persona_name}: unknown channel type(s) {', '.join(unknown)}. "
+            f"The CRD accepts: {', '.join(sorted(CHANNEL_TYPES))}"
+        )
+
+    if channel_secrets is None:
+        if channels:
+            warnings.append(
+                f"{persona_name}: values/default.yaml.gotmpl is no longer plain "
+                f"YAML, so channelConfigs could not be cross-checked"
+            )
+    else:
+        for channel in channels:
+            if not channel_secrets.get(channel):
+                raise Fail(
+                    f"{persona_name}: bound to the {channel!r} channel, but the "
+                    f"ensemble has no channelConfigs.{channel} in "
+                    f"values/default.yaml.gotmpl, so the controller has no "
+                    f"credential secret to reference and the binding connects "
+                    f"to nothing"
+                )
+
+    allowed = persona.get("toolPolicy", {}).get("allow", [])
+    if "send_channel_message" in allowed and not channels:
+        raise Fail(
+            f"{persona_name}: allowlists 'send_channel_message' but is bound to "
+            f"no channel, so there is nowhere for it to post"
+        )
+    if channels and "send_channel_message" not in allowed:
+        warnings.append(
+            f"{persona_name}: bound to {', '.join(channels)} but does not "
+            f"allowlist 'send_channel_message' — it can be triggered from the "
+            f"channel but cannot report back to it"
+        )
+    if persona.get("slackOptions") and "slack" not in channels:
+        raise Fail(f"{persona_name}: sets slackOptions but is not bound to the slack channel")
 
 
 def _check_tools(persona_name, persona, warnings):
@@ -221,7 +421,7 @@ def _check_schedule(persona_name, schedule):
         )
 
 
-def _check_persona(project, path, used, warnings):
+def _check_persona(project, path, used, channel_secrets, delivery, warnings):
     persona = _load_yaml(path)
     name = persona.get("name")
     if not name:
@@ -266,6 +466,8 @@ def _check_persona(project, path, used, warnings):
         _check_schedule(name, schedule)
 
     _check_tools(name, persona, warnings)
+    _check_channels(name, persona, channel_secrets, warnings)
+    _check_delivery(project, name, persona, delivery, warnings)
     return name
 
 
@@ -307,7 +509,13 @@ def check(project):
 
     used = set()
     warnings = []
-    names = [_check_persona(project, path, used, warnings) for path in persona_files]
+    channel_secrets = _channel_secrets(name)
+    delivery = _delivery_config(name)
+    names = [
+        _check_persona(project, path, used, channel_secrets, delivery, warnings)
+        for path in persona_files
+    ]
+    _check_unknown_delivery_personas(name, names)
 
     duplicates = sorted({n for n in names if names.count(n) > 1})
     if duplicates:
@@ -333,6 +541,18 @@ def main():
     )
     if not projects:
         print("no projects found", file=sys.stderr)
+        return 1
+
+    values = _values() or {}
+    unknown_delivery = sorted(
+        set(values.get("sympozium_delivery") or {}) - {path.name for path in projects}
+    )
+    if unknown_delivery:
+        print(
+            f"error: sympozium_delivery names ensemble(s) that do not exist: "
+            f"{', '.join(unknown_delivery)}",
+            file=sys.stderr,
+        )
         return 1
 
     failed = False

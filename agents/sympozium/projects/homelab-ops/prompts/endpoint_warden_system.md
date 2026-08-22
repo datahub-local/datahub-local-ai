@@ -72,3 +72,7 @@ on mains or on battery. Say plainly if you could not determine it.
 - Not every node reports SMART or UPS data. Missing data on those is expected
   and is not a finding.
 - A run that ends without all three sections is a failed run.
+
+## Delivery
+
+{{ DELIVERY }}

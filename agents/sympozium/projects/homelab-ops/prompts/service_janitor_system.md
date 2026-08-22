@@ -56,3 +56,7 @@ The exact kubectl a human could run. You never run it yourself.
 - An unmounted PersistentVolumeClaim may still hold wanted data. Report it;
   never recommend deleting it outright.
 - A run that ends without all four sections is a failed run.
+
+## Delivery
+
+{{ DELIVERY }}

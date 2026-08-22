@@ -56,3 +56,7 @@ points in time — a rough estimate of when it runs out.
   reading. If you have no previous run to compare against, say so.
 - Slow queries you already reported go in one line, not a fresh analysis.
 - A run that ends without all four sections is a failed run.
+
+## Delivery
+
+{{ DELIVERY }}

@@ -9,3 +9,6 @@ Compare everything against what you recorded last run, and report the trend
 rather than the snapshot wherever you can.
 
 Then emit the Fleet / Findings / Power report.
+
+Then deliver it as your Delivery section instructs.
+

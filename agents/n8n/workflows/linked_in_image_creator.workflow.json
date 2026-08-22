@@ -1,9 +1,9 @@
 {
   "active": true,
   "activeVersion": {
-    "updatedAt": "2026-07-28T15:02:46.918Z",
-    "createdAt": "2026-07-28T15:02:38.378Z",
-    "versionId": "372c404a-aacd-437a-869e-24967e97fd72",
+    "updatedAt": "2026-08-22T06:25:48.054Z",
+    "createdAt": "2026-08-22T06:25:35.009Z",
+    "versionId": "0d02594e-e0cc-4327-84a2-2b79626a8d90",
     "workflowId": "a9tFFs8qkRu8taC2",
     "nodes": [
       {
@@ -54,10 +54,10 @@
         "type": "n8n-nodes-base.set",
         "typeVersion": 3.4,
         "position": [
-          -4800,
-          576
+          -4272,
+          1216
         ],
-        "id": "c6f81ed0-a930-4c61-95fe-b8040a0a2356",
+        "id": "e6eb812e-3e71-4f18-a543-abce1335ace4",
         "name": "set_workflow_vars"
       },
       {
@@ -83,10 +83,10 @@
         "type": "n8n-nodes-base.set",
         "typeVersion": 3.4,
         "position": [
-          -2880,
-          672
+          -2352,
+          1312
         ],
-        "id": "bddaeb3e-f511-4f2f-b408-72a8b857018b",
+        "id": "0c60a9c3-86c0-430a-b9b8-3f62d313fadc",
         "name": "set_output"
       },
       {
@@ -102,10 +102,10 @@
         "type": "n8n-nodes-base.executeWorkflowTrigger",
         "typeVersion": 1.1,
         "position": [
-          -5024,
-          576
+          -4496,
+          1216
         ],
-        "id": "7dbfa29c-30c1-4211-84a6-a37f6c3cbaca",
+        "id": "37ba8977-b6f3-438c-aef8-2e73c0b1ada0",
         "name": "main_trigger"
       },
       {
@@ -152,10 +152,10 @@
         "type": "n8n-nodes-base.executeWorkflow",
         "typeVersion": 1.2,
         "position": [
-          -4128,
-          576
+          -3600,
+          1216
         ],
-        "id": "444799e4-d72b-4702-a724-641233cd4eb3",
+        "id": "517446bc-d573-436d-a03a-e4e09be33862",
         "name": "download_image_prompt"
       },
       {
@@ -165,10 +165,10 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          -3552,
-          576
+          -3024,
+          1216
         ],
-        "id": "2ca11426-8218-4d9d-b7fa-2840e538d8b5",
+        "id": "6b11f477-73a1-48e2-b80f-0571cb5c5193",
         "name": "parse_llm_output"
       },
       {
@@ -180,10 +180,10 @@
         "type": "@n8n/n8n-nodes-langchain.chainLlm",
         "typeVersion": 1.6,
         "position": [
-          -3904,
-          576
+          -3376,
+          1216
         ],
-        "id": "1b17ff49-f1fa-4e4d-8a03-13fad4adf17b",
+        "id": "ffd17bb4-540c-45cb-9bc1-95bc0c72584a",
         "name": "create_image_prompt_ai",
         "retryOnFail": true,
         "maxTries": 5,
@@ -216,10 +216,10 @@
         "type": "n8n-nodes-base.if",
         "typeVersion": 2.2,
         "position": [
-          -3328,
-          576
+          -2800,
+          1216
         ],
-        "id": "a0776aaf-5bde-43a7-8347-7d43f204c9e3",
+        "id": "1deafb66-4021-42a8-898a-7b7c70c0af7a",
         "name": "if_diagram_mode"
       },
       {
@@ -241,10 +241,10 @@
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
         "position": [
-          -3104,
-          480
+          -2576,
+          1120
         ],
-        "id": "e1a268ae-98b8-47b4-924a-5c8e286d54d0",
+        "id": "251b4909-197f-464b-bb03-1cf6e28e5c01",
         "name": "render_mermaid"
       },
       {
@@ -254,10 +254,10 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          -2880,
-          480
+          -2352,
+          1120
         ],
-        "id": "332d6b6f-81c2-43e2-b2a9-6965bdd44137",
+        "id": "24d8186e-19af-4c9f-acb2-377487eafa19",
         "name": "set_output_diagram"
       },
       {
@@ -274,10 +274,10 @@
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
         "position": [
-          -3104,
-          672
+          -2576,
+          1312
         ],
-        "id": "0f980f15-bff2-456a-8789-03c4ec954c22",
+        "id": "1d15fd68-b1e5-464c-ae04-a6dbf33a322b",
         "name": "generate_image",
         "retryOnFail": true,
         "maxTries": 2,
@@ -299,10 +299,10 @@
         "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
         "typeVersion": 1,
         "position": [
-          -3776,
-          816
+          -3248,
+          1456
         ],
-        "id": "222a6040-a55a-410b-b785-b5a46deced9d",
+        "id": "f989327e-6b7a-4e4e-a44f-6198e0e0c50d",
         "name": "ai_model_fallback",
         "credentials": {
           "openRouterApi": {
@@ -321,10 +321,10 @@
         "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
         "typeVersion": 1,
         "position": [
-          -3904,
-          816
+          -3376,
+          1456
         ],
-        "id": "572015a8-4a8e-4608-95bc-2592b67491f7",
+        "id": "656ed1d1-cacc-4598-8b19-268a506e1a08",
         "name": "ai_model",
         "credentials": {
           "openRouterApi": {
@@ -377,10 +377,10 @@
         "type": "n8n-nodes-base.executeWorkflow",
         "typeVersion": 1.2,
         "position": [
-          -4576,
-          576
+          -4048,
+          1216
         ],
-        "id": "3f6c1b90-5a41-4c7d-9d2e-7c1a4b8e0f11",
+        "id": "46760bf4-1d35-464c-a16b-4e226e4eab59",
         "name": "download_image_motifs"
       },
       {
@@ -390,10 +390,10 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          -4352,
-          576
+          -3824,
+          1216
         ],
-        "id": "8d2a5e64-11b7-4f03-a5c8-6e9d2f7a3c40",
+        "id": "0bdea4ab-c0df-4511-a0d3-1601c1d915fb",
         "name": "parse_image_motifs"
       },
       {
@@ -406,10 +406,10 @@
         "type": "n8n-nodes-base.stickyNote",
         "typeVersion": 1,
         "position": [
-          -5024,
-          -160
+          -4496,
+          480
         ],
-        "id": "b41f7c28-9e60-4a15-8f72-2d5c6a0b9e33",
+        "id": "3b319fbc-8acd-49b4-89d1-17d21f223d80",
         "name": "sticky_overview"
       }
     ],
@@ -556,11 +556,11 @@
     },
     "nodeGroups": [],
     "authors": "no name",
-    "name": "Version 372c404a",
+    "name": "Version 0d02594e",
     "description": "",
     "autosaved": true
   },
-  "activeVersionId": "372c404a-aacd-437a-869e-24967e97fd72",
+  "activeVersionId": "0d02594e-e0cc-4327-84a2-2b79626a8d90",
   "connections": {
     "set_workflow_vars": {
       "main": [
@@ -759,10 +759,10 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        -4800,
-        576
+        -4272,
+        1216
       ],
-      "id": "c6f81ed0-a930-4c61-95fe-b8040a0a2356",
+      "id": "e6eb812e-3e71-4f18-a543-abce1335ace4",
       "name": "set_workflow_vars"
     },
     {
@@ -788,10 +788,10 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        -2880,
-        672
+        -2352,
+        1312
       ],
-      "id": "bddaeb3e-f511-4f2f-b408-72a8b857018b",
+      "id": "0c60a9c3-86c0-430a-b9b8-3f62d313fadc",
       "name": "set_output"
     },
     {
@@ -807,10 +807,10 @@
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
       "position": [
-        -5024,
-        576
+        -4496,
+        1216
       ],
-      "id": "7dbfa29c-30c1-4211-84a6-a37f6c3cbaca",
+      "id": "37ba8977-b6f3-438c-aef8-2e73c0b1ada0",
       "name": "main_trigger"
     },
     {
@@ -857,10 +857,10 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        -4128,
-        576
+        -3600,
+        1216
       ],
-      "id": "444799e4-d72b-4702-a724-641233cd4eb3",
+      "id": "517446bc-d573-436d-a03a-e4e09be33862",
       "name": "download_image_prompt"
     },
     {
@@ -870,10 +870,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -3552,
-        576
+        -3024,
+        1216
       ],
-      "id": "2ca11426-8218-4d9d-b7fa-2840e538d8b5",
+      "id": "6b11f477-73a1-48e2-b80f-0571cb5c5193",
       "name": "parse_llm_output"
     },
     {
@@ -885,10 +885,10 @@
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "typeVersion": 1.6,
       "position": [
-        -3904,
-        576
+        -3376,
+        1216
       ],
-      "id": "1b17ff49-f1fa-4e4d-8a03-13fad4adf17b",
+      "id": "ffd17bb4-540c-45cb-9bc1-95bc0c72584a",
       "name": "create_image_prompt_ai",
       "retryOnFail": true,
       "maxTries": 5,
@@ -921,10 +921,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        -3328,
-        576
+        -2800,
+        1216
       ],
-      "id": "a0776aaf-5bde-43a7-8347-7d43f204c9e3",
+      "id": "1deafb66-4021-42a8-898a-7b7c70c0af7a",
       "name": "if_diagram_mode"
     },
     {
@@ -946,10 +946,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        -3104,
-        480
+        -2576,
+        1120
       ],
-      "id": "e1a268ae-98b8-47b4-924a-5c8e286d54d0",
+      "id": "251b4909-197f-464b-bb03-1cf6e28e5c01",
       "name": "render_mermaid"
     },
     {
@@ -959,10 +959,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -2880,
-        480
+        -2352,
+        1120
       ],
-      "id": "332d6b6f-81c2-43e2-b2a9-6965bdd44137",
+      "id": "24d8186e-19af-4c9f-acb2-377487eafa19",
       "name": "set_output_diagram"
     },
     {
@@ -979,10 +979,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        -3104,
-        672
+        -2576,
+        1312
       ],
-      "id": "0f980f15-bff2-456a-8789-03c4ec954c22",
+      "id": "1d15fd68-b1e5-464c-ae04-a6dbf33a322b",
       "name": "generate_image",
       "retryOnFail": true,
       "maxTries": 2,
@@ -1004,10 +1004,10 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
       "typeVersion": 1,
       "position": [
-        -3776,
-        816
+        -3248,
+        1456
       ],
-      "id": "222a6040-a55a-410b-b785-b5a46deced9d",
+      "id": "f989327e-6b7a-4e4e-a44f-6198e0e0c50d",
       "name": "ai_model_fallback",
       "credentials": {
         "openRouterApi": {
@@ -1026,10 +1026,10 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
       "typeVersion": 1,
       "position": [
-        -3904,
-        816
+        -3376,
+        1456
       ],
-      "id": "572015a8-4a8e-4608-95bc-2592b67491f7",
+      "id": "656ed1d1-cacc-4598-8b19-268a506e1a08",
       "name": "ai_model",
       "credentials": {
         "openRouterApi": {
@@ -1082,10 +1082,10 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        -4576,
-        576
+        -4048,
+        1216
       ],
-      "id": "3f6c1b90-5a41-4c7d-9d2e-7c1a4b8e0f11",
+      "id": "46760bf4-1d35-464c-a16b-4e226e4eab59",
       "name": "download_image_motifs"
     },
     {
@@ -1095,10 +1095,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -4352,
-        576
+        -3824,
+        1216
       ],
-      "id": "8d2a5e64-11b7-4f03-a5c8-6e9d2f7a3c40",
+      "id": "0bdea4ab-c0df-4511-a0d3-1601c1d915fb",
       "name": "parse_image_motifs"
     },
     {
@@ -1111,10 +1111,10 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -5024,
-        -160
+        -4496,
+        480
       ],
-      "id": "b41f7c28-9e60-4a15-8f72-2d5c6a0b9e33",
+      "id": "3b319fbc-8acd-49b4-89d1-17d21f223d80",
       "name": "sticky_overview"
     }
   ],
@@ -1138,6 +1138,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 0,
-  "updatedAt": "2026-07-28T15:02:37.637Z",
-  "versionId": "372c404a-aacd-437a-869e-24967e97fd72"
+  "updatedAt": "2026-08-22T06:25:34.743Z",
+  "versionId": "0d02594e-e0cc-4327-84a2-2b79626a8d90"
 }

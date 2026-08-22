@@ -83,7 +83,7 @@
         "type": "n8n-nodes-base.set",
         "typeVersion": 3.4,
         "position": [
-          -3328,
+          -2880,
           672
         ],
         "id": "bddaeb3e-f511-4f2f-b408-72a8b857018b",
@@ -120,7 +120,7 @@
           "workflowInputs": {
             "mappingMode": "defineBelow",
             "value": {
-              "template_vars": "={{ {\n\"POST_CONTENT\": $('set_workflow_vars').item.json.POST_CONTENT,\n\"ART_DIRECTION\": [\n'cinematic 3D render: near-black background, one glowing focal object, volumetric light, subtle depth of field',\n'dramatic macro photography of a physical metaphor: shallow depth of field, moody studio lighting, dark backdrop',\n'isometric miniature scene: highly detailed tiny world on a dark backdrop, single saturated accent color',\n'retro-futurist poster: bold flat shapes, heavy grain texture, strong diagonal composition, two-color palette',\n'blueprint noir: dark navy technical blueprint background, precise white and cyan line work, one orange highlighted element',\n'glass-and-neon minimalism: translucent 3D glass shapes on near-black, one neon accent color, soft reflections',\n'papercraft diorama: layered cut-paper scene, strong directional shadows, one saturated accent color on a dark base',\n'chalk on black slate: expressive hand-drawn strokes, white chalk with a single element in vivid colored chalk'\n][Math.floor(Math.random() * 8)]\n} }}",
+              "template_vars": "={{ {\n\"POST_CONTENT\": $('set_workflow_vars').item.json.POST_CONTENT,\n\"SUBJECT_MOTIFS\": $('parse_image_motifs').first().json.SUBJECT_MOTIFS,\n\"ART_DIRECTION\": [\n'cinematic 3D render: near-black background, one glowing focal object, volumetric light, subtle depth of field',\n'dramatic macro photography of a physical metaphor: shallow depth of field, moody studio lighting, dark backdrop',\n'isometric miniature scene: highly detailed tiny world on a dark backdrop, single saturated accent color',\n'retro-futurist poster: bold flat shapes, heavy grain texture, strong diagonal composition, two-color palette',\n'blueprint noir: dark navy technical blueprint background, precise white and cyan line work, one orange highlighted element',\n'glass-and-neon minimalism: translucent 3D glass shapes on near-black, one neon accent color, soft reflections',\n'papercraft diorama: layered cut-paper scene, strong directional shadows, one saturated accent color on a dark base',\n'chalk on black slate: expressive hand-drawn strokes, white chalk with a single element in vivid colored chalk'\n][Math.floor(Math.random() * 8)]\n} }}",
               "template_name": "prompts/linkedin_image_prompt.md"
             },
             "matchingColumns": [],
@@ -152,7 +152,7 @@
         "type": "n8n-nodes-base.executeWorkflow",
         "typeVersion": 1.2,
         "position": [
-          -4576,
+          -4128,
           576
         ],
         "id": "444799e4-d72b-4702-a724-641233cd4eb3",
@@ -160,12 +160,12 @@
       },
       {
         "parameters": {
-          "jsCode": "// Parse the <visual> block: mode decides whether we render Mermaid or call the image model.\nconst raw = $input.first().json.text || '';\nconst grab = (tag) => {\n  const m = raw.match(new RegExp('<' + tag + '>([\\\\s\\\\S]*?)</' + tag + '>'));\n  return m ? m[1].trim() : '';\n};\nconst mode = (grab('mode') || 'hero').toLowerCase();\nconst mermaid = grab('mermaid').replace(/^```(mermaid)?\\s*/, '').replace(/```\\s*$/, '').trim();\nconst imagePrompt = grab('image_prompt');\nreturn [{\n  json: {\n    mode,\n    concept: grab('concept'),\n    headline: grab('headline'),\n    text: mode === 'diagram' && mermaid ? mermaid : (imagePrompt || raw),\n  },\n}];\n"
+          "jsCode": "// Parse the <visual> block: mode decides whether we render Mermaid or call the image model.\nconst raw = $input.first().json.text || '';\nconst grab = (tag) => {\n  const m = raw.match(new RegExp('<' + tag + '>([\\\\s\\\\S]*?)</' + tag + '>'));\n  return m ? m[1].trim() : '';\n};\nconst mode = (grab('mode') || 'hero').toLowerCase();\nconst mermaid = grab('mermaid').replace(/^```(mermaid)?\\s*/, '').replace(/```\\s*$/, '').trim();\nconst imagePrompt = grab('image_prompt');\nreturn [{\n  json: {\n    mode,\n    concept: grab('concept'),\n    headline: grab('headline'),\n    // Logged, not used downstream: it is how you audit whether the art\n    // director actually anchored the metaphor in the post's subject.\n    subject_anchor: grab('subject_anchor'),\n    text: mode === 'diagram' && mermaid ? mermaid : (imagePrompt || raw),\n  },\n}];\n"
         },
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          -4000,
+          -3552,
           576
         ],
         "id": "2ca11426-8218-4d9d-b7fa-2840e538d8b5",
@@ -180,7 +180,7 @@
         "type": "@n8n/n8n-nodes-langchain.chainLlm",
         "typeVersion": 1.6,
         "position": [
-          -4352,
+          -3904,
           576
         ],
         "id": "1b17ff49-f1fa-4e4d-8a03-13fad4adf17b",
@@ -216,7 +216,7 @@
         "type": "n8n-nodes-base.if",
         "typeVersion": 2.2,
         "position": [
-          -3776,
+          -3328,
           576
         ],
         "id": "a0776aaf-5bde-43a7-8347-7d43f204c9e3",
@@ -241,7 +241,7 @@
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
         "position": [
-          -3552,
+          -3104,
           480
         ],
         "id": "e1a268ae-98b8-47b4-924a-5c8e286d54d0",
@@ -254,7 +254,7 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          -3328,
+          -2880,
           480
         ],
         "id": "332d6b6f-81c2-43e2-b2a9-6965bdd44137",
@@ -274,7 +274,7 @@
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
         "position": [
-          -3552,
+          -3104,
           672
         ],
         "id": "0f980f15-bff2-456a-8789-03c4ec954c22",
@@ -299,7 +299,7 @@
         "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
         "typeVersion": 1,
         "position": [
-          -4224,
+          -3776,
           816
         ],
         "id": "222a6040-a55a-410b-b785-b5a46deced9d",
@@ -321,7 +321,7 @@
         "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
         "typeVersion": 1,
         "position": [
-          -4352,
+          -3904,
           816
         ],
         "id": "572015a8-4a8e-4608-95bc-2592b67491f7",
@@ -332,6 +332,85 @@
             "name": "OpenRouter account"
           }
         }
+      },
+      {
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "qUfjfWLGEjV96ljf",
+            "mode": "list",
+            "cachedResultName": "DownloadTemplate",
+            "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "template_name": "datasets/image_motifs.json",
+              "template_vars": "={{ {} }}"
+            },
+            "matchingColumns": [],
+            "schema": [
+              {
+                "id": "template_name",
+                "displayName": "template_name",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string"
+              },
+              {
+                "id": "template_vars",
+                "displayName": "template_vars",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "object"
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          -4576,
+          576
+        ],
+        "id": "3f6c1b90-5a41-4c7d-9d2e-7c1a4b8e0f11",
+        "name": "download_image_motifs"
+      },
+      {
+        "parameters": {
+          "jsCode": "// Pick the motif vocabulary for this post out of datasets/image_motifs.json and render it\n// as the {{ SUBJECT_MOTIFS }} block of prompts/linkedin_image_prompt.md.\n//\n// Why this node exists: ART_DIRECTION only ever controlled *style*, so the art director had\n// no lever for subject at all and kept returning domain-free tension objects - a chalk\n// drawing of bare handcuffs for a post about data engineers being automated. It stopped the\n// scroll and said nothing about AI. Scoring is keyword-based and deterministic on purpose: a\n// wrong domain shows up in the execution log and is fixed in the dataset, where an LLM\n// classifier would be a second thing to debug on a 4B model.\nconst raw = $json.output || '{}';\nlet cfg;\ntry {\n  cfg = JSON.parse(raw);\n} catch (e) {\n  throw new Error('datasets/image_motifs.json is not valid JSON: ' + e.message);\n}\n\nconst num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);\nconst arr = (v, d) => (Array.isArray(v) ? v : d);\nconst obj = (v, d) => (v && typeof v === 'object' && !Array.isArray(v) ? v : d);\nconst str = (v) => String(v == null ? '' : v);\n\n// Every knob defaults, so a partial or truncated dataset degrades to the default domain\n// instead of taking an image run down.\nconst domains = obj(cfg.domains, {});\nconst minScore = num(cfg.min_score, 2);\nconst maxDomains = Math.max(1, num(cfg.max_domains, 2));\nconst runnerUpRatio = Math.min(1, Math.max(0, num(cfg.runner_up_ratio, 0.5)));\nconst defaultDomain = str(cfg.default_domain) || 'default';\nconst maxAnchors = Math.max(1, num(cfg.max_anchors, 8));\nconst maxMotifs = Math.max(1, num(cfg.max_motifs, 4));\nconst maxAvoid = Math.max(1, num(cfg.max_avoid, 8));\nconst universalAvoid = arr(cfg.universal_avoid, []).map(str).filter(Boolean);\n\nconst post = str($('set_workflow_vars').first().json.POST_CONTENT).toLowerCase();\n\n// Whole-word match: \"gpu\" must not fire inside an unrelated token, and plural/adjective\n// forms are listed explicitly in the dataset rather than guessed at with stemming.\nconst matches = (kw) => {\n  const esc = kw.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');\n  return new RegExp('(^|[^a-z0-9])' + esc + '([^a-z0-9]|$)').test(post);\n};\n\nconst scored = Object.keys(domains)\n  .filter((k) => k !== defaultDomain)\n  .map((k) => ({\n    key: k,\n    score: arr(obj(domains[k], {}).keywords, [])\n      .map((s) => str(s).toLowerCase())\n      .filter(Boolean)\n      .filter(matches).length,\n  }))\n  .sort((a, b) => b.score - a.score || a.key.localeCompare(b.key));\n\n// A post is routinely two things at once - the reference post was data engineering by\n// material and career by tension - and it is the weaker domain that usually holds the\n// anchor that saves the image. So runners-up join on a ratio of the top score, not a fixed\n// margin, capped because a long list dilutes a small model.\nlet selected = [];\nif (scored.length && scored[0].score >= minScore) {\n  const cut = Math.max(minScore, Math.ceil(scored[0].score * runnerUpRatio));\n  selected = scored.filter((d) => d.score >= cut).slice(0, maxDomains);\n}\nif (!selected.length) selected = [{ key: defaultDomain, score: 0 }];\n\n// Round-robin across the selected domains rather than concatenating them, so the cap\n// cannot spend every slot on the top domain and silently drop the runner-up's fusion\n// example - which is the one that carries the post's tension.\nconst pick = (field, cap) => {\n  const pools = selected.map((d) => arr(obj(domains[d.key], {})[field], []).map(str).filter(Boolean));\n  const seen = new Set();\n  const out = [];\n  const depth = Math.max(0, ...pools.map((p) => p.length));\n  for (let i = 0; i < depth && out.length < cap; i++) {\n    for (const pool of pools) {\n      if (out.length >= cap) break;\n      const v = pool[i];\n      if (!v) continue;\n      const k = v.toLowerCase();\n      if (seen.has(k)) continue;\n      seen.add(k);\n      out.push(v);\n    }\n  }\n  return out;\n};\n\nconst anchors = pick('anchors', maxAnchors);\nconst motifs = pick('motifs', maxMotifs);\nconst avoid = pick('avoid', maxAvoid);\nfor (const v of universalAvoid) {\n  if (!avoid.some((a) => a.toLowerCase() === v.toLowerCase())) avoid.push(v);\n}\n\nconst lines = [];\nlines.push('Detected subject domain(s): ' + selected.map((d) => d.key + ' [' + d.score + ']').join(', '));\nif (anchors.length) {\n  lines.push('');\n  lines.push(\"SUBJECT ANCHORS - render this post's subject as one of these concrete things:\");\n  anchors.forEach((a) => lines.push('- ' + a));\n}\nif (motifs.length) {\n  lines.push('');\n  lines.push('EXAMPLE FUSIONS - the degree of fusion required between tension and anchor. Do not reuse one verbatim; produce one of this kind for THIS post:');\n  motifs.forEach((m) => lines.push('- ' + m));\n}\nif (avoid.length) {\n  lines.push('');\n  lines.push('AVOID - these read as stock AI/tech imagery and are banned:');\n  avoid.forEach((a) => lines.push('- ' + a));\n}\n\nreturn [{\n  // pairedItem is explicit because download_image_prompt and generate_image both still read\n  // $('set_workflow_vars').item, and this node now sits between them and that node.\n  pairedItem: { item: 0 },\n  json: {\n    SUBJECT_MOTIFS: lines.join('\\n'),\n    // Kept for the execution log: the domain choice is the first thing to check when an\n    // image comes back off-subject.\n    motif_domains: selected.map((d) => d.key + ':' + d.score),\n  },\n}];\n"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -4352,
+          576
+        ],
+        "id": "8d2a5e64-11b7-4f03-a5c8-6e9d2f7a3c40",
+        "name": "parse_image_motifs"
+      },
+      {
+        "parameters": {
+          "content": "## LinkedIn Image Creator\n\nSub-workflow. In: `POST_CONTENT`. Out: `IMAGE` (binary) or a rendered Mermaid diagram.\nCalled by **LinkedIn Post Sharing** (`execute_image_creator`).\n\n**Flow**\n\n```\nmain_trigger -> set_workflow_vars\n  -> download_image_motifs -> parse_image_motifs      (datasets/image_motifs.json)\n  -> download_image_prompt -> create_image_prompt_ai  (prompts/linkedin_image_prompt.md)\n  -> parse_llm_output -> if_diagram_mode\n       true  -> render_mermaid -> set_output_diagram\n       false -> generate_image -> set_output\n```\n\n**The two prompt axes** - keep them separate:\n\n- `ART_DIRECTION` (inline list in `download_image_prompt`, random per run) = *style only*:\n  medium, lighting, palette, texture.\n- `SUBJECT_MOTIFS` (`datasets/image_motifs.json`, keyword-scored per post) = *subject*:\n  the anchors the metaphor must be built from, and the cliches it must avoid.\n\nStyle used to be the only axis, which is how a post about data engineers being automated\ncame back as a chalk drawing of bare handcuffs - striking, and about nothing. When an image\nlands off-subject, check `motif_domains` in the `parse_image_motifs` output first, then add\nthe failed cliche to that domain's `avoid` list rather than editing the prompt.\n\n**Models** (in `set_workflow_vars`): `IMAGE_MODEL`, `IMAGE_MODEL_FALLBACK`, `TEXT_MODEL`,\n`TEXT_MODEL_FALLBACK`. No env vars; OpenRouter credential only.\n",
+          "height": 620,
+          "width": 700,
+          "color": 4
+        },
+        "type": "n8n-nodes-base.stickyNote",
+        "typeVersion": 1,
+        "position": [
+          -5024,
+          -160
+        ],
+        "id": "b41f7c28-9e60-4a15-8f72-2d5c6a0b9e33",
+        "name": "sticky_overview"
       }
     ],
     "connections": {
@@ -339,7 +418,7 @@
         "main": [
           [
             {
-              "node": "download_image_prompt",
+              "node": "download_image_motifs",
               "type": "main",
               "index": 0
             }
@@ -451,6 +530,28 @@
             }
           ]
         ]
+      },
+      "download_image_motifs": {
+        "main": [
+          [
+            {
+              "node": "parse_image_motifs",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "parse_image_motifs": {
+        "main": [
+          [
+            {
+              "node": "download_image_prompt",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
       }
     },
     "nodeGroups": [],
@@ -465,7 +566,7 @@
       "main": [
         [
           {
-            "node": "download_image_prompt",
+            "node": "download_image_motifs",
             "type": "main",
             "index": 0
           }
@@ -577,6 +678,28 @@
           }
         ]
       ]
+    },
+    "download_image_motifs": {
+      "main": [
+        [
+          {
+            "node": "parse_image_motifs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "parse_image_motifs": {
+      "main": [
+        [
+          {
+            "node": "download_image_prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "createdAt": "2026-03-02T21:20:32.904Z",
@@ -665,7 +788,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        -3328,
+        -2880,
         672
       ],
       "id": "bddaeb3e-f511-4f2f-b408-72a8b857018b",
@@ -702,7 +825,7 @@
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "template_vars": "={{ {\n\"POST_CONTENT\": $('set_workflow_vars').item.json.POST_CONTENT,\n\"ART_DIRECTION\": [\n'cinematic 3D render: near-black background, one glowing focal object, volumetric light, subtle depth of field',\n'dramatic macro photography of a physical metaphor: shallow depth of field, moody studio lighting, dark backdrop',\n'isometric miniature scene: highly detailed tiny world on a dark backdrop, single saturated accent color',\n'retro-futurist poster: bold flat shapes, heavy grain texture, strong diagonal composition, two-color palette',\n'blueprint noir: dark navy technical blueprint background, precise white and cyan line work, one orange highlighted element',\n'glass-and-neon minimalism: translucent 3D glass shapes on near-black, one neon accent color, soft reflections',\n'papercraft diorama: layered cut-paper scene, strong directional shadows, one saturated accent color on a dark base',\n'chalk on black slate: expressive hand-drawn strokes, white chalk with a single element in vivid colored chalk'\n][Math.floor(Math.random() * 8)]\n} }}",
+            "template_vars": "={{ {\n\"POST_CONTENT\": $('set_workflow_vars').item.json.POST_CONTENT,\n\"SUBJECT_MOTIFS\": $('parse_image_motifs').first().json.SUBJECT_MOTIFS,\n\"ART_DIRECTION\": [\n'cinematic 3D render: near-black background, one glowing focal object, volumetric light, subtle depth of field',\n'dramatic macro photography of a physical metaphor: shallow depth of field, moody studio lighting, dark backdrop',\n'isometric miniature scene: highly detailed tiny world on a dark backdrop, single saturated accent color',\n'retro-futurist poster: bold flat shapes, heavy grain texture, strong diagonal composition, two-color palette',\n'blueprint noir: dark navy technical blueprint background, precise white and cyan line work, one orange highlighted element',\n'glass-and-neon minimalism: translucent 3D glass shapes on near-black, one neon accent color, soft reflections',\n'papercraft diorama: layered cut-paper scene, strong directional shadows, one saturated accent color on a dark base',\n'chalk on black slate: expressive hand-drawn strokes, white chalk with a single element in vivid colored chalk'\n][Math.floor(Math.random() * 8)]\n} }}",
             "template_name": "prompts/linkedin_image_prompt.md"
           },
           "matchingColumns": [],
@@ -734,7 +857,7 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        -4576,
+        -4128,
         576
       ],
       "id": "444799e4-d72b-4702-a724-641233cd4eb3",
@@ -742,12 +865,12 @@
     },
     {
       "parameters": {
-        "jsCode": "// Parse the <visual> block: mode decides whether we render Mermaid or call the image model.\nconst raw = $input.first().json.text || '';\nconst grab = (tag) => {\n  const m = raw.match(new RegExp('<' + tag + '>([\\\\s\\\\S]*?)</' + tag + '>'));\n  return m ? m[1].trim() : '';\n};\nconst mode = (grab('mode') || 'hero').toLowerCase();\nconst mermaid = grab('mermaid').replace(/^```(mermaid)?\\s*/, '').replace(/```\\s*$/, '').trim();\nconst imagePrompt = grab('image_prompt');\nreturn [{\n  json: {\n    mode,\n    concept: grab('concept'),\n    headline: grab('headline'),\n    text: mode === 'diagram' && mermaid ? mermaid : (imagePrompt || raw),\n  },\n}];\n"
+        "jsCode": "// Parse the <visual> block: mode decides whether we render Mermaid or call the image model.\nconst raw = $input.first().json.text || '';\nconst grab = (tag) => {\n  const m = raw.match(new RegExp('<' + tag + '>([\\\\s\\\\S]*?)</' + tag + '>'));\n  return m ? m[1].trim() : '';\n};\nconst mode = (grab('mode') || 'hero').toLowerCase();\nconst mermaid = grab('mermaid').replace(/^```(mermaid)?\\s*/, '').replace(/```\\s*$/, '').trim();\nconst imagePrompt = grab('image_prompt');\nreturn [{\n  json: {\n    mode,\n    concept: grab('concept'),\n    headline: grab('headline'),\n    // Logged, not used downstream: it is how you audit whether the art\n    // director actually anchored the metaphor in the post's subject.\n    subject_anchor: grab('subject_anchor'),\n    text: mode === 'diagram' && mermaid ? mermaid : (imagePrompt || raw),\n  },\n}];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -4000,
+        -3552,
         576
       ],
       "id": "2ca11426-8218-4d9d-b7fa-2840e538d8b5",
@@ -762,7 +885,7 @@
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "typeVersion": 1.6,
       "position": [
-        -4352,
+        -3904,
         576
       ],
       "id": "1b17ff49-f1fa-4e4d-8a03-13fad4adf17b",
@@ -798,7 +921,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        -3776,
+        -3328,
         576
       ],
       "id": "a0776aaf-5bde-43a7-8347-7d43f204c9e3",
@@ -823,7 +946,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        -3552,
+        -3104,
         480
       ],
       "id": "e1a268ae-98b8-47b4-924a-5c8e286d54d0",
@@ -836,7 +959,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -3328,
+        -2880,
         480
       ],
       "id": "332d6b6f-81c2-43e2-b2a9-6965bdd44137",
@@ -856,7 +979,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        -3552,
+        -3104,
         672
       ],
       "id": "0f980f15-bff2-456a-8789-03c4ec954c22",
@@ -881,7 +1004,7 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
       "typeVersion": 1,
       "position": [
-        -4224,
+        -3776,
         816
       ],
       "id": "222a6040-a55a-410b-b785-b5a46deced9d",
@@ -903,7 +1026,7 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
       "typeVersion": 1,
       "position": [
-        -4352,
+        -3904,
         816
       ],
       "id": "572015a8-4a8e-4608-95bc-2592b67491f7",
@@ -914,6 +1037,85 @@
           "name": "OpenRouter account"
         }
       }
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "qUfjfWLGEjV96ljf",
+          "mode": "list",
+          "cachedResultName": "DownloadTemplate",
+          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "template_name": "datasets/image_motifs.json",
+            "template_vars": "={{ {} }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "template_name",
+              "displayName": "template_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "template_vars",
+              "displayName": "template_vars",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -4576,
+        576
+      ],
+      "id": "3f6c1b90-5a41-4c7d-9d2e-7c1a4b8e0f11",
+      "name": "download_image_motifs"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pick the motif vocabulary for this post out of datasets/image_motifs.json and render it\n// as the {{ SUBJECT_MOTIFS }} block of prompts/linkedin_image_prompt.md.\n//\n// Why this node exists: ART_DIRECTION only ever controlled *style*, so the art director had\n// no lever for subject at all and kept returning domain-free tension objects - a chalk\n// drawing of bare handcuffs for a post about data engineers being automated. It stopped the\n// scroll and said nothing about AI. Scoring is keyword-based and deterministic on purpose: a\n// wrong domain shows up in the execution log and is fixed in the dataset, where an LLM\n// classifier would be a second thing to debug on a 4B model.\nconst raw = $json.output || '{}';\nlet cfg;\ntry {\n  cfg = JSON.parse(raw);\n} catch (e) {\n  throw new Error('datasets/image_motifs.json is not valid JSON: ' + e.message);\n}\n\nconst num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);\nconst arr = (v, d) => (Array.isArray(v) ? v : d);\nconst obj = (v, d) => (v && typeof v === 'object' && !Array.isArray(v) ? v : d);\nconst str = (v) => String(v == null ? '' : v);\n\n// Every knob defaults, so a partial or truncated dataset degrades to the default domain\n// instead of taking an image run down.\nconst domains = obj(cfg.domains, {});\nconst minScore = num(cfg.min_score, 2);\nconst maxDomains = Math.max(1, num(cfg.max_domains, 2));\nconst runnerUpRatio = Math.min(1, Math.max(0, num(cfg.runner_up_ratio, 0.5)));\nconst defaultDomain = str(cfg.default_domain) || 'default';\nconst maxAnchors = Math.max(1, num(cfg.max_anchors, 8));\nconst maxMotifs = Math.max(1, num(cfg.max_motifs, 4));\nconst maxAvoid = Math.max(1, num(cfg.max_avoid, 8));\nconst universalAvoid = arr(cfg.universal_avoid, []).map(str).filter(Boolean);\n\nconst post = str($('set_workflow_vars').first().json.POST_CONTENT).toLowerCase();\n\n// Whole-word match: \"gpu\" must not fire inside an unrelated token, and plural/adjective\n// forms are listed explicitly in the dataset rather than guessed at with stemming.\nconst matches = (kw) => {\n  const esc = kw.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');\n  return new RegExp('(^|[^a-z0-9])' + esc + '([^a-z0-9]|$)').test(post);\n};\n\nconst scored = Object.keys(domains)\n  .filter((k) => k !== defaultDomain)\n  .map((k) => ({\n    key: k,\n    score: arr(obj(domains[k], {}).keywords, [])\n      .map((s) => str(s).toLowerCase())\n      .filter(Boolean)\n      .filter(matches).length,\n  }))\n  .sort((a, b) => b.score - a.score || a.key.localeCompare(b.key));\n\n// A post is routinely two things at once - the reference post was data engineering by\n// material and career by tension - and it is the weaker domain that usually holds the\n// anchor that saves the image. So runners-up join on a ratio of the top score, not a fixed\n// margin, capped because a long list dilutes a small model.\nlet selected = [];\nif (scored.length && scored[0].score >= minScore) {\n  const cut = Math.max(minScore, Math.ceil(scored[0].score * runnerUpRatio));\n  selected = scored.filter((d) => d.score >= cut).slice(0, maxDomains);\n}\nif (!selected.length) selected = [{ key: defaultDomain, score: 0 }];\n\n// Round-robin across the selected domains rather than concatenating them, so the cap\n// cannot spend every slot on the top domain and silently drop the runner-up's fusion\n// example - which is the one that carries the post's tension.\nconst pick = (field, cap) => {\n  const pools = selected.map((d) => arr(obj(domains[d.key], {})[field], []).map(str).filter(Boolean));\n  const seen = new Set();\n  const out = [];\n  const depth = Math.max(0, ...pools.map((p) => p.length));\n  for (let i = 0; i < depth && out.length < cap; i++) {\n    for (const pool of pools) {\n      if (out.length >= cap) break;\n      const v = pool[i];\n      if (!v) continue;\n      const k = v.toLowerCase();\n      if (seen.has(k)) continue;\n      seen.add(k);\n      out.push(v);\n    }\n  }\n  return out;\n};\n\nconst anchors = pick('anchors', maxAnchors);\nconst motifs = pick('motifs', maxMotifs);\nconst avoid = pick('avoid', maxAvoid);\nfor (const v of universalAvoid) {\n  if (!avoid.some((a) => a.toLowerCase() === v.toLowerCase())) avoid.push(v);\n}\n\nconst lines = [];\nlines.push('Detected subject domain(s): ' + selected.map((d) => d.key + ' [' + d.score + ']').join(', '));\nif (anchors.length) {\n  lines.push('');\n  lines.push(\"SUBJECT ANCHORS - render this post's subject as one of these concrete things:\");\n  anchors.forEach((a) => lines.push('- ' + a));\n}\nif (motifs.length) {\n  lines.push('');\n  lines.push('EXAMPLE FUSIONS - the degree of fusion required between tension and anchor. Do not reuse one verbatim; produce one of this kind for THIS post:');\n  motifs.forEach((m) => lines.push('- ' + m));\n}\nif (avoid.length) {\n  lines.push('');\n  lines.push('AVOID - these read as stock AI/tech imagery and are banned:');\n  avoid.forEach((a) => lines.push('- ' + a));\n}\n\nreturn [{\n  // pairedItem is explicit because download_image_prompt and generate_image both still read\n  // $('set_workflow_vars').item, and this node now sits between them and that node.\n  pairedItem: { item: 0 },\n  json: {\n    SUBJECT_MOTIFS: lines.join('\\n'),\n    // Kept for the execution log: the domain choice is the first thing to check when an\n    // image comes back off-subject.\n    motif_domains: selected.map((d) => d.key + ':' + d.score),\n  },\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -4352,
+        576
+      ],
+      "id": "8d2a5e64-11b7-4f03-a5c8-6e9d2f7a3c40",
+      "name": "parse_image_motifs"
+    },
+    {
+      "parameters": {
+        "content": "## LinkedIn Image Creator\n\nSub-workflow. In: `POST_CONTENT`. Out: `IMAGE` (binary) or a rendered Mermaid diagram.\nCalled by **LinkedIn Post Sharing** (`execute_image_creator`).\n\n**Flow**\n\n```\nmain_trigger -> set_workflow_vars\n  -> download_image_motifs -> parse_image_motifs      (datasets/image_motifs.json)\n  -> download_image_prompt -> create_image_prompt_ai  (prompts/linkedin_image_prompt.md)\n  -> parse_llm_output -> if_diagram_mode\n       true  -> render_mermaid -> set_output_diagram\n       false -> generate_image -> set_output\n```\n\n**The two prompt axes** - keep them separate:\n\n- `ART_DIRECTION` (inline list in `download_image_prompt`, random per run) = *style only*:\n  medium, lighting, palette, texture.\n- `SUBJECT_MOTIFS` (`datasets/image_motifs.json`, keyword-scored per post) = *subject*:\n  the anchors the metaphor must be built from, and the cliches it must avoid.\n\nStyle used to be the only axis, which is how a post about data engineers being automated\ncame back as a chalk drawing of bare handcuffs - striking, and about nothing. When an image\nlands off-subject, check `motif_domains` in the `parse_image_motifs` output first, then add\nthe failed cliche to that domain's `avoid` list rather than editing the prompt.\n\n**Models** (in `set_workflow_vars`): `IMAGE_MODEL`, `IMAGE_MODEL_FALLBACK`, `TEXT_MODEL`,\n`TEXT_MODEL_FALLBACK`. No env vars; OpenRouter credential only.\n",
+        "height": 620,
+        "width": 700,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -5024,
+        -160
+      ],
+      "id": "b41f7c28-9e60-4a15-8f72-2d5c6a0b9e33",
+      "name": "sticky_overview"
     }
   ],
   "pinData": {},

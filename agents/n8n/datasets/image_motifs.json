@@ -1,0 +1,200 @@
+{
+  "_comment": "Motif vocabulary for prompts/linkedin_image_prompt.md, downloaded by LinkedIn Image Creator and injected as the prompt's SUBJECT_MOTIFS placeholder. It exists because the art director kept picking domain-free tension objects (handcuffs, icebergs, houses of cards) that stopped the scroll but said nothing about AI, data or automation. ART_DIRECTION decides how the image is rendered; this file decides what is in it.",
+
+  "_comment_no_placeholders": "Never write a doubled-curly-brace placeholder anywhere in this file, not even inside a comment. DownloadTemplate scans the whole downloaded text for them and routes to stop_and_error for any name it was not passed, and this file is fetched with an empty template_vars - so one such mention in a comment kills every image run.",
+  "_comment_scoring": "parse_image_motifs scores the post text against each domain's keywords (whole-word, case-insensitive, one point per distinct keyword matched) and injects the winning block. Keep keywords literal - they must be words that actually appear in a post, not concepts.",
+  "_comment_runner_up_ratio": "A domain joins the winner when it scores at least this fraction of the top score. It is a ratio and not a fixed margin because a post is routinely two domains at once with very different weights: the reference post scored data-engineering 7 (its material) against career-craft 4 and automation 4 (its tension), and a margin of 1 would have thrown away exactly the anchors that fix the image.",
+  "min_score": 2,
+  "max_domains": 3,
+  "runner_up_ratio": 0.5,
+  "default_domain": "default",
+
+  "_comment_caps": "Caps applied after merging the selected domains. A small text model dilutes with a long list, so the block stays short on purpose.",
+  "max_anchors": 8,
+  "max_motifs": 4,
+  "max_avoid": 8,
+
+  "_comment_domains": "anchors = concrete physical things the post's SUBJECT can be rendered as. motifs = example fusions of a tension metaphor with an anchor; they are the few-shot that teaches the required degree of fusion, so every one must show the domain in its material or its form. avoid = clichés that read as stock AI/tech imagery.",
+  "domains": {
+    "ai-agents": {
+      "keywords": ["agent", "agents", "agentic", "autonomous", "mcp", "tool call", "tool calling", "multi-agent", "subagent", "copilot", "assistant", "delegate", "orchestrator", "claude code", "cursor"],
+      "anchors": [
+        "a swarm of small identical drones moving as one",
+        "hexagonal agent tiles snapped into a lattice, one tile missing",
+        "a relay baton passed from one robotic arm to the next",
+        "marionette strings running down to a set of controls nobody is holding",
+        "a row of identical clockwork workers on a bench",
+        "a robotic hand closing around a human hand tool"
+      ],
+      "motifs": [
+        "handcuffs whose chain links are chat bubbles: one cuff locked on a human wrist, the other hanging open above a robotic wrist",
+        "a queue of identical robot arms all reaching for one worn wrench as a human hand lets go of it",
+        "a marionette cutting its own strings, each cut string ending in a blinking terminal prompt"
+      ],
+      "avoid": ["a humanoid robot with a friendly face", "a glowing human brain", "the robot-finger-touching-human-finger pose", "a chrome android in a business suit", "binary digit rain"]
+    },
+
+    "llm-models": {
+      "keywords": ["llm", "model", "models", "prompt", "prompts", "token", "tokens", "context window", "fine-tune", "fine-tuning", "inference", "embedding", "rag", "hallucination", "gpt", "gemini", "llama", "temperature"],
+      "anchors": [
+        "a token stream as a ribbon of tiny glyph tiles",
+        "a context window as a physical rectangular frame objects must fit through",
+        "a stack of transformer layers as machined steel plates",
+        "a weighted dial engraved TEMPERATURE",
+        "a sieve separating glyphs from gravel"
+      ],
+      "motifs": [
+        "an hourglass whose falling grains are individual glyph tiles, jammed at a neck that is too narrow",
+        "a doorframe stencilled 32k that an oversized document cannot be pushed through",
+        "a slot machine whose three reels have stopped on three different, equally plausible answers"
+      ],
+      "avoid": ["a glowing brain", "a neural-network node diagram used as decoration", "a crystal ball", "binary digit rain"]
+    },
+
+    "automation": {
+      "keywords": ["automation", "automate", "automated", "n8n", "workflow", "workflows", "ci/cd", "github actions", "runner", "toil", "manual", "boilerplate", "cron", "scheduler", "self-service", "no-code"],
+      "anchors": [
+        "a conveyor belt feeding one desk",
+        "a domino chain mid-fall",
+        "a factory arm repeating a human's motion",
+        "a hand crank bolted beside a motor",
+        "a cron dial with worn detents",
+        "a stamping press and a stack of identical forms"
+      ],
+      "motifs": [
+        "a hand crank still bolted to a machine that already has a motor fitted, the crank handle polished from use",
+        "a conveyor belt delivering identical forms faster than the single human at the end of it can lift them",
+        "a domino chain where one domino is a human hand holding the next upright"
+      ],
+      "avoid": ["gears floating in space", "a robot mascot with a face", "clipart cogs and lightbulbs", "a hand pressing a big glowing START button"]
+    },
+
+    "data-engineering": {
+      "keywords": ["pipeline", "pipelines", "dbt", "etl", "elt", "ingest", "ingestion", "warehouse", "lakehouse", "iceberg", "snowflake", "airflow", "kafka", "spark", "dag", "streaming", "schema", "sql", "trino", "duckdb", "medallion", "parquet", "data engineer", "data engineering"],
+      "anchors": [
+        "industrial pipes, manifolds and valves",
+        "a layered core sample with bronze, silver and gold strata",
+        "a sluice gate holding back a head of water",
+        "a rack of labelled sample bottles",
+        "a DAG as a physical hanging mobile in balance",
+        "a pressure gauge welded into a pipe run"
+      ],
+      "motifs": [
+        "a pipe manifold with every branch welded shut except one, and that one dripping",
+        "a bronze-silver-gold layer cake, structurally perfect, with the bottom layer visibly rotten",
+        "a sluice gate held open by a single wooden wedge stencilled YAML"
+      ],
+      "avoid": ["a generic cloud outline icon", "a collage of database cylinder icons", "abstract flowing blue data streams", "a wall of green terminal text"]
+    },
+
+    "data-quality-governance": {
+      "keywords": ["data quality", "lineage", "contract", "contracts", "catalog", "governance", "observability", "freshness", "drift", "pii", "gdpr", "metadata", "stewardship", "audit trail"],
+      "anchors": [
+        "a chain of custody tags",
+        "a wax certificate seal",
+        "a caliper measuring a machined part",
+        "a balance scale with tolerance marks",
+        "a weeping seam in a welded joint"
+      ],
+      "motifs": [
+        "a chain-of-custody tag torn off mid-chain while the rest of the chain keeps moving",
+        "a caliper closed on a part that is visibly the wrong shape, the gauge reading PASS"
+      ],
+      "avoid": ["a magnifying glass over a spreadsheet", "a green tick icon", "a padlock on a folder icon"]
+    },
+
+    "cloud-infra": {
+      "keywords": ["kubernetes", "k8s", "k3s", "container", "containers", "docker", "pod", "pods", "helm", "terraform", "argocd", "cluster", "homelab", "gpu", "serverless", "aws", "azure", "gcp", "ingress", "on-prem", "server", "servers", "rack"],
+      "anchors": [
+        "a server rack rail and cage nut",
+        "shipping containers stacked and lashed",
+        "a patch panel dense with cables",
+        "a breaker panel of labelled switches",
+        "a single GPU card as a machined slab",
+        "a cooling fan furred with dust"
+      ],
+      "motifs": [
+        "a cuff snapped around a server rack rail with the key lying inside the locked cage",
+        "a breaker panel where every switch is labelled PROD and one is taped down",
+        "stacked shipping containers lashed together by a single frayed rope"
+      ],
+      "avoid": ["a fluffy white cloud with a padlock", "the Kubernetes helm logo", "a glowing server-room corridor stock shot", "a world map with connection arcs"]
+    },
+
+    "platform-cost": {
+      "keywords": ["cost", "costs", "finops", "spend", "billing", "budget", "egress", "pricing", "roi", "cost center", "revenue", "savings", "invoice", "tco"],
+      "anchors": [
+        "a taxi meter mid-fare",
+        "a spinning water meter",
+        "a coin funnel over a pipe",
+        "a till receipt long enough to spill out of frame",
+        "a bucket catching a drip"
+      ],
+      "motifs": [
+        "a taxi meter bolted to a server rack, its digits blurred with speed",
+        "a coin funnel feeding a pipe that leaks most of the coins out of a side seam before they arrive"
+      ],
+      "avoid": ["a piggy bank", "gold coins stacked on a laptop", "a red downward stock arrow"]
+    },
+
+    "security": {
+      "keywords": ["security", "secret", "secrets", "credential", "credentials", "rotation", "expiry", "iam", "rbac", "vulnerability", "cve", "breach", "encryption", "certificate", "tls", "zero trust", "exposed", "leaked"],
+      "anchors": [
+        "a key cut to the wrong profile",
+        "an expired certificate with a cracked wax seal",
+        "a keyring overloaded past recognition",
+        "a deadbolt beside a plain glass panel",
+        "a broken tamper seal"
+      ],
+      "motifs": [
+        "a heavy deadbolt fitted to a door whose adjacent panel is plain glass",
+        "a keyring so overloaded the keys are indistinguishable, exactly one of them glowing",
+        "an expired wax-sealed certificate still hanging on the gate it is meant to guard"
+      ],
+      "avoid": ["a hooded hacker at a laptop", "a green matrix code wall", "a shield icon with a checkmark", "a padlock floating over a keyboard"]
+    },
+
+    "career-craft": {
+      "keywords": ["career", "role", "hiring", "interview", "junior", "senior", "skills", "expertise", "moat", "commodity", "obsolete", "replaced", "promotion", "upskilling", "seniority", "judgment", "job", "jobs", "specialist"],
+      "anchors": [
+        "a toolbelt with worn pockets",
+        "a ladder with rungs sawn off",
+        "a precision tool in a museum display case",
+        "a well-worn wooden handle",
+        "an engraved name badge",
+        "one chair pulled up to a table"
+      ],
+      "motifs": [
+        "a hand-worn precision wrench mounted in a museum display case, a robot arm holding its replacement outside the glass",
+        "a ladder whose lower rungs have been sawn off while the upper ones stay intact",
+        "a toolbelt where every pocket holds the same identical tool and one pocket is empty"
+      ],
+      "avoid": ["a person standing on a mountain top", "a chess piece", "a maze with a lightbulb", "handshakes or people pointing at laptops"]
+    },
+
+    "default": {
+      "_comment": "Used when no domain clears min_score. Still automation-inflected: machined parts, control surfaces and production lines, never free-floating abstraction.",
+      "keywords": [],
+      "anchors": [
+        "a machined part that will not seat in its socket",
+        "one lever among a bank of identical levers",
+        "a load-bearing wooden shim under a steel assembly",
+        "a queue of identical parts with one warped",
+        "a control surface with a single unlabelled switch"
+      ],
+      "motifs": [
+        "a load-bearing wooden shim holding up a precision steel assembly",
+        "a line of identical machined parts advancing toward assembly with one visibly warped"
+      ],
+      "avoid": []
+    }
+  },
+
+  "_comment_universal_avoid": "Appended to every domain's avoid list. These are the failures that survive any subject: they are what the image collapses to when the model gives up on the metaphor.",
+  "universal_avoid": [
+    "stock-photo scenes of people at laptops, handshakes, or teams pointing at screens",
+    "collages of technology logos or app icons",
+    "dense fake dashboards, charts and tiny unreadable labels",
+    "any composition with more than one focal point"
+  ]
+}

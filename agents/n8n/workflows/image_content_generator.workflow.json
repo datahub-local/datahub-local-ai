@@ -1,9 +1,9 @@
 {
   "active": true,
   "activeVersion": {
-    "updatedAt": "2026-07-27T19:05:33.618Z",
-    "createdAt": "2026-07-27T19:05:32.266Z",
-    "versionId": "ef417d3e-a8ef-43b1-b311-8574df338b45",
+    "updatedAt": "2026-08-21T06:31:12.528Z",
+    "createdAt": "2026-08-21T06:24:34.646Z",
+    "versionId": "06e6a5a6-18df-49c8-b6a5-a788f25124af",
     "workflowId": "8cRfhWwzFYvma7OI",
     "nodes": [
       {
@@ -46,18 +46,18 @@
               {
                 "id": "assign-002",
                 "name": "githubOwner",
-                "value": "=datahub-local",
+                "value": "={{ $env[\"BACKUP_GITHUB_REPO_OWNER\"] }}",
                 "type": "string"
               },
               {
                 "id": "assign-003",
                 "name": "githubRepo",
-                "value": "=datahub-local-ai",
+                "value": "={{ $env[\"BACKUP_GITHUB_REPO_NAME\"] }}",
                 "type": "string"
               },
               {
                 "id": "assign-004",
-                "name": "githubBranch",
+                "name": "=githubBranch",
                 "value": "=main",
                 "type": "string"
               },
@@ -69,19 +69,19 @@
               },
               {
                 "id": "assign-005",
-                "name": "typesDatasetPath",
+                "name": "=typesDatasetPath",
                 "value": "={{ ($env[\"BACKUP_GITHUB_REPO_PATH\"] || \"agents/n8n\").replace(/\\/+$/, \"\") }}/datasets/diagram_types.json",
                 "type": "string"
               },
               {
                 "id": "assign-007",
-                "name": "stylesDatasetPath",
+                "name": "=stylesDatasetPath",
                 "value": "={{ ($env[\"BACKUP_GITHUB_REPO_PATH\"] || \"agents/n8n\").replace(/\\/+$/, \"\") }}/datasets/diagram_visual_styles.json",
                 "type": "string"
               },
               {
                 "id": "assign-008",
-                "name": "colorPresetsDatasetPath",
+                "name": "=colorPresetsDatasetPath",
                 "value": "={{ ($env[\"BACKUP_GITHUB_REPO_PATH\"] || \"agents/n8n\").replace(/\\/+$/, \"\") }}/datasets/diagram_color_presets.json",
                 "type": "string"
               }
@@ -748,8 +748,8 @@
         "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
         "typeVersion": 1,
         "position": [
-          3752,
-          552
+          3760,
+          560
         ],
         "id": "5e283418-98fe-43a9-a342-ee9652687d4b",
         "name": "OpenRouter Chat Model",
@@ -768,8 +768,8 @@
         "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
         "typeVersion": 1,
         "position": [
-          3880,
-          552
+          3888,
+          560
         ],
         "id": "c751a4b5-8581-48c6-91df-844168252953",
         "name": "OpenRouter Chat Model Fallback",
@@ -1100,11 +1100,11 @@
     },
     "nodeGroups": [],
     "authors": "no name",
-    "name": "Version ef417d3e",
+    "name": "Version 06e6a5a6",
     "description": "",
-    "autosaved": false
+    "autosaved": true
   },
-  "activeVersionId": "ef417d3e-a8ef-43b1-b311-8574df338b45",
+  "activeVersionId": "06e6a5a6-18df-49c8-b6a5-a788f25124af",
   "connections": {
     "Init: Diagram Generator Form": {
       "main": [
@@ -1471,18 +1471,18 @@
             {
               "id": "assign-002",
               "name": "githubOwner",
-              "value": "=datahub-local",
+              "value": "={{ $env[\"BACKUP_GITHUB_REPO_OWNER\"] }}",
               "type": "string"
             },
             {
               "id": "assign-003",
               "name": "githubRepo",
-              "value": "=datahub-local-ai",
+              "value": "={{ $env[\"BACKUP_GITHUB_REPO_NAME\"] }}",
               "type": "string"
             },
             {
               "id": "assign-004",
-              "name": "githubBranch",
+              "name": "=githubBranch",
               "value": "=main",
               "type": "string"
             },
@@ -1494,19 +1494,19 @@
             },
             {
               "id": "assign-005",
-              "name": "typesDatasetPath",
+              "name": "=typesDatasetPath",
               "value": "={{ ($env[\"BACKUP_GITHUB_REPO_PATH\"] || \"agents/n8n\").replace(/\\/+$/, \"\") }}/datasets/diagram_types.json",
               "type": "string"
             },
             {
               "id": "assign-007",
-              "name": "stylesDatasetPath",
+              "name": "=stylesDatasetPath",
               "value": "={{ ($env[\"BACKUP_GITHUB_REPO_PATH\"] || \"agents/n8n\").replace(/\\/+$/, \"\") }}/datasets/diagram_visual_styles.json",
               "type": "string"
             },
             {
               "id": "assign-008",
-              "name": "colorPresetsDatasetPath",
+              "name": "=colorPresetsDatasetPath",
               "value": "={{ ($env[\"BACKUP_GITHUB_REPO_PATH\"] || \"agents/n8n\").replace(/\\/+$/, \"\") }}/datasets/diagram_color_presets.json",
               "type": "string"
             }
@@ -2173,8 +2173,8 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
       "typeVersion": 1,
       "position": [
-        3752,
-        552
+        3760,
+        560
       ],
       "id": "5e283418-98fe-43a9-a342-ee9652687d4b",
       "name": "OpenRouter Chat Model",
@@ -2193,8 +2193,8 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
       "typeVersion": 1,
       "position": [
-        3880,
-        552
+        3888,
+        560
       ],
       "id": "c751a4b5-8581-48c6-91df-844168252953",
       "name": "OpenRouter Chat Model Fallback",
@@ -2223,6 +2223,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 1,
-  "updatedAt": "2026-07-27T19:05:31.295Z",
-  "versionId": "ef417d3e-a8ef-43b1-b311-8574df338b45"
+  "updatedAt": "2026-08-21T06:24:34.374Z",
+  "versionId": "06e6a5a6-18df-49c8-b6a5-a788f25124af"
 }

@@ -371,13 +371,13 @@
       "anchors": [
         "a toolbelt with worn pockets",
         "a ladder with rungs sawn off",
-        "a precision tool in a museum display case",
+        "a calibration certificate stamped and expired",
         "a well-worn wooden handle",
         "an engraved name badge",
         "one chair pulled up to a table"
       ],
       "motifs": [
-        "a hand-worn precision wrench mounted in a museum display case, a robot arm holding its replacement outside the glass",
+        "a torque wrench calibrated by hand beside a rack of identical arms that self-calibrate, every one etched with the same config block",
         "a ladder whose lower rungs have been sawn off while the upper ones stay intact",
         "a toolbelt where every pocket holds the same identical tool and one pocket is empty",
         "a set of feeler gauges laid out with military precision beside a machine that now calibrates itself",
@@ -388,8 +388,10 @@
         "a person standing on a mountain top",
         "a chess piece",
         "a maze with a lightbulb",
-        "handshakes or people pointing at laptops"
-      ]
+        "handshakes or people pointing at laptops",
+        "a hand tool displayed in a glass museum case or vitrine"
+      ],
+      "_comment_avoid_museum_case": "The museum case led two consecutive generated images, once lifted almost verbatim from motif 1. It is a good device that the model reaches for far too readily, so it is retired rather than fixed."
     },
     "default": {
       "_comment": "Used when no domain clears min_score. Still automation-inflected: machined parts, control surfaces and production lines, never free-floating abstraction.",
@@ -414,7 +416,8 @@
     "stock-photo scenes of people at laptops, handshakes, or teams pointing at screens",
     "collages of technology logos or app icons",
     "dense fake dashboards, charts and tiny unreadable labels",
-    "any composition with more than one focal point"
+    "any composition with more than one focal point",
+    "workshop or factory scenes that read as handmade-versus-mass-production with no software texture anywhere in the lit part of the frame"
   ],
   "_comment_rotation": "parse_image_motifs shuffles each domain's anchors and motifs before round-robin selection, so consecutive posts in the same domain see different examples. The reference post reproduced career-craft motif 1 almost verbatim off a pool of three; a wider pool plus per-run rotation is what stops the four injected fusions from becoming the whole feed."
 }

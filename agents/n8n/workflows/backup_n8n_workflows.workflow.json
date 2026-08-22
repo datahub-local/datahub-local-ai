@@ -1,9 +1,9 @@
 {
   "active": true,
   "activeVersion": {
-    "updatedAt": "2025-11-22T06:13:27.499Z",
-    "createdAt": "2025-11-22T06:13:27.499Z",
-    "versionId": "37d227c3-7530-420f-bf50-ecce8aab5541",
+    "updatedAt": "2026-08-22T06:25:08.970Z",
+    "createdAt": "2026-08-22T06:25:00.021Z",
+    "versionId": "789cf417-4ff0-4922-989e-4e965fa8c7f4",
     "workflowId": "X0gxarZXHgGj5fl5",
     "nodes": [
       {
@@ -87,7 +87,7 @@
                 "id": "eee305e9-4164-462a-86bd-80f0d58a31ae",
                 "name": "=repo_path",
                 "type": "string",
-                "value": "={{ $env[\"BACKUP_GITHUB_REPO_PATH\"].endsWith('/') ? $env[\"BACKUP_GITHUB_REPO_PATH\"].slice(0, -1) : $env[\"BACKUP_GITHUB_REPO_PATH\"]; }}"
+                "value": "={{ $env[\"BACKUP_GITHUB_REPO_PATH\"].endsWith('/') ? $env[\"BACKUP_GITHUB_REPO_PATH\"].slice(0, -1) : $env[\"BACKUP_GITHUB_REPO_PATH\"]; }}/workflows"
               }
             ]
           },
@@ -907,12 +907,12 @@
       }
     },
     "nodeGroups": [],
-    "authors": "system migration",
-    "name": null,
-    "description": null,
-    "autosaved": false
+    "authors": "no name",
+    "name": "Version 789cf417",
+    "description": "",
+    "autosaved": true
   },
-  "activeVersionId": "37d227c3-7530-420f-bf50-ecce8aab5541",
+  "activeVersionId": "789cf417-4ff0-4922-989e-4e965fa8c7f4",
   "connections": {
     "input_sync_file": {
       "main": [
@@ -1286,7 +1286,7 @@
               "id": "eee305e9-4164-462a-86bd-80f0d58a31ae",
               "name": "=repo_path",
               "type": "string",
-              "value": "={{ $env[\"BACKUP_GITHUB_REPO_PATH\"].endsWith('/') ? $env[\"BACKUP_GITHUB_REPO_PATH\"].slice(0, -1) : $env[\"BACKUP_GITHUB_REPO_PATH\"]; }}"
+              "value": "={{ $env[\"BACKUP_GITHUB_REPO_PATH\"].endsWith('/') ? $env[\"BACKUP_GITHUB_REPO_PATH\"].slice(0, -1) : $env[\"BACKUP_GITHUB_REPO_PATH\"]; }}/workflows"
             }
           ]
         },
@@ -1826,7 +1826,8 @@
   "settings": {
     "executionOrder": "v1",
     "callerPolicy": "workflowsFromSameOwner",
-    "errorWorkflow": "fejq5nN6LP3F820w"
+    "errorWorkflow": "fejq5nN6LP3F820w",
+    "binaryMode": "separate"
   },
   "shared": [
     {
@@ -1852,6 +1853,6 @@
   },
   "tags": [],
   "triggerCount": 1,
-  "updatedAt": "2026-03-06T14:21:29.624Z",
-  "versionId": "409b596c-db10-45fe-8d36-0784974e428e"
+  "updatedAt": "2026-08-22T06:24:59.753Z",
+  "versionId": "789cf417-4ff0-4922-989e-4e965fa8c7f4"
 }

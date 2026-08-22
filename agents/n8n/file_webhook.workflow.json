@@ -1,0 +1,646 @@
+{
+  "active": true,
+  "activeVersion": {
+    "updatedAt": "2026-04-30T11:36:37.099Z",
+    "createdAt": "2026-04-30T11:35:47.689Z",
+    "versionId": "cf1b7e9a-f6a0-4d59-869f-0099078669f3",
+    "workflowId": "TLg1wIRzlka8Jh8r",
+    "nodes": [
+      {
+        "parameters": {
+          "path": "76a3521f-8ce6-41e5-9741-a1a0d22736ff/:fileId",
+          "responseMode": "responseNode",
+          "options": {
+            "rawBody": false
+          }
+        },
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2.1,
+        "position": [
+          -1536,
+          -48
+        ],
+        "id": "99a8faf5-0484-4fc7-946a-07903eec6688",
+        "name": "Webhook",
+        "webhookId": "76a3521f-8ce6-41e5-9741-a1a0d22736ff"
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "0a4efb21-6035-4dea-8f27-c5d628c3f2ee",
+                "name": "ImageId",
+                "value": "={{ $json.params.fileId }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          -1312,
+          -48
+        ],
+        "id": "388af352-0eb9-4221-8f06-a170b12284af",
+        "name": "Set Vars"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 1
+            },
+            "conditions": [
+              {
+                "id": "d13a8ce7-b3a8-4140-905a-eef7f0196e7e",
+                "leftValue": "={{ $json.fileId || '' }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "string",
+                  "operation": "notEmpty"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+        "position": [
+          -416,
+          -48
+        ],
+        "id": "11dd294a-ab98-453a-969c-0642edf2b6ea",
+        "name": "File Found?"
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ { \"error\": \"File not found\", \"fileId\": $('Set Vars1').first().json.ImageId } }}",
+          "options": {
+            "responseCode": 404
+          }
+        },
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.5,
+        "position": [
+          -192,
+          48
+        ],
+        "id": "245baf9c-4b88-4cde-a967-fbc23ab2e1f7",
+        "name": "Respond File Not Found"
+      },
+      {
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "9c5e2386-fcba-4c25-87c1-e6a25e491061",
+                "name": "cutoffDate",
+                "value": "={{ $now.minus({ hours: 1 }).toISO() }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          -1088,
+          -48
+        ],
+        "id": "f22fe663-629c-496d-b83f-46d289e85afb",
+        "name": "Set Cleanup Cutoff"
+      },
+      {
+        "parameters": {
+          "operation": "deleteRows",
+          "dataTableId": {
+            "__rl": true,
+            "value": "8WkLZu3WalqCWK6n",
+            "mode": "list",
+            "cachedResultName": "TemporalFiles",
+            "cachedResultUrl": "/projects/zcGU09G6dy4Oah3l/datatables/8WkLZu3WalqCWK6n"
+          },
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "updatedAt",
+                "condition": "lt",
+                "keyValue": "={{ $json.cutoffDate }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "position": [
+          -864,
+          -48
+        ],
+        "id": "a77fb101-ffd9-4e9f-8835-98ad0e5cd166",
+        "name": "Delete Old File Data",
+        "alwaysOutputData": true
+      },
+      {
+        "parameters": {
+          "operation": "toBinary",
+          "sourceProperty": "dataBase64",
+          "options": {
+            "mimeType": "={{ $json.contentType }}"
+          }
+        },
+        "type": "n8n-nodes-base.convertToFile",
+        "typeVersion": 1.1,
+        "position": [
+          -192,
+          -144
+        ],
+        "id": "3d16dd59-0f85-4865-bfaf-1096de89acba",
+        "name": "Convert to File1"
+      },
+      {
+        "parameters": {
+          "operation": "get",
+          "dataTableId": {
+            "__rl": true,
+            "value": "8WkLZu3WalqCWK6n",
+            "mode": "list",
+            "cachedResultName": "TemporalFiles",
+            "cachedResultUrl": "/projects/zcGU09G6dy4Oah3l/datatables/8WkLZu3WalqCWK6n"
+          },
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "fileId",
+                "keyValue": "={{ $('Set Vars'). item.json.ImageId }}"
+              }
+            ]
+          },
+          "limit": 1
+        },
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "position": [
+          -640,
+          -48
+        ],
+        "id": "0b1f0a55-874f-47f0-baea-2b555b5bf847",
+        "name": "Get File Data",
+        "alwaysOutputData": true
+      },
+      {
+        "parameters": {
+          "respondWith": "binary",
+          "options": {
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Content-Type",
+                  "value": "={{ $('Get File Data'). item.json.contentType }}"
+                }
+              ]
+            }
+          }
+        },
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1.5,
+        "position": [
+          32,
+          -144
+        ],
+        "id": "7cce22df-c268-45a9-88c2-9c45998a6b01",
+        "name": "Respond to Webhook"
+      }
+    ],
+    "connections": {
+      "Webhook": {
+        "main": [
+          [
+            {
+              "node": "Set Vars",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Set Vars": {
+        "main": [
+          [
+            {
+              "node": "Set Cleanup Cutoff",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "File Found?": {
+        "main": [
+          [
+            {
+              "node": "Convert to File1",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Respond File Not Found",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Set Cleanup Cutoff": {
+        "main": [
+          [
+            {
+              "node": "Delete Old File Data",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Delete Old File Data": {
+        "main": [
+          [
+            {
+              "node": "Get File Data",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Convert to File1": {
+        "main": [
+          [
+            {
+              "node": "Respond to Webhook",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Get File Data": {
+        "main": [
+          [
+            {
+              "node": "File Found?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "nodeGroups": [],
+    "authors": "no name",
+    "name": "Version cf1b7e9a",
+    "description": "",
+    "autosaved": true
+  },
+  "activeVersionId": "cf1b7e9a-f6a0-4d59-869f-0099078669f3",
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set Vars",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Vars": {
+      "main": [
+        [
+          {
+            "node": "Set Cleanup Cutoff",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "File Found?": {
+      "main": [
+        [
+          {
+            "node": "Convert to File1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond File Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Cleanup Cutoff": {
+      "main": [
+        [
+          {
+            "node": "Delete Old File Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Old File Data": {
+      "main": [
+        [
+          {
+            "node": "Get File Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File1": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get File Data": {
+      "main": [
+        [
+          {
+            "node": "File Found?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2026-04-30T11:34:55.206Z",
+  "id": "TLg1wIRzlka8Jh8r",
+  "isArchived": false,
+  "meta": null,
+  "name": "File Webhook",
+  "nodeGroups": [],
+  "nodes": [
+    {
+      "parameters": {
+        "path": "76a3521f-8ce6-41e5-9741-a1a0d22736ff/:fileId",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1536,
+        -48
+      ],
+      "id": "99a8faf5-0484-4fc7-946a-07903eec6688",
+      "name": "Webhook",
+      "webhookId": "76a3521f-8ce6-41e5-9741-a1a0d22736ff"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0a4efb21-6035-4dea-8f27-c5d628c3f2ee",
+              "name": "ImageId",
+              "value": "={{ $json.params.fileId }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1312,
+        -48
+      ],
+      "id": "388af352-0eb9-4221-8f06-a170b12284af",
+      "name": "Set Vars"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "d13a8ce7-b3a8-4140-905a-eef7f0196e7e",
+              "leftValue": "={{ $json.fileId || '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -416,
+        -48
+      ],
+      "id": "11dd294a-ab98-453a-969c-0642edf2b6ea",
+      "name": "File Found?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"error\": \"File not found\", \"fileId\": $('Set Vars1').first().json.ImageId } }}",
+        "options": {
+          "responseCode": 404
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -192,
+        48
+      ],
+      "id": "245baf9c-4b88-4cde-a967-fbc23ab2e1f7",
+      "name": "Respond File Not Found"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9c5e2386-fcba-4c25-87c1-e6a25e491061",
+              "name": "cutoffDate",
+              "value": "={{ $now.minus({ hours: 1 }).toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1088,
+        -48
+      ],
+      "id": "f22fe663-629c-496d-b83f-46d289e85afb",
+      "name": "Set Cleanup Cutoff"
+    },
+    {
+      "parameters": {
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "value": "8WkLZu3WalqCWK6n",
+          "mode": "list",
+          "cachedResultName": "TemporalFiles",
+          "cachedResultUrl": "/projects/zcGU09G6dy4Oah3l/datatables/8WkLZu3WalqCWK6n"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "updatedAt",
+              "condition": "lt",
+              "keyValue": "={{ $json.cutoffDate }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        -864,
+        -48
+      ],
+      "id": "a77fb101-ffd9-4e9f-8835-98ad0e5cd166",
+      "name": "Delete Old File Data",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "toBinary",
+        "sourceProperty": "dataBase64",
+        "options": {
+          "mimeType": "={{ $json.contentType }}"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        -192,
+        -144
+      ],
+      "id": "3d16dd59-0f85-4865-bfaf-1096de89acba",
+      "name": "Convert to File1"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "8WkLZu3WalqCWK6n",
+          "mode": "list",
+          "cachedResultName": "TemporalFiles",
+          "cachedResultUrl": "/projects/zcGU09G6dy4Oah3l/datatables/8WkLZu3WalqCWK6n"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "fileId",
+              "keyValue": "={{ $('Set Vars'). item.json.ImageId }}"
+            }
+          ]
+        },
+        "limit": 1
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        -640,
+        -48
+      ],
+      "id": "0b1f0a55-874f-47f0-baea-2b555b5bf847",
+      "name": "Get File Data",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "respondWith": "binary",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "={{ $('Get File Data'). item.json.contentType }}"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        32,
+        -144
+      ],
+      "id": "7cce22df-c268-45a9-88c2-9c45998a6b01",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "shared": [
+    {
+      "updatedAt": "2026-04-30T11:34:55.206Z",
+      "createdAt": "2026-04-30T11:34:55.206Z",
+      "role": "workflow:owner",
+      "workflowId": "TLg1wIRzlka8Jh8r",
+      "projectId": "zcGU09G6dy4Oah3l"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2026-04-30T11:35:48.952Z",
+  "versionId": "cf1b7e9a-f6a0-4d59-869f-0099078669f3"
+}

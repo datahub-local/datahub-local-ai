@@ -221,7 +221,7 @@ to 32768, which is far more than any of these runs needs.
   schedule instead. The relationship graph and `stimulus` are unused for now.
   Worth revisiting now that the model is a 4B rather than a 2B — but revisit it
   by testing, not by assuming.
-- **Breadth comes from more personas, not fatter ones.** Five to seven tools per
+- **Breadth comes from more personas, not fatter ones.** Seven to nine tools per
   persona in `homelab-ops`, and one question per run. Handing a small local model 60
   Grafana tools is how you get an agent that calls none of them; handing it a
   fourteen-item checklist is how you get an agent that does the first three
@@ -233,7 +233,24 @@ to 32768, which is far more than any of these runs needs.
   k3s embedding both components in the server process with no separate metrics
   endpoint. A small model has no way to work that out, so the known-chronic set
   lives in `sre-sentinel`'s memory seeds and its report is shaped as
-  new / still firing / resolved. Re-seed when the chronic set changes.
+  new / still firing / resolved. Re-seed when the chronic set changes: by
+  2026-08-22 those two had stopped firing and the set was down to four
+  alertnames, which is exactly when a stale seed turns into a fabricated
+  observation. Each seed now states that it is a thing to ignore when seen, not
+  a thing seen.
+- **Editing `memory.seeds` in git does nothing to a running ensemble.** The CRD
+  describes seeds as "initial memory entries injected into MEMORY.md", and that
+  is literal: the controller writes them once, at install, into
+  `ConfigMap/<ensemble>-<persona>-memory` under the key `MEMORY.md`, with no
+  `ownerReferences` and no reconcile afterwards. Apply a changed `seeds:` list
+  and the Ensemble object updates, the `systemPrompt` and `toolPolicy` on the
+  next `AgentRun` update — and the run's `## Memory Context` still carries the
+  old text, because it is read from that ConfigMap. Re-seeding a live persona
+  means writing the ConfigMap yourself (or deleting the memory and letting the
+  agent start over). Verify after any seed change by reading the next run's
+  task, not the Ensemble:
+
+      kubectl get agentrun -n automation <run> -o jsonpath='{.spec.task}'
 - **Two skills per persona.** SkillPacks mount Markdown into the run, and every
   page competes with the actual task for attention.
 - **Metric names are verified, and the prompts name them.** Every metric quoted
@@ -241,6 +258,17 @@ to 32768, which is far more than any of these runs needs.
   not recover from guessing `valkey_memory_used_bytes` when the exporter publishes
   `redis_memory_used_bytes`, so the prompts spell out the real names and tell the
   agent to call `grafana_list_prometheus_metric_names` rather than try a variant.
+- **A tool's argument contract is part of its name.** Verifying that
+  `query_prometheus` exists was not enough — it also has a required argument its
+  own description disclaims, and a 4B model does not recover from a tool that
+  errors every call. Call each tool by hand against the live server before
+  writing a prompt against it, and put the working argument set in the prompt.
+- **A blind agent has to shout.** The failure mode that cost a day here was not
+  the broken tool, it was that a broken tool read as good news: "Nothing new." is
+  what both a healthy cluster and a dead sensor produce, and `notify: onChange`
+  turned that into silence. Every prompt that gates its own delivery needs a rule
+  that makes no-data escalate and send, and a rule forbidding it from filling the
+  gap with its memory seeds.
 - **`runTimeout: 30m` (45m for the reviewer).** The 10-minute default is not
   enough for a multi-tool sweep at local-model speed.
 - **Staggered schedules, and `firstTick: afterInterval`.** One GPU with one
@@ -314,11 +342,54 @@ Instrumented here and genuinely valuable, which is why the warden leans on them:
 long tasks were actually blocked, which is what "the machine feels slow" means),
 **SMART** and **UPS** via the textfile collector (`smartmon_*`,
 `network_ups_tools_*`, produced by core's privileged `node-exporter-textfiles`
-sidecar into `/var/lib/node_exporter/{smartmon,nutmon}.prom` — currently on four
-of the seven nodes; `datahublocal-orpi-0`, `datahublocal-amd-2` and
-`datahublocal-nas` report neither, which the warden is seeded to flag rather than
-excuse), **EDAC** memory-error counters, and `kubelet_volume_stats_*` for per-PVC
-fill.
+sidecar into `/var/lib/node_exporter/{smartmon,nutmon}.prom`), **EDAC**
+memory-error counters, and `kubelet_volume_stats_*` for per-PVC fill.
+
+SMART coverage is uneven, and the shape of it matters more than the headline: as
+of 2026-08-22 the sidecar publishes `smartmon_*` on all seven nodes, but only
+four carry actual health data — `datahublocal-amd-1` and `datahublocal-amd-2`
+(two NVMe devices each), `datahublocal-orpi-0` (one) and `datahublocal-nas`
+(four). On `datahublocal-orpi-1`, `-2` and `-3`, and on amd-2's nine `/dev/sd*`
+iSCSI volumes, every device reports `smartmon_device_smart_available 0`: SD/eMMC
+and iSCSI cannot answer a SMART query at all. That is the hardware, not a missing
+exporter, and the warden is seeded to say so rather than file it as a gap every
+run. `network_ups_tools_*` exists on `datahublocal-nas` alone because that is
+where the UPS is plugged in — one UPS reporting normally, not six nodes missing
+an exporter.
+
+An earlier version of this section had all three of those backwards, and nothing
+caught it for a day, because the agent that would have noticed could not read
+Prometheus at all — see the next section.
+
+## The `query_prometheus` argument contract
+
+`grafana_query_prometheus` fails outright unless `endTime` is passed, even for an
+instant query, and the tool's own description says the opposite (`startTime` is
+"ignored if queryType is 'instant'", while `endTime` sits unremarked in the
+schema's `required` list). Omit `queryType` instead and it defaults to `range`,
+which then fails on the missing `stepSeconds`. The call that works is:
+
+    datasourceUid: "prometheus"
+    expr:          <PromQL>
+    queryType:     "instant"
+    endTime:       "now"
+
+For the first day these agents ran, no prompt said this, so every
+`grafana_query_prometheus` call from all four Prometheus-reading personas
+errored. What that looked like from outside is the part worth remembering: not an
+outage, but `Status HEALTHY / Nothing new.` every thirty minutes, with the
+known-chronic memory seeds recited under **Still firing** as though they had been
+observed — including two alerts that were not firing at all. `notify: onChange`
+then suppressed the Slack post, so a dead sensor and a quiet cluster produced
+byte-identical output: nothing. `NodeClockNotSynchronising` fired on four nodes
+for seven hours without a word.
+
+The fix is in three parts, all of them in `projects/`: the prompts state the
+argument contract, the hard rules make an errored query escalate (DEGRADED, and
+send regardless of the change test) instead of degrading to silence, and
+`grafana_list_datasources` is allowlisted so the datasource uid is read rather
+than guessed. Every persona's prompt now also says its seeds are a list of what
+to ignore *when observed*, never evidence that it was.
 
 Not instrumented, so no prompt pretends to check them:
 
@@ -471,9 +542,13 @@ this entry still applies.
   unprivileged. Stalls, disk health, temperature, memory errors, power, version
   drift and uptime are all reachable that way; anything genuinely needing the
   host is not in scope.
-- **`NodeClockNotSynchronising` is firing on four nodes** as of writing. Nothing
-  here fixes it, but `sre-sentinel` will keep reporting it, and clock skew across
-  nodes is worth fixing on its own account.
+- **`NodeClockNotSynchronising` is firing on four nodes** as of writing — the
+  four arm64 orpi boxes, with `node_timex_sync_status 0` and
+  `node_timex_maxerror_seconds` pinned at the kernel's unsynchronised ceiling of
+  16s, so their time source is not merely drifting but absent. Nothing here fixes
+  it. `sre-sentinel` was supposed to keep reporting it and did not, for the
+  argument-contract reason above; it is deliberately left out of the seeds so the
+  first run after that fix reports it as new, and suggests its own remedy.
 - **Nothing here deletes.** `service-janitor` reports cleanup and prints the
   commands; a human runs them. Auto-cleanup would be a separate, deliberately
   authorised agent.

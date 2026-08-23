@@ -440,16 +440,18 @@ rather than copying the outcomes, since the constraints will change.
   MCP server and tool name here was read off the cluster (`kubectl get
   skillpacks`, and a `tools/list` call against each MCP server) because a wrong
   name fails *silently* — the tool simply never appears and the agent produces a
-  blander report. Core's own catalog has this bug twice: its k8s server denies
+  blander report. Core's own catalog had this bug twice: its k8s server denied
   `delete_resource`/`create_resource`/`update_resource` and its postgres server
-  denies `execute_write_query`, and **none of those tool names exist**, so both
-  servers are write-capable today. Personas here re-deny the real names
-  themselves. Re-check after image bumps — every MCP image is pinned `:latest`.
-  A whole *server* fails the same silent way: core's `mcp-k8s` is the one
-  MCPServer declared `transportType: http`, the discovery bridge asks for the
-  service root, and `kubernetes-mcp-server` serves `/mcp` — so it 404s and every
-  `k8s_*` tool has been missing from every persona since it was created, with
-  `MCPServer.status.ready` reporting `true` throughout. Read
+  denies `execute_write_query`, and **none of those tool names exist**. The k8s
+  half was fixed on 2026-08-23; postgres is still open, and github, argocd and
+  grafana carry no catalog denies at all. Personas here re-deny the real names
+  themselves, which is the only reason none of it was ever exploitable.
+  Re-check after image bumps — every MCP image is pinned `:latest`.
+  A whole *server* fails the same silent way: core's `mcp-k8s` was the one
+  MCPServer declared `transportType: http`, the discovery bridge asked for the
+  service root, and `kubernetes-mcp-server` serves `/mcp` — so it 404'd and every
+  `k8s_*` tool was missing from every persona from its creation until
+  2026-08-23, with `MCPServer.status.ready` reporting `true` throughout. Read
   `kubectl logs <run-pod> -c mcp-discover` after any transport or image change;
   it prints the per-server tool counts.
 - **Split ensembles on trust boundaries, not on subject.** Ensemble-level
@@ -462,6 +464,20 @@ rather than copying the outcomes, since the constraints will change.
   surface, split it (`db-steward` came out of `service-janitor` for exactly
   that reason) rather than growing the checklist. Keep each run to one question
   and roughly five to seven tools.
+- **A correct metric name is not a correct reading.** `sre-sentinel` was told to
+  query `kubelet_volume_stats_available_bytes / kubelet_volume_stats_capacity_bytes`
+  and flag anything above 80%. Both metrics exist and were verified present — but
+  that ratio is the fraction *free*, so it flagged the emptiest volumes and could
+  never flag a full one. It called a 2%-used volume "97.9% full, write operations
+  failing" on every run for days, and because a non-empty **Filling up** section
+  is one of the change conditions, it also forced a Slack post every time. Fill
+  expressions now read `100 * (1 - available / capacity)` and carry a
+  `group_left` join on `kube_persistentvolumeclaim_info` restricting them to
+  `longhorn|longhorn-no-replica`, because all five `nfs` PVCs report the same
+  shared 1.9 TB capacity and a per-volume percentage there is meaningless.
+  `scripts/validate.py` fails an uninverted division. Give a small model the
+  literal expression, not a description of it — it will not assemble a join from
+  prose, and it will report whatever it computes with total confidence.
 - **Verify the telemetry exists before writing a prompt against it.** Every
   metric named in a prompt was confirmed present in this Prometheus. Two traps
   found this way: Valkey is scraped by a redis exporter so its metrics are

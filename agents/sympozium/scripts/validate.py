@@ -269,6 +269,7 @@ def _check_shared_prompts():
                 f"'Message sent' while delivering nothing."
             )
         _check_verbatim_ascii(f"delivery/{level}.md", text)
+        _check_unquoted_args(f"prompts/delivery/{level}.md", text)
         if '"{{ CHANNEL }}"' in text or "'{{ CHANNEL }}'" in text:
             raise Fail(
                 f"prompts/delivery/{level}.md shows the chatId value in quotes. "
@@ -277,6 +278,72 @@ def _check_shared_prompts():
                 f"which Slack rejects as channel_not_found while the tool still "
                 f"answers 'Message sent'. Write the value bare."
             )
+
+
+def _check_fill_direction(label, text):
+    """A fill expression must compute the fraction *used*, not the fraction free.
+
+    `available / capacity` is how much room is left. Reporting it as "percent
+    full" inverts every finding: it flags the emptiest volumes and can never flag
+    a full one. sre-sentinel shipped that mistake and spent days calling a
+    2%-used volume "97.9% full, write operations failing" — CRITICAL every run,
+    which also tripped the change test and forced a Slack post every time, so the
+    inversion defeated the anti-noise rule as well.
+
+    The fix is an explicit `1 -`, so that is what this checks: any line dividing
+    an availability metric by a capacity metric has to invert it on the same
+    line.
+    """
+    avail = re.compile(r"(?:_available_bytes|_avail_bytes)")
+    cap = re.compile(r"(?:_capacity_bytes|_size_bytes)")
+    for lineno, line in enumerate(text.splitlines(), start=1):
+        if "/" not in line:
+            continue
+        before, _, after = line.partition("/")
+        if not (avail.search(before) and cap.search(after)):
+            continue
+        if "1 -" in line or "1-" in line:
+            continue
+        raise Fail(
+            f"{label}:{lineno} divides an availability metric by a capacity "
+            f"metric without inverting it. That is the fraction *free*, so "
+            f"reporting it as fill flags the emptiest volumes and never a full "
+            f"one — the bug that had this fleet calling a 2%-used volume "
+            f"'97.9% full' on every run. Write it as "
+            f"`100 * (1 - available / capacity)`."
+        )
+
+
+def _check_unquoted_args(label, text):
+    """Argument values in a prompt's call block must be written bare.
+
+    Same failure as the delivery prompts: a 4B model reproduces an indented
+    `key: "value"` block character for character, quotes included, and the
+    argument arrives with the punctuation inside it. That cost every Slack report
+    for two days when it happened to `chatId`; `queryType: "instant"` is the same
+    shape and would fail the same way, silently, as an unparseable query type.
+
+    Deliberately narrow: it checks only the argument names of the two call
+    contracts the prompts spell out. PromQL in an indented block legitimately
+    contains quotes (`ALERTS{alertstate="firing"}`), so a blanket rule would be
+    wrong.
+    """
+    args = ("datasourceUid", "queryType", "endTime", "chatId", "channel")
+    for lineno, line in enumerate(text.splitlines(), start=1):
+        if not line.startswith("    "):
+            continue
+        stripped = line.strip()
+        for arg in args:
+            if not stripped.startswith(arg):
+                continue
+            value = stripped[len(arg):].lstrip(": ").strip()
+            if value.startswith(('"', "'")):
+                raise Fail(
+                    f"{label}:{lineno} shows the {arg!r} argument value "
+                    f"in quotes. A 4B model copies the quotes into the argument "
+                    f"— that is how chatId became '\"#channel\"' and every "
+                    f"report stopped arriving. Write the value bare."
+                )
 
 
 def _check_verbatim_ascii(label, text):
@@ -411,6 +478,8 @@ def _check_delivery(project, persona_name, persona, delivery, warnings):
 
     bound = bool(persona.get("channels"))
     prompt = (project / persona["systemPromptFile"]).read_text(encoding="utf-8")
+    _check_unquoted_args(f"{project.name}/{persona['systemPromptFile']}", prompt)
+    _check_fill_direction(f"{project.name}/{persona['systemPromptFile']}", prompt)
 
     if not bound:
         for token in PROMPT_TOKENS:

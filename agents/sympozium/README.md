@@ -347,20 +347,31 @@ The tool names in this repo were read off the running MCP servers with a
 silently disarms the thing you were trying to configure. Two live examples, both
 in core's `releases/automation/templates/sympozium_mcp_servers.yaml`:
 
-- The k8s server denies `delete_resource`, `create_resource` and
-  `update_resource`. `kubernetes-mcp-server` actually exposes
+- The k8s server denied `delete_resource`, `create_resource` and
+  `update_resource`, none of which exist — `kubernetes-mcp-server` exposes
   `resources_create_or_update`, `resources_delete`, `resources_scale`,
-  `pods_delete`, `pods_exec` and `pods_run`. **None of the three denies match
-  anything, so that server is fully write-capable today.**
+  `pods_delete`, `pods_exec` and `pods_run`. **Fixed by core on 2026-08-23**: the
+  catalog now denies five of those six real names (`resources_scale` is the one
+  left out, and the personas here deny it themselves).
 - The postgres server denies `execute_write_query`. `postgres-mcp` exposes a
-  single `execute_sql` tool and defaults to unrestricted access mode, so writes
-  are available there too.
+  single `execute_sql` tool and defaults to unrestricted access mode, so **this
+  one is still open** and that server remains write-capable to any agent that
+  wires it. It is item 2 in
+  [`docs/core_sympozium_followup.md`](../../docs/core_sympozium_followup.md).
 
-Both are core's to fix. Until they are, the personas here re-deny the real names
-themselves, which is why `service-janitor` carries an explicit
-`toolsDeny: [execute_sql]` and every k8s consumer repeats the six write tools.
-When re-checking, port-forward the server and call `tools/list` — every MCP image
-in the catalog is pinned to `:latest`, so the inventory can change under you.
+Neither was ever exploitable here, because the personas re-deny the real names
+themselves — `service-janitor` carries an explicit `toolsDeny: [execute_sql]` and
+every k8s consumer repeats the write tools. That is the point: a per-persona deny
+is what made a broken catalog harmless, and it is why the denies stay even now
+that [`toolsAllow` makes them redundant by construction](#the-tool-schemas-not-the-report-are-what-fills-the-context).
+
+The three servers with *no* catalog denies at all — github, argocd, grafana —
+are the same exposure with none of the noise: `mcp-github` publishes
+`merge_pull_request` and `push_files`, `mcp-grafana` publishes
+`grafana_api_request`, which reaches the whole Grafana API. Again harmless only
+because of what `projects/` denies. When re-checking, port-forward the server and
+call `tools/list` — every MCP image in the catalog is pinned to `:latest`, so the
+inventory can change under you.
 
 ## What the agents can see, and what they cannot
 
@@ -474,7 +485,13 @@ also expected to strip. `prompts/delivery/*.md` now write the arguments bare —
 — say outright that nothing may be added around a value, and describe the
 punctuation-carrying failure alongside the omitted-argument one.
 `scripts/validate.py` rejects a verbosity file that puts `{{ CHANNEL }}` back in
-quotes. The quoted signature at the top of this section is prose for a human
+quotes, and the same rule now covers the `datasourceUid` / `queryType` /
+`endTime` block in every persona prompt — that block was written the same way
+(`queryType: "instant"`) and would have failed identically, as an unparseable
+query type rather than a missing channel. The check is deliberately narrow,
+naming only the five arguments the prompts spell out, because PromQL in an
+indented block legitimately contains quotes (`ALERTS{alertstate="firing"}`) and a
+blanket rule would be wrong. The quoted signature at the top of this section is prose for a human
 reader and stays as it is; the constraint applies to the prompt files, which are
 read by a 4B model with no ability to tell an example's delimiters from its
 content.
@@ -602,6 +619,134 @@ That is how the `chatId` contract above was pinned down. Note that the pod is
 deleted as soon as the run ends whatever `cleanup` says, so `status.result` and
 the sidecar logs are the only record — plan the probe around reading those.
 
+## A right metric read the wrong way round
+
+The volume check in `sre_sentinel_system.md` said:
+
+    Query kubelet_volume_stats_available_bytes / kubelet_volume_stats_capacity_bytes
+    and flag any PersistentVolumeClaim above 80%
+
+That ratio is the fraction **free**. Flagging "above 80%" flags the *emptiest*
+volumes in the cluster and can never flag a full one. It shipped that way and ran
+for days. The report that finally exposed it named
+`logs-datahub-local-core-data-airflow-triggerer-0` at "97-98% capacity — write
+operations failing":
+
+    free fraction: 0.9789697334135097     <- reported as "97.9% full"
+    used fraction: 0.0210302665864903     <- actual
+
+Measured the same day, with the storage-class filter below: **nothing in the
+cluster was above 31% used**, and the NFS share was under 1%. Every *Filling up*
+section and every volume-driven CRITICAL had been false since the persona was
+written.
+
+It did more damage than a wrong line in a report. "**Filling up** is not
+'Nothing filling.'" is one of the conditions in *What counts as a change*, so an
+always-populated Filling up section made every run count as a change and post to
+Slack — the inversion defeated the anti-noise rule that exists two sections
+further down the same prompt.
+
+Two things had to change in the expression:
+
+    100 * (1 - kubelet_volume_stats_available_bytes / kubelet_volume_stats_capacity_bytes)
+      * on(namespace, persistentvolumeclaim) group_left(storageclass)
+        (kube_persistentvolumeclaim_info{storageclass=~"longhorn|longhorn-no-replica"} > 0)
+
+The `1 -` is the fix. The join is the second half of the same lesson: Garage's
+data volumes are on the `nfs` class, and all five `nfs` PVCs report the *same*
+`capacity_bytes` — 1,926,808,731,648, the share itself. A per-volume percentage
+there is the share's fill repeated once per claim, which is how "garage-2 at 99%,
+immediate action required" reached Slack about a share that was empty. Only
+`longhorn` and `longhorn-no-replica` have a real per-volume capacity.
+`kube_persistentvolumeclaim_info` carries the `storageclass` label; the metric
+does not.
+
+The rule this adds, which *Verify the telemetry exists before writing a prompt
+against it* did not cover: *a correct metric name is not a correct reading.* Both
+metrics here existed, were spelled right, and were confirmed present — and the
+prompt was still wrong, because nothing had checked the direction of the
+division or what the denominator meant per storage class. A 4B model will not
+notice; it computes what it is told and reports it with total confidence.
+
+Encoded so it cannot return: `scripts/validate.py` fails any persona prompt that
+divides an availability metric by a capacity metric without a `1 -` on the same
+line, and the expressions are now given literally in the prompts rather than
+described, because a `group_left` join is beyond what this model will assemble
+from prose.
+
+One consequence to remember about memory: `sre-sentinel` spent days storing runs
+that asserted volumes at 96-99%. Fixing the prompt does not remove those, so its
+seeds now carry an explicit correction telling it to distrust its own fill
+history before 2026-08-23. See *Wiping a persona's memory* for the alternative.
+
+## Wiping a persona's memory
+
+Needed after a prompt bug that made the agent store false observations — the
+[inverted fill check](#a-right-metric-read-the-wrong-way-round) left 67 records
+asserting volumes at 96-99%. Two facts make this safer than it looks:
+
+**The seeds are not in the store.** They are injected into the task at run time
+from the Ensemble's `agentConfigs[].memory.seeds`, as the `## Memory Context`
+preamble. Row 1 of `sre-sentinel`'s store is a failed-`AgentRun` record, not a
+seed, and the stored records carry whichever seed *wording* was current when the
+run happened. So a wipe loses accumulated history and nothing else; the seeds
+reappear on the next run because they were never persisted.
+
+**There is no supported delete path.** The memory server does expose one, and it
+is switched off:
+
+```console
+$ kubectl port-forward -n automation deploy/<persona>-memory 8080:8080 &
+$ curl -s -X DELETE http://127.0.0.1:8080/delete
+{"success":false,"error":"delete is disabled: MEMORY_ADMIN_TOKEN is not configured"}
+```
+
+Neither the Agent nor the Ensemble CRD has a field for `MEMORY_ADMIN_TOKEN`
+(`memory` accepts only `enabled`, `maxSizeKB`, `autoStore` and — on the Ensemble
+— `seeds`), so it cannot be enabled from this repository, and patching the
+Deployment's env directly is reverted by the controller, which owns it. The image
+is distroless, so `kubectl exec … rm /data/memory.db` is out too — there is no
+shell in it.
+
+That leaves the volume. `MEMORY_DB_PATH=/data/memory.db` on a 1 Gi `longhorn`
+PVC owned by the Agent CR:
+
+```console
+# 1. Read the counts first, so you can prove the wipe happened.
+kubectl port-forward -n automation deploy/homelab-ops-sre-sentinel-memory 8080:8080 &
+curl -s http://127.0.0.1:8080/stats     # {"max_seq":67, ...}
+
+# 2. Delete the PVC. It will sit in Terminating — the pvc-protection
+#    finalizer holds it while a pod has it mounted. That is expected.
+kubectl delete pvc homelab-ops-sre-sentinel-memory-db -n automation --wait=false
+
+# 3. Delete the memory pod. Releasing the mount lets the finalizer clear and
+#    the PVC actually go.
+kubectl delete pod -n automation \
+  -l sympozium.ai/component=memory,sympozium.ai/instance=homelab-ops-sre-sentinel
+
+# 4. The Agent controller recreates PVC and pod. Confirm an empty store.
+curl -s http://127.0.0.1:8080/stats     # max_seq back to 0
+```
+
+The label is `sympozium.ai/instance`, not `sympozium.ai/agent` — verified against
+the running pod on 2026-08-23, and the obvious guess is wrong. Re-check it before
+relying on this (`kubectl get pod <name> -o jsonpath='{.metadata.labels}'`); it is
+the one part of the procedure a control-plane bump can silently change, and a
+selector that matches nothing makes step 3 a no-op that leaves the PVC stuck in
+Terminating.
+
+Do not do this while the persona's schedule is live: a run mid-wipe stores into
+the volume being deleted. With the HTTP endpoint serving, schedules are already
+suppressed, which is the one time that suppression is convenient.
+
+**When not to wipe.** The store is what the new/chronic/resolved diff is built
+from, so wiping costs the agent its baseline and the next few runs will report
+long-standing conditions as new. Where the bad records are a bounded, describable
+set, a correcting seed is cheaper and keeps the history: `sre-sentinel` now
+carries one telling it to distrust its own fill figures before 2026-08-23. Prefer
+that unless the store is so polluted that the baseline is worthless anyway.
+
 ## The `query_prometheus` argument contract
 
 `grafana_query_prometheus` fails outright unless `endTime` is passed, even for an
@@ -636,10 +781,13 @@ Not instrumented, so no prompt pretends to check them:
 
 | Wanted | Missing | Where the fix goes |
 | --- | --- | --- |
-| systemd unit state — "services running badly in the OS" | node-exporter's `systemd` collector is off, so `node_systemd_unit_state` does not exist | core, `releases/monitoring/values/kube-prometheus-stack.yaml.gotmpl` |
-| pending OS package updates | no update script in the textfile sidecar | the `node-exporter-textfiles` image, plus core's `SCRIPTS` env |
-| S3 capacity | Garage exports no metrics and is not scraped | core, a ServiceMonitor — meanwhile the janitor reads its PVCs |
+| S3 capacity | Garage exports no metrics and is not scraped — no `garage_*` series exist | core, a ServiceMonitor — meanwhile the janitor reads its PVCs |
 | repo-level CI history | the GitHub MCP server ships no Actions/workflow tools | upstream `mcp/github`, or a different server |
+
+Two rows left this table on 2026-08-23. **systemd unit state** and **pending OS
+package updates** are now instrumented — see *Follow-ups to share with the other
+repos* below for the metric names — and the personas have not yet been updated to
+use them. S3 capacity is the only core-side gap remaining.
 
 Standing in for systemd, `endpoint-warden` checks the node's *Kubernetes* system
 workloads instead — `kube-system` and `monitoring` pods grouped by node. On a k3s
@@ -648,37 +796,71 @@ something to find: the node-exporter pods themselves carry 4–16 restarts.
 
 ### Follow-ups to share with the other repos
 
-Four changes to `datahub-local-core`'s
-`releases/monitoring/values/kube-prometheus-stack.yaml.gotmpl` would close the
-gaps above and remove two false alerts. They are written up as a ready-to-hand-off
-prompt in [`docs/core_monitoring_followup.md`](../../docs/core_monitoring_followup.md)
-rather than applied here:
+Four changes were asked of `datahub-local-core`'s
+`releases/monitoring/values/kube-prometheus-stack.yaml.gotmpl`. **All four have
+landed**, verified against the live cluster on 2026-08-23 — the list below is
+kept as a record of what to re-check after a chart bump, not as work outstanding:
 
-1. **Disable the k3s phantom components** — `kubeScheduler.enabled: false`,
-   `kubeControllerManager.enabled: false` and the matching `defaultRules.rules`
-   keys. This is what finally silences `KubeSchedulerDown` and
-   `KubeControllerManagerDown`; the file already does exactly this for kubeProxy.
-2. **OS update counts** — the textfile mechanism here is a *versioned privileged
-   sidecar* (`ghcr.io/datahub-local/node-exporter-textfiles`, `SCRIPTS=nutmon.py,smartmon.py`),
-   not host cron, so this is an `updates.py` in that image plus one entry in
-   `SCRIPTS`. The sidecar mounts no host filesystem, so the script has to enter
-   the host mount namespace (`nsenter -t 1 -m`) — the pod already has `hostPID`
-   and the sidecar is privileged.
-3. **systemd unit state** — `--collector.systemd` plus a `/run/systemd`
-   host mount, since the collector dials that socket *inside* the container and
-   the existing `/host/root` mount does not satisfy it. Flagged as needing a test:
-   a read-only bind mount can block `connect()` on a unix socket.
-4. **Re-sync the drifted `extraArgs`** — the override is a stale copy of the
-   chart default and is missing the `run/containerd/.+` and `erofs` exclusions
-   that 88.3.0 added.
+1. **Disable the k3s phantom components** — done. Prometheus now carries no
+   `KubeSchedulerDown` or `KubeControllerManagerDown` rule and no
+   scheduler/controller-manager scrape target at all, which is why neither
+   alert fires. Re-check with `/api/v1/rules` and `/api/v1/targets` rather than
+   by looking for the alert, since "not firing" and "not defined" look identical
+   from a dashboard.
+2. **OS update counts** — done. The textfile sidecar
+   (`ghcr.io/datahub-local/node-exporter-textfiles`) now runs
+   `SCRIPTS=nutmon.py,smartmon.py,updates.py` and publishes
+   `node_apt_upgrades_pending`, `node_apt_security_upgrades_pending`,
+   `node_apt_package_cache_timestamp_seconds` and `node_reboot_required`.
+3. **systemd unit state** — done, and scoped rather than wholesale:
+   `--collector.systemd` is paired with a `--collector.systemd.unit-include`
+   allowlist covering `k3s`, `k3s-agent`, `containerd`, `ssh`,
+   `systemd-timesyncd`, `chrony`, `smartmontools` and the three `nut-*` units.
+   `node_systemd_unit_state` is present on all seven nodes (115 series, none
+   `failed` as of 2026-08-23), plus `node_systemd_units` and
+   `node_systemd_system_running`.
+4. **Re-sync the drifted `extraArgs`** — done. The live node-exporter args carry
+   both the `run/containerd/.+` mount-point exclusion and the `erofs` fs-type
+   exclusion.
 
-Once 2 or 3 lands, `endpoint-warden` gains the check by adding the metric to its
-prompt — no structural change.
+What that unblocks is in *this* repository, not core: `endpoint-warden` was
+written around these metrics not existing, and it can now check systemd unit
+state and pending OS updates by naming the metrics above in its prompt — no
+structural change, and the gap table above needs its first two rows struck.
+Verify each metric against Prometheus before it goes in a prompt; that rule has
+not changed just because the metrics arrived.
+
+Everything still outstanding for the other repos is in one hand-off,
+[`docs/core_sympozium_followup.md`](../../docs/core_sympozium_followup.md) —
+including the one monitoring item that has not landed, the Garage ServiceMonitor.
+It is split deliberately, because only part of it is core's. Four config changes belong
+here — the `mcp-k8s` Deployment is currently unmanaged (`spec.deployment` is null
+while the Deployment it needs is still owned by the CR), `mcp-postgres` denies
+`execute_write_query`, which is not a tool that server has, three servers carry
+no catalog-level `toolsDeny` at all, and `web-proxy` floats on `:latest` against
+a v0.10.47 control plane. The other three are upstream
+`sympozium-ai/sympozium` bugs that nothing in either of our repositories can fix,
+written as ready-to-file issues: the UTF-8 marshal that drops `status.result`,
+the web proxy dropping `toolPolicy` and truncating the task, and
+`MCPServer.status.ready` reporting `true` for a server that answers no
+`tools/list`. All three share one failure mode — the run reports `Succeeded` and
+quietly does less than it claims — which is the same mode as every agent-side bug
+in this document.
 
 A fifth, unrelated change to `releases/automation/` is what currently stops the
 fleet running at all — see below.
 
 ### The `mcp-k8s` MCPServer is `transportType: http` and answers 404
+
+**Resolved by core on 2026-08-23, with a caveat.** The MCPServer is now declared
+external with the path spelled out —
+`url: http://...-mcp-k8s.automation.svc:8080/mcp` — and discovery reports
+`Discovered 14 tools from "...-mcp-k8s"`. `sre-sentinel` has used
+`k8s_events_list` and `k8s_pods_log` on a real run since. The caveat is that
+`spec.deployment` is now null while the Deployment serving that URL is still
+owned by the MCPServer CR, so nothing declares it any more; see
+[`docs/core_sympozium_followup.md`](../../docs/core_sympozium_followup.md) Part 1
+item 1 for why that is fragile and the two durable options.
 
 Every `k8s_*` tool has been absent from every persona since the server was
 created. `datahub-local-core-automation-sympozium-mcp-k8s` is the one MCPServer
@@ -926,6 +1108,16 @@ on `webEndpoint`) in core; until then, testing goes through a hand-applied
 
 ### The agent NetworkPolicy blocks shared memory and every MCP server
 
+**Resolved by core on 2026-08-21/22.** A
+`datahub-local-core-automation-sympozium-agent-allow-tools` policy now allows
+egress on 8080 to `sympozium.ai/component=shared-memory` and
+`app.kubernetes.io/name=mcpserver`, which are exactly the two destinations the
+chart's own policy omits. Confirmed working: agents load their shared-memory
+tools and discover MCP tools normally. The chart's
+`sympozium-agent-allow-eventbus` still allows only its original three
+destinations, so the diagnosis below still describes the upstream default and is
+kept for the next person who deploys this chart somewhere else.
+
 Every first run failed on 2026-08-21, and neither cause is in this repository.
 The Sympozium chart's own `sympozium-agent-deny-all` selects
 `sympozium.ai/role=agent` (Ingress + Egress) and `sympozium-agent-allow-eventbus`
@@ -995,6 +1187,14 @@ single-agent case. Re-check the label names after an image bump before assuming
 this entry still applies.
 
 ### `sympozium-allow-otel` strangles the web-proxy pods
+
+**Resolved by core.** `...-sympozium-web-proxy-allow-egress`,
+`...-agent-allow-otel` and `...-channel-allow-otel` now exist alongside the
+chart's policies, and authenticated web requests produce complete runs. What a
+web-triggered run still gets wrong is not network-related — it
+[drops the persona's `toolPolicy`](#a-web-endpoint-run-drops-the-personas-toolpolicy-entirely)
+and [truncates the task](#a-web-endpoint-run-also-truncates-the-task-to-its-first-line).
+The diagnosis below is kept because it is the upstream chart's default behaviour.
 
 The HTTP endpoints deploy and serve `/healthz`, but an authenticated request
 fails before it reaches the model:
@@ -1107,15 +1307,44 @@ Two ways to close it, in preference order:
   Anything watching for "the reports stopped arriving" has to watch Slack or
   that log, not the run history. Related to `#monitoring-ai-runs` having no
   producer, below.
-- **The HTTP endpoints are off, for two independent reasons.** Turning them on
-  suppresses the schedule for that persona
-  ([why](#the-endpoint-replaces-the-schedule--it-does-not-sit-beside-it)) — the
-  one that matters. And they do not work anyway: `/healthz` answers 200 and an
-  unauthenticated call is correctly refused 401, but an authenticated one dies
-  reaching the Kubernetes API, a NetworkPolicy label mismatch in the Sympozium
-  chart written up [above](#sympozium-allow-otel-strangles-the-web-proxy-pods).
-  Only the second is fixable, and not from this repository. Until both are
-  settled, test with a hand-applied `AgentRun`.
+- **The HTTP endpoints are on, and are suppressing every schedule.**
+  `sympozium_web_endpoint.enabled` is currently `true`, so all five `homelab-ops`
+  personas have a serving `AgentRun` in front of them and none has ticked since
+  05:08 on 2026-08-23 — the `SympoziumSchedule`s still read `Active` and nothing
+  fails ([why](#the-endpoint-replaces-the-schedule--it-does-not-sit-beside-it)).
+  That is the documented trade, not a fault, but it is a deliberate decision that
+  needs revisiting rather than leaving on: while the switch is `true` the fleet
+  has no heartbeat, so gaps appear in exactly the run-to-run memory the reports
+  are diffed against.
+
+  The endpoint itself now works — the earlier NetworkPolicy failure written up
+  [above](#sympozium-allow-otel-strangles-the-web-proxy-pods) no longer bites,
+  and web requests produce complete runs. What it still does is
+  [drop the persona's `toolPolicy`](#a-web-endpoint-run-drops-the-personas-toolpolicy-entirely)
+  and [truncate the task to its first line](#a-web-endpoint-run-also-truncates-the-task-to-its-first-line),
+  so a run started this way is neither as restricted nor as fully instructed as
+  the same persona on its cron. For anything where that matters, a hand-applied
+  `AgentRun` remains the honest test.
+- **`NodeClockNotSynchronising` is a true positive — do not seed it.** It fires
+  on `datahublocal-orpi-0` through `-3` and is absent from `sre-sentinel`'s seeds,
+  which was initially read as seed drift. It is not. The four Orange Pis run no
+  time daemon at all: `node_systemd_unit_state{name="systemd-timesyncd.service",
+  state="active"}` is `0` on each, against `1` on both amd nodes, and the NAS
+  runs `chrony` instead. With nothing telling the kernel it is synchronised,
+  `node_timex_sync_status` is `0` and the alert is correct.
+
+  No clock has actually drifted yet — `max(abs(node_timex_offset_seconds))`
+  across the fleet is 575 microseconds — so this is a latent fault rather than a
+  live one, and it will only widen while no daemon is running. The fix is at the
+  node (enable and start `systemd-timesyncd` on the four SBCs), not in this
+  repository and not in the seeds: seeding it would teach the agent to ignore the
+  one alert here that is telling the truth.
+
+  Worth noting *how* this was diagnosed, because it is the argument for the point
+  above. Before core enabled `--collector.systemd` the alert was
+  indistinguishable from the chronic noise — there was no way to ask why the
+  kernel thought it was unsynchronised. One metric turned a guess into a
+  one-query answer.
 - **Channels are named, not `C0…` ids.** Slack accepts a name for
   `chat.postMessage`, but it is the legacy form and it breaks silently on a
   rename. Swapping is a one-line values change per channel.

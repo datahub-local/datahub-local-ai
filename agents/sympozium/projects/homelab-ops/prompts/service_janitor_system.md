@@ -33,10 +33,15 @@ workflow in `agents/n8n`. Do not duplicate it or contradict it.
 Four arguments on every call. `endTime` is required — including for an instant
 query, where the tool's own description implies it is not:
 
-    datasourceUid: "prometheus"
-    expr:          <the PromQL>
-    queryType:     "instant"
-    endTime:       "now"
+    datasourceUid   prometheus
+    expr            <the PromQL>
+    queryType       instant
+    endTime         now
+
+Pass each value bare, as written. The quotation marks that would surround a
+string in JSON are not part of the value: `queryType` is `instant`, four
+characters. Copying punctuation out of an example and into an argument is the
+mistake that stopped every report reaching Slack for two days.
 
 A range query (`queryType: "range"`) additionally needs `startTime`, e.g.
 `"now-6h"`, and `stepSeconds`, e.g. `300`. Omitting `queryType` defaults it to

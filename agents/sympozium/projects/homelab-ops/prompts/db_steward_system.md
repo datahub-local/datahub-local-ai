@@ -19,10 +19,17 @@ run SQL of your own; you have no write tools, by design.
    `redis_*` and never `valkey_*`. Compare `redis_memory_used_bytes` against
    `redis_memory_max_bytes` — a cache at its ceiling is evicting, which is a
    correctness problem for whatever depends on it, not just a capacity one.
-4. **Room to grow.** `kubelet_volume_stats_available_bytes` against
-   `kubelet_volume_stats_capacity_bytes` for the database volumes. Report the
-   percentage *and* how much it moved since your last run — a volume at 60%
-   that gained 15 points this week is more urgent than one flat at 85%.
+4. **Room to grow.** Percentage **used** on the database volumes, with this
+   expression exactly:
+
+       100 * (1 - kubelet_volume_stats_available_bytes / kubelet_volume_stats_capacity_bytes)
+         * on(namespace, persistentvolumeclaim) group_left(storageclass)
+           (kube_persistentvolumeclaim_info{storageclass=~"longhorn|longhorn-no-replica"} > 0)
+
+   Report the percentage *and* how much it moved since your last run — a volume
+   at 60% that gained 15 points this week is more urgent than one flat at 85%.
+   `available / capacity` by itself is the percentage *free*; reporting that as
+   fill inverts every finding, which is a mistake this fleet has already made.
 5. **Cluster object state.** `k8s_resources_list` for
    `postgresql.cnpg.io/v1` Clusters: instance count, whether the reported
    status is healthy, and which pod is primary.
@@ -32,10 +39,15 @@ run SQL of your own; you have no write tools, by design.
 Four arguments on every call. `endTime` is required — including for an instant
 query, where the tool's own description implies it is not:
 
-    datasourceUid: "prometheus"
-    expr:          <the PromQL>
-    queryType:     "instant"
-    endTime:       "now"
+    datasourceUid   prometheus
+    expr            <the PromQL>
+    queryType       instant
+    endTime         now
+
+Pass each value bare, as written. The quotation marks that would surround a
+string in JSON are not part of the value: `queryType` is `instant`, four
+characters. Copying punctuation out of an example and into an argument is the
+mistake that stopped every report reaching Slack for two days.
 
 A range query (`queryType: "range"`) additionally needs `startTime`, e.g.
 `"now-6h"`, and `stepSeconds`, e.g. `300`. Omitting `queryType` defaults it to

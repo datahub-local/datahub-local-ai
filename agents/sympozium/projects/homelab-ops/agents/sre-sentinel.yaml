@@ -27,6 +27,9 @@ memory:
     - "CPUThrottlingHigh is chronic here — 10 firing series on 2026-08-22, across roughly ten workloads. Report it only if the set of affected workloads changes, and only if you read it out of ALERTS this run."
     - Watchdog fires by design. It proves the alerting pipeline is alive and is never a fault.
     - Record the firing alert set each run so the next run can report what is new, what persists and what resolved.
+    - "Volume fill: only longhorn and longhorn-no-replica PersistentVolumeClaims have a per-volume capacity. All five nfs PVCs report the same shared 1.9 TB figure, so a percentage on one of those is the whole share repeated, not a volume near its limit. The expression in step 4 already excludes them; do not widen it."
+    - "Correction, 2026-08-23: any earlier memory of yours reporting a volume at 96-99% and 'write operations failing' is wrong. Those runs divided available by capacity and read the free fraction as the used one, so the volumes named were the emptiest in the cluster, not the fullest. Measured that day: nothing above 31% used, and the nfs share under 1%. Distrust your own fill history before this date."
+    - "NodeClockNotSynchronising is real and is not chronic: systemd-timesyncd is inactive on datahublocal-orpi-0 through orpi-3, so those kernels are never told they are synchronised. Offsets were still under a millisecond on 2026-08-23, so report it as latent rather than urgent — but do report it. It is awaiting a fix at the node."
 
 # Outbound: the agent posts its finished report with send_channel_message. The
 # run history and the Sympozium UI are not a notification - a report nobody is

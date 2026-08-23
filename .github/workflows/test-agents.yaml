@@ -52,12 +52,22 @@ jobs:
       - name: Set up Helm
         uses: azure/setup-helm@v4
 
+      - name: Set up helmfile
+        uses: helmfile/helmfile-action@v2
+        with:
+          helmfile-args: version
+
       # The templates assemble the Ensembles from projects/ at render time —
       # nothing is generated into the repository — so rendering is the build,
       # and a render failure here is a broken deploy.
+      #
+      # Via helmfile, not `helm template`, because that is the path ArgoCD takes:
+      # its CMP runs argo-cd-helmfile.sh. The difference is not cosmetic —
+      # helmfile renders values/default.yaml.gotmpl as a Go template *before*
+      # Helm parses it as YAML, comments included, so a literal brace pair
+      # anywhere in that file is an undefined-function error that `helm template`
+      # never sees. That is exactly how a comment broke the ArgoCD sync on
+      # 2026-08-23 after CI had passed.
       - name: Render ensembles
         working-directory: agents/sympozium
-        run: |
-          helm template datahub-local-ai-sympozium . \
-            --namespace automation \
-            --values values/default.yaml.gotmpl
+        run: helmfile template

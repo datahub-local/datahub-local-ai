@@ -10,11 +10,17 @@ release_name: datahub-local-ai
 # Keys are the ensemble directory name, with optional per-persona overrides.
 #   channel    where send_channel_message posts. No CRD field carries a
 #              destination, so this only ever reaches the agent as prompt text —
-#              substituted into {{ CHANNEL }} and, from there, into the tool's
-#              `chatId` argument. See prompts/delivery/*.md: `chatId` is the
-#              destination and `channel` is the transport ("slack"), and the
+#              substituted into the CHANNEL token and, from there, into the
+#              tool's `chatId` argument. See prompts/delivery/*.md: `chatId` is
+#              the destination and `channel` is the transport ("slack"), and the
 #              first version of these prompts had them the wrong way round,
 #              which is why nothing was ever delivered.
+#
+#              Note the token is named without its braces here on purpose. This
+#              file is a .gotmpl: helmfile renders it as a Go template before
+#              Helm sees it, comments included, so a literal brace pair is a
+#              template action and an undefined function — which is exactly how
+#              this line broke the ArgoCD CMP once.
 #   verbosity  quiet | normal | verbose  -> prompts/delivery/<level>.md
 #   notify     always | onChange | never -> prompts/notify/<level>.md
 #

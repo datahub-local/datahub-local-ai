@@ -325,22 +325,65 @@ agents/sympozium/
   agent-facing names (`k8s_pods_list`) because that is what the model sees;
   `mcpServers[].toolsDeny` uses the server's own names (`pods_delete`) because
   that filter runs at the server. Backwards means a deny that matches nothing.
-- **A channel binding is split across source and values.** The persona carries
-  the type (`channels: [slack]`), `send_channel_message` in the allowlist and a
-  `{{ DELIVERY }}` token in its system prompt; values carry the credential
-  secret (`channelConfigs`) and the `sympozium_delivery` knobs — `channel`,
-  `verbosity` (`quiet|normal|verbose`), `notify` (`always|onChange|never`), with
-  per-persona overrides. No CRD field carries a destination, so the channel only
-  ever reaches the agent as prompt text: the templates substitute exactly
-  `{{ DELIVERY }}`, `{{ CHANNEL }}`, `{{ AGENT }}`, `{{ ENSEMBLE }}` and
-  `{{ SCHEDULE }}` and `fail` on any token left standing. `{{ DELIVERY }}`
-  expands to three files — `prompts/delivery/header.md` (always), the chosen
-  `delivery/<verbosity>.md`, and `notify/<level>.md`. Chart-only knobs must stay
-  out of `sympozium_ensembles` — the webhook decodes `spec` strictly and rejects
-  an unknown key outright. `scripts/validate.py` cross-checks every half. Note
-  the binding is *bidirectional* — an inbound Slack message can start an
-  `AgentRun` — which is why `homelab-reviewer`, the only ensemble with a write
-  tool, is not bound.
+- **A channel binding is split across source and values, and both halves are
+  load-bearing.** The persona carries the type (`channels: [slack]`),
+  `send_channel_message` in the allowlist and a `{{ DELIVERY }}` token in its
+  system prompt; values carry the credential secret (`channelConfigs`) and the
+  `sympozium_delivery` knobs — `channel`, `verbosity` (`quiet|normal|verbose`),
+  `notify` (`always|onChange|never`), with per-persona overrides. No CRD field
+  carries a destination, so the channel only ever reaches the agent as prompt
+  text: the templates substitute exactly `{{ DELIVERY }}`, `{{ CHANNEL }}`,
+  `{{ AGENT }}`, `{{ ENSEMBLE }}` and `{{ SCHEDULE }}` and `fail` on any token
+  left standing. `{{ DELIVERY }}` expands to three files —
+  `prompts/delivery/header.md` (always), the chosen `delivery/<verbosity>.md`,
+  and `notify/<level>.md`. Chart-only knobs must stay out of
+  `sympozium_ensembles` — the webhook decodes `spec` strictly and rejects an
+  unknown key outright. `scripts/validate.py` cross-checks every half. Note the
+  binding is *bidirectional* — an inbound Slack message can start an `AgentRun`
+  — which is why `homelab-reviewer`, the only ensemble with a write tool, is not
+  bound.
+- **The binding is what lets a message leave the pod, so delivery cannot be
+  unbundled from it.** `send_channel_message` is registered on an *unbound*
+  persona too, and it answers normally — a probe run of `renovate-reviewer`
+  called it and reported `Succeeded` with `DONE` — but the ipc-bridge then drops
+  the message: `Dropping outbound message to channel not configured on this
+  agent`. Nothing fails, nothing arrives. Verified 2026-08-23.
+- **Every channel sidecar delivers every instance's message, so N delivering
+  personas means N copies of every report.** A binding deploys a
+  `<persona>-channel-slack` sidecar, and each one subscribes to the fleet-wide
+  `sympozium.channel.message.send` with an unfiltered, non-queue-group JetStream
+  consumer: it filters on the transport in `data.channel` and never on the
+  `metadata.instanceName` the envelope hands it. Five bound personas in
+  `homelab-ops` means five sidecars and five byte-identical Slack messages in the
+  same second, from one `send_channel_message` call. Nothing scopes that from the
+  channel side: unbinding all but one persona silences the rest (previous
+  bullet), `channelAccessControl` is inbound-only, the controller exposes only
+  fleet-wide `SYMPOZIUM_IMAGE_REGISTRY`/`SYMPOZIUM_IMAGE_TAG`, and the sidecar
+  Deployment declares `replicas: 1` under an `Agent` ownerReference. The
+  upstream fix is a one-line filter — `docs/core_sympozium_followup.md`, Part 2
+  issue 5.
+- **`deliveryMode: hook` is the default and how this repo avoids the fan-out
+  without waiting for upstream.** The templates stop
+  substituting the posting instructions into the prompt and instead attach a
+  `lifecycle.postRun` container that posts `AGENT_RESULT` to the Slack API
+  directly. It touches no shared subject, so the report arrives exactly once
+  regardless of how many personas are bound. Egress works because the hook pod
+  carries no `sympozium.ai/role=agent` label and so escapes
+  `sympozium-agent-deny-all` — verified against `api.test` from inside the pod.
+  Two consequences are the point rather than side effects: the persona must
+  **not** allowlist `send_channel_message` (otherwise it posts *and* is posted
+  for, and the run ends on a tool call), and the report becomes the model's final
+  text — which is what fixes the empty `status.result`, since the dominant cause
+  was never invalid UTF-8 but `terminal turn had empty text`, 60 occurrences
+  against 2 in one day. A hook posts unconditionally, so `notify` is meaningless
+  under it and `scripts/validate.py` rejects both mistakes. Reach for
+  `schedule.interval` if a channel gets too busy. `verbosity` is rejected for the
+  same reason — hook mode substitutes `prompts/delivery/hook.md` and never reads
+  the verbosity files. A persona with no `sympozium_delivery` channel gets no
+  hook at all, which is what keeps `homelab-reviewer` silent by design, and
+  `hook.md` deliberately names no tool: a 4B model reads a tool name as
+  permission to call one. `tool` mode stays expressible and costs a duplicate
+  copy per bound persona the moment it is used.
 - **`send_channel_message` takes the destination in `chatId`.** Its `channel`
   argument is the *transport* (`slack`, `telegram`, …), never a `#name`. With
   `chatId` unset the tool still answers `Message sent`, targets "owner (self)",

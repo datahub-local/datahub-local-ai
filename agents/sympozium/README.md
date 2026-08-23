@@ -496,6 +496,159 @@ reader and stays as it is; the constraint applies to the prompt files, which are
 read by a 4B model with no ability to tell an example's delimiters from its
 content.
 
+## Every report arrived five times, and only one agent sent it
+
+Delivery worked, and then it worked five times over. Each `homelab-ops` report
+landed in Slack as five byte-identical copies in the same second. The obvious
+reading — a model looping on `send_channel_message` — was wrong. The run that
+produced them called the tool exactly once:
+
+```console
+$ # agent container log, run homelab-ops-sre-sentinel-web-b85dp
+tool_call [8]: send_channel_message id=call_umgxdp7k
+Wrote channel message: channel=slack chatId=#monitoring-ai-alerts threadId= len=939
+token_usage: input=127195 output=1996   # 8 tool calls in total, one of them the send
+```
+
+The fan-out is under the agent, in the event bus.
+`sympozium.channel.message.send` is a fleet-wide subject, and each
+`<instance>-channel-slack` sidecar subscribes to it with its own ephemeral
+JetStream consumer whose only filter is the subject. No queue group, no
+per-instance filter, five sidecars:
+
+```console
+$ kubectl port-forward -n automation svc/nats 8222:8222
+$ curl -s 'localhost:8222/jsz?consumers=true&config=true&acc=%24G' | jq -r '
+    .account_details[].stream_detail[] | select(.name=="sympozium") | .consumer_detail[]
+    | select(.config.filter_subject|test("channel.message.send"))
+    | "\(.name) queue=\(.config.deliver_group) delivered=\(.delivered.consumer_seq)"'
+EBC5z5Of queue=null delivered=7
+iSxqIBaV queue=null delivered=7
+49lFB7lw queue=null delivered=7
+4e0UIIDh queue=null delivered=7
+NYqO80a0 queue=null delivered=7
+```
+
+Every one of the five received all seven messages published that day, and every
+one called `chat.postMessage`. The sidecar filters on the *transport* in
+`data.channel` — that is why a telegram message never lands in Slack — and never
+on the sender, which it is handed:
+
+```console
+$ # $JS.API.STREAM.MSG.GET.sympozium {"last_by_subj":"sympozium.channel.message.send"}
+{"topic":"channel.message.send",
+ "metadata":{"instanceName":"homelab-ops-sre-sentinel","namespace":"automation",
+             "agentRunID":"homelab-ops-sre-sentinel-web-b85dp"},
+ "data":{"channel":"slack","chatId":"#monitoring-ai-alerts","text":"..."}}
+$ kubectl get deploy homelab-ops-sre-sentinel-channel-slack -n automation \
+    -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="INSTANCE_NAME")].value}'
+homelab-ops-sre-sentinel
+```
+
+Both halves of the discriminator are present and neither is consulted. Successful
+sends are not logged, so the proof that all five *post* rather than merely
+receive came from a failure: one malformed `chatId` produced the identical
+`channel_not_found` in all five sidecars at the same second, while only
+`sre-sentinel` had run.
+
+### The fix is to stop using the channel: `deliveryMode: hook`
+
+The tempting reading of that missing filter is that it can be turned into the
+fix: a sidecar ignores the sender, so a *single* slack sidecar should deliver the
+whole ensemble, each message to the `chatId` it names. Unbind four personas, keep
+one, done.
+
+It does not work, and the way it fails is worth writing down. `send_channel_message`
+is registered on an unbound persona and answers normally — a probe against
+`renovate-reviewer`, the one persona already bound to nothing, called it once and
+the run reported `Succeeded` with result `DONE`:
+
+```console
+$ kubectl get agentrun unbound-delivery-probe-1 -n automation -o jsonpath='{.status.result}'
+DONE
+$ # ...and in the pod's own log, one line lower:
+agent       tool call: send_channel_message args={"channel":"slack","chatId":"#monitoring-ai-alerts",...}
+agent       Wrote channel message: channel=slack chatId=#monitoring-ai-alerts threadId= len=31
+ipc-bridge  Dropping outbound message to channel not configured on this agent
+              path=/ipc/messages/send-1787503073633807136.json channel=slack
+```
+
+The ipc-bridge gates outbound on the agent's own `channels`, so the binding is
+what lets a message reach the bus at all. Delivery and the duplicate-producing
+sidecar are the same switch: **every persona that reports to a channel costs one
+copy of every report in the ensemble.** Unbinding four would have silenced them
+completely, with every run still green.
+
+Nothing else reaches it either:
+
+- `channelAccessControl` (`allowedChats`, `allowedSenders`, `deniedSenders`) is
+  inbound only — "only messages from listed chats are accepted", "only listed
+  senders can trigger agent runs". No outbound field exists on any CRD.
+- The controller exposes only `SYMPOZIUM_IMAGE_REGISTRY` and
+  `SYMPOZIUM_IMAGE_TAG`, both fleet-wide. Running a patched `channel-slack` means
+  mirroring the whole image set under one tag.
+- The sidecar Deployment declares `replicas: 1` under an `Agent` ownerReference,
+  so scaling one to zero is reconciled straight back.
+
+So the multiplier cannot be removed from the channel side. It can be sidestepped
+entirely by not using the channel: `lifecycle.postRun` runs a container after the
+agent finishes, with the report in `AGENT_RESULT` and the bot token pulled from a
+Secret by reference. One `chat.postMessage`, no event bus, one copy.
+
+Measured end to end before it was adopted:
+
+```console
+$ kubectl logs <run>-postrun-<hash> -c post-deliver -n automation
+slack response: {"ok":true,"channel":"C0BSUUF6GHE","ts":"1787507365.945959",...}
+delivered ok
+$ kubectl get agentrun <run> -n automation -o jsonpath='{.status.result}'
+SRE Sentinel | homelab-ops | postRun delivery probe
+...
+```
+
+Egress works because the hook pod carries no `sympozium.ai/role=agent` label, so
+`sympozium-agent-deny-all` does not select it; `agent-allow-tools` would
+otherwise permit only in-cluster port 8080. Note the hook runs as an *init*
+container named `post-<name>` in a `<run>-postrun-*` pod whose main container is
+`done` — `kubectl logs` without `-c` gives you the wrong one.
+
+It also fixes the empty results, which turned out to have nothing to do with
+invalid UTF-8. Over 24 hours: `terminal turn had empty text` 60, `invalid UTF-8`
+2. The model's last act was calling the posting tool, so there was no final text
+to return. Take the tool away and the report *is* the final text.
+
+`deliveryMode` therefore defaults to **hook**, so a persona added later gets
+one-copy delivery without anyone remembering to ask for it. All five
+`homelab-ops` personas are on it; `tool` stays expressible for a persona that
+genuinely needs the sidecar path, and `scripts/validate.py` warns with the live
+duplicate count the moment one does.
+
+Three knobs went away with the sidecars, and their absence is enforced rather
+than assumed:
+
+- **`send_channel_message` is off every allowlist.** Keeping it would mean the
+  model posts *and* is posted for, and worse, the run would end on a tool call —
+  which is what leaves `status.result`, and so `AGENT_RESULT`, empty.
+- **`notify` is gone.** A hook posts unconditionally, so a notify level would
+  claim a suppression that does not happen. The cost is real: `-alerts` now gets
+  a report every 30 minutes where `onChange` kept it near-silent. The lever is
+  `schedule.interval`.
+- **`verbosity` is gone.** The verbosity files describe how to call the posting
+  tool; hook mode substitutes `prompts/delivery/hook.md` instead and never reads
+  them.
+
+Two things that must stay true. A persona with no `sympozium_delivery` entry gets
+**no** hook — `homelab-reviewer` delivers nothing on purpose, its alert being the
+DO NOT MERGE comment on the pull request — so the template gates the hook on a
+resolved destination, not merely on the mode. And `hook.md` names no tool at all:
+an earlier draft mentioned the posting tool while explaining what it replaced,
+which is exactly the trap in *Naming the argument was not enough* above — a 4B
+model reads a tool name as an instruction to call it.
+
+`sre-sentinel` keeps the ensemble's one `channels: [slack]`, purely for inbound.
+That makes an @-mention land on a known persona instead of whichever of five
+sidecars Socket Mode happened to hand the event to.
+
 ## Testing an agent over HTTP
 
 `sympozium_web_endpoint` in `values/default.yaml.gotmpl` puts an HTTP endpoint

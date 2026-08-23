@@ -476,32 +476,30 @@ def _check_delivery(project, persona_name, persona, delivery, warnings):
     verbosity = str(override.get("verbosity") or delivery.get("verbosity") or "normal").lower()
     notify = str(override.get("notify") or delivery.get("notify") or "always").lower()
 
-    bound = bool(persona.get("channels"))
+    # Gated on the delivery destination, not on `channels:`. The templates
+    # substitute the tokens for any persona with a sympozium_delivery channel,
+    # whether it delivers by hook or by tool, and a binding is a separate
+    # decision that only adds a sidecar and the inbound path.
+    delivers = bool(channel)
     prompt = (project / persona["systemPromptFile"]).read_text(encoding="utf-8")
     _check_unquoted_args(f"{project.name}/{persona['systemPromptFile']}", prompt)
     _check_fill_direction(f"{project.name}/{persona['systemPromptFile']}", prompt)
 
-    if not bound:
+    if not delivers:
         for token in PROMPT_TOKENS:
             if token in prompt:
                 raise Fail(
-                    f"{persona_name}: its system prompt holds {token}, but the "
-                    f"persona is bound to no channel, so nothing substitutes it "
-                    f"and the render fails"
+                    f"{persona_name}: its system prompt holds {token}, but "
+                    f"neither the ensemble nor its persona override sets "
+                    f"sympozium_delivery.channel, so nothing substitutes it and "
+                    f"the render fails"
                 )
         if override:
             warnings.append(
-                f"{persona_name}: has sympozium_delivery overrides but is bound "
-                f"to no channel, so they do nothing"
+                f"{persona_name}: has sympozium_delivery overrides but no "
+                f"channel to deliver to, so they do nothing"
             )
         return
-
-    if not channel:
-        raise Fail(
-            f"{persona_name}: bound to a channel, but neither the ensemble nor "
-            f"its persona override sets sympozium_delivery.channel — nothing "
-            f"tells send_channel_message where to post"
-        )
     if verbosity not in VERBOSITY_LEVELS:
         raise Fail(
             f"{persona_name}: verbosity {verbosity!r} is not one of "
@@ -517,9 +515,10 @@ def _check_delivery(project, persona_name, persona, delivery, warnings):
 
     if "{{ DELIVERY }}" not in prompt:
         raise Fail(
-            f"{persona_name}: bound to a channel and allowed to post, but its "
-            f"system prompt has no {{{{ DELIVERY }}}} token, so no delivery rule "
-            f"ever reaches the model and it will decide for itself"
+            f"{persona_name}: has a delivery channel, but its system prompt has "
+            f"no {{{{ DELIVERY }}}} token, so no delivery rule ever reaches the "
+            f"model — under a hook it will not know its reply is the report, and "
+            f"will end the run on a tool call with nothing to deliver"
         )
     if notify == "onchange" and "## What counts as a change" not in prompt:
         raise Fail(
@@ -528,6 +527,128 @@ def _check_delivery(project, persona_name, persona, delivery, warnings):
             f"to point at — the criteria are persona-specific and cannot live in "
             f"the shared file"
         )
+
+
+def _delivery_mode(persona_name, delivery):
+    """tool or hook, resolved exactly the way templates/ensembles.yaml resolves it.
+
+    "tool" means the model calls the posting tool and a channel sidecar delivers
+    it, which costs one duplicate copy per bound persona. "hook" means a
+    lifecycle.postRun container posts the run's own result, which touches no
+    shared subject and so arrives once.
+    """
+    if not delivery:
+        return "hook"
+    override = (delivery.get("personas") or {}).get(persona_name) or {}
+    return str(
+        override.get("deliveryMode") or delivery.get("deliveryMode") or "hook"
+    ).lower()
+
+
+def _check_delivery_needs_binding(personas, delivery, warnings):
+    """A persona that delivers must carry the `channels:` binding for its type.
+
+    Verified on the cluster 2026-08-23, because the shape of this coupling is not
+    guessable and getting it wrong is silent both ways.
+
+    `send_channel_message` is registered on *any* persona, bound or not — a probe
+    run of the unbound `renovate-reviewer` called it, got an answer, and reported
+    `Succeeded` with result `DONE`. The message still never left the pod:
+
+        ipc-bridge  Dropping outbound message to channel not configured on this
+                    agent  path=/ipc/messages/send-….json  channel=slack
+
+    So the binding is what lets an outbound message reach the event bus at all,
+    and delivery cannot be separated from it. That matters because the binding
+    also deploys a channel sidecar, and every sidecar of a transport delivers
+    *every* instance's message — it filters on `data.channel` and never on the
+    `metadata.instanceName` it is handed. Each delivering persona therefore costs
+    one duplicate copy of every report in the ensemble, and there is no way to
+    have one without the other from here: see README.md#every-report-arrived-five-
+    times-and-only-one-agent-sent-it and docs/core_sympozium_followup.md Part 2
+    issue 5, which carries the one-line upstream fix.
+
+    The tempting workaround — unbind all but one persona and let its sidecar carry
+    the ensemble — was tried and does not work. It is what the probe above was
+    testing. Those four personas go completely silent, with every run still
+    reporting `Succeeded`.
+    """
+    if not delivery:
+        return
+    for name, persona in personas:
+        override = (delivery.get("personas") or {}).get(name) or {}
+        if not (override.get("channel") or delivery.get("channel")):
+            continue
+        mode = _delivery_mode(name, delivery)
+        if mode not in ("tool", "hook"):
+            raise Fail(f"{name}: deliveryMode {mode!r} is neither tool nor hook")
+        if mode == "hook":
+            # A postRun hook posts straight to the Slack API and never reaches
+            # the event bus, so it needs no binding. Any binding left on a
+            # hook-mode persona is purely the inbound @-mention path.
+            per = (delivery.get("personas") or {}).get(name) or {}
+            for knob, why in (
+                ("notify", "a hook posts every run unconditionally, so this "
+                           "would claim a suppression that does not happen — "
+                           "stretch schedule.interval instead"),
+                ("verbosity", "the verbosity files describe how to call the "
+                              "posting tool; hook mode substitutes "
+                              "prompts/delivery/hook.md instead and never reads "
+                              "them"),
+            ):
+                if per.get(knob) or delivery.get(knob):
+                    raise Fail(
+                        f"{name}: deliveryMode is hook but {knob} is set — {why}"
+                    )
+            if not (BASE / "prompts" / "delivery" / "hook.md").is_file():
+                raise Fail(
+                    f"{name}: deliveryMode is hook but prompts/delivery/hook.md "
+                    f"is missing, so nothing would tell the model that its reply "
+                    f"is the report and it would end the run with no final text"
+                )
+            if "send_channel_message" in persona.get("toolPolicy", {}).get("allow", []):
+                raise Fail(
+                    f"{name}: deliveryMode is hook but it still allowlists "
+                    f"'send_channel_message'. Then the model both posts and is "
+                    f"posted for, so the report arrives twice — and worse, the "
+                    f"run ends on a tool call, which is what leaves "
+                    f"status.result empty and gives the hook nothing to send"
+                )
+            continue
+        if not (persona.get("channels") or []):
+            raise Fail(
+                f"{name}: sympozium_delivery gives it a channel to post to, but "
+                f"the persona has no `channels:` binding. The ipc-bridge drops "
+                f"an outbound message from an agent with no channel configured "
+                f"('Dropping outbound message to channel not configured on this "
+                f"agent'), so every run would succeed and post nothing. Add "
+                f"`channels: [slack]` — and note it costs one duplicate copy of "
+                f"every report in this ensemble, which is upstream issue 5 in "
+                f"docs/core_sympozium_followup.md, not something this repo can fix."
+            )
+
+    bound = [n for n, p in personas if p.get("channels")]
+    tool_mode = [
+        n for n, p in personas
+        if _delivers(n, p, delivery) and _delivery_mode(n, delivery) == "tool"
+    ]
+    if len(bound) > 1 and tool_mode:
+        warnings.append(
+            f"{len(bound)} personas are channel-bound, so every report still on "
+            f"deliveryMode: tool ({', '.join(sorted(tool_mode))}) arrives "
+            f"{len(bound)} times — each channel sidecar delivers every "
+            f"instance's message. Move them to deliveryMode: hook; issue 5 in "
+            f"docs/core_sympozium_followup.md explains why nothing else works "
+            f"from here"
+        )
+
+
+def _delivers(persona_name, persona, delivery):
+    """Whether a sympozium_delivery destination resolves for this persona."""
+    if not delivery:
+        return False
+    override = (delivery.get("personas") or {}).get(persona_name) or {}
+    return bool(override.get("channel") or delivery.get("channel"))
 
 
 def _check_unknown_delivery_personas(ensemble_name, persona_names):
@@ -566,7 +687,7 @@ def _channel_secrets(ensemble_name):
     return configs if isinstance(configs, dict) else {}
 
 
-def _check_channels(persona_name, persona, channel_secrets, warnings):
+def _check_channels(persona_name, persona, channel_secrets, warnings, hook_mode=False):
     """Cross-check channel bindings, their credentials, and the posting tool.
 
     Three ways to bind a channel and still be silent, all of which deploy
@@ -606,9 +727,13 @@ def _check_channels(persona_name, persona, channel_secrets, warnings):
     if "send_channel_message" in allowed and not channels:
         raise Fail(
             f"{persona_name}: allowlists 'send_channel_message' but is bound to "
-            f"no channel, so there is nowhere for it to post"
+            f"no channel. The tool is still registered and still answers on an "
+            f"unbound agent — verified — but the ipc-bridge drops the message "
+            f"before the event bus ('Dropping outbound message to channel not "
+            f"configured on this agent'), so the run succeeds and posts nothing. "
+            f"Binding is not optional for delivery; see _check_delivery_needs_binding"
         )
-    if channels and "send_channel_message" not in allowed:
+    if channels and "send_channel_message" not in allowed and not hook_mode:
         warnings.append(
             f"{persona_name}: bound to {', '.join(channels)} but does not "
             f"allowlist 'send_channel_message' — it can be triggered from the "
@@ -773,7 +898,10 @@ def _check_persona(project, path, used, channel_secrets, delivery, web, warnings
         _check_schedule(name, schedule)
 
     _check_tools(name, persona, warnings)
-    _check_channels(name, persona, channel_secrets, warnings)
+    _check_channels(
+        name, persona, channel_secrets, warnings,
+        hook_mode=_delivery_mode(name, delivery) == "hook",
+    )
     _check_delivery(project, name, persona, delivery, warnings)
     _check_web_endpoint(name, persona, web, warnings)
     return name
@@ -824,6 +952,14 @@ def check(project):
         _check_persona(project, path, used, channel_secrets, delivery, web, warnings)
         for path in persona_files
     ]
+    _check_delivery_needs_binding(
+        [
+            (path.stem, yaml.safe_load(path.read_text(encoding="utf-8")) or {})
+            for path in persona_files
+        ],
+        delivery,
+        warnings,
+    )
     _check_unknown_delivery_personas(name, names)
     _check_unknown_web_endpoint_personas(name, names)
 

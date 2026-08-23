@@ -58,10 +58,38 @@
 {{-     $channel := $pd.channel | default $delivery.channel | default "" }}
 {{-     $verbosity := lower ($pd.verbosity | default $delivery.verbosity | default "normal" | toString) }}
 {{-     $notify := lower ($pd.notify | default $delivery.notify | default "always" | toString) }}
-{{-     if $persona.channels }}
-{{-       if not $channel }}
-{{-         fail (printf "%s: bound to a channel, but sympozium_delivery.%s sets no channel for %s" $personaPath $name $persona.name) }}
-{{-       end }}
+{{- /* deliveryMode picks *how* the report reaches the channel, and the two are
+       genuinely different mechanisms rather than two settings of one.
+
+       "tool" is the original: the model calls send_channel_message and a channel
+       sidecar posts it. Every sidecar of a transport delivers every instance's
+       message -- it filters on data.channel and never on the metadata
+       .instanceName it is handed -- so a report arrives once per bound persona.
+       Five personas, five identical copies in the same second.
+
+       "hook" posts the run's own result from a lifecycle.postRun container, so
+       nothing touches the shared event bus and the report arrives exactly once.
+       It also removes the reason results came back empty: with no send tool the
+       report is the model's final text, instead of the run ending on a tool call
+       with nothing left to return.
+
+       See ../README.md#every-report-arrived-five-times-and-only-one-agent-sent-it */}}
+{{- /* Default is "hook", so a persona added later gets one-copy delivery without
+       anyone remembering to ask for it. "tool" stays expressible for a persona
+       that genuinely needs the sidecar path, and costs a duplicate per bound
+       persona the moment it is used. */}}
+{{-     $mode := lower ($pd.deliveryMode | default $delivery.deliveryMode | default "hook" | toString) }}
+{{-     if not (has $mode (list "tool" "hook")) }}
+{{-       fail (printf "%s: deliveryMode %q is neither tool nor hook" $personaPath $mode) }}
+{{-     end }}
+{{- /* Gated on the delivery destination, not on `channels:`. Under hook mode a
+       persona delivers with no binding at all - the postRun container talks to
+       the Slack API directly - so the binding is only the inbound @-mention
+       path and must not decide whether the prompt gets its delivery rules. */}}
+{{-     if and $persona.channels (not $channel) }}
+{{-       fail (printf "%s: carries a channel binding, but sympozium_delivery.%s sets no channel for %s" $personaPath $name $persona.name) }}
+{{-     end }}
+{{-     if $channel }}
 {{-       $verbosityText := $.Files.Get (printf "prompts/delivery/%s.md" $verbosity) }}
 {{-       if not $verbosityText }}
 {{-         fail (printf "%s: verbosity %q has no prompts/delivery/%s.md" $personaPath $verbosity $verbosity) }}
@@ -88,6 +116,18 @@
 {{-         $cadence = printf "%s, cron %s UTC" $sched.type $sched.cron }}
 {{-       end }}
 {{-       $block := printf "%s\n\n%s\n\n%s" (trimSuffix "\n" $headerText) (trimSuffix "\n" $verbosityText) (trimSuffix "\n" $notifyText) }}
+{{- /* Hook mode is header + hook.md and nothing else, deliberately. The
+       verbosity and notify files tell the model how to call the send tool and
+       when to suppress a run; under a hook it has no send tool and cannot
+       suppress anything, and handing a 4B model both sets would be handing it a
+       contradiction. hook.md is self-contained for that reason. */}}
+{{-       if eq $mode "hook" }}
+{{-         $hookText := $.Files.Get "prompts/delivery/hook.md" }}
+{{-         if not $hookText }}
+{{-           fail "prompts/delivery/hook.md is missing or empty" }}
+{{-         end }}
+{{-         $block = printf "%s\n\n%s" (trimSuffix "\n" $headerText) (trimSuffix "\n" $hookText) }}
+{{-       end }}
 {{-       $prompt = replace "{{ DELIVERY }}" $block $prompt }}
 {{-       $prompt = replace "{{ CHANNEL }}" $channel $prompt }}
 {{-       $prompt = replace "{{ AGENT }}" ($persona.displayName | toString) $prompt }}
@@ -95,7 +135,7 @@
 {{-       $prompt = replace "{{ SCHEDULE }}" $cadence $prompt }}
 {{-     end }}
 {{-     if contains "{{" $prompt }}
-{{-       fail (printf "%s: %s still holds an unsubstituted token. Known tokens are {{ DELIVERY }}, {{ CHANNEL }}, {{ AGENT }}, {{ ENSEMBLE }} and {{ SCHEDULE }}, and they are only substituted on a persona bound to a channel." $personaPath $promptRef) }}
+{{-       fail (printf "%s: %s still holds an unsubstituted token. Known tokens are {{ DELIVERY }}, {{ CHANNEL }}, {{ AGENT }}, {{ ENSEMBLE }} and {{ SCHEDULE }}, and they are only substituted on a persona with a sympozium_delivery channel." $personaPath $promptRef) }}
 {{-     end }}
 {{-     $_ := unset $persona "systemPromptFile" }}
 {{-     $_ := set $persona "systemPrompt" (trimSuffix "\n" $prompt) }}
@@ -138,6 +178,56 @@
 {{-       $params := $persona.skillParams | default dict }}
 {{-       $_ := set $params "web-endpoint" (dict "rate_limit_rpm" (printf "%v" $rpm) "rate_limit_burst" (printf "%v" $burst)) }}
 {{-       $_ := set $persona "skillParams" $params }}
+{{-     end }}
+{{- /* Hook mode: the postRun container that actually delivers. It runs in a
+       follow-up Job after the agent finishes, with the report in AGENT_RESULT
+       and the bot token pulled from a Secret by reference, so no credential
+       appears in this chart or in the Ensemble.
+
+       Egress works because the hook pod carries no sympozium.ai/role=agent
+       label, so sympozium-agent-deny-all does not select it. Verified against
+       api.test from inside the pod; agent-allow-tools would otherwise permit
+       only in-cluster port 8080.
+
+       The `ok` check is what makes a failed delivery visible: postRun failures
+       are recorded as Conditions on the run, which is the first time in this
+       fleet's history that a dropped report leaves a trace anywhere other than a
+       sidecar log nobody reads. */}}
+{{- /* `$channel` and not just the mode: a persona with no sympozium_delivery
+       entry delivers nowhere on purpose - homelab-reviewer's alert is the DO NOT
+       MERGE comment on the pull request - and hook mode is the default, so
+       without this every such persona would get a hook posting to an empty
+       destination. */}}
+{{-     if and (eq $mode "hook") $channel }}
+{{-       $h := $.Values.sympozium_delivery_hook | default dict }}
+{{-       $img := $h.image | default "curlimages/curl:8.11.1" }}
+{{-       $sec := $h.secret | default "" }}
+{{-       $key := $h.tokenKey | default "SLACK_BOT_TOKEN" }}
+{{-       if not $sec }}
+{{-         fail (printf "%s: deliveryMode is hook, but sympozium_delivery_hook.secret is unset, so the hook has no bot token" $personaPath) }}
+{{-       end }}
+{{-       $script := `set -eu
+if [ -z "${AGENT_RESULT:-}" ]; then
+  printf '%s' "$AGENT_LABEL
+
+Status: UNKNOWN
+
+The run finished but produced no text to deliver. Check the run log: a run whose
+final message is a tool call returns an empty result." > /tmp/body
+else
+  printf '%s' "$AGENT_RESULT" > /tmp/body
+fi
+OUT=$(curl -sS --max-time 30 -X POST https://slack.com/api/chat.postMessage         -H "Authorization: Bearer $SLACK_BOT_TOKEN"         --data-urlencode "channel=$SLACK_CHANNEL"         --data-urlencode "text@/tmp/body")
+echo "slack response: $OUT"
+echo "$OUT" | grep -q '"ok":true' || { echo "DELIVERY FAILED"; exit 1; }
+echo "delivered ok"` }}
+{{-       $hook := dict "name" "deliver" "image" $img "command" (list "/bin/sh" "-c") "args" (list $script) "env" (list
+              (dict "name" "SLACK_CHANNEL" "value" $channel)
+              (dict "name" "AGENT_LABEL" "value" (printf "%s | %s" ($persona.displayName | toString) $name))
+              (dict "name" "SLACK_BOT_TOKEN" "valueFrom" (dict "secretKeyRef" (dict "name" $sec "key" $key)))) }}
+{{-       $lifecycle := $persona.lifecycle | default dict }}
+{{-       $_ := set $lifecycle "postRun" (append ($lifecycle.postRun | default list) $hook) }}
+{{-       $_ := set $persona "lifecycle" $lifecycle }}
 {{-     end }}
 {{-     $personas = append $personas (mergeOverwrite (deepCopy $defaults) $persona) }}
 {{-   end }}

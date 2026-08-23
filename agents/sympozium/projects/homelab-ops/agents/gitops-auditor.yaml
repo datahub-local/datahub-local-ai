@@ -21,24 +21,16 @@ memory:
     - Drift that survives two consecutive runs is a real finding; drift seen once is usually a sync in progress.
     - OutOfSync with Healthy is still drift and must be reported.
 
-# Outbound: the agent posts its finished report with send_channel_message. The
-# run history and the Sympozium UI are not a notification - a report nobody is
-# told about is the same as no report.
+# No `channels:` binding, and in hook mode that costs nothing outbound: the
+# postRun container talks to the Slack API directly, so a binding would only add
+# a channel sidecar and the inbound @-mention path. Every sidecar of a transport
+# delivers every instance's message, so each binding used to cost one duplicate
+# copy of every report in the namespace - five personas, five copies.
 #
-# Binding a channel is bidirectional, so this is also an inbound path: a Slack
-# message can start an AgentRun. allowedTriggers keeps that to an explicit
-# @-mention, because "channel" would let any message in a channel the bot sits
-# in queue a run against the one GPU. These five personas are read-only, so an
-# unwanted run costs GPU time and nothing else - the write-capable
-# renovate-reviewer is deliberately not bound. Narrow it further with
-# channelAccessControl (allowedChats/allowedSenders) once the channel and user
-# ids are known.
-channels:
-  - slack
-
-slackOptions:
-  allowedTriggers:
-    - mention
+# sre-sentinel keeps the one binding in this ensemble, which is what makes an
+# @-mention land on a known persona instead of whichever of five sidecars Socket
+# Mode happened to hand the event to. See ../../../README.md and
+# docs/core_sympozium_followup.md (Part 2, issue 5).
 
 mcpServers:
   # The ArgoCD MCP server exposes no write tools at all, so no toolsDeny is
@@ -66,9 +58,11 @@ toolPolicy:
     - argocd_get_application_resource_tree
     - memory_search
     - memory_store
-    # Posting the report is part of doing the job, not an extra capability:
-    # every other tool here only reads.
-    - send_channel_message
+    # No send_channel_message: every persona here delivers through
+    # deliveryMode: hook, so the report is posted from a lifecycle.postRun
+    # container and the model has nothing to call. Removing the tool is the
+    # mechanism, not a tidy-up - it is what makes the report the model's final
+    # text instead of the run ending on a tool call with an empty result.
   deny:
     - write_file
     - execute_command

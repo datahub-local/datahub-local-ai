@@ -28,26 +28,74 @@ release_name: datahub-local-ai
 # a name for chat.postMessage, but it is the legacy form and breaks silently on
 # a rename — swap in the ids if these channels start moving. The bot has to be a
 # member of every channel named here.
+#
+# Delivery needs BOTH halves and there is no way to split them. An entry here is
+# what tells the agent where to post; the persona's `channels: [slack]` is what
+# lets the message leave the pod at all. `send_channel_message` is registered even
+# on an unbound persona and still answers, but the ipc-bridge then drops it —
+# "Dropping outbound message to channel not configured on this agent" — and the
+# run reports Succeeded having posted nothing. Verified with a probe on
+# 2026-08-23; scripts/validate.py fails either half missing.
+#
+# That coupling is why every report arrives five times. A binding also deploys a
+# channel sidecar, and every slack sidecar in the namespace delivers every
+# instance's outbound message — it filters on the transport in `data.channel` and
+# never on the `metadata.instanceName` it is handed. Five delivering personas
+# means five sidecars means five identical copies, in the same second. Nothing in
+# this file or in projects/ can separate them: unbinding four personas to leave
+# one sidecar carrying the ensemble was tried and silences those four completely.
+# The fix is one line upstream — docs/core_sympozium_followup.md, Part 2 issue 5.
+#
+# How a report reaches its channel, for personas with deliveryMode: hook.
+#
+# The hook is a container the controller runs in a follow-up Job after the agent
+# finishes: it gets the report in AGENT_RESULT and posts it with one
+# chat.postMessage call. Nothing touches the shared event bus, so the report
+# arrives exactly once however many personas are bound -- which is the whole
+# reason this exists. See ../README.md and docs/core_sympozium_followup.md
+# (Part 2, issue 5) for the fan-out it replaces.
+#
+# `secret` is the same Secret channelConfigs points at, read by reference so no
+# token appears in this chart. Egress to slack.com works because the hook pod is
+# not labelled sympozium.ai/role=agent and so is not selected by
+# sympozium-agent-deny-all -- verified against api.test from inside the pod.
+#
+# Pin `image` to a digest if you want the hook reproducible; a tag is enough
+# here, and curl is the whole dependency.
+sympozium_delivery_hook:
+  image: curlimages/curl:8.11.1
+  secret: mcp-slack-token
+  tokenKey: SLACK_BOT_TOKEN
+
 sympozium_delivery:
   homelab-ops:
     # The daily and weekly personas report here every run — hardware, the
     # databases, the weekly cleanup. Scan-later reading, so this is the channel
     # whose notifications can be off.
     channel: "#monitoring-ai-health"
-    verbosity: normal
-    notify: always
 
     # Split by what a reader would do about it, not by which agent produced it:
     # a channel is really one notification setting. Keeping the two frequent
     # personas out of -health is what lets -alerts keep notifications on without
     # the daily hardware report training you to mute it.
+    # Only the destination is per-persona now. deliveryMode defaults to hook, so
+    # neither of these says so; a persona that ever needs the sidecar path opts
+    # out with `deliveryMode: tool` and pays a duplicate copy per bound persona.
+    #
+    # `verbosity` and `notify` are deliberately absent everywhere. A hook posts
+    # the run's own result unconditionally, so neither knob can do anything -
+    # they described how the model should call the posting tool and when to stay
+    # quiet, and there is no longer a call and no suppression. Leaving them set
+    # would have claimed behaviour that does not happen, so validate.py rejects
+    # them on a hook-mode persona. The cost is real and worth stating: every
+    # report now arrives every run, so -alerts gets one every 30 minutes where
+    # onChange used to keep it near-silent. Stretch schedule.interval if that is
+    # too much; do not reach for notify.
     personas:
       sre-sentinel:
         channel: "#monitoring-ai-alerts"
-        notify: onChange
       gitops-auditor:
         channel: "#monitoring-ai-drift"
-        notify: onChange
 
   # homelab-reviewer is absent on purpose: it is bound to no channel, and its
   # DO NOT MERGE comment on the pull request is the alert. See
@@ -91,7 +139,7 @@ sympozium_delivery:
 # Under `ensembles:`, keys are the ensemble directory name, with optional
 # per-persona overrides under `personas:`, exactly as sympozium_delivery does.
 sympozium_web_endpoint:
-  enabled: true
+  enabled: false
 
   ensembles:
     homelab-ops:

@@ -109,9 +109,11 @@ toolPolicy:
     - k8s_resources_list
     - memory_search
     - memory_store
-    # Posting the report is part of doing the job, not an extra capability:
-    # every other tool here only reads.
-    - send_channel_message
+    # No send_channel_message: this persona is on deliveryMode: hook, so its
+    # report is posted from a lifecycle.postRun container and the model has
+    # nothing to call. Taking the tool away is the point, not a side effect - it
+    # is what makes the report the model's final text instead of the run ending
+    # on a tool call with an empty result.
   deny:
     - write_file
     - execute_command

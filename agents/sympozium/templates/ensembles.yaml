@@ -227,6 +227,16 @@ echo "delivered ok"` }}
               (dict "name" "SLACK_BOT_TOKEN" "valueFrom" (dict "secretKeyRef" (dict "name" $sec "key" $key)))) }}
 {{-       $lifecycle := $persona.lifecycle | default dict }}
 {{-       $_ := set $lifecycle "postRun" (append ($lifecycle.postRun | default list) $hook) }}
+{{- /* gateDefault carries default: "block" in the Ensemble CRD, so the API
+       server writes it into the live object at admission and ArgoCD reports
+       permanent OutOfSync against a manifest that omits it — the same class of
+       drift as mcpServers[].timeout and schedule.firstTick. State it even though
+       it *is* the default. Re-derive after a control-plane bump with:
+         kubectl get crd ensembles.sympozium.ai -o json \
+           | jq '.. | objects | select(has("default"))'
+       "block" is also the value we want: a gate hook that fails should not let
+       an unchecked result through. */}}
+{{-       $_ := set $lifecycle "gateDefault" ($lifecycle.gateDefault | default "block") }}
 {{-       $_ := set $persona "lifecycle" $lifecycle }}
 {{-     end }}
 {{-     $personas = append $personas (mergeOverwrite (deepCopy $defaults) $persona) }}

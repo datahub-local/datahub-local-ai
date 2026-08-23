@@ -373,7 +373,12 @@ agents/sympozium/
   builds its child run from the `Agent` object, whose CRD has no `toolPolicy`
   field, so a web-triggered run of `sre-sentinel` starts with 60 tools instead of
   9 — `write_file` and `execute_command` among them. The read-only guarantee
-  holds for scheduled runs, not for HTTP ones. Until `toolsAllow` was pinned this
+  holds for scheduled runs, not for HTTP ones. It **truncates the task to its
+  first line** too, so anything the `taskFile` said past the opening sentence is
+  gone: that is how a web run came to write a full CRITICAL report and deliver
+  none of it. Never put a requirement in a field a caller can replace — delivery
+  is now a completion condition in `prompts/notify/*.md`, which every run
+  carries. Until `toolsAllow` was pinned this
   also broke the endpoint outright: 60 tool schemas overflowed the then-32k
   context, so a web run never read its own system prompt and ended
   `(Agent completed its task via tool calls but did not produce a final text
@@ -383,12 +388,14 @@ agents/sympozium/
   no schedule and takes `systemPrompt`, `task` and `toolPolicy` inline, so a
   probe can differ from the real thing. The pod is deleted on completion
   whatever `cleanup` says, so `status.result` and the channel sidecar logs are
-  the whole record — plan the probe around reading those. And `status.result` is
-  not reliable: it is empty on roughly half of all runs, on every trigger type,
-  with no `error` set and no relation to length (a 1599-character result stores
-  fine). The runner does emit the report — `kubectl logs <pod> -c agent -f`
-  during the run shows every tool call, its arguments, and the final
-  `__SYMPOZIUM_RESULT__` line — so stream the pod rather than reading the object
+  the whole record — plan the probe around reading those. But `status.result` is
+  dropped whenever the reply contains invalid UTF-8: the runner ships it to the
+  controller over gRPC, protobuf refuses to marshal a bad `string`, and the run
+  still reports `Succeeded` with no `error`. Our own header caused it — the model
+  was told to echo `·` (U+00B7) verbatim and sometimes emitted a broken byte pair
+  — so the delivery prompts are now ASCII-only inside every indented block and
+  `scripts/validate.py` enforces it. A model can still corrupt a character on its
+  own, so stream `kubectl logs <pod> -c agent -f` rather than reading the object
   afterwards, and never read an empty `result` as a quiet run.
 - **`toolsAllow` is the prompt budget; `toolPolicy` is only the permission.**
   `toolPolicy` filters at the LLM request, but every tool the server exposes is

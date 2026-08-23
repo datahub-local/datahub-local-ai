@@ -240,6 +240,23 @@ def _check_shared_prompts():
                 f"only thing that tells a reader which of six agents wrote a "
                 f"report, which is the whole reason the file exists."
             )
+    # Delivery has to be a completion condition of the run, not a step in the
+    # task. The imperative used to live only in the persona's taskFile, and the
+    # web-endpoint proxy truncates the task to its first line — so a
+    # web-triggered run wrote a full CRITICAL report and never sent it, with
+    # nothing failing. Any caller can supply a one-line task; the prompt has to
+    # carry the requirement on its own.
+    for level in NOTIFY_LEVELS - {"never"}:
+        text = (root / "notify" / f"{level}.md").read_text(encoding="utf-8")
+        if "send_channel_message" not in text:
+            raise Fail(
+                f"prompts/notify/{level}.md does not name send_channel_message as "
+                f"what finishes the run. Left to the taskFile, the instruction is "
+                f"lost whenever a caller supplies its own task — the web-endpoint "
+                f"proxy truncates the task to one line, and the agent then writes "
+                f"the report and delivers nothing, with no run failing."
+            )
+
     for level in VERBOSITY_LEVELS:
         text = (root / "delivery" / f"{level}.md").read_text(encoding="utf-8")
         if "chatId" not in text or "{{ CHANNEL }}" not in text:

@@ -713,6 +713,57 @@ does not arrive fails silently, whether the name is wrong or the whole server is
 unreachable, so re-run the discovery check after any MCP image or transport
 change.
 
+### An empty `status.result` is a gRPC marshal failure on invalid UTF-8
+
+Roughly 58% of runs finish `Succeeded`, with tool calls, output tokens and a
+report that reaches Slack, and `status.result` empty. It is not a length cap (a
+1599-character result stores fine), not `cleanup`, and nothing sets
+`status.error`. The runner says what happened, one line above the result marker:
+
+    tool call: send_channel_message args={... "text":"SRE Sentinel \ufffd\ufffd ..."}
+    Wrote channel message: channel=slack chatId=#monitoring-ai-alerts len=1449
+    rpc error: code = Internal desc = grpc: error while marshaling:
+      string field contains invalid UTF-8
+    __SYMPOZIUM_RESULT__{"status":"success","metrics":{...}}__SYMPOZIUM_END__
+
+No `response` key at all — compare a healthy run, which carries
+`"response":"..."`. The runner ships its final reply to the controller over gRPC,
+protobuf refuses to marshal a `string` field that is not valid UTF-8, and the
+reply is dropped. The run is still `Succeeded` because the *work* succeeded; only
+the transport of the text failed.
+
+What produced the invalid bytes was our own header. `prompts/delivery/header.md`
+ordered the model to reproduce, character for character:
+
+    {{ AGENT }} · {{ ENSEMBLE }} · {{ SCHEDULE }}
+
+`·` is U+00B7 — two bytes in UTF-8. A 4B model at a `q8_0` KV cache reproducing
+that byte pair sometimes emits a lone or wrong continuation byte, which is the
+`\ufffd\ufffd` above. The one string the prompts demanded be echoed verbatim was
+also the one most likely to be corrupted, and it was in every report every
+persona wrote.
+
+Consistent with every measurement taken: three throwaway runs with ASCII-only
+output stored results of 2, 72 and 1599 characters without trouble, while persona
+runs — all of which mandated the `·` — came back empty at 26 of 45. The header is
+now `|`-separated, the two argument blocks that carried an em dash are plain
+hyphens, and `scripts/validate.py` fails on any non-ASCII character inside an
+indented block in `prompts/delivery/`, because an indented block there *is* the
+text the model is told to emit. Prose outside those blocks keeps its typography;
+the model is not asked to reproduce it.
+
+Two things this does not fix, and one of them belongs to core:
+
+- The model can still emit a mangled multi-byte character of its own accord, from
+  prose it was never told to copy. The durable fix is control-plane side —
+  sanitise or lossy-decode the reply before the marshal, so a corrupt byte costs
+  a replacement character rather than the whole report. Worth raising against
+  core alongside the two items below.
+- A dropped `result` is invisible: `phase: Succeeded`, no `error`, no condition.
+  Until it is sanitised, do not read an empty `result` as a quiet run — stream
+  `kubectl logs <pod> -c agent -f` instead, which is where the report actually
+  is.
+
 ### The tool schemas, not the report, are what fills the context
 
 `toolPolicy` filters at the LLM request. It does not stop a tool being
@@ -796,6 +847,53 @@ window's size:
 So the general rule holds in its stronger form: on a local model, the tool
 surface is a prompt budget before it is a permissions question, and the budget is
 spent on every call rather than once.
+
+### A web-endpoint run also truncates the task to its first line
+
+With `toolsAllow` deployed and the header ASCII, a web run finally produced a
+clean full report — `SRE Sentinel | homelab-ops | heartbeat, every 30m`, four
+sections, Status CRITICAL, 7 tool calls, 53,490 input tokens (down from 27k per
+call to 7.6k), and `status.result` populated for the first time on that path.
+
+And it sent nothing. The `channel-slack` Deployment logged neither a success nor
+a failure, because `send_channel_message` was never called — even though the run
+met every condition in *What counts as a change*.
+
+The reason is a second thing the proxy drops. The persona's `schedule.taskFile`
+is four paragraphs:
+
+    Do an on-call sweep now.
+
+    Query the firing alerts, diff them against what you saw last run, and
+    root-cause anything new or changed. Then check whether any
+    PersistentVolumeClaim is filling up, whether or not an alert has fired for it.
+
+    Then emit the Status / New / Still firing / Filling up report.
+
+    Then deliver it as your Delivery section instructs.
+
+The `AgentRun` the proxy created carried one line: `Do an on-call sweep now.`
+Compare `kubectl get sympoziumschedule ... -o jsonpath='{.spec.task}'` against
+the web run's `{.spec.task}` — the last paragraph, the only place that told the
+agent to deliver, is gone.
+
+The system prompt still had its whole Delivery section, describing *how* to post
+and *when*. What it never said was that posting is required. A 4B model reads
+"here is how to post" plus a task that stops at "do a sweep" and reasonably
+stops after writing the report.
+
+So the imperative was in the wrong file. `prompts/notify/always.md` and
+`onchange.md` now close with delivery as a completion condition of the run,
+explicitly independent of the task text — *whatever your task says or leaves out
+… this run is unfinished until you have called `send_channel_message`* — and
+`scripts/validate.py` fails a notify level other than `never` that stops naming
+the tool. `never.md` is untouched: for it, sending nothing is correct.
+
+The general lesson, and the third time this repository has paid for it: anything
+a run needs in order to be correct has to live in the prompt the persona always
+carries, never in a field a caller can replace. `toolPolicy` was dropped, the
+task was truncated, and both failed by producing a plausible run that did less
+than it claimed.
 
 ### A web-endpoint run drops the persona's `toolPolicy` entirely
 
@@ -1038,13 +1136,6 @@ Two ways to close it, in preference order:
   unprivileged. Stalls, disk health, temperature, memory errors, power, version
   drift and uptime are all reachable that way; anything genuinely needing the
   host is not in scope.
-- **`NodeClockNotSynchronising` is firing on four nodes** as of writing — the
-  four arm64 orpi boxes, with `node_timex_sync_status 0` and
-  `node_timex_maxerror_seconds` pinned at the kernel's unsynchronised ceiling of
-  16s, so their time source is not merely drifting but absent. Nothing here fixes
-  it. `sre-sentinel` was supposed to keep reporting it and did not, for the
-  argument-contract reason above; it is deliberately left out of the seeds so the
-  first run after that fix reports it as new, and suggests its own remedy.
 - **Nothing here deletes.** `service-janitor` reports cleanup and prints the
   commands; a human runs them. Auto-cleanup would be a separate, deliberately
   authorised agent.

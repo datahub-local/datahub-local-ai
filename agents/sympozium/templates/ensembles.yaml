@@ -11,6 +11,10 @@
   Field-level validation lives in scripts/validate.py (skills, MCP server names
   and prefixes, tool/server coherence, orphaned prompts). Only the errors that
   would silently produce a broken manifest are re-checked here.
+
+  Split across files: _helpers.tpl resolves the per-persona knobs, _delivery.tpl
+  assembles the delivery prompt and the postRun hook, files/deliver-slack.sh is
+  the hook's script.
 */}}
 {{- range $ensemblePath, $_ := .Files.Glob "projects/*/ensemble.yaml" }}
 {{-   $project := dir $ensemblePath }}
@@ -24,9 +28,8 @@
 {{-   end }}
 {{-   $spec := $source.spec }}
 {{-   $defaults := $source.defaults | default dict }}
-{{- /* Delivery knobs (channel, verbosity, notify) and the web-endpoint switch are
-       chart-only: the CRD webhook decodes spec strictly, so they cannot ride
-       along in sympozium_ensembles. See values/default.yaml.gotmpl. */}}
+{{- /* Delivery knobs and the web-endpoint switch are chart-only: the CRD webhook
+       decodes spec strictly, so they cannot ride along in sympozium_ensembles. */}}
 {{-   $delivery := index ($.Values.sympozium_delivery | default dict) $name | default dict }}
 {{-   $webRoot := $.Values.sympozium_web_endpoint | default dict }}
 {{-   $webOn := $webRoot.enabled | default false }}
@@ -49,85 +52,27 @@
 {{-     if not $prompt }}
 {{-       fail (printf "%s: systemPromptFile %q is empty or unreadable (is it excluded by .helmignore?)" $personaPath $promptRef) }}
 {{-     end }}
-{{- /* Substitute the delivery tokens. Deliberately a fixed token set replaced by
-       name rather than `tpl`, which would execute arbitrary template code inside
-       a prompt and turn any future literal {{ in prompt text into a render
-       error. A token left standing fails the render, the same contract as
-       DownloadTemplate's check_template_vars_present in agents/n8n. */}}
-{{-     $pd := index ($delivery.personas | default dict) ($persona.name | toString) | default dict }}
-{{-     $channel := $pd.channel | default $delivery.channel | default "" }}
-{{-     $verbosity := lower ($pd.verbosity | default $delivery.verbosity | default "normal" | toString) }}
-{{-     $notify := lower ($pd.notify | default $delivery.notify | default "always" | toString) }}
-{{- /* deliveryMode picks *how* the report reaches the channel, and the two are
-       genuinely different mechanisms rather than two settings of one.
-
-       "tool" is the original: the model calls send_channel_message and a channel
-       sidecar posts it. Every sidecar of a transport delivers every instance's
-       message -- it filters on data.channel and never on the metadata
-       .instanceName it is handed -- so a report arrives once per bound persona.
-       Five personas, five identical copies in the same second.
-
-       "hook" posts the run's own result from a lifecycle.postRun container, so
-       nothing touches the shared event bus and the report arrives exactly once.
-       It also removes the reason results came back empty: with no send tool the
-       report is the model's final text, instead of the run ending on a tool call
-       with nothing left to return.
-
-       See ../README.md#every-report-arrived-five-times-and-only-one-agent-sent-it */}}
-{{- /* Default is "hook", so a persona added later gets one-copy delivery without
-       anyone remembering to ask for it. "tool" stays expressible for a persona
-       that genuinely needs the sidecar path, and costs a duplicate per bound
-       persona the moment it is used. */}}
-{{-     $mode := lower ($pd.deliveryMode | default $delivery.deliveryMode | default "hook" | toString) }}
+{{- /* The destination decides *whether* a persona delivers, deliveryMode decides
+       *how*. `channels:` is neither: it adds a channel sidecar and the inbound
+       @-mention path, and must not gate the prompt. */}}
+{{-     $knob := dict "delivery" $delivery "persona" $persona.name }}
+{{-     $channel := include "sympozium.deliveryKnob" (merge (dict "knob" "channel" "default" "") $knob) }}
+{{-     $verbosity := include "sympozium.deliveryKnob" (merge (dict "knob" "verbosity" "default" "normal") $knob) | lower }}
+{{-     $notify := include "sympozium.deliveryKnob" (merge (dict "knob" "notify" "default" "always") $knob) | lower }}
+{{-     $mode := include "sympozium.deliveryMode" $knob }}
 {{-     if not (has $mode (list "tool" "hook")) }}
 {{-       fail (printf "%s: deliveryMode %q is neither tool nor hook" $personaPath $mode) }}
 {{-     end }}
-{{- /* Gated on the delivery destination, not on `channels:`. Under hook mode a
-       persona delivers with no binding at all - the postRun container talks to
-       the Slack API directly - so the binding is only the inbound @-mention
-       path and must not decide whether the prompt gets its delivery rules. */}}
+{{-     $cadence := include "sympozium.cadence" (dict "schedule" $persona.schedule) }}
 {{-     if and $persona.channels (not $channel) }}
 {{-       fail (printf "%s: carries a channel binding, but sympozium_delivery.%s sets no channel for %s" $personaPath $name $persona.name) }}
 {{-     end }}
+{{- /* A fixed token set replaced by name rather than `tpl`, which would execute
+       template code inside a prompt and turn any literal brace pair in prompt
+       text into a render error. A token left standing fails the render, the same
+       contract as DownloadTemplate's check_template_vars_present in agents/n8n. */}}
 {{-     if $channel }}
-{{-       $verbosityText := $.Files.Get (printf "prompts/delivery/%s.md" $verbosity) }}
-{{-       if not $verbosityText }}
-{{-         fail (printf "%s: verbosity %q has no prompts/delivery/%s.md" $personaPath $verbosity $verbosity) }}
-{{-       end }}
-{{-       $notifyText := $.Files.Get (printf "prompts/notify/%s.md" $notify) }}
-{{-       if not $notifyText }}
-{{-         fail (printf "%s: notify %q has no prompts/notify/%s.md" $personaPath $notify $notify) }}
-{{-       end }}
-{{- /* The header is not a level — every channel-bound persona gets the same one,
-       so it is one shared file rather than a copy in each verbosity. */}}
-{{-       $headerText := $.Files.Get "prompts/delivery/header.md" }}
-{{-       if not $headerText }}
-{{-         fail "prompts/delivery/header.md is missing or empty" }}
-{{-       end }}
-{{- /* {{ SCHEDULE }} is the cadence in words, so a reader of the message knows
-       whether the next one is due in half an hour or next Monday. Read off the
-       persona's own schedule rather than restated in the prompt, where it would
-       drift from the cron the moment either changed. */}}
-{{-       $sched := $persona.schedule | default dict }}
-{{-       $cadence := "on demand" }}
-{{-       if $sched.interval }}
-{{-         $cadence = printf "%s, every %s" $sched.type $sched.interval }}
-{{-       else if $sched.cron }}
-{{-         $cadence = printf "%s, cron %s UTC" $sched.type $sched.cron }}
-{{-       end }}
-{{-       $block := printf "%s\n\n%s\n\n%s" (trimSuffix "\n" $headerText) (trimSuffix "\n" $verbosityText) (trimSuffix "\n" $notifyText) }}
-{{- /* Hook mode is header + hook.md and nothing else, deliberately. The
-       verbosity and notify files tell the model how to call the send tool and
-       when to suppress a run; under a hook it has no send tool and cannot
-       suppress anything, and handing a 4B model both sets would be handing it a
-       contradiction. hook.md is self-contained for that reason. */}}
-{{-       if eq $mode "hook" }}
-{{-         $hookText := $.Files.Get "prompts/delivery/hook.md" }}
-{{-         if not $hookText }}
-{{-           fail "prompts/delivery/hook.md is missing or empty" }}
-{{-         end }}
-{{-         $block = printf "%s\n\n%s" (trimSuffix "\n" $headerText) (trimSuffix "\n" $hookText) }}
-{{-       end }}
+{{-       $block := include "sympozium.deliveryBlock" (dict "root" $ "mode" $mode "verbosity" $verbosity "notify" $notify) }}
 {{-       $prompt = replace "{{ DELIVERY }}" $block $prompt }}
 {{-       $prompt = replace "{{ CHANNEL }}" $channel $prompt }}
 {{-       $prompt = replace "{{ AGENT }}" ($persona.displayName | toString) $prompt }}
@@ -154,19 +99,15 @@
 {{-       $_ := unset $persona.schedule "taskFile" }}
 {{-       $_ := set $persona.schedule "task" (trimSuffix "\n" $task) }}
 {{-     end }}
-{{- /* An HTTP endpoint is a way to exercise an agent off its schedule, which is a
-       property of this cluster and not of the agent — so it is switched on from
-       values, never in projects/. Adding the skill is the whole mechanism: the
-       controller sees it and deploys the web-proxy beside the agent. The CRD's
-       own `webEndpoint` field is deprecated in favour of exactly this. */}}
+{{- /* An HTTP endpoint is a property of this cluster, not of the agent, so it is
+       switched on from values and never in projects/. Adding the skill is the
+       whole mechanism. Note it *replaces* the persona's schedule rather than
+       sitting beside it — ../README.md#the-endpoint-replaces-the-schedule--it-does-not-sit-beside-it */}}
 {{-     $wp := index ($web.personas | default dict) ($persona.name | toString) | default dict }}
 {{-     $wpEnabled := $web.enabled | default false }}
 {{-     if hasKey $wp "enabled" }}
 {{-       $wpEnabled = $wp.enabled }}
 {{-     end }}
-{{- /* The master switch is an AND, not another override: sympozium_web_endpoint
-       .enabled false takes the whole surface down without editing — and then
-       having to restore — the per-agent decisions under ensembles:. */}}
 {{-     $wpEnabled = and $webOn $wpEnabled }}
 {{-     if has "web-endpoint" ($persona.skills | default list) }}
 {{-       fail (printf "%s: lists the web-endpoint skill. It is switched on from sympozium_web_endpoint in values, so that the testing surface is visible in one place per cluster." $personaPath) }}
@@ -179,63 +120,19 @@
 {{-       $_ := set $params "web-endpoint" (dict "rate_limit_rpm" (printf "%v" $rpm) "rate_limit_burst" (printf "%v" $burst)) }}
 {{-       $_ := set $persona "skillParams" $params }}
 {{-     end }}
-{{- /* Hook mode: the postRun container that actually delivers. It runs in a
-       follow-up Job after the agent finishes, with the report in AGENT_RESULT
-       and the bot token pulled from a Secret by reference, so no credential
-       appears in this chart or in the Ensemble.
-
-       Egress works because the hook pod carries no sympozium.ai/role=agent
-       label, so sympozium-agent-deny-all does not select it. Verified against
-       api.test from inside the pod; agent-allow-tools would otherwise permit
-       only in-cluster port 8080.
-
-       The `ok` check is what makes a failed delivery visible: postRun failures
-       are recorded as Conditions on the run, which is the first time in this
-       fleet's history that a dropped report leaves a trace anywhere other than a
-       sidecar log nobody reads. */}}
-{{- /* `$channel` and not just the mode: a persona with no sympozium_delivery
-       entry delivers nowhere on purpose - homelab-reviewer's alert is the DO NOT
-       MERGE comment on the pull request - and hook mode is the default, so
-       without this every such persona would get a hook posting to an empty
-       destination. */}}
+{{- /* The hook needs a destination, not just the mode: hook is the default, and a
+       persona with no sympozium_delivery entry delivers nowhere on purpose.
+       gateDefault carries default: "block" in the CRD, so the API server writes it
+       in at admission and ArgoCD reports permanent drift against a manifest that
+       omits it. State it even though it *is* the default, and re-derive the list
+       after a control-plane bump with:
+         kubectl get crd ensembles.sympozium.ai -o json \
+           | jq '.. | objects | select(has("default"))' */}}
 {{-     if and (eq $mode "hook") $channel }}
-{{-       $h := $.Values.sympozium_delivery_hook | default dict }}
-{{-       $img := $h.image | default "curlimages/curl:8.11.1" }}
-{{-       $sec := $h.secret | default "" }}
-{{-       $key := $h.tokenKey | default "SLACK_BOT_TOKEN" }}
-{{-       if not $sec }}
-{{-         fail (printf "%s: deliveryMode is hook, but sympozium_delivery_hook.secret is unset, so the hook has no bot token" $personaPath) }}
-{{-       end }}
-{{-       $script := `set -eu
-if [ -z "${AGENT_RESULT:-}" ]; then
-  printf '%s' "$AGENT_LABEL
-
-Status: UNKNOWN
-
-The run finished but produced no text to deliver. Check the run log: a run whose
-final message is a tool call returns an empty result." > /tmp/body
-else
-  printf '%s' "$AGENT_RESULT" > /tmp/body
-fi
-OUT=$(curl -sS --max-time 30 -X POST https://slack.com/api/chat.postMessage         -H "Authorization: Bearer $SLACK_BOT_TOKEN"         --data-urlencode "channel=$SLACK_CHANNEL"         --data-urlencode "text@/tmp/body")
-echo "slack response: $OUT"
-echo "$OUT" | grep -q '"ok":true' || { echo "DELIVERY FAILED"; exit 1; }
-echo "delivered ok"` }}
-{{-       $hook := dict "name" "deliver" "image" $img "command" (list "/bin/sh" "-c") "args" (list $script) "env" (list
-              (dict "name" "SLACK_CHANNEL" "value" $channel)
-              (dict "name" "AGENT_LABEL" "value" (printf "%s | %s" ($persona.displayName | toString) $name))
-              (dict "name" "SLACK_BOT_TOKEN" "valueFrom" (dict "secretKeyRef" (dict "name" $sec "key" $key)))) }}
+{{-       $label := printf "%s | %s | %s" ($persona.displayName | toString) $name $cadence }}
+{{-       $hook := include "sympozium.deliveryHook" (dict "root" $ "channel" $channel "label" $label) | fromYaml }}
 {{-       $lifecycle := $persona.lifecycle | default dict }}
 {{-       $_ := set $lifecycle "postRun" (append ($lifecycle.postRun | default list) $hook) }}
-{{- /* gateDefault carries default: "block" in the Ensemble CRD, so the API
-       server writes it into the live object at admission and ArgoCD reports
-       permanent OutOfSync against a manifest that omits it — the same class of
-       drift as mcpServers[].timeout and schedule.firstTick. State it even though
-       it *is* the default. Re-derive after a control-plane bump with:
-         kubectl get crd ensembles.sympozium.ai -o json \
-           | jq '.. | objects | select(has("default"))'
-       "block" is also the value we want: a gate hook that fails should not let
-       an unchecked result through. */}}
 {{-       $_ := set $lifecycle "gateDefault" ($lifecycle.gateDefault | default "block") }}
 {{-       $_ := set $persona "lifecycle" $lifecycle }}
 {{-     end }}

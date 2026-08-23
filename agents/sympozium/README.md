@@ -27,10 +27,21 @@ agents/sympozium/
   values/default.yaml.gotmpl   per-cluster knobs: enabled, baseURL, policyRef,
                                channelConfigs, and the sympozium_delivery and
                                sympozium_web_endpoint trees
-  templates/ensembles.yaml     assembles one Ensemble per projects/<name>/
+  templates/
+    ensembles.yaml             assembles one Ensemble per projects/<name>/
+    _helpers.tpl               resolves the per-persona knobs (cadence, the
+                               sympozium_delivery values, deliveryMode)
+    _delivery.tpl              assembles the delivery prompt block and the
+                               postRun hook container
+  files/deliver-slack.sh       the hook's script: normalises the report to Slack
+                               mrkdwn, prepends the header, posts it once. A real
+                               file rather than an inline string so it can be
+                               read, linted and run on its own
   prompts/
-    delivery/header.md         the line that names the agent — every bound
-                               persona gets it, whatever its levels
+    delivery/hook.md           the whole delivery block for deliveryMode: hook -
+                               the model's reply *is* the report, and the header
+                               is added by the script, not written by the model
+    delivery/header.md         the line that names the agent, for tool mode
     delivery/<level>.md        how much detail to post   (quiet|normal|verbose)
     notify/<level>.md          when to post at all       (always|onChange|never)
   projects/

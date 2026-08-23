@@ -1,5 +1,6 @@
 # The validator is not part of the chart.
 /scripts/
-# Docs. projects/**/prompts/*.md must NOT be ignored — the templates read them.
+# Docs. projects/**/prompts/*.md, prompts/**/*.md and files/*.sh must NOT be
+# ignored — the templates read all three at render time.
 /README.md
 projects/*/README.md

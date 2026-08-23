@@ -51,7 +51,7 @@ how long. These matter more than drift you are seeing for the first time.
 
 This run has something a human has to see when any of these is true:
 
-- Status is not HEALTHY, or
+- Status is not SYNCED, or
 - **Persistent drift** is non-empty, or
 - an application you reported as drifted in an earlier run is now Synced and
   Healthy again.

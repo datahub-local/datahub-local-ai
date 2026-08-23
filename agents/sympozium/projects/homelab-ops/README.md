@@ -80,6 +80,20 @@ say it at all come from the `sympozium_delivery` tree in
 each system prompt's `{{ DELIVERY }}` token at render time — no CRD field
 carries a destination, so prompt text is the only route there is.
 
+That token expands to three files: `prompts/delivery/header.md`, then the chosen
+`delivery/<verbosity>.md` and `notify/<level>.md`. The header is what puts the
+agent's name on the message — five personas producing a Status line and a few
+bullets each are otherwise indistinguishable once they land in a channel. It
+also states that the agent has no clock, because nothing in this fleet returns
+the current time and an invented timestamp on an ops report is worse than none;
+Slack's own message stamp is the run time.
+
+The destination goes in the tool's `chatId` argument, *not* its `channel`
+argument, which names the transport (`slack`). The prompts had that backwards
+until 2026-08-23 and every scheduled report was silently dropped —
+[the write-up](../../README.md#send_channel_message-takes-the-destination-in-chatid-not-channel)
+is worth reading before touching these files.
+
 | Persona | Channel | notify |
 | --- | --- | --- |
 | `sre-sentinel` | `#monitoring-ai-alerts` | `onChange` |
@@ -111,3 +125,11 @@ These five hold no write tool, so an unwanted run costs GPU time and nothing
 else; `renovate-reviewer`, which can comment on pull requests, is deliberately
 not bound. See [Known gaps](../../README.md#known-gaps) for what is still
 unverified about the Slack path.
+
+All five also answer over HTTP, so a run can be started without waiting for its
+cron — see
+[testing an agent over HTTP](../../README.md#testing-an-agent-over-http). That is
+switched on from `sympozium_web_endpoint` in values rather than per persona, for
+the same reason `renovate-reviewer` is left out of it: which agents have a
+trigger in front of them is a per-cluster decision and belongs where it can be
+read in one place.

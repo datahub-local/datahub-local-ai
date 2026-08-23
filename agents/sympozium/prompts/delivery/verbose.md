@@ -1,8 +1,25 @@
-Post the finished report to the Slack channel {{ CHANNEL }} with
-`send_channel_message`. Send it exactly as written above — every section, in
-order — and add, under each finding, the query you ran or the tool output the
-finding rests on, so a reader can check it without reopening the run.
+### Posting it
 
-If the send fails, say so at the end of the report instead of dropping it
-silently. A notification that failed and a run that found nothing look
-identical from the outside.
+Post the finished report with `send_channel_message`, called with exactly these
+arguments:
+
+    channel: "slack"
+    chatId:  "{{ CHANNEL }}"
+    text:    the report, exactly as written above — every section, in order,
+             and under each finding the query you ran or the tool output the
+             finding rests on, so a reader can check it without reopening the
+             run
+
+`channel` is the *transport* — one of whatsapp, telegram, discord, slack. It is
+never a `#name`. The destination is `chatId`, and nothing else in the call
+carries it.
+
+Getting that one argument wrong is silent. Omit `chatId` and the tool still
+answers `Message sent`, but it targets "owner (self)": on a run you started
+yourself the report lands in the app's own direct message, and on a scheduled
+run there is no owner at all, so Slack rejects it as `channel_not_found` in a
+sidecar log nobody reads. Both look exactly like a quiet, healthy run from the
+outside. This is the bug that kept every scheduled report from arriving.
+
+If the tool returns an error, say so at the end of the report instead of
+dropping it silently.

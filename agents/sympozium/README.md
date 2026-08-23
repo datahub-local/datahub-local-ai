@@ -25,9 +25,12 @@ agents/sympozium/
   Chart.yaml
   helmfile.yaml.gotmpl
   values/default.yaml.gotmpl   per-cluster knobs: enabled, baseURL, policyRef,
-                               channelConfigs, and the sympozium_delivery tree
+                               channelConfigs, and the sympozium_delivery and
+                               sympozium_web_endpoint trees
   templates/ensembles.yaml     assembles one Ensemble per projects/<name>/
   prompts/
+    delivery/header.md         the line that names the agent — every bound
+                               persona gets it, whatever its levels
     delivery/<level>.md        how much detail to post   (quiet|normal|verbose)
     notify/<level>.md          when to post at all       (always|onChange|never)
   projects/
@@ -158,8 +161,9 @@ ensemble exists to keep visible.
   what the cluster will actually get.
 - **Source describes the agent; values describe the cluster.** Prompts, skills,
   schedules and tool policy live in `projects/`. Only `enabled`, `baseURL`,
-  `policyRef`, `channelConfigs` and the `sympozium_delivery` tree — the things
-  that could legitimately differ between clusters — live in
+  `policyRef`, `channelConfigs` and the `sympozium_delivery` and
+  `sympozium_web_endpoint` trees — the things that could legitimately differ
+  between clusters — live in
   `values/default.yaml.gotmpl`, merged over `spec` at render time. The
   validator rejects those keys in `ensemble.yaml`.
 - **A channel binding is split across both, and so is delivery.** The persona
@@ -170,10 +174,21 @@ ensemble exists to keep visible.
   alone deploys cleanly and posts nothing, or posts to nowhere, so the validator
   cross-checks all of it — including a typo under `personas:`, `notify:
   onChange` on a prompt with no *What counts as a change* section, and
-  `slackOptions` on a persona that is not on Slack.
+  `slackOptions` on a persona that is not on Slack. The block the templates
+  substitute is three files: `prompts/delivery/header.md`, which every bound
+  persona gets and which is what names the agent in the message, then the
+  chosen `delivery/<verbosity>.md` and `notify/<level>.md`.
+- **The report says which agent wrote it; it never says when.** No tool in this
+  fleet returns the current time, so the prompts forbid writing any date or
+  duration not read out of a tool result, and Slack's own message timestamp is
+  the run time. `{{ SCHEDULE }}` in the header carries the cadence
+  (`heartbeat, every 30m`) read off the persona's own `schedule`, so it cannot
+  drift from the cron. Putting an authoritative run time *inside* the message
+  needs something outside the model — a `lifecycle.postRun` gate hook that
+  rewrites the output is the CRD's own mechanism for it.
 - **Prompt tokens are substituted by name, never with `tpl`.** The templates
-  replace exactly `{{ DELIVERY }}` and `{{ CHANNEL }}`, then `fail` on any token
-  left standing — the same contract as `check_template_vars_present` in
+  replace exactly `{{ DELIVERY }}`, `{{ CHANNEL }}`, `{{ AGENT }}`,
+  `{{ ENSEMBLE }}` and `{{ SCHEDULE }}`, then `fail` on any token left standing — the same contract as `check_template_vars_present` in
   `agents/n8n`. `tpl` would execute arbitrary template code inside a prompt and
   turn a future literal `{{` in prompt text into a render error. The cost is
   real either way: a prompt file is no longer exactly what the model sees. Run
@@ -361,6 +376,122 @@ An earlier version of this section had all three of those backwards, and nothing
 caught it for a day, because the agent that would have noticed could not read
 Prometheus at all — see the next section.
 
+## `send_channel_message` takes the destination in `chatId`, not `channel`
+
+The same class of bug as the Prometheus contract below, found the same way, and
+it cost every scheduled report for two days. The tool's signature is:
+
+    channel: "slack"                 the *transport* — whatsapp, telegram,
+                                     discord, slack. Never a #name.
+    chatId:  "#monitoring-ai-alerts" the destination. Nothing else carries it.
+    text:    the message
+    threadId:                        optional, a Slack thread_ts
+
+The first version of `prompts/delivery/*.md` said "post the finished report to
+the Slack channel `#monitoring-ai-alerts` with `send_channel_message`", so the
+model put the channel name in `channel` and left `chatId` unset. `chatId` unset
+means "the device owner (self-chat)", and the tool answers
+`Message sent to #monitoring-ai-alerts channel (target: owner (self))` either
+way — it validates nothing and it is the last thing the agent hears about the
+send.
+
+What happens after that is asynchronous and out of the agent's sight. The
+outbound event reaches the `channel-slack` Deployment, which calls
+`chat.postMessage` with an empty channel and gets `channel_not_found`, logged
+only there:
+
+    kubectl logs -n automation deploy/homelab-ops-sre-sentinel-channel-slack
+
+Two observable symptoms, both of which read as success:
+
+- A scheduled run ends `**Report delivered successfully to
+  #monitoring-ai-alerts Slack channel.**` and nothing is in the channel. The
+  model is not lying; it is repeating what the tool told it.
+- A run started from Slack has an owner, so the report *does* arrive — as an
+  unattributed status block in the app's own direct message, with nothing to say
+  which of six agents wrote it. That is what `{{ AGENT }}` in
+  `prompts/delivery/header.md` is for.
+
+Verified by three throwaway `AgentRun`s against the live sre-sentinel: with
+`chatId` omitted the sidecar logs `channel_not_found` within seconds, with
+`chatId` set it logs nothing and the message lands. The sidecar logs only
+failures, so silence there is the success signal.
+
+The fix is in the shared prompts, not in a persona: all three verbosity files
+name both arguments and explain the failure, and `scripts/validate.py` fails if
+a verbosity file stops mentioning `chatId`. There is nothing to set on the CRD —
+no Sympozium field carries a destination, which is why the channel reaches the
+agent as prompt text in the first place.
+
+## Testing an agent over HTTP
+
+`sympozium_web_endpoint` in `values/default.yaml.gotmpl` puts an HTTP endpoint
+in front of a persona, so a run can be started without waiting for its cron.
+Enabling it appends the `web-endpoint` SkillPack, and the controller deploys a
+web-proxy beside the agent that turns one request into one `AgentRun` — against
+the same prompt, skills, MCP servers and tool policy the schedule uses. It is on
+for all five `homelab-ops` personas and off for `renovate-reviewer`, which holds
+a write tool.
+
+No `hostname` is set, so no `HTTPRoute` is created and the Service stays
+ClusterIP: nothing outside the cluster can reach it.
+
+    kubectl get svc -n automation | grep web
+    kubectl get secret -n automation -o name | grep web-endpoint
+
+    KEY=$(kubectl get secret homelab-ops-sre-sentinel-web-endpoint-key \
+      -n automation -o jsonpath='{.data.api-key}' | base64 -d)
+    kubectl port-forward -n automation svc/homelab-ops-sre-sentinel-web 8080:8080 &
+
+    curl -s localhost:8080/healthz
+    curl -s localhost:8080/v1/chat/completions \
+      -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' \
+      -d '{"model":"default","messages":[{"role":"user","content":"Do an on-call sweep now."}]}'
+
+Confirm the object names against the cluster rather than trusting the ones above
+— they are the controller's, not this chart's.
+
+Two things to know before leaning on it. A request costs a slot on the one GPU,
+the same as a scheduled run, so a test queued behind a heartbeat tick waits for
+it. And the endpoint is a trigger: every persona behind one is read-only today,
+which is the only reason a ClusterIP with a bearer key is a reasonable place to
+leave it.
+
+Where a test needs to differ from the real thing — a different prompt, a
+narrower tool policy, no delivery — an `AgentRun` applied by hand is the better
+tool, since it takes `systemPrompt`, `task` and `toolPolicy` inline:
+
+    kubectl apply -f - <<'EOF'
+    apiVersion: sympozium.ai/v1alpha1
+    kind: AgentRun
+    metadata:
+      name: probe-1
+      namespace: automation
+    spec:
+      agentRef: homelab-ops-sre-sentinel
+      agentId: probe
+      sessionKey: ""
+      mode: task
+      useContext: false
+      model:
+        provider: ollama
+        model: qwen3.5:4b
+        baseURL: http://datahub-local-core-data-ollama.data.svc:11434/v1
+        authSecretRef: ""
+      systemPrompt: |
+        <the prompt under test>
+      task: |
+        <the task under test>
+      toolPolicy:
+        allow: [send_channel_message]
+        deny: [write_file, execute_command]
+    EOF
+    kubectl get agentrun probe-1 -n automation -o jsonpath='{.status.result}'
+
+That is how the `chatId` contract above was pinned down. Note that the pod is
+deleted as soon as the run ends whatever `cleanup` says, so `status.result` and
+the sidecar logs are the only record — plan the probe around reading those.
+
 ## The `query_prometheus` argument contract
 
 `grafana_query_prometheus` fails outright unless `endTime` is passed, even for an
@@ -507,21 +638,57 @@ an MCP catalog, and a policy that reaches neither, is broken for anything but th
 single-agent case. Re-check the label names after an image bump before assuming
 this entry still applies.
 
+### The `channel-slack` Deployments have no resource requests or limits
+
+Every other workload the controller creates for a persona is bounded. The
+`channel` container is the exception:
+
+    kubectl get deploy -n automation \
+      -o custom-columns='NAME:.metadata.name,RES:.spec.template.spec.containers[*].resources' \
+      | grep -E 'channel|memory'
+
+The memory sidecar carries `50m/64Mi` requests and `200m/128Mi` limits, taken
+from its SkillPack's `spec.sidecar.resources`. The channel Deployment is built
+from `spec.channels[]`, which has no equivalent field anywhere in the `Ensemble`
+or `Agent` CRD — confirmed by searching both schemas for one:
+
+    kubectl get crd ensembles.sympozium.ai agents.sympozium.ai -o json \
+      | jq -r '[paths(objects) | select(.[-1]=="resources") | join(".")] | .[]'
+
+So this is not settable from this repository, and not from core's values either.
+Nor is it patchable the way core's other chart fixes are: `_kustomize.yaml.gotmpl`
+patches chart-rendered resources, and these Deployments are created by the
+controller at admission time, long after the chart is rendered. Five unbounded
+pods sit in `automation` today — small ones, a websocket client each, but with no
+request they are also the first thing the scheduler will misplace and the last
+thing a node under pressure will evict fairly.
+
+Two ways to close it, in preference order:
+
+1. **Upstream** — a `resources` field on `ChannelSpec`, defaulted the way the
+   SkillPack sidecar already is. This is the one worth filing.
+2. **Core, as a stopgap** — a `LimitRange` in `automation` would give every
+   container in the namespace a default request, which fixes this and changes
+   the behaviour of everything else in a shared namespace. Only worth it if the
+   unbounded pods actually cause a scheduling problem.
+
 ## Known gaps
 
-- **Slack is wired for `homelab-ops` only, and two things about it are
-  unverified.** The secret exists — `mcp-slack-token` in `automation`, projected
-  by
-  [datahub-local-secrets](https://github.com/datahub-local/datahub-local-secrets)
-  with `SLACK_BOT_TOKEN` and `SLACK_APP_TOKEN` — the channels exist, and the app
-  is in them. What could not be checked without applying it: (1) that the
-  controller turns `channelConfigs` into a `ConfigRef` on each generated Agent —
-  confirm with
-  `kubectl get agent homelab-ops-sre-sentinel -o jsonpath='{.spec.channels}'`
-  after the sync; (2) that the runtime reads those two key names and that
-  `send_channel_message` takes the channel as an argument at all. If it does not,
-  the destination is not expressible from the prompt and `sympozium_delivery.channel`
-  becomes documentation until the runtime grows a field for it.
+- **Slack is wired for `homelab-ops` only, and it now works.** Both halves that
+  could not be checked before applying have been: the controller does turn
+  `channelConfigs` into a per-agent `channel-slack` Deployment which reaches
+  Slack with `SLACK_BOT_TOKEN`, and `send_channel_message` does take a
+  destination — in `chatId`, not `channel`, which is
+  [the trap that cost two days of reports](#send_channel_message-takes-the-destination-in-chatid-not-channel).
+  What remains unverified is the inbound half: no @-mention has been tried
+  against the bot.
+- **A failed outbound send is only visible in the sidecar.** The tool answers
+  `Message sent` before anything has been sent, so neither the agent, the
+  `AgentRun` phase nor `status.result` can show a delivery failure — only
+  `kubectl logs deploy/<persona>-channel-slack` can, and it logs failures only.
+  Anything watching for "the reports stopped arriving" has to watch Slack or
+  that log, not the run history. Related to `#monitoring-ai-runs` having no
+  producer, below.
 - **Channels are named, not `C0…` ids.** Slack accepts a name for
   `chat.postMessage`, but it is the legacy form and it breaks silently on a
   rename. Swapping is a one-line values change per channel.

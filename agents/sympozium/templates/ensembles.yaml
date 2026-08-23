@@ -24,10 +24,11 @@
 {{-   end }}
 {{-   $spec := $source.spec }}
 {{-   $defaults := $source.defaults | default dict }}
-{{- /* Delivery knobs (channel, verbosity, notify) are chart-only: the CRD webhook
-       decodes spec strictly, so they cannot ride along in sympozium_ensembles.
-       See values/default.yaml.gotmpl. */}}
+{{- /* Delivery knobs (channel, verbosity, notify) and the web-endpoint switch are
+       chart-only: the CRD webhook decodes spec strictly, so they cannot ride
+       along in sympozium_ensembles. See values/default.yaml.gotmpl. */}}
 {{-   $delivery := index ($.Values.sympozium_delivery | default dict) $name | default dict }}
+{{-   $web := index ($.Values.sympozium_web_endpoint | default dict) $name | default dict }}
 {{-   $personaFiles := $.Files.Glob (printf "%s/agents/*.yaml" $project) }}
 {{-   if not $personaFiles }}
 {{-     fail (printf "%s: no personas in agents/" $project) }}
@@ -67,12 +68,32 @@
 {{-       if not $notifyText }}
 {{-         fail (printf "%s: notify %q has no prompts/notify/%s.md" $personaPath $notify $notify) }}
 {{-       end }}
-{{-       $block := printf "%s\n\n%s" (trimSuffix "\n" $verbosityText) (trimSuffix "\n" $notifyText) }}
+{{- /* The header is not a level — every channel-bound persona gets the same one,
+       so it is one shared file rather than a copy in each verbosity. */}}
+{{-       $headerText := $.Files.Get "prompts/delivery/header.md" }}
+{{-       if not $headerText }}
+{{-         fail "prompts/delivery/header.md is missing or empty" }}
+{{-       end }}
+{{- /* {{ SCHEDULE }} is the cadence in words, so a reader of the message knows
+       whether the next one is due in half an hour or next Monday. Read off the
+       persona's own schedule rather than restated in the prompt, where it would
+       drift from the cron the moment either changed. */}}
+{{-       $sched := $persona.schedule | default dict }}
+{{-       $cadence := "on demand" }}
+{{-       if $sched.interval }}
+{{-         $cadence = printf "%s, every %s" $sched.type $sched.interval }}
+{{-       else if $sched.cron }}
+{{-         $cadence = printf "%s, cron %s UTC" $sched.type $sched.cron }}
+{{-       end }}
+{{-       $block := printf "%s\n\n%s\n\n%s" (trimSuffix "\n" $headerText) (trimSuffix "\n" $verbosityText) (trimSuffix "\n" $notifyText) }}
 {{-       $prompt = replace "{{ DELIVERY }}" $block $prompt }}
 {{-       $prompt = replace "{{ CHANNEL }}" $channel $prompt }}
+{{-       $prompt = replace "{{ AGENT }}" ($persona.displayName | toString) $prompt }}
+{{-       $prompt = replace "{{ ENSEMBLE }}" $name $prompt }}
+{{-       $prompt = replace "{{ SCHEDULE }}" $cadence $prompt }}
 {{-     end }}
 {{-     if contains "{{" $prompt }}
-{{-       fail (printf "%s: %s still holds an unsubstituted token. Known tokens are {{ DELIVERY }} and {{ CHANNEL }}, and they are only substituted on a persona bound to a channel." $personaPath $promptRef) }}
+{{-       fail (printf "%s: %s still holds an unsubstituted token. Known tokens are {{ DELIVERY }}, {{ CHANNEL }}, {{ AGENT }}, {{ ENSEMBLE }} and {{ SCHEDULE }}, and they are only substituted on a persona bound to a channel." $personaPath $promptRef) }}
 {{-     end }}
 {{-     $_ := unset $persona "systemPromptFile" }}
 {{-     $_ := set $persona "systemPrompt" (trimSuffix "\n" $prompt) }}
@@ -90,6 +111,27 @@
 {{-       end }}
 {{-       $_ := unset $persona.schedule "taskFile" }}
 {{-       $_ := set $persona.schedule "task" (trimSuffix "\n" $task) }}
+{{-     end }}
+{{- /* An HTTP endpoint is a way to exercise an agent off its schedule, which is a
+       property of this cluster and not of the agent — so it is switched on from
+       values, never in projects/. Adding the skill is the whole mechanism: the
+       controller sees it and deploys the web-proxy beside the agent. The CRD's
+       own `webEndpoint` field is deprecated in favour of exactly this. */}}
+{{-     $wp := index ($web.personas | default dict) ($persona.name | toString) | default dict }}
+{{-     $wpEnabled := $web.enabled | default false }}
+{{-     if hasKey $wp "enabled" }}
+{{-       $wpEnabled = $wp.enabled }}
+{{-     end }}
+{{-     if has "web-endpoint" ($persona.skills | default list) }}
+{{-       fail (printf "%s: lists the web-endpoint skill. It is switched on from sympozium_web_endpoint in values, so that the testing surface is visible in one place per cluster." $personaPath) }}
+{{-     end }}
+{{-     if $wpEnabled }}
+{{-       $_ := set $persona "skills" (append ($persona.skills | default list) "web-endpoint") }}
+{{-       $rpm := $wp.requestsPerMinute | default $web.requestsPerMinute | default 60 }}
+{{-       $burst := $wp.burstSize | default $web.burstSize | default 10 }}
+{{-       $params := $persona.skillParams | default dict }}
+{{-       $_ := set $params "web-endpoint" (dict "rate_limit_rpm" (printf "%v" $rpm) "rate_limit_burst" (printf "%v" $burst)) }}
+{{-       $_ := set $persona "skillParams" $params }}
 {{-     end }}
 {{-     $personas = append $personas (mergeOverwrite (deepCopy $defaults) $persona) }}
 {{-   end }}

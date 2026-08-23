@@ -110,7 +110,22 @@ NOTIFY_LEVELS = {"always", "onchange", "never"}
 # Tokens templates/ensembles.yaml substitutes into a system prompt. Anything
 # else left in braces fails the render, so it is caught here with a better
 # message than Helm's.
-PROMPT_TOKENS = ("{{ DELIVERY }}", "{{ CHANNEL }}")
+#
+# {{ DELIVERY }} is the only one a persona prompt writes for itself; the rest
+# appear inside the shared delivery block the templates assemble, and are
+# substituted in the same pass.
+PROMPT_TOKENS = (
+    "{{ DELIVERY }}",
+    "{{ CHANNEL }}",
+    "{{ AGENT }}",
+    "{{ ENSEMBLE }}",
+    "{{ SCHEDULE }}",
+)
+
+# Files every channel-bound persona gets, whatever its levels: the header that
+# names the agent in the message. Split out of the three verbosity files so the
+# wording exists once.
+SHARED_DELIVERY_FILES = ("delivery/header.md",)
 FIRST_TICKS = {"immediate", "afterInterval"}
 
 # Keys the Helm templates stamp onto a persona from the project's `defaults:`
@@ -120,6 +135,18 @@ DEFAULTABLE = ("provider", "model", "runTimeout")
 # Keys that belong to the cluster, not the agent, and are merged in from
 # release values at render time.
 VALUES_ONLY_KEYS = ("enabled", "baseURL", "policyRef", "channelConfigs")
+
+# Allowlisted tools that change something outside the cluster's read path. Only
+# one persona holds any of these today, and it is the reason homelab-reviewer is
+# a separate ensemble bound to no channel. Kept as a list so a second one cannot
+# be added without this file noticing.
+WRITE_TOOLS = {"github_add_issue_comment"}
+
+# Skills a persona may not list for itself, with the values tree that owns them.
+# The web endpoint is a testing surface in front of the agent rather than part of
+# what the agent is, and it costs a Deployment per persona, so which ones carry
+# it is a per-cluster decision that has to be readable in one place.
+VALUES_ONLY_SKILLS = {"web-endpoint": "sympozium_web_endpoint"}
 
 DNS_1123 = re.compile(r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$")
 
@@ -177,6 +204,115 @@ def _values():
     except yaml.YAMLError:
         return None
     return values if isinstance(values, dict) else None
+
+
+def _check_shared_prompts():
+    """Check the shared delivery block: the files exist and hold known tokens only.
+
+    These files are substituted into every channel-bound persona, so a typo in
+    one of them breaks every agent at once. Helm catches an unknown token, but
+    only as "still holds an unsubstituted token" against the *persona's* prompt
+    file, which is not where the typo is.
+    """
+    root = BASE / "prompts"
+    names = [f"delivery/{level}.md" for level in VERBOSITY_LEVELS]
+    names += [f"notify/{level}.md" for level in NOTIFY_LEVELS]
+    names += list(SHARED_DELIVERY_FILES)
+    for name in names:
+        path = root / name
+        if not path.is_file():
+            raise Fail(f"prompts/{name} is missing")
+        text = path.read_text(encoding="utf-8")
+        if not text.strip():
+            raise Fail(f"prompts/{name} is empty")
+        for token in re.findall(r"\{\{.*?\}\}", text):
+            if token not in PROMPT_TOKENS:
+                raise Fail(
+                    f"prompts/{name}: {token} is not a token the templates "
+                    f"substitute. Known tokens: {', '.join(PROMPT_TOKENS)}"
+                )
+    header = (root / "delivery" / "header.md").read_text(encoding="utf-8")
+    for token in ("{{ AGENT }}", "{{ SCHEDULE }}"):
+        if token not in header:
+            raise Fail(
+                f"prompts/delivery/header.md no longer holds {token}. It is the "
+                f"only thing that tells a reader which of six agents wrote a "
+                f"report, which is the whole reason the file exists."
+            )
+    for level in VERBOSITY_LEVELS:
+        text = (root / "delivery" / f"{level}.md").read_text(encoding="utf-8")
+        if "chatId" not in text or "{{ CHANNEL }}" not in text:
+            raise Fail(
+                f"prompts/delivery/{level}.md does not spell out the chatId "
+                f"argument. send_channel_message takes the *transport* in "
+                f"`channel` ('slack') and the destination in `chatId`; a prompt "
+                f"that says only 'post to {{{{ CHANNEL }}}}' makes the model pass "
+                f"the channel name as the transport, and the tool then answers "
+                f"'Message sent' while delivering nothing."
+            )
+
+
+def _web_endpoint_config(ensemble_name):
+    """Web endpoint knobs for one ensemble: enabled, rate limits, personas."""
+    values = _values()
+    if values is None:
+        return None
+    entry = (values.get("sympozium_web_endpoint") or {}).get(ensemble_name) or {}
+    return entry if isinstance(entry, dict) else {}
+
+
+def _check_web_endpoint(persona_name, persona, web, warnings):
+    """Check the web endpoint is switched on from values and nowhere else.
+
+    Listing the skill on the persona would work, and would put a trigger in
+    front of an agent without that being visible next to the other per-cluster
+    decisions — the same reason `enabled` and `policyRef` are rejected in
+    ensemble.yaml.
+    """
+    skills = persona.get("skills") or []
+    for skill, tree in VALUES_ONLY_SKILLS.items():
+        if skill in skills:
+            raise Fail(
+                f"{persona_name}: lists the {skill!r} skill. It is switched on "
+                f"from {tree} in values/default.yaml.gotmpl, so that which "
+                f"agents carry a testing surface is readable in one place."
+            )
+    params = persona.get("skillParams") or {}
+    overlap = sorted(set(params) & set(VALUES_ONLY_SKILLS))
+    if overlap:
+        raise Fail(
+            f"{persona_name}: sets skillParams for {', '.join(overlap)}, which "
+            f"the templates overwrite from values at render time"
+        )
+
+    if web is None:
+        return
+    if not (web.get("enabled") or (web.get("personas") or {}).get(persona_name, {}).get("enabled")):
+        return
+    writable = sorted(
+        tool
+        for tool in persona.get("toolPolicy", {}).get("allow", [])
+        if tool in WRITE_TOOLS
+    )
+    if writable:
+        warnings.append(
+            f"{persona_name}: has a web endpoint and holds the write tool(s) "
+            f"{', '.join(writable)}, so anything that can reach the endpoint can "
+            f"make it write. Turn the endpoint off outside a test."
+        )
+
+
+def _check_unknown_web_endpoint_personas(ensemble_name, persona_names):
+    """A typo under `personas:` silently leaves that agent on the default."""
+    web = _web_endpoint_config(ensemble_name)
+    if not web:
+        return
+    unknown = sorted(set(web.get("personas") or {}) - set(persona_names))
+    if unknown:
+        raise Fail(
+            f"sympozium_web_endpoint.{ensemble_name}.personas names "
+            f"{', '.join(unknown)}, which is not a persona in this ensemble"
+        )
 
 
 def _delivery_config(ensemble_name):
@@ -421,7 +557,7 @@ def _check_schedule(persona_name, schedule):
         )
 
 
-def _check_persona(project, path, used, channel_secrets, delivery, warnings):
+def _check_persona(project, path, used, channel_secrets, delivery, web, warnings):
     persona = _load_yaml(path)
     name = persona.get("name")
     if not name:
@@ -468,6 +604,7 @@ def _check_persona(project, path, used, channel_secrets, delivery, warnings):
     _check_tools(name, persona, warnings)
     _check_channels(name, persona, channel_secrets, warnings)
     _check_delivery(project, name, persona, delivery, warnings)
+    _check_web_endpoint(name, persona, web, warnings)
     return name
 
 
@@ -511,11 +648,13 @@ def check(project):
     warnings = []
     channel_secrets = _channel_secrets(name)
     delivery = _delivery_config(name)
+    web = _web_endpoint_config(name)
     names = [
-        _check_persona(project, path, used, channel_secrets, delivery, warnings)
+        _check_persona(project, path, used, channel_secrets, delivery, web, warnings)
         for path in persona_files
     ]
     _check_unknown_delivery_personas(name, names)
+    _check_unknown_web_endpoint_personas(name, names)
 
     duplicates = sorted({n for n in names if names.count(n) > 1})
     if duplicates:
@@ -543,17 +682,23 @@ def main():
         print("no projects found", file=sys.stderr)
         return 1
 
-    values = _values() or {}
-    unknown_delivery = sorted(
-        set(values.get("sympozium_delivery") or {}) - {path.name for path in projects}
-    )
-    if unknown_delivery:
-        print(
-            f"error: sympozium_delivery names ensemble(s) that do not exist: "
-            f"{', '.join(unknown_delivery)}",
-            file=sys.stderr,
-        )
+    try:
+        _check_shared_prompts()
+    except Fail as error:
+        print(f"error: {error}", file=sys.stderr)
         return 1
+
+    values = _values() or {}
+    known = {path.name for path in projects}
+    for tree in ("sympozium_delivery", "sympozium_web_endpoint"):
+        unknown = sorted(set(values.get(tree) or {}) - known)
+        if unknown:
+            print(
+                f"error: {tree} names ensemble(s) that do not exist: "
+                f"{', '.join(unknown)}",
+                file=sys.stderr,
+            )
+            return 1
 
     failed = False
     for project in projects:

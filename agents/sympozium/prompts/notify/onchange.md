@@ -1,3 +1,5 @@
+### When to post
+
 Send **only** when this run meets the test in your *What counts as a change*
 section. Otherwise write the report as normal and send nothing.
 

@@ -9,7 +9,12 @@ release_name: datahub-local-ai
 #
 # Keys are the ensemble directory name, with optional per-persona overrides.
 #   channel    where send_channel_message posts. No CRD field carries a
-#              destination, so this only ever reaches the agent as prompt text.
+#              destination, so this only ever reaches the agent as prompt text —
+#              substituted into {{ CHANNEL }} and, from there, into the tool's
+#              `chatId` argument. See prompts/delivery/*.md: `chatId` is the
+#              destination and `channel` is the transport ("slack"), and the
+#              first version of these prompts had them the wrong way round,
+#              which is why nothing was ever delivered.
 #   verbosity  quiet | normal | verbose  -> prompts/delivery/<level>.md
 #   notify     always | onChange | never -> prompts/notify/<level>.md
 #
@@ -41,6 +46,43 @@ sympozium_delivery:
   # homelab-reviewer is absent on purpose: it is bound to no channel, and its
   # DO NOT MERGE comment on the pull request is the alert. See
   # projects/homelab-reviewer/README.md#notification.
+
+# Which agents also answer over HTTP, so a run can be started off-schedule to
+# test one. Chart-only, like sympozium_delivery above: enabling it appends the
+# `web-endpoint` SkillPack to the persona, and the controller responds by
+# deploying a web-proxy Deployment and a ClusterIP Service beside the agent. The
+# CRD's own `spec.webEndpoint` field is deprecated in favour of the skill, so it
+# is deliberately not set anywhere.
+#
+# The proxy turns one HTTP request into one AgentRun, against the same prompts,
+# skills, MCP servers and tool policy the schedule uses — which is the point: a
+# test that skipped any of those would not be testing the agent that runs at
+# 04:30. It costs a Deployment per persona and, on each request, a slot on the
+# one GPU.
+#
+#   POST /v1/chat/completions   OpenAI-compatible
+#   POST /v1/mcp                MCP
+#   GET  /healthz               the only route needing no Authorization header
+#
+# No `hostname` is set, so no HTTPRoute is created and the Service stays
+# ClusterIP: reachable by `kubectl port-forward`, and by nothing outside the
+# cluster. See ../README.md#testing-an-agent-over-http for the key and a call.
+#
+# Keys are the ensemble directory name, with optional per-persona overrides
+# under `personas:`, exactly as sympozium_delivery does.
+sympozium_web_endpoint:
+  homelab-ops:
+    enabled: true
+    requestsPerMinute: 60
+    burstSize: 10
+
+  homelab-reviewer:
+    # Off, and not for symmetry: renovate-reviewer is the one persona holding a
+    # write tool (github_add_issue_comment), and what it writes lands on a real
+    # pull request. It is also the one ensemble deliberately bound to no channel
+    # for the same reason. Turn this on for the length of a test and back off
+    # afterwards, rather than leaving a trigger sitting in front of it.
+    enabled: false
 
 # Per-cluster knobs merged into each Ensemble's spec, keyed by the directory name
 # under projects/. Everything describing *what an agent is* — prompts, skills,

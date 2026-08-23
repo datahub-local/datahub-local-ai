@@ -332,12 +332,42 @@ agents/sympozium/
   `verbosity` (`quiet|normal|verbose`), `notify` (`always|onChange|never`), with
   per-persona overrides. No CRD field carries a destination, so the channel only
   ever reaches the agent as prompt text: the templates substitute exactly
-  `{{ DELIVERY }}` and `{{ CHANNEL }}` and `fail` on any token left standing.
-  Chart-only knobs must stay out of `sympozium_ensembles` — the webhook decodes
-  `spec` strictly and rejects an unknown key outright. `scripts/validate.py`
-  cross-checks every half. Note the binding is *bidirectional* — an inbound
-  Slack message can start an `AgentRun` — which is why `homelab-reviewer`, the
-  only ensemble with a write tool, is not bound.
+  `{{ DELIVERY }}`, `{{ CHANNEL }}`, `{{ AGENT }}`, `{{ ENSEMBLE }}` and
+  `{{ SCHEDULE }}` and `fail` on any token left standing. `{{ DELIVERY }}`
+  expands to three files — `prompts/delivery/header.md` (always), the chosen
+  `delivery/<verbosity>.md`, and `notify/<level>.md`. Chart-only knobs must stay
+  out of `sympozium_ensembles` — the webhook decodes `spec` strictly and rejects
+  an unknown key outright. `scripts/validate.py` cross-checks every half. Note
+  the binding is *bidirectional* — an inbound Slack message can start an
+  `AgentRun` — which is why `homelab-reviewer`, the only ensemble with a write
+  tool, is not bound.
+- **`send_channel_message` takes the destination in `chatId`.** Its `channel`
+  argument is the *transport* (`slack`, `telegram`, …), never a `#name`. With
+  `chatId` unset the tool still answers `Message sent`, targets "owner (self)",
+  and on a scheduled run — which has no owner — Slack rejects it as
+  `channel_not_found` in the `<persona>-channel-slack` sidecar log, the only
+  place a delivery failure is ever visible. This cost every scheduled report for
+  two days; `prompts/delivery/*.md` now names both arguments and the validator
+  fails a verbosity file that stops mentioning `chatId`. Full write-up in
+  `agents/sympozium/README.md`.
+- **The report names its agent; it never invents a time.** Nothing in this fleet
+  returns the current time (verified — the runtime injects no clock and no MCP
+  server exposes one), so the header carries agent, ensemble and cadence, the
+  prompts forbid any date or duration not read from a tool result, and Slack's
+  message stamp is the run time. An authoritative in-message timestamp needs a
+  `lifecycle.postRun` gate hook, which is the CRD's mechanism for rewriting
+  agent output.
+- **An HTTP endpoint is a values decision, not a persona one.**
+  `sympozium_web_endpoint` appends the `web-endpoint` SkillPack, and the
+  controller deploys a web-proxy that turns one request into one `AgentRun`
+  against the same prompts, skills and tool policy the schedule uses. Both the
+  template and the validator reject a persona that lists the skill itself, so
+  which agents have a trigger in front of them stays readable in one place. It
+  is off for `renovate-reviewer` — the only persona with a write tool. For a
+  test that needs to *differ* from the real thing, apply an `AgentRun` by hand:
+  it takes `systemPrompt`, `task` and `toolPolicy` inline, and the pod is
+  deleted on completion whatever `cleanup` says, so `status.result` and the
+  sidecar logs are the whole record.
 - **`toolPolicy.allow` is a strict allowlist.** Omitting a tool disables it, so
   adding a capability means adding the tool name *and* wiring its MCP server on
   that persona. The build script cross-checks the two.

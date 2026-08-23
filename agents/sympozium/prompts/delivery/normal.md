@@ -6,7 +6,7 @@ no padding spaces:
 
     channel   slack
     chatId    {{ CHANNEL }}
-    text      the report, exactly as written above — every section, in order
+    text      the report, exactly as written above - every section, in order
 
 `channel` is the *transport* — one of whatsapp, telegram, discord, slack. It is
 never a `#name`. The destination is `chatId`, and nothing else in the call

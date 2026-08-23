@@ -237,8 +237,13 @@ parameters. It is a hybrid-attention model: its GGUF reports
 `full_attention_interval = 4` and `head_count_kv = [0,0,0,4, …]`, meaning only
 8 of 32 layers keep a growing KV cache, at ~32 KiB/token — about 4.5× cheaper
 than a uniform-GQA model of the same size. That is what makes a useful context
-affordable on 6 GiB, but it does not stretch to Gemma's 131k: the context is set
-to 32768, which is far more than any of these runs needs.
+affordable on 6 GiB. The window was 32768 until 2026-08-23 and is now 65536,
+set by `OLLAMA_CONTEXT_LENGTH` on core's ollama Deployment and paired with
+`OLLAMA_KV_CACHE_TYPE=q8_0` to keep the cache on the GPU. Read the effective
+value from `GET /api/ps` with the model resident, never from this file and never
+from `/api/show`, which reports the architecture's 262144 ceiling instead. See
+*The window was then raised to 65536* below for why the tool-surface budget
+matters regardless of the number.
 
 - **`workflowType: autonomous`, not `delegation`.** Delegation needs a model
   that reliably emits `delegate_to_persona` calls with a coherent payload. At
@@ -707,6 +712,90 @@ the second instance of the rule in *Tool names are not guessable* — a tool tha
 does not arrive fails silently, whether the name is wrong or the whole server is
 unreachable, so re-run the discovery check after any MCP image or transport
 change.
+
+### The tool schemas, not the report, are what fills the context
+
+`toolPolicy` filters at the LLM request. It does not stop a tool being
+*registered*, and every registered tool's JSON schema is injected into the
+prompt on every call. The runner says so plainly — this is a run with nine
+allowed tools:
+
+    tools enabled: 60 tool(s) registered
+
+Sixty, because the grafana MCP server alone exposes 66 tools and the persona only
+denied 14 of them. Measured with two throwaway `AgentRun`s that differ in nothing
+but `toolPolicy`, each with a one-line system prompt and no task worth the name:
+
+| Run | `toolPolicy` | First-call input |
+| --- | --- | --- |
+| mirrors the web proxy | absent | **40,500 tokens** |
+| mirrors the schedule | the persona's nine | 4,095 tokens |
+
+Ollama reported the live window as `context_length: 32768` at the time, so
+40,500 did not fit. Nothing errors: the request is truncated and the run proceeds
+against a prompt with the front of it gone — which is where the persona, the
+report format, the four required sections and the delivery instructions all live.
+That is the whole explanation for
+
+    (Agent completed its task via tool calls but did not produce a final text
+     summary.)
+
+on a web-triggered run. The agent is not ignoring its instructions; it never
+received them. It also explains the mangled `chatId` above, and why a web run
+costs three times the tokens of a scheduled one for a worse answer.
+
+The fix is `toolsAllow` on each persona's `mcpServers` entry, which filters at
+the server and therefore bounds what is registered at all. Every persona now
+pins it to exactly the tools its `toolPolicy.allow` names, unprefixed, and
+`scripts/validate.py` fails if the two lists drift in either direction — a tool
+in `toolsAllow` but not `toolPolicy.allow` is prompt weight the model can never
+use, and the reverse never reaches the agent. sre-sentinel's grafana wiring goes
+from 52 registered tools to two.
+
+This also repairs the web endpoint as a side effect: a run with no `toolPolicy`
+now has only ~15 tools to describe, so it fits the window with or without the
+policy. The `toolsDeny` lists stay, and are now redundant by construction —
+`toolsAllow` already excludes every write tool. They are kept as documentation of
+which write names are real, because core's own catalog denies names that do not
+exist (see *Tool names are not guessable*); do not mistake them for the
+enforcing mechanism.
+
+### The window was then raised to 65536, which does not retire the rule
+
+Core's ollama Deployment now sets `OLLAMA_CONTEXT_LENGTH=65536`, alongside
+`OLLAMA_FLASH_ATTENTION=1` and `OLLAMA_KV_CACHE_TYPE=q8_0`. Verified live after
+forcing a load — `GET /api/ps` reports `context_length: 65536` with
+`size_vram == size` at 4.45 GB, so the model and its KV cache are wholly on the
+6 GiB GPU with nothing spilled to CPU. The two Ollama tuning flags are
+load-bearing for that, not incidental: a q8_0 KV cache is half the size of f16,
+and doubling the window doubles what the cache costs. Re-check `size_vram`
+against `size` after any change to either flag, the window, or the model — a
+spill to CPU does not fail, it just makes every run several times slower.
+
+Do not read the number out of this file. It lives in core's Deployment, and the
+authoritative check is `GET /api/ps` with the model resident, which is the only
+place the *effective* window appears — `/api/show` reports the architecture's
+262144 ceiling, which has never been what a request gets.
+
+40,500 now fits, so the raised window fixes the overflow on its own and
+`toolsAllow` is no longer what stands between a web run and a truncated prompt.
+The rule survives it anyway, for reasons that have nothing to do with the
+window's size:
+
+- At roughly 670 tokens per tool schema, sixty tools is ~40k of prompt on *every*
+  call in the loop. That was the difference between 433,866 input tokens for a
+  16-call web run and ~160,000 for a comparable scheduled one — same GPU, one
+  model resident, and every token of it serialised through it.
+- A 4B model chooses badly among sixty tools. The allowlist was always partly a
+  precision device, which is why personas are held to five-to-seven tools; a
+  registered-but-unallowlisted tool is described to the model and then refused,
+  which is the worst of both.
+- Headroom is what absorbs a large Prometheus result mid-run. Spending most of
+  the window on schemas before the first query removes exactly that.
+
+So the general rule holds in its stronger form: on a local model, the tool
+surface is a prompt budget before it is a permissions question, and the budget is
+spent on every call rather than once.
 
 ### A web-endpoint run drops the persona's `toolPolicy` entirely
 

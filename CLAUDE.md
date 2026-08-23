@@ -373,7 +373,12 @@ agents/sympozium/
   builds its child run from the `Agent` object, whose CRD has no `toolPolicy`
   field, so a web-triggered run of `sre-sentinel` starts with 60 tools instead of
   9 — `write_file` and `execute_command` among them. The read-only guarantee
-  holds for scheduled runs, not for HTTP ones.
+  holds for scheduled runs, not for HTTP ones. Until `toolsAllow` was pinned this
+  also broke the endpoint outright: 60 tool schemas overflowed the then-32k
+  context, so a web run never read its own system prompt and ended
+  `(Agent completed its task via tool calls but did not produce a final text
+  summary.)` The window is now 65536, which fixes that overflow; the budget
+  argument below stands on its own.
 - **Test with a hand-applied `AgentRun`, not the HTTP endpoint.** It suppresses
   no schedule and takes `systemPrompt`, `task` and `toolPolicy` inline, so a
   probe can differ from the real thing. The pod is deleted on completion
@@ -385,6 +390,21 @@ agents/sympozium/
   during the run shows every tool call, its arguments, and the final
   `__SYMPOZIUM_RESULT__` line — so stream the pod rather than reading the object
   afterwards, and never read an empty `result` as a quiet run.
+- **`toolsAllow` is the prompt budget; `toolPolicy` is only the permission.**
+  `toolPolicy` filters at the LLM request, but every tool the server exposes is
+  still *registered* and its schema still injected — a persona allowing nine
+  tools logs `tools enabled: 60 tool(s) registered`, because grafana alone
+  exposes 66 and the persona only denied 14. At roughly 670 tokens per schema
+  that is ~40k of prompt — measured: 40,500 first-call input tokens without
+  `toolPolicy` versus 4,095 with it — and it is spent on *every* call in the
+  loop, not once. That overflowed the window outright while it was 32,768
+  (silently truncated from the front, losing the persona and the report format);
+  at 65,536 it merely leaves no headroom for a large Prometheus result and gives
+  a 4B model sixty tools to choose between. Every persona therefore pins
+  `mcpServers[].toolsAllow` to exactly the tools its `toolPolicy.allow` names,
+  unprefixed, and `scripts/validate.py` fails on any drift between the two. The
+  `toolsDeny` lists are now redundant by construction and kept only as a record
+  of which write names are real; they are not the enforcing mechanism.
 - **`toolPolicy.allow` is a strict allowlist.** Omitting a tool disables it, so
   adding a capability means adding the tool name *and* wiring its MCP server on
   that persona. The build script cross-checks the two.
@@ -455,7 +475,10 @@ rather than copying the outcomes, since the constraints will change.
   also redundant. An agent that changes things should be a separate, explicitly
   authorised one, not a capability quietly added to a reporter.
 - **The model constrains the design.** Inference is cluster-local Ollama
-  (`qwen3.5:4b`, one 6 GiB GPU, one resident model, 32k context). Hence
+  (`qwen3.5:4b`, one 6 GiB GPU, one resident model, a 65,536 context as of
+  2026-08-23 — read the effective value from Ollama's `GET /api/ps` with the
+  model resident, not from `/api/show`, which reports the architecture ceiling).
+  Hence
   `workflowType: autonomous` rather than `delegation` (too small to be trusted
   with `delegate_to_persona`), five-to-eleven-tool allowlists, two skills per
   persona, `runTimeout: 30m` against a 10m default, and staggered schedules with

@@ -46,6 +46,17 @@ mcpServers:
   - name: datahub-local-core-automation-sympozium-mcp-argocd
     timeout: 30
     toolsPrefix: argocd
+    # toolsAllow, not just toolsDeny: this filter runs at the server, so it is
+    # what decides how many tool schemas are injected into the context window.
+    # The full grafana catalogue is 66 tools and ~40k tokens of prompt before
+    # the task is even read — the whole window as it stood until 2026-08-23, and
+    # still most of it. The list mirrors this persona's toolPolicy.allow with
+    # the prefix stripped, and validate.py fails if the two drift.
+    toolsAllow:
+      - list_applications
+      - get_application
+      - get_application_events
+      - get_application_resource_tree
 
 toolPolicy:
   allow:

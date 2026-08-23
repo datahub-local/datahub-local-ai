@@ -3,7 +3,10 @@
 Make this line the first line of the report, and of the message you send, with
 a blank line after it:
 
-    {{ AGENT }} · {{ ENSEMBLE }} · {{ SCHEDULE }}
+    {{ AGENT }} | {{ ENSEMBLE }} | {{ SCHEDULE }}
+
+Every character of that line is ASCII, deliberately. Reproduce it as ASCII and
+do not substitute a typographic separator for the pipes.
 
 Six agents post into these channels and their reports look alike — a Status
 line and a few bullets. Without the header there is nothing in the message that

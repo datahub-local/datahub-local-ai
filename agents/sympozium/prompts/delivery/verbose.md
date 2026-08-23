@@ -6,7 +6,7 @@ no padding spaces:
 
     channel   slack
     chatId    {{ CHANNEL }}
-    text      the report, exactly as written above — every section, in order,
+    text      the report, exactly as written above - every section, in order,
              and under each finding the query you ran or the tool output the
              finding rests on, so a reader can check it without reopening the
              run

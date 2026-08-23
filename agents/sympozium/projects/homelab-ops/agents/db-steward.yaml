@@ -49,6 +49,15 @@ mcpServers:
   - name: datahub-local-core-automation-sympozium-mcp-postgres
     timeout: 30
     toolsPrefix: pg
+    # toolsAllow, not just toolsDeny: this filter runs at the server, so it is
+    # what decides how many tool schemas are injected into the context window.
+    # The full grafana catalogue is 66 tools and ~40k tokens of prompt before
+    # the task is even read — the whole window as it stood until 2026-08-23, and
+    # still most of it. The list mirrors this persona's toolPolicy.allow with
+    # the prefix stripped, and validate.py fails if the two drift.
+    toolsAllow:
+      - analyze_db_health
+      - get_top_queries
     # execute_sql is the one write-capable tool on this server, and postgres-mcp
     # defaults to unrestricted access mode. The analyze_* tools answer
     # everything this agent needs.
@@ -57,6 +66,12 @@ mcpServers:
   - name: datahub-local-core-automation-sympozium-mcp-grafana
     timeout: 30
     toolsPrefix: grafana
+    # toolsAllow mirrors this persona's toolPolicy.allow with the prefix
+    # stripped. It runs at the server, so it is what bounds how much of the
+    # context window the tool schemas consume. validate.py fails if they drift.
+    toolsAllow:
+      - query_prometheus
+      - list_datasources
     toolsDeny:
       - grafana_api_request
       - update_dashboard
@@ -75,6 +90,11 @@ mcpServers:
   - name: datahub-local-core-automation-sympozium-mcp-k8s
     timeout: 30
     toolsPrefix: k8s
+    # toolsAllow mirrors this persona's toolPolicy.allow with the prefix
+    # stripped. It runs at the server, so it is what bounds how much of the
+    # context window the tool schemas consume. validate.py fails if they drift.
+    toolsAllow:
+      - resources_list
     toolsDeny:
       - pods_delete
       - pods_exec

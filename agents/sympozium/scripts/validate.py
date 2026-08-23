@@ -232,6 +232,7 @@ def _check_shared_prompts():
                     f"substitute. Known tokens: {', '.join(PROMPT_TOKENS)}"
                 )
     header = (root / "delivery" / "header.md").read_text(encoding="utf-8")
+    _check_verbatim_ascii("delivery/header.md", header)
     for token in ("{{ AGENT }}", "{{ SCHEDULE }}"):
         if token not in header:
             raise Fail(
@@ -250,6 +251,7 @@ def _check_shared_prompts():
                 f"the channel name as the transport, and the tool then answers "
                 f"'Message sent' while delivering nothing."
             )
+        _check_verbatim_ascii(f"delivery/{level}.md", text)
         if '"{{ CHANNEL }}"' in text or "'{{ CHANNEL }}'" in text:
             raise Fail(
                 f"prompts/delivery/{level}.md shows the chatId value in quotes. "
@@ -259,6 +261,37 @@ def _check_shared_prompts():
                 f"answers 'Message sent'. Write the value bare."
             )
 
+
+def _check_verbatim_ascii(label, text):
+    """Indented blocks in the delivery prompts must be pure ASCII.
+
+    These blocks are the strings the model is ordered to reproduce character for
+    character — the report header above all. A 4B model reproducing a multi-byte
+    character sometimes emits a broken sequence, and the runner ships its final
+    reply to the controller over gRPC, which refuses to marshal a string that is
+    not valid UTF-8:
+
+        rpc error: ... grpc: error while marshaling: string field contains
+        invalid UTF-8
+
+    The run still reports Succeeded, the report still reaches Slack, and
+    status.result is silently empty — which is what the run page then shows. The
+    header used U+00B7 as its separator and roughly 58% of runs came back with no
+    result at all. Keep every character the model must echo inside ASCII.
+    """
+    for lineno, line in enumerate(text.splitlines(), start=1):
+        if not line.startswith("    "):
+            continue
+        bad = sorted({ch for ch in line if not (" " <= ch <= "~")})
+        if bad:
+            shown = ", ".join(f"{ch!r} (U+{ord(ch):04X})" for ch in bad)
+            raise Fail(
+                f"prompts/{label}:{lineno} has non-ASCII in an indented block "
+                f"the model is told to reproduce verbatim: {shown}. A 4B model "
+                f"mangles multi-byte characters, the runner cannot marshal the "
+                f"broken string over gRPC, and status.result comes back empty "
+                f"while the run still reports Succeeded. Use ASCII."
+            )
 
 def _web_endpoint_config(ensemble_name):
     """Web endpoint knobs for one ensemble: enabled, rate limits, personas.
@@ -536,6 +569,41 @@ def _check_tools(persona_name, persona, warnings):
                 )
 
     policy = persona.get("toolPolicy", {})
+
+    # toolsAllow is the only knob that bounds the *prompt*, as opposed to what
+    # the agent is permitted to do. toolPolicy filters at the LLM request, but
+    # every tool the server exposes is still registered and its schema still
+    # injected: the grafana catalogue is 66 tools and costs ~40k prompt tokens,
+    # which overflowed the window outright before it was raised to 65536 and is
+    # still most of it. So each
+    # wired server must pin toolsAllow to exactly the tools this persona
+    # allowlists, unprefixed.
+    for server in persona.get("mcpServers", []):
+        prefix = server.get("toolsPrefix")
+        wanted = sorted(
+            tool[len(prefix) + 1:]
+            for tool in policy.get("allow", [])
+            if tool.startswith(f"{prefix}_")
+        )
+        declared = server.get("toolsAllow")
+        if declared is None:
+            raise Fail(
+                f"{persona_name}: MCP server {prefix!r} has no toolsAllow. Without "
+                f"it every tool the server exposes is registered and its schema "
+                f"injected into the context window — the grafana catalogue alone "
+                f"is 66 tools and ~40k prompt tokens, most of the window, spent "
+                f"before the run reads its task. Pin it to: {', '.join(wanted)}"
+            )
+        if sorted(declared) != wanted:
+            raise Fail(
+                f"{persona_name}: MCP server {prefix!r} toolsAllow does not match "
+                f"toolPolicy.allow. toolsAllow has {sorted(declared)}, "
+                f"toolPolicy.allow implies {wanted}. A tool in toolsAllow but not "
+                f"toolPolicy.allow is prompt weight the model may never use; one "
+                f"in toolPolicy.allow but not toolsAllow never reaches the agent "
+                f"at all."
+            )
+
     for tool in policy.get("allow", []) + policy.get("deny", []):
         if tool in BUILTIN_TOOLS:
             continue

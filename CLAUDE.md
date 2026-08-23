@@ -347,9 +347,13 @@ agents/sympozium/
   and on a scheduled run — which has no owner — Slack rejects it as
   `channel_not_found` in the `<persona>-channel-slack` sidecar log, the only
   place a delivery failure is ever visible. This cost every scheduled report for
-  two days; `prompts/delivery/*.md` now names both arguments and the validator
-  fails a verbosity file that stops mentioning `chatId`. Full write-up in
-  `agents/sympozium/README.md`.
+  two days. Naming the argument was not enough: the prompts showed the call as
+  `chatId: "{{ CHANNEL }}"` and a 4B model copied the quotes into the value, so
+  Slack rejected the same way for another two days. `prompts/delivery/*.md` now
+  write every argument bare, and the validator fails a verbosity file that stops
+  mentioning `chatId` *or* puts `{{ CHANNEL }}` back in quotes. A prompt for a
+  model this size must never show a value inside syntax the model is also
+  expected to strip. Full write-up in `agents/sympozium/README.md`.
 - **The report names its agent; it never invents a time.** Nothing in this fleet
   returns the current time (verified — the runtime injects no clock and no MCP
   server exposes one), so the header carries agent, ensemble and cadence, the
@@ -357,17 +361,30 @@ agents/sympozium/
   message stamp is the run time. An authoritative in-message timestamp needs a
   `lifecycle.postRun` gate hook, which is the CRD's mechanism for rewriting
   agent output.
-- **An HTTP endpoint is a values decision, not a persona one.**
-  `sympozium_web_endpoint` appends the `web-endpoint` SkillPack, and the
-  controller deploys a web-proxy that turns one request into one `AgentRun`
-  against the same prompts, skills and tool policy the schedule uses. Both the
-  template and the validator reject a persona that lists the skill itself, so
-  which agents have a trigger in front of them stays readable in one place. It
-  is off for `renovate-reviewer` — the only persona with a write tool. For a
-  test that needs to *differ* from the real thing, apply an `AgentRun` by hand:
-  it takes `systemPrompt`, `task` and `toolPolicy` inline, and the pod is
-  deleted on completion whatever `cleanup` says, so `status.result` and the
-  sidecar logs are the whole record.
+- **An HTTP endpoint replaces a persona's schedule; it does not add to it.** A
+  serving `AgentRun` makes the schedule controller skip every tick for that
+  agent — silently, with the `SympoziumSchedule` still `Active` and no run
+  failing. So `sympozium_web_endpoint.enabled` is a master switch that stays
+  `false` and is flipped on only for the length of a test. It is a values
+  decision, never a persona one: the tree appends the `web-endpoint` SkillPack
+  at render time, and both the template and the validator reject a persona that
+  lists the skill itself, so which agents have a trigger in front of them stays
+  readable in one place. It also **drops the persona's `toolPolicy`**: the proxy
+  builds its child run from the `Agent` object, whose CRD has no `toolPolicy`
+  field, so a web-triggered run of `sre-sentinel` starts with 60 tools instead of
+  9 — `write_file` and `execute_command` among them. The read-only guarantee
+  holds for scheduled runs, not for HTTP ones.
+- **Test with a hand-applied `AgentRun`, not the HTTP endpoint.** It suppresses
+  no schedule and takes `systemPrompt`, `task` and `toolPolicy` inline, so a
+  probe can differ from the real thing. The pod is deleted on completion
+  whatever `cleanup` says, so `status.result` and the channel sidecar logs are
+  the whole record — plan the probe around reading those. And `status.result` is
+  not reliable: it is empty on roughly half of all runs, on every trigger type,
+  with no `error` set and no relation to length (a 1599-character result stores
+  fine). The runner does emit the report — `kubectl logs <pod> -c agent -f`
+  during the run shows every tool call, its arguments, and the final
+  `__SYMPOZIUM_RESULT__` line — so stream the pod rather than reading the object
+  afterwards, and never read an empty `result` as a quiet run.
 - **`toolPolicy.allow` is a strict allowlist.** Omitting a tool disables it, so
   adding a capability means adding the tool name *and* wiring its MCP server on
   that persona. The build script cross-checks the two.
@@ -401,6 +418,13 @@ rather than copying the outcomes, since the constraints will change.
   denies `execute_write_query`, and **none of those tool names exist**, so both
   servers are write-capable today. Personas here re-deny the real names
   themselves. Re-check after image bumps — every MCP image is pinned `:latest`.
+  A whole *server* fails the same silent way: core's `mcp-k8s` is the one
+  MCPServer declared `transportType: http`, the discovery bridge asks for the
+  service root, and `kubernetes-mcp-server` serves `/mcp` — so it 404s and every
+  `k8s_*` tool has been missing from every persona since it was created, with
+  `MCPServer.status.ready` reporting `true` throughout. Read
+  `kubectl logs <run-pod> -c mcp-discover` after any transport or image change;
+  it prints the per-server tool counts.
 - **Split ensembles on trust boundaries, not on subject.** Ensemble-level
   settings apply to every persona inside, so the one agent holding a write tool
   (`renovate-reviewer`, which may only comment) lives in its own ensemble. The

@@ -55,9 +55,19 @@ agents/sympozium/
    ```bash
    uv sync --extra sympozium
    uv run python agents/sympozium/scripts/validate.py
-   cd agents/sympozium && helm template datahub-local-ai-sympozium . \
-     -n automation -f values/default.yaml.gotmpl
+   cd agents/sympozium && helmfile template
    ```
+
+   **Render with `helmfile`, not bare `helm template`.** ArgoCD's CMP runs
+   `argo-cd-helmfile.sh`, and helmfile renders `values/default.yaml.gotmpl` as a
+   Go template *before* Helm parses it as YAML — comments included. So a literal
+   `{{ … }}` anywhere in that file, even inside a `#` comment, is an
+   undefined-function error that `helm template -f` never sees, because it reads
+   the same file as plain YAML. A comment naming a prompt token in braces broke
+   the sync that way on 2026-08-23, after both the validator and CI had passed.
+   CI now renders through helmfile for exactly this reason. Prompt tokens are
+   written without braces in that file; everywhere else — prompts, templates,
+   this README — braces are fine.
 
 3. Deploy — either `helmfile apply` from `agents/sympozium/`, or let ArgoCD sync
    it. The two `ignoreDifferences` entries are a backstop only: every
@@ -423,43 +433,138 @@ a verbosity file stops mentioning `chatId`. There is nothing to set on the CRD �
 no Sympozium field carries a destination, which is why the channel reaches the
 agent as prompt text in the first place.
 
+### Naming the argument was not enough — the example's punctuation leaked into it
+
+The fix above stopped `chatId` being omitted and started a second version of the
+same failure, which held for another two days. The verbosity files showed the
+call as an indented block of `key: "value"` pairs:
+
+    channel: "slack"
+    chatId:  "{{ CHANNEL }}"
+
+and a 4B model reproduces a block like that character for character, quotes and
+alignment included. The tool was called with
+
+    chatId = " \"#monitoring-ai-alerts\""
+
+— a leading space and two literal double quotes inside the value. Slack has no
+channel by that name, so `chat.postMessage` returns `channel_not_found` exactly
+as it did when the argument was missing, and `send_channel_message` again
+answers `Message sent`. Reproduced with a throwaway `AgentRun` whose system
+prompt used that block shape and no other instruction; the `channel-slack`
+Deployment logged
+
+    "msg":"failed to send Slack message","chatId":" \"#monitoring-ai-alerts\"",
+    "error":"...channel_not_found"
+
+which is the one place the quotes are visible. The validator's `chatId`-is-named
+rule passed the whole time, because the argument *was* named.
+
+So a prompt for a model this size cannot show a value inside syntax the model is
+also expected to strip. `prompts/delivery/*.md` now write the arguments bare —
+
+    channel   slack
+    chatId    {{ CHANNEL }}
+
+— say outright that nothing may be added around a value, and describe the
+punctuation-carrying failure alongside the omitted-argument one.
+`scripts/validate.py` rejects a verbosity file that puts `{{ CHANNEL }}` back in
+quotes. The quoted signature at the top of this section is prose for a human
+reader and stays as it is; the constraint applies to the prompt files, which are
+read by a 4B model with no ability to tell an example's delimiters from its
+content.
+
 ## Testing an agent over HTTP
 
 `sympozium_web_endpoint` in `values/default.yaml.gotmpl` puts an HTTP endpoint
 in front of a persona, so a run can be started without waiting for its cron.
 Enabling it appends the `web-endpoint` SkillPack, and the controller deploys a
 web-proxy beside the agent that turns one request into one `AgentRun` — against
-the same prompt, skills, MCP servers and tool policy the schedule uses. It is on
-for all five `homelab-ops` personas and off for `renovate-reviewer`, which holds
-a write tool.
+the same prompt, skills, MCP servers and tool policy the schedule uses.
+
+The switch is in two parts, and they AND:
+
+```yaml
+sympozium_web_endpoint:
+  enabled: false           # master — OFF: an endpoint replaces the schedule
+  ensembles:
+    homelab-ops:
+      enabled: true        # all five personas
+      requestsPerMinute: 60
+      burstSize: 10
+    homelab-reviewer:
+      enabled: false       # the one persona with a write tool
+```
+
+The master switch exists separately from the per-ensemble ones because this is
+something you flip on for a test and off again — see the next section for why —
+and that must not mean editing, and then having to remember to restore, the
+per-agent decisions underneath. Per-persona overrides go under
+`ensembles.<name>.personas.<persona>`, exactly as `sympozium_delivery` does; the
+validator rejects a stray key at the root and a persona name that does not
+exist.
 
 No `hostname` is set, so no `HTTPRoute` is created and the Service stays
-ClusterIP: nothing outside the cluster can reach it.
+ClusterIP: nothing outside the cluster can reach it. The object names are the
+controller's, not this chart's:
 
-    kubectl get svc -n automation | grep web
-    kubectl get secret -n automation -o name | grep web-endpoint
+    kubectl get deploy,svc,secret,agentrun -n automation | grep web-endpoint
 
-    KEY=$(kubectl get secret homelab-ops-sre-sentinel-web-endpoint-key \
+    KEY=$(kubectl get secret homelab-ops-sre-sentinel-web-proxy-key \
       -n automation -o jsonpath='{.data.api-key}' | base64 -d)
-    kubectl port-forward -n automation svc/homelab-ops-sre-sentinel-web 8080:8080 &
+    kubectl port-forward -n automation \
+      svc/homelab-ops-sre-sentinel-web-endpoint-server 8080:8080 &
 
     curl -s localhost:8080/healthz
     curl -s localhost:8080/v1/chat/completions \
       -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' \
       -d '{"model":"default","messages":[{"role":"user","content":"Do an on-call sweep now."}]}'
 
-Confirm the object names against the cluster rather than trusting the ones above
-— they are the controller's, not this chart's.
+### The endpoint *replaces* the schedule — it does not sit beside it
 
-Two things to know before leaning on it. A request costs a slot on the one GPU,
-the same as a scheduled run, so a test queued behind a heartbeat tick waits for
-it. And the endpoint is a trigger: every persona behind one is read-only today,
-which is the only reason a ClusterIP with a bearer key is a reasonable place to
-leave it.
+**This is the reason `sympozium_web_endpoint.enabled` is `false`.** Enabling the
+endpoint silently stops every scheduled run for that persona.
 
-Where a test needs to differ from the real thing — a different prompt, a
-narrower tool policy, no delivery — an `AgentRun` applied by hand is the better
-tool, since it takes `systemPrompt`, `task` and `toolPolicy` inline:
+Enabling it creates one long-lived `AgentRun` per persona in phase `Serving`
+(`mode: server`, `agentId: web-endpoint`, a fixed `sessionKey: web-endpoint`),
+which puts the `Agent` itself into phase `Serving` with one active pod. The
+schedule controller then refuses to fire:
+
+    INFO controllers.SympoziumSchedule Skipping trigger — instance has a
+    serving AgentRun {"sympoziumschedule": "homelab-ops-sre-sentinel-schedule",
+    "servingRun": "homelab-ops-sre-sentinel-web-endpoint"}
+
+Observed, not inferred. The endpoints came up at 05:24:30Z on 2026-08-23; the
+next two due ticks — `db-steward` at 05:30 (daily) and `sre-sentinel` at 05:38
+(30m heartbeat) — never produced an `AgentRun`, and the `SympoziumSchedule`
+objects stayed `Active` while quietly skipping. Nothing surfaces this: no
+failed run, no event on the schedule, no change in phase. The fleet just stops.
+
+So the two are mutually exclusive per persona, and the choice is: a scheduled
+agent, or an on-demand one. For this fleet the schedule *is* the product, which
+is why the master switch stays off and gets flipped on only for the length of a
+test:
+
+    # values/default.yaml.gotmpl
+    sympozium_web_endpoint:
+      enabled: true     # <- and back to false afterwards
+
+Two smaller things, if you do turn it on. The serving run has
+`useContext: true` on a *fixed* session key, so successive HTTP requests
+accumulate conversation history while every scheduled run starts clean — the
+second request reproduces a cron run with the first still in context, not a
+clean one. And the endpoint is a trigger: every persona behind one is read-only
+today, which is the only reason a ClusterIP with a bearer key is a reasonable
+place to leave it.
+
+**Prefer a hand-applied `AgentRun` for most testing.** It costs no schedule, no
+Deployment and no serving state, and it takes `systemPrompt`, `task` and
+`toolPolicy` inline so a probe can differ from the real thing — see below.
+
+An `AgentRun` applied by hand is the better tool for almost every test: it
+suppresses no schedule, and it takes `systemPrompt`, `task` and `toolPolicy`
+inline, so a probe can differ from the real thing — a different prompt, a
+narrower tool policy, no delivery:
 
     kubectl apply -f - <<'EOF'
     apiVersion: sympozium.ai/v1alpha1
@@ -568,6 +673,70 @@ prompt — no structural change.
 A fifth, unrelated change to `releases/automation/` is what currently stops the
 fleet running at all — see below.
 
+### The `mcp-k8s` MCPServer is `transportType: http` and answers 404
+
+Every `k8s_*` tool has been absent from every persona since the server was
+created. `datahub-local-core-automation-sympozium-mcp-k8s` is the one MCPServer
+in the catalog declared `transportType: http`; the other four are `stdio` and
+work. The tool-discovery init container hits the service root and gets a 404 on
+all six attempts:
+
+    kubectl logs -n automation <run-pod> -c mcp-discover
+    WARNING: all 6 discover attempts failed for "...-mcp-k8s":
+      HTTP 404 from http://...-mcp-k8s.automation.svc:8080: 404 page not found
+    Discovered 51 tools from "...-mcp-grafana"
+    Wrote tool manifest with 51 tools
+
+`ghcr.io/containers/kubernetes-mcp-server` serves streamable HTTP under `/mcp`,
+not `/`, and nothing in the CR can add a path — `spec.url` exists only for
+external servers with no `deployment`. Confirmed against the running pod: `POST
+/` is 404, `POST /mcp` is 200 and answers with a JSON-RPC session error, which is
+the correct response to an uninitialised `tools/list`.
+
+`MCPServer.status.ready` is `true` regardless, because it tracks the Deployment
+and not a `tools/list`, so nothing surfaces this. The only visible symptom is a
+run that quietly cannot investigate: `sre-sentinel` loses
+`k8s_pods_list`, `k8s_events_list`, `k8s_pods_log` and `k8s_resources_list`, so
+every cause it reports comes from Prometheus alert labels alone, and the reports
+read plausibly while resting on nothing but metrics.
+
+The fix belongs in core, and the cluster already demonstrates it: give the k8s
+server `transportType: stdio` like grafana, argocd, github and postgres, and the
+controller's shim serves it at the root the bridge already asks for. This is also
+the second instance of the rule in *Tool names are not guessable* — a tool that
+does not arrive fails silently, whether the name is wrong or the whole server is
+unreachable, so re-run the discovery check after any MCP image or transport
+change.
+
+### A web-endpoint run drops the persona's `toolPolicy` entirely
+
+The `web-endpoint` SkillPack's proxy builds the child `AgentRun` from the
+**`Agent`** object, and the Agent CRD has no `spec.toolPolicy` and no
+`spec.systemPrompt` — the Ensemble controller can only park the prompt in
+`spec.memory.systemPrompt`, and the tool policy has nowhere to go at all. The
+schedule controller builds its runs from the Ensemble's `agentConfigs` entry
+instead, so a scheduled `AgentRun` carries `toolPolicy` and a web-triggered one
+does not:
+
+    kubectl get agentrun <schedule-run> -o jsonpath='{.spec.toolPolicy}'   # the 9 allowed tools
+    kubectl get agentrun <web-run>      -o jsonpath='{.spec.toolPolicy}'   # empty
+
+An absent `toolPolicy` is not an empty allowlist — it is no allowlist. Measured
+with a hand-applied `AgentRun` mirroring the proxy's spec: `sre-sentinel`, whose
+persona allows nine tools and denies `write_file` and `execute_command`, started
+with
+
+    tools enabled: 60 tool(s) registered
+
+so the read-only guarantee in *`homelab-ops` — read-only, no write tool of any
+kind* does not hold for a run started over HTTP. That is a second, stronger
+reason `sympozium_web_endpoint.enabled` stays `false` outside a test, alongside
+the schedule suppression below: the endpoint does not merely bypass the cron, it
+bypasses the per-persona restriction that the `permissive` `policyRef` deliberately
+leaves to `projects/`. Closing it needs a `toolPolicy` field on the Agent CRD (or
+on `webEndpoint`) in core; until then, testing goes through a hand-applied
+`AgentRun`, which does carry the policy inline.
+
 ### The agent NetworkPolicy blocks shared memory and every MCP server
 
 Every first run failed on 2026-08-21, and neither cause is in this repository.
@@ -638,6 +807,68 @@ an MCP catalog, and a policy that reaches neither, is broken for anything but th
 single-agent case. Re-check the label names after an image bump before assuming
 this entry still applies.
 
+### `sympozium-allow-otel` strangles the web-proxy pods
+
+The HTTP endpoints deploy and serve `/healthz`, but an authenticated request
+fails before it reaches the model:
+
+    {"error":{"message":"failed to get instance: failed to get server groups:
+     Get \"https://10.43.0.1:443/api\": dial tcp 10.43.0.1:443: connect:
+     connection refused"}}
+
+The web-proxy needs the Kubernetes API to create the `AgentRun` it serves, and
+it cannot reach it. Two label mistakes stack up, neither of them in this
+repository:
+
+- The Sympozium chart's own `sympozium-web-proxy-allow-ingress` — which *does*
+  allow egress on 443/6443, DNS, NATS and Ollama — selects
+  `sympozium.ai/component: web-proxy`. The controller labels these pods
+  `sympozium.ai/component: agent-server`. The policy matches nothing.
+- With that policy inert, the only Egress policy left selecting them is
+  `sympozium-allow-otel` (`app.kubernetes.io/part-of: sympozium`), which allows
+  ports 4317 and 4318 and nothing else. One matching Egress policy is enough to
+  restrict a pod to the union of matching rules, so the effect of that OTLP
+  allowance is to deny everything else.
+
+Confirm the mismatch with:
+
+    kubectl get pods -n automation -o json | jq -r '.items[]
+      | select(.metadata.name|test("web-endpoint-server"))
+      | .metadata.labels["sympozium.ai/component"]'
+    kubectl get netpol sympozium-web-proxy-allow-ingress -n automation \
+      -o jsonpath='{.spec.podSelector}'
+
+Note this also corrects the comment in core's
+`releases/automation/templates/sympozium_upstream_fixes.yaml`, which says
+`sympozium-allow-otel` selects "a label no controller-created pod carries". The
+agent-server pods do carry it, and that is exactly what breaks them.
+
+Two ways to close it:
+
+1. **Upstream** — `sympozium-web-proxy-allow-ingress` should select the label
+   the controller actually sets. This is the one worth filing; it makes the
+   chart's web endpoint feature non-functional under its own NetworkPolicies.
+2. **Core, alongside the other fixes** — one more NetworkPolicy in
+   `sympozium_upstream_fixes.yaml` selecting
+   `sympozium.ai/component: agent-server`, allowing DNS, 443/6443 to the API
+   server, 4222 to NATS and 11434/11435 to Ollama. That is the same shape as the
+   three entries already in that file, and it is what will actually unblock these
+   endpoints today. Written, as fix (4) in that file.
+
+It lands once and then stays out of the way, because it selects a label rather
+than a name. With `sympozium_web_endpoint.enabled` false the controller tears the
+web-proxy Deployments down, nothing carries
+`sympozium.ai/component: agent-server`, and a `podSelector` matching no pod
+permits nothing — the policy is inert, not a standing hole. Turn the flag on and
+the pods appear already covered. So the flag in this repository is the only thing
+that moves; core does not have to be touched again in either direction.
+
+    kubectl get pods -A -l sympozium.ai/component=agent-server   # empty when off
+
+The per-request `AgentRun` Jobs the proxy creates are ordinary agent pods
+carrying `sympozium.ai/role=agent`, so they are already covered by the same
+policies a scheduled run uses.
+
 ### The `channel-slack` Deployments have no resource requests or limits
 
 Every other workload the controller creates for a persona is bounded. The
@@ -689,6 +920,15 @@ Two ways to close it, in preference order:
   Anything watching for "the reports stopped arriving" has to watch Slack or
   that log, not the run history. Related to `#monitoring-ai-runs` having no
   producer, below.
+- **The HTTP endpoints are off, for two independent reasons.** Turning them on
+  suppresses the schedule for that persona
+  ([why](#the-endpoint-replaces-the-schedule--it-does-not-sit-beside-it)) — the
+  one that matters. And they do not work anyway: `/healthz` answers 200 and an
+  unauthenticated call is correctly refused 401, but an authenticated one dies
+  reaching the Kubernetes API, a NetworkPolicy label mismatch in the Sympozium
+  chart written up [above](#sympozium-allow-otel-strangles-the-web-proxy-pods).
+  Only the second is fixable, and not from this repository. Until both are
+  settled, test with a hand-applied `AgentRun`.
 - **Channels are named, not `C0…` ids.** Slack accepts a name for
   `chat.postMessage`, but it is the legacy form and it breaks silently on a
   rename. Swapping is a one-line values change per channel.

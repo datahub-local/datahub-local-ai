@@ -74,21 +74,39 @@ sympozium_delivery:
 # ClusterIP: reachable by `kubectl port-forward`, and by nothing outside the
 # cluster. See ../README.md#testing-an-agent-over-http for the key and a call.
 #
-# Keys are the ensemble directory name, with optional per-persona overrides
-# under `personas:`, exactly as sympozium_delivery does.
+# `enabled` is the master switch, and it is OFF because an endpoint does not sit
+# beside a persona's schedule — it replaces it. A serving AgentRun makes the
+# schedule controller skip every tick for that agent ("Skipping trigger —
+# instance has a serving AgentRun"), silently: the SympoziumSchedule stays
+# Active, no run fails, nothing is emitted. Two ticks were lost that way on
+# 2026-08-23 before anything noticed. See ../README.md#the-endpoint-replaces-the-schedule--it-does-not-sit-beside-it.
+#
+# So this is a switch to flip for the length of a test and flip back, not a
+# standing configuration — which is exactly why it is one master switch rather
+# than only the per-ensemble keys: turning the surface on and off again must not
+# mean editing, and then having to remember to restore, the per-agent decisions
+# below. For a test that does not cost a schedule, apply an AgentRun by hand
+# instead; the README has the manifest.
+#
+# Under `ensembles:`, keys are the ensemble directory name, with optional
+# per-persona overrides under `personas:`, exactly as sympozium_delivery does.
 sympozium_web_endpoint:
-  homelab-ops:
-    enabled: true
-    requestsPerMinute: 60
-    burstSize: 10
+  enabled: true
 
-  homelab-reviewer:
-    # Off, and not for symmetry: renovate-reviewer is the one persona holding a
-    # write tool (github_add_issue_comment), and what it writes lands on a real
-    # pull request. It is also the one ensemble deliberately bound to no channel
-    # for the same reason. Turn this on for the length of a test and back off
-    # afterwards, rather than leaving a trigger sitting in front of it.
-    enabled: false
+  ensembles:
+    homelab-ops:
+      enabled: true
+      requestsPerMinute: 60
+      burstSize: 10
+
+    homelab-reviewer:
+      # Off, and not for symmetry: renovate-reviewer is the one persona holding
+      # a write tool (github_add_issue_comment), and what it writes lands on a
+      # real pull request. It is also the one ensemble deliberately bound to no
+      # channel for the same reason. Turn this on for the length of a test and
+      # back off afterwards, rather than leaving a trigger sitting in front of
+      # it.
+      enabled: false
 
 # Per-cluster knobs merged into each Ensemble's spec, keyed by the directory name
 # under projects/. Everything describing *what an agent is* — prompts, skills,

@@ -250,15 +250,32 @@ def _check_shared_prompts():
                 f"the channel name as the transport, and the tool then answers "
                 f"'Message sent' while delivering nothing."
             )
+        if '"{{ CHANNEL }}"' in text or "'{{ CHANNEL }}'" in text:
+            raise Fail(
+                f"prompts/delivery/{level}.md shows the chatId value in quotes. "
+                f"A 4B model copies the quotes into the argument, so chatId "
+                f"arrives as '\"#channel\"' — a channel that does not exist, "
+                f"which Slack rejects as channel_not_found while the tool still "
+                f"answers 'Message sent'. Write the value bare."
+            )
 
 
 def _web_endpoint_config(ensemble_name):
-    """Web endpoint knobs for one ensemble: enabled, rate limits, personas."""
+    """Web endpoint knobs for one ensemble: enabled, rate limits, personas.
+
+    Returns the ensemble's own entry with the master switch already folded in, so
+    callers do not each have to remember the AND.
+    """
     values = _values()
     if values is None:
         return None
-    entry = (values.get("sympozium_web_endpoint") or {}).get(ensemble_name) or {}
-    return entry if isinstance(entry, dict) else {}
+    root = values.get("sympozium_web_endpoint") or {}
+    entry = (root.get("ensembles") or {}).get(ensemble_name) or {}
+    if not isinstance(entry, dict):
+        return {}
+    if not root.get("enabled"):
+        entry = dict(entry, enabled=False, personas={})
+    return entry
 
 
 def _check_web_endpoint(persona_name, persona, web, warnings):
@@ -310,7 +327,7 @@ def _check_unknown_web_endpoint_personas(ensemble_name, persona_names):
     unknown = sorted(set(web.get("personas") or {}) - set(persona_names))
     if unknown:
         raise Fail(
-            f"sympozium_web_endpoint.{ensemble_name}.personas names "
+            f"sympozium_web_endpoint.ensembles.{ensemble_name}.personas names "
             f"{', '.join(unknown)}, which is not a persona in this ensemble"
         )
 
@@ -690,8 +707,22 @@ def main():
 
     values = _values() or {}
     known = {path.name for path in projects}
-    for tree in ("sympozium_delivery", "sympozium_web_endpoint"):
-        unknown = sorted(set(values.get(tree) or {}) - known)
+    web_root = values.get("sympozium_web_endpoint") or {}
+    stray = sorted(set(web_root) - {"enabled", "ensembles"})
+    if stray:
+        print(
+            f"error: sympozium_web_endpoint has unexpected key(s) "
+            f"{', '.join(stray)} at its root. Only 'enabled' (the master "
+            f"switch) and 'ensembles' belong there; per-ensemble entries go "
+            f"under 'ensembles:'.",
+            file=sys.stderr,
+        )
+        return 1
+    for tree, entries in (
+        ("sympozium_delivery", values.get("sympozium_delivery") or {}),
+        ("sympozium_web_endpoint.ensembles", web_root.get("ensembles") or {}),
+    ):
+        unknown = sorted(set(entries) - known)
         if unknown:
             print(
                 f"error: {tree} names ensemble(s) that do not exist: "

@@ -52,10 +52,16 @@ jobs:
       - name: Set up Helm
         uses: azure/setup-helm@v4
 
+      # Installed from the release tarball rather than a third-party action, and
+      # unpinned like azure/setup-helm above: renovate.json ignores **/.github/**,
+      # so a pinned version here would go stale without anything noticing.
       - name: Set up helmfile
-        uses: helmfile/helmfile-action@v2
-        with:
-          helmfile-args: version
+        run: |
+          version=$(curl -fsSL https://api.github.com/repos/helmfile/helmfile/releases/latest \
+            | jq -r .tag_name | sed 's/^v//')
+          curl -fsSL "https://github.com/helmfile/helmfile/releases/download/v${version}/helmfile_${version}_linux_amd64.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin helmfile
+          helmfile version
 
       # The templates assemble the Ensembles from projects/ at render time —
       # nothing is generated into the repository — so rendering is the build,

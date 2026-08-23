@@ -28,7 +28,9 @@
        chart-only: the CRD webhook decodes spec strictly, so they cannot ride
        along in sympozium_ensembles. See values/default.yaml.gotmpl. */}}
 {{-   $delivery := index ($.Values.sympozium_delivery | default dict) $name | default dict }}
-{{-   $web := index ($.Values.sympozium_web_endpoint | default dict) $name | default dict }}
+{{-   $webRoot := $.Values.sympozium_web_endpoint | default dict }}
+{{-   $webOn := $webRoot.enabled | default false }}
+{{-   $web := index ($webRoot.ensembles | default dict) $name | default dict }}
 {{-   $personaFiles := $.Files.Glob (printf "%s/agents/*.yaml" $project) }}
 {{-   if not $personaFiles }}
 {{-     fail (printf "%s: no personas in agents/" $project) }}
@@ -122,6 +124,10 @@
 {{-     if hasKey $wp "enabled" }}
 {{-       $wpEnabled = $wp.enabled }}
 {{-     end }}
+{{- /* The master switch is an AND, not another override: sympozium_web_endpoint
+       .enabled false takes the whole surface down without editing — and then
+       having to restore — the per-agent decisions under ensembles:. */}}
+{{-     $wpEnabled = and $webOn $wpEnabled }}
 {{-     if has "web-endpoint" ($persona.skills | default list) }}
 {{-       fail (printf "%s: lists the web-endpoint skill. It is switched on from sympozium_web_endpoint in values, so that the testing surface is visible in one place per cluster." $personaPath) }}
 {{-     end }}

@@ -26,27 +26,13 @@ memory:
     - A rising cnpg_pg_stat_archiver_failed_count means WAL archiving is broken, which silently invalidates point-in-time recovery. Treat it as the most serious finding available here.
     - Record which slow queries were already reported, so the same query is not raised from scratch every day.
 
-# No `channels:` binding, and in hook mode that costs nothing outbound: the
-# postRun container talks to the Slack API directly, so a binding would only add
-# a channel sidecar and the inbound @-mention path. Every sidecar of a transport
-# delivers every instance's message, so each binding used to cost one duplicate
-# copy of every report in the namespace - five personas, five copies.
-#
-# sre-sentinel keeps the one binding in this ensemble, which is what makes an
-# @-mention land on a known persona instead of whichever of five sidecars Socket
-# Mode happened to hand the event to. See ../../../README.md and
-# docs/core_sympozium_followup.md (Part 2, issue 5).
-
 mcpServers:
   - name: datahub-local-core-automation-sympozium-mcp-postgres
     timeout: 30
     toolsPrefix: pg
-    # toolsAllow, not just toolsDeny: this filter runs at the server, so it is
-    # what decides how many tool schemas are injected into the context window.
-    # The full grafana catalogue is 66 tools and ~40k tokens of prompt before
-    # the task is even read — the whole window as it stood until 2026-08-23, and
-    # still most of it. The list mirrors this persona's toolPolicy.allow with
-    # the prefix stripped, and validate.py fails if the two drift.
+    # toolsAllow bounds how many tool schemas enter the context window: it
+    # runs at the server, and mirrors toolPolicy.allow with the prefix
+    # stripped. validate.py fails if the two drift.
     toolsAllow:
       - analyze_db_health
       - get_top_queries
@@ -106,11 +92,6 @@ toolPolicy:
     - k8s_resources_list
     - memory_search
     - memory_store
-    # No send_channel_message: every persona here delivers through
-    # deliveryMode: hook, so the report is posted from a lifecycle.postRun
-    # container and the model has nothing to call. Removing the tool is the
-    # mechanism, not a tidy-up - it is what makes the report the model's final
-    # text instead of the run ending on a tool call with an empty result.
   deny:
     - write_file
     - execute_command

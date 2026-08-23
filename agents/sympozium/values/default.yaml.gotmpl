@@ -44,7 +44,7 @@ release_name: datahub-local-ai
 # means five sidecars means five identical copies, in the same second. Nothing in
 # this file or in projects/ can separate them: unbinding four personas to leave
 # one sidecar carrying the ensemble was tried and silences those four completely.
-# The fix is one line upstream — docs/core_sympozium_followup.md, Part 2 issue 5.
+# The fix is one line upstream: filter on metadata.instanceName in the sidecar.
 #
 # How a report reaches its channel, for personas with deliveryMode: hook.
 #
@@ -52,8 +52,7 @@ release_name: datahub-local-ai
 # finishes: it gets the report in AGENT_RESULT and posts it with one
 # chat.postMessage call. Nothing touches the shared event bus, so the report
 # arrives exactly once however many personas are bound -- which is the whole
-# reason this exists. See ../README.md and docs/core_sympozium_followup.md
-# (Part 2, issue 5) for the fan-out it replaces.
+# reason this exists. See ../README.md for the fan-out it replaces.
 #
 # `secret` is the same Secret channelConfigs points at, read by reference so no
 # token appears in this chart. Egress to slack.com works because the hook pod is

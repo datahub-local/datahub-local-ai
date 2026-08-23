@@ -360,8 +360,8 @@ agents/sympozium/
   bullet), `channelAccessControl` is inbound-only, the controller exposes only
   fleet-wide `SYMPOZIUM_IMAGE_REGISTRY`/`SYMPOZIUM_IMAGE_TAG`, and the sidecar
   Deployment declares `replicas: 1` under an `Agent` ownerReference. The
-  upstream fix is a one-line filter — `docs/core_sympozium_followup.md`, Part 2
-  issue 5.
+  upstream fix is a one-line filter on `metadata.instanceName` in the sidecar,
+  which the envelope already carries.
 - **`deliveryMode: hook` is the default and how this repo avoids the fan-out
   without waiting for upstream.** The templates stop
   substituting the posting instructions into the prompt and instead attach a

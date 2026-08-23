@@ -367,8 +367,7 @@ in core's `releases/automation/templates/sympozium_mcp_servers.yaml`:
 - The postgres server denies `execute_write_query`. `postgres-mcp` exposes a
   single `execute_sql` tool and defaults to unrestricted access mode, so **this
   one is still open** and that server remains write-capable to any agent that
-  wires it. It is item 2 in
-  [`docs/core_sympozium_followup.md`](../../docs/core_sympozium_followup.md).
+  wires it.
 
 Neither was ever exploitable here, because the personas re-deny the real names
 themselves — `service-janitor` carries an explicit `toolsDeny: [execute_sql]` and
@@ -994,10 +993,9 @@ structural change, and the gap table above needs its first two rows struck.
 Verify each metric against Prometheus before it goes in a prompt; that rule has
 not changed just because the metrics arrived.
 
-Everything still outstanding for the other repos is in one hand-off,
-[`docs/core_sympozium_followup.md`](../../docs/core_sympozium_followup.md) —
-including the one monitoring item that has not landed, the Garage ServiceMonitor.
-It is split deliberately, because only part of it is core's. Four config changes belong
+Everything still outstanding for the other repos — including the one monitoring
+item that has not landed, the Garage ServiceMonitor — splits in two, because only
+part of it is core's. Four config changes belong
 here — the `mcp-k8s` Deployment is currently unmanaged (`spec.deployment` is null
 while the Deployment it needs is still owned by the CR), `mcp-postgres` denies
 `execute_write_query`, which is not a tool that server has, three servers carry
@@ -1022,9 +1020,9 @@ external with the path spelled out —
 `Discovered 14 tools from "...-mcp-k8s"`. `sre-sentinel` has used
 `k8s_events_list` and `k8s_pods_log` on a real run since. The caveat is that
 `spec.deployment` is now null while the Deployment serving that URL is still
-owned by the MCPServer CR, so nothing declares it any more; see
-[`docs/core_sympozium_followup.md`](../../docs/core_sympozium_followup.md) Part 1
-item 1 for why that is fragile and the two durable options.
+owned by the MCPServer CR, so nothing declares it any more. Delete and recreate
+the MCPServer and the Deployment is cascade-deleted and never rebuilt, taking
+every `k8s_*` tool with it.
 
 Every `k8s_*` tool has been absent from every persona since the server was
 created. `datahub-local-core-automation-sympozium-mcp-k8s` is the one MCPServer

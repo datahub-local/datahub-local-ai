@@ -39,8 +39,7 @@ on demand
   which costs one duplicate copy per channel-bound persona in the namespace.
 
   hook is the default so a persona added later gets one-copy delivery without
-  anyone remembering to ask. See ../README.md, and issue 5 in
-  ../../../docs/core_sympozium_followup.md for the upstream fix this sidesteps.
+  anyone remembering to ask. See ../README.md.
   Args: delivery, persona (name)
 */}}
 {{- define "sympozium.deliveryMode" -}}

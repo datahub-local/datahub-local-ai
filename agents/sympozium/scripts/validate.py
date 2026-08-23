@@ -565,8 +565,8 @@ def _check_delivery_needs_binding(personas, delivery, warnings):
     `metadata.instanceName` it is handed. Each delivering persona therefore costs
     one duplicate copy of every report in the ensemble, and there is no way to
     have one without the other from here: see README.md#every-report-arrived-five-
-    times-and-only-one-agent-sent-it and docs/core_sympozium_followup.md Part 2
-    issue 5, which carries the one-line upstream fix.
+    times-and-only-one-agent-sent-it. The upstream fix is a one-line filter on
+    metadata.instanceName in the channel sidecar.
 
     The tempting workaround — unbind all but one persona and let its sidecar carry
     the ensemble — was tried and does not work. It is what the probe above was
@@ -623,8 +623,8 @@ def _check_delivery_needs_binding(personas, delivery, warnings):
                 f"('Dropping outbound message to channel not configured on this "
                 f"agent'), so every run would succeed and post nothing. Add "
                 f"`channels: [slack]` — and note it costs one duplicate copy of "
-                f"every report in this ensemble, which is upstream issue 5 in "
-                f"docs/core_sympozium_followup.md, not something this repo can fix."
+                f"every report in this ensemble, which is an upstream bug this "
+                f"repo cannot fix. Prefer deliveryMode: hook."
             )
 
     bound = [n for n, p in personas if p.get("channels")]
@@ -637,9 +637,8 @@ def _check_delivery_needs_binding(personas, delivery, warnings):
             f"{len(bound)} personas are channel-bound, so every report still on "
             f"deliveryMode: tool ({', '.join(sorted(tool_mode))}) arrives "
             f"{len(bound)} times — each channel sidecar delivers every "
-            f"instance's message. Move them to deliveryMode: hook; issue 5 in "
-            f"docs/core_sympozium_followup.md explains why nothing else works "
-            f"from here"
+            f"instance's message. Move them to deliveryMode: hook; see "
+            f"README.md#every-report-arrived-five-times-and-only-one-agent-sent-it"
         )
 
 

@@ -7,9 +7,14 @@ skills:
   - sre-observability
   - memory
 
+# Every 6h, not every 30m. Alertmanager already routes every alert to Robusta
+# (severity =~ ".*", group_wait 1s) and Robusta posts to Slack, so this agent is
+# not the detector - it is the digest: new vs chronic, root cause, and the volume
+# fill check, which no alert rule covers. At 30m with unconditional delivery it
+# was 48 messages a day restating what Robusta had already said.
 schedule:
   type: heartbeat
-  interval: 30m
+  interval: 6h
   # afterInterval, not immediate: six agents enabled at once would queue six
   # cold runs behind each other on a single-GPU Ollama.
   firstTick: afterInterval
@@ -31,18 +36,8 @@ memory:
     - "Correction, 2026-08-23: any earlier memory of yours reporting a volume at 96-99% and 'write operations failing' is wrong. Those runs divided available by capacity and read the free fraction as the used one, so the volumes named were the emptiest in the cluster, not the fullest. Measured that day: nothing above 31% used, and the nfs share under 1%. Distrust your own fill history before this date."
     - "NodeClockNotSynchronising is real and is not chronic: systemd-timesyncd is inactive on datahublocal-orpi-0 through orpi-3, so those kernels are never told they are synchronised. Offsets were still under a millisecond on 2026-08-23, so report it as latent rather than urgent — but do report it. It is awaiting a fix at the node."
 
-# Outbound: the agent posts its finished report with send_channel_message. The
-# run history and the Sympozium UI are not a notification - a report nobody is
-# told about is the same as no report.
-#
-# Binding a channel is bidirectional, so this is also an inbound path: a Slack
-# message can start an AgentRun. allowedTriggers keeps that to an explicit
-# @-mention, because "channel" would let any message in a channel the bot sits
-# in queue a run against the one GPU. These five personas are read-only, so an
-# unwanted run costs GPU time and nothing else - the write-capable
-# renovate-reviewer is deliberately not bound. Narrow it further with
-# channelAccessControl (allowedChats/allowedSenders) once the channel and user
-# ids are known.
+# The only channel binding in this ensemble, and it is inbound only: delivery
+# is a postRun hook. It exists so an @-mention starts a known persona.
 channels:
   - slack
 
@@ -54,12 +49,9 @@ mcpServers:
   - name: datahub-local-core-automation-sympozium-mcp-grafana
     timeout: 30
     toolsPrefix: grafana
-    # toolsAllow, not just toolsDeny: this filter runs at the server, so it is
-    # what decides how many tool schemas are injected into the context window.
-    # The full grafana catalogue is 66 tools and ~40k tokens of prompt before
-    # the task is even read — the whole window as it stood until 2026-08-23, and
-    # still most of it. The list mirrors this persona's toolPolicy.allow with
-    # the prefix stripped, and validate.py fails if the two drift.
+    # toolsAllow bounds how many tool schemas enter the context window: it
+    # runs at the server, and mirrors toolPolicy.allow with the prefix
+    # stripped. validate.py fails if the two drift.
     toolsAllow:
       - query_prometheus
       - list_datasources
@@ -109,11 +101,6 @@ toolPolicy:
     - k8s_resources_list
     - memory_search
     - memory_store
-    # No send_channel_message: this persona is on deliveryMode: hook, so its
-    # report is posted from a lifecycle.postRun container and the model has
-    # nothing to call. Taking the tool away is the point, not a side effect - it
-    # is what makes the report the model's final text instead of the run ending
-    # on a tool call with an empty result.
   deny:
     - write_file
     - execute_command

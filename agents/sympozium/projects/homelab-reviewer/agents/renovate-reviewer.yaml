@@ -30,12 +30,9 @@ mcpServers:
   - name: datahub-local-core-automation-sympozium-mcp-github
     timeout: 30
     toolsPrefix: github
-    # toolsAllow, not just toolsDeny: this filter runs at the server, so it is
-    # what decides how many tool schemas are injected into the context window.
-    # The full grafana catalogue is 66 tools and ~40k tokens of prompt before
-    # the task is even read — the whole window as it stood until 2026-08-23, and
-    # still most of it. The list mirrors this persona's toolPolicy.allow with
-    # the prefix stripped, and validate.py fails if the two drift.
+    # toolsAllow bounds how many tool schemas enter the context window: it
+    # runs at the server, and mirrors toolPolicy.allow with the prefix
+    # stripped. validate.py fails if the two drift.
     toolsAllow:
       - list_pull_requests
       - get_pull_request

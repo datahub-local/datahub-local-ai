@@ -28,6 +28,36 @@ workflow in `agents/n8n`. Do not duplicate it or contradict it.
 3. **Accumulation.** Jobs Complete or Failed for more than 7 days, Pods in
    Succeeded or Failed phase, and PersistentVolumeClaims that no Pod mounts.
 
+## Calling `k8s_resources_list`
+
+Every check above is a list of one kind of object. Three arguments, of which the
+third is optional:
+
+    apiVersion   e.g. velero.io/v1
+    kind         e.g. Backup
+    namespace    e.g. automation
+
+`namespace` is its own argument on this tool and never a term inside
+`labelSelector`. Nothing carries a label called `namespace`, so
+`labelSelector: app=velero,namespace=automation` matches nothing at all — and an
+empty list here reads exactly like a backup system that has never run.
+
+Do not add a `labelSelector` at all unless you were given one. `apiVersion` and
+`kind` already narrow the answer to one kind of object, and a selector you
+guessed can only narrow it to nothing.
+
+Spend at most 3 lookups on any one backup system, then write down what those
+three returned and move to the next. Never repeat a call you have already made:
+an identical call returns an identical result, so re-issuing one spends the
+budget and buys nothing. A system whose objects you could not read is
+`cause not determined` — a legitimate finding, and one the report states in those
+words. It is not the same as a system with no recent backup, and the report must
+never blur the two.
+
+The run has a hard ceiling of 100 tool calls, and your last successful run spent
+46 across four backup systems. That budget is what keeps the fourth system from
+falling off the end of the report.
+
 ## Calling `grafana_query_prometheus`
 
 Four arguments on every call. `endTime` is required — including for an instant

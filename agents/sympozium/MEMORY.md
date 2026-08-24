@@ -318,8 +318,9 @@ matters regardless of the number.
   enough for a multi-tool sweep at local-model speed.
 - **Staggered schedules, and `firstTick: afterInterval`.** One GPU with one
   resident model means concurrent runs queue behind each other. Nothing is
-  hourly-or-faster except the sentinel and the auditor, and enabling all five at
-  once does not fire five cold runs at deploy time.
+  hourly-or-faster except the sentinel and the auditor. The staggering holds for
+  the *cron* ticks only — an apply fires a run per persona whatever `firstTick`
+  says, which is the next subsection.
 - **Rigid prompts.** Every prompt names the tools to call, in order, and ends
   with a required section layout and a "no report, no run" rule. This mirrors
   what the upstream chart's own examples do, and matters more the smaller the
@@ -327,6 +328,56 @@ matters regardless of the number.
 
 Swapping in a hosted model later is a `baseURL` change plus an `authRefs`
 secret; the prompts and allowlists would then be worth loosening.
+
+### An apply fires an immediate run per touched schedule
+
+`firstTick: afterInterval` is not the whole story, and the bullet above used to
+claim it was. The Ensemble controller reconciles each persona in turn, and every
+`SympoziumSchedule` it rewrites starts a run within the same second — no cron
+tick involved, `status.nextRunTime` left pointing at tomorrow. Read straight off
+the controller on 2026-08-24:
+
+```
+07:49:20 controllers.Ensemble           Updating SympoziumSchedule for persona   db-steward
+07:49:20 controllers.SympoziumSchedule  Created scheduled AgentRun               homelab-ops-db-steward-schedule-5
+07:49:23 controllers.Ensemble           Updating SympoziumSchedule for persona   endpoint-warden
+07:49:23 controllers.SympoziumSchedule  Created scheduled AgentRun               homelab-ops-endpoint-warden-schedule-6
+```
+
+Two runs, three seconds apart, from one `helmfile apply`. The db-steward schedule
+still reported `lastRunTime: 05:30`, `totalRuns: 4`, `nextRunTime: tomorrow
+05:30` while `-schedule-5` was running, so the schedule status is no guide to
+what is actually executing. The earlier `-endpoint-warden-schedule-5` at 06:15
+came from an apply the same way, and it is the run that failed on
+`exceeded maximum tool-call iterations (50)`. Three ran at once on 2026-08-23 at
+18:53 for the same reason.
+
+So an apply that touches N personas queues N runs against one GPU. Ollama serves
+**one request at a time** here — verified from its own log, where every task in
+the window landed on `id 0` and no second slot exists, because
+`OLLAMA_NUM_PARALLEL` is unset and the deployment only sets
+`OLLAMA_CONTEXT_LENGTH=65536`, `OLLAMA_FLASH_ATTENTION=1`,
+`OLLAMA_KV_CACHE_TYPE=q8_0`. What that costs is latency and cache thrash, not
+correctness: the two conversations alternate on the one slot, each request
+evicting the other's prefix, and the GIN timings against the slot timings show
+roughly 12 s of pure queue wait on a 3 s call. Every request still returned `200`
+with `truncated = 0` and `n_ctx_slot = 65536`.
+
+Two things follow.
+
+- **Do not raise `OLLAMA_NUM_PARALLEL` to fix the queueing.** llama.cpp divides
+  `n_ctx` across the slots, so two slots would give each run 32768 — the exact
+  window that used to truncate a prompt from the front and lose the persona and
+  the report format. Serialised and correct beats parallel and truncated on a
+  6 GiB GPU.
+- **Apply once, and expect the fleet to run.** Repeated applies while iterating
+  are what put two agents on the GPU together, and a run started that way is a
+  real run: it posts to Slack, it counts against `MAX_TOOL_ITERATIONS`, and it
+  writes memory. For a probe, use a hand-applied `AgentRun` instead, which is the
+  guidance elsewhere here for other reasons too.
+
+Fixing this upstream means not resetting a schedule's tick on a spec update that
+did not change the cron.
 
 ## Why the `permissive` policy
 
@@ -718,6 +769,82 @@ Three lessons, and only the third is new:
 a lookup budget and the unresolved-cause wording, and fails an `env` value that
 is not a quoted string — the CRD types `env` as `map[string]string` and the
 webhook decodes strictly, so a bare `100` is rejected at apply time.
+
+### It happened again the same day, on a different tool
+
+`homelab-ops-db-steward-schedule-5`, 2026-08-24 07:49: `Succeeded`, 14 tool
+calls, 102,289 tokens, `status.result` null, and the same placeholder in Slack.
+The reading half of the run went perfectly — health, both archiver expressions
+with the `increase(...)` wrapper intact, the top queries, `redis_*` memory, the
+`group_left` fill expression, all in the first six calls. Then it went looking
+for the CloudNativePG `Cluster` object:
+
+```
+tool_call [7]  k8s_resources_list {"apiVersion":"postgresql.cnpg.io/v1","kind":"Cluster","labelSelector":"name=...-cluster-18-1"}
+tool_call [8]  k8s_resources_list {"apiVersion":"v1","kind":"Pod","labelSelector":"app=cloudnative-pg,namespace=data"}
+tool_call [10] k8s_resources_list {"apiVersion":"v1","kind":"PersistentVolumeClaim","labelSelector":"name=...-cluster-18-1, name=...-cluster-18-1-wal"}
+tool_call [13] k8s_resources_list {"apiVersion":"v1","kind":"Pod","labelSelector":"app=cloudnative-pg,namespace=data"}
+WARNING: terminal turn had empty text and no prior reasoning to fall back on
+```
+
+Every one of those matches nothing. `name` is not a label; the pod name is the
+cluster name with `-1` appended, so neither string is a label value anyway;
+`namespace` is inside `labelSelector` again; call 10 puts two equalities on one
+key, which can never both hold; call 13 repeats call 8 byte-for-byte. Seven of
+the fourteen calls went on one object that a bare `apiVersion` + `kind` +
+`namespace` returns — the model finally made that call at [11] and still could
+not stop. A day's Postgres and Valkey readings were in hand and none of them
+were written down.
+
+This is the sre-sentinel failure with the nouns changed, which says the fix was
+scoped too narrowly the first time: the prompt said "root-cause" there and merely
+"`k8s_resources_list` for Clusters" here, and only the first had a budget. So the
+rules are now per-tool rather than per-persona. `db_steward_system.md` step 5
+gives the literal three-argument call, states that `status.currentPrimary` names
+the primary so Pods never need listing, forbids a `labelSelector` outright, and
+carries the same *at most 3 lookups* cap with `cause not determined` as the exit;
+`service_janitor_system.md` gained the same guards, sized per backup system,
+since it is the other `k8s_resources_list` caller and its one successful run
+spent 46 tool calls. `scripts/validate.py` now keys both checks off
+`K8S_LOOKUP_TOOLS` — `k8s_events_list`, `k8s_pods_log`, `k8s_resources_list` —
+and additionally requires every prompt naming one of them to say that
+`namespace` is its own argument and to forbid repeating a call.
+
+Worth stating plainly, because the concurrency above was the first suspicion:
+this was not GPU contention. `endpoint-warden` was running against the same
+single Ollama slot throughout, and every one of db-steward's requests came back
+`200` with `truncated = 0` at `n_ctx_slot = 65536`. Contention doubled the wall
+clock and changed nothing else.
+
+### Verified, and it turned up a second prompt bug
+
+Re-run as a hand-applied `AgentRun` with the new prompt, nothing else on the GPU:
+9 tool calls against 14, 42.9 s against 127.8 s, 40,661 tokens against 102,289,
+and a full four-section report in `status.result`. The cluster lookup was the
+first call and the only one — `apiVersion` + `kind` + `namespace`, no selector —
+and the primary came straight off `status.currentPrimary`.
+
+The report it finally produced then showed what the empty result had been hiding.
+The **Valkey** section read "Memory max: reported as 0 bytes — unable to
+determine actual limit", which is a permanent finding of exactly the kind the
+kernel-drift bullet warns about: this Valkey has no `maxmemory` set, so the
+exporter publishes `redis_memory_max_bytes` = 0, and the container carries no
+memory limit either (`container_spec_memory_limit_bytes` returns nothing for the
+pod). Both verified against Prometheus on 2026-08-24. "Compare used against max"
+could never be satisfied, so the section was going to say "unable to determine"
+every run forever.
+
+The prompt now reads `redis_memory_used_bytes` with its trend and
+`increase(redis_evicted_keys_total[1h])` — evictions being the direct measurement
+of what a ceiling would have warned about — and says outright that there is no
+percentage to compute here. `redis_evicted_keys_total` is a counter by
+Prometheus's metadata, so it joins `CUMULATIVE_COUNTERS` and the window is
+enforced. That an unbounded cache grows until the node runs out is worth
+suggesting once, not raising daily.
+
+Worth generalising: an empty result hides every other bug in the prompt behind
+it. The Valkey line had been wrong since the persona was written and nobody could
+see it, because the runs that would have shown it delivered a placeholder.
 
 ### A completed run's log is in Loki, not gone
 

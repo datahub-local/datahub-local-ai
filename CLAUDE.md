@@ -576,8 +576,16 @@ rather than copying the outcomes, since the constraints will change.
   invented numbers until absence became expressible as `unavailable`. Give the
   model the literal shape of the call too — `namespace` is its own argument on
   every `k8s_*` tool and never a label — and remember that hook mode removed the
-  *dominant* cause of an empty result, not the mechanism.
-  `scripts/validate.py` enforces both halves.
+  *dominant* cause of an empty result, not the mechanism. `db-steward` then
+  repeated the whole failure the same day against `k8s_resources_list`, because
+  the fix had been written for the persona that broke rather than for the tool:
+  seven of its fourteen calls guessed selectors for one CloudNativePG `Cluster`
+  (`name` as a label, `namespace` inside `labelSelector` again, two contradictory
+  equalities on one key, one call repeated byte-for-byte) and the day's Postgres
+  and Valkey readings, already in hand, were never written down. So the budget,
+  the exit and the selector rules now attach to any prompt naming
+  `k8s_events_list`, `k8s_pods_log` or `k8s_resources_list`, and
+  `scripts/validate.py` keys off that set.
 - **`MAX_TOOL_ITERATIONS` is a real ceiling and hitting it is silent.** The
   runner caps tool calls per run at 50; five runs have hit it, and the failure is
   worse than a truncated report — the run ends `status: error`, so the
@@ -644,8 +652,16 @@ rather than copying the outcomes, since the constraints will change.
   `workflowType: autonomous` rather than `delegation` (too small to be trusted
   with `delegate_to_persona`), five-to-eleven-tool allowlists, two skills per
   persona, `runTimeout: 30m` against a 10m default, and staggered schedules with
-  `firstTick: afterInterval` so enabling everything does not queue five cold runs
-  on one GPU. Prompts name the tools to call in order and end with a required
+  `firstTick: afterInterval`. Note the staggering only holds for cron ticks: the
+  Ensemble controller starts a run within the same second as every
+  `SympoziumSchedule` it rewrites, so one `helmfile apply` touching N personas
+  queues N real runs — they post to Slack, spend `MAX_TOOL_ITERATIONS` and write
+  memory — against a single Ollama slot, whatever `firstTick` says and with
+  `status.nextRunTime` still pointing at tomorrow. Apply once and probe with a
+  hand-applied `AgentRun`. Do not answer the queueing with
+  `OLLAMA_NUM_PARALLEL`: llama.cpp divides `n_ctx` across slots, so two slots
+  would hand each run the 32,768 window that used to truncate the persona out of
+  its own prompt. Prompts name the tools to call in order and end with a required
   section layout and a "no report, no run" rule. Loosen all of this if a hosted
   model is wired in — that is a `baseURL` change plus an `authRefs` secret.
 - **`policyRef: permissive` is deliberate.** `restrictive` and

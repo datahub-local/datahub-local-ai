@@ -177,6 +177,11 @@ BANNED_TOOLS = {
 # it is a per-cluster decision that has to be readable in one place.
 VALUES_ONLY_SKILLS = {"web-endpoint": "sympozium_web_endpoint"}
 
+# The k8s tools that answer a question by listing something. A prompt naming any
+# of them is sending a 4B model to guess selectors, so _check_investigation_budget
+# and _check_k8s_selector_rules both key off this set.
+K8S_LOOKUP_TOOLS = ("k8s_events_list", "k8s_pods_log", "k8s_resources_list")
+
 # Metrics the prompts name that are genuinely cumulative counters, so a bare
 # reading is history rather than a state and the prompt has to spell out an
 # increase()/rate() window. Read off this Prometheus with the metadata API, not
@@ -187,6 +192,7 @@ VALUES_ONLY_SKILLS = {"web-endpoint": "sympozium_web_endpoint"}
 #       --data-urlencode metric=<name> | jq -r '.data[][0].type'
 CUMULATIVE_COUNTERS = {
     "cnpg_pg_stat_archiver_failed_count",
+    "redis_evicted_keys_total",
     "node_disk_io_time_seconds_total",
     "node_edac_correctable_errors_total",
     "node_edac_uncorrectable_errors_total",
@@ -404,6 +410,15 @@ def _check_investigation_budget(label, text):
     reports as a success with an empty result. The alert went unreported and the
     channel got the delivery hook's placeholder.
 
+    db-steward repeated it that same day against a different tool, which is why
+    the trigger is the whole of K8S_LOOKUP_TOOLS and not `k8s_events_list` alone.
+    Asked only for "`k8s_resources_list` for Clusters", it spent seven of its
+    fourteen calls guessing selectors for one object — a pod name passed as a
+    `name` label, `namespace` written inside `labelSelector`, two contradictory
+    `name=` terms in one selector, then a Pod list twice byte-for-byte — and
+    ended the same way, with the day's Postgres and Valkey readings already in
+    hand and never written down.
+
     "Find the cause" with no budget and no exit is the bug. A model this size
     does not decide on its own that it has learned enough to write, so the prompt
     has to say how many lookups it gets and what to write when they yield
@@ -411,15 +426,17 @@ def _check_investigation_budget(label, text):
     the silence, the same way endpoint-warden's mandatory table produced invented
     numbers until absence became expressible as `unavailable`.
     """
-    if "k8s_events_list" not in text:
+    named = [t for t in K8S_LOOKUP_TOOLS if t in text]
+    if not named:
         return
     if not re.search(r"\bat most \d+ lookups\b", text):
         raise Fail(
-            f"{label} names k8s_events_list, so it tells the agent to "
-            f"root-cause, but states no lookup budget. Write the cap literally, "
-            f"as `at most 3 lookups`: a 4B model handed empty results retries "
-            f"and then stops writing altogether, which is how a real TargetDown "
-            f"went unreported on 2026-08-24."
+            f"{label} names {named[0]}, so it sends the agent looking things up "
+            f"in the cluster, but states no lookup budget. Write the cap "
+            f"literally, as `at most 3 lookups`: a 4B model handed empty results "
+            f"retries and then stops writing altogether, which is how a real "
+            f"TargetDown went unreported and how db-steward spent seven guessed "
+            f"selectors and filed nothing, both on 2026-08-24."
         )
     if "cause not determined" not in text:
         raise Fail(
@@ -427,6 +444,37 @@ def _check_investigation_budget(label, text):
             f"they find nothing. A cap without an escape hatch relocates the "
             f"silence instead of removing it. Name the outcome literally, as "
             f"`cause not determined`, and say it is a legitimate finding."
+        )
+
+
+def _check_k8s_selector_rules(label, text):
+    """A prompt naming a `k8s_*` tool must spell out how the arguments select.
+
+    Every wasted lookup on 2026-08-24 was a selector the model invented, and the
+    two mistakes repeat across personas: `namespace` written as a term inside
+    `labelSelector` — nothing carries a label by that name, so the call matches
+    nothing at all — and the same call re-issued verbatim after it came back
+    empty, which spends the budget above and buys nothing. Neither is something a
+    4B model works out from an empty result; both stop happening once the prompt
+    says them.
+    """
+    if not any(tool in text for tool in K8S_LOOKUP_TOOLS):
+        return
+    if "`namespace` is its own argument" not in text:
+        raise Fail(
+            f"{label} names a k8s lookup tool but never says that `namespace` is "
+            f"its own argument and never a term inside `labelSelector`. Nothing "
+            f"carries a label called `namespace`, so a selector holding one "
+            f"matches nothing — silently, which reads as an empty cluster. Write "
+            f"the sentence with `namespace` is its own argument in it."
+        )
+    if not re.search(r"[Nn]ever repeat a call", text):
+        raise Fail(
+            f"{label} names a k8s lookup tool but does not forbid repeating one. "
+            f"Handed an empty result, the model re-issues the identical call and "
+            f"gets the identical nothing: db-steward did it twice in one run and "
+            f"sre-sentinel three times. Write `Never repeat a call you have "
+            f"already made`."
         )
 
 
@@ -682,6 +730,7 @@ def _check_delivery(project, persona_name, persona, delivery, warnings):
     _check_fill_direction(f"{project.name}/{persona['systemPromptFile']}", prompt)
     _check_datasource_uid(f"{project.name}/{persona['systemPromptFile']}", prompt)
     _check_investigation_budget(f"{project.name}/{persona['systemPromptFile']}", prompt)
+    _check_k8s_selector_rules(f"{project.name}/{persona['systemPromptFile']}", prompt)
     _check_counter_window(f"{project.name}/{persona['systemPromptFile']}", prompt)
 
     if not delivers:

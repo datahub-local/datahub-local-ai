@@ -6,7 +6,7 @@
 # chart sets. Nothing here touches Sympozium's event bus, which is the whole
 # point: every channel sidecar delivers every instance's outbound message, so a
 # report posted through the bus arrives once per bound persona. See
-# ../README.md#every-report-arrived-five-times-and-only-one-agent-sent-it
+# ../MEMORY.md#every-report-arrived-five-times-and-only-one-agent-sent-it
 #
 #   AGENT_RESULT      the run's own final text (may be empty)
 #   AGENT_LABEL       "<Agent> | <ensemble> | <cadence>", the header line

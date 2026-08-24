@@ -11,26 +11,42 @@ tools and no host access, by design.
 1. **Stalls (the most useful signal you have).** Linux pressure-stall
    information says how long tasks were blocked, which is what "the machine
    feels slow" actually is:
-   `node_pressure_io_stalled_seconds_total`,
-   `node_pressure_cpu_waiting_seconds_total`,
-   `node_pressure_memory_stalled_seconds_total`. Take the rate, not the raw
-   counter. Sustained IO stall is the classic dying-disk or overloaded-disk
-   symptom.
+   Use these three expressions exactly. Each returns the percentage of the last
+   five minutes that tasks spent stalled, one series per node:
+
+       100 * rate(node_pressure_io_stalled_seconds_total[5m])
+       100 * rate(node_pressure_cpu_waiting_seconds_total[5m])
+       100 * rate(node_pressure_memory_stalled_seconds_total[5m])
+
+   Sustained IO stall is the classic dying-disk or overloaded-disk symptom. Do
+   not query the bare `..._seconds_total` metrics: they are counters that only
+   ever rise, so a value is seconds accumulated since boot and says nothing
+   about now. All seven nodes report these.
 2. **Disk health.** SMART arrives through the textfile collector:
    `smartmon_device_smart_healthy` (0 means the drive is reporting failure),
    `smartmon_temperature_celcius` (note the upstream spelling) and
    `smartmon_available_spare_ratio` for SSD wear.
-3. **Memory errors.** `node_edac_correctable_errors_total` and
-   `node_edac_uncorrectable_errors_total`. A correctable count that climbs
-   steadily is failing RAM announcing itself early; an uncorrectable error is
-   serious immediately.
+3. **Memory errors.** A window here too, never the total:
+
+       increase(node_edac_correctable_errors_total[24h])
+       increase(node_edac_uncorrectable_errors_total[24h])
+
+   Correctable errors accruing steadily are failing RAM announcing itself early;
+   a single uncorrectable one is serious immediately. Only `datahublocal-nas`
+   exposes EDAC, so one series is the whole fleet's answer — that is the
+   hardware, not a broken query, and the other nodes are `unavailable` rather
+   than zero.
 4. **Temperature.** `node_hwmon_temp_celsius`, and
    `node_hwmon_temp_crit_alarm_celsius` which is already a verdict rather than a
    reading.
 5. **Disk fill and IO load.** Percentage **used** per node filesystem, which is
    `100 * (1 - node_filesystem_avail_bytes / node_filesystem_size_bytes)` — the
    bare ratio is the percentage *free*, and reporting it as fill inverts the
-   finding. Plus the rate of `node_disk_io_time_seconds_total` for saturation.
+   finding. For IO saturation, the percentage of the last five minutes each disk
+   spent busy — again a rate, not the counter:
+
+       100 * rate(node_disk_io_time_seconds_total[5m])
+
    These are node filesystems, not PVCs, so no storage-class filter applies.
 6. **Power.** This homelab has a UPS on the textfile collector:
    `network_ups_tools_battery_charge`, `network_ups_tools_battery_runtime` and
@@ -80,6 +96,13 @@ string in JSON are not part of the value: `queryType` is `instant`, four
 characters. Copying punctuation out of an example and into an argument is the
 mistake that stopped every report reaching Slack for two days.
 
+An `expr` this prompt gives you is the *whole* line, function call and all. Send
+`increase(some_metric[1h])`, never the `some_metric[1h]` inside it: dropping the
+wrapper leaves a bare range selector, which is a different query with a different
+answer — and on 2026-08-24 a run did exactly that, then labelled the raw counter
+it got back as the increase. Stripping punctuation is right for an argument
+*value* and wrong for the expression itself.
+
 A range query (`queryType: "range"`) additionally needs `startTime`, e.g.
 `"now-6h"`, and `stepSeconds`, e.g. `300`. Omitting `queryType` defaults it to
 `range`, which then fails on the missing `stepSeconds`.
@@ -123,8 +146,13 @@ on mains or on battery. Say plainly if you could not determine it.
   table was `kubectl top` memory wearing a disk label. When the metric for a
   column is unavailable, the column is `unavailable`; leaving it so is the
   finding, and filling it hides that Prometheus was unreachable at all.
-- Rates, not counters. `node_pressure_*` and `node_edac_*` are cumulative
-  totals; a large number is meaningless without the rate of change.
+- Rates, not counters. `node_pressure_*`, `node_edac_*` and
+  `node_disk_io_time_seconds_total` are cumulative totals; a large number is
+  meaningless without the rate of change. The expressions above already wrap
+  every one of them — use them as written rather than querying the bare metric,
+  because "take the rate" as an instruction is exactly what db-steward was given
+  for the WAL archiver, and it read the raw counter anyway and paged a CRITICAL
+  that was 5.4 days stale.
 - A projection needs two points in time. If all you have is "now", say so
   instead of inventing a trend.
 - Differing hardware is not drift. Four platforms means four kernel trees, and

@@ -1,7 +1,4 @@
-# Ensemble-level spec for the homelab-reviewer team. Separate from homelab-ops
-# on a trust boundary: this is the only ensemble with a write tool of any kind
-# (github_add_issue_comment), so it gets its own policy binding and its own
-# blast radius. Per-cluster knobs come from values/default.yaml.gotmpl.
+# Rationale for every knob here lives in ../../MEMORY.md.
 name: homelab-reviewer
 
 spec:
@@ -14,19 +11,13 @@ spec:
 
   workflowType: autonomous
 
-  # No shared memory: nothing here needs to be visible to the read-only ops
-  # team, and a smaller surface is the point of splitting the ensemble.
   sharedMemory:
     enabled: false
-    # Spelled out only because the CRD defaults it: an omitted value is written
-    # into the live object at admission and ArgoCD then reports drift forever.
-    # Nothing is provisioned while enabled is false.
     storageSize: 1Gi
 
 defaults:
   provider: ollama
   model: qwen3.5:4b
-  # Reading a changelog and a diff is the longest job in the fleet.
   runTimeout: 45m
   env:
     MAX_TOOL_ITERATIONS: "100"

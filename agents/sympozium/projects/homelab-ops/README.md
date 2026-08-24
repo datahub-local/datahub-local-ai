@@ -41,7 +41,7 @@ classic dying-disk symptom. Then SMART health and SSD wear, EDAC memory-error
 counters (failing RAM announces itself early if anyone is counting), temperature,
 IO saturation, kernel drift, and the UPS. It has no host access, so systemd units
 and pending OS updates are out of reach; see
-[what the agents can see](../../README.md#what-the-agents-can-see-and-what-they-cannot).
+[what the agents can see](../../MEMORY.md#what-the-agents-can-see-and-what-they-cannot).
 
 **`db-steward`** — the DBA, split out of the janitor because databases need a
 different toolset and a different cadence. `pg_analyze_db_health` for internals,
@@ -69,7 +69,7 @@ scraped as `redis_*`, that three nodes legitimately report no SMART data.
 
 `workflowType` is `autonomous`, not `delegation`, and each persona is one
 question with five to seven tools — see
-[the model constrains the design](../../README.md#the-model-constrains-the-design).
+[the model constrains the design](../../MEMORY.md#the-model-constrains-the-design).
 
 ## Notification
 
@@ -91,7 +91,7 @@ Slack's own message stamp is the run time.
 The destination goes in the tool's `chatId` argument, *not* its `channel`
 argument, which names the transport (`slack`). The prompts had that backwards
 until 2026-08-23 and every scheduled report was silently dropped —
-[the write-up](../../README.md#send_channel_message-takes-the-destination-in-chatid-not-channel)
+[the write-up](../../MEMORY.md#send_channel_message-takes-the-destination-in-chatid-not-channel)
 is worth reading before touching these files.
 
 | Persona | Channel | notify |
@@ -123,7 +123,7 @@ Binding a channel also opens an inbound path — a Slack message can start an
 `AgentRun` — so `slackOptions.allowedTriggers` is `[mention]` on every persona.
 These five hold no write tool, so an unwanted run costs GPU time and nothing
 else; `renovate-reviewer`, which can comment on pull requests, is deliberately
-not bound. See [Known gaps](../../README.md#known-gaps) for what is still
+not bound. See [Known gaps](../../MEMORY.md#known-gaps) for what is still
 unverified about the Slack path.
 
 All five also answer over HTTP, so a run can be started without waiting for its

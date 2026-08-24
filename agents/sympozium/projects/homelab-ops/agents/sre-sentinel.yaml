@@ -1,3 +1,4 @@
+# Rationale for every knob here lives in ../../../MEMORY.md.
 name: sre-sentinel
 displayName: SRE Sentinel
 
@@ -7,16 +8,9 @@ skills:
   - sre-observability
   - memory
 
-# Every 6h, not every 30m. Alertmanager already routes every alert to Robusta
-# (severity =~ ".*", group_wait 1s) and Robusta posts to Slack, so this agent is
-# not the detector - it is the digest: new vs chronic, root cause, and the volume
-# fill check, which no alert rule covers. At 30m with unconditional delivery it
-# was 48 messages a day restating what Robusta had already said.
 schedule:
   type: heartbeat
   interval: 6h
-  # afterInterval, not immediate: six agents enabled at once would queue six
-  # cold runs behind each other on a single-GPU Ollama.
   firstTick: afterInterval
   taskFile: prompts/sre_sentinel_task.md
 
@@ -24,10 +18,6 @@ memory:
   enabled: true
   maxSizeKB: 256
   seeds:
-    # The chronic set, re-verified against ALERTS on 2026-08-22. Without these
-    # the agent reports the same firing series every 30 minutes forever — but a
-    # seed is a list of what to *ignore when observed*, never a substitute for
-    # observing, which is why each one says so.
     - "If KubeSchedulerDown or KubeControllerManagerDown fire, they are artifacts: k3s embeds both components in the server process and exposes no separate metrics endpoint. Never escalate them. Neither was firing on 2026-08-22, so this note tells you what to ignore when you see it and is not evidence that you saw it."
     - "CPUThrottlingHigh is chronic here — 10 firing series on 2026-08-22, across roughly ten workloads. Report it only if the set of affected workloads changes, and only if you read it out of ALERTS this run."
     - Watchdog fires by design. It proves the alerting pipeline is alive and is never a fault.
@@ -36,8 +26,6 @@ memory:
     - "Correction, 2026-08-23: any earlier memory of yours reporting a volume at 96-99% and 'write operations failing' is wrong. Those runs divided available by capacity and read the free fraction as the used one, so the volumes named were the emptiest in the cluster, not the fullest. Measured that day: nothing above 31% used, and the nfs share under 1%. Distrust your own fill history before this date."
     - "NodeClockNotSynchronising is real and is not chronic: systemd-timesyncd is inactive on datahublocal-orpi-0 through orpi-3, so those kernels are never told they are synchronised. Offsets were still under a millisecond on 2026-08-23, so report it as latent rather than urgent — but do report it. It is awaiting a fix at the node."
 
-# The only channel binding in this ensemble, and it is inbound only: delivery
-# is a postRun hook. It exists so an @-mention starts a known persona.
 channels:
   - slack
 
@@ -49,9 +37,6 @@ mcpServers:
   - name: datahub-local-core-automation-sympozium-mcp-grafana
     timeout: 30
     toolsPrefix: grafana
-    # toolsAllow bounds how many tool schemas enter the context window: it
-    # runs at the server, and mirrors toolPolicy.allow with the prefix
-    # stripped. validate.py fails if the two drift.
     toolsAllow:
       - query_prometheus
     toolsDeny:
@@ -72,9 +57,6 @@ mcpServers:
   - name: datahub-local-core-automation-sympozium-mcp-k8s
     timeout: 30
     toolsPrefix: k8s
-    # toolsAllow mirrors this persona's toolPolicy.allow with the prefix
-    # stripped. It runs at the server, so it is what bounds how much of the
-    # context window the tool schemas consume. validate.py fails if they drift.
     toolsAllow:
       - pods_list
       - events_list
@@ -91,11 +73,6 @@ mcpServers:
 toolPolicy:
   allow:
     - grafana_query_prometheus
-    # grafana_list_datasources is deliberately absent. It was here so the uid
-    # would not be a guess, but it made one: the model read the list, picked
-    # Loki's hex uid over the literal `prometheus`, and every query 404'd. The
-    # datasource is provisioned readOnly by kube-prometheus-stack, so the uid
-    # is a stable literal and belongs in the prompt, not in a lookup.
     - k8s_pods_list
     - k8s_events_list
     - k8s_pods_log

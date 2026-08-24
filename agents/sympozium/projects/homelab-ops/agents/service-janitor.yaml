@@ -1,3 +1,4 @@
+# Rationale for every knob here lives in ../../../MEMORY.md.
 name: service-janitor
 displayName: Service Janitor
 
@@ -9,11 +10,7 @@ skills:
 
 schedule:
   type: scheduled
-  # UTC — no Sympozium CRD has a timezone field, unlike the n8n workflows.
-  # 05:00 UTC is 07:00 Madrid in summer, 06:00 in winter.
   cron: "0 5 * * 1"
-  # afterInterval, and stated rather than left to the CRD default: no cold
-  # run at deploy time, just the cron tick.
   firstTick: afterInterval
   taskFile: prompts/service_janitor_task.md
 
@@ -30,9 +27,6 @@ mcpServers:
   - name: datahub-local-core-automation-sympozium-mcp-k8s
     timeout: 30
     toolsPrefix: k8s
-    # toolsAllow bounds how many tool schemas enter the context window: it
-    # runs at the server, and mirrors toolPolicy.allow with the prefix
-    # stripped. validate.py fails if the two drift.
     toolsAllow:
       - resources_list
       - resources_get
@@ -46,9 +40,6 @@ mcpServers:
   - name: datahub-local-core-automation-sympozium-mcp-grafana
     timeout: 30
     toolsPrefix: grafana
-    # toolsAllow mirrors this persona's toolPolicy.allow with the prefix
-    # stripped. It runs at the server, so it is what bounds how much of the
-    # context window the tool schemas consume. validate.py fails if they drift.
     toolsAllow:
       - query_prometheus
     toolsDeny:
@@ -72,11 +63,6 @@ toolPolicy:
     - k8s_resources_list
     - k8s_resources_get
     - grafana_query_prometheus
-    # grafana_list_datasources is deliberately absent. It was here so the uid
-    # would not be a guess, but it made one: the model read the list, picked
-    # Loki's hex uid over the literal `prometheus`, and every query 404'd. The
-    # datasource is provisioned readOnly by kube-prometheus-stack, so the uid
-    # is a stable literal and belongs in the prompt, not in a lookup.
     - memory_search
     - memory_store
   deny:

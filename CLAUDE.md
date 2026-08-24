@@ -299,6 +299,7 @@ them.
 ```
 agents/sympozium/
   Chart.yaml, helmfile.yaml.gotmpl   the sub-project root IS the chart root
+  MEMORY.md                          why every knob is set the way it is
   values/default.yaml.gotmpl         per-cluster knobs only
   templates/ensembles.yaml           assembles the Ensembles at render time
   projects/<ensemble>/
@@ -310,6 +311,16 @@ agents/sympozium/
 
 #### Conventions
 
+- **Write the reasoning in `MEMORY.md`, not in the config files.** The YAML under
+  `projects/` and `values/` carries values and one pointer line, nothing else;
+  `agents/sympozium/MEMORY.md` carries why each knob is set that way, the
+  per-persona decisions, and each new incident. That is also where a new lesson
+  goes — `README.md` holds the structure and the long write-ups that already
+  exist and is not growing further. A comment restating a decision beside the
+  value is a second copy of it: the `toolsAllow` note had been pasted into nine
+  persona files and the `grafana_list_datasources` note into four before this
+  split. Stripping all of it changed neither the parsed YAML nor a byte of
+  `helm template` output.
 - **Prompts are files, never inlined.** A persona sets `systemPromptFile` and
   `schedule.taskFile`; the build script *rejects* a literal `systemPrompt` or
   `schedule.task`. Same reasoning as `agents/n8n/prompts/`.
@@ -576,6 +587,25 @@ rather than copying the outcomes, since the constraints will change.
   as `map[string]string` and the webhook decodes strictly. The real limit is the
   65536 context every accumulated tool result must fit inside, so raising this is
   headroom, not permission to sweep wider.
+- **A cumulative counter is not a state, and the suffix will not tell you
+  which is which.** `db-steward`'s prompt called
+  `cnpg_pg_stat_archiver_failed_count` "the most important number you look at"
+  and never said it was a counter, so a lifetime total of 2 — two failures 5.4
+  days old, against a successful archive 95 seconds old and
+  `increase(...[24h]) = 0` — paged CRITICAL "recovery is silently broken" on
+  every run, twice into Slack. Same class as the fill inversion: right metric,
+  wrong reading. Prompts now carry the literal
+  `increase(cnpg_pg_stat_archiver_failed_count[1h])` and a rule that a non-zero
+  total with a zero increase is *healthy*. Two traps found fixing it.
+  `cnpg_backends_total` and `cnpg_backends_waiting_total` are **gauges** despite
+  the `_total` suffix, so a suffix-based validator rule fails a correct prompt —
+  `scripts/validate.py` keeps an explicit `CUMULATIVE_COUNTERS` set read from
+  Prometheus's metadata API. And prose does not work: `endpoint-warden` said
+  "take the rate, not the raw counter" twice and still handed the model bare
+  metric names, so both prompts now write the window out. A model this size also
+  drops the wrapper — given `increase(m[1h])` it sent `m[1h]` and labelled the
+  answer as the increase — so the prompts state that an `expr` is the whole
+  line, function call included, which is the `chatId` lesson in a new place.
 - **A permanent finding is a bug in the prompt, not a problem in the fleet.**
   `endpoint-warden` reported orpi-0's kernel as drift against orpi-1/2/3 every
   run for days. It is not drift: orpi-0 is an Orange Pi 4 LTS (RK3399, rockchip64
@@ -595,7 +625,7 @@ rather than copying the outcomes, since the constraints will change.
   from a plausible-but-wrong metric name. Where telemetry is genuinely missing —
   systemd units, OS package updates, Garage/S3 — the prompt must not pretend
   otherwise; record the enabling change instead
-  (`agents/sympozium/README.md#follow-ups-to-share-with-the-other-repos`).
+  (`agents/sympozium/MEMORY.md#follow-ups-to-share-with-the-other-repos`).
 - **Seed the noise.** Most alerts in this cluster fire permanently, including
   `KubeSchedulerDown`/`KubeControllerManagerDown`, which are artifacts of k3s
   embedding those components with no separate metrics endpoint. A small model

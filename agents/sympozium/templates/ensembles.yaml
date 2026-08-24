@@ -102,7 +102,7 @@
 {{- /* An HTTP endpoint is a property of this cluster, not of the agent, so it is
        switched on from values and never in projects/. Adding the skill is the
        whole mechanism. Note it *replaces* the persona's schedule rather than
-       sitting beside it — ../README.md#the-endpoint-replaces-the-schedule--it-does-not-sit-beside-it */}}
+       sitting beside it — ../MEMORY.md#the-endpoint-replaces-the-schedule--it-does-not-sit-beside-it */}}
 {{-     $wp := index ($web.personas | default dict) ($persona.name | toString) | default dict }}
 {{-     $wpEnabled := $web.enabled | default false }}
 {{-     if hasKey $wp "enabled" }}

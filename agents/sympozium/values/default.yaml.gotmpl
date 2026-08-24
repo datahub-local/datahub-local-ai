@@ -1,66 +1,6 @@
-# Common values shared for all charts
+# Per-cluster knobs only. Rationale for every one of them lives in ../MEMORY.md.
 release_name: datahub-local-ai
 
-# Delivery knobs, consumed by templates/ensembles.yaml and substituted into each
-# persona's system prompt. Deliberately kept out of the tree below: everything
-# under sympozium_ensembles is merged into the Ensemble spec, and the CRD webhook
-# decodes strictly — an unknown key is rejected outright ("unknown field
-# spec.verbosity"), not pruned. Chart-only knobs need their own tree.
-#
-# Keys are the ensemble directory name, with optional per-persona overrides.
-#   channel    where send_channel_message posts. No CRD field carries a
-#              destination, so this only ever reaches the agent as prompt text —
-#              substituted into the CHANNEL token and, from there, into the
-#              tool's `chatId` argument. See prompts/delivery/*.md: `chatId` is
-#              the destination and `channel` is the transport ("slack"), and the
-#              first version of these prompts had them the wrong way round,
-#              which is why nothing was ever delivered.
-#
-#              Note the token is named without its braces here on purpose. This
-#              file is a .gotmpl: helmfile renders it as a Go template before
-#              Helm sees it, comments included, so a literal brace pair is a
-#              template action and an undefined function — which is exactly how
-#              this line broke the ArgoCD CMP once.
-#   verbosity  quiet | normal | verbose  -> prompts/delivery/<level>.md
-#   notify     always | onChange | never -> prompts/notify/<level>.md
-#
-# Channel names rather than C0… ids, so this file stays readable. Slack accepts
-# a name for chat.postMessage, but it is the legacy form and breaks silently on
-# a rename — swap in the ids if these channels start moving. The bot has to be a
-# member of every channel named here.
-#
-# Delivery needs BOTH halves and there is no way to split them. An entry here is
-# what tells the agent where to post; the persona's `channels: [slack]` is what
-# lets the message leave the pod at all. `send_channel_message` is registered even
-# on an unbound persona and still answers, but the ipc-bridge then drops it —
-# "Dropping outbound message to channel not configured on this agent" — and the
-# run reports Succeeded having posted nothing. Verified with a probe on
-# 2026-08-23; scripts/validate.py fails either half missing.
-#
-# That coupling is why every report arrives five times. A binding also deploys a
-# channel sidecar, and every slack sidecar in the namespace delivers every
-# instance's outbound message — it filters on the transport in `data.channel` and
-# never on the `metadata.instanceName` it is handed. Five delivering personas
-# means five sidecars means five identical copies, in the same second. Nothing in
-# this file or in projects/ can separate them: unbinding four personas to leave
-# one sidecar carrying the ensemble was tried and silences those four completely.
-# The fix is one line upstream: filter on metadata.instanceName in the sidecar.
-#
-# How a report reaches its channel, for personas with deliveryMode: hook.
-#
-# The hook is a container the controller runs in a follow-up Job after the agent
-# finishes: it gets the report in AGENT_RESULT and posts it with one
-# chat.postMessage call. Nothing touches the shared event bus, so the report
-# arrives exactly once however many personas are bound -- which is the whole
-# reason this exists. See ../README.md for the fan-out it replaces.
-#
-# `secret` is the same Secret channelConfigs points at, read by reference so no
-# token appears in this chart. Egress to slack.com works because the hook pod is
-# not labelled sympozium.ai/role=agent and so is not selected by
-# sympozium-agent-deny-all -- verified against api.test from inside the pod.
-#
-# Pin `image` to a digest if you want the hook reproducible; a tag is enough
-# here, and curl is the whole dependency.
 sympozium_delivery_hook:
   image: curlimages/curl:8.11.1
   secret: mcp-slack-token
@@ -68,75 +8,14 @@ sympozium_delivery_hook:
 
 sympozium_delivery:
   homelab-ops:
-    # The daily and weekly personas report here every run — hardware, the
-    # databases, the weekly cleanup. Scan-later reading, so this is the channel
-    # whose notifications can be off.
     channel: "#monitoring-ai-health"
 
-    # Split by what a reader would do about it, not by which agent produced it:
-    # a channel is really one notification setting. Keeping the two frequent
-    # personas out of -health is what lets -alerts keep notifications on without
-    # the daily hardware report training you to mute it.
-    # Only the destination is per-persona now. deliveryMode defaults to hook, so
-    # neither of these says so; a persona that ever needs the sidecar path opts
-    # out with `deliveryMode: tool` and pays a duplicate copy per bound persona.
-    #
-    # `verbosity` and `notify` are deliberately absent everywhere. A hook posts
-    # the run's own result unconditionally, so neither knob can do anything -
-    # they described how the model should call the posting tool and when to stay
-    # quiet, and there is no longer a call and no suppression. Leaving them set
-    # would have claimed behaviour that does not happen, so validate.py rejects
-    # them on a hook-mode persona. The cost is real and worth stating: every
-    # report now arrives every run, so -alerts gets one every 30 minutes where
-    # onChange used to keep it near-silent. Stretch schedule.interval if that is
-    # too much; do not reach for notify.
     personas:
       sre-sentinel:
         channel: "#monitoring-ai-alerts"
       gitops-auditor:
         channel: "#monitoring-ai-drift"
 
-  # homelab-reviewer is absent on purpose: it is bound to no channel, and its
-  # DO NOT MERGE comment on the pull request is the alert. See
-  # projects/homelab-reviewer/README.md#notification.
-
-# Which agents also answer over HTTP, so a run can be started off-schedule to
-# test one. Chart-only, like sympozium_delivery above: enabling it appends the
-# `web-endpoint` SkillPack to the persona, and the controller responds by
-# deploying a web-proxy Deployment and a ClusterIP Service beside the agent. The
-# CRD's own `spec.webEndpoint` field is deprecated in favour of the skill, so it
-# is deliberately not set anywhere.
-#
-# The proxy turns one HTTP request into one AgentRun, against the same prompts,
-# skills, MCP servers and tool policy the schedule uses — which is the point: a
-# test that skipped any of those would not be testing the agent that runs at
-# 04:30. It costs a Deployment per persona and, on each request, a slot on the
-# one GPU.
-#
-#   POST /v1/chat/completions   OpenAI-compatible
-#   POST /v1/mcp                MCP
-#   GET  /healthz               the only route needing no Authorization header
-#
-# No `hostname` is set, so no HTTPRoute is created and the Service stays
-# ClusterIP: reachable by `kubectl port-forward`, and by nothing outside the
-# cluster. See ../README.md#testing-an-agent-over-http for the key and a call.
-#
-# `enabled` is the master switch, and it is OFF because an endpoint does not sit
-# beside a persona's schedule — it replaces it. A serving AgentRun makes the
-# schedule controller skip every tick for that agent ("Skipping trigger —
-# instance has a serving AgentRun"), silently: the SympoziumSchedule stays
-# Active, no run fails, nothing is emitted. Two ticks were lost that way on
-# 2026-08-23 before anything noticed. See ../README.md#the-endpoint-replaces-the-schedule--it-does-not-sit-beside-it.
-#
-# So this is a switch to flip for the length of a test and flip back, not a
-# standing configuration — which is exactly why it is one master switch rather
-# than only the per-ensemble keys: turning the surface on and off again must not
-# mean editing, and then having to remember to restore, the per-agent decisions
-# below. For a test that does not cost a schedule, apply an AgentRun by hand
-# instead; the README has the manifest.
-#
-# Under `ensembles:`, keys are the ensemble directory name, with optional
-# per-persona overrides under `personas:`, exactly as sympozium_delivery does.
 sympozium_web_endpoint:
   enabled: false
 
@@ -147,52 +26,17 @@ sympozium_web_endpoint:
       burstSize: 10
 
     homelab-reviewer:
-      # Off, and not for symmetry: renovate-reviewer is the one persona holding
-      # a write tool (github_add_issue_comment), and what it writes lands on a
-      # real pull request. It is also the one ensemble deliberately bound to no
-      # channel for the same reason. Turn this on for the length of a test and
-      # back off afterwards, rather than leaving a trigger sitting in front of
-      # it.
       enabled: false
 
-# Per-cluster knobs merged into each Ensemble's spec, keyed by the directory name
-# under projects/. Everything describing *what an agent is* — prompts, skills,
-# schedules, tool policy — lives in projects/ and is read from there by
-# templates/ensembles.yaml at render time. Only settings that could legitimately
-# differ between clusters belong here.
 sympozium_ensembles:
   homelab-ops:
-    # Ensembles ship disabled by default in the CRD ("catalog-only"). All six
-    # agents are wanted here, so both ensembles are switched on explicitly.
     enabled: true
 
-    # Channel type -> the Secret holding its credentials. The controller reads
-    # this to set ConfigRef on every generated Agent whose agentConfig lists the
-    # type in `channels`, so a persona bound to a type with no entry here binds
-    # to nothing at all — scripts/validate.py cross-checks the two.
-    #
-    # A secret name is a property of the cluster, not of the agent, which is why
-    # it lives here and is rejected in ensemble.yaml. mcp-slack-token is
-    # projected into `automation` by datahub-local-secrets and carries
-    # SLACK_BOT_TOKEN (outbound chat:write) and SLACK_APP_TOKEN (Socket Mode,
-    # the inbound half). Until it appeared the only Slack secret in this cluster
-    # was `slack-auth` in `monitoring`, which is why nothing here could notify.
     channelConfigs:
       slack: mcp-slack-token
 
-    # Cluster-local Ollama, deployed by datahub-local-core
-    # (releases/data/values/ollama.yaml.gotmpl). No credentials: provider
-    # "ollama" needs none, which is why no authRefs secret appears anywhere in
-    # this chart. The Sympozium NetworkPolicy already allows egress on 11434
-    # (extraEgressPorts in core's sympozium values), and Ollama serves an
-    # OpenAI-compatible API under /v1.
     baseURL: http://datahub-local-core-data-ollama.data.svc:11434/v1
 
-    # permissive, deliberately — see ../../README.md#why-the-permissive-policy.
-    # The built-in restrictive and network-isolated policies both set
-    # networkPolicy.denyAll, which would cut the agents off from Ollama and
-    # from every MCP server. Restriction is enforced per-agent instead, by the
-    # toolPolicy allowlists and the MCP toolsDeny lists in projects/.
     policyRef: permissive
 
   homelab-reviewer:

@@ -177,6 +177,24 @@ BANNED_TOOLS = {
 # it is a per-cluster decision that has to be readable in one place.
 VALUES_ONLY_SKILLS = {"web-endpoint": "sympozium_web_endpoint"}
 
+# Metrics the prompts name that are genuinely cumulative counters, so a bare
+# reading is history rather than a state and the prompt has to spell out an
+# increase()/rate() window. Read off this Prometheus with the metadata API, not
+# inferred from the name — `cnpg_backends_total` and `cnpg_backends_waiting_total`
+# carry a `_total` suffix and are **gauges**, so the suffix decides nothing:
+#
+#     curl -sG http://localhost:9090/api/v1/metadata \
+#       --data-urlencode metric=<name> | jq -r '.data[][0].type'
+CUMULATIVE_COUNTERS = {
+    "cnpg_pg_stat_archiver_failed_count",
+    "node_disk_io_time_seconds_total",
+    "node_edac_correctable_errors_total",
+    "node_edac_uncorrectable_errors_total",
+    "node_pressure_cpu_waiting_seconds_total",
+    "node_pressure_io_stalled_seconds_total",
+    "node_pressure_memory_stalled_seconds_total",
+}
+
 DNS_1123 = re.compile(r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$")
 
 
@@ -412,6 +430,51 @@ def _check_investigation_budget(label, text):
         )
 
 
+def _check_counter_window(label, text):
+    """A cumulative counter must be read through a rate window, not bare.
+
+    `cnpg_pg_stat_archiver_failed_count` counts archive attempts that have failed
+    since the statistics were last reset. It never falls. db-steward's prompt
+    called it "the most important number you look at" and paired it with a hard
+    rule that a failing archiver is CRITICAL, without ever saying the number was
+    a total rather than a state — so on 2026-08-24 the agent read a bare `2` and
+    paged CRITICAL, "point-in-time recovery is silently broken", while the same
+    Prometheus held `increase(...[24h]) = 0`, a last failure 5.4 days old, a last
+    success 95 seconds old and 12 segments archived in the previous hour. Two
+    runs shipped that to Slack before anyone checked.
+
+    Same class as _check_fill_direction: the metric name was right, present and
+    verified, and the reading was still wrong. The fix is the same — the literal
+    expression goes in the prompt. Prose does not work here and endpoint-warden
+    is the proof: it said "Take the rate, not the raw counter" and "Rates, not
+    counters" in two places and still handed the model nothing but bare counter
+    names to call.
+
+    The suffix cannot decide this, which is why the set below is explicit.
+    `cnpg_backends_total` and `cnpg_backends_waiting_total` are **gauges** — a
+    `_total` suffix is a naming convention, not a type. Re-derive after any
+    exporter bump, against the running Prometheus rather than from the name:
+
+        curl -sG http://localhost:9090/api/v1/metadata \
+          --data-urlencode metric=<name> | jq -r '.data[][0].type'
+    """
+    for counter in sorted(CUMULATIVE_COUNTERS):
+        if not re.search(rf"\b{re.escape(counter)}\b", text):
+            continue
+        window = rf"(?:increase|rate|irate|delta)\s*\(\s*{re.escape(counter)}\b"
+        if re.search(window, text):
+            continue
+        raise Fail(
+            f"{label} names the cumulative counter {counter!r} but never wraps "
+            f"it in increase() or rate(). A counter only ever rises, so a "
+            f"non-zero value is history and not a state — that is how a bare "
+            f"`cnpg_pg_stat_archiver_failed_count` of 2 paged CRITICAL for a "
+            f"database whose last archive failure was 5.4 days old. Telling the "
+            f"model to 'take the rate' in prose is not enough; write the literal "
+            f"expression, e.g. `increase({counter}[1h])`."
+        )
+
+
 def _check_datasource_uid(label, text):
     """A prompt that queries Prometheus must state the uid and never look it up.
 
@@ -619,6 +682,7 @@ def _check_delivery(project, persona_name, persona, delivery, warnings):
     _check_fill_direction(f"{project.name}/{persona['systemPromptFile']}", prompt)
     _check_datasource_uid(f"{project.name}/{persona['systemPromptFile']}", prompt)
     _check_investigation_budget(f"{project.name}/{persona['systemPromptFile']}", prompt)
+    _check_counter_window(f"{project.name}/{persona['systemPromptFile']}", prompt)
 
     if not delivers:
         for token in PROMPT_TOKENS:
@@ -699,9 +763,9 @@ def _check_delivery_needs_binding(personas, delivery, warnings):
     *every* instance's message — it filters on `data.channel` and never on the
     `metadata.instanceName` it is handed. Each delivering persona therefore costs
     one duplicate copy of every report in the ensemble, and there is no way to
-    have one without the other from here: see README.md#every-report-arrived-five-
-    times-and-only-one-agent-sent-it. The upstream fix is a one-line filter on
-    metadata.instanceName in the channel sidecar.
+    have one without the other from here. The upstream fix is a one-line filter on
+    metadata.instanceName in the channel sidecar. Written up in
+    MEMORY.md#every-report-arrived-five-times-and-only-one-agent-sent-it
 
     The tempting workaround — unbind all but one persona and let its sidecar carry
     the ensemble — was tried and does not work. It is what the probe above was
@@ -782,7 +846,7 @@ def _check_delivery_needs_binding(personas, delivery, warnings):
             f"deliveryMode: tool ({', '.join(sorted(tool_mode))}) arrives "
             f"{len(bound)} times — each channel sidecar delivers every "
             f"instance's message. Move them to deliveryMode: hook; see "
-            f"README.md#every-report-arrived-five-times-and-only-one-agent-sent-it"
+            f"MEMORY.md#every-report-arrived-five-times-and-only-one-agent-sent-it"
         )
 
 

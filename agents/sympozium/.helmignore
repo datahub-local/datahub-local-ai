@@ -3,4 +3,5 @@
 # Docs. projects/**/prompts/*.md, prompts/**/*.md and files/*.sh must NOT be
 # ignored — the templates read all three at render time.
 /README.md
+/MEMORY.md
 projects/*/README.md

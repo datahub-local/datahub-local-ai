@@ -5,7 +5,6 @@ displayName: GitOps Auditor
 systemPromptFile: prompts/gitops_auditor_system.md
 
 skills:
-  - k8s-ops
   - memory
 
 schedule:

@@ -5,7 +5,6 @@ displayName: Endpoint Warden
 systemPromptFile: prompts/endpoint_warden_system.md
 
 skills:
-  - sre-observability
   - memory
 
 schedule:

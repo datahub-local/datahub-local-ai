@@ -640,10 +640,23 @@ rather than copying the outcomes, since the constraints will change.
   cannot deduce that, so the known-chronic set lives in `sre-sentinel`'s memory
   seeds and reports are shaped new / still firing / resolved. Re-seed when the
   chronic set changes.
-- **Read-only by default.** Every persona denies `write_file` and
-  `execute_command` — the latter is a shell, and with MCP servers wired it is
-  also redundant. An agent that changes things should be a separate, explicitly
-  authorised one, not a capability quietly added to a reporter.
+- **Read-only by default, and `toolPolicy` is not the boundary.** Every persona
+  denies `write_file` and `execute_command` — the latter is a shell, and with MCP
+  servers wired it is also redundant. An agent that changes things should be a
+  separate, explicitly authorised one, not a capability quietly added to a
+  reporter. But the deny filters *schema registration*, not dispatch: the runner
+  logs `tool policy: denied tool "execute_command"`, omits the schema, and then
+  executes the call anyway if the model produces it. A SkillPack is what makes it
+  produce one — `sre-observability` says "Use `execute_command` for all shell
+  commands" and `k8s-ops` claims "full cluster admin access ... kubectl works out
+  of the box", and 744 shell commands ran across the fleet in a week on personas
+  that denied it. Both packs also declare sidecar RBAC that the controller binds
+  to the *shared* `sympozium-agent` ServiceAccount, so mounting one granted every
+  agent in `automation` create/delete on pods, `pods/exec`, secrets, deployments
+  and rolebindings. Both are removed and `scripts/validate.py` rejects them by
+  name. Read a pack's `.spec.skills[].content` **and** `.spec.sidecar.rbac`
+  before mounting it: a skill is prose competing with the persona's prompt, and
+  prose wins.
 - **The model constrains the design.** Inference is cluster-local Ollama
   (`qwen3.5:4b`, one 6 GiB GPU, one resident model, a 65,536 context as of
   2026-08-23 — read the effective value from Ollama's `GET /api/ps` with the

@@ -241,9 +241,13 @@ ensemble exists to keep visible.
 - **Schedules are UTC.** No Sympozium CRD has a timezone field, unlike the n8n
   workflows which set `Europe/Madrid` explicitly. Every cron here is written in
   UTC with the local time in a comment, and shifts by an hour twice a year.
-- **Read-only by default.** Every persona denies `write_file` and
-  `execute_command`. `execute_command` is a shell; with the MCP servers wired it
-  is also redundant.
+- **Read-only by default, and `toolPolicy` is not what enforces it.** Every
+  persona denies `write_file` and `execute_command` — a shell, and redundant with
+  the MCP servers wired. But the deny filters schema registration, not dispatch:
+  a SkillPack that names `execute_command` in its Markdown gets it back, and the
+  fleet ran 744 shell commands that way. Read a pack's `.spec.skills[].content`
+  and `.spec.sidecar.rbac` before mounting it, and see
+  [MEMORY.md](MEMORY.md#a-skillpack-overrode-every-tool-decision-in-this-repository).
 
 ## Testing an agent over HTTP
 

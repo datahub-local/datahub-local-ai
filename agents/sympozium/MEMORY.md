@@ -1183,6 +1183,13 @@ in this document.
 A fifth, unrelated change to `releases/automation/` is what currently stops the
 fleet running at all — see below.
 
+A sixth landed on 2026-08-24 and is the largest of them, because it is the one
+that made `toolPolicy` decorative: the built-in `k8s-ops` and `sre-observability`
+SkillPacks tell the model to shell out, and their sidecar RBAC is bound to the
+shared `sympozium-agent` ServiceAccount. Two fixes, one in core's catalog and one
+upstream — the prompt to hand to core is in
+`#a-skillpack-overrode-every-tool-decision-in-this-repository`.
+
 ## The `mcp-k8s` MCPServer is `transportType: http` and answers 404
 
 **Resolved by core on 2026-08-23, with a caveat.** The MCPServer is now declared
@@ -1622,6 +1629,165 @@ Two ways to close it, in preference order:
    container in the namespace a default request, which fixes this and changes
    the behaviour of everything else in a shared namespace. Only worth it if the
    unbounded pods actually cause a scheduling problem.
+
+## A SkillPack overrode every tool decision in this repository
+
+`endpoint-warden` delivered a placeholder, `sre-sentinel` reported no firing
+alerts while four were firing, and `db-steward` wrote a whole daily report out of
+its own memory. Three symptoms, one cause, and it was not context size: the
+largest prompt Ollama saw across those runs was **15,294 tokens against
+`n_ctx_slot = 65536`**, with no truncation. The per-run token figures on the run
+list (199,130 for sre-sentinel) are *cumulative across LLM rounds*, not per call —
+about 9k a round over 21 rounds. Read `n_ctx_slot` and `task.n_tokens` from
+Ollama's slot log before blaming the window.
+
+The cause was the mounted skill Markdown. `sre-observability`:
+
+> You are running in-cluster with `kubectl`, `curl`, and `jq`. Use
+> `execute_command` for all shell commands.
+
+and `k8s-ops`:
+
+> You are running inside a Kubernetes pod with full cluster admin access via an
+> in-cluster ServiceAccount token. kubectl works out of the box ... You have RBAC
+> permissions to read all resources cluster-wide and manage workloads in any
+> namespace.
+
+Every persona in `homelab-ops` carried one of the two. A 4B model follows that
+over a nine-tool allowlist, and **the runner executes the call anyway**:
+
+```
+tool policy: denied tool "execute_command"     <- logged at startup
+tools enabled: 9 tool(s) registered            <- schema not injected
+tool call: execute_command args={"command":"kubectl get pvc -A ..."}
+[tool-executor] exec [1787569...]: kubectl get pvc -A --no-headers (timeout=30s)
+```
+
+`toolPolicy` filters schema *registration*, not dispatch. The model learned the
+name from the skill, emitted the call, and the skill sidecar ran it. **744 shell
+commands executed across the fleet in the 7 days to 2026-08-24.** So
+`toolPolicy.allow` is not the enforcing boundary it is described as anywhere else
+in this file — a skill that names a tool is enough to get it back.
+
+What each symptom actually was:
+
+- **endpoint-warden, empty result.** 16 calls, 11 of them shell: `curl` against
+  four guessed Prometheus URLs, then `ls /workspace`, `getenforce`, `ps aux`,
+  `env | grep PROM`. Ended `WARNING: terminal turn had empty text`, so the
+  delivery hook posted its placeholder. Not the iteration cap — 16 of 50.
+- **sre-sentinel, wrong report.** 21 calls, 18 shell. Its two
+  `grafana_query_prometheus` calls were correct and came *first*; 18 kubectl
+  results then buried them and it wrote `Still firing: None` while Prometheus
+  held `CPUThrottlingHigh`, `InfoInhibitor`, `NodeClockNotSynchronising` and
+  `Watchdog`. `NodeClockNotSynchronising` is the real fault its own seeds say to
+  report while it persists. Run 74, which stayed on the Grafana path, listed all
+  four. The tool was never broken; the detour lost the answer.
+- **db-steward, fabricated report.** A separate trigger, same skill:
+  `endTime: "1725489600"` — 2024-09-04 — on all six queries, every one empty,
+  "The tools are unavailable", then a full report from `memory_search` with a
+  lifetime archiver count, "27 total backends" and "up from ~6.8%". The skill
+  demonstrated `NOW=$(date +%s)` / `end=$NOW`; the model reproduced the shape
+  without a shell to evaluate it. Rare but live: 528 calls sent `now`, 6 a stale
+  epoch, 1 `2024-01-01T00:00:00Z`.
+
+### The read-only guarantee was never real
+
+The worse half. `k8s-ops` declares sidecar RBAC, and the controller realises it
+per run as a Role plus RoleBinding in `automation` — 109 pairs had accumulated by
+2026-08-24, owned by retained AgentRuns and so never collected. Every binding
+targets the **shared `sympozium-agent` ServiceAccount**, which is the same
+identity every agent pod in the namespace runs as. Verified:
+
+```console
+$ kubectl auth can-i --as=system:serviceaccount:automation:sympozium-agent -n automation create pods/exec
+yes
+$ ... delete deployments   -> yes
+$ ... get secrets          -> yes
+$ ... create rolebindings  -> yes
+```
+
+`create/patch` on `rolebindings` is a self-escalation path out of the namespace.
+Because the SA is shared, it applied to `endpoint-warden` and
+`renovate-reviewer` too, neither of which lists `k8s-ops`. It had been true since
+2026-08-21. Nothing exploited it, and nothing in `projects/` would have stopped
+it: a per-persona `toolsDeny` filters an MCP server, and this path used no MCP
+server at all.
+
+### The fix, and the rule that comes out of it
+
+Both skills are gone from all five `homelab-ops` personas, which leaves `memory`
+alone. They contributed nothing the pinned MCP tools do not already cover, and
+`k8s-ops` additionally mandated its own `✅/⚠️/❌` output table, competing with the
+persona's required section layout. Removing them deletes the sidecar, so the RBAC
+is never created again. `scripts/validate.py` keeps them out by name
+(`SHELL_TEACHING_SKILLS`) rather than by a general rule, because the objection is
+to what these two say, and the 109 stale pairs need deleting once by hand:
+
+```bash
+kubectl get rolebinding,role -n automation -o name \
+  | grep sympozium-skill- | xargs kubectl delete -n automation
+```
+
+`endTime` is now pinned to the literal `now` in all four Prometheus prompts, with
+the reason stated — the model has no clock, so any timestamp it writes is
+invented — and `_check_endtime_literal` enforces both halves. That is the `chatId`
+lesson again: naming the argument is not enough, the prompt has to say what the
+value may not be.
+
+**The rule: a SkillPack is prose competing with the persona's own prompt, and
+prose wins.** Read the Markdown of every pack before mounting it
+(`kubectl get skillpack <name> -n automation -o json | jq -r '.spec.skills[].content'`)
+and read `.spec.sidecar.rbac` with it, because mounting a pack grants its RBAC to
+the whole namespace. Two skills per persona was a budget decision about
+attention; it is now also a trust decision. `memory` and `code-review` were
+checked and carry no sidecar, no RBAC and no shell instruction.
+
+### The prompt to hand to `datahub-local-core`
+
+Core owns the SkillPack objects, so two of the three fixes are its. The third is
+upstream. Paste this as-is:
+
+> The `k8s-ops` and `sre-observability` SkillPacks in `automation` are unsafe for
+> a small local model and their RBAC leaks across the namespace. Two changes:
+>
+> 1. **Drop the write verbs from `k8s-ops`'s sidecar RBAC.** It currently grants
+>    `create/update/patch/delete` on `pods`, `pods/exec`, `pods/portforward`,
+>    `secrets`, `serviceaccounts`, `configmaps`, `deployments`, `statefulsets`,
+>    `daemonsets`, `jobs`, `cronjobs`, `networkpolicies`, `ingresses`,
+>    `horizontalpodautoscalers`, `poddisruptionbudgets` and — the one that makes
+>    it an escalation path — `roles` and `rolebindings`. The controller realises
+>    this per run as a Role + RoleBinding in `automation` bound to the **shared**
+>    `sympozium-agent` ServiceAccount, so it applies to every agent pod in the
+>    namespace, not only the ones that mount the pack. Verified on 2026-08-24:
+>    `kubectl auth can-i --as=system:serviceaccount:automation:sympozium-agent
+>    -n automation create rolebindings` answers `yes`. Nothing in this cluster
+>    needs a skill to write to Kubernetes — the personas that do have MCP servers
+>    for it. Cut the verb lists to `get,list,watch`, matching what
+>    `sre-observability` already does.
+> 2. **Stop the skill Markdown prescribing a shell.** `sre-observability`'s
+>    prompt-query skill says "Use `execute_command` for all shell commands" and
+>    demonstrates `NOW=$(date +%s)` / `end=$NOW`; `k8s-ops`'s cluster-overview
+>    skill opens "You are running inside a Kubernetes pod with full cluster admin
+>    access ... kubectl works out of the box" and then lists kubectl invocations.
+>    Personas that deny `execute_command` in `toolPolicy` called it anyway — 744
+>    shell commands across the fleet in the 7 days to 2026-08-24 — because the
+>    deny filters schema registration, not dispatch, so naming the tool in prose
+>    is enough to get it back. A pack should describe *what to look at*, not
+>    which tool to reach for; the persona's `toolPolicy` decides that. While the
+>    packs say otherwise, this repository cannot mount either of them.
+>
+> Also worth garbage-collecting: those per-run Roles and RoleBindings are owned
+> by AgentRuns, which are retained, so 109 pairs had accumulated. Either set a
+> retention on AgentRuns or give the RBAC objects a shorter-lived owner.
+>
+> The third fix is upstream (`sympozium-ai/sympozium`), and worth filing:
+> `toolPolicy` must be enforced at tool *dispatch*, not only at schema
+> registration. Today the runner logs `tool policy: denied tool
+> "execute_command"`, omits the schema, and then executes the call if the model
+> produces the name from anywhere else. Same failure mode as the other three open
+> upstream bugs — the run reports `Succeeded` and quietly does something other
+> than what it claims. Related: per-run skill RBAC should be bound to a
+> per-instance ServiceAccount rather than the shared `sympozium-agent`.
 
 ## Known gaps
 

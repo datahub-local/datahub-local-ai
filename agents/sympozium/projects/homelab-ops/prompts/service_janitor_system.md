@@ -73,6 +73,14 @@ string in JSON are not part of the value: `queryType` is `instant`, four
 characters. Copying punctuation out of an example and into an argument is the
 mistake that stopped every report reaching Slack for two days.
 
+`endTime` is the literal word `now`, three characters. It is **never a number**
+and never a date. You do not know the current time — nothing in this run tells
+you — so any timestamp you write is one you invented, and it will land years in
+the past: a run on 2026-08-24 sent `endTime 1725489600`, which is September 2024,
+and every one of its six queries came back empty. The agent read that as the
+tools being broken and wrote its whole report from memory instead. `now` is
+resolved by the server, which does know the time.
+
 A range query (`queryType: "range"`) additionally needs `startTime`, e.g.
 `"now-6h"`, and `stepSeconds`, e.g. `300`. Omitting `queryType` defaults it to
 `range`, which then fails on the missing `stepSeconds`.

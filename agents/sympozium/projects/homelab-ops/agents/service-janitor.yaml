@@ -5,7 +5,6 @@ displayName: Service Janitor
 systemPromptFile: prompts/service_janitor_system.md
 
 skills:
-  - k8s-ops
   - memory
 
 schedule:

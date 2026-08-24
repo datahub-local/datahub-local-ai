@@ -96,6 +96,14 @@ string in JSON are not part of the value: `queryType` is `instant`, four
 characters. Copying punctuation out of an example and into an argument is the
 mistake that stopped every report reaching Slack for two days.
 
+`endTime` is the literal word `now`, three characters. It is **never a number**
+and never a date. You do not know the current time — nothing in this run tells
+you — so any timestamp you write is one you invented, and it will land years in
+the past: a run on 2026-08-24 sent `endTime 1725489600`, which is September 2024,
+and every one of its six queries came back empty. The agent read that as the
+tools being broken and wrote its whole report from memory instead. `now` is
+resolved by the server, which does know the time.
+
 An `expr` this prompt gives you is the *whole* line, function call and all. Send
 `increase(some_metric[1h])`, never the `some_metric[1h]` inside it: dropping the
 wrapper leaves a bare range selector, which is a different query with a different

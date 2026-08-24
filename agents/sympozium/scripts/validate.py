@@ -171,6 +171,28 @@ BANNED_TOOLS = {
     ),
 }
 
+# SkillPacks whose mounted Markdown tells the model to shell out, with what it
+# says. A skill is prose competing with the persona's own prompt, and these two
+# win: `sre-observability` states "Use `execute_command` for all shell commands"
+# and `k8s-ops` opens "You are running inside a Kubernetes pod with full cluster
+# admin access ... kubectl works out of the box". A 4B model follows that over a
+# pinned tool list, and the runner *executes* the call even though it logs
+# `tool policy: denied tool "execute_command"` — the deny filters schema
+# registration, not dispatch. Both also carry a sidecar whose per-run RBAC is
+# bound to the shared `sympozium-agent` ServiceAccount, so mounting either grants
+# every persona in the namespace write access it never asked for.
+SHELL_TEACHING_SKILLS = {
+    "sre-observability": (
+        "its prompt-query skill says \"Use `execute_command` for all shell "
+        "commands\" and demonstrates `end=$(date +%s)` epoch arguments"
+    ),
+    "k8s-ops": (
+        "its cluster-overview skill claims \"full cluster admin access\" via "
+        "kubectl and mandates its own output table, which competes with the "
+        "persona's required section layout"
+    ),
+}
+
 # Skills a persona may not list for itself, with the values tree that owns them.
 # The web endpoint is a testing surface in front of the agent rather than part of
 # what the agent is, and it costs a Deployment per persona, so which ones carry
@@ -558,6 +580,41 @@ def _check_datasource_uid(label, text):
         )
 
 
+def _check_endtime_literal(label, text):
+    """A prompt that queries Prometheus must pin `endTime` to the word `now`.
+
+    Nothing in a run tells the model the current time, so a numeric `endTime` is
+    always invented — and it lands wherever the training data sits. On
+    2026-08-24 db-steward sent `endTime: "1725489600"` (2024-09-04) on all six of
+    its queries, every one returned empty, and the model reported "The tools are
+    unavailable" and then wrote the entire daily report from `memory_search`
+    results: a lifetime archiver count, "27 total backends", "up from ~6.8%", all
+    of it plausible and none of it retrieved.
+
+    Rare but live: across 2026-08-20..24 the fleet sent `now` on 528 calls, a
+    stale epoch on 6 and `2024-01-01T00:00:00Z` on 1. The `sre-observability`
+    skill was demonstrating `end=$(date +%s)` at the time, which is the shape the
+    model reproduced without the shell to evaluate it; that skill is gone (see
+    SHELL_TEACHING_SKILLS) and the rule is stated in the prompt as well, because
+    the failure is silent either way — an empty result reads as a broken sensor.
+    """
+    if "grafana_query_prometheus" not in text:
+        return
+    if not re.search(r"^\s+endTime\s+now\s*$", text, re.MULTILINE):
+        raise Fail(
+            f"{label} calls grafana_query_prometheus without spelling out "
+            f"`endTime         now` in its call block. The argument is required "
+            f"and the model has no clock, so an unpinned one becomes an invented "
+            f"epoch and every query answers empty."
+        )
+    if "never a number" not in text:
+        raise Fail(
+            f"{label} pins `endTime   now` but does not say it is never a "
+            f"number. Naming the value was not enough for `chatId` either — say "
+            f"outright that a timestamp is invented and lands years in the past."
+        )
+
+
 def _check_unquoted_args(label, text):
     """Argument values in a prompt's call block must be written bare.
 
@@ -729,6 +786,7 @@ def _check_delivery(project, persona_name, persona, delivery, warnings):
     _check_unquoted_args(f"{project.name}/{persona['systemPromptFile']}", prompt)
     _check_fill_direction(f"{project.name}/{persona['systemPromptFile']}", prompt)
     _check_datasource_uid(f"{project.name}/{persona['systemPromptFile']}", prompt)
+    _check_endtime_literal(f"{project.name}/{persona['systemPromptFile']}", prompt)
     _check_investigation_budget(f"{project.name}/{persona['systemPromptFile']}", prompt)
     _check_k8s_selector_rules(f"{project.name}/{persona['systemPromptFile']}", prompt)
     _check_counter_window(f"{project.name}/{persona['systemPromptFile']}", prompt)
@@ -1144,6 +1202,13 @@ def _check_persona(project, path, used, channel_secrets, delivery, web, warnings
         raise Fail(
             f"{name}: unknown skill(s) {', '.join(unknown)}. Installed SkillPacks: "
             f"{', '.join(sorted(SKILLS))}"
+        )
+    for skill in sorted(set(skills) & set(SHELL_TEACHING_SKILLS)):
+        raise Fail(
+            f"{name}: lists the {skill!r} skill, which teaches the model to "
+            f"shell out — {SHELL_TEACHING_SKILLS[skill]}. The tools this "
+            f"persona may use are its toolPolicy allowlist and nothing else; "
+            f"the skill overrides that in prose and the runner honours it."
         )
 
     memory = persona.get("memory")

@@ -936,9 +936,91 @@ for seven hours without a word.
 The fix is in three parts, all of them in `projects/`: the prompts state the
 argument contract, the hard rules make an errored query escalate (DEGRADED, and
 send regardless of the change test) instead of degrading to silence, and
-`grafana_list_datasources` is allowlisted so the datasource uid is read rather
-than guessed. Every persona's prompt now also says its seeds are a list of what
-to ignore *when observed*, never evidence that it was.
+`grafana_list_datasources` was allowlisted so the datasource uid could be read
+rather than guessed. Every persona's prompt now also says its seeds are a list of
+what to ignore *when observed*, never evidence that it was.
+
+That third part was wrong, and it is now reverted — see below.
+
+### Reading the uid was worse than pinning it
+
+`grafana_list_datasources` returns all three datasources this Grafana serves:
+
+| name | uid | type |
+| --- | --- | --- |
+| Prometheus | `prometheus` | prometheus |
+| Alertmanager | `alertmanager` | alertmanager |
+| Loki | `P8E80F9AEF21F6940` | loki |
+
+Only one of those *looks* like a uid. A 4B model reads the list, takes the hex
+string for the real identifier and the bare word `prometheus` for a placeholder
+it was supposed to resolve, and sends every PromQL query to Loki — which answers
+`404 page not found` for every metric. So the tool added to stop the uid being a
+guess is what produced the wrong guess, and it did so against a prompt that
+already stated the correct value two paragraphs earlier.
+
+The tool is now absent from all four Prometheus-reading personas, and the uid is
+a pinned literal. That is safe because the datasource is provisioned `readOnly`
+by kube-prometheus-stack, so `prometheus` is stable; and if it ever does change,
+the agent reports every metric unavailable, which is loud. `scripts/validate.py`
+enforces both halves — no persona may allowlist the tool, and any prompt calling
+`grafana_query_prometheus` must spell out `datasourceUid   prometheus`.
+
+The general lesson is worth more than the fix: **a discovery tool that returns
+several plausible answers is a liability at this model size.** The agent has to
+choose, a wrong choice fails silently, and the failure looks like the thing being
+discovered is broken. Prefer a pinned literal plus a loud failure.
+
+### It then invented the numbers rather than report none
+
+The 2026-08-24 04:30 run of `endpoint-warden` is the part that cost trust. With
+every Prometheus query 404ing, the mandated **Fleet** table still required seven
+columns per node — and the model filled the disk column from the one tool that
+had answered, `k8s_nodes_top`, whose memory percentages it relabelled as disk:
+
+| node | reported "disk fill" | `kubectl top` memory | actual `df` |
+| --- | --- | --- | --- |
+| datahublocal-orpi-0 | 79% (CRITICAL) | 81% | **5%** |
+| datahublocal-amd-2 | 35% | 34% | — |
+| datahublocal-nas | 16% | 16% | — |
+
+It then emitted the whole report twice with different numbers, the second copy
+annotating its own substitution (`~45% disk fill (calculated from k8s_nodes_top
+memory)`) while the first presented it bare. The existing hard rule — "never
+report a number you did not retrieve" — lost to the format rule demanding a
+value in every column.
+
+Three prompt changes, because the format was as much at fault as the model: a
+column with no metric is the literal word `unavailable` and a row of seven of
+those is a legitimate row; every figure must come from the metric named for it,
+with `k8s_nodes_top` called out as CPU and memory only; and the three sections
+are emitted exactly once each. A correcting memory seed tells the persona to
+treat its pre-2026-08-24 Fleet rows as absent rather than as a baseline, per
+[When not to wipe](#wiping-a-personas-memory).
+
+### The kernel "drift" was never drift
+
+The same reports flagged `datahublocal-orpi-0` on `7.1.2-edge-rockchip64` against
+orpi-1/2/3 on `6.1.115-vendor-rk35xx` as version drift, every run, for days. It
+is not drift — it is four hardware classes on four kernel trees:
+
+| node(s) | hardware | OS | kernel |
+| --- | --- | --- | --- |
+| orpi-0 | Orange Pi 4 LTS (RK3399) | DietPi / trixie | `7.1.2-edge-rockchip64` |
+| orpi-1, orpi-2, orpi-3 | Orange Pi 5B (RK3588) | DietPi / trixie | `6.1.115-vendor-rk35xx` |
+| amd-1, amd-2 | amd64 | Debian 13 trixie | `6.12.96` / `6.12.101+deb13-amd64` |
+| nas | Intel N305 | TrueNAS / bookworm | `6.12.15-production+truenas` |
+
+The seed said "kernel and OS versions should match across nodes; the odd one out
+is the finding", which is true only within a class. Different SoC families cannot
+converge on a kernel, so that finding could never be actioned and could never go
+away. Kernels are now compared within a hardware class only: the sole comparable
+pair is amd-1 against amd-2, where 6.12.96 genuinely trails 6.12.101, and orpi-0
+and the NAS are each a class of one and so can never be the odd one out.
+
+**A permanent finding is a bug in the prompt, not a problem in the fleet.** It
+also costs more than noise here, since a non-empty findings section is a change
+condition that forces a post.
 
 Not instrumented, so no prompt pretends to check them:
 

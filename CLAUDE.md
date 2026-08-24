@@ -521,6 +521,41 @@ rather than copying the outcomes, since the constraints will change.
   `scripts/validate.py` fails an uninverted division. Give a small model the
   literal expression, not a description of it — it will not assemble a join from
   prose, and it will report whatever it computes with total confidence.
+- **A discovery tool that returns several plausible answers is a liability.**
+  `grafana_list_datasources` was allowlisted so the Prometheus uid would not be a
+  hardcoded guess. It produced one: this Grafana serves three datasources, and
+  Loki's uid is the hex string `P8E80F9AEF21F6940` while Prometheus's is the
+  literal word `prometheus`. A 4B model takes the hex string for the real
+  identifier and the bare word for a placeholder to resolve, so every PromQL
+  query went to Loki and answered `404 page not found` — against a prompt that
+  stated the right value two paragraphs above. The tool is gone from all four
+  Prometheus-reading personas and the uid is pinned; the datasource is
+  provisioned `readOnly` by kube-prometheus-stack, so the literal is stable, and
+  if it ever changes the agent reports every metric unavailable, which is loud.
+  `scripts/validate.py` enforces both halves. Prefer a pinned literal plus a loud
+  failure over a lookup the model has to choose from.
+- **A mandatory report format will be satisfied with invented numbers.** With
+  Prometheus 404ing, `endpoint-warden` still owed seven columns per node, so it
+  filled the disk column from the only tool that answered — relabelling
+  `k8s_nodes_top` memory as disk and calling a 5%-full control-plane disk "79%
+  disk fill (CRITICAL)", then emitting the whole report twice with different
+  numbers. The standing "never report a number you did not retrieve" rule lost to
+  the format demanding a value. A format is only safe if it makes absence
+  expressible: a column with no metric is now the literal `unavailable`, a row of
+  those is a legitimate row, each figure must come from the metric named for it,
+  and the sections are emitted exactly once. Verified with a hand-applied
+  `AgentRun`, which now returns the real 2-35% spread in one tool call.
+- **A permanent finding is a bug in the prompt, not a problem in the fleet.**
+  `endpoint-warden` reported orpi-0's kernel as drift against orpi-1/2/3 every
+  run for days. It is not drift: orpi-0 is an Orange Pi 4 LTS (RK3399, rockchip64
+  tree), orpi-1/2/3 are Orange Pi 5B (RK3588, rk35xx vendor tree), the amd nodes
+  are Debian trixie amd64 and the NAS is TrueNAS. Different SoC families cannot
+  converge on a kernel, so the finding could never be actioned and never clear.
+  Versions are comparable only *within* a hardware class — the one real pair here
+  is amd-1's 6.12.96 against amd-2's 6.12.101 — and a class of one is never the
+  odd one out. Check that a rule you give a persona is one the fleet can actually
+  satisfy, especially where a non-empty findings section is itself a change
+  condition that forces a post.
 - **Verify the telemetry exists before writing a prompt against it.** Every
   metric named in a prompt was confirmed present in this Prometheus. Two traps
   found this way: Valkey is scraped by a redis exporter so its metrics are

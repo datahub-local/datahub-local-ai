@@ -51,7 +51,6 @@ mcpServers:
     # context window the tool schemas consume. validate.py fails if they drift.
     toolsAllow:
       - query_prometheus
-      - list_datasources
     toolsDeny:
       - grafana_api_request
       - update_dashboard
@@ -73,9 +72,11 @@ toolPolicy:
     - k8s_resources_list
     - k8s_resources_get
     - grafana_query_prometheus
-    # The datasourceUid is otherwise a guess, and a guess that happens to
-    # be right today: this is the only way to read the real uid.
-    - grafana_list_datasources
+    # grafana_list_datasources is deliberately absent. It was here so the uid
+    # would not be a guess, but it made one: the model read the list, picked
+    # Loki's hex uid over the literal `prometheus`, and every query 404'd. The
+    # datasource is provisioned readOnly by kube-prometheus-stack, so the uid
+    # is a stable literal and belongs in the prompt, not in a lookup.
     - memory_search
     - memory_store
   deny:

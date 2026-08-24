@@ -142,6 +142,20 @@ VALUES_ONLY_KEYS = ("enabled", "baseURL", "policyRef", "channelConfigs")
 # be added without this file noticing.
 WRITE_TOOLS = {"github_add_issue_comment"}
 
+# Tools no persona may allowlist, with why. A discovery tool that returns several
+# plausible identifiers is a liability at this model size: the agent has to pick,
+# and a wrong pick fails silently. `grafana_list_datasources` was allowlisted so
+# the Prometheus uid would not be a hardcoded guess; the model then chose Loki's
+# hex uid over the literal `prometheus` and every query returned 404, which the
+# report rendered as a fleet with no metrics. The uid is pinned in the prompts
+# instead — see _check_datasource_uid.
+BANNED_TOOLS = {
+    "grafana_list_datasources": (
+        "the uid belongs in the prompt as the literal `prometheus`. Given the "
+        "datasource list, the model picks Loki's hex uid and every query 404s"
+    ),
+}
+
 # Skills a persona may not list for itself, with the values tree that owns them.
 # The web endpoint is a testing surface in front of the agent rather than part of
 # what the agent is, and it costs a Deployment per persona, so which ones carry
@@ -311,6 +325,41 @@ def _check_fill_direction(label, text):
             f"one — the bug that had this fleet calling a 2%-used volume "
             f"'97.9% full' on every run. Write it as "
             f"`100 * (1 - available / capacity)`."
+        )
+
+
+def _check_datasource_uid(label, text):
+    """A prompt that queries Prometheus must state the uid and never look it up.
+
+    `grafana_list_datasources` was allowlisted so the uid would not be a guess.
+    It produced one: this Grafana serves three datasources, and Loki's uid is the
+    hex string `P8E80F9AEF21F6940` while Prometheus's is the literal word
+    `prometheus`. A 4B model reads the list, takes the hex string for the real
+    identifier and the word for a placeholder, and sends every query to Loki —
+    which answers `404 page not found` for every metric. endpoint-warden then
+    reported the whole fleet as having no metrics and back-filled its Fleet table
+    from `k8s_nodes_top` memory, calling a 5%-full control-plane disk "79% disk
+    fill (CRITICAL)".
+
+    So the uid is a literal in the prompt and the lookup tool is gone. The
+    datasource is provisioned readOnly by kube-prometheus-stack, which is what
+    makes the literal safe to pin.
+    """
+    if "grafana_query_prometheus" not in text:
+        return
+    if "grafana_list_datasources" in text:
+        raise Fail(
+            f"{label} mentions grafana_list_datasources. Resolving the uid at "
+            f"runtime is the bug, not the fix: the model picks Loki's hex uid "
+            f"over the literal `prometheus` and every query 404s. State "
+            f"`datasourceUid   prometheus` and delete the lookup."
+        )
+    if not re.search(r"^\s+datasourceUid\s+prometheus\s*$", text, re.MULTILINE):
+        raise Fail(
+            f"{label} calls grafana_query_prometheus without spelling out "
+            f"`datasourceUid   prometheus` in its call block. That uid is the "
+            f"only one that answers PromQL here, and it is not guessable from "
+            f"the datasource list — the hex-looking one is Loki."
         )
 
 
@@ -484,6 +533,7 @@ def _check_delivery(project, persona_name, persona, delivery, warnings):
     prompt = (project / persona["systemPromptFile"]).read_text(encoding="utf-8")
     _check_unquoted_args(f"{project.name}/{persona['systemPromptFile']}", prompt)
     _check_fill_direction(f"{project.name}/{persona['systemPromptFile']}", prompt)
+    _check_datasource_uid(f"{project.name}/{persona['systemPromptFile']}", prompt)
 
     if not delivers:
         for token in PROMPT_TOKENS:
@@ -588,13 +638,22 @@ def _check_delivery_needs_binding(personas, delivery, warnings):
             # hook-mode persona is purely the inbound @-mention path.
             per = (delivery.get("personas") or {}).get(name) or {}
             for knob, why in (
-                ("notify", "a hook posts every run unconditionally, so this "
-                           "would claim a suppression that does not happen — "
-                           "stretch schedule.interval instead"),
-                ("verbosity", "the verbosity files describe how to call the "
-                              "posting tool; hook mode substitutes "
-                              "prompts/delivery/hook.md instead and never reads "
-                              "them"),
+                (
+                    "notify",
+                    (
+                        "a hook posts every run unconditionally, so this would "
+                        "claim a suppression that does not happen — stretch "
+                        "schedule.interval instead"
+                    ),
+                ),
+                (
+                    "verbosity",
+                    (
+                        "the verbosity files describe how to call the posting "
+                        "tool; hook mode substitutes prompts/delivery/hook.md "
+                        "instead and never reads them"
+                    ),
+                ),
             ):
                 if per.get(knob) or delivery.get(knob):
                     raise Fail(
@@ -779,6 +838,13 @@ def _check_tools(persona_name, persona, warnings):
                 )
 
     policy = persona.get("toolPolicy", {})
+
+    for tool in policy.get("allow", []):
+        if tool in BANNED_TOOLS:
+            raise Fail(
+                f"{persona_name}: toolPolicy.allow lists {tool!r}, which no "
+                f"persona may hold — {BANNED_TOOLS[tool]}"
+            )
 
     # toolsAllow is the only knob that bounds the *prompt*, as opposed to what
     # the agent is permitted to do. toolPolicy filters at the LLM request, but

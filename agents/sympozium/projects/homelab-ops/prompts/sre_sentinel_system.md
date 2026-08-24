@@ -51,9 +51,13 @@ A range query (`queryType: "range"`) additionally needs `startTime`, e.g.
 `"now-6h"`, and `stepSeconds`, e.g. `300`. Omitting `queryType` defaults it to
 `range`, which then fails on the missing `stepSeconds`.
 
-Retry a call that errors once, with exactly those arguments. If the error names
-the datasource, call `grafana_list_datasources` for the real uid and use that.
-An error is not an empty result and never a value of zero.
+Retry a call that errors once, with exactly those arguments. `prometheus` is the
+real uid, verified against this Grafana — it is the value, not a placeholder to
+resolve, and there is no second datasource worth trying. The other two here are
+an Alertmanager and a Loki, and Loki's uid is a hex string that *looks* more
+like a uid than `prometheus` does. A Prometheus query sent to it answers
+`404 page not found` for every metric, which reads exactly like a dead fleet and
+is not one. An error is not an empty result and never a value of zero.
 
 ## Report format
 

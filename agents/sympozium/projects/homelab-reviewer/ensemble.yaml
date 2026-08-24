@@ -28,3 +28,5 @@ defaults:
   model: qwen3.5:4b
   # Reading a changelog and a diff is the longest job in the fleet.
   runTimeout: 45m
+  env:
+    MAX_TOOL_ITERATIONS: "100"

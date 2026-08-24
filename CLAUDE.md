@@ -430,8 +430,12 @@ agents/sympozium/
 - **Test with a hand-applied `AgentRun`, not the HTTP endpoint.** It suppresses
   no schedule and takes `systemPrompt`, `task` and `toolPolicy` inline, so a
   probe can differ from the real thing. The pod is deleted on completion
-  whatever `cleanup` says, so `status.result` and the channel sidecar logs are
-  the whole record — plan the probe around reading those. But `status.result` is
+  whatever `cleanup` says, so stream the log while the run is live. A run that
+  has *already* finished is still readable, though: Loki keeps every container
+  of it, keyed by `status.podName` over the `startedAt`/`completedAt` window,
+  which is the only way to diagnose a scheduled run after the fact — and the
+  way to count a failure mode across the fleet instead of guessing at it. Tool
+  *results* are logged nowhere; replay the query to see what the model saw. But `status.result` is
   dropped whenever the reply contains invalid UTF-8: the runner ships it to the
   controller over gRPC, protobuf refuses to marshal a bad `string`, and the run
   still reports `Succeeded` with no `error`. Our own header caused it — the model
@@ -545,6 +549,33 @@ rather than copying the outcomes, since the constraints will change.
   those is a legitimate row, each figure must come from the metric named for it,
   and the sections are emitted exactly once. Verified with a hand-applied
   `AgentRun`, which now returns the real 2-35% spread in one tool call.
+- **An instruction to investigate needs a budget and an exit.** `sre-sentinel`
+  was told to root-cause every new alert and given no cap. On 2026-08-24 it read
+  a real new `TargetDown{job="longhorn-backend"}`, then spent five lookups on it
+  — a scrape-job name passed as a pod name, `namespace` written as a term inside
+  `labelSelector`, the same call repeated byte-for-byte — and every one returned
+  empty. It then emitted a turn with neither text nor a tool call, which the
+  runner logs as `terminal turn had empty text`, reports as `Succeeded` with a
+  null `result`, and the delivery hook renders as a placeholder. The alert went
+  unreported. A model this size does not decide on its own that it has learned
+  enough to start writing, so the prompt grants *at most 3 lookups* per alert and
+  names what to write when they yield nothing (`cause not determined`, stated to
+  be a legitimate finding). Both halves matter: a cap with no escape hatch just
+  relocates the silence, exactly as `endpoint-warden`'s mandatory table produced
+  invented numbers until absence became expressible as `unavailable`. Give the
+  model the literal shape of the call too — `namespace` is its own argument on
+  every `k8s_*` tool and never a label — and remember that hook mode removed the
+  *dominant* cause of an empty result, not the mechanism.
+  `scripts/validate.py` enforces both halves.
+- **`MAX_TOOL_ITERATIONS` is a real ceiling and hitting it is silent.** The
+  runner caps tool calls per run at 50; five runs have hit it, and the failure is
+  worse than a truncated report — the run ends `status: error`, so the
+  `lifecycle.postRun` hook never fires and nothing arrives at all.
+  `endpoint-warden` used 48 of 50 one run and failed on 50 the next. Both
+  ensembles set it to `"100"` in `defaults:`, quoted because the CRD types `env`
+  as `map[string]string` and the webhook decodes strictly. The real limit is the
+  65536 context every accumulated tool result must fit inside, so raising this is
+  headroom, not permission to sweep wider.
 - **A permanent finding is a bug in the prompt, not a problem in the fleet.**
   `endpoint-warden` reported orpi-0's kernel as drift against orpi-1/2/3 every
   run for days. It is not drift: orpi-0 is an Orange Pi 4 LTS (RK3399, rockchip64

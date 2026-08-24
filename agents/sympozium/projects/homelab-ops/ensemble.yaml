@@ -30,3 +30,5 @@ defaults:
   # One 4B model on a single 6 GiB GPU is slow, and the 10m default is not
   # enough for a multi-tool sweep. See ../../README.md#the-model-constrains-the-design.
   runTimeout: 30m
+  env:
+    MAX_TOOL_ITERATIONS: "100"

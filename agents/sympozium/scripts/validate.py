@@ -130,7 +130,22 @@ FIRST_TICKS = {"immediate", "afterInterval"}
 
 # Keys the Helm templates stamp onto a persona from the project's `defaults:`
 # block when the persona does not set them itself.
-DEFAULTABLE = ("provider", "model", "runTimeout")
+DEFAULTABLE = ("provider", "model", "runTimeout", "env")
+
+# Runner env vars the projects are allowed to set, with why each one is a
+# property of the agent rather than of the cluster. Anything outside this set is
+# almost certainly a cluster knob and belongs in values, so it is rejected here
+# rather than shipped into every AgentRun.
+#
+# MAX_TOOL_ITERATIONS caps tool calls per run at 50 by default. A 4B model
+# spends calls a larger one would not, and the ceiling is not a soft limit: the
+# run ends `status: error`, so the postRun delivery hook never fires and the
+# report is lost in silence rather than arriving short. Confirm the name against
+# the runner before changing it — the value is echoed on the run's own
+# `max_tool_iterations=` config line, which is the only place it is observable.
+KNOWN_ENV = {
+    "MAX_TOOL_ITERATIONS": "tool-call ceiling per run; the runner defaults it to 50",
+}
 
 # Keys that belong to the cluster, not the agent, and are merged in from
 # release values at render time.
@@ -325,6 +340,75 @@ def _check_fill_direction(label, text):
             f"one — the bug that had this fleet calling a 2%-used volume "
             f"'97.9% full' on every run. Write it as "
             f"`100 * (1 - available / capacity)`."
+        )
+
+
+def _check_env(where, env):
+    """Runner env vars must be known, and their values must be strings.
+
+    The Ensemble CRD types `env` as map[string]string and the admission webhook
+    decodes strictly, so `MAX_TOOL_ITERATIONS: 80` — an int in YAML — is rejected
+    outright at apply time. Quoting it is the whole fix, and a bare number is the
+    natural thing to write, so it is caught here instead of at deploy.
+
+    The name allowlist exists for the usual reason in this file: an env var the
+    runner does not read is applied cleanly, changes nothing, and leaves a
+    comment in the repository claiming otherwise.
+    """
+    if env is None:
+        return
+    if not isinstance(env, dict):
+        raise Fail(f"{where}: env must be a mapping of name to string value")
+    for key, value in sorted(env.items()):
+        if key not in KNOWN_ENV:
+            raise Fail(
+                f"{where}: env sets {key!r}, which the runner does not read. "
+                f"Known: {', '.join(sorted(KNOWN_ENV))}. An env var nothing "
+                f"reads applies cleanly and changes nothing."
+            )
+        if not isinstance(value, str):
+            raise Fail(
+                f"{where}: env[{key}] is {type(value).__name__} {value!r}, not a "
+                f"string. The CRD types env as map[string]string and the webhook "
+                f"decodes strictly, so an unquoted number is rejected at apply "
+                f"time. Write it as {str(value)!r}."
+            )
+
+
+def _check_investigation_budget(label, text):
+    """A prompt that tells the agent to root-cause must cap the digging.
+
+    On 2026-08-24 sre-sentinel read a genuinely new `TargetDown`, then spent five
+    consecutive lookups on it — a Service name passed as a pod name, `namespace`
+    written as a term inside `labelSelector`, that same call again verbatim — and
+    every one came back empty. It then produced a turn with neither text nor a
+    tool call, which the runner records as `terminal turn had empty text` and
+    reports as a success with an empty result. The alert went unreported and the
+    channel got the delivery hook's placeholder.
+
+    "Find the cause" with no budget and no exit is the bug. A model this size
+    does not decide on its own that it has learned enough to write, so the prompt
+    has to say how many lookups it gets and what to write when they yield
+    nothing. Both halves are load-bearing: a cap with no escape hatch just moves
+    the silence, the same way endpoint-warden's mandatory table produced invented
+    numbers until absence became expressible as `unavailable`.
+    """
+    if "k8s_events_list" not in text:
+        return
+    if not re.search(r"\bat most \d+ lookups\b", text):
+        raise Fail(
+            f"{label} names k8s_events_list, so it tells the agent to "
+            f"root-cause, but states no lookup budget. Write the cap literally, "
+            f"as `at most 3 lookups`: a 4B model handed empty results retries "
+            f"and then stops writing altogether, which is how a real TargetDown "
+            f"went unreported on 2026-08-24."
+        )
+    if "cause not determined" not in text:
+        raise Fail(
+            f"{label} caps the lookups but gives the agent nothing to write when "
+            f"they find nothing. A cap without an escape hatch relocates the "
+            f"silence instead of removing it. Name the outcome literally, as "
+            f"`cause not determined`, and say it is a legitimate finding."
         )
 
 
@@ -534,6 +618,7 @@ def _check_delivery(project, persona_name, persona, delivery, warnings):
     _check_unquoted_args(f"{project.name}/{persona['systemPromptFile']}", prompt)
     _check_fill_direction(f"{project.name}/{persona['systemPromptFile']}", prompt)
     _check_datasource_uid(f"{project.name}/{persona['systemPromptFile']}", prompt)
+    _check_investigation_budget(f"{project.name}/{persona['systemPromptFile']}", prompt)
 
     if not delivers:
         for token in PROMPT_TOKENS:
@@ -962,6 +1047,7 @@ def _check_persona(project, path, used, channel_secrets, delivery, web, warnings
         _check_prompt(project, task_ref, "schedule.taskFile", name, used)
         _check_schedule(name, schedule)
 
+    _check_env(name, persona.get("env"))
     _check_tools(name, persona, warnings)
     _check_channels(
         name, persona, channel_secrets, warnings,
@@ -995,6 +1081,8 @@ def check(project):
     shared_memory = spec.get("sharedMemory")
     if shared_memory is not None and shared_memory.get("storageSize") is None:
         raise Fail(_defaulted("ensemble.yaml", "sharedMemory.storageSize"))
+
+    _check_env("ensemble.yaml defaults", (source.get("defaults") or {}).get("env"))
 
     unknown_defaults = sorted(set(source.get("defaults") or {}) - set(DEFAULTABLE))
     if unknown_defaults:

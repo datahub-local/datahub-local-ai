@@ -659,6 +659,91 @@ model reads a tool name as an instruction to call it.
 That makes an @-mention land on a known persona instead of whichever of five
 sidecars Socket Mode happened to hand the event to.
 
+### Hook mode did not retire the empty result — it left the residue
+
+Taking the posting tool away removed the *dominant* cause, not the mechanism. On
+2026-08-24 `homelab-ops-sre-sentinel-schedule-75` finished `Succeeded`, 7 tool
+calls, 2645 output tokens, `status.result` null, and the channel got
+`deliver-slack.sh`'s placeholder. No posting tool was involved; the run simply
+stopped writing:
+
+```
+tool_call [3]: k8s_events_list  args={"fieldSelector":"involvedObject.name=longhorn-backend"}
+tool_call [4]: k8s_pods_list    args={"labelSelector":"app=longhorn"}
+tool_call [5]: k8s_resources_list args={"apiVersion":"v1","kind":"Pod","labelSelector":"app=longhorn,namespace=kube-system"}
+tool_call [6]: k8s_resources_list args={"apiVersion":"v1","kind":"Pod","labelSelector":"app=longhorn,namespace=kube-system"}
+tool_call [7]: k8s_pods_list    args={"labelSelector":"app=longhorn","namespace":"kube-system"}
+WARNING: terminal turn had empty text and no prior reasoning to fall back on
+```
+
+Calls 1 and 2 were correct and answered. `ALERTS` carried something genuinely
+new — `TargetDown{job="longhorn-backend", namespace="kube-system"}`, all five
+`longhorn-manager` pods refusing connections on :9500 after the v1.12.1 bump —
+and the agent set out to root-cause it, as instructed. Then: a scrape-job name
+passed as a pod name, `namespace` written as a term inside `labelSelector` (no
+object carries such a label), that same call again byte-for-byte, and finally the
+selector with `namespace` promoted to an argument but `app=longhorn` still wrong
+— the real selector is `app=longhorn-manager`. Five empty results in a row, and
+then a turn with neither text nor a tool call. The alert went unreported.
+
+Three lessons, and only the third is new:
+
+- **"Find the cause" with no budget and no exit is the bug.** A model this size
+  does not conclude on its own that it has learned enough to start writing. Step
+  3 of the prompt now grants *at most 3 lookups* per alert and names the outcome
+  when they yield nothing — `cause not determined`, stated to be a legitimate
+  finding. Both halves are load-bearing: a cap with no escape hatch relocates the
+  silence, exactly as `endpoint-warden`'s mandatory table produced invented
+  numbers until absence became expressible as `unavailable`.
+- **Give the model the literal shape of the call.** `namespace` is its own
+  argument on every `k8s_*` tool and never a `labelSelector` term; the alert's
+  own labels are the address, so nothing has to be assembled by hand. Same
+  reasoning as pinning the datasource uid.
+- **`max_tool_iterations` is 50 and hitting it is silent.** Not what happened
+  here — this run used 7 — but the search for it turned up five runs that did
+  hit it, and the failure mode is worse: the run ends `status: error`, so the
+  postRun hook never fires and *nothing* arrives, not even a placeholder.
+  `endpoint-warden` used 48 of 50 at 04:30 that morning and failed on 50 at
+  06:15. Both ensembles now set `MAX_TOOL_ITERATIONS: "100"` in `defaults:`. The
+  real ceiling is the 65536 context every accumulated tool result has to fit
+  inside, so this buys headroom rather than removing a limit.
+
+`scripts/validate.py` fails a prompt that names `k8s_events_list` without stating
+a lookup budget and the unresolved-cause wording, and fails an `env` value that
+is not a quoted string — the CRD types `env` as `map[string]string` and the
+webhook decodes strictly, so a bare `100` is rejected at apply time.
+
+### A completed run's log is in Loki, not gone
+
+The agent pod is deleted on completion whatever `cleanup` says, which is why the
+guidance elsewhere here is to stream `kubectl logs -c agent -f` during a probe.
+That is still the right way to watch a run, but a run that has already finished is
+*not* unrecoverable: Loki has every container of it, which is the only reason the
+trace above could be read hours later.
+
+```bash
+kubectl port-forward -n monitoring svc/datahub-local-core-loki-gateway 3199:80 &
+curl -sG http://localhost:3199/loki/api/v1/query_range \
+  --data-urlencode 'query={pod="homelab-ops-sre-sentinel-schedule-75-rqmbq"}' \
+  --data-urlencode 'start=2026-08-24T06:07:00Z' \
+  --data-urlencode 'end=2026-08-24T06:11:00Z' \
+  --data-urlencode 'direction=forward' --data-urlencode 'limit=5000'
+```
+
+`status.podName` on the AgentRun gives the pod name, and `startedAt`/`completedAt`
+give the window. The `agent` container carries the tool calls and the terminal
+warning; `mcp-bridge` carries which server each call went to; `mcp-discover`
+prints the per-server tool counts. Tool *results* are not logged anywhere — replay
+the query against Prometheus to see what the model saw.
+
+This is also how to measure a failure mode across the fleet rather than guess at
+it, which is where the counts above came from:
+
+```
+{namespace="automation",container="agent"} |= "terminal turn had empty text"
+{namespace="automation",container="agent"} |= "exceeded maximum tool-call iterations"
+```
+
 ## Testing an agent over HTTP
 
 `sympozium_web_endpoint` in `values/default.yaml.gotmpl` puts an HTTP endpoint

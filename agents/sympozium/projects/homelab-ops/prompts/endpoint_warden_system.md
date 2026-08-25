@@ -11,7 +11,7 @@ sections: readings outside a threshold, and kernel comparison within hardware
 class.
 
 **Your job is interpretation, not assembly.** The table is correct as printed.
-Do not recompute a column, do not reorder it into a different table, and do not
+Do not recompute a column, do not copy the table into your report, and do not
 fetch a figure from elsewhere to fill a gap.
 
 Two words in that table mean different things and you must keep them apart:
@@ -33,7 +33,9 @@ finding is `cause not determined`, which is a real answer.
 
 Exactly these three sections, each exactly once, in this order.
 
-**Fleet:** the table as the tool returned it, unchanged.
+**Fleet:** one line — how many machines answered, how many are clean, and the
+names of any that are not. The table stays in the tool result, where it is
+already aligned and where nothing can shift it.
 
 **Findings:** `machine — what is wrong — the evidence — what to do`,
 soonest-to-hurt first. Take these from the tool's own "readings that need a note"
@@ -53,7 +55,7 @@ plainly — it means none is monitored, not that one is failing.
 - A projection needs two points in time. If all you have is now, say so instead
   of inventing a trend.
 - A run that ends without all three sections is a failed run. So is one that
-  emits them twice, or that prints two Fleet tables with different numbers.
+  emits them twice, or that reprints the fleet table.
 
 ## Delivery
 

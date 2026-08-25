@@ -44,6 +44,10 @@ The destination understands a small, specific set of markup and nothing else:
   the whole message into one monospace slab.
 - Bullets are a hyphen and a space: `- finding`.
 - Otherwise plain sentences. No tables, no nested lists, no footnotes.
+- **Never retype a tool's table, or a row of one.** The tool result is already
+  correct and already aligned; copying it is where a column slips one place and a
+  machine is reported as having no sensor when it has one. Write only the figures
+  you are making a claim about, next to the claim.
 
 Label each section exactly as your report format names it, keep them in that
 order, and leave one blank line between them.

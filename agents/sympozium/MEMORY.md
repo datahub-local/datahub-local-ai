@@ -1107,6 +1107,48 @@ are emitted exactly once each. A correcting memory seed tells the persona to
 treat its pre-2026-08-24 Fleet rows as absent rather than as a baseline, per
 [When not to wipe](README.md#wiping-a-personas-memory).
 
+#### The Fleet table is gone: the copy was the defect (2026-08-25)
+
+Those three changes made the table *correct to produce* and left it a table the
+model still had to retype. Two probe runs against the fixed facts server show
+what that costs even when every reading handed over is right:
+
+| what the tool printed | what the report said |
+| --- | --- |
+| `amd-1 ... smart 47.0 ... uptime 8.1d` | `amd-1 ... smart n/a` |
+| `orpi-0 ... smart 38.0 ... uptime 8.1d` | `orpi-0 ... smart n/a ... uptime 38.0` |
+| `orpi-3 ... 6.1.115` | `6.1.1.115` |
+| `nas: runtime 13m` | `31 minute runtime` |
+
+orpi-0's SMART reading landed one column left, in uptime, and both rows gained an
+`n/a`. That is worse than a typo: `n/a` is a **defined** word here - *this machine
+has no such sensor, which is the hardware and not a finding* - so a model that
+invents one retires a real reading by fiat, which is the failure the two-word
+vocabulary exists to prevent. A run also invented a machine, `asfpm-2`.
+
+Prose could not hold it. The prompt already said "the table is correct as
+printed", "do not recompute a column" and "every figure comes from the tool
+result on this run, **in the column it was printed under**" - three sentences
+aimed at exactly this - and the delivery contract every persona inherits already
+said **no tables**, because the destination cannot render one. The format demanded
+a copy anyway, and the format won, the same way it won when it demanded seven
+columns with no metric behind them.
+
+So the copy is gone rather than better policed. **Fleet** is now one line - how
+many machines answered, how many are clean, which are not - and the table stays
+in the tool result, where it is already aligned and where nothing can shift it.
+The general rule went into `prompts/delivery/hook.md` rather than this persona,
+so it reaches every persona now and every persona later: *never retype a tool's
+table or a row of one; write only the figures you are making a claim about, next
+to the claim.* A figure attached to a claim is one a reader can check; a figure
+in a copied row is one nobody reads until it is wrong.
+
+Worth noticing that both halves of this pair are the same shape. The caveat that
+ate the drift finding and the column that slipped one place are both **the model
+being asked to carry data it has no reason to touch.** The cure in each case was
+to stop routing it through the model: the verdict moved onto the line it judges,
+and the table stopped being copied at all.
+
 ### The kernel "drift" was never drift
 
 The same reports flagged `datahublocal-orpi-0` on `7.1.2-edge-rockchip64` against

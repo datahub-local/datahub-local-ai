@@ -253,3 +253,58 @@ class TestArgocdDrift:
         out = self._run(monkeypatch, [self._app("a")])
         assert len(out.encode()) <= gitops.BUDGET
         assert "not the resource tree" in out
+
+
+class TestKernelSection:
+    """The probe of 2026-08-25: right reading, inverted conclusion.
+
+    `node_fleet` printed `deb13-amd64/x86_64: DRIFT within class - amd-1 behind`
+    and closed the section with a paragraph ending "not drift and can never be
+    actioned" - a statement about a difference *across* classes. The 4B model
+    attached that clause to the DRIFT line above it and wrote "kernel drift on
+    amd-1 is within its hardware class and cannot be actioned", dismissing the
+    one genuinely actionable finding in the fleet. Adjacent prose became the
+    verdict, the same way `increase(m[1h])` lost its wrapper.
+    """
+
+    def _lines(self):
+        from homelab_facts.tools import nodes
+
+        from tests.test_fleet import KERNELS, MACHINES
+
+        return nodes._kernel_drift(KERNELS, MACHINES, "datahublocal-")
+
+    def _drift_line(self):
+        return next(line for line in self._lines() if "DRIFT" in line)
+
+    def test_the_scope_note_leads_the_section_and_never_trails_a_finding(self):
+        # Position is the fix: a model summarising a section takes the last line
+        # as the conclusion, so the caveat cannot be last.
+        lines = self._lines()
+        assert lines[0].startswith("A class is one kernel tree")
+        assert "DRIFT" not in lines[0]
+        assert "DRIFT" in lines[-1] or "drift" in lines[-1]
+
+    def test_no_line_in_the_section_says_actioned(self):
+        # The exact phrase the model borrowed. Nothing here may carry it.
+        assert not any("action" in line for line in self._lines())
+
+    def test_the_drift_line_states_its_own_verdict(self):
+        # Every line carries its verdict, so none has to borrow one.
+        line = self._drift_line()
+        assert "can converge" in line
+        assert "real finding" in line
+
+    def test_the_drift_line_names_the_node_and_both_versions(self):
+        line = self._drift_line()
+        assert "amd-1 behind" in line
+        assert "amd-1=6.12.96" in line and "amd-2=6.12.101" in line
+
+    def test_a_class_of_one_is_still_stated_as_never_drift(self):
+        # orpi-0, the finding that could never clear.
+        line = next(line for line in self._lines() if "edge-rockchip64" in line)
+        assert "never drift" in line
+        assert "DRIFT" not in line
+
+    def test_the_cross_class_rule_says_not_compared_rather_than_not_actionable(self):
+        assert "are not compared here at all" in self._lines()[0]

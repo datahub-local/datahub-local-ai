@@ -121,22 +121,24 @@ uv run pytest tests/tasks/test_dlt.py  # single file
 
 ### MCP (`agents/mcp/`)
 
-Run from the **repository root** — the sub-project has its own `pyproject.toml`
-but the tests and lint run against the root environment like the other Python
-sub-projects.
+Run from **`agents/mcp/`** — unlike the other Python sub-projects this one is its
+own uv project, with its own `pyproject.toml`, its own `.venv` and its own
+`[tool.pytest.ini_options]` so it is its own rootdir. The root environment has no
+`mcp` extra and cannot import `mcp_runner`; CI runs every step below with
+`working-directory: agents/mcp`.
 
 ```bash
-uv sync --extra mcp --extra dev
-uv run pytest agents/mcp/tests/ -q
-uv run ruff check agents/mcp/
+uv sync --extra dev
+uv run -- pytest -q
+uv run -- ruff check .
 
 # The tool manifest, without binding a port
-uv run python -m mcp_runner --project homelab_facts --list-tools
+uv run -- python -m mcp_runner --project homelab_facts --list-tools
 
 # Serve locally against the real Prometheus
 kubectl -n monitoring port-forward svc/datahub-local-core-kube-pr-prometheus 9090:9090 &
 PROMETHEUS_URL=http://127.0.0.1:9090 \
-  uv run python -m mcp_runner --project homelab_facts --port 8080
+  uv run -- python -m mcp_runner --project homelab_facts --port 8080
 ```
 
 Diff a tool's output against hand-run PromQL before wiring an agent to it. The

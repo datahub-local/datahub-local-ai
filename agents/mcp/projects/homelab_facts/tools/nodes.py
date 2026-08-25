@@ -357,7 +357,19 @@ def _kernel_drift(kernels: dict[str, str], machines: dict[str, str], prefix: str
     if not kernels:
         return [f"Kernel versions {UNAVAILABLE} - node_uname_info answered nothing."]
 
-    lines: list[str] = []
+    # The scope note leads this section rather than closing it. It used to trail the
+    # per-class lines, and a 4B model read its "can never be actioned" clause - which
+    # is about a difference *across* classes - as the verdict on the DRIFT line right
+    # above it, dismissing the one real finding in the fleet as unactionable. The
+    # phrase is gone and every line now carries its own verdict.
+    lines: list[str] = [
+        (
+            "A class is one kernel tree on one architecture, derived from the running "
+            "kernels rather than configured. Only nodes inside one class are compared "
+            "below. Nodes in different classes run different silicon, can never "
+            "converge, and are not compared here at all."
+        )
+    ]
     for group, members, behind in fleet.kernel_drift(kernels, machines):
         names = ", ".join(fleet.shorten(node, prefix) for node in members)
         if len(members) == 1:
@@ -377,14 +389,10 @@ def _kernel_drift(kernels: dict[str, str], machines: dict[str, str], prefix: str
             )
             lines.append(
                 f"{group}: DRIFT within class - "
-                f"{', '.join(fleet.shorten(node, prefix) for node in behind)} behind. {detail}."
+                f"{', '.join(fleet.shorten(node, prefix) for node in behind)} behind. {detail}. "
+                "One kernel tree, one architecture, so these can converge: this is a "
+                "real finding and belongs in your report."
             )
-    lines.append(
-        "A class is one kernel tree on one architecture, derived from the running "
-        "kernels rather than configured. Nodes in different classes run different "
-        "silicon and can never converge, so a version difference between them is "
-        "not drift and can never be actioned."
-    )
     return lines
 
 

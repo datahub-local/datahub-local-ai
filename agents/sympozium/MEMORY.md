@@ -1131,6 +1131,46 @@ and the NAS are each a class of one and so can never be the odd one out.
 also costs more than noise here, since a non-empty findings section is a change
 condition that forces a post.
 
+#### The caveat then ate the finding it sat next to (2026-08-25)
+
+Moving the comparison into `facts_node_fleet` made the *reading* right and the
+*conclusion* wrong. The section printed the real pair —
+
+```
+deb13-amd64/x86_64: DRIFT within class - amd-1 behind. amd-1=6.12.96, amd-2=6.12.101.
+```
+
+— and then closed with a paragraph explaining that nodes in different classes
+"can never converge, so a version difference between them is not drift and can
+never be actioned". That sentence is about a *cross*-class difference. A probe
+run of `endpoint-warden` attached it to the DRIFT line directly above and wrote
+"kernel drift on amd-1 is within its hardware class and cannot be actioned",
+dismissing the one genuinely actionable finding in the fleet. Replayed at
+temperature 0 across three seeds, the old wording dismissed it twice and dropped
+it from Findings entirely once (`Nothing to act on.`).
+
+Two changes, both structural rather than instructed:
+
+- **The scope note leads the section instead of closing it.** A model
+  summarising a block takes the last line as the conclusion, so a caveat can
+  never be last. It also no longer contains the word *actioned* at all — it says
+  cross-class nodes "are not compared here at all", which leaves nothing to
+  borrow.
+- **Every line carries its own verdict.** The DRIFT line now ends "One kernel
+  tree, one architecture, so these can converge: this is a real finding and
+  belongs in your report." All three seeds then report it as real.
+
+This is the `increase(m[1h])` lesson in a third place: **prose adjacent to a
+figure gets absorbed into it.** If a sentence qualifies some lines of a section
+and not others, it cannot live loose in that section — put it on the lines it
+governs, or above all of them. `tests/homelab_facts/test_tools.py::TestKernelSection`
+pins both halves; four of its six assertions fail against the old wording.
+
+The same probe showed the transcription failures that remain, none of which the
+server can prevent: `6.1.115` written as `6.1.1.115`, a UPS runtime of `13m`
+reported as "31 minute", and a machine called `asfpm-2` that does not exist. A
+figure can be handed to this model correctly and still arrive wrong.
+
 Not instrumented, so no prompt pretends to check them:
 
 | Wanted | Missing | Where the fix goes |

@@ -296,6 +296,26 @@ matters regardless of the number.
   task, not the Ensemble:
 
       kubectl get agentrun -n automation <run> -o jsonpath='{.spec.task}'
+
+  **This had been true for three days and nobody checked.** Measured 2026-08-24:
+  every memory ConfigMap in `automation` still carried `creationTimestamp:
+  2026-08-21T19:04:59Z`, and three of five personas were short of what git said —
+  `endpoint-warden` 7 seeds against 12, `sre-sentinel` 4 against 7, `db-steward`
+  4 against 5. The missing ones were not incidental. `db-steward` was still being
+  told "a rising cnpg_pg_stat_archiver_failed_count means WAL archiving is
+  broken ... treat it as the most serious finding available here", the exact
+  wording the counter-vs-state correction replaced. `endpoint-warden` was still
+  told "kernel and OS versions should match across nodes, the odd one out is the
+  finding" plus a "known kernel drift: orpi-0 against orpi-1/2/3" seed — the rule
+  that produced a false finding every run for days, and the hardware-class
+  correction that fixed it was inert. Its stored records still hold the Loki-404
+  era figures ("79% disk fill" for a disk at 8.6%) that the
+  distrust-pre-2026-08-24 seed exists to discount, and that seed was inert too.
+
+  So a seed correction is not done when it is committed. `reseed-memory.sh`
+  regenerates every ConfigMap from `projects/*/agents/*.yaml`; run it after any
+  seed change and verify with the ConfigMap, not the Ensemble. Stored run records
+  are separate and survive it.
 - **Two skills per persona.** SkillPacks mount Markdown into the run, and every
   page competes with the actual task for attention.
 - **Metric names are verified, and the prompts name them.** Every metric quoted
@@ -1780,6 +1800,23 @@ upstream. Paste this as-is:
 > by AgentRuns, which are retained, so 109 pairs had accumulated. Either set a
 > retention on AgentRuns or give the RBAC objects a shorter-lived owner.
 >
+> A fourth, found 2026-08-24 and the more serious of the two RBAC-adjacent ones:
+> **an `AgentRun` created from a channel (or the web endpoint) carries no
+> `toolPolicy` at all** — not a narrower one, none. Its agent container logs zero
+> `tool policy:` lines where the same persona's scheduled run logs 13. The run is
+> built from the `Agent` object, and `Agent.spec.agentConfig` has no `toolPolicy`
+> field, though it does carry `mcpServers` and `policyRef`. So a Slack @-mention
+> runs with the built-in tools ungated, including `workflow_memory_store`
+> read-write against the shared memory every scheduled persona reads. Until
+> upstream carries the field, a `MutatingAdmissionPolicy` on
+> `agentruns.sympozium.ai` (`admissionregistration.k8s.io/v1`, GA on this k3s)
+> can inject a `deny` floor when `!has(object.spec.toolPolicy)`; it is a platform
+> object and belongs beside the MCPServer catalog. Related and worth checking
+> from core's side: `SympoziumPolicy` appears to be declarative-only in v0.10.47
+> — nothing logs `toolGating` or `featureGates`, and no NetworkPolicy in
+> `automation` traces to a `SympoziumPolicy`, `network-isolated`'s
+> `denyAll: true` included.
+>
 > The third fix is upstream (`sympozium-ai/sympozium`), and worth filing:
 > `toolPolicy` must be enforced at tool *dispatch*, not only at schema
 > registration. Today the runner logs `tool policy: denied tool
@@ -1788,6 +1825,327 @@ upstream. Paste this as-is:
 > upstream bugs — the run reports `Succeeded` and quietly does something other
 > than what it claims. Related: per-run skill RBAC should be bound to a
 > per-instance ServiceAccount rather than the shared `sympozium-agent`.
+
+## Right metrics, wrong rows: node-exporter has no node name
+
+The 2026-08-24 13:25 Fleet table read plausibly and was wrong in five places at
+once. Ground truth from Prometheus at the time, against what it printed:
+
+| Node | Real disk | Printed | Real uptime | Printed | Real apt-sec | Printed |
+| --- | --- | --- | --- | --- | --- | --- |
+| orpi-0 | 8.6% | `unavailable` | 7.1d | ~2y | 5 | 0 |
+| orpi-1 | 31.0% | 35% | 7.1d | ~2y | 5 | 5 |
+| orpi-2 | 31.1% | `unavailable` | 7.1d | ~2y | 5 | `-` |
+| orpi-3 | 34.7% | `unavailable` | 7.1d | ~2y | 5 | `-` |
+| amd-1 | 16.0% | 15% | 7.1d | ~2y | 0 | 0 |
+| amd-2 | 13.3% | `unavailable` | 6.0d | ~2y | 0 | 0 |
+| nas | 2.1% | 16% | 7.1d | ~2y | 0 | 0 |
+
+Every figure was available. Four rows said `unavailable`, the NAS was given
+amd-1's disk percentage, orpi-1 was given roughly orpi-3's, every uptime was
+wrong by two orders of magnitude, and three ARM nodes with 5 pending security
+updates were reported as having none or not reported at all. The single Finding
+was wrong too: "CPU waiting pressure on datahublocal-amd-1 has peaked at 52.7%"
+against a real 0.47% — the loaded machines were orpi-1/2/3 at 21-30%.
+
+**No `node_*` series in this Prometheus carries a machine name.** They are keyed
+by `instance`, an IP and port (`192.168.31.104:9100`). The only hostname
+anywhere is the `nodename` label on `node_uname_info`. The prompt demanded a
+per-node table and never said how to get from a series to a node, so the model
+improvised, twice badly:
+
+- `node_apt_security_upgrades_pending by (node)` — not valid PromQL at all (no
+  aggregation function) *and* a label that does not exist. It wrote this form on
+  four different metrics.
+- the bare metric, whose answer is keyed by IP, leaving it to guess the mapping.
+
+It also invented `node_uptime_seconds` and
+`rate(node_exporter_instance_uptime_seconds_sum[5m])` — neither exists — before
+falling back to `node_boot_time_seconds`, which is an absolute epoch. Reported as
+a duration that is decades; an earlier run printed "~43y4m" and "~50y1w" from
+the same mistake, this one normalised it to a uniform "~2y". 27 queries,
+`input=449529` cumulative.
+
+The fix is the one this file keeps arriving at: **write the literal expression,
+including the join.** Every per-node line in `endpoint_warden_system.md` is now
+
+    max by (nodename) (<inner> * on(instance) group_left(nodename) node_uname_info)
+
+verified against Prometheus before it went in — seven series for PSI, disk fill,
+hwmon temperature, IO, uptime and both apt counters; four for SMART health; two
+for `node_hwmon_temp_crit_alarm_celsius`; one for EDAC. `_check_nodename_join`
+fails a prompt that names `node_uname_info` but writes the join fewer than five
+times, that writes `by (node)` inside a call block, or that names
+`node_boot_time_seconds` without `time() - `.
+
+Two things generalise. **`unavailable` needs a definition, or it absorbs every
+bug.** It was introduced so a missing metric could be stated rather than
+invented, which was right — but it also silently absorbed a broken join. The
+prompt now says `unavailable` is for a query that answered nothing, never for a
+node missing from an answer that did, and that scattered `unavailable`s almost
+always mean the join was dropped. **And `node_hwmon_temp_celsius` covers all
+seven nodes while `smartmon_temperature_celcius` covers four** — the prompt had
+both without saying which was the Temp column, so the table inherited SMART's
+coverage gap for no reason.
+
+## A 16 KB tool result ends the run with no report
+
+`gitops-auditor` delivered "The run finished but produced no text" at 20:05 on
+2026-08-24. Four tool calls, `tool_result_bytes=24126`, then
+`WARNING: terminal turn had empty text`. The 16:04 run four hours earlier had
+made five calls for `tool_result_bytes=8483` and written a normal report. The
+difference is one tool: `argocd_get_application_resource_tree`, which returns
+every object an application owns and accounted for roughly 16 KB on its own.
+
+Not a context overflow — cumulative input was 25,423 tokens against a 65,536
+window. A 4B model simply stops producing a final turn when one answer is that
+large, which is the same empty-terminal-turn mechanism as `sre-sentinel`'s
+failed-lookup spiral, reached by volume instead of by iteration count.
+
+So the tool is gone from the persona and from `BANNED_TOOLS`, and the prompt says
+why rather than leaving a silent gap. `argocd_get_application` and
+`argocd_get_application_events` already name the degraded resource. The general
+rule: a tool whose answer has no natural bound is a liability at this model size
+in the same way a tool returning several plausible identifiers is — prefer the
+one with a bounded answer, and if there is no alternative, bound it in the
+arguments.
+
+## An inbound Slack message runs with no `toolPolicy` at all
+
+Asking `sre-sentinel` a question in Slack — "@Homelab current status of amd-2
+machine" — produced `(no response)`. The run underneath it is worse than the
+silence.
+
+`AgentRun/homelab-ops-sre-sentinel-ch-g44pj`, created by the channel sidecar,
+carries **no `toolPolicy`**: not a narrower one, none. Its agent container logged
+zero `tool policy:` lines where the same persona's scheduled run logged 13, and
+registered 14 tools against the scheduled run's 13. The first thing it did with
+them:
+
+```
+tool call: execute_command args={"command":"kubectl get nodes","target":"k8s-ops"}
+```
+
+Same root cause as
+[the web endpoint](#a-web-endpoint-run-drops-the-personas-toolpolicy-entirely):
+the run is built from the `Agent` object, and `Agent.spec.agentConfig` has no
+`toolPolicy` field — verified, it has neither `toolPolicy` nor `mcpServers`,
+though the controller does resolve MCP servers for it. So `write_file`,
+`execute_command`, `edit_file`, `fetch_url`, `delegate_to_persona` and
+`schedule_task` are all live on any run started from a Slack mention.
+
+**The read-only guarantee therefore holds for scheduled runs only, and this is
+the second path found that breaks it.** `homelab-reviewer` is unbound for
+exactly this class of reason and that decision looks better than it did.
+
+Why it also answered nothing: the model spent its calls on
+`execute_command` with `target: k8s-ops` (a skill pack no longer mounted), then
+`kube_node_info{node="amd-2"}` and `node_role_kubelet{node="amd-2"}` — the node
+is `datahublocal-amd-2` and the second metric does not exist — and ended with an
+empty terminal turn. It took the user's shorthand as a label value. Nothing in
+the inbound path constrains any of this, because the prompt it runs is the
+persona's system prompt against a free-text task, with no `taskFile` to shape it.
+
+### What is actually reachable, and what fixes it
+
+The exposure is narrower than "unrestricted", and worth sizing before choosing a
+fix, because two of the four candidate fixes do nothing.
+
+**Shared memory is a dead end, and an earlier version of this note had it as the
+headline.** `workflow_memory_*` is the shared store's tool set, and **no persona
+in either ensemble allows any of the three** — every scheduled run logs
+`tool "workflow_memory_search" not in allow list`. So a policy-less run can write
+there and nothing ever reads it: `homelab-ops-shared-memory` holds 2 records,
+both tagged `homelab-ops-sre-sentinel` and both written by the very
+policy-less web runs this section is about, against 10 in `sre-sentinel`'s private
+store. Which also means `sharedMemory: enabled` is currently inert, and the
+rationale recorded for it above — that the personas can see each other's notes —
+is not true in practice. Either allowlist `workflow_memory_search` somewhere or
+stop claiming the ensemble shares anything.
+
+**MCP tools are already bounded on this path.** The channel run's `mcp-bridge`
+loaded the same 5 tools as the scheduled run — 1 grafana, 4 k8s — because
+`mcpServers[].toolsAllow` lives on the `Agent` (at `.spec.mcpServers`, which the
+Agent *does* carry) and is enforced at the bridge. So no MCP write tool is
+reachable. What escapes is only the **built-in** set, which `toolPolicy` is the
+sole gate for.
+
+**And `execute_command` is already dead** — as a side effect of removing the
+SkillPacks, not by design. The executor was the skill sidecar's
+`[tool-executor]`; with only `memory` mounted there is no sidecar watching
+`/ipc/tools`, so the runner wrote the request and nothing answered:
+
+```
+16:22:09  Wrote exec request 1787588529420538018: kubectl get nodes
+16:22:53  tool_call [2]: memory_search        <- 44s later, no executor
+```
+
+Compare the same line in a run that had the sidecar, where
+`[tool-executor] done` came back in under a second. Do not read this as safety:
+it holds only while no persona mounts a pack with a sidecar, and nothing enforces
+that but `SHELL_TEACHING_SKILLS`.
+
+That leaves, in order of what they could actually do here:
+
+- **The persona's own memory, through `autoStore` rather than through a tool.**
+  Memory here is per agent: one `<ensemble>-<persona>-memory` Deployment and PVC
+  each, plus one `<ensemble>-shared-memory` for the ensemble. The private store
+  is `memory_search`/`memory_store`, and it is **auto-injected into every run's
+  prompt** (`auto-injected 1580 bytes of memory context`). The runner also
+  auto-stores each run's task and response into it — `auto-stored memory for task
+  (1524 bytes)` — with no tool call involved, so **no `toolPolicy` and no
+  admission patch can stop it**. Proof it takes arbitrary text: record 8 in
+  `sre-sentinel`'s store is `Task: Do an on-call sweep now. ...`, the verbatim
+  task of a hand-applied probe. A Slack message is the task of a channel run the
+  same way, and lands in that persona's memory, which its next scheduled run
+  reads back as its own prior finding. `memory.autoStore` is a CRD field with no
+  default; turning it off is the only lever, and it costs the run-to-run history
+  the whole design leans on.
+- **`delegate_to_persona`** — starts runs on other personas, which are built the
+  same way and so are equally ungated.
+- **`fetch_url`** — egress, bounded by the `sympozium-agent-*` NetworkPolicies.
+- **`write_file` / `edit_file` / `read_file`** — the pod's own ephemeral
+  workspace, deleted with the pod.
+
+**`SympoziumPolicy.toolGating` looks like the fix and is not.** It has exactly
+the right shape — `defaultAction` plus per-tool `allow`/`deny`/`ask` rules — and
+the `Agent` does carry `policyRef: permissive`, so it appears to be plumbed. It
+is not observably implemented in v0.10.47: no log line in any container mentions
+`toolGating`, `featureGates` or `policyRef`, and every Sympozium NetworkPolicy in
+`automation` is owned by the Helm chart or by core, none traced to a
+`SympoziumPolicy` object — including `network-isolated`, whose `denyAll: true`
+produced nothing. So writing a custom hardened policy would deploy cleanly, read
+as a fix in review, and change nothing. Verify enforcement before relying on it.
+Note this also means the [`permissive` rationale](#why-the-permissive-policy) is
+probably moot rather than wrong.
+
+`channelAccessControl` is the other non-fix: it gates *who* may trigger a run,
+not what the run may do.
+
+**What does work is a `MutatingAdmissionPolicy`**, which is GA here
+(`admissionregistration.k8s.io/v1`, k3s v1.36.2) and needs no webhook server.
+`AgentRun.spec.toolPolicy` exists in the CRD with independent `allow` and `deny`
+lists, so a run created without one can have a floor injected at admission. Match
+`CREATE` on `agentruns.sympozium.ai`, condition on `!has(object.spec.toolPolicy)`
+so runs that already carry a policy are untouched, and patch in a `deny` list —
+`execute_command`, `write_file`, `edit_file`, `fetch_url`,
+`delegate_to_persona`, `schedule_task`. `deny` alone is the right shape: the
+runner treats `allow` and `deny` as separate mechanisms (a scheduled run logs
+both `denied tool "execute_command"` and `tool "read_file" not in allow list`),
+so a deny-only policy is a blocklist and leaves the MCP tools alone. `failurePolicy: Fail`, because a guard
+that fails open is the silent kind of failure this whole file is about — but that
+does mean a CEL error stops every run, so it is worth a probe `AgentRun` after
+applying. Both objects were accepted by a `--dry-run=server` apply, which is
+where the CEL is compiled. It is a platform object, so it belongs in core
+alongside the MCPServer catalog rather than in this chart.
+
+**It is defence in depth, not a boundary, and the first version of this note
+overstated it.** `toolPolicy` is applied at schema registration, not at dispatch
+— that is the [same unenforced deny](#a-skillpack-overrode-every-tool-decision-in-this-repository)
+that let 744 shell commands run on personas that denied `execute_command`. So
+what the injected deny actually buys is that the model is no longer *handed*
+those tools, which is the observed path: it reached for `execute_command`
+because the schema was there. A model that produces a denied name from anywhere
+else still gets it executed. The two things that do hold hard on this path are
+`mcpServers[].toolsAllow`, enforced at the bridge, and the absence of a skill
+sidecar, without which `execute_command` has nothing to run it.
+
+Landed in core on 2026-08-24 as fix (6) in
+`releases/automation/templates/sympozium_upstream_fixes.yaml`, with
+`workflow_memory_store` in the deny list alongside the five built-ins, since the
+shared store was the item with persistence. Drop it once
+`Agent.spec.agentConfig` carries `toolPolicy` upstream.
+
+So the choice is: keep inbound @-mentions with the schema hole closed and the
+dispatch hole open, or drop `channels: [slack]` and close both. Only unbinding is
+complete.
+
+Worth noting the feature earns little as it stands: the one real question asked
+of it — "current status of amd-2 machine" — was answered with silence, because
+the inbound path runs the persona's *system* prompt against free text with no
+`taskFile` to shape it, and nothing maps "amd-2" to `datahublocal-amd-2`.
+
+## The SkillPack RBAC had no consumer; `mcp-k8s` has `*`/`*`
+
+Narrowing `k8s-ops`'s `sidecar.rbac` in core was correct and beside the point,
+and the question that exposed it was "where is the consumer?". There is none: no
+persona in either ensemble mounts `k8s-ops` or `sre-observability` any more, and
+a SkillPack's sidecar RBAC grants a *separate* identity used only by that pack's
+sidecar. Every real `k8s_*` call goes somewhere else entirely — the
+`datahub-local-core-automation-sympozium-mcp-k8s` ServiceAccount, whose
+ClusterRole is:
+
+    apiGroups: ["*"]  resources: ["*"]  verbs: ["get","list","watch"]
+
+That wildcard is deliberate and worth keeping. It is why a Longhorn volume, a
+CloudNativePG `Cluster` and a cert-manager `Certificate` all answer without a
+core change, and an unlisted API group is the silent failure this whole file is
+about — the agent just writes a blander report. The prompts today name only
+`cert-manager.io/v1`, `postgresql.cnpg.io/v1` and `velero.io/v1`, so an
+enumerated list would be short *and* would need editing every time a persona
+learns a new kind.
+
+**The cost is one tool.** `k8s_resources_get` returns the whole object, and for a
+Secret that is the base64 values in full — verified 2026-08-24 against
+`mcp-slack-token`, which came back with `SLACK_APP_TOKEN` and `SLACK_BOT_TOKEN`
+intact. `service-janitor` allowed it. So a scheduled, "read-only" persona could
+read every secret in the cluster and put it in a Slack report.
+`k8s_resources_list` is the safe shape: it returns a **table** — the kind's own
+printer columns, names, types, key counts — and never contents. Confirmed by
+listing Secrets, which yields `NAME TYPE DATA AGE` and no `data:` block at all.
+
+`k8s_resources_get` is now in `BANNED_TOOLS` and gone from `service-janitor`.
+
+### The check that needed it was never satisfiable anyway
+
+`service-janitor`'s prompt asked for Certificates "whose renewal or notAfter date
+falls within 21 days". That needs `resources_get` to read `status.notAfter` — the
+list view carries `READY` and a `STATUS` sentence but no date — and then it needs
+something the agent does not have: **a clock**. The same absence that turned
+`endTime` into a 2024 epoch and `node_boot_time_seconds` into a two-year uptime.
+The model cannot compare a timestamp to "now", so the 21-day window could only
+ever be guessed.
+
+cert-manager has already done the comparison and written the answer into the
+`STATUS` column. The check is now "READY is not True, or STATUS says anything
+other than up to date and has not expired", quoting the STATUS text, and the
+Secret half uses the relative `AGE` column. Losing the tool cost nothing real and
+removed the secret-read path.
+
+The general rule, and the third time this file has arrived at it: **before
+allowlisting a tool, ask what the persona would do with an answer it cannot
+interpret.** A date is uninterpretable without a clock; a lifetime counter is
+uninterpretable without a window; a datasource list is uninterpretable without
+knowing which uid is Prometheus. In each case the fix was to move the
+interpretation out of the model and into the query or the source.
+
+## One statement, one place — for prompt text too
+
+The `## Calling grafana_query_prometheus` section had been pasted into four
+system prompts, and the copies had already drifted: `db-steward` and
+`endpoint-warden` carried the "an `expr` is the *whole* line" paragraph,
+`sre-sentinel` and `service-janitor` did not — so two personas were missing a
+rule written after a run dropped an `increase()` wrapper.
+
+It now lives once in `prompts/shared/promql.md`, substituted into every persona
+that holds `{{ PROMQL }}`. The mechanism is the existing one: `templates/
+ensembles.yaml` replaces tokens by name and `fail`s on any left standing. The one
+difference from `{{ DELIVERY }}` and friends is that content tokens substitute
+**unconditionally** — they carry a shared call contract, not a destination — which
+is why `SHARED_PROMPT_FILES` is a separate constant from `PROMPT_TOKENS` in the
+validator rather than another entry in it.
+
+The trap worth remembering: every content check in `scripts/validate.py` reads
+the prompt the *model* sees, so it now expands the tokens first
+(`_expand_shared`). Without that the endTime, datasourceUid, counter-window and
+unquoted-argument rules would all have started passing vacuously the moment the
+text moved out of the persona file — a validator that stops seeing what it checks
+is worse than no validator.
+
+A SkillPack would have been the other way to share this text, and it is the wrong
+one here: a skill is a separate document competing with the persona's prompt, and
+this fleet has already watched a skill win that argument. Shared prompt text
+belongs *in* the prompt.
 
 ## Known gaps
 

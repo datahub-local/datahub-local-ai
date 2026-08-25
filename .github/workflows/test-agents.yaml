@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/test-agents.yaml"
+      - "agents/mcp/**"
       - "agents/sympozium/**"
       - "pyproject.toml"
   push:
@@ -11,6 +12,7 @@ on:
       - main
     paths:
       - ".github/workflows/test-agents.yaml"
+      - "agents/mcp/**"
       - "agents/sympozium/**"
       - "pyproject.toml"
 
@@ -77,3 +79,48 @@ jobs:
       - name: Render ensembles
         working-directory: agents/sympozium
         run: helmfile template
+
+  mcp:
+    name: MCP servers
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install Python with uv
+        run: uv python install 3.13
+
+      - name: Sync dependencies
+        run: uv sync --extra mcp --extra dev
+
+      - name: Lint
+        run: uv run -- ruff check agents/mcp/
+
+      # The facts server exists so a 4B model never assembles a query. These
+      # tests are what the nine prose validators in the sympozium tree used to
+      # be: the fill inversion, the counter window, the nodename join, the byte
+      # budget and the absence path are each asserted against the expression the
+      # server actually sends rather than against English in a prompt.
+      - name: Test
+        run: uv run pytest agents/mcp/tests/ -q
+
+      # The image must exist for both architectures or the server is unschedulable
+      # on the arm64 nodes, and an unreachable MCP server fails silently.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image for both architectures
+        uses: docker/build-push-action@v5
+        with:
+          context: agents/mcp
+          push: false
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha

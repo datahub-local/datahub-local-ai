@@ -6,6 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A monorepo of data workflow definitions for a local/homelab Datahub stack. Sub-projects are grouped by what they are: `agents/` holds AI agent definitions, `workflows/` holds the data pipelines and the dashboards built on them. The Python ones have their own `pyproject.toml` and `uv` environment:
 
+- `agents/mcp/` — MCP servers the agents call, so deterministic fact-gathering is code instead of prompt text; ships this repo's first container image; see [MCP servers](#mcp-servers)
 - `agents/n8n/` — n8n workflow JSON exports, LLM prompt templates and JSON config datasets (no Python code); see [n8n workflows](#n8n-workflows)
 - `agents/sympozium/` — Sympozium agent ensembles (Kubernetes CRs) plus a Helm release that deploys them onto the control plane datahub-local-core runs in `automation`; see [Sympozium agents](#sympozium-agents)
 - `workflows/airflow/` — Airflow DAGs that orchestrate the dlt + dbt tasks via Kubernetes pods
@@ -31,10 +32,13 @@ workflows/<tool>/
   README.md
 ```
 
-Both `dbt` and `dlt` use a `src/` layout with a `projects/` directory:
+`dbt`, `dlt` and `mcp` all use a `src/` layout with a `projects/` directory:
 
 - **dbt**: `src/dbt_runner/` is the only Python package; `projects/example_db/`, `projects/pi/`, `projects/bodega/` are SQL+YAML dbt projects (not Python packages).
 - **dlt**: `src/dlt_runner/` is the runner; `projects/example_db/` and `projects/bodega/` are Python pipeline packages installed via hatchling.
+- **mcp**: `src/mcp_runner/` is the server; `projects/homelab_facts/` is a Python
+  package exposing `register(registry)`, discovered by name the same way
+  `dlt_runner` discovers a pipeline.
 
 | What                  | Convention                    | Examples                                    |
 | --------------------- | ----------------------------- | ------------------------------------------- |
@@ -114,6 +118,29 @@ uv sync
 uv run pytest          # all tests
 uv run pytest tests/tasks/test_dlt.py  # single file
 ```
+
+### MCP (`agents/mcp/`)
+
+Run from the **repository root** — the sub-project has its own `pyproject.toml`
+but the tests and lint run against the root environment like the other Python
+sub-projects.
+
+```bash
+uv sync --extra mcp --extra dev
+uv run pytest agents/mcp/tests/ -q
+uv run ruff check agents/mcp/
+
+# The tool manifest, without binding a port
+uv run python -m mcp_runner --project homelab_facts --list-tools
+
+# Serve locally against the real Prometheus
+kubectl -n monitoring port-forward svc/datahub-local-core-kube-pr-prometheus 9090:9090 &
+PROMETHEUS_URL=http://127.0.0.1:9090 \
+  uv run python -m mcp_runner --project homelab_facts --port 8080
+```
+
+Diff a tool's output against hand-run PromQL before wiring an agent to it. The
+tests need no cluster.
 
 ### Sympozium (`agents/sympozium/`)
 
@@ -280,6 +307,107 @@ Plain JS, no npm imports. They read named nodes (`$('parse_curator_config').firs
 3. Sticky notes are the docs: each workflow has one describing schedule, data flow, env vars and open TODOs. Update it in the same change.
 4. Validate a hand-edited file with `jq . agents/n8n/workflows/<file>.workflow.json` before committing; grep for `$('old_node_name')` after any rename.
 5. Commit messages for automated backups look like `chore(n8n): update backup workflow <file> (<date>)`; hand-authored changes use the normal `feat(n8n): …` / `fix(n8n): …` form.
+
+### MCP servers
+
+`agents/mcp/` holds the MCP servers the Sympozium personas call. It exists
+because **every failure in the agent fleet was a tool-loop failure, not a writing
+failure.** A 4B model was made a careful API client — assemble
+`100 * (1 - avail/cap)` with a `group_left` join, remember that `increase(m[1h])`
+is not `m[1h]`, pass `endTime` as the literal word `now`, diff alerts against your
+own memory, know that one node's kernel is not drift against another's. Every
+incident added a paragraph to a prompt and a regex to `validate.py`, and it did
+not converge: prompts reached 6–12KB and roughly 600 of the validator's lines
+were regexes policing English.
+
+**Code gathers; the model writes.** `projects/homelab_facts/` exposes nine tools,
+eight of them taking no arguments at all, each returning one report section's
+worth of already-correct readings.
+
+The tools do **not** replace reach — every persona keeps the raw `k8s_*` and
+Prometheus tools for following up. The win is *budget reallocation*: the mandatory
+readings drop from eight-plus calls to one or two, leaving the iteration budget
+for real investigation, which is exactly where the last run before the teardown
+ran out and spent 13 consecutive calls hunting a namespace that does not exist.
+
+Four properties are structural rather than instructed, and each retires a class
+of report that reached Slack:
+
+- **A wrong query is not expressible.** `prometheus.py` owns every expression.
+  `used_percent()` cannot be the bare ratio (which called a 2%-used volume "97.9%
+  full, write operations failing" for days), `increase_()` cannot lose its wrapper,
+  `by_nodename()` cannot drop the join.
+- **Absence is a value with a definition.** `unavailable` is *the query gave no
+  value for this node*; `n/a` is *this node has no such sensor*. Two words,
+  because one word absorbed a bug — `unavailable` was added so a missing metric
+  could be stated rather than invented, then silently absorbed a broken join.
+- **Every answer is bounded in code.** "Fat tool" means few *calls*, never big
+  *answers*: one ~16KB result reproducibly ends a run with `terminal turn had
+  empty text`, and that is not context overflow. Each tool declares a byte
+  budget, truncates by whole lines, and says that it did. A full nine-tool sweep
+  is ~14.7KB.
+- **Trends are measured.** Snapshots live in the server, so "new since last run"
+  is a computation. A lost snapshot degrades to "first observation", stated
+  explicitly, and can never produce a *wrong* diff.
+
+#### Nothing about the homelab is written down
+
+Node names, hardware classes and per-machine sensor coverage are all derived at
+query time (`src/mcp_runner/fleet.py`). An earlier draft carried a
+`hardware_classes.yaml` naming all seven machines; that is a second copy of the
+cluster, and a stale node list produces the exact failure the server exists to
+prevent — a row of `unavailable` for a machine whose figures were available.
+
+- **A hardware class is the kernel flavour plus the architecture**, which is not
+  an approximation of the comparability rule but *is* the rule: kernels compare
+  only within one tree. A numeric difference inside a flavour is real drift; a
+  different flavour is different silicon and can never converge. Verified against
+  this fleet — it finds the one real pair and clears the rest.
+- **Sensor coverage is whether the sensor answered**, decided per node by a
+  capability probe (`smartmon_device_smart_available` is `0` where a device
+  cannot report at all).
+- **The node inventory is the Kubernetes node list**, and the gap between it and
+  what Prometheus answered is what makes a dropped join legible.
+
+Only two config files survive, and both are judgements no cluster can answer:
+`chronic_alerts.yaml` (whether an alert is noise; it names alert *rules*, never
+machines, and keeps a `never_suppress` list so a permanently-firing *real* fault
+is not absorbed) and `thresholds.yaml`. Every tool states the threshold it
+applied.
+
+#### Two properties worth keeping
+
+- **The server holds no credential.** Prometheus needs no auth here; Kubernetes
+  goes through the pod ServiceAccount; ArgoCD state comes from `Application` CRs
+  rather than the ArgoCD API; Postgres state from the CloudNativePG operator's
+  metrics rather than a DSN. Query-level Postgres analysis stays on the existing
+  postgres MCP server, which already holds that credential.
+- **It cannot return a Secret's contents.** `kube.py` exposes `list` only and
+  strips `data`/`stringData` at the boundary. `cert_expiry()` narrows with a
+  field selector rather than filtering afterwards — an unfiltered cluster-wide
+  Secret list transfers every value in every namespace, 25MB here, and broke the
+  connection outright.
+
+#### Deployment notes that are load-bearing
+
+The chart in `agents/sympozium/` owns the `Deployment`, `Service` and
+`MCPServer`.
+
+- Pods **must** carry `app.kubernetes.io/name: mcpserver`, or core's
+  `agent-allow-tools` NetworkPolicy blocks 8080 and every call times out with no
+  useful error.
+- The `MCPServer` uses the `url:` form, which stops the controller reconciling a
+  deployment of its own.
+- **The MCP endpoint answers on every path**, deliberately. Core's `mcp-k8s`
+  404'd for three days with `status.ready: true` throughout because the discovery
+  bridge asked for the service root while the server served `/mcp` — every
+  `k8s_*` tool was missing from every persona and nothing failed loudly. The
+  bridge's path is not documented anywhere readable, so any non-health path is
+  the endpoint. Read `kubectl logs <run-pod> -c mcp-discover` after a deploy: it
+  prints per-server tool counts, and a whole server failing is otherwise silent.
+- The image is multi-arch (`linux/amd64,linux/arm64`) because agents land on the
+  Orange Pis; an arm64-less image is unschedulable there, which the agent
+  experiences as the tool simply not existing.
 
 ### Sympozium agents
 
@@ -494,6 +622,24 @@ agents/sympozium/
 These are the judgement calls behind the current fleet. Apply the same reasoning
 rather than copying the outcomes, since the constraints will change.
 
+- **The `mcp-k8s` ClusterRole in core is what actually grants Kubernetes read
+  access — the SkillPack RBAC is not.** Every `k8s_*` call a persona makes goes
+  through the `datahub-local-core-automation-sympozium-mcp-k8s` ServiceAccount,
+  whose ClusterRole is `apiGroups: ["*"], resources: ["*"], verbs:
+  [get,list,watch]`. That is the reason a new object kind — a Longhorn volume, a
+  CloudNativePG `Cluster`, a cert-manager `Certificate` — works without a core
+  change, and it is deliberate: an unlisted group fails silently and the agent
+  just writes a blander report. A `SkillPack`'s `sidecar.rbac` grants a *separate*
+  identity used only by that pack's sidecar, so narrowing it protects nothing
+  unless a persona mounts the pack — none do. Check which of the two you are
+  looking at before changing either.
+  The cost of the wildcard is that `k8s_resources_get` returns whole objects,
+  which for a Secret is the base64 values in full (verified against
+  `mcp-slack-token`, 2026-08-24). So that tool is in `BANNED_TOOLS`:
+  `k8s_resources_list` returns a table — names, types, key counts, the kind's own
+  printer columns — and is the shape a reporter should have. If a persona ever
+  genuinely needs an object's contents, narrow the ClusterRole to enumerated
+  groups first rather than allowlisting the tool against a wildcard.
 - **Verify names against the running system; never infer them.** Every skill,
   MCP server and tool name here was read off the cluster (`kubectl get
   skillpacks`, and a `tools/list` call against each MCP server) because a wrong
@@ -693,4 +839,15 @@ rather than copying the outcomes, since the constraints will change.
 - dbt `tests/` are lightweight: project/profile structure, model SQL, and `dbt parse` — no warehouse. `tests/example_db/test_integration.py` seeds the bronze source in DuckDB, runs `dbt build` **in a subprocess** (avoids DuckDB's per-process "file already attached" conflict), and asserts the medallion tables.
 - dlt `tests/example_db/` covers the local DuckDB ingest+export integration test; `tests/test_config.py` covers `projects/example_db/config.py` helpers (cross-project, stays at the tests root).
 - airflow `tests/` import the DAGs and check the dbt/dlt task arguments, env, and ordering — `test_pi_dag.py` covers the pi DAG; `test_example_db_dag.py` covers example_db.
+- `agents/mcp/tests/` needs no cluster: `tests/` holds the reusable server's tests
+  (byte budgets, JSON-RPC and path-agnostic transport, snapshot diffing, Secret
+  redaction, kernel-class derivation, expression builders) and
+  `tests/homelab_facts/` the per-project tool tests against a fake Prometheus.
+  **This is where the nine prose validators went.** `_check_fill_direction`,
+  `_check_counter_window`, `_check_nodename_join`, `_check_endtime_literal` and
+  the rest each policed English in a prompt; they are now assertions about the
+  expression the server actually sends, plus the arithmetic. The counter/gauge
+  test is worth reading — `cnpg_backends_total` is a *gauge* despite `_total` and
+  `cnpg_pg_stat_archiver_failed_count` a *counter* despite `_count`, so the test
+  shows a suffix rule failing this cluster in both directions.
 - `agents/sympozium/` has no pytest suite — the checks live in `scripts/validate.py` (skills, MCP server names and prefixes, tool/server coherence, schedule enums, prompt references, orphaned prompts, DNS-1123 names) and run in CI via `.github/workflows/test-agents.yaml`, which then renders the chart. Both matter: the validator catches what would fail *silently* at runtime, the render catches what would fail the deploy.

@@ -1,6 +1,16 @@
 # Per-cluster knobs only. Rationale for every one of them lives in ../MEMORY.md.
 release_name: datahub-local-ai
 
+# The repo-local MCP servers. Only the facts server lives here; core owns the
+# shared catalog (k8s, github, argocd, grafana, postgres) and this chart never
+# re-declares any of it. Built from ../mcp/ — see that README for why the
+# gathering moved out of the model.
+sympozium_mcp_servers:
+  homelab-facts:
+    enabled: true
+    image: ghcr.io/datahub-local/datahub-local-ai-mcp
+    tag: main
+
 sympozium_delivery_hook:
   image: curlimages/curl:8.11.1
   secret: mcp-slack-token

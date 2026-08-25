@@ -199,6 +199,24 @@ SHELL_TEACHING_SKILLS = {
 # it is a per-cluster decision that has to be readable in one place.
 VALUES_ONLY_SKILLS = {"web-endpoint": "sympozium_web_endpoint"}
 
+# Keys `templates/mcpservers.yaml` reads. Listed so a typo in the values is a
+# failure rather than a silently ignored knob — the chart has no schema.
+MCP_SERVER_KEYS = frozenset(
+    {
+        "enabled",
+        "image",
+        "tag",
+        "imagePullPolicy",
+        "project",
+        "replicas",
+        "resources",
+        "prometheusUrl",
+        "prometheusTimeoutSeconds",
+        "timeout",
+        "toolsPrefix",
+    }
+)
+
 # The k8s tools that answer a question by listing something. A prompt naming any
 # of them is sending a 4B model to guess selectors, so _check_investigation_budget
 # and _check_k8s_selector_rules both key off this set.
@@ -279,6 +297,59 @@ def _values():
     except yaml.YAMLError:
         return None
     return values if isinstance(values, dict) else None
+
+
+def _check_mcp_servers(values):
+    """Cross-check `sympozium_mcp_servers` against the sibling `agents/mcp/` tree.
+
+    This is the one check neither Helm nor the API server can do. Helm's `.Files`
+    cannot read above the chart directory, so the template cannot see whether
+    `projects/<project>/` exists; the API server validates the MCPServer object
+    happily either way. A wrong project name therefore deploys cleanly and the
+    pod crash-loops on `no such project`, which from an agent's side looks like
+    the tools simply not existing — the same silent shape as core's `mcp-k8s`
+    404ing for three days behind a `status.ready: true`.
+
+    The project directory is derived the way the template derives it: the server
+    name with hyphens turned into underscores, because Kubernetes object names
+    must be DNS-1123 while a Python package cannot hold a hyphen.
+    """
+    servers = values.get("sympozium_mcp_servers") or {}
+    if not servers:
+        return
+    projects_dir = BASE.parent / "mcp" / "projects"
+    for name, server in sorted(servers.items()):
+        if not isinstance(server, dict):
+            raise Fail(f"sympozium_mcp_servers.{name} is not a mapping")
+        stray = sorted(set(server) - MCP_SERVER_KEYS)
+        if stray:
+            raise Fail(
+                f"sympozium_mcp_servers.{name} has unknown key(s) "
+                f"{', '.join(stray)}. Known keys: {', '.join(sorted(MCP_SERVER_KEYS))}"
+            )
+        if not server.get("enabled"):
+            continue
+        if not server.get("image"):
+            raise Fail(f"sympozium_mcp_servers.{name}: image is required when enabled")
+        project = server.get("project") or name.replace("-", "_")
+        if not projects_dir.is_dir():
+            # The sibling sub-project is absent entirely — a checkout problem, not
+            # a config error, so say which it is rather than blaming the values.
+            raise Fail(
+                f"sympozium_mcp_servers.{name} names project {project!r} but "
+                f"{projects_dir} does not exist"
+            )
+        if not (projects_dir / project / "__init__.py").is_file():
+            available = sorted(
+                path.name for path in projects_dir.iterdir() if (path / "__init__.py").is_file()
+            )
+            raise Fail(
+                f"sympozium_mcp_servers.{name} resolves to project {project!r}, "
+                f"which is not a project in agents/mcp/projects/ "
+                f"(found: {', '.join(available) or 'none'}). The server would "
+                f"deploy and then crash-loop on startup, which an agent "
+                f"experiences as the tools not existing."
+            )
 
 
 def _check_shared_prompts():
@@ -1327,6 +1398,11 @@ def main():
         return 1
 
     values = _values() or {}
+    try:
+        _check_mcp_servers(values)
+    except Fail as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 1
     known = {path.name for path in projects}
     web_root = values.get("sympozium_web_endpoint") or {}
     stray = sorted(set(web_root) - {"enabled", "ensembles"})

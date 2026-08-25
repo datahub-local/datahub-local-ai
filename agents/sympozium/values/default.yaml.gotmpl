@@ -29,7 +29,7 @@ sympozium_delivery:
 
 sympozium_ensembles:
   homelab-ops:
-    enabled: false
+    enabled: true
 
     channelConfigs:
       slack: mcp-slack-token
@@ -39,12 +39,14 @@ sympozium_ensembles:
     policyRef: permissive
 
   homelab-reviewer:
-    enabled: false
+    enabled: true
+    
     baseURL: http://datahub-local-core-data-ollama.data.svc:11434/v1
+    
     policyRef: permissive
 
   homelab-responder:
-    enabled: false
+    enabled: true
 
     channelConfigs:
       slack: mcp-slack-token

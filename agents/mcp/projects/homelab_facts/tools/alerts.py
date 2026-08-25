@@ -1,25 +1,10 @@
-"""`alerts_snapshot()` — what is firing, and which of it is actually news.
+"""`alerts_snapshot()` - what is firing, and which of it is actually news.
 
-Two things move out of the model here.
-
-**The diff.** "New vs still firing vs resolved" used to be the model's job:
-read the alert list, read your own memory seeds, compare. It is computed here
-against a stored snapshot, so it is right or it says it has no baseline.
-
-**The chronic set.** Most alerts in this cluster fire permanently, and a 4B model
-cannot deduce which. `KubeSchedulerDown` and `KubeControllerManagerDown` are k3s
-artifacts - both components are embedded in the server process with no separate
-metrics endpoint, so the scrape target cannot ever come up. `Watchdog` fires by
-design. That set lived in memory seeds; it is `config/chronic_alerts.yaml` now,
-reviewable in git and asserted by a test.
-
-The classification is deliberately not a filter. A chronic alert still appears,
-with its reason, because "the chronic set is unchanged" is a real reading and a
-chronic alert that *stops* is worth seeing. `NodeClockNotSynchronising` is the
-case that proves the distinction matters: it fires permanently on several nodes
-*and* is genuinely broken, so it is listed under `never_suppress` and is never
-folded into the chronic set however long it has been firing. Which nodes are
-affected comes from the alert's own labels, never from the config file.
+The diff is computed against a stored snapshot and the chronic set is config, so
+neither depends on the model reading its own memory. Classification is not
+filtering: a chronic alert still appears with its reason, and an alert that fires
+permanently *and* is genuinely broken is listed under `never_suppress` so it can
+never be folded into the chronic set.
 """
 
 from __future__ import annotations
@@ -34,13 +19,13 @@ from .. import settings
 BUDGET = 3072
 _SNAPSHOT_KEY = "alerts"
 
-# Firing alerts only. A pending alert has not met its `for` duration and is not
-# yet a condition; including them made every report longer and none of it news.
+# Firing only: a pending alert has not met its `for` duration and is not yet a
+# condition.
 _EXPRESSION = 'ALERTS{alertstate="firing"}'
 
 
 def _identity(metric: dict[str, str]) -> str:
-    """A stable key per alert instance, so a diff is not confused by label order."""
+    """A stable key per instance, so a diff is not confused by label order."""
     name = metric.get("alertname", "?")
     scope = (
         metric.get("pod")
@@ -116,10 +101,8 @@ def alerts_snapshot() -> str:
     def summarise(keys: list[str]) -> list[str]:
         """One line per alert *name* with a count, not one per instance.
 
-        Ten `CPUThrottlingHigh` rows carry no more information than the count
-        does, and they crowd out the section a reader actually needs. Compressing
-        the repeats is what keeps this answer inside its byte budget - and a tool
-        result large enough to matter is one that ends the run with no report.
+        Repeated rows carry no more information than the count and crowd out the
+        section a reader needs; compressing them is what keeps this in budget.
         """
         grouped: dict[str, list[str]] = {}
         for key in keys:
@@ -142,8 +125,7 @@ def alerts_snapshot() -> str:
                            + (", ..." if len(scopes) > 4 else ""))
         return out
 
-    # Anything not on the chronic list is real news and keeps full per-instance
-    # detail: this is the section the run exists to produce.
+    # Not on the chronic list means real news, so it keeps per-instance detail.
     fresh = [key for key in new if (instances.get(key, {}).get("alertname")) not in chronic]
     known = [key for key in new if key not in fresh]
 

@@ -1,15 +1,8 @@
 """Kubernetes reads. List-shaped, and never an object's contents.
 
-Core's `mcp-k8s` ServiceAccount holds `apiGroups: ["*"], resources: ["*"],
-verbs: [get,list,watch]`, deliberately widened so agents can read velero, cnpg,
-longhorn and cert-manager objects. The cost of that wildcard is that a `get` on
-a Secret returns its base64 values in full — verified against `mcp-slack-token`
-on 2026-08-24 — which is why `k8s_resources_get` is banned for personas.
-
-This module keeps that property structurally rather than by policy: it exposes
-`list` only, and `summarise` emits nothing but metadata and the fields a caller
-names. There is no code path here that can return a Secret's `data`, so this
-server's ServiceAccount being able to list secrets cannot leak their contents.
+`list` is the only verb exposed and `_strip` drops a Secret's payload at the
+boundary, so no code path here can return one. Narrow the *request* too where you
+can. See ../README.md.
 """
 
 from __future__ import annotations
@@ -19,9 +12,8 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-# Never emitted, whatever a caller asks for. `data` and `stringData` are a
-# Secret's payload; `last-applied-configuration` is a full copy of the object
-# and has carried inlined credentials before.
+# Never emitted, whatever a caller asks for. The last-applied annotation is a
+# full copy of the object and has carried inlined credentials before.
 _REDACTED_FIELDS = frozenset({"data", "stringData"})
 _REDACTED_ANNOTATIONS = frozenset({"kubectl.kubernetes.io/last-applied-configuration"})
 
@@ -63,10 +55,8 @@ class Kube:
     def node_names(self) -> list[str]:
         """The authoritative node inventory.
 
-        Kubernetes is the authority on which machines exist; Prometheus only says
-        which of them answered. Comparing the two is what makes a dropped join
-        visible as `unavailable` for a named node, instead of as a table that is
-        quietly one row short.
+        Kubernetes says which machines exist; Prometheus says which answered.
+        The difference is what makes a dropped join visible.
         """
         return sorted(
             name
@@ -84,10 +74,8 @@ class Kube:
     ) -> list[dict[str, Any]]:
         """List objects of one kind. A missing CRD is an empty list, not an error.
 
-        An absent API group is normal here — the fleet reports on velero, cnpg,
-        longhorn and cert-manager, any of which may be uninstalled — and the
-        right reading of "the CRD is not there" is that the subsystem has nothing
-        to report, which the caller renders as `unavailable`.
+        An absent API group is normal - any of these subsystems may be
+        uninstalled - and the caller renders that as `unavailable`.
         """
         try:
             resource = self._dynamic().resources.get(api_version=api_version, kind=kind)
@@ -111,12 +99,11 @@ class Kube:
 
 
 def _strip(obj: dict[str, Any]) -> dict[str, Any]:
-    """Drop a Secret's payload at the boundary, before it reaches any caller.
+    """Drop a Secret's payload before it reaches any caller.
 
-    Belt and braces with `summarise`: a caller that reads raw objects still never
-    sees `data`. Narrow the *request* as well where you can — an unfiltered
-    cluster-wide Secret list transfers every value in every namespace, which on
-    this cluster is 25 MB and broke the connection outright.
+    Belt and braces with `summarise`, so a caller reading raw objects still never
+    sees `data`. Narrow the *request* too: an unfiltered cluster-wide Secret list
+    transfers every value in every namespace.
     """
     for field in _REDACTED_FIELDS:
         obj.pop(field, None)
@@ -130,8 +117,8 @@ def summarise(obj: dict[str, Any], fields: dict[str, tuple[str, ...]]) -> dict[s
     """Project ``obj`` down to name, namespace and the named ``fields``.
 
     ``fields`` maps an output key to a path, e.g. ``{"phase": ("status", "phase")}``.
-    A path that does not resolve yields ``None`` rather than raising, because a
-    half-populated status is the normal state of a freshly created object.
+    An unresolvable path yields ``None``: a half-populated status is the normal
+    state of a freshly created object.
     """
     metadata = obj.get("metadata") or {}
     out: dict[str, Any] = {

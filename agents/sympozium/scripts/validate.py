@@ -51,6 +51,8 @@ MCP_SERVERS = {
     "datahub-local-core-automation-sympozium-mcp-grafana": "grafana",
     "datahub-local-core-automation-sympozium-mcp-postgres": "pg",
     "datahub-local-core-automation-sympozium-mcp-argocd": "argocd",
+    # Ours, from ../mcp/ and deployed by templates/mcpservers.yaml.
+    "datahub-local-ai-mcp-homelab-facts": "facts",
 }
 
 # Tools the agent runtime provides itself, with no MCP server involved.
@@ -104,8 +106,6 @@ CHANNEL_TYPES = {"discord", "slack", "telegram", "whatsapp"}
 # persona's `{{ DELIVERY }}` token. The prose lives in Markdown rather than in
 # the Go template for the same reason the system prompts do: a 4B model acts on
 # countable instructions, and those have to be reviewable in a diff.
-VERBOSITY_LEVELS = {"quiet", "normal", "verbose"}
-NOTIFY_LEVELS = {"always", "onchange", "never"}
 
 # Tokens templates/ensembles.yaml substitutes into a system prompt. Anything
 # else left in braces fails the render, so it is caught here with a better
@@ -125,7 +125,6 @@ PROMPT_TOKENS = (
 # Files every channel-bound persona gets, whatever its levels: the header that
 # names the agent in the message. Split out of the three verbosity files so the
 # wording exists once.
-SHARED_DELIVERY_FILES = ("delivery/header.md",)
 FIRST_TICKS = {"immediate", "afterInterval"}
 
 # Keys the Helm templates stamp onto a persona from the project's `defaults:`
@@ -352,114 +351,6 @@ def _check_mcp_servers(values):
             )
 
 
-def _check_shared_prompts():
-    """Check the shared delivery block: the files exist and hold known tokens only.
-
-    These files are substituted into every channel-bound persona, so a typo in
-    one of them breaks every agent at once. Helm catches an unknown token, but
-    only as "still holds an unsubstituted token" against the *persona's* prompt
-    file, which is not where the typo is.
-    """
-    root = BASE / "prompts"
-    names = [f"delivery/{level}.md" for level in VERBOSITY_LEVELS]
-    names += [f"notify/{level}.md" for level in NOTIFY_LEVELS]
-    names += list(SHARED_DELIVERY_FILES)
-    for name in names:
-        path = root / name
-        if not path.is_file():
-            raise Fail(f"prompts/{name} is missing")
-        text = path.read_text(encoding="utf-8")
-        if not text.strip():
-            raise Fail(f"prompts/{name} is empty")
-        for token in re.findall(r"\{\{.*?\}\}", text):
-            if token not in PROMPT_TOKENS:
-                raise Fail(
-                    f"prompts/{name}: {token} is not a token the templates "
-                    f"substitute. Known tokens: {', '.join(PROMPT_TOKENS)}"
-                )
-    header = (root / "delivery" / "header.md").read_text(encoding="utf-8")
-    _check_verbatim_ascii("delivery/header.md", header)
-    for token in ("{{ AGENT }}", "{{ SCHEDULE }}"):
-        if token not in header:
-            raise Fail(
-                f"prompts/delivery/header.md no longer holds {token}. It is the "
-                f"only thing that tells a reader which of six agents wrote a "
-                f"report, which is the whole reason the file exists."
-            )
-    # Delivery has to be a completion condition of the run, not a step in the
-    # task. The imperative used to live only in the persona's taskFile, and the
-    # web-endpoint proxy truncates the task to its first line — so a
-    # web-triggered run wrote a full CRITICAL report and never sent it, with
-    # nothing failing. Any caller can supply a one-line task; the prompt has to
-    # carry the requirement on its own.
-    for level in NOTIFY_LEVELS - {"never"}:
-        text = (root / "notify" / f"{level}.md").read_text(encoding="utf-8")
-        if "send_channel_message" not in text:
-            raise Fail(
-                f"prompts/notify/{level}.md does not name send_channel_message as "
-                f"what finishes the run. Left to the taskFile, the instruction is "
-                f"lost whenever a caller supplies its own task — the web-endpoint "
-                f"proxy truncates the task to one line, and the agent then writes "
-                f"the report and delivers nothing, with no run failing."
-            )
-
-    for level in VERBOSITY_LEVELS:
-        text = (root / "delivery" / f"{level}.md").read_text(encoding="utf-8")
-        if "chatId" not in text or "{{ CHANNEL }}" not in text:
-            raise Fail(
-                f"prompts/delivery/{level}.md does not spell out the chatId "
-                f"argument. send_channel_message takes the *transport* in "
-                f"`channel` ('slack') and the destination in `chatId`; a prompt "
-                f"that says only 'post to {{{{ CHANNEL }}}}' makes the model pass "
-                f"the channel name as the transport, and the tool then answers "
-                f"'Message sent' while delivering nothing."
-            )
-        _check_verbatim_ascii(f"delivery/{level}.md", text)
-        _check_unquoted_args(f"prompts/delivery/{level}.md", text)
-        if '"{{ CHANNEL }}"' in text or "'{{ CHANNEL }}'" in text:
-            raise Fail(
-                f"prompts/delivery/{level}.md shows the chatId value in quotes. "
-                f"A 4B model copies the quotes into the argument, so chatId "
-                f"arrives as '\"#channel\"' — a channel that does not exist, "
-                f"which Slack rejects as channel_not_found while the tool still "
-                f"answers 'Message sent'. Write the value bare."
-            )
-
-
-def _check_fill_direction(label, text):
-    """A fill expression must compute the fraction *used*, not the fraction free.
-
-    `available / capacity` is how much room is left. Reporting it as "percent
-    full" inverts every finding: it flags the emptiest volumes and can never flag
-    a full one. sre-sentinel shipped that mistake and spent days calling a
-    2%-used volume "97.9% full, write operations failing" — CRITICAL every run,
-    which also tripped the change test and forced a Slack post every time, so the
-    inversion defeated the anti-noise rule as well.
-
-    The fix is an explicit `1 -`, so that is what this checks: any line dividing
-    an availability metric by a capacity metric has to invert it on the same
-    line.
-    """
-    avail = re.compile(r"(?:_available_bytes|_avail_bytes)")
-    cap = re.compile(r"(?:_capacity_bytes|_size_bytes)")
-    for lineno, line in enumerate(text.splitlines(), start=1):
-        if "/" not in line:
-            continue
-        before, _, after = line.partition("/")
-        if not (avail.search(before) and cap.search(after)):
-            continue
-        if "1 -" in line or "1-" in line:
-            continue
-        raise Fail(
-            f"{label}:{lineno} divides an availability metric by a capacity "
-            f"metric without inverting it. That is the fraction *free*, so "
-            f"reporting it as fill flags the emptiest volumes and never a full "
-            f"one — the bug that had this fleet calling a 2%-used volume "
-            f"'97.9% full' on every run. Write it as "
-            f"`100 * (1 - available / capacity)`."
-        )
-
-
 def _check_env(where, env):
     """Runner env vars must be known, and their values must be strings.
 
@@ -492,263 +383,6 @@ def _check_env(where, env):
             )
 
 
-def _check_investigation_budget(label, text):
-    """A prompt that tells the agent to root-cause must cap the digging.
-
-    On 2026-08-24 sre-sentinel read a genuinely new `TargetDown`, then spent five
-    consecutive lookups on it — a Service name passed as a pod name, `namespace`
-    written as a term inside `labelSelector`, that same call again verbatim — and
-    every one came back empty. It then produced a turn with neither text nor a
-    tool call, which the runner records as `terminal turn had empty text` and
-    reports as a success with an empty result. The alert went unreported and the
-    channel got the delivery hook's placeholder.
-
-    db-steward repeated it that same day against a different tool, which is why
-    the trigger is the whole of K8S_LOOKUP_TOOLS and not `k8s_events_list` alone.
-    Asked only for "`k8s_resources_list` for Clusters", it spent seven of its
-    fourteen calls guessing selectors for one object — a pod name passed as a
-    `name` label, `namespace` written inside `labelSelector`, two contradictory
-    `name=` terms in one selector, then a Pod list twice byte-for-byte — and
-    ended the same way, with the day's Postgres and Valkey readings already in
-    hand and never written down.
-
-    "Find the cause" with no budget and no exit is the bug. A model this size
-    does not decide on its own that it has learned enough to write, so the prompt
-    has to say how many lookups it gets and what to write when they yield
-    nothing. Both halves are load-bearing: a cap with no escape hatch just moves
-    the silence, the same way endpoint-warden's mandatory table produced invented
-    numbers until absence became expressible as `unavailable`.
-    """
-    named = [t for t in K8S_LOOKUP_TOOLS if t in text]
-    if not named:
-        return
-    if not re.search(r"\bat most \d+ lookups\b", text):
-        raise Fail(
-            f"{label} names {named[0]}, so it sends the agent looking things up "
-            f"in the cluster, but states no lookup budget. Write the cap "
-            f"literally, as `at most 3 lookups`: a 4B model handed empty results "
-            f"retries and then stops writing altogether, which is how a real "
-            f"TargetDown went unreported and how db-steward spent seven guessed "
-            f"selectors and filed nothing, both on 2026-08-24."
-        )
-    if "cause not determined" not in text:
-        raise Fail(
-            f"{label} caps the lookups but gives the agent nothing to write when "
-            f"they find nothing. A cap without an escape hatch relocates the "
-            f"silence instead of removing it. Name the outcome literally, as "
-            f"`cause not determined`, and say it is a legitimate finding."
-        )
-
-
-def _check_k8s_selector_rules(label, text):
-    """A prompt naming a `k8s_*` tool must spell out how the arguments select.
-
-    Every wasted lookup on 2026-08-24 was a selector the model invented, and the
-    two mistakes repeat across personas: `namespace` written as a term inside
-    `labelSelector` — nothing carries a label by that name, so the call matches
-    nothing at all — and the same call re-issued verbatim after it came back
-    empty, which spends the budget above and buys nothing. Neither is something a
-    4B model works out from an empty result; both stop happening once the prompt
-    says them.
-    """
-    if not any(tool in text for tool in K8S_LOOKUP_TOOLS):
-        return
-    if "`namespace` is its own argument" not in text:
-        raise Fail(
-            f"{label} names a k8s lookup tool but never says that `namespace` is "
-            f"its own argument and never a term inside `labelSelector`. Nothing "
-            f"carries a label called `namespace`, so a selector holding one "
-            f"matches nothing — silently, which reads as an empty cluster. Write "
-            f"the sentence with `namespace` is its own argument in it."
-        )
-    if not re.search(r"[Nn]ever repeat a call", text):
-        raise Fail(
-            f"{label} names a k8s lookup tool but does not forbid repeating one. "
-            f"Handed an empty result, the model re-issues the identical call and "
-            f"gets the identical nothing: db-steward did it twice in one run and "
-            f"sre-sentinel three times. Write `Never repeat a call you have "
-            f"already made`."
-        )
-
-
-def _check_counter_window(label, text):
-    """A cumulative counter must be read through a rate window, not bare.
-
-    `cnpg_pg_stat_archiver_failed_count` counts archive attempts that have failed
-    since the statistics were last reset. It never falls. db-steward's prompt
-    called it "the most important number you look at" and paired it with a hard
-    rule that a failing archiver is CRITICAL, without ever saying the number was
-    a total rather than a state — so on 2026-08-24 the agent read a bare `2` and
-    paged CRITICAL, "point-in-time recovery is silently broken", while the same
-    Prometheus held `increase(...[24h]) = 0`, a last failure 5.4 days old, a last
-    success 95 seconds old and 12 segments archived in the previous hour. Two
-    runs shipped that to Slack before anyone checked.
-
-    Same class as _check_fill_direction: the metric name was right, present and
-    verified, and the reading was still wrong. The fix is the same — the literal
-    expression goes in the prompt. Prose does not work here and endpoint-warden
-    is the proof: it said "Take the rate, not the raw counter" and "Rates, not
-    counters" in two places and still handed the model nothing but bare counter
-    names to call.
-
-    The suffix cannot decide this, which is why the set below is explicit.
-    `cnpg_backends_total` and `cnpg_backends_waiting_total` are **gauges** — a
-    `_total` suffix is a naming convention, not a type. Re-derive after any
-    exporter bump, against the running Prometheus rather than from the name:
-
-        curl -sG http://localhost:9090/api/v1/metadata \
-          --data-urlencode metric=<name> | jq -r '.data[][0].type'
-    """
-    for counter in sorted(CUMULATIVE_COUNTERS):
-        if not re.search(rf"\b{re.escape(counter)}\b", text):
-            continue
-        window = rf"(?:increase|rate|irate|delta)\s*\(\s*{re.escape(counter)}\b"
-        if re.search(window, text):
-            continue
-        raise Fail(
-            f"{label} names the cumulative counter {counter!r} but never wraps "
-            f"it in increase() or rate(). A counter only ever rises, so a "
-            f"non-zero value is history and not a state — that is how a bare "
-            f"`cnpg_pg_stat_archiver_failed_count` of 2 paged CRITICAL for a "
-            f"database whose last archive failure was 5.4 days old. Telling the "
-            f"model to 'take the rate' in prose is not enough; write the literal "
-            f"expression, e.g. `increase({counter}[1h])`."
-        )
-
-
-def _check_datasource_uid(label, text):
-    """A prompt that queries Prometheus must state the uid and never look it up.
-
-    `grafana_list_datasources` was allowlisted so the uid would not be a guess.
-    It produced one: this Grafana serves three datasources, and Loki's uid is the
-    hex string `P8E80F9AEF21F6940` while Prometheus's is the literal word
-    `prometheus`. A 4B model reads the list, takes the hex string for the real
-    identifier and the word for a placeholder, and sends every query to Loki —
-    which answers `404 page not found` for every metric. endpoint-warden then
-    reported the whole fleet as having no metrics and back-filled its Fleet table
-    from `k8s_nodes_top` memory, calling a 5%-full control-plane disk "79% disk
-    fill (CRITICAL)".
-
-    So the uid is a literal in the prompt and the lookup tool is gone. The
-    datasource is provisioned readOnly by kube-prometheus-stack, which is what
-    makes the literal safe to pin.
-    """
-    if "grafana_query_prometheus" not in text:
-        return
-    if "grafana_list_datasources" in text:
-        raise Fail(
-            f"{label} mentions grafana_list_datasources. Resolving the uid at "
-            f"runtime is the bug, not the fix: the model picks Loki's hex uid "
-            f"over the literal `prometheus` and every query 404s. State "
-            f"`datasourceUid   prometheus` and delete the lookup."
-        )
-    if not re.search(r"^\s+datasourceUid\s+prometheus\s*$", text, re.MULTILINE):
-        raise Fail(
-            f"{label} calls grafana_query_prometheus without spelling out "
-            f"`datasourceUid   prometheus` in its call block. That uid is the "
-            f"only one that answers PromQL here, and it is not guessable from "
-            f"the datasource list — the hex-looking one is Loki."
-        )
-
-
-def _check_endtime_literal(label, text):
-    """A prompt that queries Prometheus must pin `endTime` to the word `now`.
-
-    Nothing in a run tells the model the current time, so a numeric `endTime` is
-    always invented — and it lands wherever the training data sits. On
-    2026-08-24 db-steward sent `endTime: "1725489600"` (2024-09-04) on all six of
-    its queries, every one returned empty, and the model reported "The tools are
-    unavailable" and then wrote the entire daily report from `memory_search`
-    results: a lifetime archiver count, "27 total backends", "up from ~6.8%", all
-    of it plausible and none of it retrieved.
-
-    Rare but live: across 2026-08-20..24 the fleet sent `now` on 528 calls, a
-    stale epoch on 6 and `2024-01-01T00:00:00Z` on 1. The `sre-observability`
-    skill was demonstrating `end=$(date +%s)` at the time, which is the shape the
-    model reproduced without the shell to evaluate it; that skill is gone (see
-    SHELL_TEACHING_SKILLS) and the rule is stated in the prompt as well, because
-    the failure is silent either way — an empty result reads as a broken sensor.
-    """
-    if "grafana_query_prometheus" not in text:
-        return
-    if not re.search(r"^\s+endTime\s+now\s*$", text, re.MULTILINE):
-        raise Fail(
-            f"{label} calls grafana_query_prometheus without spelling out "
-            f"`endTime         now` in its call block. The argument is required "
-            f"and the model has no clock, so an unpinned one becomes an invented "
-            f"epoch and every query answers empty."
-        )
-    if "never a number" not in text:
-        raise Fail(
-            f"{label} pins `endTime   now` but does not say it is never a "
-            f"number. Naming the value was not enough for `chatId` either — say "
-            f"outright that a timestamp is invented and lands years in the past."
-        )
-
-
-def _check_unquoted_args(label, text):
-    """Argument values in a prompt's call block must be written bare.
-
-    Same failure as the delivery prompts: a 4B model reproduces an indented
-    `key: "value"` block character for character, quotes included, and the
-    argument arrives with the punctuation inside it. That cost every Slack report
-    for two days when it happened to `chatId`; `queryType: "instant"` is the same
-    shape and would fail the same way, silently, as an unparseable query type.
-
-    Deliberately narrow: it checks only the argument names of the two call
-    contracts the prompts spell out. PromQL in an indented block legitimately
-    contains quotes (`ALERTS{alertstate="firing"}`), so a blanket rule would be
-    wrong.
-    """
-    args = ("datasourceUid", "queryType", "endTime", "chatId", "channel")
-    for lineno, line in enumerate(text.splitlines(), start=1):
-        if not line.startswith("    "):
-            continue
-        stripped = line.strip()
-        for arg in args:
-            if not stripped.startswith(arg):
-                continue
-            value = stripped[len(arg):].lstrip(": ").strip()
-            if value.startswith(('"', "'")):
-                raise Fail(
-                    f"{label}:{lineno} shows the {arg!r} argument value "
-                    f"in quotes. A 4B model copies the quotes into the argument "
-                    f"— that is how chatId became '\"#channel\"' and every "
-                    f"report stopped arriving. Write the value bare."
-                )
-
-
-def _check_verbatim_ascii(label, text):
-    """Indented blocks in the delivery prompts must be pure ASCII.
-
-    These blocks are the strings the model is ordered to reproduce character for
-    character — the report header above all. A 4B model reproducing a multi-byte
-    character sometimes emits a broken sequence, and the runner ships its final
-    reply to the controller over gRPC, which refuses to marshal a string that is
-    not valid UTF-8:
-
-        rpc error: ... grpc: error while marshaling: string field contains
-        invalid UTF-8
-
-    The run still reports Succeeded, the report still reaches Slack, and
-    status.result is silently empty — which is what the run page then shows. The
-    header used U+00B7 as its separator and roughly 58% of runs came back with no
-    result at all. Keep every character the model must echo inside ASCII.
-    """
-    for lineno, line in enumerate(text.splitlines(), start=1):
-        if not line.startswith("    "):
-            continue
-        bad = sorted({ch for ch in line if not (" " <= ch <= "~")})
-        if bad:
-            shown = ", ".join(f"{ch!r} (U+{ord(ch):04X})" for ch in bad)
-            raise Fail(
-                f"prompts/{label}:{lineno} has non-ASCII in an indented block "
-                f"the model is told to reproduce verbatim: {shown}. A 4B model "
-                f"mangles multi-byte characters, the runner cannot marshal the "
-                f"broken string over gRPC, and status.result comes back empty "
-                f"while the run still reports Succeeded. Use ASCII."
-            )
-
 def _web_endpoint_config(ensemble_name):
     """Web endpoint knobs for one ensemble: enabled, rate limits, personas.
 
@@ -765,60 +399,6 @@ def _web_endpoint_config(ensemble_name):
     if not root.get("enabled"):
         entry = dict(entry, enabled=False, personas={})
     return entry
-
-
-def _check_web_endpoint(persona_name, persona, web, warnings):
-    """Check the web endpoint is switched on from values and nowhere else.
-
-    Listing the skill on the persona would work, and would put a trigger in
-    front of an agent without that being visible next to the other per-cluster
-    decisions — the same reason `enabled` and `policyRef` are rejected in
-    ensemble.yaml.
-    """
-    skills = persona.get("skills") or []
-    for skill, tree in VALUES_ONLY_SKILLS.items():
-        if skill in skills:
-            raise Fail(
-                f"{persona_name}: lists the {skill!r} skill. It is switched on "
-                f"from {tree} in values/default.yaml.gotmpl, so that which "
-                f"agents carry a testing surface is readable in one place."
-            )
-    params = persona.get("skillParams") or {}
-    overlap = sorted(set(params) & set(VALUES_ONLY_SKILLS))
-    if overlap:
-        raise Fail(
-            f"{persona_name}: sets skillParams for {', '.join(overlap)}, which "
-            f"the templates overwrite from values at render time"
-        )
-
-    if web is None:
-        return
-    if not (web.get("enabled") or (web.get("personas") or {}).get(persona_name, {}).get("enabled")):
-        return
-    writable = sorted(
-        tool
-        for tool in persona.get("toolPolicy", {}).get("allow", [])
-        if tool in WRITE_TOOLS
-    )
-    if writable:
-        warnings.append(
-            f"{persona_name}: has a web endpoint and holds the write tool(s) "
-            f"{', '.join(writable)}, so anything that can reach the endpoint can "
-            f"make it write. Turn the endpoint off outside a test."
-        )
-
-
-def _check_unknown_web_endpoint_personas(ensemble_name, persona_names):
-    """A typo under `personas:` silently leaves that agent on the default."""
-    web = _web_endpoint_config(ensemble_name)
-    if not web:
-        return
-    unknown = sorted(set(web.get("personas") or {}) - set(persona_names))
-    if unknown:
-        raise Fail(
-            f"sympozium_web_endpoint.ensembles.{ensemble_name}.personas names "
-            f"{', '.join(unknown)}, which is not a persona in this ensemble"
-        )
 
 
 def _delivery_config(ensemble_name):
@@ -845,22 +425,29 @@ def _check_delivery(project, persona_name, persona, delivery, warnings):
     override = per_persona.get(persona_name) or {}
 
     channel = override.get("channel") or delivery.get("channel")
-    verbosity = str(override.get("verbosity") or delivery.get("verbosity") or "normal").lower()
-    notify = str(override.get("notify") or delivery.get("notify") or "always").lower()
+    mode = _delivery_mode(persona_name, delivery)
 
-    # Gated on the delivery destination, not on `channels:`. The templates
-    # substitute the tokens for any persona with a sympozium_delivery channel,
-    # whether it delivers by hook or by tool, and a binding is a separate
-    # decision that only adds a sidecar and the inbound path.
-    delivers = bool(channel)
     prompt = (project / persona["systemPromptFile"]).read_text(encoding="utf-8")
-    _check_unquoted_args(f"{project.name}/{persona['systemPromptFile']}", prompt)
-    _check_fill_direction(f"{project.name}/{persona['systemPromptFile']}", prompt)
-    _check_datasource_uid(f"{project.name}/{persona['systemPromptFile']}", prompt)
-    _check_endtime_literal(f"{project.name}/{persona['systemPromptFile']}", prompt)
-    _check_investigation_budget(f"{project.name}/{persona['systemPromptFile']}", prompt)
-    _check_k8s_selector_rules(f"{project.name}/{persona['systemPromptFile']}", prompt)
-    _check_counter_window(f"{project.name}/{persona['systemPromptFile']}", prompt)
+
+    if mode == "reply":
+        if "{{ DELIVERY }}" in prompt:
+            raise Fail(
+                f"{persona_name}: deliveryMode reply substitutes no delivery "
+                f"block, so its prompt must carry its own answering contract "
+                f"rather than a {{{{ DELIVERY }}}} token"
+            )
+        if not persona.get("channels"):
+            raise Fail(
+                f"{persona_name}: deliveryMode reply answers in the asking "
+                f"thread, so the persona must carry a channel binding"
+            )
+        return
+
+    # Gated on the delivery destination and not on `channels:`. The templates
+    # substitute the token for any persona with a sympozium_delivery channel,
+    # while a binding is a separate decision that adds a sidecar and the
+    # inbound path.
+    delivers = bool(channel)
 
     if not delivers:
         for token in PROMPT_TOKENS:
@@ -877,18 +464,6 @@ def _check_delivery(project, persona_name, persona, delivery, warnings):
                 f"channel to deliver to, so they do nothing"
             )
         return
-    if verbosity not in VERBOSITY_LEVELS:
-        raise Fail(
-            f"{persona_name}: verbosity {verbosity!r} is not one of "
-            f"{', '.join(sorted(VERBOSITY_LEVELS))}"
-        )
-    if notify not in NOTIFY_LEVELS:
-        raise Fail(
-            f"{persona_name}: notify {notify!r} is not one of always, onChange, never"
-        )
-    for kind, level in (("delivery", verbosity), ("notify", notify)):
-        if not (BASE / "prompts" / kind / f"{level}.md").is_file():
-            raise Fail(f"{persona_name}: no prompts/{kind}/{level}.md for {level!r}")
 
     if "{{ DELIVERY }}" not in prompt:
         raise Fail(
@@ -897,22 +472,16 @@ def _check_delivery(project, persona_name, persona, delivery, warnings):
             f"model — under a hook it will not know its reply is the report, and "
             f"will end the run on a tool call with nothing to deliver"
         )
-    if notify == "onchange" and "## What counts as a change" not in prompt:
-        raise Fail(
-            f"{persona_name}: notify is onChange, but its system prompt has no "
-            f"'## What counts as a change' section for prompts/notify/onchange.md "
-            f"to point at — the criteria are persona-specific and cannot live in "
-            f"the shared file"
-        )
 
 
 def _delivery_mode(persona_name, delivery):
-    """tool or hook, resolved exactly the way templates/ensembles.yaml resolves it.
+    """hook or reply, resolved the way templates/ensembles.yaml resolves it.
 
-    "tool" means the model calls the posting tool and a channel sidecar delivers
-    it, which costs one duplicate copy per bound persona. "hook" means a
-    lifecycle.postRun container posts the run's own result, which touches no
-    shared subject and so arrives once.
+    "hook" is a lifecycle.postRun container posting the run's own result, which
+    touches no shared subject and so arrives exactly once whatever else exists.
+    "reply" is a bound persona answering in the thread that asked, through the
+    channel sidecar: no hook, no configured destination, and its own answering
+    contract in its prompt instead of a substituted delivery block.
     """
     if not delivery:
         return "hook"
@@ -1245,7 +814,7 @@ def _check_schedule(persona_name, schedule):
         )
 
 
-def _check_persona(project, path, used, channel_secrets, delivery, web, warnings):
+def _check_persona(project, path, used, channel_secrets, delivery, warnings):
     persona = _load_yaml(path)
     name = persona.get("name")
     if not name:
@@ -1303,7 +872,6 @@ def _check_persona(project, path, used, channel_secrets, delivery, web, warnings
         hook_mode=_delivery_mode(name, delivery) == "hook",
     )
     _check_delivery(project, name, persona, delivery, warnings)
-    _check_web_endpoint(name, persona, web, warnings)
     return name
 
 
@@ -1349,9 +917,8 @@ def check(project):
     warnings = []
     channel_secrets = _channel_secrets(name)
     delivery = _delivery_config(name)
-    web = _web_endpoint_config(name)
     names = [
-        _check_persona(project, path, used, channel_secrets, delivery, web, warnings)
+        _check_persona(project, path, used, channel_secrets, delivery, warnings)
         for path in persona_files
     ]
     _check_delivery_needs_binding(
@@ -1363,7 +930,6 @@ def check(project):
         warnings,
     )
     _check_unknown_delivery_personas(name, names)
-    _check_unknown_web_endpoint_personas(name, names)
 
     duplicates = sorted({n for n in names if names.count(n) > 1})
     if duplicates:
@@ -1391,12 +957,6 @@ def main():
         print("no projects found", file=sys.stderr)
         return 1
 
-    try:
-        _check_shared_prompts()
-    except Fail as error:
-        print(f"error: {error}", file=sys.stderr)
-        return 1
-
     values = _values() or {}
     try:
         _check_mcp_servers(values)
@@ -1404,20 +964,8 @@ def main():
         print(f"error: {error}", file=sys.stderr)
         return 1
     known = {path.name for path in projects}
-    web_root = values.get("sympozium_web_endpoint") or {}
-    stray = sorted(set(web_root) - {"enabled", "ensembles"})
-    if stray:
-        print(
-            f"error: sympozium_web_endpoint has unexpected key(s) "
-            f"{', '.join(stray)} at its root. Only 'enabled' (the master "
-            f"switch) and 'ensembles' belong there; per-ensemble entries go "
-            f"under 'ensembles:'.",
-            file=sys.stderr,
-        )
-        return 1
     for tree, entries in (
         ("sympozium_delivery", values.get("sympozium_delivery") or {}),
-        ("sympozium_web_endpoint.ensembles", web_root.get("ensembles") or {}),
     ):
         unknown = sorted(set(entries) - known)
         if unknown:

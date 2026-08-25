@@ -1,21 +1,9 @@
-"""`cert_expiry()` and `backup_freshness()` — what is quietly expiring or stopped.
+"""`cert_expiry()` and `backup_freshness()` - what is quietly expiring or stopped.
 
-Both tools do arithmetic the model could not do. Nothing in an agent run injects
-a clock and no MCP server in this fleet exposes one, so a raw `notAfter` date is
-uninterpretable: "expires within 21 days" cannot be evaluated without knowing
-today. The old prompt's answer was to forbid any date the model had not read from
-a tool result, which made the check impossible to express. The server has a
-clock, so it does the subtraction and returns the *number of days*, which is then
-a tool result like any other.
-
-`backup_freshness()` is also where the byte budget bites hardest. This cluster
-holds 158 velero `Backup` objects and 82 CloudNativePG ones. Listing them is a
-~16 KB answer, and a single ~16 KB tool result reproducibly ends a run with no
-report at all - not through context overflow but because a 4B model stops
-producing a final turn when one answer is that large. So this tool summarises per
-schedule: the newest success, its age, and how many recent attempts failed. The
-question is "when did it last succeed", and that needs one row per schedule, not
-one per backup.
+Both do arithmetic the model cannot: a raw `notAfter` date is uninterpretable
+without a clock, so the server subtracts and returns days. `backup_freshness()`
+summarises per schedule rather than listing objects - there are hundreds, and the
+question is when each schedule last succeeded. See ../../README.md.
 """
 
 from __future__ import annotations
@@ -27,13 +15,11 @@ from .. import settings
 
 BUDGET = 3072
 
-# How many recent objects to consider per group when counting failures. The
-# newest-success search does not need a bound, but the failure count does.
+# How many recent objects to consider when counting failures.
 _RECENT = 20
 
-# Phases that are genuinely failures, across Velero and CloudNativePG. Phases
-# like `InProgress` and `Deleting` are neither success nor failure and are
-# counted as neither.
+# Genuine failures, across Velero and CloudNativePG. `InProgress` and
+# `Deleting` are neither success nor failure and are counted as neither.
 _FAILED_PHASES = frozenset(
     {"failed", "partiallyfailed", "failedvalidation", "error"}
 )
@@ -75,10 +61,8 @@ def cert_expiry() -> str:
 
     lines.append("")
     lines.append("## ServiceAccount token Secrets")
-    # Narrowed at the *request*, not after the fact. An unfiltered cluster-wide
-    # Secret list transfers every value in every namespace, which on this cluster
-    # is 25 MB and broke the connection outright - and pulling every secret over
-    # the wire to look at three of them is indefensible regardless.
+    # Narrowed at the *request*, not after the fact: an unfiltered cluster-wide
+    # Secret list pulls every value in every namespace over the wire.
     tokens = kube.list(
         "v1", "Secret", field_selector="type=kubernetes.io/service-account-token"
     )
@@ -253,12 +237,10 @@ def _newest(
 def _count_failed(
     objects: list[dict], success_phases: set[str], completion: tuple[str, ...]
 ) -> int:
-    """Genuine failures among the most recent ``_RECENT`` by creation, newest first.
+    """Genuine failures among the most recent ``_RECENT``, newest first.
 
-    "Not succeeded" is not the same as "failed". A backup that is `InProgress` or
-    `Deleting` has not failed, and counting it as a failure inflates the number
-    the report leads with - the same class of mistake as reading a lifetime
-    counter as a live state. Only the phases below are failures; anything else
+    "Not succeeded" is not "failed": an in-progress backup has not failed, and
+    counting it as one inflates the number the report leads with. Anything
     unrecognised is left out rather than guessed at.
     """
     ordered = sorted(
@@ -276,13 +258,10 @@ def _count_failed(
 def _longhorn(stale_hours: float) -> list[str]:
     """Newest backup age per Longhorn volume, from the operator's metric.
 
-    Volume-level Longhorn backup is a feature that may simply not be in use - and
-    where it is not, every volume reports a last-backup time of 0. Reporting that
-    as "N volumes have never been backed up" would be a finding that fires every
-    run and can never be cleared, which is the shape of bug that had orpi-0's
-    kernel filed as drift for days. So a fleet where *nothing* has a Longhorn
-    backup is reported as "not in use", and only a partial rollout - some volumes
-    backed up, some not - is a finding.
+    Where the feature is not in use every volume reports 0, and calling that "N
+    volumes never backed up" would be a finding that fires every run and can
+    never be cleared. So nothing-backed-up reads as "not in use", and only a
+    partial rollout is a finding.
     """
     reading = settings.prometheus().reading(
         "max by (volume) (longhorn_volume_last_backup_at)", "volume"

@@ -25,8 +25,8 @@ def config_dir() -> Path:
 def load(name: str) -> dict[str, Any]:
     """Load and cache one config file. A missing file is an empty mapping.
 
-    Empty rather than fatal: a lost `chronic_alerts.yaml` degrades the snapshot
-    to "everything is unclassified", which is a worse report but a true one.
+    Empty rather than fatal: an unclassified snapshot is a worse report, but a
+    true one.
     """
     path = config_dir() / name
     try:
@@ -39,11 +39,8 @@ def thresholds(section: str) -> dict[str, Any]:
     return load("thresholds.yaml").get(section) or {}
 
 
-# Nothing here describes the fleet's shape. Node names, hardware classes and
-# which machine carries which sensor are all derived from the cluster at query
-# time — see `mcp_runner.fleet`. A checked-in copy of the topology goes stale
-# silently, and a stale node list produces the exact failure this server exists
-# to prevent: a row of `unavailable` for a machine whose figures were available.
+# Nothing here describes the fleet's shape - node names, hardware classes and
+# sensor coverage are all derived at query time; see `mcp_runner.fleet`.
 
 
 def chronic_alerts() -> dict[str, str]:

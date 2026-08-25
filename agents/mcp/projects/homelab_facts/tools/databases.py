@@ -1,25 +1,10 @@
-"""`postgres_health()` and `cache_health()` — the stateful services.
+"""`postgres_health()` and `cache_health()` - the stateful services.
 
-`postgres_health()` exists because of one number read the wrong way.
-`cnpg_pg_stat_archiver_failed_count` was called "the most important number you
-look at" and never described as a counter, so a lifetime total of 2 - two
-failures 5.4 days old, against a successful archive 95 seconds old and
-`increase(...[24h]) = 0` - paged CRITICAL "recovery is silently broken" on every
-run, twice into Slack. The window is now in the expression, built by
-`increase_`, and the tool states both the increase and the age of the last
-success so the two cannot be confused.
-
-The suffix is no guide and never was: `cnpg_backends_total` and
-`cnpg_backends_waiting_total` are **gauges** despite `_total`, while
-`cnpg_pg_stat_archiver_failed_count` is a **counter** despite `_count`. A
-suffix-based rule gets both wrong, which is why `CUMULATIVE_COUNTERS` below is an
-explicit set, sourced from Prometheus's metadata API and asserted by a test.
-
-`cache_health()` reports used bytes and evictions and computes no percentage.
-This Valkey has **no ceiling**: `maxmemory` is unset, which the exporter
-publishes as `redis_memory_max_bytes` = 0, and the container has no memory limit
-either. Dividing by that zero produced "unable to determine" every run, forever.
-There is nothing to determine, so the tool says so once instead.
+The archiver figure is an increase over a window, never the lifetime counter: a
+non-zero total with a zero increase is healthy. The suffix is no guide to which
+is which, so `CUMULATIVE_COUNTERS` is explicit and sourced from Prometheus's
+metadata API. `cache_health()` computes no percentage because this Valkey has no
+ceiling to divide by. See ../../README.md.
 """
 
 from __future__ import annotations
@@ -32,8 +17,8 @@ from .. import settings
 
 BUDGET = 3072
 
-# Read from Prometheus's metadata API on 2026-08-25, not inferred from names.
-# Anything here must be read through a window; anything absent is a gauge.
+# From Prometheus's metadata API, not inferred from names. Anything here must be
+# read through a window; anything absent is a gauge.
 CUMULATIVE_COUNTERS = frozenset(
     {
         "cnpg_pg_stat_archiver_failed_count",
@@ -47,7 +32,7 @@ CUMULATIVE_COUNTERS = frozenset(
     }
 )
 
-# Gauges whose `_total` suffix invites exactly the wrong reading.
+# Gauges whose `_total` suffix invites the wrong reading.
 GAUGES_LOOKING_LIKE_COUNTERS = frozenset({"cnpg_backends_total", "cnpg_backends_waiting_total"})
 
 
@@ -156,8 +141,8 @@ def _archiver_verdict(
 ) -> str:
     """The whole point of this tool, in one function a test can pin.
 
-    A non-zero *increase* is the failure. A stale last-success is the other
-    failure. A lifetime total is neither, and cannot reach this function.
+    A non-zero increase is the failure; a stale last-success is the other. A
+    lifetime total is neither, and cannot reach this function.
     """
     if increase is None and age_seconds is None:
         return "unavailable."

@@ -1,38 +1,12 @@
-"""`node_fleet()` — the whole node table, with machine identity attached in code.
+"""`node_fleet()` - the node table, with machine identity joined in the query.
 
-**No `node_*` series in this Prometheus carries a machine name.** They are keyed
-by `instance` (an IP and a port); the only hostname anywhere is the `nodename`
-label on `node_uname_info`. The old prompt demanded a per-node table and never
-said how to bridge that, so the model improvised - it wrote
-`node_apt_security_upgrades_pending by (node)`, which is neither valid PromQL nor
-an existing label, on four different metrics, and elsewhere queried the bare
-metric and guessed the IP mapping. The 2026-08-24 13:25 table was wrong in five
-ways at once: four rows read `unavailable` when every figure was available, the
-NAS was given amd-1's disk percentage, orpi-1 got roughly orpi-3's, every uptime
-was wrong by two orders of magnitude, three ARM nodes with 5 pending security
-updates were reported as having none, and the single finding named amd-1's CPU
-pressure at 52.7% against a real 0.47%.
+No `node_*` series here carries a machine name; they are keyed by `instance`, and
+the only hostname anywhere is `nodename` on `node_uname_info`. Every expression
+below carries that join, built by `by_nodename` so it cannot be dropped.
 
-Every expression below carries the join, built by `by_nodename` so it cannot be
-dropped. Three further rules are enforced here rather than asked for.
-
-**Nothing about this homelab is written down.** The node inventory is the
-Kubernetes node list, hardware classes are derived from the kernel tree and
-architecture, and which node has SMART, EDAC or a UPS is decided by whether the
-sensor answered. Adding, renaming or re-disking a machine needs no change here.
-See `mcp_runner.fleet`.
-
-**`unavailable` and `n/a` mean different things.** `unavailable` is *the query
-gave no value for this node although it should have*; `n/a` is *this node has no
-such sensor*. Absence needs a definition or it absorbs every bug - `unavailable`
-was introduced so a missing metric could be stated rather than invented, which
-was right, and it then silently absorbed a broken join.
-
-**Versions compare within a hardware class only.** A class of one is never the
-odd one out. orpi-0 was reported as kernel drift against orpi-1/2/3 every run for
-days: different SoC families cannot converge, so the finding could never be
-actioned and never cleared, and because a non-empty findings section was itself a
-change condition it forced a Slack post each time.
+Three rules are enforced rather than asked for: nothing about the homelab is
+written down (see `mcp_runner.fleet`), `unavailable` and `n/a` mean different
+things, and versions compare within a hardware class only. See ../../README.md.
 """
 
 from __future__ import annotations
@@ -57,8 +31,8 @@ logger = logging.getLogger(__name__)
 BUDGET = 3584
 _NOT_APPLICABLE = "n/a"
 
-# Every reading, with the join already applied. Verified against this Prometheus
-# on 2026-08-25.
+# Every reading, with the join already applied. Each verified present in this
+# Prometheus.
 _QUERIES: dict[str, str] = {
     "disk_pct": by_nodename(
         used_percent(
@@ -72,9 +46,7 @@ _QUERIES: dict[str, str] = {
     "mem_stall_pct": by_nodename(rate_percent("node_pressure_memory_stalled_seconds_total")),
     "io_busy_pct": by_nodename(rate_percent("node_disk_io_time_seconds_total")),
     # node_hwmon_temp_celsius covers every node; smartmon_temperature_celcius
-    # covers only those with reporting drives. The old prompt named both without
-    # saying which was the Temp column, so the table inherited SMART's coverage
-    # gap for no reason.
+    # only those with reporting drives, so they are separate columns.
     "temp_c": by_nodename("node_hwmon_temp_celsius"),
     "temp_crit": by_nodename("node_hwmon_temp_crit_alarm_celsius"),
     "uptime_d": by_nodename("(time() - node_boot_time_seconds) / 86400"),
@@ -85,15 +57,15 @@ _QUERIES: dict[str, str] = {
     "systemd_ok": by_nodename("node_systemd_system_running"),
 }
 
-# Readings that exist only where the hardware does. Each is paired with the probe
-# that decides, per node, whether the sensor is there at all — so a gap is `n/a`
-# rather than a finding, without a list of which machines have what.
+# Readings that exist only where the hardware does, each paired with the probe
+# that decides per node whether the sensor is there - so a gap is `n/a` rather
+# than a finding, with no list of which machine has what.
 _SCOPED: dict[str, tuple[str, str, str]] = {
     # (expression, capability probe, aggregator)
     "smart_healthy": (
         by_nodename("smartmon_device_smart_healthy", "min"),
-        # 0 means the device cannot report health at all. A node whose drives all
-        # report 0 gets no health verdict, because that is the hardware.
+        # 0 means the device cannot report health at all, so such a node gets
+        # no health verdict.
         by_nodename("smartmon_device_smart_available", "max"),
         "min",
     ),
@@ -133,15 +105,15 @@ def node_fleet() -> str:
     for key, (expression, probe, _aggregator) in _SCOPED.items():
         value = prometheus.reading(expression, "nodename")
         capability = prometheus.reading(probe, "nodename")
-        # Capable = the probe answered a non-zero value for that node. A zero is
-        # an explicit "this device cannot report", not a missing series.
+        # Capable = the probe answered non-zero. A zero is an explicit "cannot
+        # report", not a missing series.
         capable = {node for node, level in capability.values.items() if level and level > 0}
         scoped[key] = (value, capable)
 
     kernels, machines = _identity(prometheus)
 
-    # Kubernetes is the authority on which machines exist; Prometheus says which
-    # answered. The difference is what makes a dropped join legible.
+    # Kubernetes says which machines exist, Prometheus which answered; the
+    # difference is what makes a dropped join legible.
     try:
         expected = settings.kube().node_names()
     except Exception as exc:  # noqa: BLE001 - unreachable API must not lose metrics
@@ -257,14 +229,13 @@ def _identity(prometheus) -> tuple[dict[str, str], dict[str, str]]:
                 kernels[name] = metric.get("release", "")
                 machines[name] = metric.get("machine", "")
     except Exception as exc:  # noqa: BLE001 - any client error means no identity
-        # Not silent: without identity every row loses its class and kernel, and a
-        # reader needs to know that happened rather than seeing a blank column.
+        # Logged, not silent: without identity every row loses class and kernel.
         logger.warning("node identity query failed, classes unavailable: %s", exc)
     return kernels, machines
 
 
 def _notes(readings, scoped, nodes, limits, prefix) -> list[str]:
-    """Only the readings outside a threshold, or missing where they should not be."""
+    """Only readings outside a threshold, or missing where they should not be."""
     notes: list[str] = []
 
     disk_crit = float(limits.get("disk_critical_percent", 85))

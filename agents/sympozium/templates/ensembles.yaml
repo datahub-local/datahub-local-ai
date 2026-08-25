@@ -31,9 +31,6 @@
 {{- /* Delivery knobs and the web-endpoint switch are chart-only: the CRD webhook
        decodes spec strictly, so they cannot ride along in sympozium_ensembles. */}}
 {{-   $delivery := index ($.Values.sympozium_delivery | default dict) $name | default dict }}
-{{-   $webRoot := $.Values.sympozium_web_endpoint | default dict }}
-{{-   $webOn := $webRoot.enabled | default false }}
-{{-   $web := index ($webRoot.ensembles | default dict) $name | default dict }}
 {{-   $personaFiles := $.Files.Glob (printf "%s/agents/*.yaml" $project) }}
 {{-   if not $personaFiles }}
 {{-     fail (printf "%s: no personas in agents/" $project) }}
@@ -57,27 +54,34 @@
        @-mention path, and must not gate the prompt. */}}
 {{-     $knob := dict "delivery" $delivery "persona" $persona.name }}
 {{-     $channel := include "sympozium.deliveryKnob" (merge (dict "knob" "channel" "default" "") $knob) }}
-{{-     $verbosity := include "sympozium.deliveryKnob" (merge (dict "knob" "verbosity" "default" "normal") $knob) | lower }}
-{{-     $notify := include "sympozium.deliveryKnob" (merge (dict "knob" "notify" "default" "always") $knob) | lower }}
 {{-     $mode := include "sympozium.deliveryMode" $knob }}
-{{-     if not (has $mode (list "tool" "hook")) }}
-{{-       fail (printf "%s: deliveryMode %q is neither tool nor hook" $personaPath $mode) }}
+{{-     if not (has $mode (list "hook" "reply")) }}
+{{-       fail (printf "%s: deliveryMode %q is neither hook nor reply" $personaPath $mode) }}
 {{-     end }}
 {{-     $cadence := include "sympozium.cadence" (dict "schedule" $persona.schedule) }}
-{{-     if and $persona.channels (not $channel) }}
+{{- /* reply mode answers in the thread that asked, through the channel sidecar,
+       so it needs no configured destination and takes no hook. Every other bound
+       persona must name one or it delivers nowhere in silence. */}}
+{{-     if and $persona.channels (not $channel) (ne $mode "reply") }}
 {{-       fail (printf "%s: carries a channel binding, but sympozium_delivery.%s sets no channel for %s" $personaPath $name $persona.name) }}
+{{-     end }}
+{{-     if and (eq $mode "reply") (not $persona.channels) }}
+{{-       fail (printf "%s: deliveryMode reply answers in the asking thread, so the persona must carry a channel binding" $personaPath) }}
 {{-     end }}
 {{- /* A fixed token set replaced by name rather than `tpl`, which would execute
        template code inside a prompt and turn any literal brace pair in prompt
        text into a render error. A token left standing fails the render, the same
        contract as DownloadTemplate's check_template_vars_present in agents/n8n. */}}
-{{-     if $channel }}
-{{-       $block := include "sympozium.deliveryBlock" (dict "root" $ "mode" $mode "verbosity" $verbosity "notify" $notify) }}
+{{-     if and $channel (ne $mode "reply") }}
+{{-       $block := include "sympozium.deliveryBlock" (dict "root" $ "mode" $mode) }}
 {{-       $prompt = replace "{{ DELIVERY }}" $block $prompt }}
 {{-       $prompt = replace "{{ CHANNEL }}" $channel $prompt }}
 {{-       $prompt = replace "{{ AGENT }}" ($persona.displayName | toString) $prompt }}
 {{-       $prompt = replace "{{ ENSEMBLE }}" $name $prompt }}
 {{-       $prompt = replace "{{ SCHEDULE }}" $cadence $prompt }}
+{{-     end }}
+{{-     if and (eq $mode "reply") (contains "{{ DELIVERY }}" $prompt) }}
+{{-       fail (printf "%s: deliveryMode reply substitutes no delivery block, so the prompt must carry its own answering contract rather than a {{ DELIVERY }} token" $personaPath) }}
 {{-     end }}
 {{-     if contains "{{" $prompt }}
 {{-       fail (printf "%s: %s still holds an unsubstituted token. Known tokens are {{ DELIVERY }}, {{ CHANNEL }}, {{ AGENT }}, {{ ENSEMBLE }} and {{ SCHEDULE }}, and they are only substituted on a persona with a sympozium_delivery channel." $personaPath $promptRef) }}
@@ -98,27 +102,6 @@
 {{-       end }}
 {{-       $_ := unset $persona.schedule "taskFile" }}
 {{-       $_ := set $persona.schedule "task" (trimSuffix "\n" $task) }}
-{{-     end }}
-{{- /* An HTTP endpoint is a property of this cluster, not of the agent, so it is
-       switched on from values and never in projects/. Adding the skill is the
-       whole mechanism. Note it *replaces* the persona's schedule rather than
-       sitting beside it — ../MEMORY.md#the-endpoint-replaces-the-schedule--it-does-not-sit-beside-it */}}
-{{-     $wp := index ($web.personas | default dict) ($persona.name | toString) | default dict }}
-{{-     $wpEnabled := $web.enabled | default false }}
-{{-     if hasKey $wp "enabled" }}
-{{-       $wpEnabled = $wp.enabled }}
-{{-     end }}
-{{-     $wpEnabled = and $webOn $wpEnabled }}
-{{-     if has "web-endpoint" ($persona.skills | default list) }}
-{{-       fail (printf "%s: lists the web-endpoint skill. It is switched on from sympozium_web_endpoint in values, so that the testing surface is visible in one place per cluster." $personaPath) }}
-{{-     end }}
-{{-     if $wpEnabled }}
-{{-       $_ := set $persona "skills" (append ($persona.skills | default list) "web-endpoint") }}
-{{-       $rpm := $wp.requestsPerMinute | default $web.requestsPerMinute | default 60 }}
-{{-       $burst := $wp.burstSize | default $web.burstSize | default 10 }}
-{{-       $params := $persona.skillParams | default dict }}
-{{-       $_ := set $params "web-endpoint" (dict "rate_limit_rpm" (printf "%v" $rpm) "rate_limit_burst" (printf "%v" $burst)) }}
-{{-       $_ := set $persona "skillParams" $params }}
 {{-     end }}
 {{- /* The hook needs a destination, not just the mode: hook is the default, and a
        persona with no sympozium_delivery entry delivers nowhere on purpose.

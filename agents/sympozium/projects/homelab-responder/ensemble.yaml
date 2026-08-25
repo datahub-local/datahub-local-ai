@@ -1,0 +1,26 @@
+# Rationale for every knob here lives in ../../MEMORY.md.
+name: homelab-responder
+version: "1.0.0"
+
+spec:
+  description: >-
+    The one agent you can ask a question. Read-only, Slack-bound, and the only
+    inbound surface in this fleet, which is why it is its own ensemble.
+  category: platform
+  version: "1.0.0"
+
+  workflowType: autonomous
+
+  slackOptions:
+    threading: true
+    threadStickiness: true
+    allowedTriggers:
+      - mention
+      - dm
+
+defaults:
+  provider: ollama
+  model: qwen3.5:4b
+  runTimeout: 30m
+  env:
+    MAX_TOOL_ITERATIONS: "100"

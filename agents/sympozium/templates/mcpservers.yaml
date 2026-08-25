@@ -1,34 +1,11 @@
 {{/*
-  The repo-local MCP servers: a Deployment, a Service and an MCPServer per entry
-  in `sympozium_mcp_servers`, plus the ServiceAccount and ClusterRole the server
-  reads Kubernetes through.
+  A Deployment, Service and MCPServer per entry in `sympozium_mcp_servers`, plus
+  the ServiceAccount and ClusterRole the server reads Kubernetes through.
 
-  Core owns the shared MCP catalog (k8s, github, argocd, grafana, postgres) and
-  this chart does not re-declare any of it. What lives here is the one server
-  whose logic is specific to these agents — `homelab_facts`, built in
-  ../mcp/ — because it belongs beside the personas that depend on it. Two repos
-  therefore declare objects in `automation`; names stay prefixed with the release
-  so ownership is legible from a listing.
-
-  Four details below are load-bearing and each has cost time before:
-
-  1. The pods MUST carry `app.kubernetes.io/name: mcpserver`. Core's
-     `agent-allow-tools` NetworkPolicy grants agents egress on 8080 only toward
-     that label (and `sympozium.ai/component: shared-memory`), so without it
-     every tool call times out with no useful error.
-  2. The pods must NOT carry `app.kubernetes.io/part-of: sympozium`. That label
-     is selected by `sympozium-allow-otel`, an Egress-type policy whose only
-     rule is ports 4317/4318 — so wearing it would restrict this server to the
-     OTel collector and cut it off from Prometheus, the Kubernetes API and DNS.
-     Core's own MCP pods deliberately omit it. Verified 2026-08-25.
-  3. `MCPServer.spec.url` is set rather than `spec.deployment`. Setting `url`
-     stops the controller reconciling a deployment of its own, which is the
-     pattern core uses for `mcp-k8s` — we own the workload, the CR only points
-     at it. The URL carries the path, and any path works here (see 4).
-  4. `replicas` and `timeout` are stated even though they are the CRD defaults.
-     The API server writes a `default:` into the live object at admission, so an
-     omitted field reads as permanent drift; `kubectl diff` cannot see this class
-     of drift because it defaults both sides.
+  Why any of it is shaped this way — the two load-bearing pod labels, the `url:`
+  form, the enumerated RBAC, the required `toolsPrefix`, the absent deny list —
+  is in ../MEMORY.md. Only the checks that would otherwise fail silently are
+  restated here.
 */}}
 {{- range $name, $server := .Values.sympozium_mcp_servers | default dict }}
 {{-   if $server.enabled }}
@@ -48,22 +25,6 @@ metadata:
     app.kubernetes.io/instance: {{ $fullName }}
     app.kubernetes.io/managed-by: Helm
 ---
-{{/*
-  Read-only, and enumerated rather than wildcarded.
-
-  Core's `mcp-k8s` ServiceAccount holds `apiGroups: ["*"], resources: ["*"],
-  verbs: [get,list,watch]` — deliberately, so a new object kind works without a
-  core change. The cost is that a `get` on a Secret returns its base64 values in
-  full, which is why `k8s_resources_get` is banned for personas.
-
-  This server does not need that breadth, so it does not get it. Note Secrets
-  carry `list` and NOT `get`: the only check that touches them counts
-  ServiceAccount-token Secrets and reads names, types and ages, and it uses a
-  field selector to do it. Withholding `get` means a single-object read is
-  impossible at the RBAC layer rather than only in code — the server strips
-  `data` and `stringData` at its boundary as well, but that is the second line
-  of defence, not the first.
-*/}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -73,18 +34,13 @@ metadata:
     app.kubernetes.io/instance: {{ $fullName }}
     app.kubernetes.io/managed-by: Helm
 rules:
-  # The authoritative node inventory. Comparing it against what Prometheus
-  # answered is what makes a dropped `nodename` join legible as `unavailable`
-  # for a named machine instead of a table that is quietly one row short.
   - apiGroups: [""]
     resources: ["nodes"]
     verbs: ["get", "list"]
-  # `list` only, deliberately — see above.
+{{- /* `list` and deliberately not `get`: see ../MEMORY.md. */}}
   - apiGroups: [""]
     resources: ["secrets"]
     verbs: ["list"]
-  # ArgoCD state is read off the Application objects rather than the ArgoCD API,
-  # so this server needs no ArgoCD token.
   - apiGroups: ["argoproj.io"]
     resources: ["applications"]
     verbs: ["get", "list"]
@@ -94,8 +50,6 @@ rules:
   - apiGroups: ["velero.io"]
     resources: ["backups", "schedules"]
     verbs: ["get", "list"]
-  # Postgres state comes from the operator's objects and its metrics, so this
-  # server needs no database DSN either.
   - apiGroups: ["postgresql.cnpg.io"]
     resources: ["backups", "scheduledbackups", "clusters"]
     verbs: ["get", "list"]
@@ -134,10 +88,9 @@ spec:
       app.kubernetes.io/instance: {{ $fullName }}
   template:
     metadata:
+{{- /* Both labels are load-bearing and a third one must stay off: see
+       ../MEMORY.md before touching this block. */}}
       labels:
-        # Both labels are required: `name` is what core's agent egress policy
-        # matches on, `instance` is what this Deployment selects. Do not add
-        # `app.kubernetes.io/part-of: sympozium` — see the header.
         app.kubernetes.io/name: mcpserver
         app.kubernetes.io/instance: {{ $fullName }}
         app.kubernetes.io/managed-by: Helm
@@ -160,10 +113,6 @@ spec:
             - --port
             - "8080"
           env:
-            # The one address this server needs. Queried directly rather than
-            # through Grafana, which is what deletes the datasource-uid failure
-            # class outright: there is no uid on this path, so none can be
-            # resolved to Loki's by mistake.
             - name: PROMETHEUS_URL
               value: {{ $server.prometheusUrl | default "http://datahub-local-core-kube-pr-prometheus.monitoring.svc:9090" | quote }}
             - name: PROMETHEUS_TIMEOUT_SECONDS
@@ -174,8 +123,8 @@ spec:
             - name: http
               containerPort: 8080
               protocol: TCP
-          # The MCP endpoint answers on every path, so a probe has to use one of
-          # the reserved health paths rather than the service root.
+{{- /* The MCP endpoint answers on every path, so a probe must use a health
+       path rather than the service root. */}}
           livenessProbe:
             httpGet:
               path: /healthz
@@ -193,11 +142,7 @@ spec:
               cpu: {{ (($server.resources).requests).cpu | default "25m" | quote }}
               memory: {{ (($server.resources).requests).memory | default "96Mi" | quote }}
             limits:
-              # Memory only, on purpose. `CPUThrottlingHigh` is already chronic
-              # across roughly ten workloads on this hardware, and a CPU limit
-              # here would add an eleventh permanently-firing alert to a fleet
-              # whose whole problem was noise. A request reserves the share; the
-              # limit is what throttles.
+{{- /* Memory only, on purpose — see ../MEMORY.md. */}}
               memory: {{ (($server.resources).limits).memory | default "256Mi" | quote }}
           securityContext:
             allowPrivilegeEscalation: false
@@ -210,12 +155,6 @@ spec:
             - name: tmp
               mountPath: /tmp
       volumes:
-        # An emptyDir is the right store for the snapshots behind the computed
-        # diffs. Losing them degrades a diff to "first observation", which every
-        # tool states explicitly — it can never produce a *wrong* diff. A PVC
-        # would buy continuity across restarts at the cost of putting a volume
-        # under this chart's management, and every storageclass here is
-        # `reclaimPolicy: Delete`.
         - name: state
           emptyDir: {}
         - name: tmp
@@ -248,41 +187,18 @@ metadata:
   namespace: {{ $.Release.Namespace }}
   labels:
     app.kubernetes.io/managed-by: Helm
-    # Core's catalog objects carry this; it is what makes a server discoverable
-    # to a persona that names it.
     sympozium.ai/catalog: "true"
 spec:
   transportType: http
-  # `url` and not `deployment`: this stops the controller reconciling a
-  # deployment of its own, since the one above is ours.
+{{- /* `url` and not `deployment`, so the controller reconciles no workload of
+       its own. `replicas` and `timeout` are CRD defaults and are stated anyway,
+       or admission-time defaulting reads as permanent drift. */}}
   url: {{ printf "http://%s.%s.svc:8080/mcp" $fullName $.Release.Namespace | quote }}
-  # Both are CRD defaults and both are stated anyway, or the API server's
-  # admission-time defaulting reads as permanent drift.
   replicas: 1
   timeout: {{ $server.timeout | default 30 }}
-  # Required by the CRD schema — `spec.required` is [toolsPrefix, transportType],
-  # so there is no unprefixed option however tidy that would be. Caught by a
-  # `--dry-run=server` apply, which is the only check that sees it: the field
-  # carries no `default`, so a plain `helm template` renders happily without it.
-  #
-  # The consequence is the one prefixed/unprefixed split to keep straight:
-  # a persona's `toolPolicy.allow` names `facts_volume_fill` because that is what
-  # the model sees, while `mcpServers[].toolsAllow` names `volume_fill` because
-  # that filter runs at the server. Backwards in either direction is a rule that
-  # matches nothing, silently.
+{{- /* Required by the CRD schema, and only a --dry-run=server apply catches it
+       missing. It is why toolPolicy.allow names facts_volume_fill while
+       toolsAllow names volume_fill. */}}
   toolsPrefix: {{ $server.toolsPrefix | default "facts" | quote }}
-{{- /*
-      No `toolsDeny`, because there is nothing to deny: every tool this server
-      exposes is a read, it holds no credential, and it has no code path that
-      writes anything anywhere.
-
-      Core's catalog does carry deny lists, and two of those entries name tools
-      that do not exist — its k8s server denied `delete_resource`,
-      `create_resource` and `update_resource`, none of which are real tool names,
-      and its postgres server still denies `execute_write_query`. A deny that
-      matches nothing reads as protection and is not any, so an empty list here
-      is the honest form. Per-persona `toolsAllow` is what bounds the prompt, and
-      that lives with the personas.
-*/}}
 {{-   end }}
 {{- end }}

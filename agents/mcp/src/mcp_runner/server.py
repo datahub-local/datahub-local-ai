@@ -1,19 +1,9 @@
 """MCP over HTTP: tool registry, JSON-RPC dispatch, health endpoints.
 
-Two deliberate choices about the transport, both from failures in this cluster:
-
-**The MCP endpoint answers on every path.** Core's `mcp-k8s` was the one
-MCPServer declared `transportType: http`; the discovery bridge asked for the
-service root and `kubernetes-mcp-server` serves `/mcp`, so it 404'd and every
-`k8s_*` tool was missing from every persona for three days — with
-`MCPServer.status.ready` reporting `true` the whole time. The bridge's path is
-not documented anywhere we can read, so rather than guess it, this app treats
-any non-health path as the MCP endpoint. There is nothing left to get wrong.
-
-**It is stateless.** No session id is minted or required, so a bridge that does
-not carry `Mcp-Session-Id` between calls works unchanged. Replies are plain JSON
-unless the client asks only for `text/event-stream`, in which case the same
-payload is framed as a single SSE event.
+Two deliberate transport choices. The MCP endpoint answers on **every** non-health
+path, because the discovery bridge's path is not documented anywhere readable and
+guessing it wrong fails silently. And it is stateless, so a bridge that does not
+carry a session id between calls works unchanged. See ../README.md.
 """
 
 from __future__ import annotations
@@ -79,17 +69,14 @@ class Registry:
         try:
             result = tool.handler(**(arguments or {}))
         except TypeError as exc:
-            # A bad argument is the model's mistake to correct, so it is returned
-            # as tool content rather than raised as a protocol error: an error
-            # response tends to end the run, where a readable message lets the
-            # model retry with the right shape.
+            # Returned as tool content, not a protocol error: an error response
+            # tends to end the run, where readable text lets the model retry.
             return f"ERROR: bad arguments for {name}: {exc}"
         except Exception as exc:
             logger.exception("tool %s failed", name)
             return f"ERROR: {name} failed: {exc}"
-        # Every result is ASCII-folded and clamped, whatever the tool returned.
-        # The budget belongs at the boundary as well as inside each tool, so a
-        # new tool cannot forget it.
+        # Folded and clamped whatever the tool returned, so a new tool cannot
+        # forget its budget.
         return clamp(ascii_only(result), tool.budget)
 
 
@@ -131,9 +118,8 @@ def handle_rpc(registry: Registry, message: dict[str, Any]) -> dict[str, Any] | 
             text = registry.call(name, arguments)
         except KeyError:
             return _error(message_id, -32602, f"unknown tool {name!r}")
-        # `isError` is deliberately not set for a tool that returned an ERROR
-        # string: the text is the useful part, and a protocol-level error is
-        # more likely to end the run than to prompt a retry.
+        # `isError` is deliberately unset: the text is the useful part, and a
+        # protocol error is more likely to end the run than prompt a retry.
         return _ok(message_id, {"content": [{"type": "text", "text": text}]})
 
     return _error(message_id, -32601, f"unknown method {method!r}")
@@ -175,9 +161,8 @@ def build_app(registry: Registry) -> Callable:
             await _respond(send, 200, b'{"status":"ok"}', "application/json")
             return
 
-        # A GET on the MCP endpoint is how a client opens a server-initiated SSE
-        # stream. This server never initiates anything, so declining is correct
-        # and keeps the connection from being held open.
+        # A GET opens a server-initiated SSE stream. This server never initiates
+        # anything, so declining keeps the connection from being held open.
         if method == "GET":
             await _respond(send, 405, b'{"error":"POST JSON-RPC to this path"}', "application/json")
             return

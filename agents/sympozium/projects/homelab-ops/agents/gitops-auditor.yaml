@@ -8,8 +8,8 @@ skills:
   - memory
 
 schedule:
-  type: sweep
-  interval: 4h
+  type: scheduled
+  cron: "4 */4 * * *"
   firstTick: afterInterval
   taskFile: prompts/gitops_auditor_task.md
 
@@ -17,26 +17,33 @@ memory:
   enabled: true
   maxSizeKB: 256
   seeds:
-    - Record which ArgoCD applications were drifted on each run, so persistent drift can be told from a mid-sync snapshot.
-    - Drift that survives two consecutive runs is a real finding; drift seen once is usually a sync in progress.
-    - OutOfSync with Healthy is still drift and must be reported.
+    - facts_argocd_drift counts consecutive runs an application has been drifting, computed from a stored snapshot. Report that count rather than keeping your own.
+    - Never call for an application's resource tree. It is large enough on its own to end a run with no report at all.
 
 mcpServers:
+  - name: datahub-local-ai-mcp-homelab-facts
+    timeout: 30
+    toolsPrefix: facts
+    toolsAllow:
+      - argocd_drift
+      - promql
   - name: datahub-local-core-automation-sympozium-mcp-argocd
     timeout: 30
     toolsPrefix: argocd
     toolsAllow:
-      - list_applications
       - get_application
       - get_application_events
-      - get_application_resource_tree
+    toolsDeny:
+      - sync_application
+      - delete_application
+      - create_application
 
 toolPolicy:
   allow:
-    - argocd_list_applications
+    - facts_argocd_drift
+    - facts_promql
     - argocd_get_application
     - argocd_get_application_events
-    - argocd_get_application_resource_tree
     - memory_search
     - memory_store
   deny:

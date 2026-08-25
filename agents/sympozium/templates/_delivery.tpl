@@ -3,38 +3,22 @@
   and the postRun container that does the posting.
 
   Both halves are here because they are two ends of one contract — change what the
-  hook does and the prompt has to say so. The prose the model reads lives in
-  prompts/delivery/ and prompts/notify/; the posting itself in
-  files/deliver-slack.sh. This file only assembles them.
+  hook does and the prompt has to say so. The prose the model reads is in
+  prompts/delivery/hook.md; the posting itself in files/deliver-slack.sh.
 */}}
 
 {{/*
   sympozium.deliveryBlock — the text substituted into a persona's {{ DELIVERY }}.
 
-  hook mode is hook.md alone. It deliberately excludes header.md, because the hook
-  writes the header itself and a persona told to write one too would produce a
-  pair; hook.md therefore carries the no-clock rule that header.md holds for tool
-  mode. Handing a small model both sets would hand it a contradiction: under a
-  hook it has no posting tool and cannot suppress a run.
-
-  tool mode is header + verbosity + notify, the original three-file block.
-  Args: root, mode, verbosity, notify
+  hook.md alone. The hook writes the header itself, so the persona is told not to,
+  and hook.md carries the no-clock rule. reply-mode personas get no block at all;
+  their prompt carries its own answering contract.
+  Args: root
 */}}
 {{- define "sympozium.deliveryBlock" -}}
-{{- $root := .root -}}
-{{- if eq .mode "hook" -}}
-{{- $hook := $root.Files.Get "prompts/delivery/hook.md" -}}
+{{- $hook := .root.Files.Get "prompts/delivery/hook.md" -}}
 {{- if not $hook }}{{ fail "prompts/delivery/hook.md is missing or empty" }}{{ end -}}
 {{- trimSuffix "\n" $hook -}}
-{{- else -}}
-{{- $header := $root.Files.Get "prompts/delivery/header.md" -}}
-{{- if not $header }}{{ fail "prompts/delivery/header.md is missing or empty" }}{{ end -}}
-{{- $verbosity := $root.Files.Get (printf "prompts/delivery/%s.md" .verbosity) -}}
-{{- if not $verbosity }}{{ fail (printf "verbosity %q has no prompts/delivery/%s.md" .verbosity .verbosity) }}{{ end -}}
-{{- $notify := $root.Files.Get (printf "prompts/notify/%s.md" .notify) -}}
-{{- if not $notify }}{{ fail (printf "notify %q has no prompts/notify/%s.md" .notify .notify) }}{{ end -}}
-{{- printf "%s\n\n%s\n\n%s" (trimSuffix "\n" $header) (trimSuffix "\n" $verbosity) (trimSuffix "\n" $notify) -}}
-{{- end -}}
 {{- end -}}
 
 {{/*

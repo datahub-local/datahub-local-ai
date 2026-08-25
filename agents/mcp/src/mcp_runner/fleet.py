@@ -1,39 +1,18 @@
-"""Deriving the fleet's shape from the fleet, rather than from a config file.
+"""Deriving the fleet's shape from the fleet rather than from a config file.
 
-An earlier version of this server carried a `hardware_classes.yaml` naming all
-seven machines, which class each belonged to, and which of them had SMART, EDAC
-and a UPS. That was a second copy of the cluster: rename a node, add one, or move
-a disk and the file goes stale silently -- and a stale node list produces exactly
-the failure this server exists to prevent, a row of `unavailable` for a machine
-whose figures were available all along.
-
-Everything that file held is readable from the cluster:
-
-- **Class** is the kernel *flavour* plus the architecture, and that is not an
-  approximation of the rule -- it **is** the rule. Kernels are comparable only
-  where they come from the same tree, so "same flavour" and "comparable" are the
-  same predicate. A numeric difference inside one flavour is real drift; a
-  different flavour is different silicon and can never converge.
-- **Sensor coverage** is whether the sensor answered. `smartmon_device_smart_available`
-  is `0` on a node whose devices cannot report health, and a node with no EDAC or
-  no UPS has no series at all.
-- **The node inventory** is the Kubernetes node list, which is authoritative in a
-  way a checked-in list never is.
-
-So nothing here needs maintaining when the homelab changes.
+A hardware class is the kernel flavour plus the architecture, which is not an
+approximation of the comparability rule but *is* the rule. Node names, classes
+and sensor coverage are therefore never written down. See ../README.md.
 """
 
 from __future__ import annotations
 
 import re
 
-# A kernel release is a numeric version followed by a distributor/tree suffix:
-#   6.12.96+deb13-amd64        -> deb13-amd64
-#   6.1.115-vendor-rk35xx      -> vendor-rk35xx
-#   7.1.2-edge-rockchip64      -> edge-rockchip64
-#   6.12.15-production+truenas -> production+truenas
-# The leading dotted numbers are the part that legitimately differs between two
-# machines of the same kind; everything after it is what makes them the same kind.
+# A kernel release is a numeric version followed by a distributor/tree suffix,
+# e.g. `6.12.96+deb13-amd64` -> version `6.12.96`, flavour `deb13-amd64`. The
+# numbers are what legitimately differs between two machines of the same kind;
+# the suffix is what makes them the same kind.
 _VERSION_HEAD = re.compile(r"^\d+(?:\.\d+)*")
 
 
@@ -56,11 +35,8 @@ def kernel_version(release: str) -> str:
 
 
 def version_key(release: str) -> tuple[int, ...]:
-    """Sortable form of the numeric head, so 6.12.101 orders above 6.12.96.
-
-    String comparison gets this backwards -- "6.12.96" > "6.12.101" -- which
-    would name the wrong node as the one trailing its class.
-    """
+    """Sortable form of the numeric head. String comparison gets this backwards
+    and would name the wrong node as the one trailing its class."""
     return tuple(int(part) for part in kernel_version(release).split(".") if part.isdigit())
 
 
@@ -72,9 +48,8 @@ def class_name(release: str, machine: str) -> str:
 def common_prefix(names: list[str]) -> str:
     """Longest shared prefix of ``names``, trimmed to a separator.
 
-    Node names in a homelab usually share a cluster prefix that costs table width
-    and tells the reader nothing. Deriving it beats hardcoding one, which would
-    be another copy of the cluster's naming scheme.
+    Derived rather than configured, so it is not another copy of the naming
+    scheme.
     """
     if len(names) < 2:
         return ""
@@ -108,11 +83,8 @@ def kernel_drift(
     """Per class, return ``(class, members, nodes_behind)``.
 
     ``nodes_behind`` is empty unless the class holds more than one distinct
-    numeric version, and a class of one is therefore never a finding: it has
-    nothing to compare against. orpi-0 was reported as kernel drift against
-    orpi-1/2/3 every run for days on exactly that mistake -- different SoC
-    families on different trees, so the finding could never be actioned and never
-    cleared, while a non-empty findings section forced a Slack post each time.
+    version, so a class of one is never a finding - it has nothing to compare
+    against, and a difference across classes can never be actioned.
     """
     out = []
     for group, members in group_by_class(kernels, machines).items():

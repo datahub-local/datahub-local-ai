@@ -24,7 +24,7 @@ Two rules for writing here:
 
 | What | Where | Why |
 | --- | --- | --- |
-| Values only, no rationale | `projects/*/ensemble.yaml`, `projects/*/agents/*.yaml`, `values/default.yaml.gotmpl` | A comment restating a decision is a second copy of it |
+| Values only, no rationale | `projects/*/ensemble.yaml`, `projects/*/agents/*.yaml`, `values/default.yaml.gotmpl`, `templates/*.yaml` | A comment restating a decision is a second copy of it |
 | Structure, conventions, runbooks, how to test | `README.md` | Reference you read before doing something |
 | Every *why* — knob rationale, per-persona decisions, incidents | this file | Read when something surprises you |
 | Agent behaviour | `projects/*/prompts/*.md` | The model only reads the prompts |
@@ -2146,6 +2146,114 @@ A SkillPack would have been the other way to share this text, and it is the wron
 one here: a skill is a separate document competing with the persona's prompt, and
 this fleet has already watched a skill win that argument. Shared prompt text
 belongs *in* the prompt.
+
+## The facts server: why each knob in `templates/mcpservers.yaml` is set that way
+
+The server itself is `agents/mcp/`; that README carries the design. What follows
+is only the deployment, because the chart file carries values and one pointer
+line. Everything below was read off the cluster on 2026-08-25 and verified after
+the ArgoCD app synced.
+
+**Two pod labels decide whether it works at all, and one of them is an absence.**
+
+`app.kubernetes.io/name: mcpserver` must be present. Core's `agent-allow-tools`
+NetworkPolicy grants agents egress on 8080 only toward that label and
+`sympozium.ai/component: shared-memory`, so without it every tool call times out
+with no useful error.
+
+`app.kubernetes.io/part-of: sympozium` must be **absent**. That label is selected
+by `sympozium-allow-otel`, whose `policyTypes` is `[Egress]` and whose only rule
+is ports 4317/4318 to any namespace. A NetworkPolicy selecting a pod for egress
+restricts it to the union of what the selecting policies allow, so wearing that
+label would confine the facts server to the OTel collector — no Prometheus, no
+Kubernetes API, no DNS. Core's own MCP pods carry `instance`, `managed-by`,
+`name` and `pod-template-hash`, and deliberately not `part-of`. This is the same
+shape as `mcp-k8s` 404ing for three days: everything reports healthy and the
+tools are simply missing.
+
+**`toolsPrefix` is required by the CRD and only a server-side apply says so.**
+`spec.required` on the MCPServer CRD is `[toolsPrefix, transportType]`, and
+`toolsPrefix` carries no `default`, so `helm template` renders a manifest without
+it perfectly happily and the webhook then rejects it with
+`spec.toolsPrefix: Required value`. The template was written without one, on the
+reasoning that unprefixed names avoid a second name for the same tool; that
+reasoning was simply not available. It is `facts`, which is the one
+prefixed/unprefixed split to keep straight: a persona's `toolPolicy.allow` names
+`facts_volume_fill` because that is what the model sees, while
+`mcpServers[].toolsAllow` names `volume_fill` because that filter runs at the
+server. Backwards in either direction is a rule that matches nothing, silently.
+Run `helm template ... | kubectl apply --dry-run=server -f -` before believing a
+render.
+
+**`url:` and not `deployment:`.** Setting `url` stops the controller reconciling a
+deployment of its own, which is the pattern core uses for `mcp-k8s`. We own the
+workload; the CR only points at it. `replicas` and `timeout` are CRD defaults and
+are stated anyway, or admission-time defaulting reads as permanent drift.
+
+**The RBAC is enumerated, and Secrets carry `list` without `get`.** Core's
+`mcp-k8s` ServiceAccount holds `apiGroups: ["*"], resources: ["*"], verbs:
+[get,list,watch]` deliberately, so a new object kind works without a core change;
+the cost is that a `get` on a Secret returns its base64 values in full. This
+server needs six API groups and does not get that breadth. Withholding `get` on
+Secrets means a single-object read is impossible at the RBAC layer and not only
+in the code, which strips `data` and `stringData` at its boundary as the second
+line of defence. Verified after deploy: the ServiceAccount-token check answers
+with three names and ages.
+
+**No `toolsDeny`, because there is nothing to deny.** Every tool is a read, the
+server holds no credential, and it has no code path that writes anything. Core's
+catalog does carry deny lists and two of those entries name tools that do not
+exist — its k8s server denied `delete_resource`, `create_resource` and
+`update_resource`, none of which are real names, and its postgres server still
+denies `execute_write_query`. A deny that matches nothing reads as protection and
+is not any, so an empty list is the honest form.
+
+**A memory limit and no CPU limit.** `CPUThrottlingHigh` is already chronic across
+roughly ten workloads on this hardware; a CPU limit here would add an eleventh
+permanently-firing alert to a fleet whose whole problem was noise. The request
+reserves the share; the limit is what throttles.
+
+**An emptyDir for the snapshot state, not a PVC.** Losing the snapshots degrades a
+computed diff to "first observation", which every tool states explicitly — it can
+never produce a *wrong* diff. A PVC would buy continuity across restarts at the
+cost of putting a volume under this chart's management, and every storageclass
+here is `reclaimPolicy: Delete`.
+
+**The one check neither Helm nor the API server can make.** Helm's `.Files` cannot
+read above the chart root, so the template cannot see whether
+`agents/mcp/projects/<project>/` exists, and the API server validates the
+MCPServer either way. A wrong project name therefore deploys cleanly and
+crash-loops on `no such project`, which from an agent's side looks like the tools
+not existing. `scripts/validate.py` resolves the name the way the template does —
+hyphens to underscores, because object names must be DNS-1123 while a Python
+package cannot hold a hyphen — and fails on a project that is not there, on an
+unknown key in the values block, and on a missing image.
+
+## `Ensemble.spec.enabled: false` does retire what it stamped out
+
+The CRD's own field description says `enabled` "controls whether the controller
+stamps out resources for this ensemble", which reads as though it gates creation
+only and leaves existing objects alone. It does not. Patching both ensembles to
+`false` on 2026-08-25 retired, within ten seconds and with no further action: 6
+`Agent`s, 6 `SympoziumSchedule`s, 6 per-persona `<persona>-memory` Deployments,
+Services and PVCs, and the ensemble-owned `homelab-ops-shared-memory` — leaving
+`nats-data` as the only PVC in `automation`. So it is a real off switch, not just
+a stamping gate, and it is the lever to reach for rather than deleting Agents by
+hand.
+
+Two things follow. **Turning it back on is not free**: the Ensemble controller
+starts a run within the same second as every `SympoziumSchedule` it rewrites,
+whatever `firstTick` says, so N personas means N real runs against one Ollama
+slot. Enable one at a time, after a hand-applied `AgentRun` has proved the
+persona. And **`enabled: false` destroys memory**, since the memory PVCs carry an
+ownerReference on the generated `Agent` and every storageclass here is
+`reclaimPolicy: Delete`. That was wanted this time. It will not always be.
+
+A related correction: a *fresh* schedule does not queue a run. The six schedules
+created on this sync came up with `status.nextRunTime` at their next cron tick
+and no run at all, because `firstTick: afterInterval` holds on creation. The
+same-second behaviour above is about a schedule being **rewritten**, which is a
+different event from being created.
 
 ## Known gaps
 

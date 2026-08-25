@@ -1,24 +1,10 @@
-"""The only module that knows how to talk to Prometheus.
+"""The only module that talks to Prometheus.
 
-Everything the old prompts had to teach a 4B model lives here as code:
-
-- **No datasource uid.** We query Prometheus directly, so there is no uid to
-  resolve and no Loki to mistake for it.
-- **No `endTime`.** An instant query with no `time` parameter is evaluated at
-  server-now. The prompts spent 2.3 KB explaining that `endTime` is the literal
-  word `now`, three characters, after a run sent `endTime 1725489600` —
-  September 2024 — and read six empty results as a dead fleet.
-- **No `queryType`.** `instant()` and `range_()` are separate functions, so the
-  choice is made by the caller's intent rather than by a string argument that
-  defaults to `range` and then fails on a missing `stepSeconds`.
-- **A counter is never returned raw.** `increase_()` wraps the expression, so a
-  caller cannot drop the wrapper the way a run did on 2026-08-24, sending
-  `m[1h]` and labelling the bare counter as the increase.
-
-`UNAVAILABLE` is the other half of the contract. A query that errors or returns
-no series yields the sentinel, never `0` and never an estimate: an error is not
-a healthy reading, and a mandatory report format that cannot express absence
-gets filled with invented numbers instead.
+Everything a prompt used to have to teach the model is a property of the code
+here: no datasource uid, no `endTime`, no query-type argument, and a counter is
+never returned raw. `UNAVAILABLE` is the other half of the contract - a query
+that errors or matches nothing yields the sentinel, never `0` and never an
+estimate. See ../README.md.
 """
 
 from __future__ import annotations
@@ -33,8 +19,7 @@ from . import config
 
 logger = logging.getLogger(__name__)
 
-# The literal a report prints when a metric answered nothing. It is a value, not
-# an error: `unavailable` in a column is a legitimate reading, honestly reported.
+# What a report prints when a metric answered nothing. A value, not an error.
 UNAVAILABLE = "unavailable"
 
 
@@ -80,9 +65,8 @@ class Prometheus:
     def instant(self, expr: str) -> list[dict]:
         """Evaluate ``expr`` at server-now, returning the raw sample list.
 
-        No `time` parameter is sent. Prometheus then evaluates at its own clock,
-        which is the only clock in this system that is known to be right —
-        nothing in an agent run injects one.
+        No `time` parameter is sent, so Prometheus evaluates at its own clock -
+        the only clock here known to be right.
         """
         data = self._get("/api/v1/query", {"query": expr})
         return data.get("result") or []
@@ -90,12 +74,9 @@ class Prometheus:
     def range_(self, expr: str, *, since_seconds: int = 21600, step_seconds: int = 300) -> list[dict]:
         """Evaluate ``expr`` over the last ``since_seconds``, ending now.
 
-        Prometheus rejects relative times outright — `start=now-1h` answers
-        `cannot parse "now-1h" to a valid timestamp`. Relative times are a
-        Grafana convenience, and this is the direct API, so the window is
-        resolved to unix timestamps here. This is the one place in the server
-        that reads a clock, and it reads the local one only to bound a window;
-        every timestamp a report prints comes from a tool result.
+        Prometheus rejects relative times - `start=now-1h` is a parse error, and
+        `now-1h` is a Grafana convenience this API does not share - so the window
+        is resolved to unix timestamps here.
         """
         end = time.time()
         data = self._get(
@@ -110,15 +91,8 @@ class Prometheus:
         return data.get("result") or []
 
     def metric_type(self, metric: str) -> str | None:
-        """Metric type from Prometheus's metadata API — never from the suffix.
-
-        A suffix rule gets this cluster wrong in both directions:
-        `cnpg_backends_total` and `cnpg_backends_waiting_total` are **gauges**
-        despite `_total`, while `cnpg_pg_stat_archiver_failed_count` is a
-        **counter** despite `_count`. Reading the counter as a state paged a
-        CRITICAL "recovery is silently broken" off a lifetime total of 2 whose
-        last failure was 5.4 days old.
-        """
+        """Metric type from the metadata API - never inferred from the suffix,
+        which misreads this cluster in both directions."""
         data = self._get("/api/v1/metadata", {"metric": metric})
         entries = data.get(metric) if isinstance(data, dict) else None
         if not entries:
@@ -128,12 +102,10 @@ class Prometheus:
     # -- shaping -------------------------------------------------------------
 
     def scalar_by(self, expr: str, label: str) -> dict[str, float]:
-        """Return ``{label_value: sample}`` for a query expected to be keyed by ``label``.
+        """Return ``{label_value: sample}`` for a query keyed by ``label``.
 
-        A series missing the label is dropped rather than given a made-up key.
-        Callers compare the returned keys against the set they expected and emit
-        `UNAVAILABLE` for the difference, which is how a broken join shows up as
-        scattered absences instead of as a plausible wrong row.
+        A series missing the label is dropped rather than given a made-up key, so
+        a broken join surfaces as absences instead of a plausible wrong row.
         """
         out: dict[str, float] = {}
         for series in self.instant(expr):
@@ -147,23 +119,15 @@ class Prometheus:
         return out
 
     def try_scalar_by(self, expr: str, label: str) -> dict[str, float]:
-        """``scalar_by`` that turns a query failure into an empty answer.
-
-        Used where one unavailable metric must not cost the whole report. The
-        caller renders `UNAVAILABLE` for the missing keys, so the absence is
-        stated rather than hidden — and logged here so it is diagnosable.
-        """
+        """``scalar_by`` that turns a query failure into an empty answer."""
         return self.reading(expr, label).values
 
     def reading(self, expr: str, label: str) -> Reading:
         """``scalar_by`` plus whether the query itself succeeded.
 
-        The two are different facts and get different words in a report. A query
-        that *answered nothing for one node* means that node has no such sensor,
-        which is the hardware and not a fault. A query that *failed* means the
-        value is unknown for every node. Collapsing them is how `unavailable`
-        came to absorb a broken join and hide it: absence needs a definition, or
-        it swallows every bug.
+        Two different facts that get different words in a report: a query that
+        answered nothing for one node means that node has no such sensor; a query
+        that failed means the value is unknown for every node.
         """
         try:
             return Reading(values=self.scalar_by(expr, label), ok=True)
@@ -174,28 +138,18 @@ class Prometheus:
 
 # -- expression helpers ------------------------------------------------------
 #
-# These build the expressions that the old prompts asked the model to assemble.
-# Each one encodes a mistake that reached Slack.
+# Each of these encodes a reading that is easy to get wrong, so a caller cannot.
 
 
 def used_percent(available: str, capacity: str, selector: str = "") -> str:
-    """Percent **used** — `100 * (1 - available/capacity)`, never the bare ratio.
-
-    `available / capacity` is the fraction *free*. Reporting it as fill inverts
-    every finding: it flags the emptiest volumes and can never flag a full one,
-    which is how a 2%-used volume was called "97.9% full, write operations
-    failing" on every run for days.
-    """
+    """Percent **used** - `100 * (1 - available/capacity)`, never the bare ratio,
+    which is the fraction *free* and inverts every finding."""
     return f"100 * (1 - {available}{selector} / {capacity}{selector})"
 
 
 def increase_(metric: str, window: str = "1h") -> str:
-    """`increase(metric[window])` — the whole call, wrapper included.
-
-    A caller cannot pass the inner range selector by accident, which is what a
-    run did on 2026-08-24: it sent `m[1h]` and labelled the raw counter it got
-    back as the increase.
-    """
+    """`increase(metric[window])` - the whole call, so the wrapper cannot be
+    dropped and a raw counter mislabelled as the increase."""
     return f"increase({metric}[{window}])"
 
 
@@ -207,17 +161,8 @@ def rate_percent(metric: str, window: str = "5m") -> str:
 def by_nodename(inner: str, aggregator: str = "max") -> str:
     """Attach machine identity to a `node_*` expression.
 
-    **No `node_*` series in this Prometheus carries a machine name.** They are
-    keyed by `instance` — an IP and port — and the only hostname anywhere is the
-    `nodename` label on `node_uname_info`. Asked for a per-node table without
-    being told how to bridge that, a model improvised: it wrote
-    `node_apt_security_upgrades_pending by (node)` — not valid PromQL and a label
-    that does not exist — on four different metrics, and elsewhere queried the
-    bare metric and guessed the IP mapping. The 2026-08-24 13:25 table was wrong
-    in five ways at once: four rows said `unavailable` when every figure was
-    available, the NAS was given amd-1's disk percentage, and every uptime was
-    wrong by two orders of magnitude.
-
-    The join is now the only way to ask, so it cannot be dropped.
+    No `node_*` series carries a machine name - they are keyed by `instance`, and
+    the only hostname anywhere is `nodename` on `node_uname_info`. This join is
+    the only way to ask, so it cannot be dropped.
     """
     return f"{aggregator} by (nodename) ({inner} * on(instance) group_left(nodename) node_uname_info)"

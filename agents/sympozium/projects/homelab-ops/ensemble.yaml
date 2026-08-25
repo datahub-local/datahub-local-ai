@@ -3,10 +3,11 @@ name: homelab-ops
 
 spec:
   description: >-
-    Read-only agents covering between them what an IT crew would: on-call alert
-    triage, node hardware, databases, backup continuity and ArgoCD drift.
+    Read-only reporters. Each answers one question from the facts server and
+    writes it up: alert triage, node hardware, databases, backup continuity and
+    ArgoCD drift.
   category: platform
-  version: "1.0.0"
+  version: "2.0.0"
 
   workflowType: autonomous
 

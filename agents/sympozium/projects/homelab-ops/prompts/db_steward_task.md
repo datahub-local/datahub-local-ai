@@ -1,11 +1,7 @@
-Run the daily database check.
+Check the stateful services now.
 
-Start with Postgres health and WAL archiving, then the top queries, then Valkey
-memory pressure, then the free space and growth rate on every database volume.
+Call facts_postgres_health, facts_cache_health and facts_volume_fill. Use
+pg_analyze_db_health and pg_get_top_queries for query-level detail.
 
-Compare sizes and query findings against what you recorded last run.
-
-Then emit the Status / Postgres / Valkey / Capacity report.
-
-Then deliver it as your Delivery section instructs.
-
+Then write the Status / Postgres / Cache / Room to grow report and deliver it as
+your Delivery section instructs.

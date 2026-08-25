@@ -1,12 +1,7 @@
-"""`promql()` — arbitrary Prometheus, with everything unguessable supplied here.
+"""`promql()` - arbitrary Prometheus, with everything unguessable supplied here.
 
-This tool is why `prompts/shared/promql.md` can be deleted: 2.3 KB of prose
-explaining that `endTime` is the literal word `now`, three characters, that
-`queryType` is `instant`, four characters, that the quotation marks around a
-JSON string are not part of the value, and that `prometheus` is the real
-datasource uid rather than a placeholder to resolve.
-
-None of it is expressible as a mistake any more. There is one argument.
+One argument. There is no datasource, no time and no query-type to get wrong,
+which is what lets the shared PromQL prompt text be deleted outright.
 """
 
 from __future__ import annotations
@@ -83,8 +78,7 @@ def _render_range(expr: str, window: str, series: list[dict]) -> str:
         if not numbers:
             continue
         # First, last and the extremes: a trend needs two points in time, and
-        # returning every sample is how a tool result reaches 16 KB and ends the
-        # run with no report at all.
+        # returning every sample is how a result grows large enough to end a run.
         rows.append(
             [
                 labels or "-",

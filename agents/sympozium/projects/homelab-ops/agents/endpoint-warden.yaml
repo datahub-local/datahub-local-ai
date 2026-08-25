@@ -17,47 +17,22 @@ memory:
   enabled: true
   maxSizeKB: 256
   seeds:
-    - Record per-node disk usage, temperature and PSI stall rates each run. A trend is the finding; a single reading rarely is.
-    - Record EDAC correctable error counts per node. A count that climbs steadily means failing RAM, even while the machine looks fine.
-    - Kernel and OS versions are comparable only within a hardware class, never across the fleet. Within a class the node left behind is the finding; across classes the difference is the hardware.
-    - "SMART health data is present on four nodes, verified 2026-08-22: datahublocal-amd-1 and datahublocal-amd-2 (two NVMe devices each), datahublocal-orpi-0 (one) and datahublocal-nas (four). Those are the nodes where smartmon_device_smart_healthy and smartmon_temperature_celcius mean something."
-    - "datahublocal-orpi-1, orpi-2 and orpi-3 do publish smartmon_* series, but every device on them reports smartmon_device_smart_available 0 — SD/eMMC and iSCSI volumes that cannot report SMART. The same is true of the nine /dev/sd* iSCSI VIRTUAL-DISKs on datahublocal-amd-2, whose two NVMe devices are the only ones with health data. That is the hardware, not a missing exporter: do not report it as a gap."
-    - "The UPS is attached to datahublocal-nas alone, so network_ups_tools_* exists on that node only. That is the whole fleet's UPS reporting normally, not six nodes missing an exporter."
-    - "Distrust every Fleet figure you recorded before 2026-08-24. Prometheus was being queried against Loki's datasource uid, so all of it 404'd, and the disk percentages stored for those runs are k8s_nodes_top *memory* readings relabelled as disk. The worst of them called datahublocal-orpi-0 '79% disk fill (CRITICAL)' when that disk was 5% full. Treat those rows as absent when computing a trend, not as a baseline."
-    - "Hardware classes, verified 2026-08-24. Four platforms, four kernel trees, and they cannot converge: datahublocal-orpi-0 is an Orange Pi 4 LTS (RK3399, DietPi) on the rockchip64 tree at 7.1.2-edge-rockchip64; orpi-1, orpi-2 and orpi-3 are Orange Pi 5B (RK3588, DietPi) on the rk35xx vendor tree at 6.1.115-vendor-rk35xx; datahublocal-amd-1 and amd-2 are amd64 Debian 13 trixie; datahublocal-nas is TrueNAS on Debian 12 bookworm with an Intel N305."
-    - "orpi-0 on rockchip64 against orpi-1/2/3 on rk35xx is NOT kernel drift, and reporting it as one was wrong: different SoC families take different kernel trees. It was filed as a finding every run for days. Stop. The only comparable pair in this fleet is amd-1 against amd-2, both on deb13-amd64. orpi-0 and datahublocal-nas are each a class of one, so neither can ever be the odd one out."
-    - "Time-sync unit coverage, verified 2026-08-23: datahublocal-nas runs chrony.service, every other node runs systemd-timesyncd.service. So chrony having no series on six nodes and timesyncd none on the NAS is by design, not a finding. The nut-server, nut-monitor and nut-driver@ups units exist on datahublocal-nas alone, for the same reason its UPS metrics do."
-    - "systemd-timesyncd.service is inactive on datahublocal-orpi-0 through orpi-3, which is why NodeClockNotSynchronising fires on those four. This is a real fault awaiting a fix at the node, NOT something to discount: report it while it persists. Offsets were still under a millisecond on 2026-08-23, so it is latent rather than urgent — say which it is rather than dropping it."
-    - "Record pending update counts per node each run. On 2026-08-23: orpi-0 through orpi-3 at 6 each, datahublocal-nas at 1, both amd nodes at 0, and node_reboot_required 0 fleet-wide. A count that stops changing for weeks means unattended-upgrades is not running, which is itself the finding."
+    - facts_node_fleet computes hardware classes from the running kernels and compares versions only inside a class. Never compare a kernel across classes; different classes are different silicon and can never converge.
+    - Record which machines you have flagged, so a machine that stays flagged reads as continuing rather than new.
 
 mcpServers:
-  - name: datahub-local-core-automation-sympozium-mcp-grafana
+  - name: datahub-local-ai-mcp-homelab-facts
     timeout: 30
-    toolsPrefix: grafana
+    toolsPrefix: facts
     toolsAllow:
-      - query_prometheus
-      - list_prometheus_metric_names
-    toolsDeny:
-      - grafana_api_request
-      - update_dashboard
-      - update_datasource
-      - create_datasource
-      - create_folder
-      - create_annotation
-      - update_annotation
-      - create_snapshot
-      - delete_snapshot
-      - create_incident
-      - add_activity_to_incident
-      - install_plugin
-      - alerting_manage_rules
-      - alerting_manage_routing
+      - node_fleet
+      - promql
   - name: datahub-local-core-automation-sympozium-mcp-k8s
     timeout: 30
     toolsPrefix: k8s
     toolsAllow:
-      - nodes_top
       - pods_list
+      - nodes_top
     toolsDeny:
       - pods_delete
       - pods_exec
@@ -68,10 +43,10 @@ mcpServers:
 
 toolPolicy:
   allow:
-    - grafana_query_prometheus
-    - grafana_list_prometheus_metric_names
-    - k8s_nodes_top
+    - facts_node_fleet
+    - facts_promql
     - k8s_pods_list
+    - k8s_nodes_top
     - memory_search
     - memory_store
   deny:

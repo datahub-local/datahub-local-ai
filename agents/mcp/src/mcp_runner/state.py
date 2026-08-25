@@ -1,14 +1,7 @@
-"""Previous-snapshot persistence, so a trend is measured rather than asserted.
-
-"New vs still-firing vs resolved" used to depend on a 4B model reading its own
-memory seeds and diffing them against a fresh alert list. It did not do that
-reliably, and the seeds had grown to contain corrections of the agents' own
-wrong history. Here the diff is computed against a stored snapshot, so the
-model is handed the answer instead of the inputs.
+"""Snapshot persistence, so a trend is measured rather than asserted.
 
 A lost snapshot degrades a diff to "first observation", which every tool states
-explicitly. It never produces a wrong diff — an empty store cannot look like
-"nothing changed".
+explicitly; it can never produce a *wrong* diff. See ../README.md.
 """
 
 from __future__ import annotations
@@ -36,10 +29,8 @@ class Snapshots:
     def load(self, key: str) -> dict[str, Any] | None:
         """Return the stored snapshot, or ``None`` if there is not a usable one.
 
-        Any failure to read or parse is `None`, deliberately: a corrupt snapshot
-        must degrade to "first observation" rather than raise, because the tool's
-        primary reading is still perfectly good and losing it to a cache problem
-        would be the worse outcome.
+        Any read or parse failure is `None`: the tool's primary reading is still
+        good, and losing it to a cache problem would be the worse outcome.
         """
         path = self._path(key)
         try:
@@ -70,10 +61,8 @@ def diff_keys(
 ) -> tuple[list[str], list[str], list[str]]:
     """Return ``(new, continuing, resolved)`` sorted, or all-new on a first run.
 
-    ``previous is None`` means there is no prior observation. Everything is then
-    reported as newly *seen*, and the caller says so — calling it all "new" with
-    no qualifier would read as a fleet-wide incident on the first run after a
-    restart.
+    ``previous is None`` means no prior observation, and the caller says so -
+    unqualified "new" would read as a fleet-wide incident after a restart.
     """
     if previous is None:
         return sorted(current), [], []

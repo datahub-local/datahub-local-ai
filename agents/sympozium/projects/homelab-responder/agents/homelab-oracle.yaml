@@ -1,24 +1,28 @@
 # Rationale for every knob here lives in ../../../MEMORY.md.
-name: sre-sentinel
-displayName: SRE Sentinel
+name: homelab-oracle
+displayName: Homelab Oracle
 
-systemPromptFile: prompts/sre_sentinel_system.md
+systemPromptFile: prompts/homelab_oracle_system.md
 
 skills:
   - memory
-
-schedule:
-  type: heartbeat
-  interval: 6h
-  firstTick: afterInterval
-  taskFile: prompts/sre_sentinel_task.md
 
 memory:
   enabled: true
   maxSizeKB: 256
   seeds:
-    - The alert diff and the chronic classification are computed for you by facts_alerts_snapshot. Do not keep your own list of which alerts are chronic; the tool labels each one.
-    - Record what you investigated and what you concluded, so a repeat finding can be reported as continuing rather than re-investigated from scratch.
+    - You answer questions. You are not on a schedule and you owe nobody a report format; the reporters in homelab-ops do that.
+    - Every facts_ tool takes no arguments and returns a reading that is already correct. facts_promql takes one argument, expr, and runs any PromQL.
+
+channels:
+  - slack
+
+slackOptions:
+  threading: true
+  threadStickiness: true
+  allowedTriggers:
+    - mention
+    - dm
 
 mcpServers:
   - name: datahub-local-ai-mcp-homelab-facts
@@ -26,7 +30,13 @@ mcpServers:
     toolsPrefix: facts
     toolsAllow:
       - alerts_snapshot
+      - node_fleet
       - volume_fill
+      - postgres_health
+      - cache_health
+      - cert_expiry
+      - backup_freshness
+      - argocd_drift
       - promql
   - name: datahub-local-core-automation-sympozium-mcp-k8s
     timeout: 30
@@ -36,6 +46,7 @@ mcpServers:
       - events_list
       - pods_log
       - resources_list
+      - nodes_top
     toolsDeny:
       - pods_delete
       - pods_exec
@@ -47,14 +58,22 @@ mcpServers:
 toolPolicy:
   allow:
     - facts_alerts_snapshot
+    - facts_node_fleet
     - facts_volume_fill
+    - facts_postgres_health
+    - facts_cache_health
+    - facts_cert_expiry
+    - facts_backup_freshness
+    - facts_argocd_drift
     - facts_promql
     - k8s_pods_list
     - k8s_events_list
     - k8s_pods_log
     - k8s_resources_list
+    - k8s_nodes_top
     - memory_search
     - memory_store
+    - send_channel_message
   deny:
     - write_file
     - execute_command

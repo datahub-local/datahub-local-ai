@@ -1,10 +1,6 @@
 # Per-cluster knobs only. Rationale for every one of them lives in ../MEMORY.md.
 release_name: datahub-local-ai
 
-# The repo-local MCP servers. Only the facts server lives here; core owns the
-# shared catalog (k8s, github, argocd, grafana, postgres) and this chart never
-# re-declares any of it. Built from ../mcp/ — see that README for why the
-# gathering moved out of the model.
 sympozium_mcp_servers:
   homelab-facts:
     enabled: true
@@ -26,21 +22,14 @@ sympozium_delivery:
       gitops-auditor:
         channel: "#monitoring-ai-drift"
 
-sympozium_web_endpoint:
-  enabled: false
-
-  ensembles:
-    homelab-ops:
-      enabled: true
-      requestsPerMinute: 60
-      burstSize: 10
-
-    homelab-reviewer:
-      enabled: false
+  homelab-responder:
+    personas:
+      homelab-oracle:
+        deliveryMode: reply
 
 sympozium_ensembles:
   homelab-ops:
-    enabled: true
+    enabled: false
 
     channelConfigs:
       slack: mcp-slack-token
@@ -50,6 +39,16 @@ sympozium_ensembles:
     policyRef: permissive
 
   homelab-reviewer:
-    enabled: true
+    enabled: false
     baseURL: http://datahub-local-core-data-ollama.data.svc:11434/v1
+    policyRef: permissive
+
+  homelab-responder:
+    enabled: false
+
+    channelConfigs:
+      slack: mcp-slack-token
+
+    baseURL: http://datahub-local-core-data-ollama.data.svc:11434/v1
+
     policyRef: permissive

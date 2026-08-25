@@ -1,9 +1,4 @@
-"""Env-driven configuration. Defaults are the in-cluster addresses.
-
-Verified reachable from `automation` on 2026-08-25: the Prometheus service
-answers `/api/v1/query?query=up` with HTTP 200 and `monitoring` has no
-NetworkPolicies.
-"""
+"""Env-driven configuration. The defaults are the in-cluster addresses."""
 
 from __future__ import annotations
 
@@ -18,13 +13,8 @@ def env(name: str, default: str | None = None) -> str | None:
 def prometheus_url() -> str:
     """Prometheus, queried directly rather than through Grafana.
 
-    Going direct deletes an entire failure class. Through Grafana every query
-    needed a `datasourceUid`, and this Grafana serves three datasources whose
-    uids are `prometheus`, an Alertmanager, and Loki's `P8E80F9AEF21F6940`. A 4B
-    model reads the hex string as the real identifier and the bare word as a
-    placeholder to resolve, so every PromQL query went to Loki and answered
-    `404 page not found` — against a prompt that stated the right value two
-    paragraphs above. No uid exists on this path, so none can be chosen wrongly.
+    Going direct means there is no datasource uid on this path, so none can be
+    resolved to the wrong datasource.
     """
     return env(
         "PROMETHEUS_URL",
@@ -37,11 +27,7 @@ def prometheus_timeout() -> float:
 
 
 def state_dir() -> str:
-    """Where snapshots for the computed diffs live.
-
-    An emptyDir is enough: a lost snapshot degrades a diff to "first run", which
-    the tools state explicitly, rather than producing a wrong one.
-    """
+    """Where snapshots for the computed diffs live. An emptyDir is enough."""
     return env("MCP_STATE_DIR", "/tmp/mcp-state")
 
 

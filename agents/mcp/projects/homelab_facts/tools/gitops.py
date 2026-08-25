@@ -1,21 +1,9 @@
-"""`argocd_drift()` — ArgoCD application state, read from the CRs.
+"""`argocd_drift()` - ArgoCD state, read from the Application CRs.
 
-Read from `Application` custom resources through the Kubernetes API rather than
-the ArgoCD REST API, which means this server needs no ArgoCD token: the sync and
-health status live in `status.sync.status` and `status.health.status` on the
-object itself.
-
-It is also deliberately *not* the resource tree. `argocd_get_application_resource_tree`
-returns every object an application owns and accounted for roughly 16 KB on its
-own; the run that called it made four calls for 24,126 result bytes and produced
-`terminal turn had empty text`, delivering "The run finished but produced no
-text" to Slack. Its own run four hours earlier made five calls for 8,483 bytes
-and wrote a normal report. So this tool returns one row per application and names
-the degraded resources only for applications that are actually degraded.
-
-The consecutive-run count is the other half. "Out of sync for the third day
-running" used to require the model to remember; it is computed here against a
-stored snapshot, so a persistent drift escalates on its own.
+Read through the Kubernetes API rather than the ArgoCD API, so this server needs
+no token. Deliberately the application summary and not the resource tree, which
+is large enough on its own to end a run with no report. The consecutive-run count
+is computed against a stored snapshot. See ../../README.md.
 """
 
 from __future__ import annotations
@@ -31,8 +19,8 @@ _SNAPSHOT_KEY = "argocd_drift"
 _HEALTHY = "Healthy"
 _SYNCED = "Synced"
 
-# Resources named per degraded application. Enough to point at the problem,
-# bounded so a badly broken application cannot blow the budget.
+# Enough to point at the problem, bounded so one broken app cannot blow the
+# budget.
 _MAX_RESOURCES = 6
 
 
@@ -106,14 +94,14 @@ def argocd_drift() -> str:
         "computed from a stored snapshot, so it is a measurement, not a recollection."
     )
     lines.append(
-        "This is the application summary, not the resource tree. The tree runs to "
-        "~16 KB and a result that large ends a run with no report at all."
+        "This is the application summary, not the resource tree, which is large "
+        "enough on its own to end a run with no report."
     )
     return truncate_lines(lines, BUDGET, unit="lines")
 
 
 def _degraded_resources(app: str, status: dict) -> list[str]:
-    """Name the unhealthy resources of one application, bounded."""
+    """Name one application's unhealthy resources, bounded."""
     out = []
     for resource in status.get("resources") or []:
         health = (resource.get("health") or {}).get("status")

@@ -17,13 +17,18 @@ memory:
   enabled: true
   maxSizeKB: 256
   seeds:
-    - Record database and volume sizes each run. Growth rate is what predicts a full disk; a single size reading does not.
-    - "Valkey is scraped by a redis exporter, so its metrics are named redis_* and never valkey_*."
-    - "WAL archiving is broken only if increase(cnpg_pg_stat_archiver_failed_count[1h]) is above zero, or nothing has archived for hours. The bare counter is cumulative since the last stats reset and never falls, so a non-zero total on its own says nothing about now. Read the increase and the last archived time, never the total alone."
-    - "Correction, 2026-08-24: any earlier memory of yours reporting WAL archiving as failing, or recovery as compromised, on the strength of cnpg_pg_stat_archiver_failed_count = 2 is wrong. Those runs read a lifetime counter as a live state. Measured that day: increase over 24h was 0, the last failure was 5.4 days old, the last success was 95 seconds old and 12 segments had archived in the previous hour. Archiving was healthy throughout. Distrust your own archiver history before this date."
-    - Record which slow queries were already reported, so the same query is not raised from scratch every day.
+    - The archiver figure from facts_postgres_health is an increase over a window and already carries its verdict. A non-zero lifetime total with a zero increase is healthy; the tool will not show you the lifetime total.
+    - This Valkey has no memory ceiling configured, so there is no percentage to report. Suggesting maxmemory is worth saying once, not every run.
 
 mcpServers:
+  - name: datahub-local-ai-mcp-homelab-facts
+    timeout: 30
+    toolsPrefix: facts
+    toolsAllow:
+      - postgres_health
+      - cache_health
+      - volume_fill
+      - promql
   - name: datahub-local-core-automation-sympozium-mcp-postgres
     timeout: 30
     toolsPrefix: pg
@@ -31,46 +36,16 @@ mcpServers:
       - analyze_db_health
       - get_top_queries
     toolsDeny:
-      - execute_sql
-  - name: datahub-local-core-automation-sympozium-mcp-grafana
-    timeout: 30
-    toolsPrefix: grafana
-    toolsAllow:
-      - query_prometheus
-    toolsDeny:
-      - grafana_api_request
-      - update_dashboard
-      - update_datasource
-      - create_datasource
-      - create_folder
-      - create_annotation
-      - update_annotation
-      - create_snapshot
-      - delete_snapshot
-      - create_incident
-      - add_activity_to_incident
-      - install_plugin
-      - alerting_manage_rules
-      - alerting_manage_routing
-  - name: datahub-local-core-automation-sympozium-mcp-k8s
-    timeout: 30
-    toolsPrefix: k8s
-    toolsAllow:
-      - resources_list
-    toolsDeny:
-      - pods_delete
-      - pods_exec
-      - pods_run
-      - resources_create_or_update
-      - resources_delete
-      - resources_scale
+      - execute_write_query
 
 toolPolicy:
   allow:
+    - facts_postgres_health
+    - facts_cache_health
+    - facts_volume_fill
+    - facts_promql
     - pg_analyze_db_health
     - pg_get_top_queries
-    - grafana_query_prometheus
-    - k8s_resources_list
     - memory_search
     - memory_store
   deny:

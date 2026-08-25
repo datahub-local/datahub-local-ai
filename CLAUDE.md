@@ -318,7 +318,8 @@ is not `m[1h]`, pass `endTime` as the literal word `now`, diff alerts against yo
 own memory, know that one node's kernel is not drift against another's. Every
 incident added a paragraph to a prompt and a regex to `validate.py`, and it did
 not converge: prompts reached 6–12KB and roughly 600 of the validator's lines
-were regexes policing English.
+were regexes policing English. Both are now gone — prompts are 4–6KB and the
+validator is down to field checks, because the method left the prompt.
 
 **Code gathers; the model writes.** `projects/homelab_facts/` exposes nine tools,
 eight of them taking no arguments at all, each returning one report section's
@@ -430,12 +431,27 @@ agents/sympozium/
   MEMORY.md                          why every knob is set the way it is
   values/default.yaml.gotmpl         per-cluster knobs only
   templates/ensembles.yaml           assembles the Ensembles at render time
+  templates/mcpservers.yaml          Deployment + Service + MCPServer for agents/mcp
+  templates/_delivery.tpl            the postRun hook and the prompt block
+  prompts/delivery/hook.md           the delivery contract, substituted per persona
   projects/<ensemble>/
     ensemble.yaml       team-level spec + `defaults:` stamped onto each persona
     agents/<persona>.yaml   skills, schedule, MCP servers, tool policy, memory seeds
     prompts/<persona>_{system,task}.md
   scripts/validate.py   field checks the Go templates cannot do
 ```
+
+Three ensembles, split on trust boundaries and not on subject:
+
+| Ensemble | What | Inbound? |
+| --- | --- | --- |
+| `homelab-ops` | five scheduled read-only reporters, one question each | no — no channel binding |
+| `homelab-responder` | one persona you can ask a question in Slack | **yes**, the only one |
+| `homelab-reviewer` | `renovate-reviewer`, the only persona with a write tool | no |
+
+The reporters take their readings from the facts server in `agents/mcp/`, so their
+prompts are a report contract rather than a method — see
+[MCP servers](#mcp-servers).
 
 #### Conventions
 
@@ -468,14 +484,13 @@ agents/sympozium/
   load-bearing.** The persona carries the type (`channels: [slack]`),
   `send_channel_message` in the allowlist and a `{{ DELIVERY }}` token in its
   system prompt; values carry the credential secret (`channelConfigs`) and the
-  `sympozium_delivery` knobs — `channel`, `verbosity` (`quiet|normal|verbose`),
-  `notify` (`always|onChange|never`), with per-persona overrides. No CRD field
+  `sympozium_delivery` knobs — `channel` and `deliveryMode`, with per-persona
+  overrides. No CRD field
   carries a destination, so the channel only ever reaches the agent as prompt
   text: the templates substitute exactly `{{ DELIVERY }}`, `{{ CHANNEL }}`,
   `{{ AGENT }}`, `{{ ENSEMBLE }}` and `{{ SCHEDULE }}` and `fail` on any token
-  left standing. `{{ DELIVERY }}` expands to three files —
-  `prompts/delivery/header.md` (always), the chosen `delivery/<verbosity>.md`,
-  and `notify/<level>.md`. Chart-only knobs must stay out of
+  left standing. `{{ DELIVERY }}` expands to one file,
+  `prompts/delivery/hook.md`. Chart-only knobs must stay out of
   `sympozium_ensembles` — the webhook decodes `spec` strictly and rejects an
   unknown key outright. `scripts/validate.py` cross-checks every half. Note the
   binding is *bidirectional* — an inbound Slack message can start an `AgentRun`
@@ -514,15 +529,20 @@ agents/sympozium/
   for, and the run ends on a tool call), and the report becomes the model's final
   text — which is what fixes the empty `status.result`, since the dominant cause
   was never invalid UTF-8 but `terminal turn had empty text`, 60 occurrences
-  against 2 in one day. A hook posts unconditionally, so `notify` is meaningless
-  under it and `scripts/validate.py` rejects both mistakes. Reach for
-  `schedule.interval` if a channel gets too busy. `verbosity` is rejected for the
-  same reason — hook mode substitutes `prompts/delivery/hook.md` and never reads
-  the verbosity files. A persona with no `sympozium_delivery` channel gets no
-  hook at all, which is what keeps `homelab-reviewer` silent by design, and
-  `hook.md` deliberately names no tool: a 4B model reads a tool name as
-  permission to call one. `tool` mode stays expressible and costs a duplicate
-  copy per bound persona the moment it is used.
+  against 2 in one day. A hook posts unconditionally, so reach for
+  `schedule.interval` if a channel gets too busy. A persona with no
+  `sympozium_delivery` channel gets no hook at all, which is what keeps
+  `homelab-reviewer` silent by design, and `hook.md` deliberately names no tool:
+  a 4B model reads a tool name as permission to call one.
+
+  The other mode is **`reply`**, which the responder uses: a bound persona that
+  answers in the thread that asked, through the channel sidecar. It takes no hook
+  and needs no configured destination — the hook hardcodes one, and that is how
+  two questions asked in two different channels were both answered into a third.
+  A `reply` persona carries its own answering contract in its prompt instead of a
+  `{{ DELIVERY }}` token, and both the template and the validator reject the
+  combination. `tool` mode is gone: it cost a duplicate copy of every report per
+  bound persona, and nothing used it.
 - **`send_channel_message` takes the destination in `chatId`.** Its `channel`
   argument is the *transport* (`slack`, `telegram`, …), never a `#name`. With
   `chatId` unset the tool still answers `Message sent`, targets "owner (self)",
@@ -531,11 +551,11 @@ agents/sympozium/
   place a delivery failure is ever visible. This cost every scheduled report for
   two days. Naming the argument was not enough: the prompts showed the call as
   `chatId: "{{ CHANNEL }}"` and a 4B model copied the quotes into the value, so
-  Slack rejected the same way for another two days. `prompts/delivery/*.md` now
-  write every argument bare, and the validator fails a verbosity file that stops
-  mentioning `chatId` *or* puts `{{ CHANNEL }}` back in quotes. A prompt for a
-  model this size must never show a value inside syntax the model is also
-  expected to strip. Full write-up in `agents/sympozium/README.md`.
+  Slack rejected the same way for another two days. A prompt for a model this size
+  must never show a value inside syntax the model is also expected to strip.
+  Only the responder holds this tool now, and its prompt tells it to leave
+  `chatId` alone rather than showing a value to copy. Full write-up in
+  `agents/sympozium/README.md`.
 - **The report names its agent; it never invents a time.** Nothing in this fleet
   returns the current time (verified — the runtime injects no clock and no MCP
   server exposes one), so the header carries agent, ensemble and cadence, the
@@ -543,29 +563,21 @@ agents/sympozium/
   message stamp is the run time. An authoritative in-message timestamp needs a
   `lifecycle.postRun` gate hook, which is the CRD's mechanism for rewriting
   agent output.
-- **An HTTP endpoint replaces a persona's schedule; it does not add to it.** A
-  serving `AgentRun` makes the schedule controller skip every tick for that
-  agent — silently, with the `SympoziumSchedule` still `Active` and no run
-  failing. So `sympozium_web_endpoint.enabled` is a master switch that stays
-  `false` and is flipped on only for the length of a test. It is a values
-  decision, never a persona one: the tree appends the `web-endpoint` SkillPack
-  at render time, and both the template and the validator reject a persona that
-  lists the skill itself, so which agents have a trigger in front of them stays
-  readable in one place. It also **drops the persona's `toolPolicy`**: the proxy
-  builds its child run from the `Agent` object, whose CRD has no `toolPolicy`
-  field, so a web-triggered run of `sre-sentinel` starts with 60 tools instead of
-  9 — `write_file` and `execute_command` among them. The read-only guarantee
-  holds for scheduled runs, not for HTTP ones. It **truncates the task to its
-  first line** too, so anything the `taskFile` said past the opening sentence is
-  gone: that is how a web run came to write a full CRITICAL report and deliver
-  none of it. Never put a requirement in a field a caller can replace — delivery
-  is now a completion condition in `prompts/notify/*.md`, which every run
-  carries. Until `toolsAllow` was pinned this
-  also broke the endpoint outright: 60 tool schemas overflowed the then-32k
-  context, so a web run never read its own system prompt and ended
-  `(Agent completed its task via tool calls but did not produce a final text
-  summary.)` The window is now 65536, which fixes that overflow; the budget
-  argument below stands on its own.
+- **An HTTP endpoint replaces a persona's schedule; it does not add to it.** The
+  `sympozium_web_endpoint` values tree, the render-time skill append and the
+  validator's guard for it are all **removed** — nothing in this chart exposes an
+  HTTP trigger any more, and the responder covers "ask it something" properly.
+  The three reasons it went are worth keeping, because `webEndpoint` is now a
+  first-class persona field and someone will be tempted again. A serving
+  `AgentRun` makes the schedule controller skip every tick for that agent,
+  silently, with the `SympoziumSchedule` still `Active` and no run failing. A web
+  run gets **neither `toolPolicy` nor `lifecycle`**, so it is both unbounded — 60
+  tools including `write_file` and `execute_command` — and undeliverable, which is
+  how one wrote a full CRITICAL report and delivered none of it. And it
+  **truncates the task to its first line**, so anything the `taskFile` said past
+  the opening sentence is gone. Never put a requirement in a field a caller can
+  replace. If an HTTP trigger is ever wanted again, use
+  `agentConfigs[].webEndpoint` and re-verify all three.
 - **Test with a hand-applied `AgentRun`, not the HTTP endpoint.** It suppresses
   no schedule and takes `systemPrompt`, `task` and `toolPolicy` inline, so a
   probe can differ from the real thing. The pod is deleted on completion

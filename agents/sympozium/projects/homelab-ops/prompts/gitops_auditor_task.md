@@ -1,10 +1,8 @@
-Audit ArgoCD for drift now.
+Check drift now.
 
-List every application, then investigate only those that are not both Synced
-and Healthy. For each, name the resource at fault and say whether this is new
-or has persisted since an earlier run.
+Call facts_argocd_drift. For anything not Synced and Healthy, use
+argocd_get_application and argocd_get_application_events within your three-call
+budget. Never ask for a resource tree.
 
-Then emit the Status / Applications / Persistent drift report.
-
-Then deliver it as your Delivery section instructs.
-
+Then write the Status / Drift / Escalating report and deliver it as your Delivery
+section instructs.

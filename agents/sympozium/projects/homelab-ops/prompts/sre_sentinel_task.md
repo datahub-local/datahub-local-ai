@@ -1,10 +1,7 @@
 Do an on-call sweep now.
 
-Query the firing alerts, diff them against what you saw last run, and root-cause
-anything new or changed. Then check whether any PersistentVolumeClaim is filling
-up, whether or not an alert has fired for it.
+Call facts_alerts_snapshot, then facts_volume_fill. Investigate anything the
+class column marks as new or REAL-chronic, within your three-call budget.
 
-Then emit the Status / New / Still firing / Filling up report.
-
-Then deliver it as your Delivery section instructs.
-
+Then write the Status / New / Still firing / Filling up report and deliver it as
+your Delivery section instructs.

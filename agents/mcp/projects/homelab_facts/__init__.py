@@ -1,22 +1,11 @@
-"""homelab_facts — deterministic readings of this homelab, one call per section.
+"""homelab_facts - deterministic readings of this homelab, one call per section.
 
-The point of this project is that **code gathers and the model writes**. Every
-failure in the fleet this replaces was a tool-loop failure: a 4B model was made a
-careful API client, asked to assemble `100*(1-avail/cap)` with a `group_left`
-join, to remember that `increase(m[1h])` is not `m[1h]`, to diff alerts against
-its own memory, and to know that orpi-0's kernel is not drift. Each incident
-added a paragraph to a prompt and a regex to a validator, and it did not
-converge.
+Code gathers and the model writes. The tools are fat in calls and thin in bytes:
+one call per report section, each answer bounded in code, each absence stated
+rather than left for a report format to fill with an invented number.
 
-The tools here are "fat" in calls and thin in bytes: one call per report section,
-each answer bounded and truncated in code, each absence stated as `unavailable`
-rather than left for a mandatory report format to fill with an invented number.
-
-They do not replace reach. Every persona keeps the raw `k8s_*` and Prometheus
-tools for following up on whatever these surface. The win is budget
-reallocation - the mandatory readings drop from eight-plus calls to one or two,
-leaving the iteration budget for real investigation, which is exactly where the
-last run before teardown ran out and drifted.
+They do not replace reach - every persona keeps the raw `k8s_*` and Prometheus
+tools for following up. The win is budget reallocation. See ../../README.md.
 """
 
 from __future__ import annotations

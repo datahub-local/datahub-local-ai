@@ -1,22 +1,9 @@
-"""`volume_fill()` — percent USED per PVC, correct by construction.
+"""`volume_fill()` - percent USED per PVC, correct by construction.
 
-Three separate mistakes are removed here, all of which reached Slack:
-
-**The inversion.** `available / capacity` is the fraction *free*. The prompt that
-asked for fill got the ratio and flagged anything above 80%, so it flagged the
-emptiest volumes and could never flag a full one: it called a 2%-used volume
-"97.9% full, write operations failing" on every run for days. Because a non-empty
-"Filling up" section was itself a change condition, it also forced a Slack post
-every time. The expression here is built by `used_percent`, which cannot be
-written the other way round.
-
-**The missing join.** All five `nfs` PVCs report the same shared 1.9 TB capacity,
-so a per-volume percentage there is the share's fill repeated once per claim. The
-`group_left` join onto `kube_persistentvolumeclaim_info` restricts the answer to
-the storage classes where a percentage means something.
-
-**The remembered trend.** "Climbed since your last run" used to depend on the
-model reading its own memory. It is computed here against a stored snapshot.
+Three mistakes are removed rather than warned about: the inversion (the bare
+ratio is the fraction *free*), the missing storage-class join (the nfs claims
+share one capacity, so a per-volume percentage there is meaningless), and the
+remembered trend, which is computed here against a stored snapshot.
 """
 
 from __future__ import annotations
@@ -32,11 +19,8 @@ _SNAPSHOT_KEY = "volume_fill"
 
 
 def build_expression(storage_classes: list[str]) -> str:
-    """The one expression this tool sends, assembled from the pieces.
-
-    Kept separate so a test can assert its shape without a Prometheus: the
-    inversion and the join are the two things that must never regress.
-    """
+    """The one expression this tool sends. Kept separate so a test can assert
+    the inversion and the join without a Prometheus."""
     pattern = "|".join(storage_classes)
     return (
         used_percent("kubelet_volume_stats_available_bytes", "kubelet_volume_stats_capacity_bytes")

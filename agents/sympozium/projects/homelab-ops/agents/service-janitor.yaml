@@ -17,18 +17,23 @@ memory:
   enabled: true
   maxSizeKB: 256
   seeds:
-    - Record the age of the newest successful backup per system each run. A backup system that silently stopped is the most expensive fault in the homelab.
-    - Record each expiry date reported and when it was reported, so the same certificate is not raised from scratch every week.
-    - Never report an expiry without a date read off the resource. A guess is worse than silence.
-    - n8n credential expiry belongs to the Credentials Expiry Review workflow in agents/n8n. Out of scope here.
+    - n8n credential expiry is owned by the Credentials Expiry Review workflow in agents/n8n. Stay cluster-side and do not duplicate or contradict it.
+    - facts_cert_expiry returns days remaining, already computed. You need no clock and must never write a date you did not read from a tool result.
 
 mcpServers:
+  - name: datahub-local-ai-mcp-homelab-facts
+    timeout: 30
+    toolsPrefix: facts
+    toolsAllow:
+      - backup_freshness
+      - cert_expiry
+      - promql
   - name: datahub-local-core-automation-sympozium-mcp-k8s
     timeout: 30
     toolsPrefix: k8s
     toolsAllow:
       - resources_list
-      - resources_get
+      - pods_list
     toolsDeny:
       - pods_delete
       - pods_exec
@@ -36,32 +41,14 @@ mcpServers:
       - resources_create_or_update
       - resources_delete
       - resources_scale
-  - name: datahub-local-core-automation-sympozium-mcp-grafana
-    timeout: 30
-    toolsPrefix: grafana
-    toolsAllow:
-      - query_prometheus
-    toolsDeny:
-      - grafana_api_request
-      - update_dashboard
-      - update_datasource
-      - create_datasource
-      - create_folder
-      - create_annotation
-      - update_annotation
-      - create_snapshot
-      - delete_snapshot
-      - create_incident
-      - add_activity_to_incident
-      - install_plugin
-      - alerting_manage_rules
-      - alerting_manage_routing
 
 toolPolicy:
   allow:
+    - facts_backup_freshness
+    - facts_cert_expiry
+    - facts_promql
     - k8s_resources_list
-    - k8s_resources_get
-    - grafana_query_prometheus
+    - k8s_pods_list
     - memory_search
     - memory_store
   deny:

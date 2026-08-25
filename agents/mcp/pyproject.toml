@@ -34,3 +34,12 @@ line-length = 100
 
 [tool.ruff.lint]
 ignore = ["E402"]
+
+# Own pytest config so this sub-project is its own rootdir. Without it pytest
+# walks up, finds the repository root's `[tool.pytest.ini_options]`, and both
+# `testpaths` and `addopts` come from there — which makes what a bare `pytest`
+# collects depend on the directory it was invoked from.
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+addopts = "--tb=short"

@@ -83,6 +83,9 @@ jobs:
   mcp:
     name: MCP servers
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agents/mcp
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -96,28 +99,31 @@ jobs:
         run: uv python install 3.13
 
       - name: Sync dependencies
-        run: uv sync --extra mcp --extra dev
+        run: uv sync --extra dev
 
       - name: Lint
-        run: uv run -- ruff check agents/mcp/
+        run: uv run -- ruff check .
 
-      # The facts server exists so a 4B model never assembles a query. These
-      # tests are what the nine prose validators in the sympozium tree used to
-      # be: the fill inversion, the counter window, the nodename join, the byte
-      # budget and the absence path are each asserted against the expression the
-      # server actually sends rather than against English in a prompt.
       - name: Test
-        run: uv run pytest agents/mcp/tests/ -q
+        run: uv run -- pytest
 
-      # The image must exist for both architectures or the server is unschedulable
-      # on the arm64 nodes, and an unreachable MCP server fails silently.
+      - name: Check the tool manifest builds
+        run: uv run -- python -m mcp_runner --project homelab_facts --list-tools
+
+  mcp-image:
+    name: MCP image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build image for both architectures
+      - name: Build for both architectures
         uses: docker/build-push-action@v5
         with:
           context: agents/mcp

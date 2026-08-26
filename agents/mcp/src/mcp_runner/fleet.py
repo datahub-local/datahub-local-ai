@@ -40,6 +40,47 @@ def version_key(release: str) -> tuple[int, ...]:
     return tuple(int(part) for part in kernel_version(release).split(".") if part.isdigit())
 
 
+# Position in a kernel version -> (singular, plural) for a difference there.
+# Beyond the third position the numbering is a distributor revision, not upstream.
+_POSITION = (
+    ("major version", "major versions"),
+    ("minor series", "minor series"),
+    ("patch release", "patch releases"),
+    ("revision", "revisions"),
+)
+
+
+def version_gap(behind: str, ahead: str) -> str:
+    """How far ``behind`` trails ``ahead``, in words, or "" if it does not.
+
+    The model must never compute this itself. Given two bare version strings a
+    4B model invents the difference: asked about `6.12.96` against `6.12.101` it
+    answered "6 months behind" and "15 minor versions", where the truth is five
+    patch releases inside one series - and no date is knowable from a kernel
+    string at all. So the gap is stated here, in the only unit the readings
+    support, and the phrase is the whole answer rather than an input to one.
+    """
+    older, newer = version_key(behind), version_key(ahead)
+    if not older or not newer or older >= newer:
+        return ""
+    width = max(len(older), len(newer))
+    older += (0,) * (width - len(older))
+    newer += (0,) * (width - len(newer))
+    for index, (left, right) in enumerate(zip(older, newer)):
+        if left == right:
+            continue
+        delta = right - left
+        singular, plural = _POSITION[min(index, len(_POSITION) - 1)]
+        unit = singular if delta == 1 else plural
+        shared = ".".join(str(part) for part in older[:index])
+        within = f", both on {shared}" if shared else ""
+        # "behind" is inside the phrase so the caller cannot land the shared-series
+        # clause mid-sentence: "is 5 patch releases, both on 6.12 behind" was the
+        # first attempt and reads as a typo.
+        return f"{delta} {unit} behind{within}"
+    return ""
+
+
 def class_name(release: str, machine: str) -> str:
     """The comparability group: kernel tree plus architecture."""
     return f"{kernel_flavour(release)}/{machine or 'unknown-arch'}"

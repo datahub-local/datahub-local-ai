@@ -16,6 +16,7 @@ from mcp_runner.fleet import (
     kernel_drift,
     kernel_flavour,
     kernel_version,
+    version_gap,
     version_key,
 )
 
@@ -149,3 +150,47 @@ class TestCommonPrefix:
     def test_prefix_is_cut_at_a_separator_not_mid_word(self):
         # "node-a1"/"node-a2" must not shorten to "1"/"2".
         assert common_prefix(["node-a1", "node-a2"]) == "node-"
+
+
+class TestVersionGap:
+    """The gap is computed here because the model invents it otherwise.
+
+    Asked about the fleet's one real drift pair a 4B model answered "6 months
+    behind" and "15 minor versions"; the truth is five patch releases inside one
+    series, and a kernel string carries no date at all.
+    """
+
+    def test_the_fleets_real_pair_is_five_patch_releases(self):
+        assert version_gap("6.12.96", "6.12.101") == "5 patch releases behind, both on 6.12"
+
+    def test_it_is_never_expressed_in_minor_versions(self):
+        # The wrong answer the model gave. Same series, so "minor" cannot appear.
+        assert "minor" not in version_gap("6.12.96", "6.12.101")
+
+    def test_a_single_step_is_singular(self):
+        assert version_gap("6.12.100", "6.12.101") == "1 patch release behind, both on 6.12"
+
+    def test_a_minor_step_says_series_and_is_not_pluralised_wrongly(self):
+        assert version_gap("6.11.0", "6.12.3") == "1 minor series behind, both on 6"
+        assert version_gap("6.10.0", "6.12.0") == "2 minor series behind, both on 6"
+
+    def test_a_major_step_has_nothing_in_common(self):
+        assert version_gap("5.10.1", "6.0.0") == "1 major version behind"
+
+    def test_equal_versions_have_no_gap(self):
+        assert version_gap("6.1.115", "6.1.115") == ""
+
+    def test_a_node_ahead_is_not_behind(self):
+        assert version_gap("6.12.101", "6.12.96") == ""
+
+    def test_an_unparseable_release_yields_no_invented_gap(self):
+        assert version_gap("", "6.1.1") == ""
+        assert version_gap("6.1.1", "") == ""
+
+    def test_versions_of_different_length_compare_by_position(self):
+        assert version_gap("6.12", "6.12.5") == "5 patch releases behind, both on 6.12"
+
+    def test_string_comparison_would_get_this_backwards(self):
+        # "6.12.96" > "6.12.101" as strings; as versions it is behind.
+        assert version_gap("6.12.96", "6.12.101") != ""
+        assert version_gap("6.12.101", "6.12.96") == ""

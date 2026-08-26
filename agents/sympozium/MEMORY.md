@@ -2337,6 +2337,79 @@ and no run at all, because `firstTick: afterInterval` holds on creation. The
 same-second behaviour above is about a schedule being **rewritten**, which is a
 different event from being created.
 
+## Two rebuild questions, answered by building it
+
+Both were open decisions in the rebuild plan. Recorded so nobody re-derives them.
+
+**A `SkillPack` cannot carry tool wiring, and its prose was not worth the
+indirection.** The CRD gives `skills[].content` (Markdown), `skills[].requires`
+(documentation - nothing reads it), `sidecar` and `runtimeRequirements`. There is
+no field for MCP servers, no `toolsAllow`, no `toolPolicy` and no parameter
+substitution into content, so the tool half can only ever live on the persona.
+That left only the shared prose as a candidate, and moving it into a pack buys an
+extra object and a second place to look while the prompt still has to be read
+next to it. So prose stayed in `systemPrompt` and no `templates/skillpacks.yaml`
+exists. The precedent against it is stronger than the convenience for it -
+`#a-skillpack-overrode-every-tool-decision-in-this-repository`.
+
+**An inbound Slack reply needs `send_channel_message`; it is not automatic.** The
+persona must allowlist the tool and carry `deliveryMode: reply`, which is why
+`homelab-oracle` is the one persona here holding it. Two consequences follow. The
+`chatId` trap is live for that persona, so its prompt tells it to leave `chatId`
+alone rather than showing a value to copy - `#send_channel_message-takes-the-
+destination-in-chatid-not-channel`. And it is the reason a gate hook cannot guard
+it: a gate holds the run's *final output*, while a reply leaves mid-run as a tool
+call, so there is nothing left to hold by the time the gate would run. The guard
+for a responder has to be in what the tools return, not in a hook.
+
+## A version string is a quantity a 4B model will invent
+
+`homelab-oracle` was asked about kernels and answered that amd-1 was "6 months
+behind" amd-2 and that amd-2 was "15 minor versions" ahead. The readings behind
+it were perfect: `node_fleet()` returned `6.12.96` and `6.12.101`, correctly
+joined, correctly grouped into one hardware class, correctly naming amd-1 as the
+node behind. The truth is five patch releases inside one series, and a kernel
+string carries no date at all, so "6 months" was not a miscalculation but an
+invention.
+
+The lesson is narrower than "the model lies" and it is the sharpest thing the
+rebuild taught: **the facts server fixed the readings, not the arithmetic on top
+of them.** Handing over two correct numbers and letting the model state the
+relation between them puts the relation back in the model's hands, which is the
+whole failure the server exists to remove - reached one step later.
+
+So `fleet.version_gap()` computes the distance and `node_fleet()` states it in
+the only unit the readings support ("amd-1 is 5 patch releases behind, both on
+6.12"), followed by an explicit line that no release date is knowable here and
+the gap is not to be restated in another unit. `tests/test_fleet.py` asserts the
+real pair and asserts that the word "minor" cannot appear for it.
+
+Generalise it when adding a tool: if a report will compare two readings, compare
+them in code. A derived quantity is a reading too.
+
+## `allowedTriggers` is not access control
+
+`homelab-oracle` is the only object in this chart an outsider can trigger, and
+for its first days bound it restricted the *kind* of inbound message
+(`allowedTriggers: [mention, dm]`) and not the sender. Anyone in the workspace
+who could @-mention the bot got a run holding the facts server, `k8s_pods_log`,
+`k8s_resources_list` and `send_channel_message`.
+
+`channelAccessControl.slack.allowedSenders` is the field that gates *who*, it is
+inbound-only, nothing in the CRD defaults it and no controller warns when it is
+missing. It lives in `values/` rather than `projects/` because a sender id names
+a person, not the agent - the same reason `channelConfigs` does - and it is in
+`VALUES_ONLY_KEYS` so it cannot drift back into a persona file.
+`scripts/validate.py` now fails any channel-bound persona whose ensemble sets
+neither `allowedSenders` nor `allowedChats`, and warns on a missing
+`denyMessage`, because an unset `denyMessage` drops a rejected sender in silence
+and reads as a broken agent rather than a refusal.
+
+Note what does *not* protect this: `toolPolicy` on an inbound run is supplied by
+core's `MutatingAdmissionPolicy`, not by the persona, and it is a registration
+filter rather than a dispatch boundary. The boundaries that hold are
+`mcpServers[].toolsAllow`, the absence of a skill sidecar, and now this.
+
 ## Known gaps
 
 - **Slack is wired for `homelab-ops` only, and it now works.** Both halves that

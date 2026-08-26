@@ -51,6 +51,21 @@ sympozium_ensembles:
     channelConfigs:
       slack: mcp-slack-token
 
+    # Who may start a run, which is a different question from how they reach the
+    # agent: slackOptions.allowedTriggers gates the *kind* of message (mention,
+    # dm) and never the sender. With this unset, anyone in the workspace who can
+    # @-mention the bot gets a run holding the facts server, k8s_pods_log and
+    # send_channel_message. Inbound-only, so it cannot affect the reporters.
+    # A Slack *user id*, not an @handle - the handle is not what the API sends.
+    channelAccessControl:
+      slack:
+        allowedSenders:
+          - U08RV08387L
+        # Set, so a refusal is visible. Empty means rejected messages are dropped
+        # in silence and read as the agent being broken.
+        denyMessage: >-
+          This agent only answers its operator. Nothing was run.
+
     baseURL: http://datahub-local-core-data-ollama.data.svc:11434/v1
 
     policyRef: permissive

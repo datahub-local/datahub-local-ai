@@ -387,11 +387,21 @@ def _kernel_drift(kernels: dict[str, str], machines: dict[str, str], prefix: str
                 f"{fleet.shorten(node, prefix)}={fleet.kernel_version(kernels[node])}"
                 for node in sorted(members)
             )
+            newest = max((kernels[node] for node in members), key=fleet.version_key)
+            gaps = []
+            for node in behind:
+                gap = fleet.version_gap(kernels[node], newest)
+                if gap:
+                    gaps.append(f"{fleet.shorten(node, prefix)} is {gap}")
             lines.append(
                 f"{group}: DRIFT within class - "
                 f"{', '.join(fleet.shorten(node, prefix) for node in behind)} behind. {detail}. "
-                "One kernel tree, one architecture, so these can converge: this is a "
-                "real finding and belongs in your report."
+                + (f"{'; '.join(gaps)}. " if gaps else "")
+                + "One kernel tree, one architecture, so these can converge: this is a "
+                "real finding and belongs in your report. "
+                "The distance is stated above and is the only quantity available: a "
+                "kernel version carries no release date, so how long a node has been "
+                "behind is not knowable here. Do not restate the gap in any other unit."
             )
     return lines
 

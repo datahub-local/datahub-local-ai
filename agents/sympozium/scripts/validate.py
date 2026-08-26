@@ -148,7 +148,14 @@ KNOWN_ENV = {
 
 # Keys that belong to the cluster, not the agent, and are merged in from
 # release values at render time.
-VALUES_ONLY_KEYS = ("enabled", "baseURL", "policyRef", "channelConfigs")
+VALUES_ONLY_KEYS = (
+    "enabled",
+    "baseURL",
+    "policyRef",
+    "channelConfigs",
+    # A sender id names a person, not the agent, so it describes the deployment.
+    "channelAccessControl",
+)
 
 # Allowlisted tools that change something outside the cluster's read path. Only
 # one persona holds any of these today, and it is the reason homelab-reviewer is
@@ -641,6 +648,51 @@ def _channel_secrets(ensemble_name):
     return configs if isinstance(configs, dict) else {}
 
 
+def _channel_access(ensemble_name):
+    """Read spec.channelAccessControl for one ensemble out of the release values.
+
+    Returns None when the values stop being plain YAML, matching _channel_secrets.
+    """
+    values = _values()
+    if values is None:
+        return None
+    entry = (values.get("sympozium_ensembles") or {}).get(ensemble_name) or {}
+    control = entry.get("channelAccessControl")
+    return control if isinstance(control, dict) else {}
+
+
+def _check_inbound_is_restricted(persona_name, persona, access, warnings):
+    """A channel binding is an inbound surface; require it to name who may use it.
+
+    `slackOptions.allowedTriggers` gates the *kind* of inbound message and never
+    the sender, so a bound persona with no `allowedSenders` runs for anyone who
+    can reach the bot. Nothing in the CRD defaults this and no controller warns,
+    which is why it is checked here: the whole fleet is read-only, but the
+    responder holds `send_channel_message` and the cluster's log and event
+    readers, and it is the only object in this chart an outsider can trigger.
+    """
+    channels = persona.get("channels") or []
+    if not channels or access is None:
+        return
+    for channel in channels:
+        rules = access.get(channel) or {}
+        if not rules.get("allowedSenders") and not rules.get("allowedChats"):
+            raise Fail(
+                f"{persona_name}: bound to the {channel!r} channel with no "
+                f"channelAccessControl.{channel}.allowedSenders (or allowedChats) "
+                f"in values/default.yaml.gotmpl, so any sender that can reach the "
+                f"bot starts a run. allowedTriggers restricts the kind of message, "
+                f"never who sent it. Add the sender's id - the Slack user id, not "
+                f"the @handle"
+            )
+        if not rules.get("denyMessage"):
+            warnings.append(
+                f"{persona_name}: channelAccessControl.{channel} sets no "
+                f"denyMessage, so a rejected sender is dropped in silence and "
+                f"reads as a broken agent rather than a refusal"
+            )
+
+
 def _check_channels(persona_name, persona, channel_secrets, warnings, hook_mode=False):
     """Cross-check channel bindings, their credentials, and the posting tool.
 
@@ -814,7 +866,7 @@ def _check_schedule(persona_name, schedule):
         )
 
 
-def _check_persona(project, path, used, channel_secrets, delivery, warnings):
+def _check_persona(project, path, used, channel_secrets, access, delivery, warnings):
     persona = _load_yaml(path)
     name = persona.get("name")
     if not name:
@@ -871,6 +923,7 @@ def _check_persona(project, path, used, channel_secrets, delivery, warnings):
         name, persona, channel_secrets, warnings,
         hook_mode=_delivery_mode(name, delivery) == "hook",
     )
+    _check_inbound_is_restricted(name, persona, access, warnings)
     _check_delivery(project, name, persona, delivery, warnings)
     return name
 
@@ -916,9 +969,10 @@ def check(project):
     used = set()
     warnings = []
     channel_secrets = _channel_secrets(name)
+    access = _channel_access(name)
     delivery = _delivery_config(name)
     names = [
-        _check_persona(project, path, used, channel_secrets, delivery, warnings)
+        _check_persona(project, path, used, channel_secrets, access, delivery, warnings)
         for path in persona_files
     ]
     _check_delivery_needs_binding(

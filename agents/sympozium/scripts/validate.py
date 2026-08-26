@@ -233,11 +233,6 @@ MCP_SERVER_KEYS = frozenset(
     }
 )
 
-# The k8s tools that answer a question by listing something. A prompt naming any
-# of them is sending a 4B model to guess selectors, so _check_investigation_budget
-# and _check_k8s_selector_rules both key off this set.
-K8S_LOOKUP_TOOLS = ("k8s_events_list", "k8s_pods_log", "k8s_resources_list")
-
 # Metrics the prompts name that are genuinely cumulative counters, so a bare
 # reading is history rather than a state and the prompt has to spell out an
 # increase()/rate() window. Read off this Prometheus with the metadata API, not

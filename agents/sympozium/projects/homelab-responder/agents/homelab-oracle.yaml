@@ -13,6 +13,8 @@ memory:
   seeds:
     - You answer questions. You are not on a schedule and you owe nobody a report format; the reporters in homelab-ops do that.
     - Every facts_ tool takes no arguments and returns a reading that is already correct. facts_promql takes one argument, expr, and runs any PromQL.
+    - k8s_pods_list has no namespace argument. To scope pods to a namespace use k8s_pods_list_in_namespace, which requires it.
+    - Never pass argocdBaseUrl to an argocd tool, and never pass a datasourceUid other than P8E80F9AEF21F6940 to a loki tool. The github owner is datahub-local.
 
 channels:
   - slack
@@ -24,7 +26,13 @@ slackOptions:
     - mention
     - dm
 
+# Every MCP server the control plane runs, in the order the prompt's routing
+# table asks for them. Tool names, argument names and the two Grafana datasource
+# uids were all read off the running servers with tools/list; a wrong name is
+# silent. toolsAllow is what actually keeps a write tool unregistered, so the
+# selections below are the boundary, not the toolsDeny lists.
 mcpServers:
+  # 1. Pre-computed readings, one call per report section. Try these first.
   - name: datahub-local-ai-mcp-homelab-facts
     timeout: 30
     toolsPrefix: facts
@@ -38,11 +46,16 @@ mcpServers:
       - backup_freshness
       - argocd_drift
       - promql
+  # 2. What exists right now. pods_list_in_namespace and namespaces_list are
+  #    here because pods_list carries no namespace argument, which is what sent
+  #    one run guessing label selectors.
   - name: datahub-local-core-automation-sympozium-mcp-k8s
     timeout: 30
     toolsPrefix: k8s
     toolsAllow:
+      - namespaces_list
       - pods_list
+      - pods_list_in_namespace
       - events_list
       - pods_log
       - resources_list
@@ -54,6 +67,74 @@ mcpServers:
       - resources_create_or_update
       - resources_delete
       - resources_scale
+  # 3. What is deployed and what each application owns. The resource tree is the
+  #    answer to "do we have an X" without inventing a selector. Excluded on
+  #    purpose: get_resources and get_application_managed_resources return whole
+  #    manifests, the same reason k8s_resources_get is in BANNED_TOOLS, and
+  #    get_resource_actions reads as permission to run one. The server exposes no
+  #    write tool at all, so there is nothing here to deny.
+  - name: datahub-local-core-automation-sympozium-mcp-argocd
+    timeout: 30
+    toolsPrefix: argocd
+    toolsAllow:
+      - list_applications
+      - get_application
+      - get_application_resource_tree
+      - get_application_events
+  # 4. Anything about database contents rather than database health. The server
+  #    runs --access-mode=restricted, so execute_sql is read-only at the server
+  #    and not merely by policy; it exposes no write tool to deny.
+  - name: datahub-local-core-automation-sympozium-mcp-postgres
+    timeout: 30
+    toolsPrefix: pg
+    toolsAllow:
+      - list_schemas
+      - list_objects
+      - execute_sql
+      - get_top_queries
+  # 5. History. k8s_pods_log only reaches a pod that still exists; Loki keeps
+  #    every container. list_loki_label_values is here so LogQL selectors are
+  #    read rather than guessed.
+  - name: datahub-local-core-automation-sympozium-mcp-grafana
+    timeout: 30
+    toolsPrefix: grafana
+    toolsAllow:
+      - query_loki_logs
+      - list_loki_label_values
+    toolsDeny:
+      - create_datasource
+      - update_datasource
+      - update_dashboard
+      - create_folder
+      - create_annotation
+      - update_annotation
+      - create_snapshot
+      - delete_snapshot
+      - create_incident
+      - add_activity_to_incident
+  # 6. What the git source says, when the cluster cannot answer why. Read only:
+  #    add_issue_comment is the reviewer's single write tool and stays in
+  #    homelab-reviewer, which is bound to no channel.
+  - name: datahub-local-core-automation-sympozium-mcp-github
+    timeout: 30
+    toolsPrefix: github
+    toolsAllow:
+      - search_code
+      - get_file_contents
+      - list_commits
+    toolsDeny:
+      - add_issue_comment
+      - merge_pull_request
+      - create_pull_request
+      - create_pull_request_review
+      - create_or_update_file
+      - push_files
+      - create_branch
+      - create_repository
+      - fork_repository
+      - create_issue
+      - update_issue
+      - update_pull_request_branch
 
 toolPolicy:
   allow:
@@ -66,11 +147,26 @@ toolPolicy:
     - facts_backup_freshness
     - facts_argocd_drift
     - facts_promql
+    - k8s_namespaces_list
     - k8s_pods_list
+    - k8s_pods_list_in_namespace
     - k8s_events_list
     - k8s_pods_log
     - k8s_resources_list
     - k8s_nodes_top
+    - argocd_list_applications
+    - argocd_get_application
+    - argocd_get_application_resource_tree
+    - argocd_get_application_events
+    - pg_list_schemas
+    - pg_list_objects
+    - pg_execute_sql
+    - pg_get_top_queries
+    - grafana_query_loki_logs
+    - grafana_list_loki_label_values
+    - github_search_code
+    - github_get_file_contents
+    - github_list_commits
     - memory_search
     - memory_store
     - send_channel_message

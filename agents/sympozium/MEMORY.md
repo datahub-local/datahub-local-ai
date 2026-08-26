@@ -1292,6 +1292,30 @@ shared `sympozium-agent` ServiceAccount. Two fixes, one in core's catalog and on
 upstream — the prompt to hand to core is in
 `#a-skillpack-overrode-every-tool-decision-in-this-repository`.
 
+A seventh, the sandbox, splits the same way and is mostly *not* ours. Core's half
+landed on 2026-08-26 and works: `agentSandbox.enabled`, `rbac: true` and
+`defaultRuntimeClass: gvisor` in
+`releases/automation/values/sympozium.yaml.gotmpl` gave the controller its
+`sandboxes.agents.x-k8s.io` permissions, and the controller now builds a Sandbox
+CR. What remains is one upstream bug and one upstream gap, both in
+`controller:v0.10.47` and both written up above: the sandbox pod template
+[injects the OTLP tracing env twice](#the-gate-opened-and-the-sandbox-cr-the-controller-builds-is-invalid)
+so every Sandbox CR is rejected as invalid and the run hot-loops `Pending`
+forever, and
+[`SympoziumSchedule` has no `agentSandbox` field](#nothing-scheduled-reaches-that-path-sympoziumschedule-has-no-agentsandbox)
+so nothing on a cron can request the backend in the first place. Both are
+ready-to-file issues; neither repository can fix either.
+
+There is one lever core holds, and it is worth stating with its price rather than
+as a recommendation. The duplicate env comes from
+`SYMPOZIUM_DEFAULT_OTEL_ENABLED=true` on the controller Deployment, so turning
+the chart's `observability` defaulting off should stop the second copy being
+injected — **untested**, and it assumes the duplicate is the defaulting path
+rather than the wrapper adding a copy on top of an explicit one. Its cost is the
+fleet's traces, for every run and not just sandboxed ones. And because of the
+schedule gap it would buy isolation for nothing that runs on a cron — only for
+hand-applied `AgentRun`s. Not worth taking today.
+
 ## The `mcp-k8s` MCPServer is `transportType: http` and answers 404
 
 **Resolved by core on 2026-08-23, with a caveat.** The MCPServer is now declared
@@ -2410,6 +2434,332 @@ core's `MutatingAdmissionPolicy`, not by the persona, and it is a registration
 filter rather than a dispatch boundary. The boundaries that hold are
 `mcpServers[].toolsAllow`, the absence of a skill sidecar, and now this.
 
+## The sandbox backend is gated in the other repo, and it fails before the pod
+
+`agentSandbox` on an Ensemble is not self-contained. A probe `AgentRun` asking for
+`agentSandbox: {enabled: true, runtimeClass: gvisor}` went straight to `Failed`
+with no pod and:
+
+    agent-sandbox mode requires dynamic client (agent-sandbox CRDs not available)
+
+The CRDs *were* available - bootstrap installs
+`sandbox-with-extensions.yaml`, so `sandboxes`, `sandboxclaims`,
+`sandboxtemplates` and `sandboxwarmpools` all exist. What was missing is the
+controller's permission to see them:
+
+    kubectl auth can-i list sandboxes.agents.x-k8s.io \
+      --as=system:serviceaccount:automation:sympozium-controller-manager
+    no
+
+That is gated by `agentSandbox.enabled` in the upstream chart, whose own comment
+says "When false, all agent-sandbox features are disabled and **no RBAC rules for
+Sandbox CRs are created**". So the fix is three lines in
+datahub-local-core's `releases/automation/values/sympozium.yaml.gotmpl`, not a
+supplementary ClusterRole - and `defaultRuntimeClass` there already defaults to
+`gvisor`, which matches what bootstrap installs.
+
+Two things worth keeping from this. The failure mode is **before** the pod, so
+there is no log to read and, for a scheduled persona, no report and nothing that
+looks broken - `status.phase: Failed` on an object nobody watches. And the
+capability now spans three repositories: runsc and the RuntimeClass in
+datahub-local-bootstrap, the controller's RBAC in datahub-local-core, the
+per-ensemble opt-in here. `scripts/validate.py` can only see the third, so it
+checks the runtimeClass name against `RUNTIME_CLASSES` and says plainly that the
+core half is invisible to it.
+
+### The gate opened, and the Sandbox CR the controller builds is invalid
+
+Core landed it on 2026-08-26 — `agentSandbox.enabled: true`, `rbac: true`,
+`defaultRuntimeClass: gvisor` — and the controller does honour the field now. A
+hand-applied `AgentRun` carrying `agentSandbox: {enabled: true, runtimeClass:
+gvisor}` logs `Creating Agent Sandbox CR for AgentRun` and then never gets one:
+
+    Sandbox.agents.x-k8s.io "sb-sandbox-probe-1" is invalid:
+      spec.podTemplate.spec.initContainers[1].env[6]: Duplicate value: {"name":"TRACEPARENT"}
+      spec.podTemplate.spec.containers[0].env[23]:    Duplicate value: {"name":"TRACEPARENT"}
+      spec.podTemplate.spec.containers[0].env[25]:    Duplicate value: {"name":"OTEL_EXPORTER_OTLP_ENDPOINT"}
+      spec.podTemplate.spec.containers[0].env[29]:    Duplicate value: {"name":"OTEL_SERVICE_NAME"}
+      spec.podTemplate.spec.containers[2].env[6]:     Duplicate value: {"name":"TRACEPARENT"}
+
+The sandbox pod-template builder in `controller:v0.10.47` injects the OTLP
+tracing env twice — once from the base agent pod builder, once from the sandbox
+wrapper — across the agent container, a sidecar and an init container. The Job
+path does not go through that wrapper, so this is the Sandbox branch only.
+
+Three things about the failure are worth more than the bug. **It never fails and
+never gives up.** `status` stayed literally `null` for the 90 s it was watched
+and 15 reconciles fired in six minutes on exponential backoff; there is no
+timeout, so the `AgentRun` sits `Pending` forever while hot-looping the
+controller. For a scheduled persona under `concurrencyPolicy: Forbid` one of
+these would also block every later tick for that agent — the same
+silent-schedule-suppression shape as
+[the web endpoint](#the-endpoint-replaces-the-schedule--it-does-not-sit-beside-it),
+reached from the other direction. **It is triggered by config this repository
+does not own.** The duplicated vars come from
+`SYMPOZIUM_DEFAULT_OTEL_ENABLED=true` on the controller Deployment, which is
+core's chart, and the Ensemble CRD has no observability field at any level — the
+single hit for "observability" in its schema is prose in the `supervision` edge
+description — so nothing under `agents/sympozium/` can turn it off. **And it
+answers the label question only negatively.** No sandboxed pod was ever created,
+so whether one carries `sympozium.ai/role=agent` is not merely unverified, it is
+unverifiable on this controller version.
+
+### Nothing scheduled reaches that path: `SympoziumSchedule` has no `agentSandbox`
+
+The field is declared on all three ensembles and lands intact on every `Agent`:
+`spec.agents.default.agentSandbox` reads `{"enabled": true, "runtimeClass":
+"gvisor"}` on all seven. Then it stops. The
+`sympoziumschedules.sympozium.ai/v1alpha1` spec schema is `agentRef`,
+`concurrencyPolicy`, `firstTick`, `includeMemory`, `schedule`, `suspend`, `task`,
+`type` — no `agentSandbox` — so every `AgentRun` a schedule stamps out carries
+`spec.agentSandbox: null` and takes the Job backend. The controller resolves the
+backend from the `AgentRun` alone; the `Agent`'s copy of the field is never
+consulted. `homelab-reviewer-renovate-reviewer-schedule-1` shows it end to end on
+2026-08-26: `spec.agentSandbox: null`, an ordinary agent container, a real pod —
+it failed on Ollama, not on the sandbox.
+
+So the commit is inert in both directions: no isolation gained, no breakage
+caused, the fleet running exactly as it did before it. Two independent gaps stand
+between it and working — this one and the duplicate env above — and the second is
+only reachable by hand-applied `AgentRun`s. The rule that comes out of it: do not
+read "the ensembles say `enabled: true`" as "the runs are sandboxed". The only
+proof is a pod, and there has never been one.
+
+## Rolling the sandbox out reviewer-first, not responder-first
+
+`homelab-reviewer` is the first ensemble on the backend and `homelab-responder`
+the last, which inverts where the isolation is *most* wanted - the responder is
+the only inbound surface and the only agent driven by text the fleet did not
+write. The order is about the cost of being wrong, not the value of being right.
+
+A sandboxed run that cannot reach its MCP server or Ollama produces, for the
+reviewer, one silent weekday morning on a persona that posts nowhere by design.
+For the responder it produces a question that never gets an answer, which is the
+failure a person actually notices and cannot diagnose. So the reviewer proves the
+backend and the responder inherits it.
+
+All three ensembles state `agentSandbox.enabled` explicitly, including the two
+that are false, so the fleet's sandbox state is one grep rather than an inference
+from absence. It lives in `values/` and is in `VALUES_ONLY_KEYS`: whether a run
+can have a kernel boundary depends on runsc being on the nodes and on the
+controller's RBAC, neither of which a persona knows anything about.
+
+No `warmPool` anywhere. It keeps pre-warmed sandbox pods resident for the life of
+the ensemble, and one weekday run does not justify two idle sandboxes on a fleet
+with a single 6 GiB GPU. The validator warns if one is ever set.
+
+**Still unverified, and it is a security question, not a connectivity one:**
+whether a sandboxed run pod carries `sympozium.ai/role=agent`. If it does not,
+*no* NetworkPolicy selects it - `sympozium-agent-deny-all` included - so it would
+have unrestricted egress and be *less* contained than an ordinary agent while
+connectivity looked perfect. Check it on the reviewer's first sandboxed run with
+`kubectl -n automation get pod <run-pod> --show-labels`, before turning the
+responder on — which as of 2026-08-26 cannot be done at all, on either count:
+[v0.10.47 never gets as far as a pod](#the-gate-opened-and-the-sandbox-cr-the-controller-builds-is-invalid),
+and [no schedule can ask for one](#nothing-scheduled-reaches-that-path-sympoziumschedule-has-no-agentsandbox).
+
+## A hand `kubectl apply` owns the personas, and nothing takes them back
+
+The live `homelab-ops` Ensemble was clobbered on 2026-08-26 and repaired by hand
+the same morning. The repair is what the field ownership now records, and it is
+also the reason the drift outlived it. `--show-managed-fields`:
+
+    argocd-controller          Apply   06:48:50  spec.agentSandbox, baseURL,
+                                                 category, channelConfigs.slack,
+                                                 description, enabled, policyRef,
+                                                 sharedMemory, version, workflowType
+    kubectl-client-side-apply  Update  06:49:07  spec.agentConfigs
+    controller                 Update            finalizer, status
+
+`spec.agentConfigs` — the five personas, and every cron, task and tool list
+inside them — is owned by a client-side `kubectl apply` made 17 s after ArgoCD's
+sync, not by ArgoCD. The app syncs with `ServerSideApply=true`, but
+`agentConfigs` is atomic to the API server, so a client-side apply takes the
+whole field in one move: ArgoCD is left owning the ensemble-level scalars around
+it and nothing inside it.
+
+That would still self-correct if the app healed, and it does not. Its sync policy
+is `{"automated": {}}` — no `prune`, no `selfHeal` — and **no** Application in
+this cluster sets either. Automated sync means *on a new git revision*, so
+in-cluster drift is detected, reported as `OutOfSync`, and then left alone
+indefinitely. The app has read `OutOfSync / Healthy` ever since, with exactly one
+field different: `db-steward`'s cron, `50 6 * * *` live against `30 5 * * *` in
+git — a deliberate test cron, and the only remaining difference.
+
+Two things to keep. **A hand apply to an Ensemble is a durable change, not a
+temporary one.** It survives every subsequent sync until someone commits to that
+path or forces one; three re-syncs of the same revision `014ce094` at 06:03,
+06:31 and 06:48 are what the repair actually took. **And `OutOfSync` is the only
+alarm there is** — nothing else in the fleet watches for a live object diverging
+from git. `gitops-auditor` reads precisely this signal every 4h, which makes its
+"drift that survives two consecutive runs" rule the one thing that would have
+caught this, and makes treating its output as noise expensive.
+
+## A question answered with nothing at all, and how that gets posted
+
+`homelab-responder-homelab-oracle-ch-bsf7n` reported `Succeeded` with
+`status.result` set to the runner's placeholder:
+
+    (Agent completed its task via tool calls but did not produce a final text summary.)
+
+In `reply` mode that string *is* the reply, so it went into the thread as the
+answer. The log names the mechanism exactly:
+
+    WARNING: terminal turn had empty text after 4 tool iterations;
+             discarding 112 chars of intermediate reasoning
+
+The model's last turn carried reasoning and no text, the runner threw the
+reasoning away, and the run ended clean - no `error`, no failed phase, nothing
+to alert on. Note the runner *does* have a reasoning fallback (the other wording
+is "empty text and no prior reasoning to fall back on") and it did not take it
+here, so a non-empty reasoning trace is no guarantee.
+
+Why it had nothing to say is the interesting half. The question was
+`I remember having pool pods or similar` - a follow-up in a thread whose earlier
+turn had already answered "no pooler". **A run carries one message and no thread
+history**, so the subject of that sentence simply was not in the prompt. The
+model reconstructed it by guessing: `k8s_pods_list labelSelector=app in
+(pool,redis,pooler)`, then an unfiltered cluster-wide `k8s_pods_list` (8.1 KB of
+pods that answer nothing), then `k8s_resources_list kind=Deployment
+labelSelector=app in (pool,redis,pooler,cache)`. Three of four calls were
+invented selectors, all empty, and then there was nothing to write.
+
+This looked like `db-steward`'s selector failure repeated in a third persona, and
+it partly is - the oracle now carries the same lookup budget, the same
+never-repeat-a-call rule, a `I looked for X and did not find it` exit named as a
+complete answer, and one rule the reporters do not need: **your last words are
+the answer**, because a reporter that goes silent loses a report while the
+responder posts a placeholder at a person who asked something.
+
+But the deeper cause was not the model. **`k8s_pods_list` has no `namespace`
+argument.** Read off the running server:
+
+    pods_list                params: fieldSelector, labelSelector
+    pods_list_in_namespace   params: fieldSelector, labelSelector, namespace   (required)
+
+The prompt said "`namespace` is its own argument on every one of them and never a
+term inside a label selector" - a rule copied from `sre-sentinel`, true of
+`events_list`, `pods_log` and `resources_list`, and false of the one tool the
+oracle actually reached for. `pods_list_in_namespace` was not in its allowlist at
+all. So the model wanted pods in a namespace, was handed a tool whose only
+filters are `fieldSelector` and `labelSelector`, and used the one it had. The
+guessing was the correct response to the tools it was given.
+
+Two lessons, and the second is the general one. `nodes_top` spells it
+`label_selector` while its five neighbours spell it `labelSelector`, so "every
+`k8s_*` tool" is never a safe quantifier - the prompt now names which tools take
+`namespace` and which do not. And **before blaming a prompt for a guessed
+argument, read the tool's schema**: a `tools/list` against the server is one
+command and it decides whether the fix is prose or an allowlist entry.
+
+Also new: name the contextless-follow-up case explicitly. "If the question is
+ambiguous, ask" was already in the prompt and lost, because a fragment like that
+does not *read* ambiguous - it reads like a sentence with a subject somewhere the
+model cannot see.
+
+### The guard for this is a measurement, not a validator rule
+
+`scripts/validate.py` had a `K8S_LOOKUP_TOOLS` constant whose comment claimed
+`_check_investigation_budget` and `_check_k8s_selector_rules` keyed off it. Both
+functions went with the prose validators in the MCP refactor; the constant was
+referenced exactly once, by its own comment, and reading it was a good way to
+believe the oracle was already covered. It is gone.
+
+Nothing replaces it in the validator, deliberately - the rule is about English in
+a prompt, and policing English is what did not converge. What replaces it is that
+the failure is *countable*, because the runner logs it. Over 48h:
+
+    curl -sG http://127.0.0.1:3100/loki/api/v1/query_range \
+      --data-urlencode 'query={namespace="automation"} |= "terminal turn had empty text"' \
+      --data-urlencode "start=$(( $(date -u +%s) - 172800 ))000000000" \
+      --data-urlencode "end=$(date -u +%s)000000000"
+
+seven runs: `gitops-auditor` twice, `sre-sentinel` three times, `endpoint-warden`
+once, the oracle once. So `deliveryMode: hook` removed the *dominant* cause of an
+empty result and this is the residue, at roughly one run in ten. Run that query
+before believing a prompt fixed it.
+
+Two of those are a different trigger and still open. `sre-sentinel-schedule-2`
+went silent this morning after `facts_alerts_snapshot`, `facts_volume_fill`,
+`memory_search` and then `execute_command kubectl --help` - the denied tool
+dispatching anyway, exactly as recorded above, and the model spending its turn
+discovering it has no shell instead of writing the report it already had the
+readings for.
+
+## Every MCP server the control plane runs, wired onto one persona
+
+The oracle held two servers - facts and k8s - and so could not answer questions
+this homelab actually gets. "Total size of each db" came back as node CPU load,
+because nothing it held could see inside a database. It now holds all six, in a
+priority order its prompt states, and the order is the design:
+
+| # | Server | What it answers | Tools |
+| - | ------ | --------------- | ----- |
+| 1 | facts | the eight standing readings, pre-computed | 9 |
+| 2 | k8s | what exists right now | 7 |
+| 3 | argocd | what is deployed and what each app owns | 4 |
+| 4 | postgres | what is *in* the databases | 4 |
+| 5 | grafana | history, via Loki | 2 |
+| 6 | github | what the source says | 3 |
+
+29 MCP tools, 23,452 bytes of schema, roughly 5,900 tokens per call against the
+65,536 window - measured by summing the `tools/list` entries the allowlists name,
+not estimated. The `token_usage` line in a run log is **cumulative across the
+loop**, not the last call: the failing run's `input=35886` was five calls' worth,
+which is why 29 tools is affordable where the raw number looks alarming.
+
+What decided the selections:
+
+- **A tool that returns a whole manifest is out**, whatever server it is on.
+  `argocd_get_resources` and `argocd_get_application_managed_resources` are the
+  ArgoCD equivalents of `k8s_resources_get`, already in `BANNED_TOOLS` for
+  returning a Secret's base64 values in full. `argocd_get_application_resource_tree`
+  returns the same *inventory* without the contents, and is the tool that answers
+  "do we have an X" without a selector at all.
+- **`argocd_get_resource_actions` is out because of its name.** It only lists the
+  actions available on a resource, but a 4B model reads a tool that enumerates
+  actions as permission to run one - the SkillPack lesson, where prose promising
+  `kubectl` beat a `toolPolicy` that denied it.
+- **`pg_execute_sql` is in, and the boundary is the server, not the policy.**
+  Core runs `crystaldba/postgres-mcp:0.3.0` with `--access-mode=restricted`, so
+  read-only is enforced where it cannot be prompted away. This is still the
+  largest single widening here: the responder is the only inbound persona, so a
+  Slack message now becomes a read query. It earns it - database sizes and row
+  counts are ordinary homelab questions and `facts_postgres_health` answers
+  neither. `execute_write_query`, which core's catalog denies, still does not
+  exist on this server.
+- **Grafana is two tools out of sixty-five.** The whole server is 73.8 KB of
+  schema and includes `create_datasource` and `update_datasource`;
+  `toolsAllow` leaves all sixty-three others unregistered, which is the
+  enforcing mechanism. What was wanted is `query_loki_logs`, because
+  `k8s_pods_log` only reaches a pod that still exists while Loki kept every
+  container - the single biggest gap for a persona asked "why did X fail".
+- **GitHub is read-only here.** `add_issue_comment` is the fleet's one write
+  tool and it stays on `renovate-reviewer`, which is bound to no channel. Giving
+  the inbound persona a write tool would collapse the trust split the two
+  ensembles exist to express.
+- **No `list_datasources`, still.** It is in `BANNED_TOOLS` and the reason now
+  applies to a persona that queries Loki *and* Prometheus: verified again on this
+  Grafana, Loki's uid is `P8E80F9AEF21F6940`, Prometheus's is the literal word
+  `prometheus`, and Alertmanager's is `alertmanager`. The prompt pins the Loki
+  literal and says outright that `prometheus` is not valid there.
+
+Two argument traps came out of reading the schemas, both the `chatId` failure in
+a new place - an optional argument a model will fill in rather than omit:
+
+- **`argocdBaseUrl`** is optional on every ArgoCD tool. `gitops-auditor` invented
+  `https://argocd.example.com` for it on a real run. The prompt now says never to
+  pass it.
+- **`datasourceUid`** is required on every Loki tool, so there is no omitting it -
+  which is why it has to be a pinned literal rather than a lookup.
+
+The cost to watch is not the window, it is the choosing: 32 allowed tools is the
+most any persona in this fleet has held, against a documented failure at sixty.
+The mitigation is that the prompt is a numbered ladder with "stop at the first one
+that answers" rather than a menu, and that steps 1 and 2 answer most questions in
+one call. If runs start wandering between servers, split the persona before
+trimming the ladder - breadth comes from more personas, not fatter ones.
+
 ## Known gaps
 
 - **Slack is wired for `homelab-ops` only, and it now works.** Both halves that
@@ -2475,6 +2825,17 @@ filter rather than a dispatch boundary. The boundaries that hold are
   signal has to come from outside the fleet — an alert on `AgentRun` phase, or an
   n8n workflow polling it, alongside `Catch Errors` which already does this job
   for n8n.
+
+  It happened again on 2026-08-26 and is worth the second date, because this one
+  shows how little is left behind. `renovate-reviewer` fired at 06:00, the Ollama
+  pod restarted into core's 96Ki context-window change at 06:01:00, and the run
+  died three seconds later on `dial tcp 10.43.8.177:11434: connect: connection
+  refused`. What the `AgentRun` retained: `phase: Failed`, an empty
+  `status.message`, an empty `status.result`, `conditions: null` — and the Job
+  already pruned, so the pod log was gone too. The entire diagnosis came from the
+  controller log, which is where `agent.run.failed` with `reason: llm_error`
+  lands. The reviewer posts nowhere by design, so its one weekday run vanished
+  with nothing anywhere to say it had.
 - **A Slack binding is also an inbound path.** `slackOptions.allowedTriggers:
   [mention]` keeps it to an explicit @-mention rather than every message in the
   channel, which matters when one GPU serves the whole fleet. Narrow it further
@@ -2506,3 +2867,18 @@ filter rather than a dispatch boundary. The boundaries that hold are
   outbound message — is one line upstream: filter on `metadata.instanceName`,
   which the envelope already carries. `deliveryMode: hook` avoids it meanwhile.
   See `#every-report-arrived-five-times-and-only-one-agent-sent-it`.
+- **One malformed request takes the postgres MCP server down.** Found while
+  reading its tool list: a `tools/list` sent *before* `initialize` gets no reply
+  from the FastMCP child, and core's stdio adapter - one child, one pipe, no
+  per-request timeout - then blocks forever, including on `/healthz` and
+  `/readyz`. The liveness probe kills the container about 40s later and it comes
+  back clean, so the blast radius is one restart and roughly a minute of every
+  persona's `pg_*` tools timing out. Verified twice on
+  `crystaldba/postgres-mcp:0.3.0` (restart count 0 -> 2, `Error/137`, "Liveness
+  probe failed: context deadline exceeded"). The other four servers reject a
+  pre-init request cleanly - `kubernetes-mcp-server` answers `method
+  "tools/list" is invalid during session initialization` - so this is the
+  adapter, not the protocol. The fix is a read deadline on the stdio adapter in
+  datahub-local-core, or health handlers that do not share the child's lock.
+  Handshake properly (`initialize`, `notifications/initialized`, then
+  `tools/list`) when reading that server's manifest by hand.

@@ -31,6 +31,10 @@ sympozium_ensembles:
   homelab-ops:
     enabled: true
 
+    agentSandbox:
+      enabled: true
+      runtimeClass: gvisor
+
     channelConfigs:
       slack: mcp-slack-token
 
@@ -40,13 +44,21 @@ sympozium_ensembles:
 
   homelab-reviewer:
     enabled: true
-    
+
+    agentSandbox:
+      enabled: true
+      runtimeClass: gvisor
+
     baseURL: http://datahub-local-core-data-ollama.data.svc:11434/v1
     
     policyRef: permissive
 
   homelab-responder:
     enabled: true
+
+    agentSandbox:
+      enabled: true
+      runtimeClass: gvisor
 
     channelConfigs:
       slack: mcp-slack-token

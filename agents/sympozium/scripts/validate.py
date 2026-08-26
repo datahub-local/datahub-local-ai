@@ -155,7 +155,17 @@ VALUES_ONLY_KEYS = (
     "channelConfigs",
     # A sender id names a person, not the agent, so it describes the deployment.
     "channelAccessControl",
+    # Whether a run gets a kernel boundary depends on runsc being installed on the
+    # nodes and on the controller holding RBAC for agents.x-k8s.io. Both are
+    # properties of the cluster, so no persona may ask for a sandbox itself.
+    "agentSandbox",
 )
+
+# The only RuntimeClass this fleet installs (datahub-local-bootstrap,
+# roles/bootstrap/tasks/security/gvisor.yml). Naming any other one deploys
+# cleanly and leaves every sandbox Pending, because the RuntimeClass carries a
+# nodeSelector no node satisfies.
+RUNTIME_CLASSES = {"gvisor"}
 
 # Allowlisted tools that change something outside the cluster's read path. Only
 # one persona holds any of these today, and it is the reason homelab-reviewer is
@@ -661,6 +671,51 @@ def _channel_access(ensemble_name):
     return control if isinstance(control, dict) else {}
 
 
+def _check_agent_sandbox(ensemble_name, warnings):
+    """Sanity-check one ensemble's sandbox request against what the fleet installs.
+
+    Two ways to ask for a sandbox and get silence instead. A runtimeClass this
+    cluster has no RuntimeClass for leaves every sandbox Pending, because the
+    class carries a nodeSelector on datahub.local/gvisor and nothing matches. And
+    a warmPool holds pre-warmed pods resident for as long as the ensemble exists,
+    which on a seven-node homelab with one GPU is a standing cost rather than a
+    cold-start saving - so it is warned about rather than assumed wanted.
+
+    What cannot be checked from here is the half that lives in the other repo:
+    `agentSandbox.enabled` in datahub-local-core's sympozium values is what
+    grants the controller RBAC on agents.x-k8s.io, and without it a run fails
+    before creating a pod. Nothing in this repository can see that flag.
+    """
+    values = _values()
+    if values is None:
+        return
+    entry = (values.get("sympozium_ensembles") or {}).get(ensemble_name) or {}
+    sandbox = entry.get("agentSandbox")
+    if not isinstance(sandbox, dict) or not sandbox.get("enabled"):
+        return
+
+    runtime = sandbox.get("runtimeClass")
+    if runtime and runtime not in RUNTIME_CLASSES:
+        raise Fail(
+            f"{ensemble_name}: agentSandbox.runtimeClass {runtime!r} is not "
+            f"installed on this fleet. Known: {', '.join(sorted(RUNTIME_CLASSES))}. "
+            f"A RuntimeClass that does not exist deploys cleanly and leaves every "
+            f"sandbox Pending"
+        )
+    if not runtime:
+        warnings.append(
+            f"{ensemble_name}: agentSandbox is enabled with no runtimeClass, so it "
+            f"falls back to agentSandbox.defaultRuntimeClass in core's values. "
+            f"State it here instead - the fallback is in another repository"
+        )
+    if sandbox.get("warmPool"):
+        warnings.append(
+            f"{ensemble_name}: agentSandbox.warmPool keeps pre-warmed sandbox pods "
+            f"resident for the life of the ensemble. Confirm that is wanted on a "
+            f"fleet with one GPU before leaving it set"
+        )
+
+
 def _check_inbound_is_restricted(persona_name, persona, access, warnings):
     """A channel binding is an inbound surface; require it to name who may use it.
 
@@ -970,6 +1025,7 @@ def check(project):
     warnings = []
     channel_secrets = _channel_secrets(name)
     access = _channel_access(name)
+    _check_agent_sandbox(name, warnings)
     delivery = _delivery_config(name)
     names = [
         _check_persona(project, path, used, channel_secrets, access, delivery, warnings)

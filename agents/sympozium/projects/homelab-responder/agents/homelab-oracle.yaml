@@ -142,8 +142,8 @@ mcpServers:
     timeout: 30
     toolsPrefix: slack
     toolsAllow:
-      - conversations_history
-      - conversations_replies
+      - slack_get_channel_history
+      - slack_get_thread_replies
 
 toolPolicy:
   allow:
@@ -176,8 +176,8 @@ toolPolicy:
     - github_search_code
     - github_get_file_contents
     - github_list_commits
-    - slack_conversations_history
-    - slack_conversations_replies
+    - slack_slack_get_channel_history
+    - slack_slack_get_thread_replies
     - memory_search
     - memory_store
     - send_channel_message

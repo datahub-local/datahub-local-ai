@@ -2600,20 +2600,27 @@ not a fix.
 ### Agent Sandbox is disabled pending the controller fix
 
 On 2026-08-27, all three `sympozium_ensembles` entries were set to
-`agentSandbox.enabled: false` pending the complete AgentRun propagation fix.
-This keeps the requested state explicit in `values/default.yaml.gotmpl` rather
-than relying on an omitted field. Do **not** re-enable it for only the scheduled
-personas: the Slack responder, schedules, API, delegation and pipeline creators
-must all copy the Agent's configuration into the AgentRun, and each needs a
-regression test under the policy that requires Agent Sandbox.
+`agentSandbox.enabled: false` and returned to the previous `policyRef:
+permissive` pending the complete AgentRun propagation fix. This keeps the
+requested state explicit in `values/default.yaml.gotmpl` rather than relying on
+an omitted field. Do **not** re-enable it for only the scheduled personas: the
+Slack responder, schedules, API, delegation and pipeline creators must all copy
+the Agent's configuration into the AgentRun, and each needs a regression test
+under the policy that requires Agent Sandbox.
 
-The core policy still has `agentSandboxPolicy.required: true`, so this values
-change is not effective until core either temporarily binds the ensembles to a
-policy that does not require Agent Sandbox or relaxes that requirement. Leaving
-the current hardened policy bound would deny unsandboxed runs, exactly as it
-should. The resume gate is an upstream/controller release that demonstrates a
-gVisor-executed Sandbox CR for every trigger path, followed by a live probe that
-checks the resulting pod labels and required Ollama/MCP network reachability.
+The values validator requires `permissive` while Agent Sandbox is disabled, and
+the core hardened policy while it is enabled. The resume gate is an
+upstream/controller release that demonstrates a gVisor-executed Sandbox CR for
+every trigger path, followed by a live probe that checks the resulting pod
+labels and required Ollama/MCP network reachability.
+
+When that fix lands, update this section with the controller version or upstream
+PR, the trigger paths verified, and the live probe evidence. In the same change,
+set all three `agentSandbox.enabled` values back to `true` and restore all three
+`policyRef` values to
+`datahub-local-core-automation-sympozium-hardened-agent-sandbox`; the validator
+is intentionally coupled to those two states so a partial rollback cannot be
+rendered.
 
 ## A hand `kubectl apply` owns the personas, and nothing takes them back
 

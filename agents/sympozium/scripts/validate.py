@@ -168,10 +168,11 @@ VALUES_ONLY_KEYS = (
 # nodeSelector no node satisfies.
 RUNTIME_CLASSES = {"gvisor"}
 
-# Every Ensemble is bound to this core-managed admission boundary. The policy
-# injects and requires the Agent Sandbox CRD backend, then limits that backend
-# to the one RuntimeClass known to be installed on this fleet.
+# The hardened policy is required only while Agent Sandbox is enabled. The
+# temporary permissive binding preserves the pre-sandbox behavior while core
+# fixes propagation from each Agent to every trigger-created AgentRun.
 HARDENED_POLICY_REF = "datahub-local-core-automation-sympozium-hardened-agent-sandbox"
+TEMPORARY_POLICY_REF = "permissive"
 
 # Allowlisted tools that change something outside the cluster's read path. Only
 # one persona holds any of these today, and it is the reason homelab-reviewer is
@@ -687,12 +688,13 @@ def _check_agent_sandbox(ensemble_name, warnings):
     if values is None:
         return
     entry = (values.get("sympozium_ensembles") or {}).get(ensemble_name) or {}
-    if entry.get("policyRef") != HARDENED_POLICY_REF:
-        raise Fail(
-            f"{ensemble_name}: policyRef must be {HARDENED_POLICY_REF!r}; every "
-            f"ensemble must use the core-managed Agent Sandbox admission policy"
-        )
     sandbox = entry.get("agentSandbox")
+    expected_policy = HARDENED_POLICY_REF if isinstance(sandbox, dict) and sandbox.get("enabled") else TEMPORARY_POLICY_REF
+    if entry.get("policyRef") != expected_policy:
+        raise Fail(
+            f"{ensemble_name}: policyRef must be {expected_policy!r} while "
+            f"agentSandbox.enabled is {bool(isinstance(sandbox, dict) and sandbox.get('enabled'))}"
+        )
     if not isinstance(sandbox, dict) or not sandbox.get("enabled"):
         return
 

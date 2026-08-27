@@ -22,13 +22,13 @@ Two rules for writing here:
 
 ## Where things live
 
-| What | Where | Why |
-| --- | --- | --- |
-| Values only, no rationale | `projects/*/ensemble.yaml`, `projects/*/agents/*.yaml`, `values/default.yaml.gotmpl`, `templates/*.yaml` | A comment restating a decision is a second copy of it |
-| Structure, conventions, runbooks, how to test | `README.md` | Reference you read before doing something |
-| Every *why* — knob rationale, per-persona decisions, incidents | this file | Read when something surprises you |
-| Agent behaviour | `projects/*/prompts/*.md` | The model only reads the prompts |
-| Machine-checkable rules | `scripts/validate.py` | A convention nothing enforces is a suggestion |
+| What                                                           | Where                                                                                                    | Why                                                   |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| Values only, no rationale                                      | `projects/*/ensemble.yaml`, `projects/*/agents/*.yaml`, `values/default.yaml.gotmpl`, `templates/*.yaml` | A comment restating a decision is a second copy of it |
+| Structure, conventions, runbooks, how to test                  | `README.md`                                                                                              | Reference you read before doing something             |
+| Every *why* — knob rationale, per-persona decisions, incidents | this file                                                                                                | Read when something surprises you                     |
+| Agent behaviour                                                | `projects/*/prompts/*.md`                                                                                | The model only reads the prompts                      |
+| Machine-checkable rules                                        | `scripts/validate.py`                                                                                    | A convention nothing enforces is a suggestion         |
 
 `values/default.yaml.gotmpl` has one trap worth keeping in mind before editing
 it: helmfile renders the file as a Go template **including its comments**, so a
@@ -104,14 +104,14 @@ platform, not of any one agent.
 
 Local times are Madrid, which is UTC+2 in summer and UTC+1 in winter.
 
-| Persona | Schedule | Why that cadence |
-| --- | --- | --- |
-| `sre-sentinel` | heartbeat, 6h | Not the detector — the digest. Alertmanager already routes every alert to Robusta (`severity =~ ".*"`, `group_wait 1s`) and Robusta posts to Slack, so this agent adds new-vs-chronic, root cause, and the volume fill check no alert rule covers. At 30m with unconditional delivery it was 48 messages a day restating Robusta. |
-| `endpoint-warden` | `30 4 * * *` | 04:30 UTC = 06:30 Madrid summer, 05:30 winter. |
-| `service-janitor` | `0 5 * * *` | 05:00 UTC = 07:00 Madrid summer, 06:00 winter. |
-| `db-steward` | `30 5 * * *` | 05:30 UTC = 07:30 Madrid summer. Half an hour after the warden so the two do not contend for the GPU. |
-| `gitops-auditor` | every 4h | Nothing else watches ArgoCD sync state — Robusta forwards Kubernetes events and Prometheus alerts, not drift — so this is the only source. 4h still gives its "drift that survives two consecutive runs" rule an 8h window to confirm against, at a sixth of the message volume. |
-| `renovate-reviewer` | `0 6 * * 1-5` | 06:00 UTC weekdays = 08:00 Madrid summer, 07:00 winter. Daily, not hourly: a 4B model re-reviewing the same PR every hour is noise, and it would hold the GPU against the four ops agents. |
+| Persona             | Schedule      | Why that cadence                                                                                                                                                                                                                                                                                                                  |
+| ------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sre-sentinel`      | heartbeat, 6h | Not the detector — the digest. Alertmanager already routes every alert to Robusta (`severity =~ ".*"`, `group_wait 1s`) and Robusta posts to Slack, so this agent adds new-vs-chronic, root cause, and the volume fill check no alert rule covers. At 30m with unconditional delivery it was 48 messages a day restating Robusta. |
+| `endpoint-warden`   | `30 4 * * *`  | 04:30 UTC = 06:30 Madrid summer, 05:30 winter.                                                                                                                                                                                                                                                                                    |
+| `service-janitor`   | `0 5 * * *`   | 05:00 UTC = 07:00 Madrid summer, 06:00 winter.                                                                                                                                                                                                                                                                                    |
+| `db-steward`        | `30 5 * * *`  | 05:30 UTC = 07:30 Madrid summer. Half an hour after the warden so the two do not contend for the GPU.                                                                                                                                                                                                                             |
+| `gitops-auditor`    | every 4h      | Nothing else watches ArgoCD sync state — Robusta forwards Kubernetes events and Prometheus alerts, not drift — so this is the only source. 4h still gives its "drift that survives two consecutive runs" rule an 8h window to confirm against, at a sixth of the message volume.                                                  |
+| `renovate-reviewer` | `0 6 * * 1-5` | 06:00 UTC weekdays = 08:00 Madrid summer, 07:00 winter. Daily, not hourly: a 4B model re-reviewing the same PR every hour is noise, and it would hold the GPU against the four ops agents.                                                                                                                                        |
 
 Other per-persona notes:
 
@@ -157,11 +157,11 @@ webhook decodes strictly — an unknown key is rejected outright
 **Delivery.** Channels are split by what a reader would do about the message, not
 by which agent produced it, because a channel is really one notification setting:
 
-| Channel | Carries | Notifications |
-| --- | --- | --- |
+| Channel                 | Carries                                                             | Notifications          |
+| ----------------------- | ------------------------------------------------------------------- | ---------------------- |
 | `#monitoring-ai-health` | the daily and weekly personas — hardware, databases, weekly cleanup | scan-later, can be off |
-| `#monitoring-ai-alerts` | `sre-sentinel` | on |
-| `#monitoring-ai-drift` | `gitops-auditor` | on |
+| `#monitoring-ai-alerts` | `sre-sentinel`                                                      | on                     |
+| `#monitoring-ai-drift`  | `gitops-auditor`                                                    | on                     |
 
 Keeping the two frequent personas out of `-health` is what lets `-alerts` keep
 notifications on without the daily hardware report training you to mute it.
@@ -399,16 +399,36 @@ Two things follow.
 Fixing this upstream means not resetting a schedule's tick on a spec update that
 did not change the cron.
 
+## Hardened Agent Sandbox policy
+
+All ensembles bind the core-managed
+`datahub-local-core-automation-sympozium-hardened-agent-sandbox` policy. Its
+`sandboxPolicy.agentSandboxPolicy` requires the Kubernetes Agent Sandbox backend,
+injects `gvisor` when a run omits a runtime class, and rejects any other runtime
+class. It also blocks shell execution, local file writes, delegation and
+subagents at admission, disables code execution/browser/subagent feature gates,
+limits lifecycle-hook images to the Slack delivery image registry, and rejects
+lifecycle RBAC for identities, secrets and RBAC resources. Per-persona
+`mcpServers[].toolsAllow` and `toolPolicy` remain the precise capability boundary
+for the tools actually exposed to a model.
+
+This is deliberately not a `networkPolicy.denyAll` policy. The needed
+allow-egress peers for Ollama and the MCP services must be verified in the core
+chart before they are enforced; a deny-all policy without those verified peers
+silently cuts every agent off from the model and its facts. The Agent Sandbox
+policy is still a hard admission requirement: a run that cannot use gVisor must
+be rejected rather than falling back to a Job.
+
 ## Why the `permissive` policy
 
 Both ensembles bind `policyRef: permissive`, which looks wrong until you read
 the three built-in `SympoziumPolicy` objects:
 
-| Policy | `networkPolicy.denyAll` | `toolGating.defaultAction` |
-| --- | --- | --- |
-| `permissive` | `false` | `allow` |
-| `restrictive` | **`true`** | `deny` |
-| `network-isolated` | **`true`** | `allow` (but `fetch_url` denied) |
+| Policy             | `networkPolicy.denyAll` | `toolGating.defaultAction`       |
+| ------------------ | ----------------------- | -------------------------------- |
+| `permissive`       | `false`                 | `allow`                          |
+| `restrictive`      | **`true`**              | `deny`                           |
+| `network-isolated` | **`true`**              | `allow` (but `fetch_url` denied) |
 
 `restrictive` and `network-isolated` both deny all egress except DNS and the
 event bus, and neither declares `allowedEgress`. Binding either would cut the
@@ -1055,11 +1075,11 @@ Two things this cost that are worth keeping in mind:
 
 `grafana_list_datasources` returns all three datasources this Grafana serves:
 
-| name | uid | type |
-| --- | --- | --- |
-| Prometheus | `prometheus` | prometheus |
-| Alertmanager | `alertmanager` | alertmanager |
-| Loki | `P8E80F9AEF21F6940` | loki |
+| name         | uid                 | type         |
+| ------------ | ------------------- | ------------ |
+| Prometheus   | `prometheus`        | prometheus   |
+| Alertmanager | `alertmanager`      | alertmanager |
+| Loki         | `P8E80F9AEF21F6940` | loki         |
 
 Only one of those *looks* like a uid. A 4B model reads the list, takes the hex
 string for the real identifier and the bare word `prometheus` for a placeholder
@@ -1087,11 +1107,11 @@ every Prometheus query 404ing, the mandated **Fleet** table still required seven
 columns per node — and the model filled the disk column from the one tool that
 had answered, `k8s_nodes_top`, whose memory percentages it relabelled as disk:
 
-| node | reported "disk fill" | `kubectl top` memory | actual `df` |
-| --- | --- | --- | --- |
-| datahublocal-orpi-0 | 79% (CRITICAL) | 81% | **5%** |
-| datahublocal-amd-2 | 35% | 34% | — |
-| datahublocal-nas | 16% | 16% | — |
+| node                | reported "disk fill" | `kubectl top` memory | actual `df` |
+| ------------------- | -------------------- | -------------------- | ----------- |
+| datahublocal-orpi-0 | 79% (CRITICAL)       | 81%                  | **5%**      |
+| datahublocal-amd-2  | 35%                  | 34%                  | —           |
+| datahublocal-nas    | 16%                  | 16%                  | —           |
 
 It then emitted the whole report twice with different numbers, the second copy
 annotating its own substitution (`~45% disk fill (calculated from k8s_nodes_top
@@ -1113,12 +1133,12 @@ Those three changes made the table *correct to produce* and left it a table the
 model still had to retype. Two probe runs against the fixed facts server show
 what that costs even when every reading handed over is right:
 
-| what the tool printed | what the report said |
-| --- | --- |
-| `amd-1 ... smart 47.0 ... uptime 8.1d` | `amd-1 ... smart n/a` |
+| what the tool printed                   | what the report said                   |
+| --------------------------------------- | -------------------------------------- |
+| `amd-1 ... smart 47.0 ... uptime 8.1d`  | `amd-1 ... smart n/a`                  |
 | `orpi-0 ... smart 38.0 ... uptime 8.1d` | `orpi-0 ... smart n/a ... uptime 38.0` |
-| `orpi-3 ... 6.1.115` | `6.1.1.115` |
-| `nas: runtime 13m` | `31 minute runtime` |
+| `orpi-3 ... 6.1.115`                    | `6.1.1.115`                            |
+| `nas: runtime 13m`                      | `31 minute runtime`                    |
 
 orpi-0's SMART reading landed one column left, in uptime, and both rows gained an
 `n/a`. That is worse than a typo: `n/a` is a **defined** word here - *this machine
@@ -1155,12 +1175,12 @@ The same reports flagged `datahublocal-orpi-0` on `7.1.2-edge-rockchip64` agains
 orpi-1/2/3 on `6.1.115-vendor-rk35xx` as version drift, every run, for days. It
 is not drift — it is four hardware classes on four kernel trees:
 
-| node(s) | hardware | OS | kernel |
-| --- | --- | --- | --- |
-| orpi-0 | Orange Pi 4 LTS (RK3399) | DietPi / trixie | `7.1.2-edge-rockchip64` |
-| orpi-1, orpi-2, orpi-3 | Orange Pi 5B (RK3588) | DietPi / trixie | `6.1.115-vendor-rk35xx` |
-| amd-1, amd-2 | amd64 | Debian 13 trixie | `6.12.96` / `6.12.101+deb13-amd64` |
-| nas | Intel N305 | TrueNAS / bookworm | `6.12.15-production+truenas` |
+| node(s)                | hardware                 | OS                 | kernel                             |
+| ---------------------- | ------------------------ | ------------------ | ---------------------------------- |
+| orpi-0                 | Orange Pi 4 LTS (RK3399) | DietPi / trixie    | `7.1.2-edge-rockchip64`            |
+| orpi-1, orpi-2, orpi-3 | Orange Pi 5B (RK3588)    | DietPi / trixie    | `6.1.115-vendor-rk35xx`            |
+| amd-1, amd-2           | amd64                    | Debian 13 trixie   | `6.12.96` / `6.12.101+deb13-amd64` |
+| nas                    | Intel N305               | TrueNAS / bookworm | `6.12.15-production+truenas`       |
 
 The seed said "kernel and OS versions should match across nodes; the odd one out
 is the finding", which is true only within a class. Different SoC families cannot
@@ -1215,10 +1235,10 @@ figure can be handed to this model correctly and still arrive wrong.
 
 Not instrumented, so no prompt pretends to check them:
 
-| Wanted | Missing | Where the fix goes |
-| --- | --- | --- |
-| S3 capacity | Garage exports no metrics and is not scraped — no `garage_*` series exist | core, a ServiceMonitor — meanwhile the janitor reads its PVCs |
-| repo-level CI history | the GitHub MCP server ships no Actions/workflow tools | upstream `mcp/github`, or a different server |
+| Wanted                | Missing                                                                   | Where the fix goes                                            |
+| --------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| S3 capacity           | Garage exports no metrics and is not scraped — no `garage_*` series exist | core, a ServiceMonitor — meanwhile the janitor reads its PVCs |
+| repo-level CI history | the GitHub MCP server ships no Actions/workflow tools                     | upstream `mcp/github`, or a different server                  |
 
 Two rows left this table on 2026-08-23. **systemd unit state** and **pending OS
 package updates** are now instrumented — see *Follow-ups to share with the other
@@ -1425,10 +1445,10 @@ Sixty, because the grafana MCP server alone exposes 66 tools and the persona onl
 denied 14 of them. Measured with two throwaway `AgentRun`s that differ in nothing
 but `toolPolicy`, each with a one-line system prompt and no task worth the name:
 
-| Run | `toolPolicy` | First-call input |
-| --- | --- | --- |
-| mirrors the web proxy | absent | **40,500 tokens** |
-| mirrors the schedule | the persona's nine | 4,095 tokens |
+| Run                   | `toolPolicy`       | First-call input  |
+| --------------------- | ------------------ | ----------------- |
+| mirrors the web proxy | absent             | **40,500 tokens** |
+| mirrors the schedule  | the persona's nine | 4,095 tokens      |
 
 Ollama reported the live window as `context_length: 32768` at the time, so
 40,500 did not fit. Nothing errors: the request is truncated and the run proceeds
@@ -1592,12 +1612,12 @@ punches the holes back. On port 8080 it allows exactly three destinations —
 `app.kubernetes.io/component=apiserver` — and the two things our agents need most
 are labelled neither:
 
-| Destination | Its labels | Reachable from an agent pod |
-| --- | --- | --- |
-| per-persona memory server | `sympozium.ai/component=memory` | yes |
-| **shared memory server** | `sympozium.ai/component=shared-memory` | **no** |
-| **MCP servers** | `app.kubernetes.io/name=mcpserver` | **no** |
-| Ollama | — (bare `11434` rule, core's `extraEgressPorts`) | yes |
+| Destination               | Its labels                                       | Reachable from an agent pod |
+| ------------------------- | ------------------------------------------------ | --------------------------- |
+| per-persona memory server | `sympozium.ai/component=memory`                  | yes                         |
+| **shared memory server**  | `sympozium.ai/component=shared-memory`           | **no**                      |
+| **MCP servers**           | `app.kubernetes.io/name=mcpserver`               | **no**                      |
+| Ollama                    | — (bare `11434` rule, core's `extraEgressPorts`) | yes                         |
 
 Measured, not inferred — a throwaway pod labelled `sympozium.ai/role=agent`
 reproduces it exactly. Note that the first request or two *succeed*: k3s programs
@@ -1937,15 +1957,15 @@ upstream. Paste this as-is:
 The 2026-08-24 13:25 Fleet table read plausibly and was wrong in five places at
 once. Ground truth from Prometheus at the time, against what it printed:
 
-| Node | Real disk | Printed | Real uptime | Printed | Real apt-sec | Printed |
-| --- | --- | --- | --- | --- | --- | --- |
-| orpi-0 | 8.6% | `unavailable` | 7.1d | ~2y | 5 | 0 |
-| orpi-1 | 31.0% | 35% | 7.1d | ~2y | 5 | 5 |
-| orpi-2 | 31.1% | `unavailable` | 7.1d | ~2y | 5 | `-` |
-| orpi-3 | 34.7% | `unavailable` | 7.1d | ~2y | 5 | `-` |
-| amd-1 | 16.0% | 15% | 7.1d | ~2y | 0 | 0 |
-| amd-2 | 13.3% | `unavailable` | 6.0d | ~2y | 0 | 0 |
-| nas | 2.1% | 16% | 7.1d | ~2y | 0 | 0 |
+| Node   | Real disk | Printed       | Real uptime | Printed | Real apt-sec | Printed |
+| ------ | --------- | ------------- | ----------- | ------- | ------------ | ------- |
+| orpi-0 | 8.6%      | `unavailable` | 7.1d        | ~2y     | 5            | 0       |
+| orpi-1 | 31.0%     | 35%           | 7.1d        | ~2y     | 5            | 5       |
+| orpi-2 | 31.1%     | `unavailable` | 7.1d        | ~2y     | 5            | `-`     |
+| orpi-3 | 34.7%     | `unavailable` | 7.1d        | ~2y     | 5            | `-`     |
+| amd-1  | 16.0%     | 15%           | 7.1d        | ~2y     | 0            | 0       |
+| amd-2  | 13.3%     | `unavailable` | 6.0d        | ~2y     | 0            | 0       |
+| nas    | 2.1%      | 16%           | 7.1d        | ~2y     | 0            | 0       |
 
 Every figure was available. Four rows said `unavailable`, the NAS was given
 amd-1's disk percentage, orpi-1 was given roughly orpi-3's, every uptime was
@@ -2693,14 +2713,14 @@ this homelab actually gets. "Total size of each db" came back as node CPU load,
 because nothing it held could see inside a database. It now holds all six, in a
 priority order its prompt states, and the order is the design:
 
-| # | Server | What it answers | Tools |
-| - | ------ | --------------- | ----- |
-| 1 | facts | the eight standing readings, pre-computed | 9 |
-| 2 | k8s | what exists right now | 7 |
-| 3 | argocd | what is deployed and what each app owns | 4 |
-| 4 | postgres | what is *in* the databases | 4 |
-| 5 | grafana | history, via Loki | 2 |
-| 6 | github | what the source says | 3 |
+| #   | Server   | What it answers                           | Tools |
+| --- | -------- | ----------------------------------------- | ----- |
+| 1   | facts    | the eight standing readings, pre-computed | 9     |
+| 2   | k8s      | what exists right now                     | 7     |
+| 3   | argocd   | what is deployed and what each app owns   | 4     |
+| 4   | postgres | what is *in* the databases                | 4     |
+| 5   | grafana  | history, via Loki                         | 2     |
+| 6   | github   | what the source says                      | 3     |
 
 29 MCP tools, 23,452 bytes of schema, roughly 5,900 tokens per call against the
 65,536 window - measured by summing the `tools/list` entries the allowlists name,

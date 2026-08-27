@@ -296,16 +296,29 @@ def _longhorn(stale_hours: float) -> list[str]:
             )
         ]
 
-    rows = [
-        [volume, render.age(_epoch_to_iso(value))] for volume, value in sorted(backed_up.items())
-    ]
-    lines = render.table(["volume", "newest backup"], rows)
+    rows = []
+    stale = []
+    for volume, value in sorted(backed_up.items()):
+        timestamp = _epoch_to_iso(value)
+        age_days = render.days_until(timestamp)
+        age_hours = -age_days * 24 if age_days is not None else None
+        state = "STALE" if age_hours is not None and age_hours > stale_hours else "ok"
+        if state == "STALE":
+            stale.append(volume)
+        rows.append([volume, render.age(timestamp), state])
+    lines = render.table(["volume", "newest backup", "state"], rows)
     if never:
         lines.append(
             f"{len(never)} of {len(values)} volume(s) have no backup while others do, "
             "which is a partial rollout rather than a setting: "
             + ", ".join(never[:6])
             + (", ..." if len(never) > 6 else "")
+        )
+    if stale:
+        lines.append(
+            f"{len(stale)} volume(s) have a backup older than {stale_hours:.0f}h: "
+            + ", ".join(stale[:6])
+            + (", ..." if len(stale) > 6 else "")
         )
     lines.append(f"STALE threshold is {stale_hours:.0f}h.")
     return lines

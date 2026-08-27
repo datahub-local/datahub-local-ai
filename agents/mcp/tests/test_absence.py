@@ -109,6 +109,75 @@ class TestNodeFleetAbsence:
         assert "absent from every metric" in out
 
 
+class TestNodeUpdateFindings:
+    @staticmethod
+    def _scoped():
+        return {
+            key: (Reading(values={}, ok=True), set())
+            for key in ("smart_healthy", "smart_temp_c", "edac_corr", "edac_uncorr")
+        }
+
+    def test_pending_security_and_total_updates_are_reported(self):
+        from homelab_facts.tools import nodes
+
+        readings = {
+            key: Reading(values={"n1": 0.0}, ok=True) for key in nodes._QUERIES
+        }
+        readings["apt_security"] = Reading(values={"n1": 2.0}, ok=True)
+        readings["apt_total"] = Reading(values={"n1": 5.0}, ok=True)
+
+        notes = nodes._notes(
+            readings,
+            self._scoped(),
+            ["n1"],
+            {"security_updates_warn": 1},
+            "",
+        )
+
+        assert any("2 security update(s) pending" in note for note in notes)
+        assert any("5 total package update(s) pending" in note for note in notes)
+
+    def test_zero_pending_updates_are_not_findings(self):
+        from homelab_facts.tools import nodes
+
+        readings = {
+            key: Reading(values={"n1": 0.0}, ok=True) for key in nodes._QUERIES
+        }
+        readings["systemd_ok"] = Reading(values={"n1": 1.0}, ok=True)
+
+        notes = nodes._notes(
+            readings,
+            self._scoped(),
+            ["n1"],
+            {"security_updates_warn": 1},
+            "",
+        )
+
+        assert notes == ["Nothing outside a threshold."]
+
+    def test_critical_temperature_uses_the_critical_threshold(self):
+        from homelab_facts.tools import nodes
+
+        readings = {
+            key: Reading(values={"n1": 0.0}, ok=True) for key in nodes._QUERIES
+        }
+        readings["systemd_ok"] = Reading(values={"n1": 1.0}, ok=True)
+        readings["temp_c"] = Reading(values={"n1": 90.0}, ok=True)
+
+        notes = nodes._notes(
+            readings,
+            self._scoped(),
+            ["n1"],
+            {
+                "temperature_warn_celsius": 75,
+                "temperature_critical_celsius": 85,
+            },
+            "",
+        )
+
+        assert any("90.0C (CRITICAL, threshold 85C)" in note for note in notes)
+
+
 class TestAgesAreToolResults:
     """Nothing in an agent run injects a clock, so the server does the subtraction."""
 

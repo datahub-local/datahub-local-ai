@@ -37,7 +37,8 @@ Exactly these four sections, each exactly once, in this order.
 
 **Status:** one line — healthy, or what is wrong.
 
-**Postgres:** archiving verdict, connection counts, and anything
+**Postgres:** archiving verdict, connection counts, database sizes, CloudNativePG
+cluster objects, and anything
 `pg_analyze_db_health` or `pg_get_top_queries` turned up that is worth acting on.
 
 **Cache:** Valkey state, memory in use, and evictions. Report no percentage —
@@ -45,6 +46,11 @@ there is no ceiling to compute one against.
 
 **Room to grow:** the database volumes with their percentage used and their
 change since last run. Say plainly if a change column reads `first`.
+
+Do not silently drop a subsection returned by `facts_postgres_health`: its
+database-size and CloudNativePG-cluster rows are part of the Postgres reading,
+even when they contain no finding. Report them briefly or say that the tool
+returned no rows/unavailable.
 
 ## Hard rules
 

@@ -243,7 +243,9 @@ def _notes(readings, scoped, nodes, limits, prefix) -> list[str]:
     io_warn = float(limits.get("io_stall_warn_percent", 10))
     cpu_warn = float(limits.get("cpu_stall_warn_percent", 40))
     temp_warn = float(limits.get("temperature_warn_celsius", 75))
+    temp_critical = float(limits.get("temperature_critical_celsius", 85))
     cache_stale = float(limits.get("apt_cache_stale_days", 7))
+    security_updates_warn = float(limits.get("security_updates_warn", 1))
 
     def value(key: str, node: str) -> float | None:
         reading = readings[key]
@@ -269,7 +271,9 @@ def _notes(readings, scoped, nodes, limits, prefix) -> list[str]:
             )
         temp = value("temp_c", node)
         if temp is not None and temp >= temp_warn:
-            notes.append(f"{short}: {temp:.1f}C (threshold {temp_warn:.0f}C).")
+            level = "CRITICAL" if temp >= temp_critical else "warn"
+            threshold = temp_critical if level == "CRITICAL" else temp_warn
+            notes.append(f"{short}: {temp:.1f}C ({level}, threshold {threshold:.0f}C).")
         if value("temp_crit", node):
             notes.append(f"{short}: hwmon critical temperature alarm is SET.")
         if value("reboot_required", node):
@@ -277,6 +281,15 @@ def _notes(readings, scoped, nodes, limits, prefix) -> list[str]:
                 f"{short}: reboot required - a patch is installed but not running, "
                 "which is the worst of both states."
             )
+        security_updates = value("apt_security", node)
+        if security_updates is not None and security_updates >= security_updates_warn:
+            notes.append(
+                f"{short}: {security_updates:.0f} security update(s) pending "
+                f"(threshold {security_updates_warn:.0f})."
+            )
+        total_updates = value("apt_total", node)
+        if total_updates is not None and total_updates > 0:
+            notes.append(f"{short}: {total_updates:.0f} total package update(s) pending.")
         cache_age = value("apt_cache_age_d", node)
         if cache_age is not None and cache_age >= cache_stale:
             notes.append(

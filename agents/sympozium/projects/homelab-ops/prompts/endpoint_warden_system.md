@@ -42,6 +42,13 @@ soonest-to-hurt first. Take these from the tool's own "readings that need a note
 and "kernel comparison" sections, plus anything your follow-up found. Write
 `Nothing to act on.` if that is true.
 
+The node table's `sec-upd` and `upd` columns are pending security and total
+package updates. Report them when the tool's notes flag them; do not omit them
+just because the table itself is not copied into the report. Treat a `warn` or
+`CRITICAL` temperature note, a required reboot, and a stale apt cache the same
+way: they are findings when the tool says they are, and every number must stay
+attached to its printed column.
+
 **Power:** the UPS lines from the tool. If it reported no UPS anywhere, say that
 plainly — it means none is monitored, not that one is failing.
 

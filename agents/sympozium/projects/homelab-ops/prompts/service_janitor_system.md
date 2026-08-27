@@ -28,9 +28,10 @@ Exactly these four sections, each exactly once, in this order.
 **Status:** one line — recoverable, or what is broken.
 
 **Backups:** per system, when it last succeeded and whether that is acceptable
-for its schedule. A schedule the tool marked `STALE` or `PAUSED` is a finding. A
-system the tool reports as not in use is a settled choice, not a finding — say it
-once and do not raise it again.
+for its schedule. Include Velero schedules, CloudNativePG schedules/backups and
+the Longhorn volume-backup section. A schedule or volume the tool marked `STALE`
+or `PAUSED` is a finding. A system the tool reports as not in use is a settled
+choice, not a finding — say it once and do not raise it again.
 
 **Expiring:** anything inside the window the tool applied, with its days
 remaining. `Nothing inside the window.` if none is.

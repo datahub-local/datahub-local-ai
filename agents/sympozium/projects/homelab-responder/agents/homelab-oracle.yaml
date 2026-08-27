@@ -135,6 +135,15 @@ mcpServers:
       - create_issue
       - update_issue
       - update_pull_request_branch
+  # 7. Slack conversation context from the core-managed server. Read-only
+  #    history and thread replies only; message posting remains the built-in
+  #    delivery path.
+  - name: datahub-local-core-automation-sympozium-mcp-slack
+    timeout: 30
+    toolsPrefix: slack
+    toolsAllow:
+      - conversations_history
+      - conversations_replies
 
 toolPolicy:
   allow:
@@ -167,6 +176,8 @@ toolPolicy:
     - github_search_code
     - github_get_file_contents
     - github_list_commits
+    - slack_conversations_history
+    - slack_conversations_replies
     - memory_search
     - memory_store
     - send_channel_message

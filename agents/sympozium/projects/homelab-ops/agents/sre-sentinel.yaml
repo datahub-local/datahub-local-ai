@@ -33,6 +33,7 @@ mcpServers:
     toolsPrefix: k8s
     toolsAllow:
       - pods_list
+      - pods_list_in_namespace
       - events_list
       - pods_log
       - resources_list
@@ -50,6 +51,7 @@ toolPolicy:
     - facts_volume_fill
     - facts_promql
     - k8s_pods_list
+    - k8s_pods_list_in_namespace
     - k8s_events_list
     - k8s_pods_log
     - k8s_resources_list

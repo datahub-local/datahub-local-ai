@@ -53,6 +53,7 @@ MCP_SERVERS = {
     "datahub-local-core-automation-sympozium-mcp-argocd": "argocd",
     # Ours, from ../mcp/ and deployed by templates/mcpservers.yaml.
     "datahub-local-ai-mcp-homelab-facts": "facts",
+    "datahub-local-core-automation-sympozium-mcp-slack": "slack",
 }
 
 # Tools the agent runtime provides itself, with no MCP server involved.
@@ -338,10 +339,7 @@ def _check_mcp_servers(values):
                 f"sympozium_mcp_servers.{name} has unknown key(s) "
                 f"{', '.join(stray)}. Known keys: {', '.join(sorted(MCP_SERVER_KEYS))}"
             )
-        if not server.get("enabled"):
-            continue
-        if not server.get("image"):
-            raise Fail(f"sympozium_mcp_servers.{name}: image is required when enabled")
+
         project = server.get("project") or name.replace("-", "_")
         if not projects_dir.is_dir():
             # The sibling sub-project is absent entirely — a checkout problem, not
@@ -361,7 +359,6 @@ def _check_mcp_servers(values):
                 f"deploy and then crash-loop on startup, which an agent "
                 f"experiences as the tools not existing."
             )
-
 
 def _check_env(where, env):
     """Runner env vars must be known, and their values must be strings.

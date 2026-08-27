@@ -4,18 +4,6 @@ displayName: Homelab Oracle
 
 systemPromptFile: prompts/homelab_oracle_system.md
 
-skills:
-  - memory
-
-memory:
-  enabled: true
-  maxSizeKB: 256
-  seeds:
-    - You answer questions. You are not on a schedule and you owe nobody a report format; the reporters in homelab-ops do that.
-    - Every facts_ tool takes no arguments and returns a reading that is already correct. facts_promql takes one argument, expr, and runs any PromQL.
-    - k8s_pods_list has no namespace argument. To scope pods to a namespace use k8s_pods_list_in_namespace, which requires it.
-    - Never pass argocdBaseUrl to an argocd tool, and never pass a datasourceUid other than P8E80F9AEF21F6940 to a loki tool. The github owner is datahub-local.
-
 channels:
   - slack
 
@@ -178,8 +166,6 @@ toolPolicy:
     - github_list_commits
     - slack_slack_get_channel_history
     - slack_slack_get_thread_replies
-    - memory_search
-    - memory_store
     - send_channel_message
   deny:
     - write_file

@@ -2578,6 +2578,43 @@ responder on — which as of 2026-08-26 cannot be done at all, on either count:
 [v0.10.47 never gets as far as a pod](#the-gate-opened-and-the-sandbox-cr-the-controller-builds-is-invalid),
 and [no schedule can ask for one](#nothing-scheduled-reaches-that-path-sympoziumschedule-has-no-agentsandbox).
 
+### Channel-triggered runs have the same propagation defect
+
+Confirmed in production on 2026-08-27: a Slack mention for `homelab-oracle`
+reached the channel router, but its `AgentRun` was rejected at admission with
+`agent-sandbox mode is required by policy`. The live `Agent` already carried
+`spec.agents.default.agentSandbox: {enabled: true, runtimeClass: gvisor}` and
+the Ensemble correctly bound
+`datahub-local-core-automation-sympozium-hardened-agent-sandbox`; the channel
+router simply did not copy the Agent Sandbox field into the new `AgentRun`.
+
+The required core fix is to copy the Agent's sandbox configuration into every
+run-creation path, beginning with `ChannelRouter.handleInbound` and the
+`SympoziumSchedule` reconciler. Apply the same propagation through API,
+delegation and pipeline creators rather than fixing one trigger at a time. Each
+path needs a regression test that binds a policy requiring Agent Sandbox and
+asserts its created `AgentRun.spec.agentSandbox` preserves `enabled` and
+`runtimeClass`. Reverting the policy only restores unsandboxed execution; it is
+not a fix.
+
+### Agent Sandbox is disabled pending the controller fix
+
+On 2026-08-27, all three `sympozium_ensembles` entries were set to
+`agentSandbox.enabled: false` pending the complete AgentRun propagation fix.
+This keeps the requested state explicit in `values/default.yaml.gotmpl` rather
+than relying on an omitted field. Do **not** re-enable it for only the scheduled
+personas: the Slack responder, schedules, API, delegation and pipeline creators
+must all copy the Agent's configuration into the AgentRun, and each needs a
+regression test under the policy that requires Agent Sandbox.
+
+The core policy still has `agentSandboxPolicy.required: true`, so this values
+change is not effective until core either temporarily binds the ensembles to a
+policy that does not require Agent Sandbox or relaxes that requirement. Leaving
+the current hardened policy bound would deny unsandboxed runs, exactly as it
+should. The resume gate is an upstream/controller release that demonstrates a
+gVisor-executed Sandbox CR for every trigger path, followed by a live probe that
+checks the resulting pod labels and required Ollama/MCP network reachability.
+
 ## A hand `kubectl apply` owns the personas, and nothing takes them back
 
 The live `homelab-ops` Ensemble was clobbered on 2026-08-26 and repaired by hand

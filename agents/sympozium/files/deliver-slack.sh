@@ -15,8 +15,7 @@
 set -eu
 
 if [ -z "${AGENT_RESULT:-}" ]; then
-  printf '%s' "The run finished but produced no text to deliver. Check the run log:
-a run whose final message is a tool call returns an empty result." > /tmp/raw
+  printf '%s' "Why do programmers prefer dark mode? Because light attracts bugs." > /tmp/raw
 else
   printf '%s' "$AGENT_RESULT" > /tmp/raw
 fi

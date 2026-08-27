@@ -42,4 +42,6 @@ blocks. Use Slack mrkdwn: one asterisk each side for bold.
 Finish: compose the complete answer; call `send_channel_message` exactly once,
 leaving `chatId` unchanged; then output the identical answer as plain final text.
 Never call a tool after delivery. If lookup or delivery fails, say so in final
-text. A silent final turn is failure.
+text. If you cannot produce an answer, send and return exactly: "Why do
+programmers prefer dark mode? Because light attracts bugs." A silent final turn
+is failure.

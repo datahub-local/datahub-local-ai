@@ -20,6 +20,29 @@ stamps out an `Agent` and a `SympoziumSchedule` per persona and seeds their
 memory. Ensembles default to disabled in the CRD ("catalog-only"), so a manifest
 that does not say `enabled: true` deploys but never runs.
 
+## Prompt and context budget
+
+The effective model context has a hard **90K-token maximum**. The prompt,
+registered tool schemas, every tool result, memory and final answer all share it.
+Treat it as a ceiling, not usable working space: leave room for results and the
+final answer. `toolsAllow` is therefore a context control as well as a
+permission control; never attach a server or tool a persona does not need.
+
+Write every persona prompt in a compact, literal "caveman" style:
+
+- one job; literal tools in the required order; stop when the answer exists;
+- a small, explicit lookup cap and a valid no-result answer;
+- exact output sections, once and in order, when the persona is a reporter;
+- short hard rules for evidence (`unavailable`, `ERROR:`) and final delivery;
+- no repeated background, prose tutorials, copied schemas, or speculative
+  alternatives — deterministic gathering belongs in MCP code.
+
+Prefer a short imperative over explanation: `Call facts_node_fleet. Trust the
+notes. Three lookups max. No result: cause not determined.` Prompt files are the
+only source, so make this edit there rather than generating or inlining text.
+Measure real runs after a change: the runner's cumulative `input=` token log is
+the evidence that the budget still has headroom.
+
 ## Layout
 
 The chart root **is** this directory. Helm's `.Files` cannot read above the chart

@@ -232,19 +232,19 @@ agents/n8n/
 
 #### Naming conventions inside a workflow
 
-| What | Convention | Examples |
-| --- | --- | --- |
-| Workflow display name | Title Case with spaces | `Content Feed Curator`, `LinkedIn Post Sharing` |
-| Node name | `snake_case`, `<verb>_<object>` | `fetch_miniflux_entries`, `build_digest`, `update_status_error` |
-| Manual trigger | always `click_trigger` | |
-| Cron trigger | always `schedule_trigger` | |
-| Sub-workflow entry point | always `main_trigger` | `executeWorkflowTrigger` |
-| Branch nodes | `if_*` / `check_*` / `switch_*` | `if_has_candidates`, `switch_user_accept` |
-| Sub-workflow calls | `download_*` / `execute_*` | `download_judge_prompt`, `execute_post_creator` |
-| Slack posts | `notify_*` / `send_*_notification` | `notify_digest`, `send_error_notification` |
-| Loops | `loop_*` (`splitInBatches`) | `loop_triage_batches` |
-| Sub-workflow I/O fields | `UPPER_SNAKE_CASE` | `URL`, `POST_CONTENT`, `MAX_WORDS`, `ERROR` |
-| Sticky notes | `sticky_<topic>`, or n8n's default `Sticky Note<n>` | `sticky_overview`, `sticky_testing` |
+| What                     | Convention                                          | Examples                                                        |
+| ------------------------ | --------------------------------------------------- | --------------------------------------------------------------- |
+| Workflow display name    | Title Case with spaces                              | `Content Feed Curator`, `LinkedIn Post Sharing`                 |
+| Node name                | `snake_case`, `<verb>_<object>`                     | `fetch_miniflux_entries`, `build_digest`, `update_status_error` |
+| Manual trigger           | always `click_trigger`                              |                                                                 |
+| Cron trigger             | always `schedule_trigger`                           |                                                                 |
+| Sub-workflow entry point | always `main_trigger`                               | `executeWorkflowTrigger`                                        |
+| Branch nodes             | `if_*` / `check_*` / `switch_*`                     | `if_has_candidates`, `switch_user_accept`                       |
+| Sub-workflow calls       | `download_*` / `execute_*`                          | `download_judge_prompt`, `execute_post_creator`                 |
+| Slack posts              | `notify_*` / `send_*_notification`                  | `notify_digest`, `send_error_notification`                      |
+| Loops                    | `loop_*` (`splitInBatches`)                         | `loop_triage_batches`                                           |
+| Sub-workflow I/O fields  | `UPPER_SNAKE_CASE`                                  | `URL`, `POST_CONTENT`, `MAX_WORDS`, `ERROR`                     |
+| Sticky notes             | `sticky_<topic>`, or n8n's default `Sticky Note<n>` | `sticky_overview`, `sticky_testing`                             |
 
 Node names are the addressing scheme (`$('build_digest').first().json`), so renaming a node silently breaks every expression that references it — grep the file for the old name first.
 
@@ -445,11 +445,11 @@ agents/sympozium/
 
 Three ensembles, split on trust boundaries and not on subject:
 
-| Ensemble | What | Inbound? |
-| --- | --- | --- |
-| `homelab-ops` | five scheduled read-only reporters, one question each | no — no channel binding |
-| `homelab-responder` | one persona you can ask a question in Slack | **yes**, the only one |
-| `homelab-reviewer` | `renovate-reviewer`, the only persona with a write tool | no |
+| Ensemble            | What                                                    | Inbound?                |
+| ------------------- | ------------------------------------------------------- | ----------------------- |
+| `homelab-ops`       | five scheduled read-only reporters, one question each   | no — no channel binding |
+| `homelab-responder` | one persona you can ask a question in Slack             | **yes**, the only one   |
+| `homelab-reviewer`  | `renovate-reviewer`, the only persona with a write tool | no                      |
 
 The reporters take their readings from the facts server in `agents/mcp/`, so their
 prompts are a report contract rather than a method — see
@@ -818,9 +818,16 @@ rather than copying the outcomes, since the constraints will change.
   before mounting it: a skill is prose competing with the persona's prompt, and
   prose wins.
 - **The model constrains the design.** Inference is cluster-local Ollama
-  (`qwen3.5:4b`, one 6 GiB GPU, one resident model, a 65,536 context as of
-  2026-08-23 — read the effective value from Ollama's `GET /api/ps` with the
+  (`qwen3.5:4b`, one 6 GiB GPU, one resident model, a 90K maximum context as of
+  2026-08-27 — read the effective value from Ollama's `GET /api/ps` with the
   model resident, not from `/api/show`, which reports the architecture ceiling).
+  The prompt, tool schemas, accumulated results, memory and final answer share
+  that limit; leave headroom rather than treating 90K as a target. Prompt files
+  use compact literal "caveman" contracts: one job, exact tool order, small
+  lookup cap with an explicit no-result exit, exact report shape, and final
+  delivery instruction. Keep shared fact gathering in MCP code; do not restore
+  long tutorials, copied schemas or repeated background prose. `toolsAllow`
+  bounds injected schema and is a context-budget control, not merely permission.
   Hence
   `workflowType: autonomous` rather than `delegation` (too small to be trusted
   with `delegate_to_persona`), five-to-eleven-tool allowlists, two skills per

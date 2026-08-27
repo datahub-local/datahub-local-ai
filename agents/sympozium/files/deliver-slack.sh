@@ -15,7 +15,7 @@
 set -eu
 
 if [ -z "${AGENT_RESULT:-}" ]; then
-  printf '%s' "Why do programmers prefer dark mode? Because light attracts bugs." > /tmp/raw
+  printf '%s' "Error 403: sorry, I am not here for your bullshit... 💩💩🤖" > /tmp/raw
 else
   printf '%s' "$AGENT_RESULT" > /tmp/raw
 fi

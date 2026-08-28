@@ -15,7 +15,7 @@
 set -eu
 
 if [ -z "${AGENT_RESULT:-}" ]; then
-  printf '%s' "Error 403: sorry, I am not here for your bullshit... 💩💩🤖" > /tmp/raw
+  printf '%s' "Error 404: the data is on a coffee break.. ☕☕🤖" > /tmp/raw
 else
   printf '%s' "$AGENT_RESULT" > /tmp/raw
 fi

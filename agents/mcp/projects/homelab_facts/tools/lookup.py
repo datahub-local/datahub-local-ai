@@ -26,7 +26,7 @@ BUDGET = 3072
 
 # Per kind, so one noisy kind cannot crowd out the kind that answers. Rows are
 # newest first: for a repeating Job the recent run is the one being asked about.
-_PER_KIND = 8
+_PER_KIND = 6
 
 # Services whose endpoints are worth a second call. A Service with no ready
 # endpoint is exactly what `curl: (7) could not connect` means, and it is the
@@ -37,19 +37,19 @@ _MAX_ENDPOINT_CHECKS = 4
 # absent deliberately: `kube.list` strips a Secret's payload, but a name search
 # over them is a way to enumerate credentials and answers no question here.
 _KINDS: tuple[tuple[str, str], ...] = (
-    ("v1", "Pod"),
     ("v1", "Service"),
+    ("traefik.io/v1alpha1", "IngressRoute"),
+    ("networking.k8s.io/v1", "Ingress"),
     ("apps/v1", "Deployment"),
     ("apps/v1", "StatefulSet"),
     ("apps/v1", "DaemonSet"),
-    ("batch/v1", "Job"),
     ("batch/v1", "CronJob"),
     ("v1", "PersistentVolumeClaim"),
-    ("networking.k8s.io/v1", "Ingress"),
-    ("traefik.io/v1alpha1", "IngressRoute"),
     ("argoproj.io/v1alpha1", "Application"),
     ("v1", "Namespace"),
     ("v1", "Node"),
+    ("batch/v1", "Job"),
+    ("v1", "Pod"),
 )
 
 
@@ -185,6 +185,7 @@ def find_object(term: str) -> str:
             )
         if kind == "Service":
             services = [(namespace, name) for _, namespace, name, _, _ in hits[:_MAX_ENDPOINT_CHECKS]]
+            lines += _endpoints(client, services)
         lines.append("")
 
     if unreadable:
@@ -220,10 +221,6 @@ def find_object(term: str) -> str:
                 f"{', '.join(unreadable)}. A match there would not have been seen."
             )
         return message
-
-    if services:
-        lines.append("## Service endpoints")
-        lines += _endpoints(client, services)
 
     return truncate_lines(lines, BUDGET, unit="lines")
 

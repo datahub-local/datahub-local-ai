@@ -3250,6 +3250,31 @@ Generalise it, because this is the third form of the same error in one incident:
 in a prompt, in a tool, or in RBAC. The layer with the most authority is the one
 where it does the most damage.
 
+### Traefik, and what a byte budget spends itself on
+
+Two more things the live cluster said that no amount of local testing would have.
+
+**`Ingress` is the wrong kind here.** This cluster has 35
+`traefik.io/v1alpha1` IngressRoutes and **zero** `networking.k8s.io/v1`
+Ingresses, so a search that covered only the standard kind could never answer
+"what URL is X on". Same shape as Valkey being scraped as `redis_*`: the
+standard name is not the one in use, and only the cluster can say so. Both kinds
+are searched now - zero today is not zero forever, and the kind list is derived
+from nothing. An IngressRoute's row is the hostname it serves, pulled out of the
+`Host(...)` rules, because that is the question anyone asking about one has.
+
+**Truncation eats the end, so cardinality decides the order.** `grafana` matches
+2 Services, 1 IngressRoute, 2 Deployments, 1 PVC - and 45 Pods and 153 Jobs
+whose rows are near-identical. Listed in the obvious order the generated
+instances consumed the whole 3 KB and truncated away the Service, its endpoints
+and the hostname: every row that identifies something, dropped in favour of the
+sixth copy of a Job that succeeded. `_KINDS` is now ordered identity-first and
+generated-instance-last, and the Service endpoint lines are emitted next to the
+Service table rather than at the end, where they were the first thing cut.
+
+Generalise it for any bounded tool: the budget is spent in list order, so order
+by how much each row *identifies* and let repetition be what gets dropped.
+
 
 ## Open, and not ours
 

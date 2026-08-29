@@ -55,6 +55,10 @@ rules:
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses"]
     verbs: ["get", "list"]
+{{- /* This cluster routes with Traefik, not with `Ingress`: see ../MEMORY.md. */}}
+  - apiGroups: ["traefik.io"]
+    resources: ["ingressroutes"]
+    verbs: ["get", "list"]
 {{- /* `list` and deliberately not `get`: see ../MEMORY.md. */}}
   - apiGroups: [""]
     resources: ["secrets"]

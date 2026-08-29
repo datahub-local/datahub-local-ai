@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from mcp_runner.server import Registry
 
-from .tools import alerts, databases, gitops, lifecycle, nodes, raw, volumes
+from .tools import alerts, databases, gitops, lifecycle, lookup, nodes, raw, volumes
 
 
 def register(registry: Registry) -> None:
@@ -22,6 +22,13 @@ def register(registry: Registry) -> None:
         alerts.alerts_snapshot,
         schema=alerts.SCHEMA,
         budget=alerts.BUDGET,
+    )
+    registry.add(
+        "find_object",
+        lookup.DESCRIPTION,
+        lookup.find_object,
+        schema=lookup.SCHEMA,
+        budget=lookup.BUDGET,
     )
     registry.add(
         "node_fleet",

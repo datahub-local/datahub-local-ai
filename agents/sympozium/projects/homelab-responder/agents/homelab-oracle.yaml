@@ -25,6 +25,7 @@ mcpServers:
     timeout: 30
     toolsPrefix: facts
     toolsAllow:
+      - find_object
       - alerts_snapshot
       - node_fleet
       - volume_fill
@@ -135,6 +136,7 @@ mcpServers:
 
 toolPolicy:
   allow:
+    - facts_find_object
     - facts_alerts_snapshot
     - facts_node_fleet
     - facts_volume_fill

@@ -11,6 +11,7 @@ about the expression the server actually sends.
 from __future__ import annotations
 
 import re
+from typing import ClassVar
 
 from homelab_facts.tools.volumes import build_expression
 
@@ -145,14 +146,44 @@ class TestNoDatasourceOrEndTime:
         assert set(SCHEMA["properties"]) == {"expr", "window"}
         assert SCHEMA["required"] == ["expr"]
 
+    # The two tools that do take an argument. Both take free text where any
+    # string is valid, which is the actual rule: an argument is safe when there
+    # is no format to get wrong. `chatId`, `datasourceUid` and `endTime` each
+    # had exactly one correct shape, and each was copied wrong.
+    _FREE_TEXT_ARGUMENTS: ClassVar[dict[str, set[str]]] = {
+        "promql": {"expr", "window"},
+        "find_object": {"term"},
+    }
+
     def test_no_fact_tool_takes_any_argument_at_all(self):
-        # A tool with no arguments cannot be called with the wrong ones. This is
-        # the `chatId` lesson: a value shown inside syntax the model must strip
-        # gets copied with the syntax attached.
+        # A tool with no arguments cannot be called with the wrong ones.
         from mcp_runner.__main__ import build_registry
 
         registry = build_registry("homelab_facts")
         for name, tool in registry.tools.items():
-            if name == "promql":
-                continue
-            assert tool.schema.get("properties") == {}, name
+            allowed = self._FREE_TEXT_ARGUMENTS.get(name, set())
+            assert set(tool.schema.get("properties") or {}) == allowed, name
+
+    def test_no_tool_asks_for_a_value_only_the_cluster_knows(self):
+        """The argument names that cost this fleet days, banned by name.
+
+        A namespace, a selector, a uid or a timestamp is a value the model has to
+        supply and cannot know, and every one of them has been supplied wrong.
+        `find_object` exists precisely so a namespace is *returned* rather than
+        asked for.
+        """
+        from mcp_runner.__main__ import build_registry
+
+        forbidden = {
+            "datasourceuid",
+            "endtime",
+            "starttime",
+            "namespace",
+            "labelselector",
+            "fieldselector",
+            "chatid",
+        }
+        registry = build_registry("homelab_facts")
+        for name, tool in registry.tools.items():
+            for argument in tool.schema.get("properties") or {}:
+                assert argument.lower() not in forbidden, f"{name}.{argument}"

@@ -25,6 +25,7 @@ mcpServers:
     timeout: 30
     toolsPrefix: facts
     toolsAllow:
+      - find_object
       - backup_freshness
       - cert_expiry
       - promql
@@ -44,6 +45,7 @@ mcpServers:
 
 toolPolicy:
   allow:
+    - facts_find_object
     - facts_backup_freshness
     - facts_cert_expiry
     - facts_promql

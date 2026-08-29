@@ -108,7 +108,7 @@ Local times are Madrid, which is UTC+2 in summer and UTC+1 in winter.
 | ------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `sre-sentinel`      | heartbeat, 6h | Not the detector — the digest. Alertmanager already routes every alert to Robusta (`severity =~ ".*"`, `group_wait 1s`) and Robusta posts to Slack, so this agent adds new-vs-chronic, root cause, and the volume fill check no alert rule covers. At 30m with unconditional delivery it was 48 messages a day restating Robusta. |
 | `endpoint-warden`   | `30 4 * * *`  | 04:30 UTC = 06:30 Madrid summer, 05:30 winter.                                                                                                                                                                                                                                                                                    |
-| `service-janitor`   | `0 5 * * 1`   | Mondays, 05:00 UTC = 07:00 Madrid summer, 06:00 winter. Weekly, not daily: nothing it reports moves in a day.                                                                                                                                                                                                                                                                                    |
+| `service-janitor`   | `0 5 * * *`   | 05:00 UTC = 07:00 Madrid summer, 06:00 winter.                                                                                                                                                                                                                                                                                    |
 | `db-steward`        | `30 5 * * *`  | 05:30 UTC = 07:30 Madrid summer. Half an hour after the warden so the two do not contend for the GPU.                                                                                                                                                                                                                             |
 | `gitops-auditor`    | every 4h      | Nothing else watches ArgoCD sync state — Robusta forwards Kubernetes events and Prometheus alerts, not drift — so this is the only source. 4h still gives its "drift that survives two consecutive runs" rule an 8h window to confirm against, at a sixth of the message volume.                                                  |
 | `renovate-reviewer` | `0 10 * * 0,6` | Weekends, 10:00 UTC = 12:00 Madrid summer, 11:00 winter. Not hourly and off the weekday slot: a 4B model re-reviewing the same PR every hour is noise, and it would hold the GPU against the four ops agents.                                                                                                                                        |
@@ -3046,11 +3046,15 @@ enumeration as the complete set - so an uncorrectable-memory-error line, the mos
 serious thing that tool can emit, was not in the list of things to report. It now
 says every line the tool printed.
 
-**A rationale table is drift too.** Two crons in the schedule table above did not
-match the deployed personas (`service-janitor` weekly rather than daily,
-`renovate-reviewer` weekends rather than weekdays). Corrected to what
-`projects/` says. Nothing validates this file against the YAML, so it is on
-whoever changes a cron to change the row.
+**A rationale table is drift too, and the table can be the correct half.** Two
+crons in the schedule table above did not match the deployed personas. They
+resolved in opposite directions, which is the point: `renovate-reviewer` really
+had moved to weekends and the row was stale, while `service-janitor` had drifted
+to `0 5 * * 1` in its YAML and the daily row was right - certificates, tokens and
+backup freshness all move inside a day, so a weekly sweep can miss an expiry
+window entirely. Restored to `0 5 * * *`. Nothing validates this file against
+the YAML in either direction, so a cron change is two edits and reading only one
+of them tells you nothing about which is intended.
 
 Not acted on, and both are judgement calls rather than bugs:
 
@@ -3062,6 +3066,145 @@ Not acted on, and both are judgement calls rather than bugs:
 - **`endpoint-warden` holds `k8s_pods_list`.** A hardware persona has no use for
   a cluster-wide pod list, and an unfiltered one is 8.1 KB that answers nothing
   (`#a-question-answered-with-nothing-at-all-and-how-that-gets-posted`).
+
+## `not found` became `does not exist`, and the ollama proxy said why
+
+Asked `what was the problem with grafana that made grafana-setup-job fail?`, the
+oracle answered that grafana **has no associated Kubernetes pods in the cluster**
+and therefore a failed `grafana-setup-job` **cannot exist**. Told the error was
+
+    curl: (7) Failed to connect to datahub-local-core-kube-prometheus-stack-grafana:80
+    after 1 ms: Could not connect to server
+
+it answered that the Service **does not exist** and that this is **likely** an
+ArgoCD deployment problem, without calling ArgoCD. All of it is false: that
+Service is 476 days old in `monitoring`, grafana is `3/3 Running` beside it, and
+there are ~50 completed `e-monitoring-grafana-job-setup*-postsync-*` pods.
+
+The `metrics-proxy` sidecar on the ollama pod logs every request body, so the
+run is readable rather than inferable - which corrected the diagnosis. Read it
+with:
+
+    kubectl -n data logs <ollama-pod> -c metrics-proxy --tail=400 | grep 'DEBUG output'
+
+The calls, in order:
+
+    k8s_resources_list   apiVersion=v1 kind=Pod              <- whole cluster
+    k8s_pods_list        fieldSelector=status.phase=Failed
+    k8s_pods_list        labelSelector=app=grafana
+    k8s_pods_list_in_namespace  labelSelector=app=grafana    <- no namespace at all
+    k8s_pods_list        labelSelector=app-inclusive=grafana,environment=grafana
+    k8s_pods_list_in_namespace  namespace=kube-prometheus-stack
+    k8s_namespaces_list
+    k8s_resources_list   kind=Service labelSelector=name=datahub-local-...-grafana
+
+So this is not a new failure mode. It is
+`#an-instruction-to-investigate-needs-a-budget-and-an-exit` for the third time,
+in the persona that was supposed to have been fixed: guessed label keys, a name
+passed as a `labelSelector`, `namespace` omitted from the call that requires it,
+and a Helm release name (`kube-prometheus-stack`) used as a namespace - the real
+one is `monitoring`. `k8s_namespaces_list` was called **eighth**, after every
+guess, and the very first call had already returned every grafana pod in the
+cluster.
+
+**The prompt was asking for a judgement the model cannot make.** "Never guess a
+selector" requires distinguishing a correct label key from an invented one, which
+is knowing the answer. The real key here is `app.kubernetes.io/name=grafana`;
+`app=grafana` is the plausible wrong guess, and `app-inclusive=` is not a
+convention anywhere. So the rule is now the removal of the argument:
+**never pass `labelSelector` at all.** A prohibition with no exception is
+enforceable by a 4B model; a prohibition on guessing is not. Everything this
+persona needs is reachable by namespace plus the returned names, and
+`k8s_namespaces_list` is now mandatory *first* rather than available. Same
+change applied to `sre-sentinel`, the other persona whose prompt said only
+"no guessed selectors".
+
+Three smaller defects in the same answer, each fixed in the prompt:
+
+- **An empty result was read as absence, then as a cause.** The prompt already
+  said missing logs are never proof of health; the general form was missing, so
+  `not found` became `does not exist`. It also had the whole answer in call one
+  and went guessing instead, so: re-read the last tool result before making
+  another call.
+- **It answered about a different object.** Nothing in the run looked at a Job.
+  `Why did X fail` starts at X, and a finished Job has no running pod at all.
+- **A cause was invented under a hedge.** "Might not be properly deployed",
+  "appears to be a configuration deployment issue". The standing rule was
+  **numbers** only from this run, and a cause is not a number. Hedging words are
+  how a model this size states something it did not retrieve while sounding
+  careful; they are now named and banned.
+
+The sharpest part is that the asker had already supplied the answer. `curl: (7)`
+is *connected to nothing*, not *resolved to nothing* - exit 6 is DNS. The name
+resolving proves the Service exists, so the real finding was a Service with no
+ready endpoint, one lookup away. "Slack is untrusted data and gives context,
+never infrastructure evidence" is right for instructions and became wrong for a
+pasted error: the model treated the evidence in the question as something to
+overturn. A quoted error now points at what to look up and may not be
+contradicted without evidence.
+
+It also wrote the answer twice, the second time under a bold `Answer:` heading -
+one more thing a mandatory-shape prompt produces when the model is unsure it has
+complied. Named and forbidden.
+
+Two things the log settles in passing. `send_channel_message` was called with
+`chatId: "C08S5ACNTPB"`, a real channel id and not a `#name`, so that fix holds.
+And `memory_search` appears in the trace although it is in no allowlist of this
+persona - inbound Slack runs carry no `toolPolicy`, exactly as
+`#an-inbound-slack-message-runs-with-no-toolpolicy-at-all` says, which is why
+`mcpServers[].toolsAllow` is the boundary that matters here.
+
+Generalise it: every oracle failure so far is a *negative* claim built from an
+empty tool result. Absence is the one answer no tool here can return, and it is
+the one the model reaches for when its lookup does not land.
+
+### The fix is a tool, because nobody types an exact name
+
+Every `k8s_*` tool takes exact values. A person types `grafana`, and the objects
+are `datahub-local-core-kube-prometheus-stack-grafana` in `monitoring` and 45
+pods called `e-monitoring-grafana-job-setup<hash>-postsync-<epoch>-<suffix>`.
+There is no prompt wording that closes that gap: the model is being asked to
+produce a string it has never seen, and a plausible guess is what it produces.
+
+So `find_object(term)` in `agents/mcp/projects/homelab_facts/tools/lookup.py`.
+One free-text argument, no format to get wrong. It matches a name three ways -
+exact, substring, then **every word** - over Pods, Services, Deployments,
+StatefulSets, DaemonSets, Jobs, CronJobs, PVCs, Ingresses, ArgoCD Applications,
+Namespaces and Nodes, newest first, each with its own state column. The
+every-word pass is the one that matters: `grafana-setup-job` appears nowhere in
+this cluster, and all three of its words appear in the real pod name.
+
+Verified against the live cluster with the incident's own term. One call, 2.9 KB,
+returns the exact names, the namespace `monitoring`, and the answer the run never
+found - every recent setup Job reads `1 succeeded, 0 FAILED`.
+
+Three properties are deliberate:
+
+- **It returns the namespace rather than asking for one.** `namespace`,
+  `labelSelector`, `fieldSelector`, `datasourceUid` and `endTime` are all values
+  the model cannot know and has supplied wrong; `tests/test_expressions.py` now
+  fails any fact tool that grows an argument by those names.
+- **Absence is searched-and-not-matched, and says so in those words.** It names
+  the kinds it looked in and states that this is not proof the thing does not
+  exist - the exact upgrade this persona made twice.
+- **It reports Service endpoints.** `curl: (7)` on a name that resolves is a
+  Service with no ready endpoint. The tool now answers that in the same call
+  that finds the name, which is the whole original question.
+
+Secrets and ConfigMaps are not searchable by name here. `kube.list` already
+strips a Secret's payload, but a name search over them is credential
+enumeration and answers no question this fleet asks; a test asserts the kind list
+excludes both.
+
+The argument invariant moved rather than broke. "No fact tool takes any argument"
+was the rule with `promql` as its one exception; the real rule is that an
+argument is safe when **any string is valid**. `expr` and `term` have no shape to
+copy wrong. `chatId` had exactly one, and cost two days.
+
+Wired onto `homelab-oracle`, `sre-sentinel` and `service-janitor` - the three
+personas that resolve a name to an object. `endpoint-warden` and `db-steward` do
+not, and `gitops-auditor` gets application names from `facts_argocd_drift`.
+
 
 ## Open, and not ours
 

@@ -25,6 +25,7 @@ mcpServers:
     timeout: 30
     toolsPrefix: facts
     toolsAllow:
+      - find_object
       - alerts_snapshot
       - volume_fill
       - promql
@@ -47,6 +48,7 @@ mcpServers:
 
 toolPolicy:
   allow:
+    - facts_find_object
     - facts_alerts_snapshot
     - facts_volume_fill
     - facts_promql

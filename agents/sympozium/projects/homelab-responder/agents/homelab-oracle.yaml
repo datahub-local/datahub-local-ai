@@ -14,18 +14,31 @@ slackOptions:
     - mention
     - dm
 
-# Every MCP server the control plane runs, in the order the prompt's routing
-# table asks for them. Tool names, argument names and the two Grafana datasource
-# uids were all read off the running servers with tools/list; a wrong name is
-# silent. toolsAllow is what actually keeps a write tool unregistered, so the
-# selections below are the boundary, not the toolsDeny lists.
+# What a question resolved to, so a follow-up starts from the object rather than
+# from the words. Rationale in ../../../MEMORY.md.
+memory:
+  enabled: true
+  maxSizeKB: 256
+  seeds:
+    - facts_find_object, facts_why_failed, facts_logs and facts_endpoints resolve a typed name to exact objects themselves. Never assemble a namespace, pod name, label selector or log query yourself; take every exact value from a tool result.
+    - An empty tool result means searched-and-not-matched. Never upgrade it to "does not exist" - every wrong answer this agent has given was a negative claim built from a lookup that did not land.
+    - Record the exact namespace and name a question resolved to, so the same question asked again starts from the object instead of the words.
+
+# Tool names, argument names and the Prometheus datasource uid were read off the
+# running servers with tools/list; a wrong name is silent. toolsAllow is what
+# keeps a tool unregistered, so these selections are the boundary and the prompt
+# budget both.
 mcpServers:
-  # 1. Pre-computed readings, one call per report section. Try these first.
+  # 1. Pre-computed readings and the whole resolve-and-investigate chain, one
+  #    call per question. Try these first.
   - name: datahub-local-ai-mcp-homelab-facts
     timeout: 30
     toolsPrefix: facts
     toolsAllow:
       - find_object
+      - why_failed
+      - logs
+      - endpoints
       - alerts_snapshot
       - node_fleet
       - volume_fill
@@ -35,20 +48,17 @@ mcpServers:
       - backup_freshness
       - argocd_drift
       - promql
-  # 2. What exists right now. pods_list_in_namespace and namespaces_list are
-  #    here because pods_list carries no namespace argument, which is what sent
-  #    one run guessing label selectors.
+  # 2. What exists right now, for anything the facts server does not cover.
+  #    pods_list, pods_log and nodes_top are gone: find_object, logs and
+  #    node_fleet answer the same questions without an exact name.
   - name: datahub-local-core-automation-sympozium-mcp-k8s
     timeout: 30
     toolsPrefix: k8s
     toolsAllow:
       - namespaces_list
-      - pods_list
       - pods_list_in_namespace
       - events_list
-      - pods_log
       - resources_list
-      - nodes_top
     toolsDeny:
       - pods_delete
       - pods_exec
@@ -56,23 +66,17 @@ mcpServers:
       - resources_create_or_update
       - resources_delete
       - resources_scale
-  # 3. What is deployed and what each application owns. The resource tree is the
-  #    answer to "do we have an X" without inventing a selector. Excluded on
-  #    purpose: get_resources and get_application_managed_resources return whole
-  #    manifests, the same reason k8s_resources_get is in BANNED_TOOLS, and
-  #    get_resource_actions reads as permission to run one. The server exposes no
-  #    write tool at all, so there is nothing here to deny.
+  # 3. What is deployed. get_application_resource_tree is out with the other
+  #    whole-manifest tools; the server exposes no write tool to deny.
   - name: datahub-local-core-automation-sympozium-mcp-argocd
     timeout: 30
     toolsPrefix: argocd
     toolsAllow:
       - list_applications
       - get_application
-      - get_application_resource_tree
       - get_application_events
-  # 4. Anything about database contents rather than database health. The server
-  #    runs --access-mode=restricted, so execute_sql is read-only at the server
-  #    and not merely by policy; it exposes no write tool to deny.
+  # 4. Database contents rather than database health. The server runs
+  #    --access-mode=restricted, so execute_sql is read-only at the server.
   - name: datahub-local-core-automation-sympozium-mcp-postgres
     timeout: 30
     toolsPrefix: pg
@@ -81,29 +85,8 @@ mcpServers:
       - list_objects
       - execute_sql
       - get_top_queries
-  # 5. History. k8s_pods_log only reaches a pod that still exists; Loki keeps
-  #    every container. list_loki_label_values is here so LogQL selectors are
-  #    read rather than guessed.
-  - name: datahub-local-core-automation-sympozium-mcp-grafana
-    timeout: 30
-    toolsPrefix: grafana
-    toolsAllow:
-      - query_loki_logs
-      - list_loki_label_values
-    toolsDeny:
-      - create_datasource
-      - update_datasource
-      - update_dashboard
-      - create_folder
-      - create_annotation
-      - update_annotation
-      - create_snapshot
-      - delete_snapshot
-      - create_incident
-      - add_activity_to_incident
-  # 6. What the git source says, when the cluster cannot answer why. Read only:
-  #    add_issue_comment is the reviewer's single write tool and stays in
-  #    homelab-reviewer, which is bound to no channel.
+  # 5. What the git source says, when the cluster cannot answer why. Read only:
+  #    add_issue_comment is the reviewer's single write tool and stays there.
   - name: datahub-local-core-automation-sympozium-mcp-github
     timeout: 30
     toolsPrefix: github
@@ -124,9 +107,8 @@ mcpServers:
       - create_issue
       - update_issue
       - update_pull_request_branch
-  # 7. Slack conversation context from the core-managed server. Read-only
-  #    history and thread replies only; message posting remains the built-in
-  #    delivery path.
+  # 6. Slack conversation context. Read-only history and thread replies only;
+  #    message posting remains the built-in delivery path.
   - name: datahub-local-core-automation-sympozium-mcp-slack
     timeout: 30
     toolsPrefix: slack
@@ -137,6 +119,9 @@ mcpServers:
 toolPolicy:
   allow:
     - facts_find_object
+    - facts_why_failed
+    - facts_logs
+    - facts_endpoints
     - facts_alerts_snapshot
     - facts_node_fleet
     - facts_volume_fill
@@ -147,22 +132,16 @@ toolPolicy:
     - facts_argocd_drift
     - facts_promql
     - k8s_namespaces_list
-    - k8s_pods_list
     - k8s_pods_list_in_namespace
     - k8s_events_list
-    - k8s_pods_log
     - k8s_resources_list
-    - k8s_nodes_top
     - argocd_list_applications
     - argocd_get_application
-    - argocd_get_application_resource_tree
     - argocd_get_application_events
     - pg_list_schemas
     - pg_list_objects
     - pg_execute_sql
     - pg_get_top_queries
-    - grafana_query_loki_logs
-    - grafana_list_loki_label_values
     - github_search_code
     - github_get_file_contents
     - github_list_commits

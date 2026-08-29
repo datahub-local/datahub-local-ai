@@ -1,12 +1,15 @@
 """Kubernetes reads. List-shaped, and never an object's contents.
 
-`list` is the only verb exposed and `_strip` drops a Secret's payload at the
-boundary, so no code path here can return one. Narrow the *request* too where you
+Two verbs only - `list` and `pod_log` - and `_strip` drops a Secret's payload at
+the boundary, so no code path here can return one. `pod_log` is the one read a
+list cannot answer, and it is bounded by lines and by bytes at the API server
+rather than by the caller remembering to. Narrow the *request* too where you
 can. See ../README.md.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any
 
@@ -75,6 +78,63 @@ class Kube:
             if (name := (node.get("metadata") or {}).get("name"))
         )
 
+    def pod_log(
+        self,
+        namespace: str,
+        pod: str,
+        container: str | None = None,
+        *,
+        tail_lines: int = 40,
+        previous: bool = False,
+        limit_bytes: int = 16384,
+    ) -> str:
+        """The tail of one container's log. The second verb this module exposes.
+
+        `list` was the only one for a reason, and a log is the one read that
+        genuinely cannot be answered by it. It is bounded twice - by lines and by
+        bytes at the API server - so a chatty container cannot return more than
+        the caller's budget can carry, and `previous` is how a CrashLoopBackOff
+        is read at all: the log that matters belongs to the container that
+        already died.
+
+        A 403 raises; so does any other failure, with the reason. Never `""` -
+        an empty string here would be a container that logged nothing, and this
+        fleet has already shipped a permission gap rendered as an empty result.
+        """
+        try:
+            from kubernetes import client
+        except ImportError as exc:  # pragma: no cover - dependency is declared
+            raise KubeError(f"kubernetes client unavailable: {exc}") from exc
+
+        self._dynamic()  # loads credentials into the default configuration
+        kwargs: dict[str, Any] = {
+            "name": pod,
+            "namespace": namespace,
+            "tail_lines": tail_lines,
+            "limit_bytes": limit_bytes,
+            "timestamps": False,
+        }
+        if container:
+            kwargs["container"] = container
+        if previous:
+            kwargs["previous"] = True
+        try:
+            # `_preload_content=False` and decode here, deliberately. With the
+            # default the client deserializes a `str`-typed response by calling
+            # `str()` on the raw bytes, so a log arrives as the literal
+            # `b'line one\nline two'` - one line, with escaped newlines, which
+            # every downstream line count, filter and budget then reads wrong.
+            response = client.CoreV1Api().read_namespaced_pod_log(
+                **kwargs, _preload_content=False
+            )
+            return (response.data or b"").decode("utf-8", errors="replace")
+        except Exception as exc:
+            if _is_forbidden(exc):
+                logger.warning("reading logs of %s/%s forbidden: %s", namespace, pod, exc)
+                raise KubeForbidden(f"not permitted to read logs of {namespace}/{pod}") from exc
+            logger.warning("reading logs of %s/%s failed: %s", namespace, pod, exc)
+            raise KubeError(_log_reason(exc)) from exc
+
     def list(
         self,
         api_version: str,
@@ -110,6 +170,24 @@ class Kube:
         return [
             _strip(item.to_dict() if hasattr(item, "to_dict") else dict(item)) for item in items
         ]
+
+
+def _log_reason(exc: Exception) -> str:
+    """Why a log read failed, in the API server's own words where it has them.
+
+    "previous terminated container not found" and "is waiting to start" are
+    normal states with different meanings, and both are answers. Collapsing them
+    into one message is how "we could not look" becomes "there is nothing there".
+    """
+    body = getattr(exc, "body", None)
+    if isinstance(body, str) and body:
+        try:
+            message = (json.loads(body) or {}).get("message")
+        except ValueError:
+            message = body
+        if message:
+            return str(message)
+    return str(exc)
 
 
 def _is_forbidden(exc: Exception) -> bool:

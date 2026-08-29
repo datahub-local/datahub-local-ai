@@ -3276,6 +3276,160 @@ Generalise it for any bounded tool: the budget is spent in list order, so order
 by how much each row *identifies* and let repetition be what gets dropped.
 
 
+## The chain after the name: `why_failed`, `logs`, `endpoints`
+
+`find_object` fixed half of the grafana incident - nobody types an exact name, so
+the name is returned rather than guessed. The other half was still the model's to
+run, and it is the half every failed run here got wrong: object, then pods, then
+containers, then events, then logs is **four calls of exact arguments in a fixed
+order**. `sre-sentinel` spent five lookups on one alert and landed none;
+`db-steward` spent seven on one CloudNativePG `Cluster`; the oracle spent eight
+and concluded a running grafana did not exist. Three personas, one shape.
+
+So the chain runs in code, in `agents/mcp/projects/homelab_facts/tools/diagnose.py`:
+
+| Tool | The question | What it removes from a prompt |
+| --- | --- | --- |
+| `why_failed(term)` | why did X fail, crash, restart | the four-call order, which container to read, and whether to read the *previous* one |
+| `logs(term, contains)` | what is X logging | pod name, container, the kubelet-or-Loki fallback, the LogQL selector, the datasource uid |
+| `endpoints(term)` | why can I not connect to X | that `curl: (7)` is an endpointless Service and not a missing one |
+
+Three decisions inside them are worth keeping.
+
+**A pod is reached from its owner, never from a label.** A Job's pods come from
+`ownerReferences`, a Deployment's and a Service's from that object's *own*
+`spec.selector`. No label key originates in the model or in this repository -
+which is the same move as `find_object`, one layer along: `app=grafana` is the
+plausible wrong guess and `app.kubernetes.io/name=grafana` the real key, and
+telling a 4B model to tell those apart is asking it to already know the answer.
+
+**A crash-looping container is not running, so its current log is empty.** The
+log that explains the crash belongs to the instance that already died, so
+`_pick_container` returns `previous=True` for anything in `_FATAL_WAITING` or
+with a non-zero exit. Reading the wrong instance returns nothing, and nothing
+reads as *it logged nothing* - the absence bug again, one layer lower.
+
+**"Nothing here is failing right now" is one of the verdicts.** A format that
+demands a fault is how invented ones get written; that is exactly how
+`endpoint-warden` relabelled a memory figure as disk to fill a mandatory column.
+`why_failed` ends with a VERDICT line assembled from fields it read, and the
+healthy answer, the `cause not determined` answer and the
+`no pod is selected by this Service` answer are all complete answers with their
+own wording.
+
+Verified against the live cluster with the incident's own question. `why_failed`
+on `grafana setup job` returns the Job, its one pod, the log line and the verdict
+in **one call and 1,651 bytes**. The run it replaces made eight calls and got the
+answer backwards.
+
+### Running it against the cluster found the bug that testing could not
+
+`logs` came back as the single line `b'sympozium.memory.write...\nhttp.server...'`.
+The Kubernetes client deserialises a `str`-typed response by calling `str()` on
+the raw bytes, so a log arrives as a Python **bytes repr**: one line, with
+escaped newlines, which every line count, filter and byte budget downstream then
+reads wrong. Not visible in any unit test, because the fake client returns a real
+string. `pod_log` now passes `_preload_content=False` and decodes itself.
+
+That is the standing rule in a new place - diff a tool's output against the real
+thing before wiring an agent to it - and the reason it keeps paying is that the
+fake in a test is written from the same understanding as the code.
+
+### What it cost in prompt budget, measured
+
+The oracle's allowlisted tool schemas, summed from a `tools/list` against each
+running server rather than estimated:
+
+| Server | Before | After |
+| --- | --- | --- |
+| facts | 5,591 B / 10 | 8,618 B / 13 |
+| k8s | 6,678 B / 7 | 4,328 B / 4 |
+| argocd | 3,986 B / 4 | 3,068 B / 3 |
+| grafana | 3,353 B / 2 | **0 B / 0** |
+| postgres, github, slack | 3,527 B / 9 | 3,527 B / 9 |
+| **total** | **23,135 B / 32** | **19,541 B / 29** |
+
+-15.5%, and injected on *every* call in the loop rather than once. Four tools
+left the persona because a fact tool now answers their question with no exact
+value to supply: `k8s_pods_list` (cluster-wide, 8.1 KB that answers nothing),
+`k8s_pods_log`, `k8s_nodes_top`, and `argocd_get_application_resource_tree`
+(large enough on its own to end a run). The whole grafana server is unwired,
+which takes the hex datasource uid out of the prompt for good.
+
+The prompt fell from 6,693 to 4,684 bytes, -30%. It does not reach a reporter's
+0.8-1.7 KB and should not be expected to: the reporters answer one question with
+five tools, and the oracle routes every question this homelab gets across five
+servers. What left it was method - the four-call chain, the LogQL selector, the
+`fieldSelector` key list, the Service-endpoint explanation. What stayed is scope,
+refusal, the absence rules and delivery.
+
+### The tie-break that decides what gets investigated
+
+`lookup.resolve` now sorts by match strength, then by **kind order**, then by
+recency - and the kind lists are ordered owner-first. `grafana setup job` matches
+a Job and its pod equally well; the Job is the better subject because it answers
+for pods that no longer exist and its own status carries the failure count. The
+ordering is a decision the model no longer makes, which is the point of all of
+this.
+
+### `homelab-oracle` had no memory at all
+
+It was the only persona in the fleet without a `memory:` block - the other six
+all carry one - so it re-derived the shape of this cluster on every question and
+could retain nothing between them. Three seeds now, and the first two are the
+rules that have actually been broken: take every exact value from a tool result,
+and never upgrade an empty result to "does not exist". The third asks it to
+record what a question resolved to, so the same question twice does not resolve
+twice.
+
+Note this is *not* the fix for a contextless follow-up in a thread - that is the
+slack MCP server, which the persona already holds. Memory is across runs; the
+thread is within one.
+
+### Deploying it
+
+`agents/mcp/` changes need the image *and* the RBAC. The ClusterRole in
+`templates/mcpservers.yaml` gained `events` and the `pods/log` subresource, and a
+kind the ServiceAccount cannot read comes back as `KubeForbidden` -> `NOT
+SEARCHED`, never as an empty result. `LOKI_URL` is new and points at
+`datahub-local-core-loki.monitoring.svc:3100`, direct rather than through
+Grafana, for the same reason Prometheus is: no datasource uid exists on that
+path, so none can be resolved to the wrong one.
+
+Then the race that already cost one deploy: `imagePullPolicy: Always` pulls when
+a pod is *created*, so a chart applied while the image is still building sits on
+the old one with `status.ready: true` and a stale tool manifest. Wait for
+`Publish MCP Image`, then
+`kubectl -n automation rollout restart deploy/datahub-local-ai-mcp-homelab-facts`,
+and confirm with a `tools/list` against the pod rather than with an agent run.
+
+## Measuring whether a prompt change worked
+
+Every fix in this file was verified by one hand-applied `AgentRun` and argued
+from a Loki query afterwards. That is enough to confirm a mechanism and not
+enough to know whether the fleet got better: there is no number that moves. The
+plan, not yet built:
+
+1. **A question set.** 15-20 real questions from `#homelab` - including the ones
+   that failed - each with the object and namespace the answer must name, and a
+   one-line rubric.
+2. **A runner.** Applies each question as an `AgentRun` against the live persona
+   (never the web endpoint, which drops `toolPolicy` and truncates the task),
+   streams `kubectl logs <pod> -c agent`, and records: tools called in order,
+   iterations used, input tokens on the first call, result bytes, and whether the
+   run ended with text.
+3. **Four mechanical scores**, none of which needs a judge: did it call a
+   resolving tool before any exact-value tool; did it repeat a call byte-for-byte;
+   did it make a negative claim (`does not exist`, `no such`, `there is no`)
+   after an empty result; did it deliver a non-empty final text.
+4. **One standing counter.** The `terminal turn had empty text` Loki query
+   already in this file, run over a fixed 48h window, is the fleet-wide version
+   of score 4 and was roughly one run in ten when last measured.
+
+Scores 3 and 4 are the ones that would have caught every incident written up
+here. A judged score for answer quality can come later; the mechanical ones are
+falsifiable today, which the prose ones never were.
+
 ## Open, and not ours
 
 - `TargetDown{job="longhorn-backend"}` has been firing since the Longhorn

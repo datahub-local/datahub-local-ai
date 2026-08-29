@@ -332,9 +332,13 @@ not converge: prompts reached 6–12KB and roughly 600 of the validator's lines
 were regexes policing English. Both are now gone — prompts are 4–6KB and the
 validator is down to field checks, because the method left the prompt.
 
-**Code gathers; the model writes.** `projects/homelab_facts/` exposes nine tools,
-eight of them taking no arguments at all, each returning one report section's
-worth of already-correct readings.
+**Code gathers; the model writes.** `projects/homelab_facts/` exposes thirteen
+tools: nine take no arguments at all and return one report section's worth of
+already-correct readings, and four take free text where any string is valid.
+`find_object` turns the words a person typed into exact names; `why_failed`,
+`logs` and `endpoints` run the chain after it - object, pods, containers, events,
+log tail - which is four calls of exact arguments in a fixed order and the step
+every failed run in this fleet got wrong.
 
 The tools do **not** replace reach — every persona keeps the raw `k8s_*` and
 Prometheus tools for following up. The win is *budget reallocation*: the mandatory
@@ -356,8 +360,8 @@ of report that reached Slack:
 - **Every answer is bounded in code.** "Fat tool" means few *calls*, never big
   *answers*: one ~16KB result reproducibly ends a run with `terminal turn had
   empty text`, and that is not context overflow. Each tool declares a byte
-  budget, truncates by whole lines, and says that it did. A full nine-tool sweep
-  is ~14.7KB.
+  budget, truncates by whole lines, and says that it did. A full nine-reading
+  sweep is ~14.7KB; no single answer exceeds 4KB.
 - **Trends are measured.** Snapshots live in the server, so "new since last run"
   is a computation. A lost snapshot degrades to "first observation", stated
   explicitly, and can never produce a *wrong* diff.
@@ -389,13 +393,14 @@ applied.
 
 #### Two properties worth keeping
 
-- **The server holds no credential.** Prometheus needs no auth here; Kubernetes
-  goes through the pod ServiceAccount; ArgoCD state comes from `Application` CRs
+- **The server holds no credential.** Prometheus and Loki need no auth here and
+  are both queried directly rather than through Grafana, so no datasource uid
+  exists on either path; Kubernetes goes through the pod ServiceAccount; ArgoCD state comes from `Application` CRs
   rather than the ArgoCD API; Postgres state from the CloudNativePG operator's
   metrics rather than a DSN. Query-level Postgres analysis stays on the existing
   postgres MCP server, which already holds that credential.
-- **It cannot return a Secret's contents.** `kube.py` exposes `list` only and
-  strips `data`/`stringData` at the boundary. `cert_expiry()` narrows with a
+- **It cannot return a Secret's contents.** `kube.py` exposes `list` plus one
+  bounded `pod_log`, and strips `data`/`stringData` at the boundary. `cert_expiry()` narrows with a
   field selector rather than filtering afterwards — an unfiltered cluster-wide
   Secret list transfers every value in every namespace, 25MB here, and broke the
   connection outright.
@@ -403,7 +408,8 @@ applied.
 #### Deployment notes that are load-bearing
 
 The chart in `agents/sympozium/` owns the `Deployment`, `Service` and
-`MCPServer`.
+`MCPServer`, including the enumerated read-only `ClusterRole` - a kind missing
+from it is a 403, which the code keeps distinct from an empty result.
 
 - Pods **must** carry `app.kubernetes.io/name: mcpserver`, or core's
   `agent-allow-tools` NetworkPolicy blocks 8080 and every call times out with no
@@ -874,7 +880,8 @@ rather than copying the outcomes, since the constraints will change.
 - `agents/mcp/tests/` needs no cluster: `tests/` holds the reusable server's tests
   (byte budgets, JSON-RPC and path-agnostic transport, snapshot diffing, Secret
   redaction, kernel-class derivation, expression builders) and
-  `tests/homelab_facts/` the per-project tool tests against a fake Prometheus.
+  `tests/homelab_facts/` the per-project tool tests against a fake Prometheus, a
+  fake Kubernetes and a fake Loki.
   **This is where the nine prose validators went.** `_check_fill_direction`,
   `_check_counter_window`, `_check_nodename_join`, `_check_endtime_literal` and
   the rest each policed English in a prompt; they are now assertions about the

@@ -146,13 +146,18 @@ class TestNoDatasourceOrEndTime:
         assert set(SCHEMA["properties"]) == {"expr", "window"}
         assert SCHEMA["required"] == ["expr"]
 
-    # The two tools that do take an argument. Both take free text where any
-    # string is valid, which is the actual rule: an argument is safe when there
-    # is no format to get wrong. `chatId`, `datasourceUid` and `endTime` each
-    # had exactly one correct shape, and each was copied wrong.
+    # The tools that do take an argument. Every one of them takes free text
+    # where any string is valid, which is the actual rule: an argument is safe
+    # when there is no format to get wrong. `chatId`, `datasourceUid` and
+    # `endTime` each had exactly one correct shape, and each was copied wrong.
+    # `contains` is a literal substring rather than a regex for the same reason -
+    # a bad regex is a query error, where a bad substring is just no match.
     _FREE_TEXT_ARGUMENTS: ClassVar[dict[str, set[str]]] = {
         "promql": {"expr", "window"},
         "find_object": {"term"},
+        "why_failed": {"term"},
+        "logs": {"term", "contains"},
+        "endpoints": {"term"},
     }
 
     def test_no_fact_tool_takes_any_argument_at_all(self):

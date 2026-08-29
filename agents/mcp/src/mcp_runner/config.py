@@ -26,6 +26,21 @@ def prometheus_timeout() -> float:
     return float(env("PROMETHEUS_TIMEOUT_SECONDS", "20"))
 
 
+def loki_url() -> str:
+    """Loki, queried directly rather than through Grafana, for the same reason.
+
+    Verified against the cluster: this service answers `/loki/api/v1/*` with no
+    auth and no tenant header, and its label set includes `namespace`, `pod` and
+    `container`. Going direct means no datasource uid on this path either - the
+    value a 4B model resolved to Loki's hex uid and 404'd every query with.
+    """
+    return env("LOKI_URL", "http://datahub-local-core-loki.monitoring.svc:3100")
+
+
+def loki_timeout() -> float:
+    return float(env("LOKI_TIMEOUT_SECONDS", "20"))
+
+
 def state_dir() -> str:
     """Where snapshots for the computed diffs live. An emptyDir is enough."""
     return env("MCP_STATE_DIR", "/tmp/mcp-state")

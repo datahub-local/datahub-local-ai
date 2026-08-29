@@ -185,12 +185,15 @@ WRITE_TOOLS = {"github_add_issue_comment"}
 # and a wrong pick fails silently. `grafana_list_datasources` was allowlisted so
 # the Prometheus uid would not be a hardcoded guess; the model then chose Loki's
 # hex uid over the literal `prometheus` and every query returned 404, which the
-# report rendered as a fleet with no metrics. The uid is pinned in the prompts
-# instead — see _check_datasource_uid.
+# report rendered as a fleet with no metrics. No persona wires the grafana server
+# at all now: Prometheus and Loki are both queried directly by the facts server,
+# so no uid exists on either path to get wrong. The entry stays as the record of
+# why re-adding the tool would be a mistake.
 BANNED_TOOLS = {
     "grafana_list_datasources": (
-        "the uid belongs in the prompt as the literal `prometheus`. Given the "
-        "datasource list, the model picks Loki's hex uid and every query 404s"
+        "no persona reads Grafana any more - the facts server queries Prometheus "
+        "and Loki directly, so there is no uid to resolve. Given the datasource "
+        "list, the model picks Loki's hex uid and every query 404s"
     ),
 }
 
@@ -235,6 +238,8 @@ MCP_SERVER_KEYS = frozenset(
         "resources",
         "prometheusUrl",
         "prometheusTimeoutSeconds",
+        "lokiUrl",
+        "lokiTimeoutSeconds",
         "timeout",
         "toolsPrefix",
     }

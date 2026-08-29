@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from mcp_runner.server import Registry
 
-from .tools import alerts, databases, gitops, lifecycle, lookup, nodes, raw, volumes
+from .tools import alerts, databases, diagnose, gitops, lifecycle, lookup, nodes, raw, volumes
 
 
 def register(registry: Registry) -> None:
@@ -29,6 +29,27 @@ def register(registry: Registry) -> None:
         lookup.find_object,
         schema=lookup.SCHEMA,
         budget=lookup.BUDGET,
+    )
+    registry.add(
+        "why_failed",
+        diagnose.WHY_FAILED_DESCRIPTION,
+        diagnose.why_failed,
+        schema=diagnose.WHY_FAILED_SCHEMA,
+        budget=diagnose.BUDGET,
+    )
+    registry.add(
+        "logs",
+        diagnose.LOGS_DESCRIPTION,
+        diagnose.logs,
+        schema=diagnose.LOGS_SCHEMA,
+        budget=diagnose.LOGS_BUDGET,
+    )
+    registry.add(
+        "endpoints",
+        diagnose.ENDPOINTS_DESCRIPTION,
+        diagnose.endpoints,
+        schema=diagnose.ENDPOINTS_SCHEMA,
+        budget=diagnose.ENDPOINTS_BUDGET,
     )
     registry.add(
         "node_fleet",

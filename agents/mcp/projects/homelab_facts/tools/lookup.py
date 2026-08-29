@@ -16,6 +16,7 @@ substring, then every-word, over the kinds a question is ever about. See
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 
 from mcp_runner import kube, render
 from mcp_runner.budget import truncate_lines
@@ -74,8 +75,12 @@ def _matches(name: str, namespace: str, term: str, tokens: list[str]) -> str:
     return ""
 
 
-def _status(kind: str, obj: dict) -> str:
-    """One column of whatever this kind's state actually is."""
+def state_of(kind: str, obj: dict) -> str:
+    """One column of whatever this kind's state actually is.
+
+    Public because `diagnose` renders the same column for the same kinds; a
+    second copy of it would drift.
+    """
     status = obj.get("status") or {}
     spec = obj.get("spec") or {}
     if kind == "Pod":
@@ -126,14 +131,116 @@ def _status(kind: str, obj: dict) -> str:
     return "-"
 
 
+@dataclass(frozen=True)
+class Match:
+    """One object a term resolved to, with how it matched and what it is."""
+
+    api_version: str
+    kind: str
+    namespace: str
+    name: str
+    how: str
+    created: str
+    obj: dict
+
+
+# Best first: an exact name beats a substring beats a bag of words; at equal
+# strength the owner beats the thing it owns, because the kind lists are ordered
+# owner-first and a Job answers for pods that no longer exist; and after that the
+# newest wins. `why_failed` and `logs` act on the head of this list, so the
+# ordering is a decision the model no longer makes.
+_RANK = {"exact": 0, "contains": 1, "words": 2}
+
+
+def resolve(
+    client, term: str, kinds: tuple[tuple[str, str], ...] = _KINDS
+) -> tuple[list[Match], list[str], list[str]]:
+    """Resolve ``term`` to objects. Returns (matches, unreadable kinds, errors).
+
+    Shared by every tool that turns a typed word into an exact name, so there is
+    one matcher rather than one per tool. Unreadable kinds are carried out
+    separately because a kind this server may not list is a blind spot, never an
+    absence.
+    """
+    tokens = _tokens(term)
+    matches: list[Match] = []
+    unreadable: list[str] = []
+    errors: list[str] = []
+
+    for api_version, kind in kinds:
+        try:
+            objects = client.list(api_version, kind)
+        except kube.KubeForbidden:
+            unreadable.append(kind)
+            continue
+        except kube.KubeError as exc:
+            errors.append(f"{kind}: ERROR - {exc}")
+            continue
+        for obj in objects:
+            metadata = obj.get("metadata") or {}
+            name = metadata.get("name") or ""
+            namespace = metadata.get("namespace") or "-"
+            how = _matches(name, namespace, term, tokens)
+            if how:
+                matches.append(
+                    Match(
+                        api_version=api_version,
+                        kind=kind,
+                        namespace=namespace,
+                        name=name,
+                        how=how,
+                        created=metadata.get("creationTimestamp") or "",
+                        obj=obj,
+                    )
+                )
+
+    # Two stable passes rather than one inverted key: newest first, then by how
+    # strongly the name matched and how close to an owner the kind is.
+    order = {kind: index for index, (_, kind) in enumerate(kinds)}
+    matches.sort(key=lambda match: match.created, reverse=True)
+    matches.sort(key=lambda match: (_RANK[match.how], order[match.kind]))
+    return matches, unreadable, errors
+
+
+def not_matched(term: str, kinds, unreadable: list[str]) -> str:
+    """The wording for a search that ran and matched nothing.
+
+    One place, because every tool that resolves a name has to say this the same
+    way: searched-and-not-matched is a real result and is never proof that a
+    thing does not exist. Both halves of that have been upgraded to "does not
+    exist" in a Slack answer before.
+    """
+    searched = [kind for _, kind in kinds if kind not in unreadable]
+    if not searched:
+        return (
+            f"ERROR: nothing could be searched for '{term}'. This server is not "
+            f"permitted to list any of: {', '.join(unreadable)}.\n"
+            f"This is a permission failure, not an empty cluster. Do not report "
+            f"that anything is missing."
+        )
+    message = (
+        f"No {', '.join(searched)} has a name containing '{term}' or all of its "
+        f"words.\n"
+        f"This is a searched-and-not-matched result for those kinds only. It is "
+        f"not proof that nothing related exists: try a shorter term, or a single "
+        f"word."
+    )
+    if unreadable:
+        message += (
+            f"\nNOT SEARCHED, because this server may not list them: "
+            f"{', '.join(unreadable)}. A match there would not have been seen."
+        )
+    return message
+
+
 def find_object(term: str) -> str:
     """Find every object whose name contains ``term``, or all of its words."""
     term = (term or "").strip()
     if not term:
         return "ERROR: term is required. Example: term=grafana"
 
-    tokens = _tokens(term)
     client = settings.kube()
+    matches, unreadable, errors = resolve(client, term)
 
     lines: list[str] = [
         (
@@ -142,40 +249,23 @@ def find_object(term: str) -> str:
         ),
         "",
     ]
-    found = 0
-    services: list[tuple[str, str]] = []
-    unreadable: list[str] = []
+    lines += errors
+    found = len(matches)
 
-    for api_version, kind in _KINDS:
-        try:
-            objects = client.list(api_version, kind)
-        except kube.KubeForbidden:
-            # Never counted as searched. A kind this server may not list is a
-            # blind spot, and reporting it as "no match" is how a running
-            # grafana was declared absent.
-            unreadable.append(kind)
-            continue
-        except kube.KubeError as exc:
-            lines.append(f"{kind}: ERROR - {exc}")
-            continue
-        hits = []
-        for obj in objects:
-            metadata = obj.get("metadata") or {}
-            name = metadata.get("name") or ""
-            namespace = metadata.get("namespace") or "-"
-            how = _matches(name, namespace, term, tokens)
-            if how:
-                hits.append((metadata.get("creationTimestamp") or "", namespace, name, how, obj))
+    for _, kind in _KINDS:
+        # Newest first within a kind: a repeating Job leaves dozens of finished
+        # pods and the question is always about a recent one.
+        hits = sorted(
+            (match for match in matches if match.kind == kind),
+            key=lambda match: match.created,
+            reverse=True,
+        )
         if not hits:
             continue
-        # Newest first: a repeating Job leaves dozens of finished pods and the
-        # question is always about a recent one.
-        hits.sort(key=lambda hit: hit[0], reverse=True)
-        found += len(hits)
         lines.append(f"## {kind} ({len(hits)})")
         rows = [
-            [namespace, name, how, _status(kind, obj), render.age(created)]
-            for created, namespace, name, how, obj in hits[:_PER_KIND]
+            [hit.namespace, hit.name, hit.how, state_of(kind, hit.obj), render.age(hit.created)]
+            for hit in hits[:_PER_KIND]
         ]
         lines += render.table(["namespace", "name", "match", "state", "age"], rows)
         if len(hits) > _PER_KIND:
@@ -184,8 +274,9 @@ def find_object(term: str) -> str:
                 "the newest are shown.)"
             )
         if kind == "Service":
-            services = [(namespace, name) for _, namespace, name, _, _ in hits[:_MAX_ENDPOINT_CHECKS]]
-            lines += _endpoints(client, services)
+            lines += endpoint_lines(
+                client, [(hit.namespace, hit.name) for hit in hits[:_MAX_ENDPOINT_CHECKS]]
+            )
         lines.append("")
 
     if unreadable:
@@ -200,32 +291,12 @@ def find_object(term: str) -> str:
         lines.append("")
 
     if not found:
-        searched = [kind for _, kind in _KINDS if kind not in unreadable]
-        if not searched:
-            return (
-                f"ERROR: nothing could be searched for '{term}'. This server is not "
-                f"permitted to list any of: {', '.join(unreadable)}.\n"
-                f"This is a permission failure, not an empty cluster. Do not report "
-                f"that anything is missing."
-            )
-        message = (
-            f"No {', '.join(searched)} has a name containing '{term}' or all of its "
-            f"words.\n"
-            f"This is a searched-and-not-matched result for those kinds only. It is "
-            f"not proof that nothing related exists: try a shorter term, or a single "
-            f"word."
-        )
-        if unreadable:
-            message += (
-                f"\nNOT SEARCHED, because this server may not list them: "
-                f"{', '.join(unreadable)}. A match there would not have been seen."
-            )
-        return message
+        return not_matched(term, _KINDS, unreadable)
 
     return truncate_lines(lines, BUDGET, unit="lines")
 
 
-def _endpoints(client, services: list[tuple[str, str]]) -> list[str]:
+def endpoint_lines(client, services: list[tuple[str, str]]) -> list[str]:
     """Ready addresses behind each matched Service.
 
     `curl: (7) could not connect` on a name that resolves is a Service with no

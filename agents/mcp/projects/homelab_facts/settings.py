@@ -10,6 +10,7 @@ import yaml
 
 from mcp_runner import config as runner_config
 from mcp_runner.kube import Kube
+from mcp_runner.loki import Loki
 from mcp_runner.prometheus import Prometheus
 from mcp_runner.state import Snapshots
 
@@ -71,6 +72,11 @@ def prometheus() -> Prometheus:
 @functools.lru_cache(maxsize=1)
 def kube() -> Kube:
     return Kube()
+
+
+@functools.lru_cache(maxsize=1)
+def loki() -> Loki:
+    return Loki()
 
 
 @functools.lru_cache(maxsize=1)

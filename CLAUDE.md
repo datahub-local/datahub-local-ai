@@ -14,6 +14,15 @@ A monorepo of data workflow definitions for a local/homelab Datahub stack. Sub-p
 - `workflows/dlt/` — [dlt](https://dlthub.com) ingest/export pipelines (CSV → bronze; silver/gold → Postgres) that run *around* dbt
 - `workflows/superset/` — Superset dashboard export bundles per project (`workflows/superset/projects/<name>/dashboard_export/` YAML) plus a Helm release (`workflows/superset/release/`) that ships them as ConfigMaps labeled `superset_dashboard=1` for the dashboard sidecar in datahub-local-core. After editing YAML: `python3 workflows/superset/scripts/build_bundles.py` rebuilds the reproducible zips under `release/files/`, then `helmfile apply` from `workflows/superset/release/` deploys them. Object `uuid`s are the stable identity across re-imports — never regenerate them once deployed.
 
+## AI prompt policy
+
+This applies to **every** prompt in this repository, including n8n templates,
+Sympozium persona prompts, and any future AI workflow. Prompts must be short,
+literal, and action-oriented — like a compact GitHub/Copilot prompt. State the
+job, required inputs or tools, bounded steps, no-result behavior, and required
+output. Put deterministic logic in code and durable rationale in documentation;
+do not turn prompts into tutorials, copied schemas, or background essays.
+
 ## Naming conventions
 
 Sub-projects follow a consistent structure:
@@ -822,11 +831,13 @@ rather than copying the outcomes, since the constraints will change.
   2026-08-27 — read the effective value from Ollama's `GET /api/ps` with the
   model resident, not from `/api/show`, which reports the architecture ceiling).
   The prompt, tool schemas, accumulated results, memory and final answer share
-  that limit; leave headroom rather than treating 90K as a target. Prompt files
-  use compact literal "caveman" contracts: one job, exact tool order, small
-  lookup cap with an explicit no-result exit, exact report shape, and final
-  delivery instruction. Keep shared fact gathering in MCP code; do not restore
-  long tutorials, copied schemas or repeated background prose. `toolsAllow`
+  that limit; leave headroom rather than treating 90K as a target. **Every agent
+  prompt must stay short and literal, like a compact GitHub/Copilot prompt:**
+  one job, exact tool order, a small lookup cap with an explicit no-result exit,
+  exact output shape, and final delivery instruction. Put deterministic
+  gathering, reusable context, and detailed method in MCP code or `MEMORY.md`,
+  not prompt prose. Do not restore long tutorials, copied schemas, or repeated
+  background explanation. `toolsAllow`
   bounds injected schema and is a context-budget control, not merely permission.
   Hence
   `workflowType: autonomous` rather than `delegation` (too small to be trusted

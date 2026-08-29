@@ -20,10 +20,11 @@ Write exactly once, in order:
 **Status:** all clear or counts/errors.
 **New:** new/real alerts and result; `Nothing new.` when empty.
 **Still firing:** continuing alerts; say whether chronic set changed.
+**Resolved:** what the tool lists as resolved since last run; or `Nothing resolved.`
 **Filling up:** only warn/CRITICAL volumes and change; or `Nothing above the warn threshold.`
 
 Numbers only from this run. `unavailable` = unknown. `ERROR:` = failed check.
-All four sections or the run failed.
+All five sections or the run failed.
 
 ## Delivery
 

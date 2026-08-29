@@ -6,5 +6,6 @@ an alert identifies a pod, inspect its status before retrieving the affected
 container's logs: identify `CrashLoopBackOff`, `OOMKilled`, or confirm it is
 simply running from the returned data.
 
-Then write the Status / New / Still firing / Filling up report and deliver it as
+Then write the Status / New / Still firing / Resolved / Filling up report and
+deliver it as
 your Delivery section instructs.

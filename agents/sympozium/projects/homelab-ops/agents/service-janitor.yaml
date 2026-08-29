@@ -9,7 +9,7 @@ skills:
 
 schedule:
   type: scheduled
-  cron: "0 5 * * 1"
+  cron: "0 5 * * *"
   firstTick: afterInterval
   taskFile: prompts/service_janitor_task.md
 

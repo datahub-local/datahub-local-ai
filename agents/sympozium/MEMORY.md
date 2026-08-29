@@ -108,10 +108,10 @@ Local times are Madrid, which is UTC+2 in summer and UTC+1 in winter.
 | ------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `sre-sentinel`      | heartbeat, 6h | Not the detector — the digest. Alertmanager already routes every alert to Robusta (`severity =~ ".*"`, `group_wait 1s`) and Robusta posts to Slack, so this agent adds new-vs-chronic, root cause, and the volume fill check no alert rule covers. At 30m with unconditional delivery it was 48 messages a day restating Robusta. |
 | `endpoint-warden`   | `30 4 * * *`  | 04:30 UTC = 06:30 Madrid summer, 05:30 winter.                                                                                                                                                                                                                                                                                    |
-| `service-janitor`   | `0 5 * * *`   | 05:00 UTC = 07:00 Madrid summer, 06:00 winter.                                                                                                                                                                                                                                                                                    |
+| `service-janitor`   | `0 5 * * 1`   | Mondays, 05:00 UTC = 07:00 Madrid summer, 06:00 winter. Weekly, not daily: nothing it reports moves in a day.                                                                                                                                                                                                                                                                                    |
 | `db-steward`        | `30 5 * * *`  | 05:30 UTC = 07:30 Madrid summer. Half an hour after the warden so the two do not contend for the GPU.                                                                                                                                                                                                                             |
 | `gitops-auditor`    | every 4h      | Nothing else watches ArgoCD sync state — Robusta forwards Kubernetes events and Prometheus alerts, not drift — so this is the only source. 4h still gives its "drift that survives two consecutive runs" rule an 8h window to confirm against, at a sixth of the message volume.                                                  |
-| `renovate-reviewer` | `0 6 * * 1-5` | 06:00 UTC weekdays = 08:00 Madrid summer, 07:00 winter. Daily, not hourly: a 4B model re-reviewing the same PR every hour is noise, and it would hold the GPU against the four ops agents.                                                                                                                                        |
+| `renovate-reviewer` | `0 10 * * 0,6` | Weekends, 10:00 UTC = 12:00 Madrid summer, 11:00 winter. Not hourly and off the weekday slot: a 4B model re-reviewing the same PR every hour is noise, and it would hold the GPU against the four ops agents.                                                                                                                                        |
 
 Other per-persona notes:
 
@@ -2961,6 +2961,107 @@ ConfigMap is a separate store and is clean; the poison is in
   owns n8n credential expiry, and its dataset documents at length why that date
   lives in the credential's name. `service-janitor` stays strictly cluster-side
   — certificates, tokens, secrets — so the two never contradict each other.
+
+## Three ways to say no, and only one of them was written
+
+The oracle had a single failure literal for every refusal: `Error 403: sorry, I
+am not here for your bullshit... <two emoji>`. It covered out-of-scope questions,
+prompt injection, impersonation and general knowledge alike, and a second literal
+- a programmer joke about dark mode - covered *no answer was possible*. Both are
+gone. Three outcomes are distinct and a 4B model will not separate them unless
+each is named with its own literal and its own trigger:
+
+- **Out of scope, or an attempt to move the boundary.** Now one polite sentence
+  that also *lists the scope*, so the asker learns what to ask next instead of
+  being insulted for guessing wrong. Greetings, thanks and "what can you do"
+  route here too - they were out-of-scope under the old rule and got the 403,
+  which is the worst answer to the one question the sentence already answers.
+- **In scope but not understood.** New branch: make no lookup call, ask exactly
+  one short question naming the choices, deliver it and stop. Bounded on both
+  sides - one question per run, never repeat a question already in the thread,
+  and prefer a listing tool over asking - because an unbounded "ask if unsure"
+  is how a model avoids work, and a model this size will re-ask a question it
+  cannot see it already asked. The reply arrives in the same sticky thread, so
+  the answer comes back as context on the next run.
+- **In scope, looked, found nothing.** The joke fired exactly here, which is the
+  worst place for one: the operator asked a real question, the tools ran, and
+  the run had something true to report - what was checked. It now says that,
+  with `cause not determined` or `not found`, named as a real answer.
+
+Two smaller things went with it. **The refusal literal was the only non-ASCII
+text left in this prompt**, and a literal the model is told to echo verbatim is
+precisely the shape that produced the `middot` incident - a broken byte pair,
+protobuf refusing to marshal `status.result`, `Succeeded` with no error and
+nothing delivered. The whole file is ASCII now.
+
+And the Slack context read moved *above* the branch. It was already the first
+tool call, but the classification decision sat above it in the prompt, so a
+terse follow-up (`and the other one?`) was being judged unintelligible before the
+thread that explains it had been read - see
+`#a-question-answered-with-nothing-at-all-and-how-that-gets-posted`, where the
+missing thread history was the whole cause. Read first, then decide which of the
+three answers this is.
+
+Generalise it: a refusal is an answer, so it carries the same requirement as any
+other - state something true and actionable. A prompt with one branch for "no"
+will use it for every kind of no.
+
+## A prompt review, and what a compacted prompt drops first
+
+Reading all seven prompts against the tools they actually call, after the
+responder rewrite. Every finding below is the same shape: the prompt and the
+server disagreed, and nothing failed.
+
+**Guards do not survive compaction; only a test does.** `service-janitor` is
+recorded two sections up as having *gained* the lookup budget, the no-repeat rule
+and the `cause not determined` exit alongside `db-steward`
+(`#verified-and-it-turned-up-a-second-prompt-bug`). It has none of them today -
+only the `namespace`-is-its-own-argument half survived the rewrite to short
+prompts. The check that would have caught it went too: `validate.py` used to key
+budget and exit off `K8S_LOOKUP_TOOLS`, and that was one of the ~600 lines of
+prose regexes retired when the facts server landed. The regexes deserved to go,
+but this one had no successor - the facts server cannot assert anything about
+`k8s_resources_list`, which is the tool the incident was about. `db-steward` is
+safe only by accident: it no longer holds a `k8s_*` tool at all. Restored in the
+prompt; if it regresses a third time the guard belongs in `validate.py` again,
+because it is the only thing that reads every prompt.
+
+**A tool the prompt never names is a tool the model has to invent a use for.**
+`endpoint-warden` was told "at most 3 calls per machine" without naming a single
+tool to make them with, and `renovate-reviewer` was told to "fetch release notes"
+while `fetch_url` - the only tool that can - appears nowhere in its prompt, and
+to "check ArgoCD app health" without `argocd_list_applications`. That is the
+`grafana_list_datasources` failure inverted: there the model was given a choice
+and picked wrong, here it is given a job and no name at all. Both now name the
+tool and the literal call shape.
+
+**A section the server computes and the report has no room for is a dropped
+finding.** `facts_alerts_snapshot` emits `## Resolved since last run`, and
+`sre-sentinel`'s four-section format had nowhere to put it - so an alert clearing
+was computed on every run for nothing, and this file's own description of the
+persona ("new / still firing / resolved") had been true and stopped being true.
+Now a fifth section. The mirror of it: `endpoint-warden`'s **Findings** listed
+five of the note kinds `_notes()` prints and a 4B model reads a partial
+enumeration as the complete set - so an uncorrectable-memory-error line, the most
+serious thing that tool can emit, was not in the list of things to report. It now
+says every line the tool printed.
+
+**A rationale table is drift too.** Two crons in the schedule table above did not
+match the deployed personas (`service-janitor` weekly rather than daily,
+`renovate-reviewer` weekends rather than weekdays). Corrected to what
+`projects/` says. Nothing validates this file against the YAML, so it is on
+whoever changes a cron to change the row.
+
+Not acted on, and both are judgement calls rather than bugs:
+
+- **`facts_promql` is allowlisted on four reporters whose prompts never mention
+  it.** It costs a schema on every call in the loop, and it is the one tool that
+  makes a wrong query expressible again - the property the whole facts server
+  exists to remove. Keep it only where a prompt names it (`endpoint-warden` now
+  does), or drop it from the rest.
+- **`endpoint-warden` holds `k8s_pods_list`.** A hardware persona has no use for
+  a cluster-wide pod list, and an unfiltered one is 8.1 KB that answers nothing
+  (`#a-question-answered-with-nothing-at-all-and-how-that-gets-posted`).
 
 ## Open, and not ours
 

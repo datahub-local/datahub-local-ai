@@ -46,6 +46,7 @@ _KINDS: tuple[tuple[str, str], ...] = (
     ("batch/v1", "CronJob"),
     ("v1", "PersistentVolumeClaim"),
     ("networking.k8s.io/v1", "Ingress"),
+    ("traefik.io/v1alpha1", "IngressRoute"),
     ("argoproj.io/v1alpha1", "Application"),
     ("v1", "Namespace"),
     ("v1", "Node"),
@@ -101,6 +102,17 @@ def _status(kind: str, obj: dict) -> str:
     if kind == "PersistentVolumeClaim":
         capacity = (status.get("capacity") or {}).get("storage") or "-"
         return f"{status.get('phase') or 'unknown'}, {capacity}"
+    if kind == "IngressRoute":
+        # The hostname is the answer to "what serves X", so it is the column.
+        # A Host(`...`) match is the only part worth returning; the rest of a
+        # rule is middleware wiring nobody asked about.
+        hosts: list[str] = []
+        for route in spec.get("routes") or []:
+            for match in re.findall(r"Host\(`([^`]+)`\)", route.get("match") or ""):
+                if match not in hosts:
+                    hosts.append(match)
+        entry = ",".join(spec.get("entryPoints") or []) or "-"
+        return f"{entry} -> {', '.join(hosts[:3]) or 'no Host() rule'}"
     if kind == "Application":
         return (
             f"{((status.get('sync') or {}).get('status')) or 'unknown'}/"
@@ -132,10 +144,17 @@ def find_object(term: str) -> str:
     ]
     found = 0
     services: list[tuple[str, str]] = []
+    unreadable: list[str] = []
 
     for api_version, kind in _KINDS:
         try:
             objects = client.list(api_version, kind)
+        except kube.KubeForbidden:
+            # Never counted as searched. A kind this server may not list is a
+            # blind spot, and reporting it as "no match" is how a running
+            # grafana was declared absent.
+            unreadable.append(kind)
+            continue
         except kube.KubeError as exc:
             lines.append(f"{kind}: ERROR - {exc}")
             continue
@@ -168,14 +187,39 @@ def find_object(term: str) -> str:
             services = [(namespace, name) for _, namespace, name, _, _ in hits[:_MAX_ENDPOINT_CHECKS]]
         lines.append("")
 
-    if not found:
-        return (
-            f"No Pod, Service, Deployment, StatefulSet, DaemonSet, Job, CronJob, PVC, "
-            f"Ingress, ArgoCD Application, Namespace or Node has a name containing "
-            f"'{term}' or all of its words.\n"
-            f"This is a searched-and-not-matched result for those kinds only. It is not "
-            f"proof that nothing related exists: try a shorter term, or a single word."
+    if unreadable:
+        lines.append(
+            "## NOT SEARCHED - this server may not list: " + ", ".join(unreadable)
         )
+        lines.append(
+            "These kinds were not looked at. Nothing below or above says anything "
+            "about them, and their absence from this result is a permission gap "
+            "rather than a fact about the cluster."
+        )
+        lines.append("")
+
+    if not found:
+        searched = [kind for _, kind in _KINDS if kind not in unreadable]
+        if not searched:
+            return (
+                f"ERROR: nothing could be searched for '{term}'. This server is not "
+                f"permitted to list any of: {', '.join(unreadable)}.\n"
+                f"This is a permission failure, not an empty cluster. Do not report "
+                f"that anything is missing."
+            )
+        message = (
+            f"No {', '.join(searched)} has a name containing '{term}' or all of its "
+            f"words.\n"
+            f"This is a searched-and-not-matched result for those kinds only. It is "
+            f"not proof that nothing related exists: try a shorter term, or a single "
+            f"word."
+        )
+        if unreadable:
+            message += (
+                f"\nNOT SEARCHED, because this server may not list them: "
+                f"{', '.join(unreadable)}. A match there would not have been seen."
+            )
+        return message
 
     if services:
         lines.append("## Service endpoints")
@@ -237,8 +281,9 @@ substring and then by every word, so 'grafana', 'grafana setup job' and a full
 generated pod name all work, and nothing has to be exact.
 
 Searches Pods, Services, Deployments, StatefulSets, DaemonSets, Jobs, CronJobs,
-PVCs, Ingresses, ArgoCD Applications, Namespaces and Nodes, newest first, with
-each one's state. For a matched Service it also reports how many ready endpoints
+PVCs, Ingresses, Traefik IngressRoutes, ArgoCD Applications, Namespaces and
+Nodes, newest first, with each one's state. An IngressRoute reports the
+hostnames it serves, which is what answers "what URL is X on". For a matched Service it also reports how many ready endpoints
 are behind it. No match is reported as searched-and-not-matched, which is never
 proof that a thing does not exist.
 """

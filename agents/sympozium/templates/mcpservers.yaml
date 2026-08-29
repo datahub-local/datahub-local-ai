@@ -34,8 +34,26 @@ metadata:
     app.kubernetes.io/instance: {{ $fullName }}
     app.kubernetes.io/managed-by: Helm
 rules:
+{{- /* Enumerated, never a wildcard, and read-only. The kinds `find_object`
+       searches by name are here because a kind it may not list is a blind spot
+       it must announce rather than a fact about the cluster: see ../MEMORY.md. */}}
   - apiGroups: [""]
-    resources: ["nodes"]
+    resources:
+      - nodes
+      - namespaces
+      - pods
+      - services
+      - endpoints
+      - persistentvolumeclaims
+    verbs: ["get", "list"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "daemonsets"]
+    verbs: ["get", "list"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
     verbs: ["get", "list"]
 {{- /* `list` and deliberately not `get`: see ../MEMORY.md. */}}
   - apiGroups: [""]

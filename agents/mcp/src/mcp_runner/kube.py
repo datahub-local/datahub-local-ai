@@ -22,6 +22,17 @@ class KubeError(RuntimeError):
     pass
 
 
+class KubeForbidden(KubeError):
+    """The API server refused the read.
+
+    Distinct from an empty list on purpose. A 403 returned as `[]` is a blind
+    spot rendered as an answer: `find_object` reported "searched and not matched"
+    for grafana on a cluster running grafana, because the ServiceAccount could
+    not list Pods. Absence has to be a value with a definition, and "not
+    permitted to look" is not absence.
+    """
+
+
 class Kube:
     """Thin wrapper over the dynamic client, in-cluster or via a local kubeconfig."""
 
@@ -89,13 +100,25 @@ class Kube:
             kwargs["field_selector"] = field_selector
         try:
             response = resource.get(**kwargs)
-        except Exception as exc:  # noqa: BLE001 - a failed list is reported as absent
+        except Exception as exc:
+            if _is_forbidden(exc):
+                logger.warning("listing %s/%s forbidden: %s", api_version, kind, exc)
+                raise KubeForbidden(f"not permitted to list {kind}") from exc
             logger.warning("listing %s/%s failed: %s", api_version, kind, exc)
             return []
         items = getattr(response, "items", None) or []
         return [
             _strip(item.to_dict() if hasattr(item, "to_dict") else dict(item)) for item in items
         ]
+
+
+def _is_forbidden(exc: Exception) -> bool:
+    """A 403 from any layer of the client stack.
+
+    The dynamic client raises `ForbiddenException` while the plain client raises
+    `ApiException` with `.status`, so both are checked rather than the type.
+    """
+    return getattr(exc, "status", None) == 403 or type(exc).__name__ == "ForbiddenException"
 
 
 def _strip(obj: dict[str, Any]) -> dict[str, Any]:

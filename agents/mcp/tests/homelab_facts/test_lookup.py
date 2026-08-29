@@ -15,12 +15,16 @@ import pytest
 def find(monkeypatch):
     """Run `find_object` against a fake cluster, keyed by kind."""
 
-    def run(objects: dict[str, list[dict]], term: str, endpoints=None):
+    def run(objects: dict[str, list[dict]], term: str, endpoints=None, forbidden=()):
         from homelab_facts import settings
         from homelab_facts.tools import lookup
 
+        from mcp_runner.kube import KubeForbidden
+
         class Kube:
             def list(self, api_version, kind, namespace=None, field_selector=None):
+                if kind in forbidden:
+                    raise KubeForbidden(f"not permitted to list {kind}")
                 if kind == "Endpoints":
                     return endpoints if endpoints is not None else []
                 return objects.get(kind, [])
@@ -138,3 +142,115 @@ class TestSecretsAreNotSearchable:
 class TestArguments:
     def test_an_empty_term_is_an_error_not_an_empty_search(self, find):
         assert find({}, "  ").startswith("ERROR:")
+
+
+class TestAForbiddenKindIsNotASearchedKind:
+    """The bug that shipped: a 403 came back as `[]` and read as "not found".
+
+    The ServiceAccount could not list Pods, so a cluster running grafana was
+    reported as having no grafana object at all. A kind that could not be read
+    is a blind spot and has to be named as one.
+    """
+
+    def test_a_forbidden_kind_is_named_not_counted_as_absent(self, find):
+        out = find({}, "grafana", forbidden={"Pod", "Service"})
+        assert "NOT SEARCHED" in out
+        assert "Pod" in out and "Service" in out
+
+    def test_a_forbidden_kind_is_absent_from_the_searched_list(self, find):
+        out = find({"Job": []}, "grafana", forbidden={"Pod"})
+        searched_line = out.splitlines()[0]
+        assert "Pod" not in searched_line
+
+    def test_everything_forbidden_is_an_error_not_an_empty_result(self, find):
+        from homelab_facts.tools import lookup
+
+        out = find({}, "grafana", forbidden={kind for _, kind in lookup._KINDS})
+        assert out.startswith("ERROR:")
+        assert "permission failure, not an empty cluster" in out
+
+    def test_a_match_still_warns_about_what_was_not_searched(self, find):
+        out = find({"Service": [service("grafana")]}, "grafana", forbidden={"Pod"})
+        assert "grafana" in out
+        assert "NOT SEARCHED" in out
+
+
+class TestKubeListItself:
+    def test_a_403_raises_rather_than_returning_empty(self, monkeypatch):
+        from mcp_runner import kube
+
+        class Forbidden(Exception):
+            status = 403
+
+        class Resource:
+            def get(self, **kwargs):
+                raise Forbidden()
+
+        class Resources:
+            def get(self, **kwargs):
+                return Resource()
+
+        client = kube.Kube()
+        monkeypatch.setattr(client, "_dynamic", lambda: type("D", (), {"resources": Resources()})())
+        with pytest.raises(kube.KubeForbidden):
+            client.list("v1", "Pod")
+
+    def test_any_other_failure_still_degrades_to_empty(self, monkeypatch):
+        """An absent CRD is normal here and must stay a quiet empty list."""
+        from mcp_runner import kube
+
+        class Resource:
+            def get(self, **kwargs):
+                raise RuntimeError("connection reset")
+
+        class Resources:
+            def get(self, **kwargs):
+                return Resource()
+
+        client = kube.Kube()
+        monkeypatch.setattr(client, "_dynamic", lambda: type("D", (), {"resources": Resources()})())
+        assert client.list("v1", "Pod") == []
+
+
+class TestTraefikIsHowThisClusterRoutes:
+    """35 IngressRoutes, zero `networking.k8s.io` Ingresses.
+
+    A tool that searched only `Ingress` could never answer "what URL is X on"
+    here - the `valkey_*`/`redis_*` lesson in a new place: the standard name is
+    not the one in use.
+    """
+
+    def _route(self, name, host, namespace="monitoring"):
+        return {
+            "metadata": {"name": name, "namespace": namespace, "creationTimestamp": "2026-01-01T00:00:00+00:00"},
+            "spec": {
+                "entryPoints": ["websecure"],
+                "routes": [
+                    {"match": f"Host(`{host}`)", "services": [{"name": name}]},
+                    {"match": f"Host(`{host}`) && PathPrefix(`/oauth2/`)"},
+                ],
+            },
+        }
+
+    def test_an_ingressroute_is_found_and_reports_its_hostname(self, find):
+        out = find({"IngressRoute": [self._route("grafana", "grafana.homelab.example.com")]}, "grafana")
+        assert "IngressRoute" in out
+        assert "grafana.homelab.example.com" in out
+        assert "websecure" in out
+
+    def test_a_repeated_host_is_listed_once(self, find):
+        out = find({"IngressRoute": [self._route("grafana", "g.example.com")]}, "grafana")
+        assert out.count("g.example.com") == 1
+
+    def test_a_route_with_no_host_rule_says_so(self, find):
+        route = self._route("grafana", "x")
+        route["spec"]["routes"] = [{"match": "PathPrefix(`/api`)"}]
+        out = find({"IngressRoute": [route]}, "grafana")
+        assert "no Host() rule" in out
+
+    def test_plain_ingress_is_still_searched(self):
+        """Zero today is not zero forever, and the kind list is derived from nothing."""
+        from homelab_facts.tools import lookup
+
+        kinds = {kind for _, kind in lookup._KINDS}
+        assert {"Ingress", "IngressRoute"} <= kinds

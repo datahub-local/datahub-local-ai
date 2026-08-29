@@ -3205,6 +3205,51 @@ Wired onto `homelab-oracle`, `sre-sentinel` and `service-janitor` - the three
 personas that resolve a name to an object. `endpoint-warden` and `db-steward` do
 not, and `gitops-auditor` gets application names from `facts_argocd_drift`.
 
+### It shipped and answered "not matched" anyway, twice, for two reasons
+
+Worth keeping in full, because both failures were invisible and neither was in
+the code that was changed.
+
+**The image lost a race with its own deploy.** `Publish MCP Image` ran
+13:33:17 -> 13:36:18; the chart applied and the pod started at 13:33:42, pulling
+`:main` as it existed two and a half minutes before the new one was pushed.
+`imagePullPolicy: Always` pulls when a pod is *created*, so the deployment sat on
+the old image with `status.ready: true` and a nine-tool manifest. The persona's
+`toolsAllow` named `find_object`, the prompt told the model to call it first, and
+neither end failed - a `toolsAllow` entry for a tool the server does not expose
+filters to nothing, silently, exactly like `#three-weeks-of-no-permissions`. After
+any change to `agents/mcp/`, wait for the build and then
+`kubectl -n automation rollout restart deploy/datahub-local-ai-mcp-homelab-facts`;
+confirm with a `tools/list` against the pod rather than with the run.
+
+**Then a 403 came back as an empty list.** With the tool live, the oracle called
+it correctly on the first try - the prompt half works - and got
+`searched-and-not-matched` for grafana on a cluster running grafana. The
+ServiceAccount's ClusterRole here is enumerated, and it granted `nodes`,
+`secrets`, `applications`, `certificates` and the two backup groups: exactly what
+the original nine tools read. `find_object` searches twelve kinds and could list
+two of them. `kube.list` swallowed every exception into `[]`, so *not permitted
+to look* and *looked and found nothing* were the same value.
+
+That is this repository's own rule broken by the tool written to enforce it.
+`unavailable` and `n/a` exist as separate words because one word absorbed a bug;
+`find_object` was built so absence would be a defined answer, and then it
+rendered a permission gap as a fact about the cluster - the same shape as the
+model's own `not found` -> `does not exist`, one layer lower and with more
+authority, because a tool result is what the model is told to trust.
+
+Both halves fixed. `kube.KubeForbidden` is raised for a 403 and only a 403 - an
+absent CRD still degrades to an empty list, which is normal here. `find_object`
+never counts a forbidden kind as searched: it names them under `NOT SEARCHED`,
+says a match there would not have been seen, and returns `ERROR` rather than a
+result when nothing at all could be read. The ClusterRole now enumerates the
+kinds the search covers, read-only.
+
+Generalise it, because this is the third form of the same error in one incident:
+**a lookup that could not run must never render as a lookup that found nothing** -
+in a prompt, in a tool, or in RBAC. The layer with the most authority is the one
+where it does the most damage.
+
 
 ## Open, and not ours
 

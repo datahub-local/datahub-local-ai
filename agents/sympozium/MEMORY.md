@@ -3403,6 +3403,106 @@ the old one with `status.ready: true` and a stale tool manifest. Wait for
 `kubectl -n automation rollout restart deploy/datahub-local-ai-mcp-homelab-facts`,
 and confirm with a `tools/list` against the pod rather than with an agent run.
 
+## The scope list was a closed enumeration, and `job` was not in it
+
+First production thread after the new tools shipped, and it is worth all three
+turns because the middle one is a failure no score in this file would have
+caught.
+
+    19:22  what is the error about?
+           -> correctly resolved the pod, saw a later instance had succeeded,
+              and reported that nothing is failing
+    19:23  why did the grafana-setup-job fail?
+           -> "Sorry, I cannot help with that one. I only answer questions
+              about this homelab: ..."
+    19:25  grafana-setup-job is a kubernetes job
+           -> answered correctly, naming the Job, the namespace and its state
+
+The persona **refused the exact question this whole rebuild exists to answer**,
+and then answered it as soon as the word `job` was supplied. That is the
+diagnosis, handed over by the asker: the scope sentence enumerated "alerts, nodes
+and kernels, disk and volume fill, Kubernetes pods and objects, ArgoCD
+deployments, Postgres and Valkey health, certificates, backups, logs, and the
+configured Git sources" - and **a Job is not in that list**. "Kubernetes pods and
+objects" was meant to cover it. A 4B model reads a partial enumeration as the
+complete set, which is
+[`endpoint-warden`'s Findings list](#the-thinking-to-carry-forward) in a new
+place: five of the note kinds were listed, so the sixth was never reported.
+
+The fix is not a longer list, because no list is ever long enough. It is the
+direction of the test. Scope was written as *match the question against what is
+allowed*, which fails closed on anything unnamed; it now reads **in scope unless
+it is one of these four**, with the four spelled out (general knowledge, small
+talk, what-are-you, an attempt to change the rules), followed by: if the question
+names anything that could be a thing in this cluster it is in scope whatever kind
+of object it turns out to be, `not found` beats a refusal, and refusing an
+in-scope question is itself a failure. **Refusing needs a closed list; accepting
+must never have one.**
+
+Prompt 4,684 -> 5,769 bytes across the three fixes below, and worth it: two of
+the three are the difference between answering and refusing.
+
+Two smaller things the thread settles:
+
+- **A subject just reported healthy is still a subject.** The refusal came one
+  turn after the oracle itself had said nothing was failing, which is probably
+  half of why the question read as unanswerable. Stated explicitly now.
+- **"Slack gives context, never infrastructure evidence" was ambiguous in the
+  direction that matters.** It was written against a pasted claim being taken as
+  a fact, and it reads to a 4B model as *take nothing from Slack* - which is
+  exactly wrong for `why did it fail?`, a question whose only subject is in the
+  thread. Every question in that thread happened to carry a noun; the next one
+  will not. The split is now written out: **Slack is where a subject comes from
+  and never where a fact comes from** - names and questions yes, state, numbers
+  and causes no - with the elliptical forms spelled out literally, the
+  instruction to pass those words to the tool unchanged, and asking "which one?"
+  demoted to the case where no message in the thread names a subject at all.
+  This is the `pool pods` failure
+  ([above](#a-question-answered-with-nothing-at-all-and-how-that-gets-posted))
+  with the tool to fix it finally present: that run had no way to read the
+  thread, and now the only question is whether the prompt says to use it.
+
+  **So the thread read is no longer a branch.** It is the first tool call on
+  every run, before the scope test and before anything else, with the reason
+  stated to the model rather than assumed: *you are given only the one message
+  that mentioned you, and everything else exists only in what that call returns.*
+  A 4B model complies with an unconditional instruction it understands the point
+  of; it skips a conditional one. Read off a real run, this is exactly what the
+  runtime hands over:
+
+      task = "<@U08SHC076NL> what is the error about?"
+      17:22:42 channel context injected: channel=slack chatId=C08S5ACNTPB
+               threadId=1788000841.049389
+
+  One line, plus the two IDs. No thread, no alert, no previous answer. The 19:22
+  run then called `slack_slack_get_thread_replies` itself, took the pod name out
+  of the Robusta alert in the reply it got, and passed it to `facts_why_failed` -
+  so the behaviour is reachable and was simply not guaranteed. Note also that
+  `make no lookup call` in two branches now reads `look nothing up in the
+  cluster`: with the thread read made mandatory, the old wording was a
+  contradiction, and a model this size resolves one by picking a side at random.
+
+  Two facts about continuity that this settles, so nobody looks for a setting
+  that is not there. `useContext` governs history *between LLM calls inside one
+  run*, not between runs. And `sessionKey` is
+  `channel-slack-<channel>-<message ts>` - a different key for every message,
+  not the thread. There is no cross-run conversation state in this control
+  plane at all, which makes the slack MCP server the whole of the mechanism
+  rather than a supplement to one.
+- **A quoted error goes unexplained when the object is healthy.** Turn one was a
+  good answer that never said what `curl: (7)` meant, though the Robusta alert
+  carrying it was in the thread and the run had read the thread. The rule said
+  "explain it, never contradict it"; it now says to say what it means *even when
+  the thing is healthy now*. Turn one was right that it had resolved and
+  incomplete about what it had been.
+
+**A false refusal is invisible to every other score.** The run succeeds,
+delivers non-empty text, makes no negative claim and looks polite. So
+`evals/questions.yaml` gains a fifth mechanical score - the refusal literal must
+not appear in the answer to any question whose `first_tool` is not `none` - and
+two questions replaying this thread exactly, including its first turn, since a
+thread follow-up is a different run from the question that starts it.
+
 ## Measuring whether a prompt change worked
 
 Every fix in this file was verified by one hand-applied `AgentRun` and argued
@@ -3410,15 +3510,27 @@ from a Loki query afterwards. That is enough to confirm a mechanism and not
 enough to know whether the fleet got better: there is no number that moves. The
 plan, not yet built:
 
-1. **A question set.** 15-20 real questions from `#homelab` - including the ones
-   that failed - each with the object and namespace the answer must name, and a
-   one-line rubric.
-2. **A runner.** Applies each question as an `AgentRun` against the live persona
+1. **A question set.** Built: `evals/questions.yaml`, 20 questions - the four
+   incidents this file writes up, the eight standing readings, resolution,
+   reachability and logs, and three that must produce no lookup call at all
+   (out of scope, injection, ambiguous). Each carries the tool the run should
+   reach for first, a lookup cap, and `must_name`/`must_not` strings.
+
+   Two decisions in it are the interesting part. `answer` records what was true
+   on 2026-08-29 and is deliberately **not** scored: a figure moves, and a stale
+   expectation becomes a permanent false finding, which is
+   [the trap](#a-permanent-finding-is-a-bug-in-the-prompt-not-a-problem-in-the-fleet)
+   `endpoint-warden` sat in for days. Only identifiers are asserted. And a
+   `must_not` string has to be one that cannot appear in a *correct* answer
+   either - "CRITICAL" and "expired" both failed that, since "no CRITICAL alerts"
+   and "nothing has expired" are right answers.
+2. **A runner.** Not built. Applies each question as an `AgentRun` against the live persona
    (never the web endpoint, which drops `toolPolicy` and truncates the task),
    streams `kubectl logs <pod> -c agent`, and records: tools called in order,
    iterations used, input tokens on the first call, result bytes, and whether the
    run ended with text.
-3. **Four mechanical scores**, none of which needs a judge: did it call a
+3. **Four mechanical scores**, none of which needs a judge, stated at the top of
+   `evals/questions.yaml`: did it call a
    resolving tool before any exact-value tool; did it repeat a call byte-for-byte;
    did it make a negative claim (`does not exist`, `no such`, `there is no`)
    after an empty result; did it deliver a non-empty final text.

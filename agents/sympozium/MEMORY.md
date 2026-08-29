@@ -2824,6 +2824,48 @@ that answers" rather than a menu, and that steps 1 and 2 answer most questions i
 one call. If runs start wandering between servers, split the persona before
 trimming the ladder - breadth comes from more personas, not fatter ones.
 
+## Three weeks of "no permissions" was a repo name the model shortened
+
+`renovate-reviewer` reported `Not Found` for every repository on every run since
+it was installed, and read that as a token or connectivity failure. It was
+neither. The Loki logs of runs 2, 3 and 4 all show the same calls:
+
+    github_list_pull_requests owner=datahub-local repo=bootstrap
+    github_list_pull_requests owner=datahub-local repo=core
+    github_list_pull_requests owner=datahub-local repo=ai
+
+The repositories are `datahub-local/datahub-local-bootstrap`,
+`datahub-local/datahub-local-core` and `datahub-local/datahub-local-ai`, all
+three public and readable with no token at all. The prompt named them correctly
+but never said which half was the owner, so the model split the slug at the
+hyphen, decided `datahub-local` was the org and the remainder was the repo, and
+produced three names that have never existed. Three real open Renovate PRs went
+unreviewed while the reports said there were none.
+
+Two things generalise:
+
+- **A tool argument the prompt does not state is one the model will derive, and
+  it will derive it wrongly and confidently.** Same class as `chatId` and the
+  `group_left` join: name the literal value. The prompt now writes owner and
+  repo as separate labelled values and says the `datahub-local-` prefix is part
+  of the repo name.
+- **`Not Found` reads as "you lack access", so the model stops.** GitHub answers
+  404 for a missing repo and for a private one alike, and a 4B model takes the
+  second reading, writes an access-failure report and never varies the name. The
+  prompt now states what the 404 means here and grants one retry.
+
+Then the wrong conclusion made itself permanent. Runs 2 and 3 auto-stored "All
+GitHub tools fail across bootstrap, core, and ai repos"; run 4 auto-injected it,
+cited it as evidence in its own report, and gave up after six tool calls in 23
+seconds against a budget of 100. **A false finding in memory is not a stale fact,
+it is an instruction not to look.** Auto-stored memory is written unconditionally
+by the runner, so nothing filters a failure narrative out of it. Two consequences:
+the task prompt now names that entry and tells the persona to disregard it, and
+the persona's memory PVC has to be cleared for the fix to take -- correcting the
+prompt alone leaves the poisoned entry being injected every run. The seeds
+ConfigMap is a separate store and is clean; the poison is in
+`homelab-reviewer-renovate-reviewer-memory-db`.
+
 ## Known gaps
 
 - **Slack is wired for `homelab-ops` only, and it now works.** Both halves that

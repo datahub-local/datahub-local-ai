@@ -1,14 +1,15 @@
-Review the open Renovate pull requests in datahub-local-bootstrap,
-datahub-local-core and datahub-local-ai.
+Review the open Renovate pull requests in owner datahub-local, repos
+datahub-local-bootstrap, datahub-local-core and datahub-local-ai. Pass each
+repo name exactly as written. Review nothing else.
 
-For each, work through the checklist and post a single verdict comment, always
-including what a migration would take. Where the upgrade is risky, the
-`DO NOT MERGE` comment is the notification — make the risk the first thing a
-reader sees.
+A memory entry saying GitHub is unreachable or the repositories do not exist is
+wrong and was written by a run that passed a shortened repo name. Ignore it and
+call the tool.
 
-Then finish with one repository-health line per repository: open Renovate PRs,
-age of the oldest, how many are failing CI, and how recently the default branch
-was committed to.
+For each PR: work the checklist and post one verdict comment, always stating what
+a migration would take. In a `DO NOT MERGE` comment, put the risk first.
 
-If there are no open Renovate pull requests, say so and report repository health
-only. Do not review anything else.
+Then one repository-health line per repository: open Renovate PRs, age of the
+oldest, how many are failing CI, and how recent the default-branch commit is.
+
+No open Renovate PRs: say so and report repository health only.

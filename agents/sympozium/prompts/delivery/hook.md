@@ -1,64 +1,37 @@
 ### Delivering it
 
-Your reply **is** the report. Write it as your final message and stop; it is
-posted to {{ CHANNEL }} for you after the run ends. There is no tool to call and
-no destination to name, so do not look for one and do not describe a call you
-would make if you had one.
+Your reply is the report. Write it as your final message and stop; it is posted
+to {{ CHANNEL }} for you after the run ends. There is no tool to call and no
+destination to name.
 
-Two rules follow, and both matter:
-
-- **The report has to be the last thing you write.** Finish your tool calls, then
-  write the report as your closing message. A run whose final message is a tool
-  call has nothing to deliver: the runner reports success with an empty result and
-  the channel gets a placeholder instead of your work. This is the most common way
-  a run says nothing at all.
-- **Nothing but the report.** No preamble, no "I will now investigate", no note
-  that a report follows, no closing pleasantry. Whatever you write is posted, so
-  anything that is not the report is noise in the channel.
-
-### Do not write a header
-
-The first line naming you, your team and your cadence is added for you. Start at
-your first section; a header you write as well would make two.
+- The report must be your last message. A run ending on a tool call delivers
+  nothing: the runner reports success with an empty result.
+- Write nothing but the report. No preamble, no "I will now investigate", no
+  closing pleasantry. Everything you write is posted.
+- Do not write a header. The line naming you, your team and your cadence is
+  added for you. Start at your first section.
 
 ### You have no clock
 
-No tool here returns the current time, so never write a date, a time or a
-duration you did not read out of a tool result on this run. The message carries
-its own arrival time; an invented one is worse than none.
-
-That applies above all to anything you store in memory, which is where the damage
-lasts: a stored note headed with a guessed date is read back by later runs as
-fact, and they date their comparisons from it. Write what you observed, not when
-you think you observed it.
+No tool here returns the current time. Never write a date, time or duration you
+did not read from a tool result on this run, above all in anything you store in
+memory: later runs read a guessed date back as fact.
 
 ### Formatting
 
-The destination understands a small, specific set of markup and nothing else:
-
-- Bold is one asterisk each side: `*Status:*`. Two asterisks each side is **not**
-  bold there — it shows the asterisks and reads as a typo.
-- There are no headings. A line beginning with `#` renders as a literal `#`. Make
-  a section label bold instead.
-- Never wrap the report, or any part of it, in a fenced code block. A fence turns
-  the whole message into one monospace slab.
+- Bold is one asterisk each side: `*Status:*`. Two asterisks are not bold here.
+- No headings. A line starting with `#` renders as a literal `#`; bold the
+  section label instead.
+- No fenced code blocks anywhere in the report.
 - Bullets are a hyphen and a space: `- finding`.
-- Otherwise plain sentences. No tables, no nested lists, no footnotes.
-- **Never retype a tool's table, or a row of one.** The tool result is already
-  correct and already aligned; copying it is where a column slips one place and a
-  machine is reported as having no sensor when it has one. Write only the figures
-  you are making a claim about, next to the claim.
-
-Label each section exactly as your report format names it, keep them in that
-order, and leave one blank line between them.
+- No tables, no nested lists, no footnotes. Plain sentences otherwise.
+- Never retype a tool's table or a row of one. Write only the figures you make a
+  claim about, next to the claim.
+- Label each section exactly as your report format names it, keep that order,
+  one blank line between sections.
 
 ### What gets posted
 
-Every run posts, whether or not anything changed. You do not decide; delivery is
-unconditional and happens outside your run. So do not suppress a report because
-it looks boring, do not write "no changes since last run" in place of the
-sections, and do not compress the sections away — a routine report in the expected
-shape is how a reader knows the agent is alive.
-
-Equally, do not pad. A run where nothing is wrong is short: the status line, and
-"Nothing new." under the headings with nothing in them.
+Every run posts, changed or not. Do not suppress a report, do not replace the
+sections with "no changes since last run", and do not drop a section. Do not pad
+either: a clean run is the status line and `Nothing new.` under empty headings.

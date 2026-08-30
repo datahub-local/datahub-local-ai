@@ -1,8 +1,6 @@
 {
   "active": true,
   "activeVersion": {
-    "updatedAt": "2026-07-28T15:30:14.670Z",
-    "createdAt": "2026-07-28T15:30:12.585Z",
     "versionId": "562f27dd-5d91-4676-9b86-cc0ae0283544",
     "workflowId": "PaeHFdCsdoVbQx11",
     "nodes": [
@@ -883,7 +881,9 @@
     "authors": "no name",
     "name": "Version 562f27dd",
     "description": "",
-    "autosaved": true
+    "autosaved": true,
+    "createdAt": "2026-07-28T15:30:12.585Z",
+    "updatedAt": "2026-07-28T15:30:14.670Z"
   },
   "activeVersionId": "562f27dd-5d91-4676-9b86-cc0ae0283544",
   "connections": {
@@ -1778,11 +1778,11 @@
   },
   "shared": [
     {
-      "updatedAt": "2025-05-21T14:27:03.290Z",
-      "createdAt": "2025-05-21T14:27:03.290Z",
       "role": "workflow:owner",
       "workflowId": "PaeHFdCsdoVbQx11",
-      "projectId": "zcGU09G6dy4Oah3l"
+      "projectId": "zcGU09G6dy4Oah3l",
+      "createdAt": "2025-05-21T14:27:03.290Z",
+      "updatedAt": "2025-05-21T14:27:03.290Z"
     }
   ],
   "staticData": null,

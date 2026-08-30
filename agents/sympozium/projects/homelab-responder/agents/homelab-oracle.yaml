@@ -75,15 +75,14 @@ mcpServers:
       - list_applications
       - get_application
       - get_application_events
-  # 4. Database contents rather than database health. The server runs
-  #    --access-mode=restricted, so execute_sql is read-only at the server.
+  # 4. Database contents rather than database health. No execute_sql: core's
+  #    catalog denies it at the server, so allowlisting it registers nothing.
   - name: datahub-local-core-automation-sympozium-mcp-postgres
     timeout: 30
     toolsPrefix: pg
     toolsAllow:
       - list_schemas
       - list_objects
-      - execute_sql
       - get_top_queries
   # 5. What the git source says, when the cluster cannot answer why. Read only:
   #    add_issue_comment is the reviewer's single write tool and stays there.
@@ -140,7 +139,6 @@ toolPolicy:
     - argocd_get_application_events
     - pg_list_schemas
     - pg_list_objects
-    - pg_execute_sql
     - pg_get_top_queries
     - github_search_code
     - github_get_file_contents

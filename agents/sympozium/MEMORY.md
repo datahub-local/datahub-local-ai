@@ -2791,7 +2791,9 @@ What decided the selections:
   Slack message now becomes a read query. It earns it - database sizes and row
   counts are ordinary homelab questions and `facts_postgres_health` answers
   neither. `execute_write_query`, which core's catalog denies, still does not
-  exist on this server.
+  exist on this server. **Superseded 2026-08-30**: the catalog now denies
+  the real name, `execute_sql`, so the responder has no SQL tool at all — see
+  [`#the-oracle-offered-sql-it-did-not-have`](#the-oracle-offered-sql-it-did-not-have).
 - **Grafana is two tools out of sixty-five.** The whole server is 73.8 KB of
   schema and includes `create_datasource` and `update_datasource`;
   `toolsAllow` leaves all sixty-three others unregistered, which is the
@@ -3701,8 +3703,75 @@ that refuses a second comment per PR per run. Until that exists, read the PRs
 after a reviewer run rather than trusting the cap, and remember the failure is
 silent: three calls, `Succeeded`, 1415 bytes of result.
 
+## The oracle offered SQL it did not have
+
+On 2026-08-30 the oracle was asked for the size of each schema. It replied with
+its own plan — "I need to query the system catalogs ... Let me run a SQL query
+that calculates the total size of each schema" — and stopped. On the follow-up it
+posted the per-database sizes from `facts_postgres_health` and closed with "I can
+run that if you'd like". It never could.
+
+`pg_execute_sql` was in its `toolsAllow` and its `toolPolicy.allow`, and its
+prompt listed it as `pg_execute_sql (read-only)`. But core's catalog MCPServer
+carries `spec.toolsDeny: [execute_sql]` — generation 2, so the deny was changed
+at some point from `execute_write_query`, which is not a tool that server has, to
+the one that is. A catalog deny stops *discovery*, so the bridge never sees the
+tool and a persona allowlist has nothing to select. The only trace is one line in
+the run log:
+
+    Discovered 3 tools from "...mcp-postgres"
+
+against four allowlisted names. Everything else is green: the render, the
+validator, `MCPServer.status.ready`, and the run itself as `Succeeded`.
+
+Three changes, because the shape will recur:
+
+- `execute_sql` is gone from the persona and from the prompt. What a persona
+  lists is now what it actually holds.
+- `scripts/validate.py` carries `CATALOG_DENIED`, mirroring `spec.toolsDeny` on
+  each catalog MCPServer, and fails an allowlist entry naming one. It is a second
+  copy of a file we do not own, normally the thing to avoid — but the drift is
+  loud (a false failure that names the tool) while the bug it catches is silent.
+  Same trade as `MCP_SERVERS` and `SKILLS` beside it.
+- The prompt now says a tool it was not given does not exist for it, and that it
+  may never offer a query, a check or a next step. **A capability named in a
+  prompt is a promise the model makes on your behalf**, and it cannot discover
+  the promise is empty: an unregistered tool is not an error it sees, it is a
+  tool it never gets the chance to call.
+
+The note in
+[`#every-mcp-server-the-control-plane-runs-wired-onto-one-persona`](#every-mcp-server-the-control-plane-runs-wired-onto-one-persona)
+said "`pg_execute_sql` is in, and the boundary is the server, not the policy".
+That was true when written; the server has since moved the boundary to no SQL at
+all. Re-read a catalog before trusting a note about it — `kubectl -n automation
+get mcpservers -o json | jq '.items[] | select(.spec.toolsDeny)'`.
+
+Two more failures in the same four runs, from the same Loki window:
+
+- **`i want to know the polaris database` got the out-of-scope refusal after five
+  lookups** — over the stated cap of three, one of them passing the
+  `labelSelector` the prompt forbids. Every lookup came back empty and the model
+  reached for the only "no" it had a literal for. Fixed here by making that
+  literal unavailable once any lookup has been made: having looked, the answer is
+  what came back or `not found`. The lookup cap and the selector rule are still
+  prose, and were still overridden.
+- **The mandatory Slack read did not happen in three of the four runs.** The
+  prompt's first rule, "with no exception", is `slack_slack_get_thread_replies`
+  before anything else. The runs opened with `memory_search`, `pg_list_schemas`
+  and `facts_find_object` instead; the one run that did read used
+  `slack_get_channel_history` although the run log shows
+  `channel context injected: ... threadId=1788072573.413069`. Not fixed — a first
+  call that has to happen unconditionally is a runtime property, not a sentence.
+
 ## Open, and not ours
 
+- **Restoring SQL to the responder is a core change.**
+  `datahub-local-core-automation-sympozium-mcp-postgres` denies `execute_sql` in
+  its catalog `spec.toolsDeny`, so no per-persona allowlist can bring it back.
+  The server already runs `--access-mode=restricted`, which is where read-only
+  was meant to be enforced; whether the deny on top of that is deliberate is a
+  question for that repo. Until it changes, "how big is schema X" has no tool in
+  this fleet — `facts_postgres_health` reports per-*database* sizes only.
 - `TargetDown{job="longhorn-backend"}` has been firing since the Longhorn
   v1.12.1 bump on 2026-08-24: all five `longhorn-manager` pods answer
   `connection refused` on :9500 while the manager itself reconciles replicas

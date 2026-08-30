@@ -56,6 +56,64 @@ MCP_SERVERS = {
     "datahub-local-core-automation-sympozium-mcp-slack": "slack",
 }
 
+# Tools the *catalog* MCPServer denies at the server, so the bridge never
+# discovers them and no persona can hold them however it is allowlisted. This
+# mirrors `spec.toolsDeny` on each MCPServer in core, and it is a second copy of
+# a file we do not own for one reason: the failure is invisible from this side.
+# A persona listing a denied tool renders, deploys, passes every other check
+# here, and then teaches the model it has a capability it does not have --
+# `homelab-oracle` offered to run SQL in Slack on 2026-08-30 because
+# `pg_execute_sql` was in its allowlist and denied at the server, and the only
+# trace was `Discovered 3 tools` against four names.
+#
+# Re-derive after any core change; a stale entry here is a false failure:
+#
+#     kubectl -n automation get mcpservers -o json | jq -r \
+#       '.items[] | select(.spec.toolsDeny) | .metadata.name + ": " +
+#        (.spec.toolsDeny | join(", "))'
+#
+# Read 2026-08-30. argocd carries no denies at all.
+CATALOG_DENIED = {
+    "datahub-local-core-automation-sympozium-mcp-postgres": {"execute_sql"},
+    "datahub-local-core-automation-sympozium-mcp-k8s": {
+        "pods_delete",
+        "pods_exec",
+        "pods_run",
+        "resources_create_or_update",
+        "resources_delete",
+        "resources_scale",
+    },
+    "datahub-local-core-automation-sympozium-mcp-github": {
+        "create_branch",
+        "create_issue",
+        "create_or_update_file",
+        "create_pull_request",
+        "create_pull_request_review",
+        "create_repository",
+        "fork_repository",
+        "merge_pull_request",
+        "push_files",
+        "update_issue",
+        "update_pull_request_branch",
+    },
+    "datahub-local-core-automation-sympozium-mcp-grafana": {
+        "add_activity_to_incident",
+        "alerting_manage_routing",
+        "alerting_manage_rules",
+        "create_annotation",
+        "create_datasource",
+        "create_folder",
+        "create_incident",
+        "create_snapshot",
+        "delete_snapshot",
+        "grafana_api_request",
+        "install_plugin",
+        "update_annotation",
+        "update_dashboard",
+        "update_datasource",
+    },
+}
+
 # Tools the agent runtime provides itself, with no MCP server involved.
 BUILTIN_TOOLS = {
     "delegate_to_persona",
@@ -820,6 +878,10 @@ def _check_tools(persona_name, persona, warnings):
     attached to the persona — the tool then simply never appears, and the agent
     quietly works without it.
 
+    The same shape one level up: a tool the catalog MCPServer denies is never
+    discovered at all, so allowlisting it here is a capability the persona
+    advertises and cannot use.
+
     A toolsDeny entry carrying the agent-facing prefix is only a warning, not an
     error: it is usually the bug that core's own MCPServer catalog has (a deny
     that matches nothing), but some servers genuinely name their own tools that
@@ -839,6 +901,17 @@ def _check_tools(persona_name, persona, warnings):
         if server.get("timeout") is None:
             raise Fail(_defaulted(persona_name, "mcpServers[].timeout", f"on {name!r}"))
         wired[prefix] = name
+        denied_upstream = CATALOG_DENIED.get(name, set())
+        for tool in server.get("toolsAllow") or []:
+            if tool in denied_upstream:
+                raise Fail(
+                    f"{persona_name}: toolsAllow lists {tool!r} on {name!r}, but "
+                    f"the catalog MCPServer denies it at the server, so it is "
+                    f"never discovered. The persona renders and deploys, and its "
+                    f"prompt then advertises a tool the model cannot call - drop "
+                    f"it from toolsAllow, toolPolicy.allow and the prompt, or "
+                    f"have core stop denying it"
+                )
         lookalikes = PREFIX_LOOKALIKE_TOOLS.get(prefix, set())
         for denied in server.get("toolsDeny", []):
             if denied.startswith(f"{prefix}_") and denied not in lookalikes:

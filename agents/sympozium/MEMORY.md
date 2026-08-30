@@ -3760,8 +3760,34 @@ Two more failures in the same four runs, from the same Loki window:
   before anything else. The runs opened with `memory_search`, `pg_list_schemas`
   and `facts_find_object` instead; the one run that did read used
   `slack_get_channel_history` although the run log shows
-  `channel context injected: ... threadId=1788072573.413069`. Not fixed — a first
-  call that has to happen unconditionally is a runtime property, not a sentence.
+  `channel context injected: ... threadId=1788072573.413069`. One lever tried below;
+  a call that has to happen unconditionally is a runtime property, not a sentence.
+
+**Second round, same day, with the fix deployed.** The same question no longer
+produced an offer to run SQL - it named the real limit instead, which is the
+answer that was wanted. Two rules were still overridden, and both moved:
+
+- The no-offer rule was in the middle of the prompt and the reply still ended
+  "Let me know if you want to see that breakdown instead". It now lives in the
+  final paragraph, the one that governs writing, and says why: an offer is a
+  promise there is no later turn to keep. **A rule about what to write belongs
+  in the paragraph about writing.** Position is not decoration at this model
+  size.
+- The reply used `**Summary**` and a 14-row `|` table. Both arrive literally,
+  because the channel sidecar runs no converter - see
+  [`#the-model-writes-markdown-the-hook-speaks-slack`](#the-model-writes-markdown-the-hook-speaks-slack).
+  "No headings or fenced blocks; Slack bold uses one asterisk each side" was too
+  small a target: the model was not writing a heading, it was writing a bold
+  label, and a table is neither a heading nor a fence. The rule now enumerates
+  what is banned (`**`, `#`, `|`, fences, HTML, bold labels standing in for
+  headings) and, more usefully, says what to write instead - one reading per
+  line as `airflow 19.0MiB`. **Forbid a shape and the model finds the next
+  shape; name the shape you want.**
+
+The Slack read has now lost to `memory_search` in four runs of five, so the rule
+names its competitor outright: "before every other tool including
+`memory_search`". If that fails too, the fix is not another sentence - a call
+that must happen unconditionally wants a runtime guarantee, and the CRD has none.
 
 ## Open, and not ours
 

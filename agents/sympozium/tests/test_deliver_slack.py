@@ -160,6 +160,18 @@ def test_real_body_is_kept():
     assert deliver.Report._drop_own_header(body, "DB Steward | homelab-ops | daily") == body
 
 
+def test_table_header_row_is_not_taken_for_the_agent_header():
+    """A report opening with a table kept its pipes and lost its column names.
+
+    The prompts forbid `|` tables and the model emits them anyway - the oracle
+    sent a 14-row one. A table's header row has more than two pipes, so the
+    two-pipe rule dropped it, leaving a headless table and nothing saying a line
+    had gone. A pipe-delimited row is never the agent header.
+    """
+    body = "| Node | Disk |\n|---|---|\n| amd-1 | 34% |"
+    assert deliver.Report._drop_own_header(body, "DB Steward | homelab-ops | daily") == body
+
+
 # -- Posting ----------------------------------------------------------------
 
 

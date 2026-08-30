@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Posts one agent run's report to Slack, once.
 
 Runs as a lifecycle.postRun container after the agent finishes. The report
@@ -232,7 +231,8 @@ class Report:
             lines.pop(0)
         if lines:
             first = lines[0].strip().strip("*")
-            if first.count("|") >= 2 or first == label.strip():
+            delimited = first.startswith("|") or first.endswith("|")
+            if not delimited and (first.count("|") >= 2 or first == label.strip()):
                 lines.pop(0)
         while lines and not lines[0].strip():
             lines.pop(0)

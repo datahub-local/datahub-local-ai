@@ -24,7 +24,7 @@
 {{/*
   sympozium.deliveryHook — the postRun container, as YAML for the caller to
   fromYaml. The script is a real file rather than an inline string so it can be
-  read, linted and tested on its own; see files/deliver-slack.sh.
+  read, linted and tested on its own; see files/deliver-slack.py.
 
   The token is referenced, never inlined, so no credential enters the chart.
   Egress reaches slack.com because this pod carries no sympozium.ai/role=agent

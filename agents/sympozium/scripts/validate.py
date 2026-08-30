@@ -54,6 +54,13 @@ MCP_SERVERS = {
     # Ours, from ../mcp/ and deployed by templates/mcpservers.yaml.
     "datahub-local-ai-mcp-homelab-facts": "facts",
     "datahub-local-core-automation-sympozium-mcp-slack": "slack",
+    # Deployed 2026-08-30; tool names read off it with `tools/list`, not from
+    # the project README. The read-only guarantee is Trino-side - `rules.json`
+    # grants the `mcp` user `read-only` on every catalog and `none` on `system`
+    # - and not this allowlist, because `tuannvm/mcp-trino` has no read-only
+    # mode of its own. It carries no `spec.toolsDeny`, so it has no
+    # CATALOG_DENIED entry below.
+    "datahub-local-core-automation-sympozium-mcp-trino": "trino",
 }
 
 # Tools the *catalog* MCPServer denies at the server, so the bridge never

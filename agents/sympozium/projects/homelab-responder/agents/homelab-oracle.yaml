@@ -75,15 +75,21 @@ mcpServers:
       - list_applications
       - get_application
       - get_application_events
-  # 4. Database contents rather than database health. No execute_sql: core's
-  #    catalog denies it at the server, so allowlisting it registers nothing.
-  - name: datahub-local-core-automation-sympozium-mcp-postgres
+  # 4. Database contents, through Trino rather than through the postgres server.
+  #    One catalog per database (`postgresql_<database>`, six of them as of
+  #    2026-08-30), so this reaches more than one; the postgres MCP holds a
+  #    single DSN to the empty `postgres` database and could never see inside
+  #    another. explain_query is registered and deliberately not taken.
+  #    Rationale, and the two core-side blockers, in ../../../MEMORY.md.
+  - name: datahub-local-core-automation-sympozium-mcp-trino
     timeout: 30
-    toolsPrefix: pg
+    toolsPrefix: trino
     toolsAllow:
+      - list_catalogs
       - list_schemas
-      - list_objects
-      - get_top_queries
+      - list_tables
+      - get_table_schema
+      - execute_query
   # 5. What the git source says, when the cluster cannot answer why. Read only:
   #    add_issue_comment is the reviewer's single write tool and stays there.
   - name: datahub-local-core-automation-sympozium-mcp-github
@@ -137,9 +143,11 @@ toolPolicy:
     - argocd_list_applications
     - argocd_get_application
     - argocd_get_application_events
-    - pg_list_schemas
-    - pg_list_objects
-    - pg_get_top_queries
+    - trino_list_catalogs
+    - trino_list_schemas
+    - trino_list_tables
+    - trino_get_table_schema
+    - trino_execute_query
     - github_search_code
     - github_get_file_contents
     - github_list_commits

@@ -42,8 +42,13 @@ jobs:
       - name: Sync dependencies
         run: uv sync --extra sympozium --extra dev
 
-      - name: Lint validator
-        run: uv run -- ruff check agents/sympozium/scripts/
+      - name: Lint validator and delivery hook
+        run: uv run -- ruff check agents/sympozium/scripts/ agents/sympozium/files/ agents/sympozium/tests/
+
+      # The delivery hook is the only code in this sub-project that runs in
+      # production; every report passes through its Markdown conversion.
+      - name: Test delivery hook
+        run: uv run -- pytest agents/sympozium/tests/ -q
 
       # Field-level checks the Helm templates cannot do: skills, MCP server
       # names and prefixes, tool/server coherence, schedule enums, orphaned

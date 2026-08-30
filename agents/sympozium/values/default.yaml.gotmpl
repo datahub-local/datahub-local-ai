@@ -8,7 +8,7 @@ sympozium_mcp_servers:
     tag: main
 
 sympozium_delivery_hook:
-  image: curlimages/curl:8.11.1
+  image: python:3.13-alpine
   secret: mcp-slack-token
   tokenKey: SLACK_BOT_TOKEN
 

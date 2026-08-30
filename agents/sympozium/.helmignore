@@ -1,7 +1,9 @@
 # The validator is not part of the chart.
 /scripts/
-# Docs. projects/**/prompts/*.md, prompts/**/*.md and files/*.sh must NOT be
-# ignored — the templates read all three at render time.
+# The test suite is not part of the chart.
+/tests/
+# Docs. projects/**/prompts/*.md, prompts/**/*.md and files/deliver-slack.py
+# must NOT be ignored — the templates read all three at render time.
 /README.md
 /MEMORY.md
 projects/*/README.md

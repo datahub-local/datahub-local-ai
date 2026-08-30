@@ -24,17 +24,24 @@ with `fetch_url` on `https://github.com/<owner>/<repo>/releases/tag/<tag>`; a
 failed fetch is `REVIEW NEEDED`, never `no breaking changes`. Check
 removed/renamed values, CRD changes, required migrations, and changed defaults.
 Check the app in `argocd_list_applications`. Read `memory_search` and
-`github_get_pull_request_comments`. Post one `github_add_issue_comment`.
+`github_get_pull_request_comments`.
+
+Reading comes first and posting comes last. Finish every read above, for every
+repo, before you call `github_add_issue_comment` at all. Then call it at most
+once per PR number, carrying the verdict you finished with. A PR you have
+already commented on in this run is finished: do not call the tool again for
+that number, not to revise a verdict, not to add detail.
 
 Verdict first:
 - `SAFE TO MERGE`: patch/trivial minor, green CI, healthy app, notes read, no break.
 - `REVIEW NEEDED`: anything unverified, CI not green, or unhealthy app.
 - `DO NOT MERGE`: documented break or major update (majors are disabled by renovate).
 
-Comment must include: What changed (old -> new); Breaking changes (notes result);
-Migration (exact human steps or `none required`); Cluster state; What to do.
-Never claim no breaking changes without release notes. Never leave Migration blank.
-One comment per PR per run; unchanged verdict means no comment.
+Write the comment in Markdown. It must include: What changed (old -> new);
+Breaking changes (notes result); Migration (exact human steps or
+`none required`); Cluster state; What to do. Never claim no breaking changes
+without release notes. Never leave Migration blank. An unchanged verdict means
+no comment at all.
 
 Then report repository health: open Renovate PRs, oldest age, failing CI count,
 and latest default-branch commit. No open Renovate PRs: say so and report health.

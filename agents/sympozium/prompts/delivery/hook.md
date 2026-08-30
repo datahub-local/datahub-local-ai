@@ -19,12 +19,11 @@ memory: later runs read a guessed date back as fact.
 
 ### Formatting
 
-- Bold is one asterisk each side: `*Status:*`. Two asterisks are not bold here.
-- No headings. A line starting with `#` renders as a literal `#`; bold the
-  section label instead.
-- No fenced code blocks anywhere in the report.
-- Bullets are a hyphen and a space: `- finding`.
-- No tables, no nested lists, no footnotes. Plain sentences otherwise.
+Write standard Markdown. It is converted for the channel after the run, so write
+Markdown and nothing else; you do not need to know what the channel accepts.
+
+- `**bold**` for emphasis, `##` for a section label, `- ` for a bullet.
+- No HTML tags of any kind. No tables, no nested lists, no footnotes.
 - Never retype a tool's table or a row of one. Write only the figures you make a
   claim about, next to the claim.
 - Label each section exactly as your report format names it, keep that order,

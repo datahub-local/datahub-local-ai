@@ -4,7 +4,7 @@
 
   Both halves are here because they are two ends of one contract — change what the
   hook does and the prompt has to say so. The prose the model reads is in
-  prompts/delivery/hook.md; the posting itself in files/deliver-slack.sh.
+  prompts/delivery/hook.md; the posting itself in files/deliver-slack.py.
 */}}
 
 {{/*
@@ -34,11 +34,11 @@
 {{- define "sympozium.deliveryHook" -}}
 {{- $h := .root.Values.sympozium_delivery_hook | default dict -}}
 {{- if not $h.secret }}{{ fail "deliveryMode is hook, but sympozium_delivery_hook.secret is unset, so the hook has no bot token" }}{{ end -}}
-{{- $script := .root.Files.Get "files/deliver-slack.sh" -}}
-{{- if not $script }}{{ fail "files/deliver-slack.sh is missing or empty (is it excluded by .helmignore?)" }}{{ end }}
+{{- $script := .root.Files.Get "files/deliver-slack.py" -}}
+{{- if not $script }}{{ fail "files/deliver-slack.py is missing or empty (is it excluded by .helmignore?)" }}{{ end }}
 name: deliver
-image: {{ $h.image | default "curlimages/curl:8.11.1" | quote }}
-command: ["/bin/sh", "-c"]
+image: {{ $h.image | default "python:3.13-alpine" | quote }}
+command: ["python3", "-c"]
 args:
   - |
 {{ $script | indent 4 }}

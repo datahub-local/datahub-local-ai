@@ -63,7 +63,7 @@ agents/sympozium/
                                sympozium_delivery values, deliveryMode)
     _delivery.tpl              assembles the delivery prompt block and the
                                postRun hook container
-  files/deliver-slack.sh       the hook's script: normalises the report to Slack
+  files/deliver-slack.py       the hook's script: converts the report to Slack
                                mrkdwn, prepends the header, posts it once. A real
                                file rather than an inline string so it can be
                                read, linted and run on its own

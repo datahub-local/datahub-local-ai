@@ -3081,11 +3081,17 @@ ArgoCD deployment problem, without calling ArgoCD. All of it is false: that
 Service is 476 days old in `monitoring`, grafana is `3/3 Running` beside it, and
 there are ~50 completed `e-monitoring-grafana-job-setup*-postsync-*` pods.
 
-The `metrics-proxy` sidecar on the ollama pod logs every request body, so the
+The `ollama-proxy` sidecar on the ollama pod logs every request body, so the
 run is readable rather than inferable - which corrected the diagnosis. Read it
 with:
 
-    kubectl -n data logs <ollama-pod> -c metrics-proxy --tail=400 | grep 'DEBUG output'
+    kubectl -n data logs <ollama-pod> -c ollama-proxy --tail=400 | grep 'DEBUG output'
+
+The container was called `metrics-proxy` until 2026-08-29, so **Loki history is
+split on the container label** and a query written for the new name silently
+returns nothing from before the rename. Match both when looking back:
+
+    {namespace="data", container=~"ollama-proxy|metrics-proxy"}
 
 The calls, in order:
 
@@ -3542,6 +3548,159 @@ Scores 3 and 4 are the ones that would have caught every incident written up
 here. A judged score for answer quality can come later; the mechanical ones are
 falsifiable today, which the prose ones never were.
 
+## Thinking was off, and the switch is in the wrong repo
+
+Between 2026-08-28 20:33 and 2026-08-30, `qwen3.5:4b` ran with thinking
+disabled: the ollama sidecar force-merged `{"reasoning_effort":"none"}` over
+every `POST /v1/chat/completions`. That is worth writing down because the switch
+is not in this repo, is not in the Ensemble, and is invisible from every object
+an agent touches.
+
+**Sympozium has a `thinking` field, and the Ensemble is the one CRD without
+it.** `AgentRun.spec.model.thinking` and `Agent.spec.agents.default.thinking`
+both take `off|low|medium|high`, and upstream documents them
+(`design/#31-agent-per-userper-tenant-gateway`,
+`guides/first-agentrun/#run-with-anthropic`) - but only for cloud providers,
+never for Ollama. `Ensemble.spec.agentConfigs[]` has `model`, `provider` and
+`baseURL` and no `thinking`, so a persona cannot carry one and all seven live
+Agents read `UNSET`. That gap is the whole reason the knob ended up at the
+proxy, which is fleet-wide and reaches `dlt_runner`'s bodega enrichment too.
+Upstream also notes that Qwen3.5 "requires more reasoning steps" and ties it to
+raising `MAX_TOOL_ITERATIONS` (`guides/writing-tools/#max_tool_iterations`),
+which is already `"100"` here.
+
+**Forcing it was the wrong shape; defaulting it is the right one.**
+`OLLAMA_PROXY_REQUEST_OVERRIDES` merges over the client body, so nothing
+downstream could opt back in. The sidecar grew
+`OLLAMA_PROXY_REQUEST_DEFAULTS`, which merges *under* it - precedence is
+overrides > client > defaults - and core now sets the thinking level there.
+Verified through the real Service path: a request with no `reasoning_effort`
+came back with 521 chars of reasoning, and one sending `"none"` came back with
+zero. If the Ensemble CRD ever grows `thinking`, the persona wins without a core
+change.
+
+**Thinking fixes a class of misreading this fleet has hit repeatedly.** Replayed
+`db-steward`'s terminal turn 5 times per level against a fixture carrying the
+archiver trap from `#a-cumulative-counter-is-not-a-state` - `failed_count total=2`
+with `increase(...[1h])=0`. With thinking off, 1 of 5 runs called it CRITICAL, the
+exact false page that reached Slack twice. With thinking on, 0 of 10 did. That is
+the argument for turning it on at all.
+
+**It also introduced a new way to lose a report, and that one is real.** On
+2026-08-30 `homelab-ops-db-steward-schedule-8` reported `Succeeded`, exit code 0,
+5 tool calls, and `No result available`. The proxy debug log has the terminal
+response: `finish_reason: "stop"`, `content: ""`, and 266 tokens of complete
+analysis sitting in `reasoning`. The runner logged `terminal turn had empty text
+and no prior reasoning to fall back on` - note the wording is about *prior*
+turns, so a full reasoning trace on the terminal turn itself is not a fallback it
+will take. The report was written and discarded.
+
+The repair is in the sidecar, because that is the only layer we control:
+`OLLAMA_PROMOTE_REASONING_TO_CONTENT` (default `true`) copies `reasoning` into
+an empty `content` on non-streaming `/v1`. Two guards matter - a choice carrying
+`tool_calls` is legitimately content-empty and is skipped, or every intermediate
+turn of the loop would get prose written into it; and `reasoning` is copied, not
+moved. Streaming is deliberately uncovered: knowing content stayed empty means
+buffering the whole stream.
+
+**Treat the promotion as a floor, not a fix.** What arrives is chain of thought,
+so it does not honour the section contract - one promoted run opened "I have
+retrieved data from Postgres, Valkey, and volume fills. Now I need to analyze
+it" instead of `## Headline`. It converts a silent drop into a badly formatted
+report, which is strictly better and still a prompt bug.
+
+**The level is set to `high`, against the measurement.** At n=5 per level, `high`
+showed no gain over `low` on any axis measured - same 0 archiver misreads, same
+3-of-5 clean reports - and produced one perfectly formatted but empty report
+(`## Findings: None`, dropping `maxmemory UNSET` and the two aged archiver
+failures) plus one promoted run that failed the format check. Higher thinking
+also makes promoted text longer and less report-shaped. The sample is small and
+was not extended, so this is a weak result, not a refutation; re-measure before
+concluding either way. What is not in doubt is that the gain over `none` arrives
+at `low`.
+
+One unrelated trap found while measuring: Ollama occasionally answers a
+tool-heavy request with `{"error":{"message":"XML syntax error on line 14:
+unexpected EOF"}}`. It is rare, upstream, and independent of thinking level -
+do not read it as a reasoning failure.
+
+## The model writes Markdown; the hook speaks Slack
+
+`prompts/delivery/hook.md` used to carry eight lines teaching a 4B model to emit
+Slack mrkdwn - one asterisk for bold, no `#`, no fences. It did not hold:
+`**bold**` and `##` arrived anyway, which is why `files/deliver-slack.sh` already
+repaired both. Two notations were being asked for and one was being produced.
+
+So the split moved. The prompt now says *write standard Markdown* and nothing
+about the channel, and `files/deliver-slack.py` owns the whole translation -
+links to `<url|text>`, `~~s~~` to `~s~`, `**b**` to `*b*`, headings to bold,
+rules and fences dropped. Same reasoning as the facts server: the model writes
+the one notation it already knows, and the conversion is deterministic, testable
+and identical for every persona. It also shortened the prompt, which is the
+scarce resource.
+
+**It is Python, and that is the second half of the change.** The converter was a
+sed pipeline until 2026-08-30. Two things it could not do are why it moved:
+a regex pass rewrites Markdown *inside* code spans, so a report quoting
+`increase(m[1h])` had the one string its reader would copy corrupted; and no
+regex handles a malformed tag safely (below). It is the only code in this
+sub-project that runs in production, so it now has `tests/test_deliver_slack.py`
+- the first pytest suite here, wired into `.github/workflows/test-agents.yaml`
+beside the validator. The image moved from `curlimages/curl` to
+`python:3.13-alpine` and the script is standard library only: a delivery hook
+that needs a `pip install` is one that fails on a network blip. `.helmignore`
+excludes `/tests/` but must keep `files/` readable, since the template reads the
+script at render time.
+
+**This applies to hook-mode personas only.** `homelab-oracle` delivers through
+`send_channel_message` and the channel sidecar, which runs no converter, so its
+prompt keeps the Slack-native rule. Do not "make it consistent" without moving
+its delivery too.
+
+**HTML is why the converter exists now, not just why it is tidier.** A real
+`gitops-auditor` report reached `#monitoring-ai-drift` as
+
+    <font face="monospace"**Drift:** Everything is Synced and Healthy.</font>
+
+with an unclosed tag and a `<br>`. The prompt had never forbidden HTML because
+nobody expected it.
+
+The trap is worth keeping, because two independent implementations fell into it.
+`s/<[^>]*>//g` matches from `<font` to the `>` of the *closing* tag and deletes
+the sentence between them - the line came out empty, losing the run's only
+finding. **Python's `HTMLParser` does exactly the same thing**, which the test
+caught on the first run: it reads the unterminated tag as one long start tag and
+swallows the text as attributes. So `_repair_unclosed_tags` runs first and hands
+the parser only tags whose `>` arrives before the next `<`; anything else loses
+its `<name attr=...` prefix and keeps the text it ran into. `<70%`, `<1h` and
+`5 < 7` match no tag at all. Do not "simplify" this back to one pass.
+
+## One turn, three write calls, two contradicting verdicts
+
+`renovate-reviewer` posted two comments on datahub-local-core#216 thirty-six
+seconds apart in a single run: `REVIEW NEEDED ... pending CI status`, then
+`SAFE TO MERGE`. Both are still on the PR.
+
+The prompt already said `Post one github_add_issue_comment` and `One comment per
+PR per run`. Saying it a third time was not the fix. The mechanism is the one
+behind every selector incident in this file: **this model emits several tool
+calls per turn.** Its 23 calls were `list_pull_requests` x3,
+`get_pull_request_files` x2, `get_pull_request_status` x2,
+`argocd_list_applications` x2, `get_file_contents` x2, `get_commits` x2,
+`fetch_url` x2, `add_issue_comment` x3. On read tools that is waste; on the one
+write tool in the fleet it is a duplicate comment on a live PR.
+
+So the prompt now separates the phases rather than restating the cap - every
+read for every repo finishes before `github_add_issue_comment` is called at all,
+and a PR already commented on this run is finished. That is worth more than a
+count because it removes the state the model has to track.
+
+It is still prose, and prose is what lost here. **The durable fix is a write
+guard the model cannot talk its way past** - an idempotency key, or a wrapper
+that refuses a second comment per PR per run. Until that exists, read the PRs
+after a reviewer run rather than trusting the cap, and remember the failure is
+silent: three calls, `Succeeded`, 1415 bytes of result.
+
 ## Open, and not ours
 
 - `TargetDown{job="longhorn-backend"}` has been firing since the Longhorn
@@ -3549,6 +3708,14 @@ falsifiable today, which the prose ones never were.
   `connection refused` on :9500 while the manager itself reconciles replicas
   normally. A scrape target left stale by the upgrade. The config lives in
   datahub-local-core.
+- **`Ensemble` has no `thinking` field.** `Agent.spec.agents.default.thinking`
+  and `AgentRun.spec.model.thinking` both take `off|low|medium|high` and are
+  documented upstream, but `Ensemble.spec.agentConfigs[]` carries no equivalent,
+  so a persona cannot set its own thinking level and the knob has to live in the
+  ollama sidecar in datahub-local-core - fleet-wide, and applied to every other
+  client of that endpoint. Adding the field to `agentConfigs[]` would move it
+  back beside `model` and `provider`, where it belongs.
+  See `#thinking-was-off-and-the-switch-is-in-the-wrong-repo`.
 - The channel sidecar fan-out — every slack sidecar delivers every instance's
   outbound message — is one line upstream: filter on `metadata.instanceName`,
   which the envelope already carries. `deliveryMode: hook` avoids it meanwhile.

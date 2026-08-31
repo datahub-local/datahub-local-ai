@@ -20,7 +20,7 @@ spec:
 
 defaults:
   provider: openrouter
-  model: deepseek/deepseek-v4-flash-0731:floor
+  model: deepseek/deepseek-v4-flash-0731
   runTimeout: 30m
   env:
     MAX_TOOL_ITERATIONS: "100"

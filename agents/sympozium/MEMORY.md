@@ -2451,8 +2451,10 @@ and it emitted no doubled asterisks. Diffed name by name against
 `information_schema.tables` on the live coordinator: **no name missing, none
 invented.**
 
-One defect left, and it is arithmetic. The list was headed **"52 total tables"**
-over 53 correct names. Nothing was wrong with the data — the model counted its own
+One defect left, and it is arithmetic — or so this read at the time. Both of the
+fixes below were then deployed and broken on the next run; see *Suppression is a
+rule this model can follow; translation is not*. The list was headed
+**"52 total tables"** over 53 correct names. Nothing was wrong with the data — the model counted its own
 output and got it wrong by one, which is the operation a 4B model is worst at and
 the one thing on that line no tool had given it. The previous fix made printing
 the list mandatory; it did not make labelling it optional, so the model did both.
@@ -2510,7 +2512,72 @@ out of date, it reads as a live denial. **Check the coordinator pod's age before
 believing a negative from this Trino.**
 
 
+## Suppression is a rule this model can follow; translation is not (2026-08-31)
+
+The two fixes above went live — confirmed in the deployed object, not just in the
+repo: `kubectl get ensemble homelab-responder -o json` showed the new no-total
+sentence inside `spec.agentConfigs[].systemPrompt`. The very next run broke both.
+It printed all 53 names again, correctly, and wrapped them in doubled asterisks,
+asterisk bullets, **"(52 total)"** and a **"52 table names found:"** label. So the
+count rule was not mispositioned or ambiguous; it was read and lost, and the
+Markdown defect that the 08:19 thread had cleared came straight back.
+
+**The answer was already written down in this repo, in code.** `files/deliver-slack.py`
+opens by saying it: the prompt asks for plain Markdown and the *file* owns the whole
+translation to Slack mrkdwn, because "asking a 4B model to emit mrkdwn directly did
+not hold - `**bold**` and `##` arrived anyway." The five hook-mode reporters have had
+a deterministic converter since that refactor. The oracle is `deliveryMode: reply`,
+its text leaves through the `homelab-oracle-channel-slack` sidecar unaltered, and it
+was being asked to do by prompt the exact thing that file records as not working.
+**A lesson learned on one delivery path does not travel to the other by itself**, and
+the reply path is the one with no code in it.
+
+There is nothing to configure. The Ensemble CRD's `slackOptions` carries
+`allowedTriggers`, `threading`, `threadStickiness` and the three `emojiOn*` fields
+and **no formatting or mrkdwn option at all**, so conversion on the reply path is an
+upstream change, not a values change (filed below).
+
+What is left is the prompt, and the distinction the previous two attempts missed:
+
+| Ask | Kind of task | Holds? |
+| --- | --- | --- |
+| emit Slack mrkdwn | translate one notation to another | no — `deliver-slack.py` |
+| bold is one asterisk, not two | discriminate one character from two | no — twice |
+| use no asterisk at all | suppress one character | plausible |
+
+The old rule required the model to *count asterisks*, which is the same operation as
+counting its own table names, and it fails at both. So the rule no longer asks for
+bold: no asterisk anywhere, for emphasis or as a bullet, and a list opens with a
+hyphen. **Deleting the requirement deletes the discrimination.** Likewise the count
+rule stopped forbidding a placement — "do not head or close them with a total" was
+answered with a total in *both* positions plus one inline — and now forbids the
+quantity itself, wherever it appears. Prohibitions that name a position get the
+other position; this is the third time in this thread that forbidding a shape found
+the next shape.
+
+Plain text is an acceptable answer here in a way it would not be for a scheduled
+report: a Q&A reply degrades gracefully without bold, whereas a reporter's headings
+carry the section structure the format demands. That asymmetry is why the two paths
+can legitimately have different rules, and why the fix below is still worth making.
+
+No validator rule was added for any of this. A regex asserting that a prompt
+contains the right English is precisely what the ~600 lines removed with the MCP
+server were, and it would pass on the prompt that just failed twice.
+
+
 ## Open, and not ours
+
+- **The reply path has no Markdown converter, and should.** `lifecycle.postRun` gives
+  the five hook-mode reporters `files/deliver-slack.py`, which is deterministic and
+  tested; `deliveryMode: reply` goes out through the controller's
+  `<persona>-channel-slack` sidecar, which passes the model's text through
+  unconverted. The result is that the responder is the one persona whose Markdown
+  reaches a reader as literal characters, and the only available remedy is prompt
+  text asking a 4B model not to type asterisks. The sidecar is the right place for
+  the conversion — one implementation for every reply persona, and the same
+  Markdown-in/mrkdwn-out contract the hook already proves. Failing that, a
+  formatting field on `slackOptions` would at least make it configurable; there is
+  no such field today. Verified against the CRD and the live sidecar, 2026-08-31.
 
 - **Restoring SQL to the responder is a core change.**
   `datahub-local-core-automation-sympozium-mcp-postgres` denies `execute_sql` in

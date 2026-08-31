@@ -2282,6 +2282,85 @@ which is the property `agents/mcp/` is built around. And the payoff is larger th
 the question that prompted it: nothing in this fleet can currently see the Iceberg
 warehouse at all, and the same four tools reach `bronze`/`silver`/`gold`/`test`.
 
+## It answered, then offered, then refused
+
+The first thread on the wired Trino path, 2026-08-30. Asked for superset's tables
+and sizes, the oracle reached `postgresql_superset`, counted **52 tables** — real,
+the `viewer` role existed by then — named the schema correctly, and then wrote
+"I can provide you with the full list of table names if you'd like." Asked "i like
+it", it replied with the out-of-scope refusal.
+
+Four defects in three messages, and each one a rule that was already in the prompt:
+
+- **It had the list and printed a count instead.** The no-offer rule was
+  prohibitive — "no offer to run, check or show something" — and the model did not
+  read *listing what it already held* as an offer to run anything. Forbidding a
+  shape finds the next shape, so the rule is now positive and sits in the writing
+  paragraph: when a tool result holds the names, rows or list the question asked
+  for, print them; a count or a summary is not an answer.
+- **`i like it` got the refusal sentence.** The four out-of-scope cases include
+  "a greeting or small talk", and a three-word reply matches that on its face. The
+  subject-inheritance rule above it is written for *questions* with no subject, so
+  the model never reached it. The refusal is now unavailable in any thread the
+  oracle has already answered in, whatever the message looks like.
+- **It emitted `**156.7MiB total**`.** The oracle is `deliveryMode: reply`, so it
+  has no `lifecycle.postRun` hook and **nothing converts its Markdown** — the
+  channel sidecar passes the text through as written. The rule was there and said
+  "never `**like this**`", exhibiting the exact string it was banning. Same trap as
+  `chatId: "{{ CHANNEL }}"`: a model this size copies what a prompt shows it. The
+  rule now describes the failure without displaying the pattern.
+- **It described SQL it never ran** — "joining pg_namespace with pg_tables" —
+  which is the `#the-oracle-offered-sql-it-did-not-have` failure returning in
+  narrative form rather than as an offer. The writing paragraph now bans
+  describing a query as well as offering to run one.
+
+The lesson under all four: **a rule the model breaks is usually in the wrong
+paragraph or the wrong mood.** Three of these were present and correct, and lost to
+position (scope rules read before the thread rules), to mood (prohibitions invite
+the adjacent shape), or to exhibiting the thing they forbade.
+
+
+## `security.refresh-period` does not reload the access-control rules
+
+Trino's `access-control.properties` sets `security.refresh-period=60s`, and the
+`file` access control did **not** pick up an edited `rules.json` — the `mcp` user
+kept getting `Access Denied: Cannot access catalog postgresql_superset` well past
+any refresh window, and every `postgresql_*` catalog was missing from
+`list_catalogs` entirely. It took a coordinator restart. So a permission change to
+this Trino is a **restart**, not a config reload, whatever the refresh period
+claims; a `kubectl rollout restart` on the coordinator is part of the change, and
+verifying one before the pod comes back reads as `connection refused` rather than
+as a denial.
+
+Two readings that look alike and are not, worth keeping apart when this breaks
+again:
+
+| Symptom | Cause |
+| --- | --- |
+| catalog missing from `list_catalogs` | access control denies it to `mcp` |
+| `Access Denied: Cannot access catalog X` | same, reached by exact name |
+| `FATAL: password authentication failed for user "viewer"` | the Postgres role |
+| `connection refused` on `/v1/statement` | coordinator not up yet |
+
+**Verified end to end after the restart**, which is the state the oracle's prompt
+now describes: `list_catalogs` returns all six `postgresql_*` catalogs beside the
+Iceberg ones; `list_schemas(postgresql_superset)` gives
+`information_schema`/`pg_catalog`/`public`; `list_tables` gives 53 tables in 984
+bytes, and 132 tables in 3,352 bytes for `postgresql_n8n` — the widest case here
+and still inside a tool answer's budget; `get_table_schema` returns columns and
+types; and `SHOW STATS FOR postgresql_superset.public.dashboards` answers.
+
+Running it also corrected two things the prompt had asserted about `SHOW STATS`
+without having seen its output. `row_count` sits on the one row whose
+`column_name` is **`null`**, not "empty" — and `data_size` is `null` for most
+columns on this connector rather than merely approximate. Both are now written
+the way the result actually reads. That is the third time in this thread that a
+prompt written from documentation was wrong in a way only the live call showed,
+after the missing `TABLE(...)` wrapper and the `postgres_` versus `postgresql_`
+catalog prefix: **never describe a tool result in a prompt until you have read
+one.**
+
+
 ## Open, and not ours
 
 - **Restoring SQL to the responder is a core change.**

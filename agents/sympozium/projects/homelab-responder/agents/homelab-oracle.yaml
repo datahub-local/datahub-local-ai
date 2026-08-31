@@ -116,8 +116,9 @@ mcpServers:
       - create_issue
       - update_issue
       - update_pull_request_branch
-  # 6. Slack conversation context. Read-only history and thread replies only;
-  #    message posting remains the built-in delivery path.
+  # 6. Slack conversation context. Read-only history and thread replies only.
+  #    Nothing here posts, and neither does the persona: in reply mode the run's
+  #    final text *is* the message. Rationale in ../../../MEMORY.md.
   - name: datahub-local-core-automation-sympozium-mcp-slack
     timeout: 30
     toolsPrefix: slack
@@ -160,7 +161,6 @@ toolPolicy:
     - github_list_commits
     - slack_slack_get_channel_history
     - slack_slack_get_thread_replies
-    - send_channel_message
   deny:
     - write_file
     - execute_command

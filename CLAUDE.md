@@ -528,8 +528,8 @@ prompts are a report contract rather than a method — see
   `mcpServers[].toolsDeny` uses the server's own names (`pods_delete`) because
   that filter runs at the server. Backwards means a deny that matches nothing.
 - **A channel binding is split across source and values, and both halves are
-  load-bearing.** The persona carries the type (`channels: [slack]`),
-  `send_channel_message` in the allowlist and a `{{ DELIVERY }}` token in its
+  load-bearing.** The persona carries the type (`channels: [slack]`) and, in hook
+  mode, a `{{ DELIVERY }}` token in its
   system prompt; values carry the credential secret (`channelConfigs`) and the
   `sympozium_delivery` knobs — `channel` and `deliveryMode`, with per-persona
   overrides. No CRD field
@@ -588,8 +588,14 @@ prompts are a report contract rather than a method — see
   two questions asked in two different channels were both answered into a third.
   A `reply` persona carries its own answering contract in its prompt instead of a
   `{{ DELIVERY }}` token, and both the template and the validator reject the
-  combination. `tool` mode is gone: it cost a duplicate copy of every report per
-  bound persona, and nothing used it.
+  combination. **A `reply` persona must not allowlist `send_channel_message`
+  either**, for the same reason a hook one must not: the reply is the run's own
+  final text, `status.result`, posted into the asking thread by the controller,
+  while the tool is a separate path that resolves no destination on a reply run.
+  Keeping both cost two answers on 2026-08-31 — the model sent the real answer
+  with an empty `chatId` (rejected `channel_not_found`) and then wrote a summary
+  of having sent it, which is what the reader got. `tool` mode is gone: it cost a
+  duplicate copy of every report per bound persona, and nothing used it.
 - **`send_channel_message` takes the destination in `chatId`.** Its `channel`
   argument is the *transport* (`slack`, `telegram`, …), never a `#name`. With
   `chatId` unset the tool still answers `Message sent`, targets "owner (self)",
@@ -600,8 +606,9 @@ prompts are a report contract rather than a method — see
   `chatId: "{{ CHANNEL }}"` and a 4B model copied the quotes into the value, so
   Slack rejected the same way for another two days. A prompt for a model this size
   must never show a value inside syntax the model is also expected to strip.
-  Only the responder holds this tool now, and its prompt tells it to leave
-  `chatId` alone rather than showing a value to copy. Full write-up in
+  **No persona holds this tool any more** — the responder was the last and lost
+  two answers to it (previous bullet), so both delivery modes now deliver the
+  run's final text and nothing in this chart posts by tool call. Full write-up in
   `agents/sympozium/README.md`.
 - **The report names its agent; it never invents a time.** Nothing in this fleet
   returns the current time (verified — the runtime injects no clock and no MCP

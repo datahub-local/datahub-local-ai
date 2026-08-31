@@ -31,12 +31,16 @@ on demand
 {{- end -}}
 
 {{/*
-  sympozium.deliveryMode — hook or tool.
+  sympozium.deliveryMode — hook or reply.
 
   hook: a lifecycle.postRun container posts the run's own result straight to the
   Slack API. Nothing reaches the shared event bus, so the report arrives once.
-  tool: the model calls send_channel_message and a channel sidecar posts it,
-  which costs one duplicate copy per channel-bound persona in the namespace.
+  reply: the controller posts the run's own result back into the thread that
+  asked, through the persona's channel sidecar.
+
+  Neither posts by tool call: `send_channel_message` is off every allowlist, and
+  the validator rejects it under both modes. It cost a duplicate copy of every
+  report under the removed `tool` mode, and two lost answers under `reply`.
 
   hook is the default so a persona added later gets one-copy delivery without
   anyone remembering to ask. See ../README.md.

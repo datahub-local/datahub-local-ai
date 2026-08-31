@@ -74,8 +74,9 @@ sympozium_ensembles:
     # Who may start a run, which is a different question from how they reach the
     # agent: slackOptions.allowedTriggers gates the *kind* of message (mention,
     # dm) and never the sender. With this unset, anyone in the workspace who can
-    # @-mention the bot gets a run holding the facts server, k8s_pods_log and
-    # send_channel_message. Inbound-only, so it cannot affect the reporters.
+    # @-mention the bot gets a run holding the facts server, the Kubernetes,
+    # ArgoCD, GitHub and Trino readers, and the Slack history reader.
+    # Inbound-only, so it cannot affect the reporters.
     # A Slack *user id*, not an @handle - the handle is not what the API sends.
     channelAccessControl:
       slack:

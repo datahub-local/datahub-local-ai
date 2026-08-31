@@ -2686,6 +2686,70 @@ contains the right English is precisely what the ~600 lines removed with the MCP
 server were, and it would pass on the prompt that just failed twice.
 
 
+## The answer went nowhere and the narration was the reply (2026-08-31)
+
+Asked "give me the status if stream and S3 services", the oracle answered twice and
+the reader got neither answer. Both times what arrived in the thread was a report
+*about* the answer - "The answer has been sent via Slack. I explained that ...",
+then "I have delivered the answer about Stream (Redpanda) and S3 (Garage) service
+status". The real text existed, was correct, and was thrown away.
+
+The mechanism, from three logs that each show one half:
+
+- `kubectl logs deploy/homelab-responder-homelab-oracle-channel-slack` at both run
+  times: `failed to send Slack message  chatId:"" threadId:"" error: ...
+  chat.postMessage rejected request: channel_not_found`.
+- The run's agent log in Loki: the last call of each run is
+  `send_channel_message args={"channel":"slack","text":"Stream/Redpanda: 3 brokers,
+  3 topics, 18 partitions - all healthy ...` - the whole answer, in the argument of
+  a call that was rejected.
+- `status.result` on the `AgentRun`: the narration. **In reply mode `status.result`
+  is the reply**, so the narration is what the controller posted into the thread.
+
+**The posting instruction was a coin flip, and it only ever destroyed an answer.**
+Five oracle runs on 2026-08-31: the three whose answers arrived intact
+(`ch-lfr68`, `ch-2t8kj`, `ch-d4kbh`) never called `send_channel_message` at all -
+they ended on their final text and the reply path delivered it. The two that obeyed
+the prompt and called it (`ch-tgjxk`, `ch-t4kgs`) are exactly the two that were
+lost. There was never a run in which the call helped.
+
+So `send_channel_message` is off the oracle's allowlist, the prompt names no
+posting tool and no delivery step, and `scripts/validate.py` rejects the tool on a
+`reply` persona the way it already rejected it on a hook one. **This is the hook
+lesson arriving on the other path**, and the second time in two days that one has
+had to walk over: `#deliverymode-hook-is-the-default-and-it-sidesteps-the-bus`
+already said take the tool away and the report *is* the final text, and the reply
+path had been left carrying both a tool call and an order to repeat its own text
+afterwards. A model that has just "delivered" writes a delivery report as its next
+turn; that is the whole failure.
+
+Two notes on `chatId`, which the prompt had been trying to steer around by saying
+to leave it unchanged. There is nothing to leave unchanged - a reply run resolves no
+destination, the model emitted `chatId: ""`, and the tool answered `Message sent`
+anyway (`#a-failed-outbound-send-is-only-visible-in-the-sidecar`). And the earlier
+note that this was "confirmed working in production ... a real run called it with
+`chatId: "C08S5ACNTPB"`" was one run's luck, not the contract.
+
+The facts side of the same two runs was sound, which is worth separating out
+because the report read like one failure:
+
+- `ch-tgjxk` ran at 10:51, before `facts_stream_health`/`facts_object_store_health`
+  reached its `toolsAllow` at 10:56, and fell through to six name searches for
+  "stream service", "S3 service", "streaming", "streaming server" - the
+  `#a-name-search-answers-what-it-is-called-never-what-it-does` failure again,
+  landing on the unrelated `s3-gdrive` Service, and six lookups against a stated
+  cap of three.
+- `ch-t4kgs`, six minutes later with the tools wired, did it in four calls: thread
+  read, `facts_stream_health`, `facts_object_store_health`, and the answer. Both new
+  tools were called once, with no arguments, and answered. The two prompt bullets
+  naming Garage and Redpanda worked on their first live question.
+
+Also seen and not fixed here: `ch-2t8kj` and `ch-d4kbh` opened with `memory_search`
+rather than the Slack read the prompt makes the first call of every run. The
+ordering rule holds when the run is a thread follow-up and slips when the question
+looks self-contained.
+
+
 ## Open, and not ours
 
 - **The reply path has no Markdown converter, and should.** `lifecycle.postRun` gives

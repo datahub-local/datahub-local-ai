@@ -533,6 +533,19 @@ def _check_delivery(project, persona_name, persona, delivery, warnings):
                 f"{persona_name}: deliveryMode reply answers in the asking "
                 f"thread, so the persona must carry a channel binding"
             )
+        if "send_channel_message" in persona.get("toolPolicy", {}).get("allow", []):
+            raise Fail(
+                f"{persona_name}: deliveryMode is reply but it still allowlists "
+                f"'send_channel_message'. The reply is the run's own final text, "
+                f"posted into the asking thread by the controller; the tool is a "
+                f"second, separate path that carries no destination. Verified "
+                f"2026-08-31: the model composed a correct answer, sent it with "
+                f"an empty chatId, the sidecar rejected it channel_not_found, and "
+                f"the final text it wrote instead was a summary of having sent it "
+                f"- which is what the reader then got. Same rule as hook mode: "
+                f"take the tool away and the answer is the final text. See "
+                f"MEMORY.md#the-answer-went-nowhere-and-the-narration-was-the-reply-2026-08-31"
+            )
         return
 
     # Gated on the delivery destination and not on `channels:`. The templates
@@ -804,8 +817,8 @@ def _check_inbound_is_restricted(persona_name, persona, access, warnings):
     the sender, so a bound persona with no `allowedSenders` runs for anyone who
     can reach the bot. Nothing in the CRD defaults this and no controller warns,
     which is why it is checked here: the whole fleet is read-only, but the
-    responder holds `send_channel_message` and the cluster's log and event
-    readers, and it is the only object in this chart an outsider can trigger.
+    responder holds the cluster's log, event and database readers, and it is the
+    only object in this chart an outsider can trigger.
     """
     channels = persona.get("channels") or []
     if not channels or access is None:
@@ -829,7 +842,7 @@ def _check_inbound_is_restricted(persona_name, persona, access, warnings):
             )
 
 
-def _check_channels(persona_name, persona, channel_secrets, warnings, hook_mode=False):
+def _check_channels(persona_name, persona, channel_secrets, warnings, self_delivering=False):
     """Cross-check channel bindings, their credentials, and the posting tool.
 
     Three ways to bind a channel and still be silent, all of which deploy
@@ -875,7 +888,7 @@ def _check_channels(persona_name, persona, channel_secrets, warnings, hook_mode=
             f"configured on this agent'), so the run succeeds and posts nothing. "
             f"Binding is not optional for delivery; see _check_delivery_needs_binding"
         )
-    if channels and "send_channel_message" not in allowed and not hook_mode:
+    if channels and "send_channel_message" not in allowed and not self_delivering:
         warnings.append(
             f"{persona_name}: bound to {', '.join(channels)} but does not "
             f"allowlist 'send_channel_message' — it can be triggered from the "
@@ -1094,7 +1107,7 @@ def _check_persona(project, path, used, channel_secrets, access, delivery, warni
     _check_tools(name, persona, warnings)
     _check_channels(
         name, persona, channel_secrets, warnings,
-        hook_mode=_delivery_mode(name, delivery) == "hook",
+        self_delivering=_delivery_mode(name, delivery) in ("hook", "reply"),
     )
     _check_inbound_is_restricted(name, persona, access, warnings)
     _check_delivery(project, name, persona, delivery, warnings)

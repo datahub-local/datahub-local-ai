@@ -218,8 +218,9 @@ ensemble exists to keep visible.
   `values/default.yaml.gotmpl`, merged over `spec` at render time. The
   validator rejects those keys in `ensemble.yaml`.
 - **A channel binding is split across both, and so is delivery.** The persona
-  carries the type (`channels: [slack]`), `send_channel_message` in the
-  allowlist, and a `{{ DELIVERY }}` token in its system prompt. Values carry the
+  carries the type (`channels: [slack]`) and, in hook mode, a `{{ DELIVERY }}`
+  token in its system prompt. No persona carries a posting tool: both delivery
+  modes deliver the run's own final text. Values carry the
   credential secret (`channelConfigs`) and the knobs (`sympozium_delivery`:
   `channel`, `verbosity`, `notify`, with per-persona overrides). Any one half
   alone deploys cleanly and posts nothing, or posts to nowhere, so the validator
@@ -346,7 +347,7 @@ real thing — a different prompt, a narrower tool policy, no delivery:
       task: |
         <the task under test>
       toolPolicy:
-        allow: [send_channel_message]
+        allow: [facts_alerts_snapshot]
         deny: [write_file, execute_command]
     EOF
     kubectl get agentrun probe-1 -n automation -o jsonpath='{.status.result}'

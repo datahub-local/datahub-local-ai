@@ -1601,6 +1601,86 @@ Core's fix is `agent-allow-tools`, allowing 8080 to those two label selectors �
 deliberately narrower than adding 8080 to `extraEgressPorts`, which renders as a
 rule with no `to:` and opens the port to the whole cluster.
 
+### The same policy set took the delivery hook, and the Python rewrite is what exposed it (2026-08-31)
+
+Every scheduled report from 2026-08-30 12:05 UTC onward reached Slack nowhere.
+The run itself was fine — `Succeeded`, a full `status.result` — and the only
+trace was `PostRunFailed` on the run plus one line in the hook pod's log:
+
+    DELIVERY FAILED: <urlopen error [Errno -3] Try again>
+
+`Errno -3` is `EAI_AGAIN`: the resolver timed out. CoreDNS was not the problem —
+one replica, `up` throughout, zero `SERVFAIL`, a flat ~4.9 req/s across the whole
+window — and a plain pod in `automation` resolved `slack.com` and reached
+`https://slack.com` on the first try.
+
+The postRun pod is not a plain pod. The controller stamps
+`app.kubernetes.io/part-of: sympozium` onto it, which is the podSelector of the
+upstream chart's `sympozium-allow-otel` — `policyTypes: [Egress]`, one rule,
+ports 4317/4318. A pod selected by *any* Egress policy is denied every other
+egress, so port 53 was closed. Reproduced exactly by giving a bare pod that one
+label: first lookup answers, every lookup after it returns `Errno -3`.
+
+That first answer is the mechanism, and it is the race recorded two sections up —
+k3s programs the policy about a second after the pod starts. **The policy has
+been starving these pods since 2026-08-20; what changed is how fast the hook
+runs.** The last delivered report and the first lost one are consecutive ticks of
+the same schedule, and the run objects say what differed:
+
+| run | hook | outcome |
+| --- | --- | --- |
+| `gitops-auditor-schedule-27`, 08:04:40Z | `curlimages/curl:8.11.1`, `/bin/sh -c`, one `curl --max-time 30`, no retry | delivered |
+| `gitops-auditor-schedule-28`, 12:05:07Z | `python:3.13-alpine`, `python3 -c`, 3 attempts with 2s/4s backoff | `Errno -3` |
+
+87ef870 landed at 10:10 UTC that morning, between the two. One `curl` fires
+inside the window; CPython starting, importing and converting the report does
+not, and by attempts two and three the rules are long since programmed — a
+retry loop cannot rescue a permission that only exists for the first second.
+So the rewrite did not cause the bug, it stopped hiding it, and the diagnosis is
+not "a coin that had been landing the same way": it is a specific, dated change
+in how long the pod waits before its first packet. **A capability that depends on
+winning a race is not a capability, and the thing that reveals it can be a
+refactor that made the code better.**
+
+Scope, because the first read of this was wrong in both directions:
+
+- **Only hook-mode personas are exposed** — the five `homelab-ops` reporters.
+  `homelab-oracle` is `deliveryMode: reply` and `renovate-reviewer` is unbound,
+  so neither run carries a `lifecycle` at all (`.spec.lifecycle` is `null`). The
+  responder never touches this path: its answer leaves through the
+  `homelab-oracle-channel-slack` sidecar, a long-lived Deployment (up since
+  2026-08-25) with an egress policy of its own, so there is no pod start to race.
+  It answered normally all through the same window.
+- **The 2026-08-26 `PostRunFailed` on `db-steward-schedule-3` is a different
+  bug**, not an early instance of this one. Its log is still in Loki and reads
+  `sed: bad regex ... Unknown character class name` — the fence-stripping
+  expression in the *shell* hook, which the Python rewrite deleted. Do not read
+  it as evidence for the race.
+
+The gap is upstream's and it is legible once the three workload classes are put
+side by side: `sympozium-agent-allow-eventbus` grants agent pods 53 and 443,
+`sympozium-channel-allow-egress` grants the channel sidecars 53 and 443, and the
+postRun pod — the one that exists to make an outbound HTTPS call — is granted
+neither, only 4317/4318 by way of a policy about telemetry it never sends.
+
+**Core owns the fix**, as
+`datahub-local-core-automation-sympozium-post-run-allow-egress` (applied
+2026-08-31 05:28:58Z). It selects `sympozium.ai/component: post-run` — the
+controller's own label for these pods, narrower than `part-of: sympozium`, so it
+widens nothing else — and grants 53 to `k8s-app: kube-dns` in `kube-system` plus
+443 to anywhere. DNS goes to the resolver by label rather than to the ClusterIP,
+because a hardcoded `10.43.0.10/32` fails in exactly the way this bug did.
+
+This chart briefly carried the same policy in `templates/networkpolicy.yaml` and
+it was **deleted once core applied one**, not kept as a backstop: a postRun pod
+is a platform object, this sub-project declares `Ensemble`s only, and two owners
+of one rule is the drift this repo keeps refusing to create. NetworkPolicies
+being additive is what made a local copy *possible*, not what made it right.
+
+Verified end to end: `db-steward-schedule-9` at 05:30:01Z, the first tick after
+the policy landed, logged `slack response: {"ok": true, ...}` and `delivered ok`
+— the first report delivered since 2026-08-30 08:04:40Z.
+
 ## The `channel-slack` Deployments have no resource requests or limits
 
 Every other workload the controller creates for a persona is bounded; the channel
@@ -2359,6 +2439,75 @@ prompt written from documentation was wrong in a way only the live call showed,
 after the missing `TABLE(...)` wrapper and the `postgres_` versus `postgresql_`
 catalog prefix: **never describe a tool result in a prompt until you have read
 one.**
+
+
+## The list was right and the count over it was not (2026-08-31)
+
+The fourth ask of the same question — superset's tables and their sizes, 08:19 —
+and the first one the oracle answered properly. All four fixes from
+*It answered, then offered, then refused* held: it **printed all 53 table names**
+rather than counting them, it did not offer, it described no SQL it had not run,
+and it emitted no doubled asterisks. Diffed name by name against
+`information_schema.tables` on the live coordinator: **no name missing, none
+invented.**
+
+One defect left, and it is arithmetic. The list was headed **"52 total tables"**
+over 53 correct names. Nothing was wrong with the data — the model counted its own
+output and got it wrong by one, which is the operation a 4B model is worst at and
+the one thing on that line no tool had given it. The previous fix made printing
+the list mandatory; it did not make labelling it optional, so the model did both.
+So the writing rule now ends the answer at the rows: **a total you worked out
+yourself is a number no tool gave you**, which is the standing "invent no figure"
+rule reaching the one place it had never been pointed — the model's own output,
+rather than the cluster.
+
+Worth naming as a pattern, because this is the second time in this thread:
+**fixing a rule by making a behaviour mandatory adds a shape rather than
+replacing one.** "Print the list" did not displace "state a count" any more than
+"no offer to run something" displaced "describe the query in prose".
+
+### Per-table bytes through Trino: closed, both routes, verified
+
+The question is now settled rather than open, so nobody needs to rediscover it.
+Both readings were run as the `mcp` user against the live coordinator *after*
+core's rules change:
+
+| Route | Result |
+| --- | --- |
+| `pg_class.relpages * 8192` via `postgresql_superset.pg_catalog` | `SHOW TABLES` there returns **zero rows** |
+| `TABLE(postgresql_superset.system.query(query => ...))` | `Access Denied: Cannot execute function` |
+
+The first one matters most, because it is the only route that needed **no core
+change at all** and it looks available: `SHOW SCHEMAS` does list `pg_catalog`
+beside `information_schema` and `public`. It is empty through Trino — the JDBC
+connector reports `pg_class` as a `SYSTEM TABLE` and surfaces only `TABLE` and
+`VIEW` — so `DESCRIBE ...pg_catalog.pg_class` is `Table does not exist`. **A
+listed schema is not a readable one**, and this is a third instance of the
+catalog-lookup trap in this section: the name resolves, the contents do not.
+
+The second confirms that core's 08b5eef did *not* incidentally open the
+passthrough. `{"user": "mcp", "catalog": "(memory|postgresql_.*|bronze|gold|silver|test)", "allow": "read-only"}`
+scopes which catalogs are reachable; **a catalog privilege is not a function
+privilege**, and the `system.query` EXECUTE grant is still a separate rule that
+nobody has to add — the CNPG `customQueriesConfigMap` two sections up reaches the
+same figures with history, no SQL composed by a 4B model, and no credential in
+`agents/mcp/`. Prefer it and leave the passthrough denied.
+
+Of the two things core owed here, the first is **done**: the `viewer` Postgres role
+exists and every `postgresql_*` catalog answers with real rows. The second should
+stay undone on purpose.
+
+### A probe minutes stale reads as a denial
+
+Recording the sequence because it cost a wrong conclusion and will recur.
+`SHOW CATALOGS` returned **10** catalogs with no `memory` among them; four minutes
+later, 11 with `memory` present. Nothing was flaky — core rolled the coordinator
+in between, and the pod age (`...-89zn8`, 4m41s) is what said so. This is
+*`security.refresh-period` does not reload the access-control rules* seen from the
+other end: because a permission change here is a **restart**, the old state
+survives intact right up to the roll, so a probe taken before it is not merely
+out of date, it reads as a live denial. **Check the coordinator pod's age before
+believing a negative from this Trino.**
 
 
 ## Open, and not ours

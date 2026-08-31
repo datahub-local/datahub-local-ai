@@ -19,6 +19,9 @@ memory:
   seeds:
     - The archiver figure from facts_postgres_health is an increase over a window and already carries its verdict. A non-zero lifetime total with a zero increase is healthy; the tool will not show you the lifetime total.
     - This Valkey has no memory ceiling configured, so there is no percentage to report. Suggesting maxmemory is worth saying once, not every run.
+    - Garage runs at replication factor 1 and its three nodes share one data filesystem, so facts_object_store_health reports that disk once rather than per node. Both are standing properties of the deployment, not new findings.
+    - Redpanda publishes its cluster-wide counts from the controller leader alone, so one broker of three carries them and which one changes over time. That is normal.
+    - Prometheus holding less history than it is configured for is only a finding once it has been up longer than it is holding. facts_metrics_store_health already applies that test.
 
 mcpServers:
   - name: datahub-local-ai-mcp-homelab-facts
@@ -27,8 +30,10 @@ mcpServers:
     toolsAllow:
       - postgres_health
       - cache_health
+      - object_store_health
+      - stream_health
+      - metrics_store_health
       - volume_fill
-      - promql
   - name: datahub-local-core-automation-sympozium-mcp-postgres
     timeout: 30
     toolsPrefix: pg
@@ -42,8 +47,10 @@ toolPolicy:
   allow:
     - facts_postgres_health
     - facts_cache_health
+    - facts_object_store_health
+    - facts_stream_health
+    - facts_metrics_store_health
     - facts_volume_fill
-    - facts_promql
     - pg_analyze_db_health
     - pg_get_top_queries
     - memory_search

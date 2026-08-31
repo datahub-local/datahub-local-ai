@@ -61,7 +61,7 @@ environment variables.
 
 ## The tools
 
-Thirteen tools. Nine take **no arguments at all**, and the other four take free
+Sixteen tools. Eleven take **no arguments at all**, and the other five take free
 text where any string is valid. Both halves are the same rule: an argument is
 safe when there is no format to get wrong. The prompts used to spend 2.3 KB
 explaining that `endTime` was the literal word `now`, three characters, and that
@@ -79,6 +79,9 @@ exactly one correct shape and cost two days of reports.
 | `node_fleet()` | the entire node table — disk, stalls, temperature, SMART, uptime, updates, UPS, kernel — with machine identity joined in the query and drift computed within hardware class |
 | `postgres_health()` | the archiver **increase**, backends, database sizes, cluster objects |
 | `cache_health()` | Valkey via `redis_*`, with no percentage because there is no ceiling to divide by |
+| `object_store_health()` | Garage's per-node consensus, the **layout** capacity that is its real headroom rather than the disk under it, per-bucket size where a token allows it, and the one shared filesystem reported once rather than once per node |
+| `stream_health()` | Redpanda's cluster counts aggregated off the controller leader, per-broker log disk with Redpanda's own none/LOW SPACE/DEGRADED verdict, and throughput and leadership churn as increases |
+| `metrics_store_health()` | Prometheus's own store: history held against history configured **and against its uptime**, size against the size limit, active series and ingest, WAL and compaction integrity, and how many scrape targets are dark |
 | `cert_expiry()`, `backup_freshness()` | dates turned into days and ages, and hundreds of backup objects summarised per schedule |
 | `argocd_drift()` | sync/health state plus a consecutive-run counter |
 | `promql(expr)` | arbitrary Prometheus, with the datasource, the time and the query type supplied server-side |
@@ -123,7 +126,7 @@ all: four calls for 24,126 result bytes produced `terminal turn had empty text`,
 where five calls for 8,483 bytes the same day wrote a normal report. It is not
 context overflow — cumulative input was 25,423 tokens against a 65,536 window. So
 each tool declares a budget, truncates by whole lines, and *says* it truncated. A
-full nine-reading sweep of this cluster is about 14.7 KB total, and no single
+full eleven-reading sweep of this cluster is about 17.8 KB total, and no single
 answer exceeds 4 KB — the three investigation tools carry the largest budgets and
 were measured against the live cluster at 0.8–4.0 KB.
 
@@ -159,13 +162,27 @@ judgement the reader cannot check.
 
 ## Two properties worth stating
 
-**The server holds no credential.** Prometheus needs no auth on this cluster and
-Kubernetes reads go through the pod ServiceAccount. ArgoCD state is read from
-`Application` custom resources rather than the ArgoCD API, and Postgres state
-from the CloudNativePG operator's metrics rather than a database connection — so
-there is no token and no DSN anywhere in this sub-project. Query-level Postgres
-analysis stays on the existing postgres MCP server, which already has the
-credential for it.
+**The server holds no credential unless one is deliberately given.** Prometheus
+and Loki need no auth on this cluster and Kubernetes reads go through the pod
+ServiceAccount. ArgoCD state is read from `Application` custom resources rather
+than the ArgoCD API, and Postgres state from the CloudNativePG operator's metrics
+rather than a database connection — so no token and no DSN is *required*
+anywhere in this sub-project. Query-level Postgres analysis stays on the existing
+postgres MCP server, which already has the credential for it.
+
+The one exception is opt-in and named: **per-bucket S3 usage has no
+unauthenticated source.** Garage publishes no bucket label and no stored-bytes
+gauge to Prometheus, so bucket size and object count exist only behind its admin
+API's bearer token. `garageSecret` in the chart values is therefore optional and
+unset by default; with no token the bucket section reports itself `unavailable`
+and every other reading is unaffected, so "no credential" is what you get unless
+someone chooses otherwise. Where a token *is* supplied, the boundary is in the
+code and not in the credential — `garage.py` exposes two `GET`s by name with no
+generic request method, so `CreateBucket` is not expressible here whatever the
+token permits, and it drops each bucket's `keys` because that field carries
+access key ids into a report that gets posted to Slack. Scope the token to
+`ListBuckets,GetBucketInfo` (Garage v2 supports scoped admin tokens) so the two
+code-side rules are a second line rather than the only one.
 
 **It cannot return a Secret's contents.** `kube.py` exposes `list` and one
 bounded `pod_log`, strips `data`/`stringData` at the boundary, and `cert_expiry()`

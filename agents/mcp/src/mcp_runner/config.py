@@ -49,3 +49,27 @@ def state_dir() -> str:
 def config_dir() -> str | None:
     """Override for the project's ``config/`` directory (tests use this)."""
     return env("MCP_CONFIG_DIR")
+
+
+def garage_admin_url() -> str:
+    """Garage's admin API, which is the only place per-bucket usage exists.
+
+    Prometheus carries no bucket label and no stored-bytes gauge, so bucket size
+    and object count are reachable only here. Unlike Prometheus and Loki this
+    endpoint needs a bearer token, so it is the one optional dependency in the
+    server: without a token the bucket section reports itself unavailable and
+    every other reading is unaffected.
+    """
+    return env("GARAGE_ADMIN_URL", "http://datahub-local-core-data-garage.data.svc:3903")
+
+
+def garage_admin_token() -> str | None:
+    """The bearer token, or ``None`` when the server is deliberately without one.
+
+    ``None`` is the default and a supported state, not a misconfiguration.
+    """
+    return env("GARAGE_ADMIN_TOKEN")
+
+
+def garage_timeout() -> float:
+    return float(env("GARAGE_TIMEOUT_SECONDS", "10"))

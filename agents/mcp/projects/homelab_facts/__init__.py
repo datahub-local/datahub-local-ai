@@ -12,7 +12,18 @@ from __future__ import annotations
 
 from mcp_runner.server import Registry
 
-from .tools import alerts, databases, diagnose, gitops, lifecycle, lookup, nodes, raw, volumes
+from .tools import (
+    alerts,
+    databases,
+    diagnose,
+    gitops,
+    lifecycle,
+    lookup,
+    nodes,
+    raw,
+    stores,
+    volumes,
+)
 
 
 def register(registry: Registry) -> None:
@@ -78,6 +89,27 @@ def register(registry: Registry) -> None:
         databases.cache_health,
         schema=databases.CACHE_SCHEMA,
         budget=databases.BUDGET,
+    )
+    registry.add(
+        "object_store_health",
+        stores.OBJECT_STORE_DESCRIPTION,
+        stores.object_store_health,
+        schema=stores.OBJECT_STORE_SCHEMA,
+        budget=stores.OBJECT_STORE_BUDGET,
+    )
+    registry.add(
+        "stream_health",
+        stores.STREAM_DESCRIPTION,
+        stores.stream_health,
+        schema=stores.STREAM_SCHEMA,
+        budget=stores.STREAM_BUDGET,
+    )
+    registry.add(
+        "metrics_store_health",
+        stores.METRICS_STORE_DESCRIPTION,
+        stores.metrics_store_health,
+        schema=stores.METRICS_STORE_SCHEMA,
+        budget=stores.METRICS_STORE_BUDGET,
     )
     registry.add(
         "cert_expiry",

@@ -9,6 +9,7 @@ from typing import Any
 import yaml
 
 from mcp_runner import config as runner_config
+from mcp_runner.garage import Garage
 from mcp_runner.kube import Kube
 from mcp_runner.loki import Loki
 from mcp_runner.prometheus import Prometheus
@@ -72,6 +73,11 @@ def prometheus() -> Prometheus:
 @functools.lru_cache(maxsize=1)
 def kube() -> Kube:
     return Kube()
+
+
+@functools.lru_cache(maxsize=1)
+def garage() -> Garage:
+    return Garage()
 
 
 @functools.lru_cache(maxsize=1)

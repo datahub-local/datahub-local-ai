@@ -305,6 +305,13 @@ MCP_SERVER_KEYS = frozenset(
         "prometheusTimeoutSeconds",
         "lokiUrl",
         "lokiTimeoutSeconds",
+        # Garage's admin API is the one endpoint the facts server reaches that
+        # needs a credential, and the only source of per-bucket size. Naming a
+        # secret here is opt-in: without it the server holds none.
+        "garageAdminUrl",
+        "garageSecret",
+        "garageTokenKey",
+        "garageUrlKey",
         "timeout",
         "toolsPrefix",
     }

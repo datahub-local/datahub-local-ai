@@ -332,9 +332,9 @@ not converge: prompts reached 6–12KB and roughly 600 of the validator's lines
 were regexes policing English. Both are now gone — prompts are 4–6KB and the
 validator is down to field checks, because the method left the prompt.
 
-**Code gathers; the model writes.** `projects/homelab_facts/` exposes thirteen
-tools: nine take no arguments at all and return one report section's worth of
-already-correct readings, and four take free text where any string is valid.
+**Code gathers; the model writes.** `projects/homelab_facts/` exposes sixteen
+tools: eleven take no arguments at all and return one report section's worth of
+already-correct readings, and five take free text where any string is valid.
 `find_object` turns the words a person typed into exact names; `why_failed`,
 `logs` and `endpoints` run the chain after it - object, pods, containers, events,
 log tail - which is four calls of exact arguments in a fixed order and the step
@@ -360,11 +360,23 @@ of report that reached Slack:
 - **Every answer is bounded in code.** "Fat tool" means few *calls*, never big
   *answers*: one ~16KB result reproducibly ends a run with `terminal turn had
   empty text`, and that is not context overflow. Each tool declares a byte
-  budget, truncates by whole lines, and says that it did. A full nine-reading
-  sweep is ~14.7KB; no single answer exceeds 4KB.
+  budget, truncates by whole lines, and says that it did. A full eleven-reading
+  sweep is ~17.8KB; no single answer exceeds 4KB.
 - **Trends are measured.** Snapshots live in the server, so "new since last run"
   is a computation. A lost snapshot degrades to "first observation", stated
   explicitly, and can never produce a *wrong* diff.
+- **A denominator is a reading too.** Three of these were the wrong quantity
+  before the code owned them, and none of the three is fixable by naming a metric
+  in a prompt. Garage's headroom is the capacity its *layout* assigns a node
+  (10 GiB here), not the filesystem under it (1.8 TiB) — quoting the disk
+  overstates the store by two orders of magnitude and shows a full store as 1%
+  used. Prometheus holding less history than it is configured for is only loss
+  once it has been up longer than it is holding, so the verdict is computed
+  against uptime and a restart reads as *filling* instead of firing CRITICAL
+  every run for a month. And Garage's three nodes describe one shared
+  filesystem, derived from identical capacity plus free space agreeing to within
+  a scrape's drift — exact byte equality called one share three separate disks
+  the first time it ran live.
 
 #### Nothing about the homelab is written down
 
@@ -393,12 +405,30 @@ applied.
 
 #### Two properties worth keeping
 
-- **The server holds no credential.** Prometheus and Loki need no auth here and
-  are both queried directly rather than through Grafana, so no datasource uid
-  exists on either path; Kubernetes goes through the pod ServiceAccount; ArgoCD state comes from `Application` CRs
-  rather than the ArgoCD API; Postgres state from the CloudNativePG operator's
-  metrics rather than a DSN. Query-level Postgres analysis stays on the existing
-  postgres MCP server, which already holds that credential.
+- **The server holds no credential unless one is deliberately given.** Prometheus
+  and Loki need no auth here and are both queried directly rather than through
+  Grafana, so no datasource uid exists on either path; Kubernetes goes through
+  the pod ServiceAccount; ArgoCD state comes from `Application` CRs rather than
+  the ArgoCD API; Postgres state from the CloudNativePG operator's metrics rather
+  than a DSN. Query-level Postgres analysis stays on the existing postgres MCP
+  server, which already holds that credential. The single exception is opt-in and
+  named: **per-bucket S3 usage has no unauthenticated source**, because Garage
+  publishes no bucket label and no stored-bytes gauge to Prometheus. `garageSecret`
+  in the chart values is unset by default, the bucket section then reports itself
+  `unavailable`, and nothing else changes. Where a token is supplied the boundary
+  is in the code rather than in the credential, exactly as `kube.py` does it:
+  `garage.py` exposes two `GET`s by name with no generic request method, so a
+  write endpoint is not expressible whatever the token permits, and it strips each
+  bucket's `keys` because that field carries access key ids into a Slack message.
+  The token comes from the `mcp-s3-token` ExternalSecret in `automation` and is
+  the unscoped master admin token, so that code boundary is the *only* boundary;
+  Garage v2 supports `--scope ListBuckets,GetBucketInfo` if it ever needs a
+  second. Two wiring rules: the refs are `optional: true`, because an
+  unresolvable `secretKeyRef` holds the pod in `CreateContainerConfigError` and
+  takes down all sixteen tools rather than the one section that needs it; and
+  each key is named individually rather than pulled in with `envFrom`, because
+  that Secret also carries `AWS_SECRET_ACCESS_KEY` — S3 write credentials a
+  read-only reporter must not hold.
 - **It cannot return a Secret's contents.** `kube.py` exposes `list` plus one
   bounded `pod_log`, and strips `data`/`stringData` at the boundary. `cert_expiry()` narrows with a
   field selector rather than filtering afterwards — an unfiltered cluster-wide

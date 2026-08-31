@@ -2109,10 +2109,85 @@ model and its facts.
   truth. Worth noting *how* it was diagnosed: before core enabled
   `--collector.systemd` the alert was indistinguishable from chronic noise. One
   metric turned a guess into a one-query answer.
-- **S3 capacity is not instrumented.** Garage exports no metrics and is not
-  scraped, so no `garage_*` series exist; the fix is a ServiceMonitor in core, and
-  meanwhile `service-janitor` reads its PVCs. Also missing: repo-level CI history,
-  because the GitHub MCP server ships no Actions or workflow tools.
+- **S3 capacity is instrumented now, and looking for `garage_*` finds almost
+  none of it.** Core's ServiceMonitor landed 2026-08-24 and this entry used to
+  say the opposite; re-read it before trusting any "not instrumented" note here.
+  The trap it leaves behind is worse than the gap was: only **four** metrics
+  carry a `garage_` prefix (`garage_local_disk_avail`/`_total`,
+  `garage_replication_factor`, `garage_build_info`). Everything that matters is
+  published under bare names — `cluster_healthy`, `cluster_partitions_quorum`,
+  `cluster_storage_nodes_ok`, `table_size`, `block_resync_errored_blocks`,
+  `api_s3_request_counter`, `api_s3_error_counter` — so a prompt or a query
+  written against the prefix finds four metrics and concludes the store is barely
+  observable, while a bare name would collide with anything else publishing it.
+  `facts_object_store_health` scopes every one of them by job. Still missing:
+  repo-level CI history, because the GitHub MCP server ships no Actions or
+  workflow tools.
+- **Per-bucket S3 usage is the one reading in this fleet with no
+  unauthenticated source.** Garage publishes no bucket label and no stored-bytes
+  gauge to Prometheus at all, so bucket size and object count exist only behind
+  the admin API's bearer token (`GET /v2/ListBuckets`, `GET /v2/GetBucketInfo`,
+  which returns `bytes`, `objects` and `quotas`; verified against the v2.3.0
+  OpenAPI spec, matching the running build). That is why `garageSecret` is an
+  opt-in chart value rather than a requirement: unset, the facts server holds no
+  credential at all and the bucket section reports itself `unavailable`, which
+  keeps the server's original property true by default. Where a token *is*
+  given, put the boundary in the code and not in the credential —
+  `mcp_runner/garage.py` exposes two `GET`s by name with no generic request
+  method, so a write endpoint is not expressible whatever the token permits, and
+  it strips each bucket's `keys` because that field carries access key ids
+  straight into a Slack message.
+
+  Three deployment facts decided how this is wired. **A `secretKeyRef` cannot
+  cross a namespace**, and core's own `garage-credentials` lives in `data` while
+  the facts server runs in `automation`. The ExternalSecret `mcp-s3-token` in
+  `automation` is what closes that, carrying `GARAGE_ADMIN_TOKEN` and
+  `GARAGE_ADMIN_URL` (2026-08-31).
+
+  **Both refs are `optional: true`, which is load-bearing rather than cautious.**
+  An unresolvable `secretKeyRef` leaves the pod in `CreateContainerConfigError`
+  indefinitely — that takes down all sixteen tools for every persona, not the one
+  section that needs a token. Optional degrades it to the server's own no-token
+  path, which states itself in the report and leaves every other reading intact.
+
+  **Each key is named individually; never `envFrom`.** `mcp-s3-token` also
+  carries `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, which are S3 *write*
+  credentials this server has no code path for. `envFrom` would hand all six keys
+  to a read-only reporter to save two lines of YAML, and the pod would then hold
+  credentials that can delete objects. Name the keys you use.
+
+  **The token is the unscoped master admin token.** Garage v2 supports scoped
+  tokens (`garage admin-token create --scope ListBuckets,GetBucketInfo`), and a
+  scoped one would make the code-side rules a second line rather than the only
+  one; with this token, `garage.py`'s two-GETs-by-name shape *is* the entire
+  boundary. Re-mint scoped if that boundary ever has to hold against more than
+  this one caller. Egress needs no change: no NetworkPolicy
+  in `automation` selects `app.kubernetes.io/name: mcpserver`, so the facts
+  server reaches `data:3903` the same way it already reaches Prometheus in
+  `monitoring` — the deny-all here binds `sympozium.ai/role=agent`, which these
+  pods deliberately do not carry.
+- **The disk under a store is not the store's headroom.** Garage's data volumes
+  sit on the shared 1.9 TB nfs share, but its *layout* assigns each node 10 GiB
+  and it refuses writes at that figure however empty the filesystem is. Reporting
+  the disk overstates the store by two orders of magnitude and would show a full
+  store as 1% used — the same class of error as the fill inversion, with a wrong
+  denominator instead of a wrong direction. `role_capacity` is a **label** rather
+  than a sample value, so it cannot be summed in PromQL and the parsing happens
+  in the tool. Ask what a store actually stops at before picking the number to
+  divide by.
+- **Redpanda publishes its cluster-wide counts from the controller leader
+  alone.** `redpanda_cluster_brokers`, `_topics`, `_partitions` and
+  `_unavailable_partitions` come from exactly one broker of three, and which one
+  moves with leadership. Read per pod that is two brokers with no data — a
+  finding that would fire forever and could never be actioned, the orpi-0 kernel
+  shape again. The tool aggregates and says that one reporter is normal.
+- **A young store is not a lossy one.** Prometheus here is configured for 30d and
+  was holding 2.6h, because its PVC had been recreated 2.6h earlier. Judged
+  against the configured window alone that is a CRITICAL on every run for a
+  month; judged against the server's own uptime it is *filling*, which is the
+  truth and clears by itself. `facts_metrics_store_health` computes the
+  comparison. Before shipping a rule, ask what it reports the morning after a
+  legitimate restart.
 - **systemd unit state and pending OS updates are instrumented but unused.** Both
   landed 2026-08-23 (`node_systemd_unit_state`, `node_apt_upgrades_pending`,
   `node_apt_security_upgrades_pending`, `node_reboot_required`) and
@@ -2121,10 +2196,13 @@ model and its facts.
   metrics arrived. Standing in for systemd today, the warden checks the node's
   *Kubernetes* system workloads — `kube-system` and `monitoring` pods grouped by
   node — which on a k3s box is most of what systemd would have told you.
-- **`facts_promql` is allowlisted on four reporters whose prompts never mention
-  it.** It costs a schema on every call in the loop and it is the one tool that
-  makes a wrong query expressible again — the property the facts server exists to
-  remove. Keep it only where a prompt names it, or drop it from the rest.
+- **`facts_promql` is allowlisted on reporters whose prompts never mention it.**
+  It costs a schema on every call in the loop and it is the one tool that makes a
+  wrong query expressible again — the property the facts server exists to remove.
+  Keep it only where a prompt names it, or drop it from the rest. It was dropped
+  from `db-steward` on 2026-08-31 when three fact tools were added there and the
+  schema budget had to come from somewhere; `gitops-auditor`, `service-janitor`
+  and `sre-sentinel` still hold it without naming it.
 
 ---
 
@@ -2143,7 +2221,7 @@ sidecar RBAC to `get,list,watch` — it granted `create/patch` on `roles` and
 prescribing a shell), as did the `MutatingAdmissionPolicy` for policy-less
 `AgentRun`s, and core's half of the Agent Sandbox gate on 2026-08-26.
 
-**Still open on core's side:** the Garage ServiceMonitor; `mcp-k8s`'s Deployment is
+**Still open on core's side:** `mcp-k8s`'s Deployment is
 unmanaged (`spec.deployment` is null while the Deployment it needs is still owned
 by the CR); `mcp-postgres` denies `execute_sql` outright (see *Open, and not
 ours*); github, argocd and grafana carry no catalog-level `toolsDeny` at all; and

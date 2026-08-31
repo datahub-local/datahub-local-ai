@@ -154,6 +154,42 @@ spec:
               value: {{ $server.lokiTimeoutSeconds | default 20 | quote }}
             - name: MCP_STATE_DIR
               value: /state
+{{- /* Garage's admin API is the only source of per-bucket size and object
+       count - Prometheus publishes no bucket label and no stored-bytes gauge -
+       and the only endpoint here that needs a credential. It is optional on
+       purpose: with no `garageSecret` the server holds no secret at all and the
+       bucket section reports itself unavailable rather than guessing.
+
+       Each key is named individually and never pulled in with `envFrom`. The
+       Secret this points at also carries AWS_ACCESS_KEY_ID and
+       AWS_SECRET_ACCESS_KEY, which are S3 *write* credentials this server has no
+       use for; envFrom would hand every one of them to a read-only reporter for
+       the convenience of two fewer lines. See ../MEMORY.md. */}}
+{{-     if and $server.garageSecret $server.garageUrlKey }}
+            - name: GARAGE_ADMIN_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $server.garageSecret | quote }}
+                  key: {{ $server.garageUrlKey | quote }}
+                  optional: true
+{{-     else }}
+            - name: GARAGE_ADMIN_URL
+              value: {{ $server.garageAdminUrl | default "http://datahub-local-core-data-garage.data.svc:3903" | quote }}
+{{-     end }}
+{{-     if $server.garageSecret }}
+            - name: GARAGE_ADMIN_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $server.garageSecret | quote }}
+                  key: {{ $server.garageTokenKey | default "adminToken" | quote }}
+{{- /* `optional` is load-bearing, not caution. A secretKeyRef that cannot
+       resolve leaves the pod in CreateContainerConfigError forever, which takes
+       down all sixteen tools for every persona rather than the one section that
+       needs the token - and the Secret this points at lives in another
+       namespace by default, where a secretKeyRef cannot reach it. Optional
+       degrades that to the server's own no-token path, which states itself. */}}
+                  optional: true
+{{-     end }}
           ports:
             - name: http
               containerPort: 8080

@@ -6,6 +6,14 @@ sympozium_mcp_servers:
     enabled: true
     image: ghcr.io/datahub-local/datahub-local-ai-mcp
     tag: main
+    # Per-bucket S3 size has no unauthenticated source; see ../MEMORY.md. The
+    # Secret must exist in THIS namespace - a secretKeyRef cannot cross one, and
+    # core provisions garage-credentials into `data` only. The ref is optional,
+    # so until it is replicated here the bucket section reports itself
+    # unavailable and nothing else is affected.
+    garageSecret: mcp-s3-token
+    garageTokenKey: GARAGE_ADMIN_TOKEN
+    garageUrlKey: GARAGE_ADMIN_URL
 
 sympozium_delivery_hook:
   image: python:3.13-alpine

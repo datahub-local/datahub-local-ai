@@ -13,7 +13,7 @@ correct, so these prompts are a report contract and nothing more.
 | ----------------- | ------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | `sre-sentinel`    | `alerts_snapshot`, `volume_fill`, pod status/logs | What is firing that is new, why is an affected pod failing, and what is filling up? |
 | `endpoint-warden` | `node_fleet`                                      | Is any machine unwell?                                                              |
-| `db-steward`      | `postgres_health`, `cache_health`                 | Are the stateful services healthy?                                                  |
+| `db-steward`      | `postgres_health`, `cache_health`, `object_store_health`, `stream_health`, `metrics_store_health`, `volume_fill` | Is every store that keeps state healthy, and how much room is left in each?         |
 | `service-janitor` | `backup_freshness`, `cert_expiry`                 | Is the homelab recoverable, and what expires soon?                                  |
 | `gitops-auditor`  | `argocd_drift`                                    | Does the cluster match git?                                                         |
 

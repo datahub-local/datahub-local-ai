@@ -19,8 +19,8 @@ spec:
       - dm
 
 defaults:
-  provider: ollama
-  model: qwen3.5:4b
+  provider: openrouter
+  model: deepseek/deepseek-v4-flash-0731:floor
   runTimeout: 30m
   env:
     MAX_TOOL_ITERATIONS: "100"

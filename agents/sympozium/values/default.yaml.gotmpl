@@ -87,6 +87,13 @@ sympozium_ensembles:
         denyMessage: >-
           This agent only answers its operator. Nothing was run.
 
-    baseURL: http://datahub-local-core-data-ollama.data.svc:11434/v1
+    baseURL: https://openrouter.ai/api/v1
+
+    # The provider string must match the persona's `provider:` byte for byte -
+    # the controller selects by `ref.Provider == persona.Provider` with no case
+    # folding, and a miss silently hands the run no credential at all.
+    authRefs:
+      - provider: openrouter
+        secret: openrouter-auth-credentials
 
     policyRef: permissive

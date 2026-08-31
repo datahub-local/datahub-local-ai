@@ -66,7 +66,7 @@ reviewable source under `projects/` rather than following the table above:
 - `agents/sympozium/` generates **nothing**: its Helm templates read `projects/`
   at render time, so the sub-project root is the chart root (Helm's `.Files`
   cannot read above the chart directory) and ArgoCD points at
-  `agents/sympozium/`. `scripts/validate.py` only validates.
+  `agents/sympozium/`, whose render is its only build-time gate.
 
 Prefer the sympozium shape for anything textual. A committed generated file is a
 second copy that can fall out of date with its source; only reach for a build
@@ -155,20 +155,17 @@ tests need no cluster.
 
 ### Sympozium (`agents/sympozium/`)
 
-No runner and no `pyproject.toml` of its own — the validator uses the root
-`sympozium` extra. Run from the **repository root**:
+No runner, no `pyproject.toml` and no source validator — rendering is the only
+build-time gate. Run from **`agents/sympozium/`**:
 
 ```bash
-uv sync --extra sympozium
-uv run python agents/sympozium/scripts/validate.py
-
-cd agents/sympozium
 helm template datahub-local-ai-sympozium . -n automation -f values/default.yaml.gotmpl
 helmfile apply                                              # or let ArgoCD sync it
 ```
 
-With a cluster reachable, validate against the real CRD schemas and the
-admission webhook before committing — this persists nothing:
+Since nothing else checks `projects/`, do the server-side dry run before
+committing whenever a cluster is reachable — it validates against the real CRD
+schemas and the admission webhook, and persists nothing:
 
 ```bash
 helm template datahub-local-ai-sympozium . -n automation -f values/default.yaml.gotmpl \
@@ -327,10 +324,12 @@ failure.** A 4B model was made a careful API client — assemble
 `100 * (1 - avail/cap)` with a `group_left` join, remember that `increase(m[1h])`
 is not `m[1h]`, pass `endTime` as the literal word `now`, diff alerts against your
 own memory, know that one node's kernel is not drift against another's. Every
-incident added a paragraph to a prompt and a regex to `validate.py`, and it did
-not converge: prompts reached 6–12KB and roughly 600 of the validator's lines
-were regexes policing English. Both are now gone — prompts are 4–6KB and the
-validator is down to field checks, because the method left the prompt.
+incident added a paragraph to a prompt and a regex to a validator, and it did
+not converge: prompts reached 6–12KB and roughly 600 lines of that validator
+were regexes policing English. Both are gone — prompts are 4–6KB, the checks
+that survived are `agents/mcp/tests/` assertions about the expression the server
+actually sends, and the validator itself was deleted, because the method left
+the prompt.
 
 **Code gathers; the model writes.** `projects/homelab_facts/` exposes sixteen
 tools: eleven take no arguments at all and return one report section's worth of
@@ -485,7 +484,6 @@ agents/sympozium/
     ensemble.yaml       team-level spec + `defaults:` stamped onto each persona
     agents/<persona>.yaml   skills, schedule, MCP servers, tool policy, memory seeds
     prompts/<persona>_{system,task}.md
-  scripts/validate.py   field checks the Go templates cannot do
 ```
 
 Three ensembles, split on trust boundaries and not on subject:
@@ -539,8 +537,8 @@ prompts are a report contract rather than a method — see
   left standing. `{{ DELIVERY }}` expands to one file,
   `prompts/delivery/hook.md`. Chart-only knobs must stay out of
   `sympozium_ensembles` — the webhook decodes `spec` strictly and rejects an
-  unknown key outright. `scripts/validate.py` cross-checks every half. Note the
-  binding is *bidirectional* — an inbound Slack message can start an `AgentRun`
+  unknown key outright. Nothing cross-checks the two halves, so read both files
+  together whenever either changes. Note the binding is *bidirectional* — an inbound Slack message can start an `AgentRun`
   — which is why `homelab-reviewer`, the only ensemble with a write tool, is not
   bound.
 - **The binding is what lets a message leave the pod, so delivery cannot be
@@ -587,8 +585,7 @@ prompts are a report contract rather than a method — see
   and needs no configured destination — the hook hardcodes one, and that is how
   two questions asked in two different channels were both answered into a third.
   A `reply` persona carries its own answering contract in its prompt instead of a
-  `{{ DELIVERY }}` token, and both the template and the validator reject the
-  combination. **A `reply` persona must not allowlist `send_channel_message`
+  `{{ DELIVERY }}` token, and `templates/ensembles.yaml` fails the combination. **A `reply` persona must not allowlist `send_channel_message`
   either**, for the same reason a hook one must not: the reply is the run's own
   final text, `status.result`, posted into the asking thread by the controller,
   while the tool is a separate path that resolves no destination on a reply run.
@@ -645,8 +642,9 @@ prompts are a report contract rather than a method — see
   controller over gRPC, protobuf refuses to marshal a bad `string`, and the run
   still reports `Succeeded` with no `error`. Our own header caused it — the model
   was told to echo `·` (U+00B7) verbatim and sometimes emitted a broken byte pair
-  — so the delivery prompts are now ASCII-only inside every indented block and
-  `scripts/validate.py` enforces it. A model can still corrupt a character on its
+  — so the delivery prompts are ASCII-only inside every indented block. Nothing
+  enforces that now, so grep a prompt you touch for non-ASCII inside an indented
+  block (`grep -nP '^\s+.*[^\x00-\x7F]'`). A model can still corrupt a character on its
   own, so stream `kubectl logs <pod> -c agent -f` rather than reading the object
   afterwards, and never read an empty `result` as a quiet run.
 - **`toolsAllow` is the prompt budget; `toolPolicy` is only the permission.**
@@ -661,8 +659,8 @@ prompts are a report contract rather than a method — see
   at 65,536 it merely leaves no headroom for a large Prometheus result and gives
   a 4B model sixty tools to choose between. Every persona therefore pins
   `mcpServers[].toolsAllow` to exactly the tools its `toolPolicy.allow` names,
-  unprefixed, and `scripts/validate.py` fails on any drift between the two. The
-  `toolsDeny` lists are now redundant by construction and kept only as a record
+  unprefixed. Drift between the two lists is silent — it costs prompt budget and
+  fails nothing — so diff them by hand when editing either. The `toolsDeny` lists are now redundant by construction and kept only as a record
   of which write names are real; they are not the enforcing mechanism.
 - **`toolPolicy.allow` is a strict allowlist.** Omitting a tool disables it, so
   adding a capability means adding the tool name *and* wiring its MCP server on
@@ -674,9 +672,8 @@ prompts are a report contract rather than a method — see
   `schedule.firstTick`, `memory.maxSizeKB` and `sharedMemory.storageSize` all
   carry a `default:` in the Ensemble CRD, so the API server writes them into the
   live object at admission and ArgoCD reports permanent drift against a manifest
-  that omits them. Write the value out even when it *is* the default;
-  `scripts/validate.py` enforces the list, and re-derive it after a control-plane
-  bump (`kubectl get crd ensembles.sympozium.ai -o json | jq '.. | objects |
+  that omits them. Write the value out even when it *is* the default, and
+  re-derive the list after a control-plane bump (`kubectl get crd ensembles.sympozium.ai -o json | jq '.. | objects |
   select(has("default"))'`). Note that `kubectl diff` cannot see this class of
   drift — it defaults both sides; diff a `--dry-run=server` apply against the
   rendered manifest instead. Core's ApplicationSet also carries
@@ -745,7 +742,8 @@ rather than copying the outcomes, since the constraints will change.
   `group_left` join on `kube_persistentvolumeclaim_info` restricting them to
   `longhorn|longhorn-no-replica`, because all five `nfs` PVCs report the same
   shared 1.9 TB capacity and a per-volume percentage there is meaningless.
-  `scripts/validate.py` fails an uninverted division. Give a small model the
+  The expression now lives in `agents/mcp/`, where a test asserts the direction
+  rather than a regex reading the prompt. Give a small model the
   literal expression, not a description of it — it will not assemble a join from
   prose, and it will report whatever it computes with total confidence.
 - **A discovery tool that returns several plausible answers is a liability.**
@@ -759,8 +757,8 @@ rather than copying the outcomes, since the constraints will change.
   Prometheus-reading personas and the uid is pinned; the datasource is
   provisioned `readOnly` by kube-prometheus-stack, so the literal is stable, and
   if it ever changes the agent reports every metric unavailable, which is loud.
-  `scripts/validate.py` enforces both halves. Prefer a pinned literal plus a loud
-  failure over a lookup the model has to choose from.
+  Prefer a pinned literal plus a loud failure over a lookup the model has to
+  choose from.
 - **A mandatory report format will be satisfied with invented numbers.** With
   Prometheus 404ing, `endpoint-warden` still owed seven columns per node, so it
   filled the disk column from the only tool that answered — relabelling
@@ -796,8 +794,8 @@ rather than copying the outcomes, since the constraints will change.
   equalities on one key, one call repeated byte-for-byte) and the day's Postgres
   and Valkey readings, already in hand, were never written down. So the budget,
   the exit and the selector rules now attach to any prompt naming
-  `k8s_events_list`, `k8s_pods_log` or `k8s_resources_list`, and
-  `scripts/validate.py` keys off that set.
+  `k8s_events_list`, `k8s_pods_log` or `k8s_resources_list`. Write them into any
+  new prompt that names one of those three; nothing checks it for you.
 - **`MAX_TOOL_ITERATIONS` is a real ceiling and hitting it is silent.** The
   runner caps tool calls per run at 50; five runs have hit it, and the failure is
   worse than a truncated report — the run ends `status: error`, so the
@@ -818,9 +816,10 @@ rather than copying the outcomes, since the constraints will change.
   `increase(cnpg_pg_stat_archiver_failed_count[1h])` and a rule that a non-zero
   total with a zero increase is *healthy*. Two traps found fixing it.
   `cnpg_backends_total` and `cnpg_backends_waiting_total` are **gauges** despite
-  the `_total` suffix, so a suffix-based validator rule fails a correct prompt —
-  `scripts/validate.py` keeps an explicit `CUMULATIVE_COUNTERS` set read from
-  Prometheus's metadata API. And prose does not work: `endpoint-warden` said
+  the `_total` suffix, so a suffix rule fails a correct prompt — read the type
+  from Prometheus's metadata API instead (`curl -sG .../api/v1/metadata
+  --data-urlencode metric=<name> | jq -r '.data[][0].type'`), which is what
+  `agents/mcp/tests/` asserts. And prose does not work: `endpoint-warden` said
   "take the rate, not the raw counter" twice and still handed the model bare
   metric names, so both prompts now write the window out. A model this size also
   drops the wrapper — given `increase(m[1h])` it sent `m[1h]` and labelled the
@@ -865,8 +864,8 @@ rather than copying the outcomes, since the constraints will change.
   that denied it. Both packs also declare sidecar RBAC that the controller binds
   to the *shared* `sympozium-agent` ServiceAccount, so mounting one granted every
   agent in `automation` create/delete on pods, `pods/exec`, secrets, deployments
-  and rolebindings. Both are removed and `scripts/validate.py` rejects them by
-  name. Read a pack's `.spec.skills[].content` **and** `.spec.sidecar.rbac`
+  and rolebindings. Both are removed, and nothing stops a third being mounted, so
+  read a pack's `.spec.skills[].content` **and** `.spec.sidecar.rbac`
   before mounting it: a skill is prose competing with the persona's prompt, and
   prose wins.
 - **The model constrains the design.** Inference is cluster-local Ollama
@@ -926,4 +925,4 @@ rather than copying the outcomes, since the constraints will change.
   test is worth reading — `cnpg_backends_total` is a *gauge* despite `_total` and
   `cnpg_pg_stat_archiver_failed_count` a *counter* despite `_count`, so the test
   shows a suffix rule failing this cluster in both directions.
-- `agents/sympozium/` has no pytest suite — the checks live in `scripts/validate.py` (skills, MCP server names and prefixes, tool/server coherence, schedule enums, prompt references, orphaned prompts, DNS-1123 names) and run in CI via `.github/workflows/test-agents.yaml`, which then renders the chart. Both matter: the validator catches what would fail *silently* at runtime, the render catches what would fail the deploy.
+- `agents/sympozium/` tests only the delivery hook (`tests/test_deliver_slack.py`, the one piece of code there that runs in production). It has no source validator: `scripts/validate.py` was deleted on 2026-08-31 because most of it mirrored the cluster and the upstream CRD, and a mirror that drifts fails correct config. CI runs the hook tests and then renders the chart through `helmfile` — the render is the only gate on `projects/`, so anything it cannot see reaches the admission webhook (loud) or the running agent (silent). See `agents/sympozium/MEMORY.md` for what is now unguarded.

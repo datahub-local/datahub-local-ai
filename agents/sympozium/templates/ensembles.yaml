@@ -8,12 +8,13 @@
   subdirectory: Helm's .Files cannot read above the chart directory, and
   projects/ has to be inside it.
 
-  Field-level validation lives in scripts/validate.py (skills, MCP server names
-  and prefixes, tool/server coherence, orphaned prompts). Only the errors that
-  would silently produce a broken manifest are re-checked here.
+  Rendering is the only build-time gate — there is no separate validator — so a
+  mistake this template cannot see reaches the admission webhook or the running
+  agent. Fail loudly here for anything that would otherwise render a manifest
+  that deploys cleanly and does the wrong thing.
 
   Split across files: _helpers.tpl resolves the per-persona knobs, _delivery.tpl
-  assembles the delivery prompt and the postRun hook, files/deliver-slack.sh is
+  assembles the delivery prompt and the postRun hook, files/deliver-slack.py is
   the hook's script.
 */}}
 {{- range $ensemblePath, $_ := .Files.Glob "projects/*/ensemble.yaml" }}

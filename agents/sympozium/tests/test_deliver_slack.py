@@ -1,10 +1,10 @@
 """Tests for the Slack delivery hook's Markdown conversion.
 
-This is the first pytest suite under agents/sympozium/, and it exists for one
+This is the only pytest suite under agents/sympozium/, and it exists for one
 reason: files/deliver-slack.py is the only *code* in this sub-project that runs
-in production. Everything else here is YAML and prompt text, checked by
-scripts/validate.py and by `helm template`. A regex pipeline that rewrites every
-report before it reaches a human is worth assertions rather than review.
+in production. Everything else here is YAML and prompt text, gated only by the
+render since scripts/validate.py was removed. A regex pipeline that rewrites
+every report before it reaches a human is worth assertions rather than review.
 
 Several cases below are real reports, named as such. They are the ones a rewrite
 has to keep passing.

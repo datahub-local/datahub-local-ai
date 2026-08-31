@@ -33,13 +33,69 @@ Three rules for writing here:
 | Structure, conventions, runbooks, how to test                  | `README.md`                                                                                              | Reference you read before doing something             |
 | Every *why* — knob rationale, per-persona decisions, incidents | this file                                                                                                | Read when something surprises you                     |
 | Agent behaviour                                                | `projects/*/prompts/*.md`                                                                                | The model only reads the prompts                      |
-| Machine-checkable rules                                        | `scripts/validate.py`                                                                                    | A convention nothing enforces is a suggestion         |
+| Machine-checkable rules                                        | `templates/*.yaml` `fail` calls                                                                          | Rendering is the only gate on `projects/`             |
 
 `values/default.yaml.gotmpl` has one trap: helmfile renders it as a Go template
 **including its comments**, so a literal `{{ ... }}` brace pair anywhere in it —
 even commented out — is a template action and an undefined function. Writing a
 token name with its braces in a comment there broke the ArgoCD CMP once. Name
 tokens without braces.
+
+---
+
+## `scripts/validate.py` was deleted, and these checks went with it (2026-08-31)
+
+1,319 lines, guarding three ensembles and seven personas. It went because most of
+it was a **second copy of something we do not own**: the `SKILLS` and
+`MCP_SERVERS` inventories and their per-server tool lists (read off live
+`tools/list` calls), `CATALOG_DENIED` (mirroring `spec.toolsDeny` on catalog
+MCPServers we do not author), `CRD_DEFAULTS`, `SCHEDULE_TYPES`, `FIRST_TICKS`,
+`LOCAL_PROVIDERS`, `KNOWN_ENV`. Every MCP image is pinned `:latest` and the
+control plane bumps independently, so each of those mirrors goes stale on someone
+else's release, and **a stale mirror fails a correct config** — which is a worse
+failure than the silent one it was guarding, because it blocks the fix. It had
+also accumulated ~100 lines of dead code (`CUMULATIVE_COUNTERS`,
+`VALUES_ONLY_SKILLS`, `WRITE_TOOLS`, `_web_endpoint_config`, all defined and
+never called) without anything noticing, which is its own evidence.
+
+This is the same reasoning that removed `hardware_classes.yaml` from
+`agents/mcp/` and the ~600 lines of prose regexes before it. The pattern is
+worth naming: **a check that mirrors a system it does not own is a maintenance
+liability disguised as a safety net.**
+
+Two things happen to be true and made this cheap. `templates/ensembles.yaml`
+already `fail`s on the highest-value cases — name/directory and name/filename
+mismatch, a missing or empty `systemPromptFile`, an unsubstituted prompt token, a
+`deliveryMode` that is neither `hook` nor `reply`, `reply` plus a
+`{{ DELIVERY }}` token, `reply` without a channel binding, a channel binding with
+no configured destination, a token in a task prompt. And the admission webhook
+decodes `spec` strictly, so unknown keys, bad enums and type errors are rejected
+**loudly** at sync time; those never needed a local validator.
+
+What is genuinely unguarded now — every one of these renders and deploys
+cleanly, and fails silently or not at all:
+
+| Lost check | What it costs |
+| --- | --- |
+| `send_channel_message` on a hook or reply persona's allowlist | Cost two answers on 2026-08-31. The cheapest to put back as a `fail` in `templates/ensembles.yaml` |
+| `toolsAllow` ↔ `toolPolicy.allow` drift | Prompt budget, silently. See *The tool schemas, not the report, are what fills the context* |
+| `BANNED_TOOLS`, and the two shell-teaching SkillPacks by name | An agent that gets a shell. See *A SkillPack overrode every tool decision in this repository* |
+| A values-only key set in `ensemble.yaml` | Values win the merge; the source line is dead and reads as live |
+| A CRD-defaulted field omitted | Permanent ArgoCD OutOfSync, which `kubectl diff` cannot see |
+| A memory seed containing `: ` | Webhook rejects the whole Ensemble. `--dry-run=server` is again the only thing that sees it |
+| An MCP `project:` naming a directory that does not exist | Pod crash-loops on `no such project` |
+| A wrong MCP server or tool name | The tool silently never appears. See *Tool names are not guessable* |
+| Non-ASCII inside an indented `prompts/delivery/` block | An empty `status.result`. `grep -nP '^\s+.*[^\x00-\x7F]'` |
+| `allowedSenders`/`allowedChats` unset on the inbound-bound persona | An open door on the one ensemble that takes inbound messages |
+| `provider` ↔ `baseURL` ↔ `authRefs` coherence | The three live in two files and the controller matches `provider` byte for byte with no case folding. A miss is a run with no credential, or a metered model pointed at Ollama's `.svc` port — not a startup error. This check was written and never committed |
+| A prompt file referenced by nobody | Dead file, harmless |
+
+So the deploy checklist grew in exchange: render through `helmfile`, then
+`kubectl apply --dry-run=server` whenever a cluster is reachable, and read the
+table above when touching delivery, tools or skills. If any single row starts
+recurring, add a `fail` to `templates/ensembles.yaml` for that one row — not a
+new validator. Rendering is the gate; keep the checks where the render can see
+them, and never re-import an inventory the cluster already answers.
 
 ---
 
@@ -85,6 +141,10 @@ evidence.
 15. **Guards do not survive a prompt rewrite; only a test does.**
 16. **A false finding in auto-stored memory is not a stale fact, it is an
     instruction not to look.**
+17. **A check that mirrors a system it does not own is a liability, not a safety
+    net.** It goes stale on someone else's release and then fails a correct
+    config, which blocks the fix. Keep checks where the render or a test can see
+    them; let the cluster answer for the cluster.
 
 ---
 
@@ -133,7 +193,10 @@ What follows from it:
   wrong repo*.
 
 Swapping in a hosted model is a `baseURL` change plus an `authRefs` secret; the
-prompts and allowlists would then be worth loosening.
+prompts and allowlists would then be worth loosening. `homelab-oracle` is the
+first persona to do it — see *The oracle runs on OpenRouter, and the ensemble is
+the only place a credential fits*. Everything above still describes the five
+reporters and the reviewer, which stay on Ollama.
 
 ---
 
@@ -145,9 +208,10 @@ pasted into every file.
 - **`mcpServers[].toolsAllow` mirrors `toolPolicy.allow` with the server prefix
   stripped.** `toolPolicy` filters at the LLM request; every tool the server
   exposes is still *registered* and its schema still injected, so `toolsAllow` is
-  what bounds context — it runs at the server. `scripts/validate.py` fails on any
-  drift. Measurements in *The tool schemas, not the report, are what fills the
-  context*.
+  what bounds context — it runs at the server. Drift between the two lists is
+  unguarded since the validator was removed, and it fails nothing: it just costs
+  prompt budget. Diff them by hand when editing either. Measurements in *The tool
+  schemas, not the report, are what fills the context*.
 - **`mcpServers[].toolsDeny` is redundant by construction** now that `toolsAllow`
   pins the surface. Kept only as a record of which write-tool names are real,
   verified against a live `tools/list`. Not the enforcing mechanism.
@@ -244,8 +308,9 @@ Other per-persona notes:
 
 Only settings that could legitimately differ between clusters. Everything
 describing *what an agent is* lives in `projects/` and is read at render time.
-`scripts/validate.py` rejects a values-only key in `ensemble.yaml` and vice
-versa.
+Nothing rejects a values-only key in `ensemble.yaml` any more: values win the
+merge, so a value set in the source renders as whatever `values/` says and the
+source line is silently dead.
 
 Chart-only trees (`sympozium_delivery`, `sympozium_delivery_hook`,
 `sympozium_mcp_servers`) are deliberately **outside** `sympozium_ensembles`,
@@ -265,9 +330,9 @@ by which agent produced it, because a channel is really one notification setting
 Keeping the frequent personas out of `-health` is what lets `-alerts` keep
 notifications on without the daily hardware report training you to mute it.
 
-`verbosity` and `notify` are absent everywhere and `validate.py` rejects them on
-a hook-mode persona: a hook posts unconditionally, so neither knob can do
-anything. The cost is real — every report arrives every run. Stretch
+`verbosity` and `notify` are absent everywhere, and on a hook-mode persona
+neither could do anything anyway: a hook posts unconditionally. Nothing rejects
+them now, so a re-added knob would simply be ignored. The cost is real — every report arrives every run. Stretch
 `schedule.interval` if a channel gets too busy.
 
 **`channelConfigs`** maps a channel type to the Secret holding its credentials.
@@ -277,10 +342,17 @@ nothing. `mcp-slack-token` is projected into `automation` by
 datahub-local-secrets and carries `SLACK_BOT_TOKEN` (outbound `chat:write`) and
 `SLACK_APP_TOKEN` (Socket Mode, inbound).
 
-**`baseURL`** is cluster-local Ollama, deployed by datahub-local-core
-(`releases/data/values/ollama.yaml.gotmpl`). Provider `ollama` needs no
-credentials, which is why no `authRefs` secret appears anywhere in this chart.
-Core's `extraEgressPorts` already allows egress on 11434.
+**`baseURL`** is cluster-local Ollama for `homelab-ops` and `homelab-reviewer`,
+deployed by datahub-local-core (`releases/data/values/ollama.yaml.gotmpl`).
+Provider `ollama` needs no credentials, which is why those two carry no
+`authRefs`. Core's `extraEgressPorts` already allows egress on 11434.
+`homelab-responder` points at OpenRouter instead — see *The oracle runs on
+OpenRouter, and the ensemble is the only place a credential fits*.
+
+**`authRefs`** appears on `homelab-responder` only. It is ensemble-level in the
+CRD and has no per-persona equivalent, so it is the *ensemble* that is the unit
+of credential — which is a second reason the responder is its own ensemble,
+alongside the trust boundary it was split on.
 
 **`enabled: true` on all three ensembles.** Ensembles ship disabled in the CRD
 ("catalog-only"), so a manifest without it deploys but never runs.
@@ -355,8 +427,8 @@ uses: a bound persona answering in the thread that asked, through the channel
 sidecar. It takes no hook and needs no configured destination — the hook
 hardcodes one, and that is how two questions asked in two different channels were
 both answered into a third. A `reply` persona carries its own answering contract
-instead of a `{{ DELIVERY }}` token, and both the template and the validator
-reject the combination. **A `reply` cannot be guarded by a hook**: a gate hook
+instead of a `{{ DELIVERY }}` token, and `templates/ensembles.yaml` fails the
+combination. **A `reply` cannot be guarded by a hook**: a gate hook
 holds the run's *final output*, while a reply leaves mid-run as a tool call, so
 there is nothing left to hold by the time the gate would run. The guard for a
 responder has to be in what the tools return.
@@ -384,10 +456,11 @@ character: `chatId = " \"#monitoring-ai-alerts\""`, a leading space and two
 literal quotes, rejected the same way. **A prompt for a model this size must
 never show a value inside syntax the model is also expected to strip.** The
 prompts now write arguments bare (`chatId    {{ CHANNEL }}`), say outright that
-nothing may be added around a value, and `validate.py` rejects a re-quoted
-`{{ CHANNEL }}` and the same shape for `datasourceUid`/`queryType`/`endTime`.
-The check is deliberately narrow — PromQL in an indented block legitimately
-contains quotes (`ALERTS{alertstate="firing"}`).
+nothing may be added around a value. `validate.py` used to reject a re-quoted
+`{{ CHANNEL }}`, and the same shape for `datasourceUid`/`queryType`/`endTime`;
+that check went with the validator, so the rule now lives only in the prompts
+themselves. It was deliberately narrow, because PromQL in an indented block
+legitimately contains quotes (`ALERTS{alertstate="firing"}`).
 
 Only `homelab-oracle` holds this tool now, and its prompt tells it to leave
 `chatId` alone rather than showing a value to copy. Confirmed working in
@@ -409,7 +482,8 @@ every persona.
 rewrites Markdown *inside* code spans, so a report quoting `increase(m[1h])` had
 the one string its reader would copy corrupted. It is the only code in this
 sub-project that runs in production, so it has `tests/test_deliver_slack.py`,
-wired into `.github/workflows/test-agents.yaml` beside the validator. The image is
+wired into `.github/workflows/test-agents.yaml`, and since the validator was
+deleted it is the only Python this sub-project runs in CI. The image is
 `python:3.13-alpine` and the script is standard library only: a delivery hook that
 needs a `pip install` fails on a network blip. `.helmignore` excludes `/tests/`
 and must keep `files/` readable, since the template reads the script at render
@@ -494,10 +568,11 @@ label on `kube_persistentvolumeclaim_info`, not on the metric.
 
 **A correct metric name is not a correct reading.** Both metrics existed and were
 spelled right; nothing had checked the direction of the division or what the
-denominator meant per storage class. Encoded so it cannot return: `validate.py`
-fails any prompt dividing availability by capacity without a `1 -` on the same
-line, and the expression is given literally — a `group_left` join is beyond what
-this model assembles from prose. Fill expressions now live in the facts server
+denominator meant per storage class. Encoded so it cannot return: the expression
+moved into the facts server, where a test asserts the direction. A regex in
+`validate.py` policed the same rule in prompt text for a while and went with it —
+the successor is the test, not the regex. Fill expressions now live in the facts
+server
 (`prometheus.py`), where `used_percent()` cannot be the bare ratio at all.
 
 `sre-sentinel` spent days storing runs asserting 96-99% fill; fixing the prompt
@@ -529,8 +604,10 @@ Two traps found fixing it:
 
 - **A `_total` suffix does not mean counter.** `cnpg_backends_total` and
   `cnpg_backends_waiting_total` are gauges; the first draft of the validator
-  keyed on the suffix and immediately failed a correct prompt. `validate.py`
-  holds an explicit `CUMULATIVE_COUNTERS` set read off Prometheus's metadata API.
+  keyed on the suffix and immediately failed a correct prompt. It then held an
+  explicit `CUMULATIVE_COUNTERS` set read off Prometheus's metadata API, and that
+  set now lives as a test in `agents/mcp/tests/`. Read the type from the metadata
+  API, never from the name.
 - **The model drops the wrapper.** Given `increase(m[1h])` it sent `m[1h]` and
   labelled the raw counter as the increase. Prompts state that an `expr` is the
   whole line, function call included — the `chatId` lesson in a new place. Prose
@@ -674,9 +751,10 @@ refused the object with
 
 Only `kubectl apply --dry-run=server` shows this, which is the standing reason
 this repo runs one before committing rather than trusting a render. The seed is
-rewritten with ` - ` instead of `: `, and `scripts/validate.py` now rejects any
-seed that does not parse as a string — the check is three lines and catches the
-whole class locally. Note what made it dangerous: every layer that could have
+rewritten with ` - ` instead of `: `. A three-line check in `validate.py`
+rejected any seed that did not parse as a string; it went with the validator, so
+`--dry-run=server` is once again the only thing that sees this class — which is
+the standing reason to run one. Note what made it dangerous: every layer that could have
 caught it was *satisfied*, because a mapping is a perfectly good YAML value. Any
 schema-free field written as free text has this trap.
 
@@ -782,8 +860,9 @@ Two corrections that came out of the repeats:
   "root-cause" in one prompt and nothing in the other. The rules now attach to any
   prompt naming a lookup tool.
 - **`service-janitor` then lost all of it in a prompt rewrite** — see *What a
-  prompt review finds that a run does not*. If it regresses a third time the guard
-  belongs back in `validate.py`, the only thing that reads every prompt.
+  prompt review finds that a run does not*. Nothing reads every prompt any more,
+  so if it regresses a third time the guard has to be a new test rather than a
+  line added back to a validator.
 
 ## What a prompt review finds that a run does not
 
@@ -1017,10 +1096,12 @@ Three changes, because the shape will recur:
 
 - The tool is gone from the persona and the prompt. What a persona lists is now
   what it actually holds.
-- `validate.py` carries `CATALOG_DENIED`, mirroring `spec.toolsDeny` on each
-  catalog MCPServer, and fails an allowlist entry naming one. It is a second copy
-  of a file we do not own — normally the thing to avoid — but the drift is loud (a
-  false failure that names the tool) while the bug it catches is silent. Same
+- `validate.py` carried `CATALOG_DENIED`, mirroring `spec.toolsDeny` on each
+  catalog MCPServer, and failed an allowlist entry naming one. That mirror is why
+  the validator went: it is a second copy of a file we do not own, and the
+  argument for keeping it — loud drift against a silent bug — stopped holding once
+  the copy needed re-reading after every image bump. Read the live `toolsDeny`
+  before adding an allowlist entry. Same
   trade as `MCP_SERVERS` and `SKILLS` beside it. Re-derive with
   `kubectl -n automation get mcpservers -o json | jq '.items[] | select(.spec.toolsDeny)'`.
 - The prompt says a tool it was not given does not exist for it, and that it may
@@ -1059,9 +1140,9 @@ received them.
 
 The fix is `toolsAllow` on each `mcpServers` entry, which filters at the server
 and bounds what is registered at all. Every persona pins it to exactly the tools
-its `toolPolicy.allow` names, unprefixed; `validate.py` fails drift in either
-direction — a tool in `toolsAllow` but not `toolPolicy.allow` is prompt weight the
-model can never use, and the reverse never reaches the agent.
+its `toolPolicy.allow` names, unprefixed. Drift in either direction is now
+unguarded and silent — a tool in `toolsAllow` but not `toolPolicy.allow` is prompt
+weight the model can never use, and the reverse never reaches the agent.
 
 **The window was then raised to 65536, which does not retire the rule.** 40,500
 now fits, so the overflow is gone. The rule survives for three reasons that have
@@ -1192,7 +1273,9 @@ result).
 not a writing failure.** Each incident above added a paragraph to a prompt and a
 regex to `validate.py`, and it did not converge: prompts reached 6–12 KB and
 roughly 600 validator lines were policing English. Both are gone — prompts are
-4–6 KB and the validator does field checks, because the method moved into code.
+4–6 KB, the surviving checks are `agents/mcp/tests/` assertions about the
+expression the server sends, and the validator was deleted outright, because the
+method moved into code.
 The design lives in `agents/mcp/README.md`; four properties are structural rather
 than instructed, and each retires a class of report that reached Slack: a wrong
 query is not expressible, absence is a value with a definition, every answer is
@@ -1335,8 +1418,10 @@ as the tool simply not existing.
 read above the chart root, so the template cannot see whether
 `agents/mcp/projects/<project>/` exists, and the API server validates the MCPServer
 either way. A wrong project name deploys cleanly and crash-loops on
-`no such project`. `validate.py` resolves the name the way the template does —
-hyphens to underscores — and fails on a project that is not there.
+`no such project`. `validate.py` resolved the name the way the template does —
+hyphens to underscores — and failed on a project that was not there; that check
+is gone, so check the directory exists in `agents/mcp/projects/` by hand when
+changing the name.
 
 **`LOKI_URL` points at `datahub-local-core-loki.monitoring.svc:3100`**, direct
 rather than through Grafana, for the same reason Prometheus is: no datasource uid
@@ -1445,9 +1530,10 @@ Nothing in `projects/` would have stopped it: a per-persona `toolsDeny` filters 
 MCP server, and this path used no MCP server at all.
 
 Both skills are gone from every persona, which leaves `memory` alone and deletes
-the sidecar, so the RBAC is never created again. `validate.py` keeps them out by
+the sidecar, so the RBAC is never created again. `validate.py` kept them out by
 name (`SHELL_TEACHING_SKILLS`) rather than by a general rule, because the objection
-is to what these two say. The stale pairs needed deleting once by hand:
+is to what these two say; with it gone, nothing stops a third pack being mounted —
+read `.spec.skills[].content` and `.spec.sidecar.rbac` before you do. The stale pairs needed deleting once by hand:
 
 ```bash
 kubectl get rolebinding,role -n automation -o name \
@@ -1470,11 +1556,11 @@ live on the persona, and moving the prose into a pack buys an extra object and a
 second place to look. **Shared prompt text belongs *in* the prompt** —
 `prompts/shared/promql.md`, substituted into every persona holding `{{ PROMQL }}`,
 after the `## Calling grafana_query_prometheus` section had been pasted into four
-prompts and two of the copies had already lost a rule. The trap worth remembering:
-every content check in `validate.py` reads the prompt the *model* sees, so it
-expands tokens first (`_expand_shared`) — without that, the endTime, uid,
-counter-window and unquoted-argument rules would all have started passing
-vacuously the moment the text moved.
+prompts and two of the copies had already lost a rule. The trap is worth keeping
+even though the checks are gone: a content check has to read the prompt the
+*model* sees, expanding tokens first, or it starts passing vacuously the moment
+the text moves into a shared file. Any future test over these prompts inherits
+that requirement.
 
 ## An inbound Slack message runs with no `toolPolicy` at all
 
@@ -1591,10 +1677,12 @@ could @-mention the bot got a run holding the facts server, `k8s_pods_log`,
 `channelAccessControl.slack.allowedSenders` gates *who*, is inbound-only, has no
 default and no controller warns when it is missing. It lives in `values/` because a
 sender id names a person, not the agent — same reason as `channelConfigs` — and it
-is in `VALUES_ONLY_KEYS`. `validate.py` fails any channel-bound persona whose
-ensemble sets neither `allowedSenders` nor `allowedChats`, and warns on a missing
-`denyMessage`, because an unset one drops a rejected sender in silence and reads as
-a broken agent rather than a refusal.
+is in `VALUES_ONLY_KEYS`. `validate.py` failed a channel-bound persona whose
+ensemble set neither `allowedSenders` nor `allowedChats`, and warned on a missing
+`denyMessage`; both are unguarded now. An unset `denyMessage` drops a rejected
+sender in silence and reads as a broken agent rather than a refusal, and an unset
+allowlist on the one inbound-bound persona is the open-door case — check both
+whenever `homelab-responder`'s binding changes.
 
 ## Why the `permissive` policy
 
@@ -1796,9 +1884,10 @@ there is no `error` and no condition.
    character for character, and a 4B model at a `q8_0` KV cache sometimes emits a
    lone continuation byte. Three throwaway ASCII-only runs stored 2, 72 and 1,599
    characters without trouble while persona runs mandating the `·` came back empty
-   at 26 of 45. Headers are `|`-separated now and `validate.py` fails any non-ASCII
-   character inside an indented block in `prompts/delivery/`, because an indented
-   block there *is* the text the model is told to emit. The durable fix is
+   at 26 of 45. Headers are `|`-separated now, and an indented block in
+   `prompts/delivery/` must stay ASCII-only because it *is* the text the model is
+   told to emit. `validate.py` enforced that and no longer exists, so grep it
+   yourself: `grep -nP '^\s+.*[^\x00-\x7F]' prompts/delivery/*.md`. The durable fix is
    control-plane side — sanitise or lossy-decode before the marshal, so a corrupt
    byte costs a replacement character rather than the whole report.
 2. **`terminal turn had empty text`** — the model stopped writing, usually after a
@@ -1871,6 +1960,63 @@ One unrelated trap found while measuring: Ollama occasionally answers a tool-hea
 request with `{"error":{"message":"XML syntax error on line 14: unexpected EOF"}}`.
 Rare, upstream, independent of thinking level — do not read it as a reasoning
 failure.
+
+## The oracle runs on OpenRouter, and the ensemble is the only place a credential fits
+
+`homelab-responder` moved off `qwen3.5:4b` to `deepseek/deepseek-v4-flash-0731`
+on OpenRouter. It is the first persona in this fleet on a metered endpoint, and
+it is the right one to be first: the oracle answers a person who is waiting, it
+routes across six MCP servers with a 29-tool allowlist, and it is the only
+persona whose failures are seen by the asker rather than by nobody. The reporters
+and the reviewer stay on Ollama — nothing scheduled needs to cost money.
+
+**A three-way split across two files, and the third half is the trap.**
+`provider` and `model` are the agent, so they are `defaults:` in
+`projects/homelab-responder/ensemble.yaml`; `baseURL` and `authRefs` are the
+cluster, so they are in `values/`. All three must agree and none of the
+disagreements is loud:
+
+- The controller selects the credential with `ref.Provider == persona.Provider`
+  — a plain string compare with **no case folding**, unlike
+  `agentAllowsModelCredential` two functions away, which uses `EqualFold`. A
+  mismatched string is a run with no credential, not an admission failure.
+- An empty `baseURL` is not an error either: `newOpenAIProvider` falls through to
+  the OpenAI SDK default, so a cloud provider with no endpoint sends the run to
+  `api.openai.com` with an OpenRouter key. The cluster-local `.svc` URL left
+  behind after a swap is the same failure pointed at Ollama's port.
+
+**The runner reads five key names and `OPENROUTER_API_KEY` is not one of them.**
+This is the whole reason the wiring is worth writing down. `agentrun_controller.go`
+keeps an `allowedAuthSecretKeys` allowlist and injects each of its eleven names
+from the auth Secret individually as an *optional* `secretKeyRef` — deliberately,
+so an auth Secret carrying unrelated keys cannot leak into the agent container.
+`OPENROUTER_API_KEY` and `DEEPSEEK_API_KEY` are both on that list. But
+`cmd/agent-runner/main.go` resolves the key with
+`firstNonEmpty(API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, AZURE_OPENAI_API_KEY,
+PROVIDER_API_KEY)` and reads neither. So a Secret keyed the obvious way is
+injected, present in the pod, and never read: the run starts, calls OpenRouter
+unauthenticated and gets a 401. **The key must be `API_KEY`** (or
+`OPENAI_API_KEY`). Note the two lists disagree in the other direction too —
+`PROVIDER_API_KEY` is read by the runner and absent from the controller's
+allowlist, so it can never arrive. Neither list is documented; both were read out
+of the source at v0.10.48. Re-check them after a control-plane bump.
+
+**Egress and the thinking knob, the two things that did not need doing.** Egress
+already works: the chart's own `sympozium-agent-allow-eventbus` opens TCP 443 to
+`to: []` for exactly this case, and `agentSandbox.enabled: false` keeps the
+narrower `sympozium-sandbox-restricted` off the pod. And the oracle no longer
+passes through the ollama-proxy sidecar, so it loses the fleet-wide
+`OLLAMA_PROXY_REQUEST_DEFAULTS` thinking level from core — no action needed,
+because OpenRouter reports this model as `default_enabled: true` at effort
+`high`, but it does mean the knob in *that* repo no longer describes this
+persona.
+
+**Cost is unmeasured here on purpose.** $0.065/M in, $0.18/M out against a 1.31M
+context, and the chart's pricing table (`files/pricing/defaults.yaml`) carries
+`openai`, `anthropic` and `bedrock` only — no `openrouter` entry, so Sympozium's
+own cost estimate for these runs is empty rather than wrong. Add
+`pricing.extraEntries` in core if the number is ever wanted; that is a
+cluster-side change, not one for this chart.
 
 ## An apply fires an immediate run per touched schedule
 
@@ -2046,7 +2192,7 @@ cleanly and leaves every sandbox Pending. No `warmPool` anywhere — it keeps
 pre-warmed pods resident for the life of the ensemble, and one weekday run does not
 justify two idle sandboxes on a single-GPU fleet. The capability spans three
 repositories — runsc in bootstrap, the controller's RBAC in core, the per-ensemble
-opt-in here — and `validate.py` can only see the third.
+opt-in here — and no check here could ever see more than the third.
 
 Four things were found turning it on:
 
@@ -2087,10 +2233,11 @@ responder, schedules, API, delegation, pipelines — must copy the Agent's
 configuration into the `AgentRun`, each with a regression test that binds a policy
 requiring Agent Sandbox and asserts the created run preserves `enabled` and
 `runtimeClass`. Reverting the policy only restores unsandboxed execution; it is not
-a fix. `validate.py` is deliberately coupled to the two states — `permissive` while
-disabled, the core hardened policy while enabled — so a partial rollback cannot be
-rendered. When it lands, record the controller version, the trigger paths verified
-and the probe evidence here, and set all three back together.
+a fix. `validate.py` was deliberately coupled to the two states — `permissive`
+while disabled, the core hardened policy while enabled — so a partial rollback
+could not be rendered; that coupling is gone, so the two halves are now only
+paired by this note. When it lands, record the controller version, the trigger
+paths verified and the probe evidence here, and set all three back together.
 
 **The rollout order is reviewer-first, responder-last**, which inverts where
 isolation is most wanted and is about the cost of being wrong: a sandboxed run that
@@ -2291,6 +2438,20 @@ and quietly does less than it claims:
   envelope already carries.
 - The sandbox pod-template builder injects the OTLP tracing env twice, so every
   Sandbox CR is rejected as invalid and the run hot-loops `Pending` forever.
+- The controller's `allowedAuthSecretKeys` and the runner's key resolution are two
+  hand-maintained lists that disagree in both directions: the controller injects
+  `OPENROUTER_API_KEY`/`DEEPSEEK_API_KEY`/`GOOGLE_API_KEY`/`GROQ_API_KEY`/
+  `MISTRAL_API_KEY`, which the runner never reads, and the runner reads
+  `PROVIDER_API_KEY`, which the controller never injects. Either list alone looks
+  correct, so a Secret keyed for the named provider yields a silent 401. Also
+  `resolveAuthRefs` matches the provider string exactly while
+  `agentAllowsModelCredential` uses `EqualFold` — see *The oracle runs on
+  OpenRouter*.
+
+**Needed in datahub-local-secrets for the oracle.**
+`openrouter-auth-credentials` must reach `automation` and must publish the key as
+`API_KEY`; its current `endpoint`/`api_key` pair is not in the controller's
+allowlist and is never injected.
 - `SympoziumSchedule` has no `agentSandbox` field, so nothing on a cron can request
   the backend; the same propagation is missing from `ChannelRouter.handleInbound`.
 - `Ensemble.spec.agentConfigs[]` has no `thinking`, though `Agent` and `AgentRun`
@@ -2714,8 +2875,11 @@ the prompt and called it (`ch-tgjxk`, `ch-t4kgs`) are exactly the two that were
 lost. There was never a run in which the call helped.
 
 So `send_channel_message` is off the oracle's allowlist, the prompt names no
-posting tool and no delivery step, and `scripts/validate.py` rejects the tool on a
-`reply` persona the way it already rejected it on a hook one. **This is the hook
+posting tool and no delivery step. `scripts/validate.py` rejected the tool on a
+`reply` persona the way it already rejected it on a hook one, and that check went
+with the validator the same day — so an allowlisted `send_channel_message` now
+renders and deploys, and this incident is repeatable. It is the cheapest thing to
+put back as a `fail` in `templates/ensembles.yaml` if it recurs. **This is the hook
 lesson arriving on the other path**, and the second time in two days that one has
 had to walk over: `#deliverymode-hook-is-the-default-and-it-sidesteps-the-bus`
 already said take the tool away and the report *is* the final text, and the reply

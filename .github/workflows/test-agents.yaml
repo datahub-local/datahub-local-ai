@@ -40,21 +40,15 @@ jobs:
         run: uv python install 3.13
 
       - name: Sync dependencies
-        run: uv sync --extra sympozium --extra dev
+        run: uv sync --extra dev
 
-      - name: Lint validator and delivery hook
-        run: uv run -- ruff check agents/sympozium/scripts/ agents/sympozium/files/ agents/sympozium/tests/
+      - name: Lint delivery hook
+        run: uv run -- ruff check agents/sympozium/files/ agents/sympozium/tests/
 
       # The delivery hook is the only code in this sub-project that runs in
       # production; every report passes through its Markdown conversion.
       - name: Test delivery hook
         run: uv run -- pytest agents/sympozium/tests/ -q
-
-      # Field-level checks the Helm templates cannot do: skills, MCP server
-      # names and prefixes, tool/server coherence, schedule enums, orphaned
-      # prompts. Each of these fails silently at runtime if wrong.
-      - name: Validate ensemble sources
-        run: uv run python agents/sympozium/scripts/validate.py
 
       - name: Set up Helm
         uses: azure/setup-helm@v4

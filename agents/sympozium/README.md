@@ -54,9 +54,9 @@ because its bundles are binary zips. Nothing is generated into the repository.
 agents/sympozium/
   Chart.yaml
   helmfile.yaml.gotmpl
-  values/default.yaml.gotmpl   per-cluster knobs: enabled, baseURL, policyRef,
-                               channelConfigs, and the sympozium_delivery and
-                               sympozium_web_endpoint trees
+  values/default.yaml.gotmpl   per-cluster knobs: enabled, baseURL, authRefs,
+                               policyRef, channelConfigs, and the
+                               sympozium_delivery and sympozium_web_endpoint trees
   templates/
     ensembles.yaml             assembles one Ensemble per projects/<name>/
     _helpers.tpl               resolves the per-persona knobs (cadence, the
@@ -84,18 +84,14 @@ agents/sympozium/
       prompts/
         <persona>_system.md    -> agentConfigs[].systemPrompt
         <persona>_task.md      -> agentConfigs[].schedule.task
-  scripts/
-    validate.py                field checks Go templates cannot do
 ```
 
 ## Workflow
 
 1. Edit anything under `projects/<ensemble>/`.
-2. Validate and preview (from the repository root):
+2. Preview the rendered manifests:
 
    ```bash
-   uv sync --extra sympozium
-   uv run python agents/sympozium/scripts/validate.py
    cd agents/sympozium && helmfile template
    ```
 
@@ -105,7 +101,7 @@ agents/sympozium/
    `{{ … }}` anywhere in that file, even inside a `#` comment, is an
    undefined-function error that `helm template -f` never sees, because it reads
    the same file as plain YAML. A comment naming a prompt token in braces broke
-   the sync that way on 2026-08-23, after both the validator and CI had passed.
+   the sync that way on 2026-08-23, after CI had passed.
    CI now renders through helmfile for exactly this reason. Prompt tokens are
    written without braces in that file; everywhere else — prompts, templates,
    this README — braces are fine.
@@ -194,16 +190,16 @@ ensemble exists to keep visible.
 
 ## Conventions
 
-- **Prompts are never inlined.** A persona references `prompts/*.md`; the
-  validator fails if `systemPrompt` or `schedule.task` appears literally. Same
-  reasoning as `agents/n8n/prompts/` — a 40-line instruction buried in a YAML
-  block scalar is not reviewable.
+- **Prompts are never inlined.** A persona references `prompts/*.md` and never
+  writes `systemPrompt` or `schedule.task` literally. Same reasoning as
+  `agents/n8n/prompts/` — a 40-line instruction buried in a YAML block scalar is
+  not reviewable. Nothing checks this since the validator was removed; a literal
+  prompt renders fine, so it is on review to catch.
 - **Names are DNS-1123.** Ensemble and persona names become Kubernetes object
   names, so they are kebab-case (`sre-sentinel`), not the `snake_case` used for
   project directories elsewhere in this repo. Prompt *files* stay `snake_case.md`
-  to match `agents/n8n/`. The validator enforces both, and that a persona's
-  `name` matches its file name — and the templates re-check the name/filename
-  match, since a mismatch there would produce the wrong object.
+  to match `agents/n8n/`. The templates check that a persona's `name` matches its
+  file name, since a mismatch there would produce the wrong object.
 - **Nothing is generated into the repository.** `templates/ensembles.yaml` is
   the build step: it reads `projects/` at render time, so the sources are the
   only copy of anything. There is no committed manifest to fall out of date with
@@ -212,21 +208,21 @@ ensemble exists to keep visible.
   what the cluster will actually get.
 - **Source describes the agent; values describe the cluster.** Prompts, skills,
   schedules and tool policy live in `projects/`. Only `enabled`, `baseURL`,
-  `policyRef`, `channelConfigs` and the `sympozium_delivery` and
+  `authRefs`, `policyRef`, `channelConfigs` and the `sympozium_delivery` and
   `sympozium_web_endpoint` trees — the things that could legitimately differ
   between clusters — live in
-  `values/default.yaml.gotmpl`, merged over `spec` at render time. The
-  validator rejects those keys in `ensemble.yaml`.
+  `values/default.yaml.gotmpl`, merged over `spec` at render time. Setting one of
+  them in `ensemble.yaml` is not an error and not a warning — values win the
+  merge, so the value in the source is silently ignored.
 - **A channel binding is split across both, and so is delivery.** The persona
   carries the type (`channels: [slack]`) and, in hook mode, a `{{ DELIVERY }}`
   token in its system prompt. No persona carries a posting tool: both delivery
   modes deliver the run's own final text. Values carry the
   credential secret (`channelConfigs`) and the knobs (`sympozium_delivery`:
   `channel`, `verbosity`, `notify`, with per-persona overrides). Any one half
-  alone deploys cleanly and posts nothing, or posts to nowhere, so the validator
-  cross-checks all of it — including a typo under `personas:`, `notify:
-  onChange` on a prompt with no *What counts as a change* section, and
-  `slackOptions` on a persona that is not on Slack. The block the templates
+  alone deploys cleanly and posts nothing, or posts to nowhere — a typo under
+  `personas:` included — and nothing cross-checks the halves any more, so read
+  all three files together when changing any one of them. The block the templates
   substitute is three files: `prompts/delivery/header.md`, which every bound
   persona gets and which is what names the agent in the message, then the
   chosen `delivery/<verbosity>.md` and `notify/<level>.md`.
@@ -259,8 +255,8 @@ ensemble exists to keep visible.
   applies those defaults at admission, so an omitted value exists in the live
   object and not in git, and ArgoCD reports the Ensemble OutOfSync on every
   sync forever. Stating them also puts the value where it is reviewable instead
-  of in a CRD in another repository. The validator enforces the list; re-derive
-  it after a control-plane bump with
+  of in a CRD in another repository. Nothing enforces the list, so re-derive it
+  after a control-plane bump with
   `kubectl get crd ensembles.sympozium.ai -o json | jq -r '.. | objects | select(has("default"))'`.
 - **Schedules are UTC.** No Sympozium CRD has a timezone field, unlike the n8n
   workflows which set `Europe/Madrid` explicitly. Every cron here is written in
@@ -300,9 +296,9 @@ something you flip on for a test and off again — see
 [the endpoint replaces the schedule](MEMORY.md#the-endpoint-replaces-the-schedule--it-does-not-sit-beside-it)
 for why — and that must not mean editing, and then having to remember to restore, the
 per-agent decisions underneath. Per-persona overrides go under
-`ensembles.<name>.personas.<persona>`, exactly as `sympozium_delivery` does; the
-validator rejects a stray key at the root and a persona name that does not
-exist.
+`ensembles.<name>.personas.<persona>`, exactly as `sympozium_delivery` does. A
+stray key at the root, or a persona name that does not exist, is silently
+ignored at render time.
 
 No `hostname` is set, so no `HTTPRoute` is created and the Service stays
 ClusterIP: nothing outside the cluster can reach it. The object names are the

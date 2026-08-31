@@ -996,6 +996,26 @@ def _check_tools(persona_name, persona, warnings):
             )
 
 
+def _check_memory(persona_name, memory):
+    """Every memory seed must be a string, which is not as obvious as it reads.
+
+    A seed is written as a bare YAML list item, so one containing `: ` parses as
+    a **mapping** rather than as text - silently, because the file is still valid
+    YAML and both `validate.py` and `helm template` were happy with it. The
+    webhook then rejects the Ensemble with `strict decoding error: unknown field
+    spec.agentConfigs[0].memory.seeds[3].<the first half of the sentence>`, which
+    only a `--dry-run=server` apply ever shows. Caught on the oracle, 2026-08-31.
+    """
+    for index, seed in enumerate(memory.get("seeds") or []):
+        if not isinstance(seed, str):
+            raise Fail(
+                f"{persona_name}: memory.seeds[{index}] parsed as "
+                f"{type(seed).__name__}, not a string. A bare YAML list item "
+                f"containing ': ' becomes a mapping - quote the seed, or write the "
+                f"sentence with ' - ' instead of ': '"
+            )
+
+
 def _check_schedule(persona_name, schedule):
     kind = schedule.get("type")
     if kind not in SCHEDULE_TYPES:
@@ -1057,6 +1077,8 @@ def _check_persona(project, path, used, channel_secrets, access, delivery, warni
     memory = persona.get("memory")
     if memory is not None and memory.get("maxSizeKB") is None:
         raise Fail(_defaulted(name, "memory.maxSizeKB"))
+    if memory is not None:
+        _check_memory(name, memory)
 
     schedule = persona.get("schedule")
     if schedule is not None:

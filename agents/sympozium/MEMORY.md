@@ -637,6 +637,49 @@ Both halves of this pair are the same shape as the caveat below: **the model
 being asked to carry data it has no reason to touch.** The cure each time was to
 stop routing it through the model.
 
+## A name search answers "what is it called", never "what does it do"
+
+Asked in Slack for "the status of the stream and S3 services" on 2026-08-31, the
+oracle held no tool for either. It fell through to `facts_find_object` and
+returned `datahub-local-core-data-s3-gdrive` — an unrelated Service that merely
+has `s3` in its name — while reporting that no stream service could be found, on
+a cluster running a three-broker Redpanda.
+
+Neither answer was a lookup failure. Both calls did exactly what they are built
+to do; a name search matched names. The gap is that **the two services are not
+named for what they do** — S3 here is Garage, streaming is Redpanda — and no
+amount of better resolving fixes a vocabulary mismatch. The failure mode is
+worse than a plain "not found", because the S3 half returned a real object with a
+ready pod and an IngressRoute, which reads as a confident correct answer.
+
+So the fix is routing, not search. The prompt now maps the words a person
+actually uses — S3, object storage, bucket, stream, Kafka, topic, partition,
+broker, retention — onto the three fact tools, and says outright that
+`facts_find_object` is the wrong tool for those words. Both questions are in
+`evals/questions.yaml` alongside the bucket-size and retention questions that
+have the same shape. The general rule: before adding a tool, ask what a person
+would *call* the thing it reads. A correct tool the model never routes to is the
+same outcome as no tool at all.
+
+## A memory seed containing `: ` is not a string
+
+Adding the seed above failed the Ensemble outright, and only at the last check
+that could see it. A seed is a bare YAML list item, so one containing a colon and
+a space parses as a **mapping** rather than as text. The file is still valid
+YAML, so `validate.py` passed and `helm template` rendered; the webhook then
+refused the object with
+
+    strict decoding error: unknown field
+    spec.agentConfigs[0].memory.seeds[3].<the first half of the sentence>
+
+Only `kubectl apply --dry-run=server` shows this, which is the standing reason
+this repo runs one before committing rather than trusting a render. The seed is
+rewritten with ` - ` instead of `: `, and `scripts/validate.py` now rejects any
+seed that does not parse as a string — the check is three lines and catches the
+whole class locally. Note what made it dangerous: every layer that could have
+caught it was *satisfied*, because a mapping is a perfectly good YAML value. Any
+schema-free field written as free text has this trap.
+
 ## A permanent finding is a bug in the prompt, not a problem in the fleet
 
 The reports flagged `datahublocal-orpi-0` on `7.1.2-edge-rockchip64` against

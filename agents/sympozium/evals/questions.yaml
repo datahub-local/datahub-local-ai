@@ -225,6 +225,55 @@ questions:
     must_not: ["CPU", "load average"]
     answer: "superset at 152.6 MiB, then n8n at 133.5 MiB and miniflux at 80.7 MiB."
 
+  - id: object-store-status
+    ask: "give me the status of the S3 service"
+    origin: "#homelab - answered about datahub-local-core-data-s3-gdrive, an unrelated Service that merely has s3 in its name"
+    guards: "answering a capability question with a name search, which matches names and not roles"
+    first_tool: facts_object_store_health
+    max_lookups: 1
+    must_name: ["garage"]
+    must_not: ["s3-gdrive", "could not be found", "does not exist"]
+    answer: >-
+      Garage: three nodes all healthy and available, 256/256 partitions fully replicated,
+      30 GiB assigned across the layout at replication factor 1, five buckets. S3 here is
+      Garage and is not named "s3", so facts_find_object is the wrong tool for the word.
+
+  - id: stream-status
+    ask: "give me the status of the stream service"
+    origin: "#homelab - replied that no stream service could be found, on a cluster running a three-broker Redpanda"
+    guards: "reporting not-found for a service whose name does not contain the word asked"
+    first_tool: facts_stream_health
+    max_lookups: 1
+    must_name: ["redpanda"]
+    must_not: ["could not be found", "does not exist", "clarify"]
+    answer: >-
+      Redpanda: 3 brokers, 3 topics, 18 partitions, none unavailable and none
+      under-replicated, log disks 17-31% used. Streaming here is Redpanda; the word
+      "stream" appears in no object name, which is why a name search returns nothing.
+
+  - id: bucket-size
+    ask: "how big are my s3 buckets?"
+    guards: "splitting a cluster-wide total across buckets, or reporting the filesystem as the store's size"
+    first_tool: facts_object_store_health
+    max_lookups: 1
+    must_not: ["1.8TiB", "1.7TiB"]
+    answer: >-
+      Per bucket, from the tool: datahub-local-test 55.6 MiB, datahub-local-bronze 3.3 MiB,
+      datahub-local-silver 541.8 KiB, datahub-local-gold 201.7 KiB, datahub-local-temp
+      17.5 KiB. The 1.8 TiB figure in the same result is the shared filesystem under the
+      store, not the store's size - its capacity is the 30 GiB the layout assigns.
+
+  - id: metrics-retention
+    ask: "how far back do the metrics go?"
+    guards: "reporting the configured retention as the history actually held"
+    first_tool: facts_metrics_store_health
+    max_lookups: 1
+    must_not: ["30 days of history", "30d of history is available"]
+    answer: >-
+      Configured for 30d but currently holding only what has accumulated since the last
+      restart, which the tool states alongside the server's uptime. Held and configured
+      are two different numbers and the shorter one is the answer to this question.
+
   - id: valkey-memory
     ask: "how much memory is valkey using?"
     guards: "inventing a percentage where there is no ceiling to divide by"

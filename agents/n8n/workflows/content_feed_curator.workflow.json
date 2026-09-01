@@ -1,7 +1,7 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "6cbb7c85-89b7-4f3f-ae29-2bf4bd6cf794",
+    "versionId": "16434558-818a-4b62-a3c3-58d231bd96d1",
     "workflowId": "iIA5QN5HuK21TmBX",
     "nodes": [
       {
@@ -14,10 +14,10 @@
         "type": "n8n-nodes-base.stickyNote",
         "typeVersion": 1,
         "position": [
-          -24272,
-          1136
+          -21536,
+          1312
         ],
-        "id": "7dcdd175-f2ef-4ad6-8237-d77717882f52",
+        "id": "1aaacdde-9f0f-4992-880f-45273a190007",
         "name": "Sticky Note"
       },
       {
@@ -25,10 +25,10 @@
         "type": "n8n-nodes-base.manualTrigger",
         "typeVersion": 1,
         "position": [
-          -23984,
-          1840
+          -21248,
+          2016
         ],
-        "id": "d075b202-dd5a-483d-921c-51f52d8a77a8",
+        "id": "5490a728-89dc-40bc-832a-cb48d0156b7d",
         "name": "click_trigger"
       },
       {
@@ -45,10 +45,10 @@
         "type": "n8n-nodes-base.scheduleTrigger",
         "typeVersion": 1.2,
         "position": [
-          -23984,
-          2032
+          -21248,
+          2208
         ],
-        "id": "6883756d-b37f-4b45-9821-44f12129f66c",
+        "id": "d61855d3-aff9-4ecd-90ad-d26708685644",
         "name": "schedule_trigger",
         "notes": "Sun/Tue/Thu 06:00 Europe/Madrid - the day BEFORE each publish slot, so every slot is preceded by a fresh top-up and the two jobs never touch content_queue on the same day. LinkedIn Post Sharing stays at 3 posts a week (Mon 16:00, Wed/Fri 10:30); this job only fills the backlog, it never decides how much gets published.\nlookback_days must cover the longest gap between runs plus slack for a failed one: Thu -> Sun is 3 days, and Thu -> Tue is 5 if the Sunday run fails, which is why it is 5."
       },
@@ -82,10 +82,10 @@
         "type": "n8n-nodes-base.set",
         "typeVersion": 3.4,
         "position": [
-          -23760,
-          1936
+          -21024,
+          2112
         ],
-        "id": "b39e1ab3-78c2-41d5-9c02-9214c8872e1e",
+        "id": "4ae012cc-6b22-48f6-abff-1d18a279396c",
         "name": "set_workflow_vars",
         "notes": "MINIFLUX_URL / MINIFLUX_API_USER / MINIFLUX_API_PASSWORD come from the n8n pod env, same pattern as CUSTOM_FLARESOLVERR_URL in Download Content."
       },
@@ -133,10 +133,10 @@
         "type": "n8n-nodes-base.executeWorkflow",
         "typeVersion": 1.2,
         "position": [
-          -23536,
-          1936
+          -20800,
+          2112
         ],
-        "id": "bd9cace7-87fa-425d-9343-edcb1ac3f791",
+        "id": "037d4f7b-04f3-488e-9339-da5bc44fdabe",
         "name": "download_curator_config"
       },
       {
@@ -146,10 +146,10 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          -23312,
-          1936
+          -20576,
+          2112
         ],
-        "id": "0c59d457-602c-4375-a56f-6f5e2cb46b56",
+        "id": "b6029f22-8d2a-4bc3-a995-882930cb4335",
         "name": "parse_curator_config"
       },
       {
@@ -159,10 +159,10 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          -23088,
-          1936
+          -20352,
+          2112
         ],
-        "id": "0c5ec077-5d31-4bcd-84d0-82ae45ccd920",
+        "id": "f68946ed-f8fe-4a6f-a654-c78047dc4f1e",
         "name": "fetch_candidates",
         "notes": "Miniflux per non-excluded category, plus the Hacker News front page above a points floor. Each source in its own try/catch. Reddit was removed - 403/429 without an OAuth app."
       },
@@ -194,10 +194,10 @@
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
         "position": [
-          -22864,
-          1936
+          -20128,
+          2112
         ],
-        "id": "4876a220-d390-43c2-93dc-ebed0851618b",
+        "id": "a0081f76-d519-49e7-bffb-74386841ae20",
         "name": "read_legacy_sheet",
         "alwaysOutputData": true,
         "credentials": {
@@ -235,10 +235,10 @@
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
         "position": [
-          -22640,
-          1936
+          -19904,
+          2112
         ],
-        "id": "54381f43-4a81-4071-9a13-8d6aeadc8891",
+        "id": "ffe8dbd5-fc53-430f-b593-b3d94fafa612",
         "name": "read_articles_sheet",
         "alwaysOutputData": true,
         "credentials": {
@@ -257,10 +257,10 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          -22416,
-          1936
+          -19680,
+          2112
         ],
-        "id": "f9881b09-9b02-48e0-83b5-a7dd9ea60b33",
+        "id": "c3024473-5682-482c-b0c4-cb9f5ba7abaa",
         "name": "filter_candidates",
         "alwaysOutputData": true
       },
@@ -271,10 +271,10 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          -22192,
-          1936
+          -19456,
+          2112
         ],
-        "id": "c4d35a54-4534-4878-895b-0bc82aa52f02",
+        "id": "31e1fcc7-d385-4f33-9305-3ee4cdb22bec",
         "name": "rank_candidates"
       },
       {
@@ -306,10 +306,10 @@
         "type": "n8n-nodes-base.if",
         "typeVersion": 2.2,
         "position": [
-          -21968,
-          1936
+          -19232,
+          2112
         ],
-        "id": "20a0ae5e-a1ee-4687-850f-c1037ca06e37",
+        "id": "3fb5a5c4-efa6-497c-8000-a4f557b98143",
         "name": "if_has_candidates"
       },
       {
@@ -329,10 +329,10 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          -21744,
-          2032
+          -19008,
+          2208
         ],
-        "id": "fe622cf3-c930-4a14-91b4-cfd0531d8da1",
+        "id": "5b68d9e5-29ab-4b93-9aff-3b43a6df5632",
         "name": "notify_empty",
         "webhookId": "fb093826-f2b4-537f-8860-cb63be47a5ba",
         "credentials": {
@@ -349,10 +349,10 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          -21744,
-          1808
+          -19008,
+          1984
         ],
-        "id": "c241c4f9-d736-4cdc-bcb9-7e3b8d17cc7d",
+        "id": "18ec19e9-f9c2-4f0b-b20f-63a350315029",
         "name": "fetch_hn_signal"
       },
       {
@@ -362,10 +362,10 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          -21520,
-          1808
+          -18784,
+          1984
         ],
-        "id": "40c57f92-0c4f-42db-8567-72056d120daa",
+        "id": "71c85ed2-9389-4024-ac32-afa007d563bb",
         "name": "pick_finalists"
       },
       {
@@ -375,10 +375,10 @@
         "type": "n8n-nodes-base.splitInBatches",
         "typeVersion": 3,
         "position": [
-          -21296,
-          1808
+          -18560,
+          1984
         ],
-        "id": "301121cf-cb5f-40ad-a035-825b024ea649",
+        "id": "b8217545-01c4-4239-905d-bdf83627527b",
         "name": "loop_judge_finalists",
         "notes": "One finalist at a time: the thin ones need a Download Content fetch. Output 0 = done, 1 = current."
       },
@@ -392,10 +392,10 @@
         "type": "n8n-nodes-base.stickyNote",
         "typeVersion": 1,
         "position": [
-          -23200,
-          1040
+          -20464,
+          1216
         ],
-        "id": "54d8570f-67f7-4fe3-b0e3-593f2669602b",
+        "id": "2e699395-cdf6-4181-a234-c7a215d0d0d6",
         "name": "Sticky Note1"
       },
       {
@@ -427,10 +427,10 @@
         "type": "n8n-nodes-base.if",
         "typeVersion": 2.2,
         "position": [
-          -21072,
-          1776
+          -18336,
+          1952
         ],
-        "id": "225091a6-28ee-4c0e-9379-f073cfa43dbb",
+        "id": "703113c7-b058-4530-b135-910a0b6c8600",
         "name": "if_thin_content",
         "notes": "Miniflux has no crawler:true on any feed, so excerpt-only feeds are common. Only those pay for puppeteer."
       },
@@ -473,10 +473,10 @@
         "type": "n8n-nodes-base.executeWorkflow",
         "typeVersion": 1.2,
         "position": [
-          -20848,
-          1712
+          -18112,
+          1888
         ],
-        "id": "42abc506-52a2-42aa-b0ab-e4ecbfd70ea5",
+        "id": "44dcaf80-4c20-46a9-a881-3b4ef4b41c81",
         "name": "download_full_content",
         "alwaysOutputData": true,
         "onError": "continueRegularOutput",
@@ -489,10 +489,10 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          -20624,
-          1712
+          -17888,
+          1888
         ],
-        "id": "95365251-5fff-43dd-8584-5f379f3f6cbc",
+        "id": "8fe9f886-c456-4f2f-aba5-7e57a49fbfdc",
         "name": "build_judge_vars_downloaded"
       },
       {
@@ -502,10 +502,10 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          -20624,
-          1904
+          -17888,
+          2080
         ],
-        "id": "1437dcaf-ef03-471b-bccf-126a9c1254be",
+        "id": "af58e906-d98b-4c8c-9414-54cf89b725a4",
         "name": "build_judge_vars_local"
       },
       {
@@ -552,10 +552,10 @@
         "type": "n8n-nodes-base.executeWorkflow",
         "typeVersion": 1.2,
         "position": [
-          -20400,
-          1776
+          -17664,
+          1952
         ],
-        "id": "787fb9fd-b4b5-4982-a5d6-9b10dd7555e9",
+        "id": "90382bab-7c52-4a3c-9f3d-0658e976b1fd",
         "name": "download_judge_prompt"
       },
       {
@@ -567,10 +567,10 @@
         "type": "@n8n/n8n-nodes-langchain.chainLlm",
         "typeVersion": 1.6,
         "position": [
-          -20176,
-          1776
+          -17440,
+          1952
         ],
-        "id": "0e5be116-45f4-4c0d-ad7f-6080294baa29",
+        "id": "5c0f4562-1ca7-493f-91bf-efd72cbbf882",
         "name": "judge_llm",
         "retryOnFail": true,
         "maxTries": 3,
@@ -586,10 +586,10 @@
         "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
         "typeVersion": 1,
         "position": [
-          -20168,
-          1992
+          -17440,
+          2176
         ],
-        "id": "322c575f-f784-4dbd-9e8e-30751f31e83c",
+        "id": "367d1fa5-713c-4344-a8ce-feea8e318e2c",
         "name": "ai_model",
         "credentials": {
           "openRouterApi": {
@@ -609,10 +609,10 @@
         "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
         "typeVersion": 1,
         "position": [
-          -20040,
-          1992
+          -17312,
+          2176
         ],
-        "id": "9518cd3c-7411-44bd-a09b-18e8a52f1b23",
+        "id": "9f0d1f70-e186-42dd-919a-678b896ecb46",
         "name": "ai_model_fallback",
         "credentials": {
           "openRouterApi": {
@@ -628,10 +628,10 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          -19824,
-          1840
+          -17088,
+          2016
         ],
-        "id": "00f58953-414c-48bf-8730-d537294c6ab8",
+        "id": "d19c2592-9bf7-4078-b1a9-36a886e7ab00",
         "name": "parse_judge"
       },
       {
@@ -641,10 +641,10 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          -20848,
-          1280
+          -18112,
+          1456
         ],
-        "id": "8735bab4-15fe-4baa-b5fb-bde318136987",
+        "id": "81acd6f7-b6e4-4915-b580-de3819717a79",
         "name": "build_digest"
       },
       {
@@ -664,10 +664,10 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          -20624,
-          1280
+          -17888,
+          1456
         ],
-        "id": "c709dd54-eba2-4689-9fe6-e9a374581f3e",
+        "id": "95d53f8d-4d45-4354-9c12-6b711e18d0e6",
         "name": "notify_digest",
         "webhookId": "0d873871-99b5-5c65-a391-4719ced0d31f",
         "credentials": {
@@ -706,10 +706,10 @@
         "type": "n8n-nodes-base.if",
         "typeVersion": 2.2,
         "position": [
-          -20400,
-          1280
+          -17664,
+          1456
         ],
-        "id": "20d965ef-91d0-47f4-a5b2-3cae4ae0cbda",
+        "id": "43e01953-86a2-48fa-8594-750712741b31",
         "name": "if_write_to_sheet",
         "notes": "False keeps the run a dry run: digest only, sheet untouched."
       },
@@ -720,10 +720,10 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          -20112,
-          1088
+          -17376,
+          1264
         ],
-        "id": "78df8b13-e062-4d4a-a6ac-79063cd6c0ba",
+        "id": "01ccd702-6b66-4443-9a80-1ec10d608971",
         "name": "build_expire_rows"
       },
       {
@@ -953,10 +953,10 @@
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
         "position": [
-          -19824,
-          1088
+          -17088,
+          1264
         ],
-        "id": "66b69f8e-ee31-45a4-8c42-4dbbee869111",
+        "id": "c71051d8-33d7-4c96-9cc2-9b31ecda2349",
         "name": "expire_auto_queue",
         "alwaysOutputData": false,
         "credentials": {
@@ -1206,10 +1206,10 @@
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
         "position": [
-          -19600,
-          1280
+          -16864,
+          1456
         ],
-        "id": "eadfd597-87c8-43aa-8d8f-38d8afcbb1e6",
+        "id": "347ece82-e200-4deb-a25c-544d693d633b",
         "name": "append_content_queue",
         "credentials": {
           "googleSheetsOAuth2Api": {
@@ -1248,10 +1248,10 @@
         "type": "n8n-nodes-base.if",
         "typeVersion": 2.2,
         "position": [
-          -19376,
-          1360
+          -16640,
+          1536
         ],
-        "id": "e311208d-7258-4079-b93f-ae66468153ed",
+        "id": "ede38ea4-6737-44dc-b5bd-b5dec884d62b",
         "name": "if_mark_read"
       },
       {
@@ -1261,10 +1261,10 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          -19152,
-          1360
+          -16416,
+          1536
         ],
-        "id": "eb1cafb7-f125-44c8-a9fd-27c326fef402",
+        "id": "697e4d8e-0f36-482b-a630-faf9c553b2a6",
         "name": "build_mark_read_payload"
       },
       {
@@ -1294,10 +1294,10 @@
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.2,
         "position": [
-          -18928,
-          1360
+          -16192,
+          1536
         ],
-        "id": "a6c3c982-6bdf-44ef-a2b2-2d7a3a1ad946",
+        "id": "e3b19c58-6607-479a-aada-5a1ee02c74b7",
         "name": "mark_entries_read",
         "retryOnFail": true,
         "maxTries": 3,
@@ -1314,10 +1314,10 @@
         "type": "n8n-nodes-base.stickyNote",
         "typeVersion": 1,
         "position": [
-          -21760,
-          1136
+          -19024,
+          1312
         ],
-        "id": "d7613ec6-cd4a-4ea4-9729-122a6bec9d7c",
+        "id": "b565ad09-8b44-42dd-9df4-4d431cfc10dc",
         "name": "Sticky Note2"
       },
       {
@@ -1327,10 +1327,10 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          -21072,
-          1280
+          -18336,
+          1456
         ],
-        "id": "0861a99e-7377-48a0-ae96-318d3bcc5718",
+        "id": "f56836d4-04af-4ea2-a531-ff40275a7ea9",
         "name": "admit_to_backlog"
       },
       {
@@ -1359,26 +1359,26 @@
           "looseTypeValidation": true,
           "options": {}
         },
-        "id": "26a6b72c-7ee7-49f7-a308-ccdbbefbcee4",
+        "id": "27fa0cd2-4fe6-4a0d-b044-de7a045fabd7",
         "name": "if_has_admissions",
         "type": "n8n-nodes-base.if",
         "typeVersion": 2.2,
         "position": [
-          -20112,
-          1280
+          -17376,
+          1456
         ]
       },
       {
         "parameters": {
           "jsCode": "// Re-emit the admitted rows, one item per sheet row, immediately before the append.\n//\n// Why this node exists at all: if_write_to_sheet is four nodes downstream of\n// admit_to_backlog, and everything between them collapses the stream to a single item -\n// build_digest returns one digest, notify_digest replaces it with Slack's API response.\n// So append_content_queue was receiving {ok, channel, message: {...}} and every\n// ={{ $json.URL }} mapping resolved to undefined. It appended one blank row per run and\n// reported success, because an append of undefined values is not an error.\n//\n// n8n has no way to \"go back\" to an earlier node's items in a mapping - a node reference in\n// an expression reads ONE item, not the list - so restoring the stream needs a code node.\n// This is the standard shape for it: read the named node, re-emit.\n//\n// Only the 18 sheet columns are emitted. admit_to_backlog's items also carry _stats,\n// features, topic_hits and the rest, which the append does not map and nobody downstream\n// reads; dropping them here keeps what reaches Google Sheets equal to what the header says.\nconst COLUMNS = [\n  'URL',\n  'TITLE',\n  'STATUS',\n  'PRIORITY',\n  'SCORE',\n  'ORIGIN',\n  'TOPIC',\n  'SOURCE',\n  'RATIONALE',\n  'EXTRA_PROMPT',\n  'MAX_WORDS',\n  'PUBLISHED_AT',\n  'UPDATE_DATE',\n  'RELEASE_DATE',\n  'LINKEDIN_URL',\n  'ENTRY_ID',\n  'ERROR',\n  'EXECUTION_ID',\n];\n\n// admit_to_backlog emits a single { no_selection: true } item when nothing cleared the\n// judge or the backlog had no room. That is a normal outcome, not a row - if it reached the\n// append it would be the blank-row bug again, wearing a different hat.\nconst rows = $('admit_to_backlog')\n  .all()\n  .map((i) => i.json)\n  .filter((j) => j && j.no_selection !== true && j.URL);\n\nconsole.log('build_queue_rows: ' + rows.length + ' row(s) to append');\n\nreturn rows.map((r) => {\n  const out = {};\n  for (const c of COLUMNS) out[c] = r[c] != null ? r[c] : '';\n  return { json: out };\n});\n"
         },
-        "id": "0cc233ee-6d1a-4523-bef9-8da3ca9b0c0a",
+        "id": "a7e26ea5-4124-41dd-bb97-98808bb9d1bc",
         "name": "build_queue_rows",
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          -19824,
-          1280
+          -17088,
+          1456
         ]
       }
     ],
@@ -1789,13 +1789,13 @@
     },
     "nodeGroups": [],
     "authors": "no name",
-    "name": "Version 6cbb7c85",
+    "name": "Version 16434558",
     "description": "",
-    "autosaved": false,
-    "createdAt": "2026-07-27T19:04:57.486Z",
-    "updatedAt": "2026-07-27T19:04:58.966Z"
+    "autosaved": true,
+    "createdAt": "2026-08-31T09:29:38.923Z",
+    "updatedAt": "2026-08-31T09:29:40.752Z"
   },
-  "activeVersionId": "6cbb7c85-89b7-4f3f-ae29-2bf4bd6cf794",
+  "activeVersionId": "16434558-818a-4b62-a3c3-58d231bd96d1",
   "connections": {
     "click_trigger": {
       "main": [
@@ -2218,10 +2218,10 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -24272,
-        1136
+        -21536,
+        1312
       ],
-      "id": "7dcdd175-f2ef-4ad6-8237-d77717882f52",
+      "id": "1aaacdde-9f0f-4992-880f-45273a190007",
       "name": "Sticky Note"
     },
     {
@@ -2229,10 +2229,10 @@
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
       "position": [
-        -23984,
-        1840
+        -21248,
+        2016
       ],
-      "id": "d075b202-dd5a-483d-921c-51f52d8a77a8",
+      "id": "5490a728-89dc-40bc-832a-cb48d0156b7d",
       "name": "click_trigger"
     },
     {
@@ -2249,10 +2249,10 @@
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
-        -23984,
-        2032
+        -21248,
+        2208
       ],
-      "id": "6883756d-b37f-4b45-9821-44f12129f66c",
+      "id": "d61855d3-aff9-4ecd-90ad-d26708685644",
       "name": "schedule_trigger",
       "notes": "Sun/Tue/Thu 06:00 Europe/Madrid - the day BEFORE each publish slot, so every slot is preceded by a fresh top-up and the two jobs never touch content_queue on the same day. LinkedIn Post Sharing stays at 3 posts a week (Mon 16:00, Wed/Fri 10:30); this job only fills the backlog, it never decides how much gets published.\nlookback_days must cover the longest gap between runs plus slack for a failed one: Thu -> Sun is 3 days, and Thu -> Tue is 5 if the Sunday run fails, which is why it is 5."
     },
@@ -2286,10 +2286,10 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        -23760,
-        1936
+        -21024,
+        2112
       ],
-      "id": "b39e1ab3-78c2-41d5-9c02-9214c8872e1e",
+      "id": "4ae012cc-6b22-48f6-abff-1d18a279396c",
       "name": "set_workflow_vars",
       "notes": "MINIFLUX_URL / MINIFLUX_API_USER / MINIFLUX_API_PASSWORD come from the n8n pod env, same pattern as CUSTOM_FLARESOLVERR_URL in Download Content."
     },
@@ -2337,10 +2337,10 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        -23536,
-        1936
+        -20800,
+        2112
       ],
-      "id": "bd9cace7-87fa-425d-9343-edcb1ac3f791",
+      "id": "037d4f7b-04f3-488e-9339-da5bc44fdabe",
       "name": "download_curator_config"
     },
     {
@@ -2350,10 +2350,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -23312,
-        1936
+        -20576,
+        2112
       ],
-      "id": "0c59d457-602c-4375-a56f-6f5e2cb46b56",
+      "id": "b6029f22-8d2a-4bc3-a995-882930cb4335",
       "name": "parse_curator_config"
     },
     {
@@ -2363,10 +2363,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -23088,
-        1936
+        -20352,
+        2112
       ],
-      "id": "0c5ec077-5d31-4bcd-84d0-82ae45ccd920",
+      "id": "f68946ed-f8fe-4a6f-a654-c78047dc4f1e",
       "name": "fetch_candidates",
       "notes": "Miniflux per non-excluded category, plus the Hacker News front page above a points floor. Each source in its own try/catch. Reddit was removed - 403/429 without an OAuth app."
     },
@@ -2398,10 +2398,10 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
       "position": [
-        -22864,
-        1936
+        -20128,
+        2112
       ],
-      "id": "4876a220-d390-43c2-93dc-ebed0851618b",
+      "id": "a0081f76-d519-49e7-bffb-74386841ae20",
       "name": "read_legacy_sheet",
       "alwaysOutputData": true,
       "credentials": {
@@ -2439,10 +2439,10 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
       "position": [
-        -22640,
-        1936
+        -19904,
+        2112
       ],
-      "id": "54381f43-4a81-4071-9a13-8d6aeadc8891",
+      "id": "ffe8dbd5-fc53-430f-b593-b3d94fafa612",
       "name": "read_articles_sheet",
       "alwaysOutputData": true,
       "credentials": {
@@ -2461,10 +2461,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -22416,
-        1936
+        -19680,
+        2112
       ],
-      "id": "f9881b09-9b02-48e0-83b5-a7dd9ea60b33",
+      "id": "c3024473-5682-482c-b0c4-cb9f5ba7abaa",
       "name": "filter_candidates",
       "alwaysOutputData": true
     },
@@ -2475,10 +2475,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -22192,
-        1936
+        -19456,
+        2112
       ],
-      "id": "c4d35a54-4534-4878-895b-0bc82aa52f02",
+      "id": "31e1fcc7-d385-4f33-9305-3ee4cdb22bec",
       "name": "rank_candidates"
     },
     {
@@ -2510,10 +2510,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        -21968,
-        1936
+        -19232,
+        2112
       ],
-      "id": "20a0ae5e-a1ee-4687-850f-c1037ca06e37",
+      "id": "3fb5a5c4-efa6-497c-8000-a4f557b98143",
       "name": "if_has_candidates"
     },
     {
@@ -2533,10 +2533,10 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        -21744,
-        2032
+        -19008,
+        2208
       ],
-      "id": "fe622cf3-c930-4a14-91b4-cfd0531d8da1",
+      "id": "5b68d9e5-29ab-4b93-9aff-3b43a6df5632",
       "name": "notify_empty",
       "webhookId": "fb093826-f2b4-537f-8860-cb63be47a5ba",
       "credentials": {
@@ -2553,10 +2553,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -21744,
-        1808
+        -19008,
+        1984
       ],
-      "id": "c241c4f9-d736-4cdc-bcb9-7e3b8d17cc7d",
+      "id": "18ec19e9-f9c2-4f0b-b20f-63a350315029",
       "name": "fetch_hn_signal"
     },
     {
@@ -2566,10 +2566,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -21520,
-        1808
+        -18784,
+        1984
       ],
-      "id": "40c57f92-0c4f-42db-8567-72056d120daa",
+      "id": "71c85ed2-9389-4024-ac32-afa007d563bb",
       "name": "pick_finalists"
     },
     {
@@ -2579,10 +2579,10 @@
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
       "position": [
-        -21296,
-        1808
+        -18560,
+        1984
       ],
-      "id": "301121cf-cb5f-40ad-a035-825b024ea649",
+      "id": "b8217545-01c4-4239-905d-bdf83627527b",
       "name": "loop_judge_finalists",
       "notes": "One finalist at a time: the thin ones need a Download Content fetch. Output 0 = done, 1 = current."
     },
@@ -2596,10 +2596,10 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -23200,
-        1040
+        -20464,
+        1216
       ],
-      "id": "54d8570f-67f7-4fe3-b0e3-593f2669602b",
+      "id": "2e699395-cdf6-4181-a234-c7a215d0d0d6",
       "name": "Sticky Note1"
     },
     {
@@ -2631,10 +2631,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        -21072,
-        1776
+        -18336,
+        1952
       ],
-      "id": "225091a6-28ee-4c0e-9379-f073cfa43dbb",
+      "id": "703113c7-b058-4530-b135-910a0b6c8600",
       "name": "if_thin_content",
       "notes": "Miniflux has no crawler:true on any feed, so excerpt-only feeds are common. Only those pay for puppeteer."
     },
@@ -2677,10 +2677,10 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        -20848,
-        1712
+        -18112,
+        1888
       ],
-      "id": "42abc506-52a2-42aa-b0ab-e4ecbfd70ea5",
+      "id": "44dcaf80-4c20-46a9-a881-3b4ef4b41c81",
       "name": "download_full_content",
       "alwaysOutputData": true,
       "onError": "continueRegularOutput",
@@ -2693,10 +2693,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -20624,
-        1712
+        -17888,
+        1888
       ],
-      "id": "95365251-5fff-43dd-8584-5f379f3f6cbc",
+      "id": "8fe9f886-c456-4f2f-aba5-7e57a49fbfdc",
       "name": "build_judge_vars_downloaded"
     },
     {
@@ -2706,10 +2706,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -20624,
-        1904
+        -17888,
+        2080
       ],
-      "id": "1437dcaf-ef03-471b-bccf-126a9c1254be",
+      "id": "af58e906-d98b-4c8c-9414-54cf89b725a4",
       "name": "build_judge_vars_local"
     },
     {
@@ -2756,10 +2756,10 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        -20400,
-        1776
+        -17664,
+        1952
       ],
-      "id": "787fb9fd-b4b5-4982-a5d6-9b10dd7555e9",
+      "id": "90382bab-7c52-4a3c-9f3d-0658e976b1fd",
       "name": "download_judge_prompt"
     },
     {
@@ -2771,10 +2771,10 @@
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "typeVersion": 1.6,
       "position": [
-        -20176,
-        1776
+        -17440,
+        1952
       ],
-      "id": "0e5be116-45f4-4c0d-ad7f-6080294baa29",
+      "id": "5c0f4562-1ca7-493f-91bf-efd72cbbf882",
       "name": "judge_llm",
       "retryOnFail": true,
       "maxTries": 3,
@@ -2790,10 +2790,10 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
       "typeVersion": 1,
       "position": [
-        -20168,
-        1992
+        -17440,
+        2176
       ],
-      "id": "322c575f-f784-4dbd-9e8e-30751f31e83c",
+      "id": "367d1fa5-713c-4344-a8ce-feea8e318e2c",
       "name": "ai_model",
       "credentials": {
         "openRouterApi": {
@@ -2813,10 +2813,10 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
       "typeVersion": 1,
       "position": [
-        -20040,
-        1992
+        -17312,
+        2176
       ],
-      "id": "9518cd3c-7411-44bd-a09b-18e8a52f1b23",
+      "id": "9f0d1f70-e186-42dd-919a-678b896ecb46",
       "name": "ai_model_fallback",
       "credentials": {
         "openRouterApi": {
@@ -2832,10 +2832,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -19824,
-        1840
+        -17088,
+        2016
       ],
-      "id": "00f58953-414c-48bf-8730-d537294c6ab8",
+      "id": "d19c2592-9bf7-4078-b1a9-36a886e7ab00",
       "name": "parse_judge"
     },
     {
@@ -2845,10 +2845,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -20848,
-        1280
+        -18112,
+        1456
       ],
-      "id": "8735bab4-15fe-4baa-b5fb-bde318136987",
+      "id": "81acd6f7-b6e4-4915-b580-de3819717a79",
       "name": "build_digest"
     },
     {
@@ -2868,10 +2868,10 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        -20624,
-        1280
+        -17888,
+        1456
       ],
-      "id": "c709dd54-eba2-4689-9fe6-e9a374581f3e",
+      "id": "95d53f8d-4d45-4354-9c12-6b711e18d0e6",
       "name": "notify_digest",
       "webhookId": "0d873871-99b5-5c65-a391-4719ced0d31f",
       "credentials": {
@@ -2910,10 +2910,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        -20400,
-        1280
+        -17664,
+        1456
       ],
-      "id": "20d965ef-91d0-47f4-a5b2-3cae4ae0cbda",
+      "id": "43e01953-86a2-48fa-8594-750712741b31",
       "name": "if_write_to_sheet",
       "notes": "False keeps the run a dry run: digest only, sheet untouched."
     },
@@ -2924,10 +2924,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -20112,
-        1088
+        -17376,
+        1264
       ],
-      "id": "78df8b13-e062-4d4a-a6ac-79063cd6c0ba",
+      "id": "01ccd702-6b66-4443-9a80-1ec10d608971",
       "name": "build_expire_rows"
     },
     {
@@ -3157,10 +3157,10 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
       "position": [
-        -19824,
-        1088
+        -17088,
+        1264
       ],
-      "id": "66b69f8e-ee31-45a4-8c42-4dbbee869111",
+      "id": "c71051d8-33d7-4c96-9cc2-9b31ecda2349",
       "name": "expire_auto_queue",
       "alwaysOutputData": false,
       "credentials": {
@@ -3410,10 +3410,10 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
       "position": [
-        -19600,
-        1280
+        -16864,
+        1456
       ],
-      "id": "eadfd597-87c8-43aa-8d8f-38d8afcbb1e6",
+      "id": "347ece82-e200-4deb-a25c-544d693d633b",
       "name": "append_content_queue",
       "credentials": {
         "googleSheetsOAuth2Api": {
@@ -3452,10 +3452,10 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        -19376,
-        1360
+        -16640,
+        1536
       ],
-      "id": "e311208d-7258-4079-b93f-ae66468153ed",
+      "id": "ede38ea4-6737-44dc-b5bd-b5dec884d62b",
       "name": "if_mark_read"
     },
     {
@@ -3465,10 +3465,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -19152,
-        1360
+        -16416,
+        1536
       ],
-      "id": "eb1cafb7-f125-44c8-a9fd-27c326fef402",
+      "id": "697e4d8e-0f36-482b-a630-faf9c553b2a6",
       "name": "build_mark_read_payload"
     },
     {
@@ -3498,10 +3498,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -18928,
-        1360
+        -16192,
+        1536
       ],
-      "id": "a6c3c982-6bdf-44ef-a2b2-2d7a3a1ad946",
+      "id": "e3b19c58-6607-479a-aada-5a1ee02c74b7",
       "name": "mark_entries_read",
       "retryOnFail": true,
       "maxTries": 3,
@@ -3518,10 +3518,10 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -21760,
-        1136
+        -19024,
+        1312
       ],
-      "id": "d7613ec6-cd4a-4ea4-9729-122a6bec9d7c",
+      "id": "b565ad09-8b44-42dd-9df4-4d431cfc10dc",
       "name": "Sticky Note2"
     },
     {
@@ -3531,10 +3531,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -21072,
-        1280
+        -18336,
+        1456
       ],
-      "id": "0861a99e-7377-48a0-ae96-318d3bcc5718",
+      "id": "f56836d4-04af-4ea2-a531-ff40275a7ea9",
       "name": "admit_to_backlog"
     },
     {
@@ -3563,26 +3563,26 @@
         "looseTypeValidation": true,
         "options": {}
       },
-      "id": "26a6b72c-7ee7-49f7-a308-ccdbbefbcee4",
+      "id": "27fa0cd2-4fe6-4a0d-b044-de7a045fabd7",
       "name": "if_has_admissions",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        -20112,
-        1280
+        -17376,
+        1456
       ]
     },
     {
       "parameters": {
         "jsCode": "// Re-emit the admitted rows, one item per sheet row, immediately before the append.\n//\n// Why this node exists at all: if_write_to_sheet is four nodes downstream of\n// admit_to_backlog, and everything between them collapses the stream to a single item -\n// build_digest returns one digest, notify_digest replaces it with Slack's API response.\n// So append_content_queue was receiving {ok, channel, message: {...}} and every\n// ={{ $json.URL }} mapping resolved to undefined. It appended one blank row per run and\n// reported success, because an append of undefined values is not an error.\n//\n// n8n has no way to \"go back\" to an earlier node's items in a mapping - a node reference in\n// an expression reads ONE item, not the list - so restoring the stream needs a code node.\n// This is the standard shape for it: read the named node, re-emit.\n//\n// Only the 18 sheet columns are emitted. admit_to_backlog's items also carry _stats,\n// features, topic_hits and the rest, which the append does not map and nobody downstream\n// reads; dropping them here keeps what reaches Google Sheets equal to what the header says.\nconst COLUMNS = [\n  'URL',\n  'TITLE',\n  'STATUS',\n  'PRIORITY',\n  'SCORE',\n  'ORIGIN',\n  'TOPIC',\n  'SOURCE',\n  'RATIONALE',\n  'EXTRA_PROMPT',\n  'MAX_WORDS',\n  'PUBLISHED_AT',\n  'UPDATE_DATE',\n  'RELEASE_DATE',\n  'LINKEDIN_URL',\n  'ENTRY_ID',\n  'ERROR',\n  'EXECUTION_ID',\n];\n\n// admit_to_backlog emits a single { no_selection: true } item when nothing cleared the\n// judge or the backlog had no room. That is a normal outcome, not a row - if it reached the\n// append it would be the blank-row bug again, wearing a different hat.\nconst rows = $('admit_to_backlog')\n  .all()\n  .map((i) => i.json)\n  .filter((j) => j && j.no_selection !== true && j.URL);\n\nconsole.log('build_queue_rows: ' + rows.length + ' row(s) to append');\n\nreturn rows.map((r) => {\n  const out = {};\n  for (const c of COLUMNS) out[c] = r[c] != null ? r[c] : '';\n  return { json: out };\n});\n"
       },
-      "id": "0cc233ee-6d1a-4523-bef9-8da3ca9b0c0a",
+      "id": "a7e26ea5-4124-41dd-bb97-98808bb9d1bc",
       "name": "build_queue_rows",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -19824,
-        1280
+        -17088,
+        1456
       ]
     }
   ],
@@ -3613,6 +3613,6 @@
   },
   "tags": [],
   "triggerCount": 1,
-  "updatedAt": "2026-07-27T19:04:56.516Z",
-  "versionId": "6cbb7c85-89b7-4f3f-ae29-2bf4bd6cf794"
+  "updatedAt": "2026-08-31T09:29:38.932Z",
+  "versionId": "16434558-818a-4b62-a3c3-58d231bd96d1"
 }

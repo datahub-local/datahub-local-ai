@@ -17,7 +17,7 @@ Pick the framework that fits the content. Do not always use bullet points.
 - The Variety Directives dictate hook, format, length and closing. Follow them exactly — they exist so consecutive posts never share a shape.
 - No bold, markdown, headings or asterisks in the post.
 - End with the source line `Source here: SOME_URL` — that exact placeholder — then 3-5 technical hashtags (e.g. #DataEngineering, #ModernDataStack, #ApacheSpark).
-- Maximum {{ MAX_WORDS }} words.
+- MINIMUM of {{ MIN_WORDS }} and MAXIMUM of {{ MAX_WORDS }} words.
 - Output ONLY inside `<output></output>`.
 
 ### Hook archetypes

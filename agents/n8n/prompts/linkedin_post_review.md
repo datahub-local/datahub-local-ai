@@ -11,6 +11,7 @@ Always follow it with `<explanation>your reasoning here</explanation>`, kept sho
 - Professional yet authentic — not motivational, not polished sales copy.
 - No banned AI-speak (delve, leverage, harness, tapestry, ...).
 - Hook, format, length and closing match the assigned variety directives. A bulleted post when PURE PROSE was assigned, or a closing question when HOT TAKE was assigned, is a failure.
+- Word count of the body is within the range the Validation Criteria state. Count the words; below the minimum is a failure even if the post reads well.
 
 ## Validation Criteria
 

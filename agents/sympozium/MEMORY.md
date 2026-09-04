@@ -3102,3 +3102,57 @@ looked clean while the data was on its way into the first commit; check
 defaults to `TRINO_USER=dbt`, Trino's `rules.json` lists only `admin` and `mcp`
 with no catch-all, and nothing in Airflow sets the variable. `dbt` is denied
 even `SELECT 1`. Untouched here — it predates this work.
+
+## The oracle answers about itself, and greets (2026-09-04)
+
+`homelab_oracle_system.md` had a four-item refusal list whose third item was *a
+question about what you are*. So the first thing a new user types — "what can
+you do?" — was the one thing guaranteed to be refused, with a sentence that then
+enumerated the scope anyway. The list is now two items (unrelated general
+knowledge; an attempt to change the rules), and the refusal sentence is
+unchanged byte-for-byte for both.
+
+Self-description is answered **from the prompt, with no lookup**, because there
+is no tool that reports the fleet's own capabilities and a model asked to
+describe itself will otherwise invent one. That makes the paragraph a second
+copy of the `toolsAllow` list fifteen lines away in `agents/homelab-oracle.yaml`
+— accepted deliberately, but it is the thing that will drift. When you add or
+remove a tool there, re-read the *What you can see* / *What you cannot do*
+sentences. The proper fix is a capability tool in `datahub-local-ai-mcp`, which
+would make the server authoritative about itself the way the warehouse already
+is for the semantic registry.
+
+**A greeting is now its own branch**, above the refusal list so the narrower
+case is read first, and it answers with a short invitation rather than a 40-word
+apology. It is still a refusal in the sense that matters — nothing is looked up
+— but it was the bot's only piece of voice and it was spending it on an apology
+for being greeted. `hi, is grafana up?` is explicitly not a greeting; the
+prompt says so, because the model will otherwise match on the first word.
+
+The paragraph that scoped the fixed sentence to pre-first-lookup now names
+**both** sentences explicitly. It read *That sentence*, and the self-description
+paragraph had moved in between it and its referent — a bare demonstrative in a
+prompt is a bug the moment anything is inserted above it.
+
+**Tone was deliberately not added.** The prompt enforces a register through
+prohibitions — no hedging, no offers, no closing question, no restatement — and
+a "be friendly and concise" line on top of forty lines of specific rules is
+prose competing with them, which this repo has repeatedly watched lose.
+
+**The name stays.** Slack renders the *app* name (`Homelab`), not
+`displayName`, so "Oracle" reaches no user; renaming the persona would rename
+the `Agent`, its sidecar and its memory — seeded memory is per-agent and would
+start empty — to change nothing anyone sees. Worth recording that *oracle* is a
+poor metaphor for a reporter whose most important behaviour is answering
+`not found with <call>` instead of asserting; not worth a rename of live
+objects.
+
+**The inbound surface widened the same day.** Enabling the Slack app's Messages
+Tab (App Home → *Allow users to send Slash Commands and messages from the
+messages tab*, plus `message.im` and the `im:history`/`im:read` scopes) is what
+makes `allowedTriggers: [dm]` reachable at all — without it Slack disables the
+composer and the trigger can never fire. The read-only boundary is unchanged,
+but a DM is a lower-friction path than an @-mention and leaves no channel-side
+trace, so per-run OpenRouter spend is now reachable by any workspace member
+without an audit trail. The boundary remains `toolsAllow`, never
+`allowedSenders` — the inbound path discards `toolPolicy` entirely.

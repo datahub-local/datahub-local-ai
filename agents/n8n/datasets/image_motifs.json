@@ -414,9 +414,9 @@
   "_comment_universal_avoid": "Appended to every domain's avoid list. These are the failures that survive any subject: they are what the image collapses to when the model gives up on the metaphor.",
   "universal_avoid": [
     "stock-photo scenes of people at laptops, handshakes, or teams pointing at screens",
-    "collages of technology logos or app icons",
+    "collages of technology logos or app icons, and any attempt to reproduce a real company logo (the one permitted emblem is an invented geometric shape)",
     "dense fake dashboards, charts and tiny unreadable labels",
-    "any composition with more than one focal point",
+    "more than one focal point in the artwork itself (the wordmark and headline are the text stack, not competing focal points)",
     "workshop or factory scenes that read as handmade-versus-mass-production with no software texture anywhere in the lit part of the frame"
   ],
   "_comment_rotation": "parse_image_motifs shuffles each domain's anchors and motifs before round-robin selection, so consecutive posts in the same domain see different examples. The reference post reproduced career-craft motif 1 almost verbatim off a pool of three; a wider pool plus per-run rotation is what stops the four injected fusions from becoming the whole feed."

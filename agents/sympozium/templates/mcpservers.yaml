@@ -1,16 +1,7 @@
-{{/*
-  A Deployment, Service and MCPServer per entry in `sympozium_mcp_servers`, plus
-  the ServiceAccount and ClusterRole the server reads Kubernetes through.
-
-  Why any of it is shaped this way — the two load-bearing pod labels, the `url:`
-  form, the enumerated RBAC, the required `toolsPrefix`, the absent deny list —
-  is in ../MEMORY.md. Only the checks that would otherwise fail silently are
-  restated here.
-*/}}
 {{- range $name, $server := .Values.sympozium_mcp_servers | default dict }}
 {{-   if $server.enabled }}
 {{-     $fullName := printf "%s-mcp-%s" $.Values.release_name $name }}
-{{-     $project := $server.project | default (regexReplaceAll "-" $name "_") }}
+{{-     $serverArg := $server.server | default (regexReplaceAll "-" $name "_") }}
 {{-     if not $server.image }}
 {{-       fail (printf "sympozium_mcp_servers.%s: image is required" $name) }}
 {{-     end }}
@@ -24,6 +15,7 @@ metadata:
     app.kubernetes.io/name: mcpserver
     app.kubernetes.io/instance: {{ $fullName }}
     app.kubernetes.io/managed-by: Helm
+{{-     if or (not (hasKey $server "kubernetesReader")) $server.kubernetesReader }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -34,9 +26,6 @@ metadata:
     app.kubernetes.io/instance: {{ $fullName }}
     app.kubernetes.io/managed-by: Helm
 rules:
-{{- /* Enumerated, never a wildcard, and read-only. The kinds `find_object`
-       searches by name are here because a kind it may not list is a blind spot
-       it must announce rather than a fact about the cluster: see ../MEMORY.md. */}}
   - apiGroups: [""]
     resources:
       - nodes
@@ -47,9 +36,6 @@ rules:
       - persistentvolumeclaims
       - events
     verbs: ["get", "list"]
-{{- /* The one subresource, and the one read `list` cannot answer: `why_failed`
-       and `logs` follow an object to the container that broke. Bounded by lines
-       and by bytes at the API server; see ../../mcp/src/mcp_runner/kube.py. */}}
   - apiGroups: [""]
     resources: ["pods/log"]
     verbs: ["get"]
@@ -62,11 +48,9 @@ rules:
   - apiGroups: ["networking.k8s.io"]
     resources: ["ingresses"]
     verbs: ["get", "list"]
-{{- /* This cluster routes with Traefik, not with `Ingress`: see ../MEMORY.md. */}}
   - apiGroups: ["traefik.io"]
     resources: ["ingressroutes"]
     verbs: ["get", "list"]
-{{- /* `list` and deliberately not `get`: see ../MEMORY.md. */}}
   - apiGroups: [""]
     resources: ["secrets"]
     verbs: ["list"]
@@ -99,6 +83,7 @@ subjects:
   - kind: ServiceAccount
     name: {{ $fullName }}
     namespace: {{ $.Release.Namespace }}
+{{-     end }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -117,8 +102,6 @@ spec:
       app.kubernetes.io/instance: {{ $fullName }}
   template:
     metadata:
-{{- /* Both labels are load-bearing and a third one must stay off: see
-       ../MEMORY.md before touching this block. */}}
       labels:
         app.kubernetes.io/name: mcpserver
         app.kubernetes.io/instance: {{ $fullName }}
@@ -137,65 +120,72 @@ spec:
           image: {{ printf "%s:%s" $server.image ($server.tag | default "main") | quote }}
           imagePullPolicy: {{ $server.imagePullPolicy | default "Always" }}
           args:
-            - --project
-            - {{ $project | quote }}
+            - --server
+            - {{ $serverArg | quote }}
             - --port
             - "8080"
           env:
+            - name: MCP_STATE_DIR
+              value: /state
+{{-     if $server.configMap }}
+            - name: MCP_CONFIG_DIR
+              value: {{ printf "/etc/mcp/%s" $serverArg | quote }}
+{{-     end }}
+{{-     if or (not (hasKey $server "observabilityEnv")) $server.observabilityEnv }}
             - name: PROMETHEUS_URL
               value: {{ $server.prometheusUrl | default "http://datahub-local-core-kube-pr-prometheus.monitoring.svc:9090" | quote }}
             - name: PROMETHEUS_TIMEOUT_SECONDS
               value: {{ $server.prometheusTimeoutSeconds | default 20 | quote }}
-{{- /* Loki direct, like Prometheus and for the same reason: no datasource uid on
-       this path, so none can be resolved to the wrong datasource. */}}
             - name: LOKI_URL
               value: {{ $server.lokiUrl | default "http://datahub-local-core-loki.monitoring.svc:3100" | quote }}
             - name: LOKI_TIMEOUT_SECONDS
               value: {{ $server.lokiTimeoutSeconds | default 20 | quote }}
-            - name: MCP_STATE_DIR
-              value: /state
-{{- /* Garage's admin API is the only source of per-bucket size and object
-       count - Prometheus publishes no bucket label and no stored-bytes gauge -
-       and the only endpoint here that needs a credential. It is optional on
-       purpose: with no `garageSecret` the server holds no secret at all and the
-       bucket section reports itself unavailable rather than guessing.
-
-       Each key is named individually and never pulled in with `envFrom`. The
-       Secret this points at also carries AWS_ACCESS_KEY_ID and
-       AWS_SECRET_ACCESS_KEY, which are S3 *write* credentials this server has no
-       use for; envFrom would hand every one of them to a read-only reporter for
-       the convenience of two fewer lines. See ../MEMORY.md. */}}
-{{-     if and $server.garageSecret $server.garageUrlKey }}
+{{-     end }}
+{{-     if $server.configMap }}
+{{-       if eq $serverArg "semantic" }}
+            - name: SEMANTIC_REGISTRY_PATH
+              value: /etc/mcp/semantic/registry.yaml
+            - name: SEMANTIC_REGISTRY_VERSION
+              value: {{ $server.semanticRegistryVersion | default ($server.tag | default "main") | quote }}
+            - name: SEMANTIC_WAREHOUSE_SCOPES
+              value: {{ required "semantic needs warehouseScopes (catalog.schema pairs)" $server.warehouseScopes | quote }}
+{{-         if $server.cacheTTLSeconds }}
+            - name: SEMANTIC_CACHE_TTL_SECONDS
+              value: {{ $server.cacheTTLSeconds | quote }}
+{{-         end }}
+{{-       end }}
+{{-     end }}
+{{-     if $server.trinoUrl }}
+            - name: TRINO_URL
+              value: {{ $server.trinoUrl | quote }}
+            - name: TRINO_USER
+              value: {{ $server.trinoUser | default "mcp" | quote }}
+{{-     end }}
+{{-     if or (not (hasKey $server "observabilityEnv")) $server.observabilityEnv }}
+{{-       if and $server.garageSecret $server.garageUrlKey }}
             - name: GARAGE_ADMIN_URL
               valueFrom:
                 secretKeyRef:
                   name: {{ $server.garageSecret | quote }}
                   key: {{ $server.garageUrlKey | quote }}
                   optional: true
-{{-     else }}
+{{-       else }}
             - name: GARAGE_ADMIN_URL
               value: {{ $server.garageAdminUrl | default "http://datahub-local-core-data-garage.data.svc:3903" | quote }}
-{{-     end }}
-{{-     if $server.garageSecret }}
+{{-       end }}
+{{-       if $server.garageSecret }}
             - name: GARAGE_ADMIN_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: {{ $server.garageSecret | quote }}
                   key: {{ $server.garageTokenKey | default "adminToken" | quote }}
-{{- /* `optional` is load-bearing, not caution. A secretKeyRef that cannot
-       resolve leaves the pod in CreateContainerConfigError forever, which takes
-       down all sixteen tools for every persona rather than the one section that
-       needs the token - and the Secret this points at lives in another
-       namespace by default, where a secretKeyRef cannot reach it. Optional
-       degrades that to the server's own no-token path, which states itself. */}}
                   optional: true
+{{-       end }}
 {{-     end }}
           ports:
             - name: http
               containerPort: 8080
               protocol: TCP
-{{- /* The MCP endpoint answers on every path, so a probe must use a health
-       path rather than the service root. */}}
           livenessProbe:
             httpGet:
               path: /healthz
@@ -213,7 +203,6 @@ spec:
               cpu: {{ (($server.resources).requests).cpu | default "25m" | quote }}
               memory: {{ (($server.resources).requests).memory | default "96Mi" | quote }}
             limits:
-{{- /* Memory only, on purpose — see ../MEMORY.md. */}}
               memory: {{ (($server.resources).limits).memory | default "256Mi" | quote }}
           securityContext:
             allowPrivilegeEscalation: false
@@ -225,11 +214,21 @@ spec:
               mountPath: /state
             - name: tmp
               mountPath: /tmp
+{{-     if $server.configMap }}
+            - name: config
+              mountPath: {{ printf "/etc/mcp/%s" $serverArg | quote }}
+              readOnly: true
+{{-     end }}
       volumes:
         - name: state
           emptyDir: {}
         - name: tmp
           emptyDir: {}
+{{-     if $server.configMap }}
+        - name: config
+          configMap:
+            name: {{ $server.configMap | quote }}
+{{-     end }}
 ---
 apiVersion: v1
 kind: Service
@@ -261,15 +260,9 @@ metadata:
     sympozium.ai/catalog: "true"
 spec:
   transportType: http
-{{- /* `url` and not `deployment`, so the controller reconciles no workload of
-       its own. `replicas` and `timeout` are CRD defaults and are stated anyway,
-       or admission-time defaulting reads as permanent drift. */}}
   url: {{ printf "http://%s.%s.svc:8080/mcp" $fullName $.Release.Namespace | quote }}
   replicas: 1
   timeout: {{ $server.timeout | default 30 }}
-{{- /* Required by the CRD schema, and only a --dry-run=server apply catches it
-       missing. It is why toolPolicy.allow names facts_volume_fill while
-       toolsAllow names volume_fill. */}}
   toolsPrefix: {{ $server.toolsPrefix | default "facts" | quote }}
 {{-   end }}
 {{- end }}

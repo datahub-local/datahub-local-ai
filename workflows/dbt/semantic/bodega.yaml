@@ -1,0 +1,207 @@
+# Bodega semantic registry.
+#
+# MetricFlow-compatible on purpose: the schema is `semantic_models` / `metrics`
+# as dbt defines them, so MetricFlow or Cube can replace the compiler behind the
+# same MCP tools without the persona noticing. See ../../../docs/semantic_layer_spec.md.
+#
+# Every `expr` here was validated against the live column list and every metric
+# hand-run against Trino before being written down. The numbers, and the five
+# findings that changed these definitions, are in PHASE0.md. Read it before
+# editing a measure: two metrics in this file are shaped by a measurement that
+# contradicted the original design.
+
+semantic_models:
+  - name: invoices
+    description: One row per shopping trip. The receipt as printed.
+    model: ref('invoices')
+    defaults:
+      agg_time_dimension: invoice_date
+    entities:
+      - {name: invoice, type: primary, expr: invoice_number}
+      - {name: store, type: foreign, expr: store_vat_id}
+    dimensions:
+      - name: invoice_date
+        type: time
+        type_params: {time_granularity: day}
+      - {name: supermarket, type: categorical}
+      - {name: store_name, type: categorical}
+      - {name: payment_method, type: categorical}
+      - {name: card_type, type: categorical}
+    measures:
+      - {name: basket_amount, agg: sum, expr: total_amount}
+      - {name: basket_count, agg: count, expr: invoice_number}
+      - {name: tax_amount, agg: sum, expr: total_tax_amount}
+      - {name: base_amount, agg: sum, expr: total_base_amount}
+
+  - name: invoice_items
+    description: One row per product per invoice. Line-level detail.
+    model: ref('invoice_items')
+    defaults:
+      agg_time_dimension: invoice_date
+    entities:
+      - {name: invoice, type: foreign, expr: invoice_number}
+      - {name: store, type: foreign, expr: store_vat_id}
+      - {name: product, type: foreign, expr: description_clean}
+    dimensions:
+      - name: invoice_date
+        type: time
+        type_params: {time_granularity: day}
+      - {name: description_clean, type: categorical}
+      - {name: supermarket, type: categorical}
+      - {name: unit, type: categorical}
+    measures:
+      - {name: line_amount, agg: sum, expr: total_amount}
+      - {name: line_quantity, agg: sum, expr: quantity}
+      - {name: line_count, agg: count, expr: invoice_number}
+
+  # Pre-aggregated to (date, category, subcategory, supermarket) by the gold
+  # model. `total_spent` is already a SUM, so summing it again is correct and
+  # averaging it is not - the registry marks it `pre_aggregated` and the
+  # validator refuses avg/min/max over such a column. See PHASE0.md finding 4.
+  - name: category_spending
+    description: Daily line-item spend by LLM-assigned product category.
+    model: ref('category_spending')
+    pre_aggregated: true
+    defaults:
+      agg_time_dimension: invoice_date
+    entities:
+      # Deliberately NOT named `store`: this model's grain carries `supermarket`
+      # (a brand) where invoices/invoice_items carry `store_vat_id` (a location).
+      # One entity name over two different keys is a wrong join waiting for the
+      # first declared join path.
+      - {name: brand, type: foreign, expr: supermarket}
+    dimensions:
+      - name: invoice_date
+        type: time
+        type_params: {time_granularity: day}
+      - {name: category, type: categorical}
+      - {name: subcategory, type: categorical}
+      - {name: supermarket, type: categorical}
+    measures:
+      - {name: category_amount, agg: sum, expr: total_spent}
+
+metrics:
+  - name: grocery_spend_eur
+    label: Grocery spend (EUR)
+    type: simple
+    type_params: {measure: basket_amount}
+    meta:
+      owner: alvaro
+      grain_min: day
+      description: >
+        Total invoice value, VAT included, one row per shopping trip. The
+        receipt total as printed.
+      excludes: >
+        Only supermarkets whose e-receipts reach the Gmail inbox and parse -
+        currently MERCADONA only, all 75 invoices. Cash purchases with no
+        e-receipt, any receipt the parser rejected, and every non-grocery
+        purchase are absent entirely. VAT is inside this number (measured:
+        tax 414.69 + base 3672.27 = 4086.96 total). No returns or negative
+        lines have ever been observed in this data, so how a refund would be
+        signed is untested rather than known.
+
+  - name: category_spend_eur
+    label: Spend by category (EUR)
+    type: simple
+    type_params: {measure: category_amount}
+    meta:
+      owner: alvaro
+      grain_min: day
+      description: >
+        Line-item spend attributed to an LLM-assigned product category.
+      excludes: >
+        Equal to grocery_spend_eur at 0.00 percent as measured on 2026-09-04
+        (both 4086.96), but NOT equal by construction and at a different grain -
+        this is per line, grocery_spend_eur is per trip. Uncategorised lines
+        land in the literal category OTHER rather than being dropped, so a
+        categorisation gap moves nothing; invoice-level rounding or a
+        basket-level discount would. Categories come from
+        silver.bodega.products, assigned once per (description_clean,
+        supermarket) by an LLM and deduped to the latest by max_by. A parse
+        failure is stored as OTHER / PARSE_ERROR and is indistinguishable from
+        a genuine OTHER; currently 0 of 428 products are PARSE_ERROR and OTHER
+        holds 2 rows totalling 3.75.
+
+  - name: shopping_trips
+    label: Shopping trips
+    type: simple
+    type_params: {measure: basket_count}
+    meta:
+      owner: alvaro
+      grain_min: day
+      description: Number of invoices, i.e. distinct shopping trips.
+      excludes: >
+        One receipt is one trip. Two receipts on one visit count twice.
+        Measured 75 invoices over 75 distinct invoice numbers, so the count is
+        currently unambiguous.
+
+  - name: avg_basket_eur
+    label: Average basket (EUR)
+    type: ratio
+    type_params:
+      numerator: basket_amount
+      denominator: basket_count
+    meta:
+      owner: alvaro
+      grain_min: week
+      description: Mean invoice total across trips in the period.
+      excludes: >
+        Unweighted mean over trips, not over items. A single large stock-up
+        moves it as much as a month of small trips. grain_min is week because a
+        daily mean over one or two trips is noise. Compiles as
+        sum(amount)/count(invoices), which equals a plain avg() here only
+        because invoices is exactly one row per trip (both 54.4928 as
+        measured); the ratio form is what stays correct over anything
+        pre-aggregated.
+
+  # Sourced from invoice_items and deliberately NOT from gold.bodega.price_trends,
+  # which drops 208 of 428 products and 529.18 of 4086.96 EUR to its
+  # HAVING COUNT(*) >= 2 filter. See PHASE0.md finding 1.
+  - name: blended_unit_price_eur
+    label: Blended unit price (EUR)
+    type: ratio
+    type_params:
+      numerator: line_amount
+      denominator: line_quantity
+    meta:
+      owner: alvaro
+      grain_min: week
+      description: >
+        Spend divided by quantity for the matching lines.
+      excludes: >
+        The unit is NOT constant. Receipts price weighted goods per kg and
+        everything else per unit, so this is EUR/kg for weighted lines and
+        EUR/unit otherwise - measured 62 KG lines against 1419 EA lines. It is
+        only meaningful filtered to one description_clean, or grouped by it,
+        and never as a single headline number. It is not avg(unit_price):
+        that gives 2.5099 where this gives 2.3850, 5.2 percent apart, and only
+        this one is the metric. Lines with quantity 0 or null would be dropped
+        by the division; none exist today.
+
+  - name: tax_paid_eur
+    label: VAT paid (EUR)
+    type: simple
+    type_params: {measure: tax_amount}
+    meta:
+      owner: alvaro
+      grain_min: month
+      description: Spanish VAT charged across the period's invoices.
+      excludes: >
+        The tax already inside grocery_spend_eur, not an additional cost - do
+        not add the two. Summed from the receipt's own tax breakdown, so a
+        receipt whose taxes_json failed to parse contributes 0 rather than
+        being excluded. grain_min is month because VAT is only interesting at
+        a filing cadence. Measured 414.69 against a 3672.27 base.
+
+  - name: items_bought
+    label: Items bought
+    type: simple
+    type_params: {measure: line_count}
+    meta:
+      owner: alvaro
+      grain_min: day
+      description: Number of receipt lines, i.e. distinct products bought.
+      excludes: >
+        Counts LINES, not units - one line for 2.4 kg of tomatoes is one item,
+        not two. Use line_quantity to sum units, remembering that mixes kg with
+        counts. Measured 1481 lines across 75 invoices.

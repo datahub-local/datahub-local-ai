@@ -6,9 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A monorepo of data workflow definitions for a local/homelab Datahub stack. Sub-projects are grouped by what they are: `agents/` holds AI agent definitions, `workflows/` holds the data pipelines and the dashboards built on them. The Python ones have their own `pyproject.toml` and `uv` environment:
 
-- `agents/mcp/` — MCP servers the agents call, so deterministic fact-gathering is code instead of prompt text; ships this repo's first container image; see [MCP servers](#mcp-servers)
 - `agents/n8n/` — n8n workflow JSON exports, LLM prompt templates and JSON config datasets (no Python code); see [n8n workflows](#n8n-workflows)
-- `agents/sympozium/` — Sympozium agent ensembles (Kubernetes CRs) plus a Helm release that deploys them onto the control plane datahub-local-core runs in `automation`; see [Sympozium agents](#sympozium-agents)
+- `agents/sympozium/` — Sympozium agent ensembles (Kubernetes CRs) plus a Helm release that deploys them onto the control plane datahub-local-core runs in `automation`; also deploys the MCP servers and owns the data they mount (`config/`), though the server code itself lives in [`datahub-local-ai-mcp`](https://github.com/datahub-local/datahub-local-ai-mcp); see [Sympozium agents](#sympozium-agents) and [MCP servers](#mcp-servers)
 - `workflows/airflow/` — Airflow DAGs that orchestrate the dlt + dbt tasks via Kubernetes pods
 - `workflows/dbt/` — dbt Core pipelines on **Trino** (homelab) / **DuckDB** (local), Iceberg + Apache Polaris, medallion architecture; a thin Python `dbt_runner` wraps `dbt build`
 - `workflows/dlt/` — [dlt](https://dlthub.com) ingest/export pipelines (CSV → bronze; silver/gold → Postgres) that run *around* dbt
@@ -45,9 +44,11 @@ workflows/<tool>/
 
 - **dbt**: `src/dbt_runner/` is the only Python package; `projects/example_db/`, `projects/pi/`, `projects/bodega/` are SQL+YAML dbt projects (not Python packages).
 - **dlt**: `src/dlt_runner/` is the runner; `projects/example_db/` and `projects/bodega/` are Python pipeline packages installed via hatchling.
-- **mcp**: `src/mcp_runner/` is the server; `projects/homelab_facts/` is a Python
-  package exposing `register(registry)`, discovered by name the same way
-  `dlt_runner` discovers a pipeline.
+- **mcp**: no longer in this repository. The servers are in
+  [`datahub-local-ai-mcp`](https://github.com/datahub-local/datahub-local-ai-mcp);
+  this repo keeps only the data they mount — `agents/sympozium/config/` for
+  homelab-facts, and `workflows/dbt/semantic/` for the semantic registry, which
+  stays beside the dbt models whose columns it references.
 
 | What                  | Convention                    | Examples                                    |
 | --------------------- | ----------------------------- | ------------------------------------------- |
@@ -76,6 +77,28 @@ One exception to "lowercase, underscores": names that become Kubernetes object
 names must be DNS-1123, so `agents/sympozium/projects/` uses kebab-case
 (`homelab-ops`, `sre-sentinel`). Prompt *files* there stay `snake_case.md`, as in
 `agents/n8n/prompts/`.
+
+## Comments in YAML and helmfile
+
+**Config files carry values, not prose.** `values/*.gotmpl`, `helmfile.yaml.gotmpl`,
+`Chart.yaml` and the Helm templates carry **no comments at all**; the rationale
+for a knob goes in `agents/sympozium/MEMORY.md`, and anything a reader needs
+before touching the file goes here. This is enforced by review only.
+
+The reason is not brevity. A comment beside a value is a second copy of a
+decision that drifts from it — the `toolsAllow` note had been pasted into nine
+persona files and the `grafana_list_datasources` note into four before they were
+stripped, and removing all of it changed neither the parsed YAML nor a byte of
+`helm template` output. Two further points specific to helmfile: it renders
+`values/default.yaml.gotmpl` as a Go template *before* Helm parses it as YAML,
+**comments included**, so a literal brace pair inside a comment is an
+undefined-function error that `helm template` never sees — that is exactly how a
+comment broke the ArgoCD sync on 2026-08-23 after CI had passed. And a values
+file is the one place a reviewer looks to see what a cluster is actually set to,
+which prose buries.
+
+Python and shell keep comments, sparingly, for a non-obvious *why*. Workflow
+files under `.github/` keep them too — they are procedure, not config.
 
 ## Commands
 
@@ -128,333 +151,86 @@ uv run pytest          # all tests
 uv run pytest tests/tasks/test_dlt.py  # single file
 ```
 
-### MCP (`agents/mcp/`)
-
-Run from **`agents/mcp/`** — unlike the other Python sub-projects this one is its
-own uv project, with its own `pyproject.toml`, its own `.venv` and its own
-`[tool.pytest.ini_options]` so it is its own rootdir. The root environment has no
-`mcp` extra and cannot import `mcp_runner`; CI runs every step below with
-`working-directory: agents/mcp`.
-
-```bash
-uv sync --extra dev
-uv run -- pytest -q
-uv run -- ruff check .
-
-# The tool manifest, without binding a port
-uv run -- python -m mcp_runner --project homelab_facts --list-tools
-
-# Serve locally against the real Prometheus
-kubectl -n monitoring port-forward svc/datahub-local-core-kube-pr-prometheus 9090:9090 &
-PROMETHEUS_URL=http://127.0.0.1:9090 \
-  uv run -- python -m mcp_runner --project homelab_facts --port 8080
-```
-
-Diff a tool's output against hand-run PromQL before wiring an agent to it. The
-tests need no cluster.
-
-### Sympozium (`agents/sympozium/`)
-
-No runner, no `pyproject.toml` and no source validator — rendering is the only
-build-time gate. Run from **`agents/sympozium/`**:
-
-```bash
-helm template datahub-local-ai-sympozium . -n automation -f values/default.yaml.gotmpl
-helmfile apply                                              # or let ArgoCD sync it
-```
-
-Since nothing else checks `projects/`, do the server-side dry run before
-committing whenever a cluster is reachable — it validates against the real CRD
-schemas and the admission webhook, and persists nothing:
-
-```bash
-helm template datahub-local-ai-sympozium . -n automation -f values/default.yaml.gotmpl \
-  | kubectl apply --dry-run=server -f -
-```
-
-Rendering **is** the build step, so a render failure is a broken deploy. The
-templates `fail` loudly on a missing prompt file or a name/directory mismatch.
-
-## Architecture
-
-### Engines and targets
-
-dbt models run identical `database.schema.table` SQL on both engines:
-
-| Target              | dbt engine                                                  | dlt ingest / export                        | When to use                   |
-| ------------------- | ----------------------------------------------------------- | ------------------------------------------ | ----------------------------- |
-| `homelab` (default) | Trino on Kubernetes (Iceberg over Apache Polaris REST + S3) | Iceberg via Apache Polaris REST / Postgres | Production / CI               |
-| `local`             | DuckDB (one file per catalog)                               | DuckDB files / DuckDB export file          | Local dev — no external infra |
-
-dbt is **stateless** — no plan/apply or state store. All models are `materialized='table'`.
-
-### dbt projects and the runner
-
-Each project is a self-contained dbt project under `workflows/dbt/projects/<name>/` (`dbt_project.yml`, `profiles.yml`, `models/`). `src/dbt_runner/__main__.py` (`--project --target [--select] [--full-refresh]`) just resolves the project dir and invokes `dbt build` in-process. It does **not** ingest or export — those are dlt projects. `PROJECTS_DIR` is read from `DBT_PROJECTS_DIR` env var (set to `/app/projects` in Docker) or derived from `__file__` for local editable installs.
-
-- **`example_db`** follows the medallion pattern with three catalogs (`bronze`/`silver`/`gold`).
-- **`pi`** is a Monte Carlo π estimator tunable via `PI_PARTITIONS`, `PI_SAMPLES_PER_PARTITION`, `PI_RANDOM_SEED` (dbt `vars`). Row generation differs between DuckDB and Trino, so `projects/pi/macros/generate_samples.sql` is **adapter-dispatched** (`duckdb__` uses `range()`, `trino__` cross-joins `sequence()` unnests); both draw x/y with `random()` (the seed is carried as a column but engine `random()` is unseeded).
-
-#### Medallion catalogs
-
-Trino and DuckDB both have real catalogs, so each medallion layer is its own catalog. Models set `+database` (catalog) and `+schema` (`example_db`) in `dbt_project.yml`, yielding `<catalog>.example_db.<table>`. The `generate_schema_name` macro (example_db) keeps the schema verbatim instead of the dbt default `<target>_<custom>` concatenation. `pi` has no `generate_schema_name` macro and relies on the profile's `database`/`schema`.
-
-- **homelab (Trino):** the Trino server defines one Iceberg catalog per Apache Polaris catalog — `bronze`, `silver`, `gold`, `test` (used by `pi`). Catalogs are provisioned in Polaris; dbt does not create them.
-- **local (DuckDB):** one DuckDB file per catalog (`bronze.duckdb`, …). dbt-duckdb derives the catalog name from the **file basename**, so file names must match catalog names. The example_db local profile attaches `silver`/`gold`; paths come from `DBT_DUCKDB_*` env vars (shared with dlt).
-
-### dlt ingest/export (`workflows/dlt/`)
-
-`src/dlt_runner/__main__.py` (`--pipeline {ingest,export} --project example_db --target {homelab,local}`) dispatches to the project. Project code lives in `projects/example_db/`:
-
-- `projects/example_db/ingest.py` — streams the automotive CSV into `bronze.example_db.automotive_source` (the dbt source). The `direct` naming convention preserves the raw hyphenated column names. homelab writes Iceberg via pyiceberg's REST catalog (`config.configure_iceberg_env` sets `PYICEBERG_CATALOG__<LAYER>__*`), staging parquet in the **temp bucket** (`datahub-local-temp`); local writes DuckDB.
-- `projects/example_db/export.py` — reads the dbt-built silver/gold tables (Trino on homelab, DuckDB locally) and loads them to Postgres (homelab) / a DuckDB export file (local).
-- `projects/example_db/config.py` — env-driven: catalog→warehouse map, temp bucket, DuckDB paths (reusing the dbt `DBT_DUCKDB_*` vars so a local ingest lands in the files dbt reads), Postgres/Trino DSNs.
-
-### Airflow DAGs and the launchers
-
-**DAGs are one file per project** — each is self-contained and runs as Kubernetes pods:
-
-- `dags/pi_dag.py` (`dag_id: pi`) — pure dbt compute: `dbt_pi`
-- `dags/example_db_dag.py` (`dag_id: example_db`) — full medallion project: `dlt_ingest_example_db → dbt_example_db → dlt_export_example_db`
-
-**Task utilities are organised by tool** under `dags/tasks/`:
-
-- `dags/tasks/dbt.py` — `DbtTaskConfig` + `create_dbt_task` (dbt image, `python -m dbt_runner`). The shared `build_pod_env_vars` / `build_pod_resources` and the `SecretEnvVarRef`/`ConfigMapEnvVarRef` dataclasses live here. Pod env is just the explicit env/secret/configmap refs — the pods only need to connect to Trino/Postgres/S3.
-- `dags/tasks/dlt.py` — `DltTaskConfig` + `create_dlt_task` (dlt image, `python -m dlt_runner`), reusing the dbt builders.
-- Images: `ghcr.io/datahub-local/datahub-local-ai-dbt:main` and `...-dlt:main`.
-
-### n8n workflows
-
-`agents/n8n/` holds no code that runs in this repo — it is the **git mirror of a live n8n instance**. The `Backup N8N Workflows` workflow (`X0gxarZXHgGj5fl5`) reads every workflow through the n8n API and commits it back here, so the repo is a backup *and* the source the workflows read their prompts and configs from at runtime.
-
-```
-agents/n8n/
-  workflows/   <snake_case_name>.workflow.json   full n8n export, one file per workflow
-  prompts/     <domain>_<step>.md                LLM prompt templates with {{ VAR }} placeholders
-  datasets/    <domain>_<thing>.json             tuning knobs / reference data, no secrets
-```
-
-**File names are generated, not chosen.** `sanitize_filename` in the backup workflow derives the file name from the workflow's display name: camelCase split on the boundary, spaces/dots/dashes → `_`, non-alphanumerics dropped, lowercased, then `.workflow.json`. So `LinkedIn Post Sharing` → `linked_in_post_sharing.workflow.json`. Never rename a file by hand — rename the workflow in n8n and let the backup rewrite it, otherwise the next run creates a second file.
-
-#### Naming conventions inside a workflow
-
-| What                     | Convention                                          | Examples                                                        |
-| ------------------------ | --------------------------------------------------- | --------------------------------------------------------------- |
-| Workflow display name    | Title Case with spaces                              | `Content Feed Curator`, `LinkedIn Post Sharing`                 |
-| Node name                | `snake_case`, `<verb>_<object>`                     | `fetch_miniflux_entries`, `build_digest`, `update_status_error` |
-| Manual trigger           | always `click_trigger`                              |                                                                 |
-| Cron trigger             | always `schedule_trigger`                           |                                                                 |
-| Sub-workflow entry point | always `main_trigger`                               | `executeWorkflowTrigger`                                        |
-| Branch nodes             | `if_*` / `check_*` / `switch_*`                     | `if_has_candidates`, `switch_user_accept`                       |
-| Sub-workflow calls       | `download_*` / `execute_*`                          | `download_judge_prompt`, `execute_post_creator`                 |
-| Slack posts              | `notify_*` / `send_*_notification`                  | `notify_digest`, `send_error_notification`                      |
-| Loops                    | `loop_*` (`splitInBatches`)                         | `loop_triage_batches`                                           |
-| Sub-workflow I/O fields  | `UPPER_SNAKE_CASE`                                  | `URL`, `POST_CONTENT`, `MAX_WORDS`, `ERROR`                     |
-| Sticky notes             | `sticky_<topic>`, or n8n's default `Sticky Note<n>` | `sticky_overview`, `sticky_testing`                             |
-
-Node names are the addressing scheme (`$('build_digest').first().json`), so renaming a node silently breaks every expression that references it — grep the file for the old name first.
-
-#### `set_workflow_vars` — the config head of every workflow
-
-Long-running workflows open with a `set` node named `set_workflow_vars` (`includeOtherFields: true`) that resolves every tunable into one item, read downstream as `$('set_workflow_vars').first().json.<NAME>`:
-
-- Field names are `UPPER_SNAKE_CASE`.
-- Values that come from the pod environment are `={{ $env["NAME"] }}`, normalised inline where it matters — e.g. `={{ ($env["N8N_API_URL"] || "http://…/api/v1").replace(/\/+$/, "") }}`.
-- Model ids live here (`MODEL`, `MODEL_FALLBACK`, `MODEL_BULK`) and are wired to the LLM nodes by expression, so swapping a model is a one-node edit.
-- n8n *instance* variables (`$vars`) are deliberately unused — everything is `$env` or a dataset file, so config is reviewable in git.
-
-Env vars in use on the n8n pod: `BACKUP_GITHUB_REPO_OWNER`, `BACKUP_GITHUB_REPO_NAME`, `BACKUP_GITHUB_REPO_PATH` (the repo folder the mirror lives in — `agents/n8n`; it is the **only** place that path is configured, both for the backup commits and for every runtime prompt/dataset fetch), `N8N_API_URL`, `MINIFLUX_URL`, `MINIFLUX_API_USER`, `MINIFLUX_API_PASSWORD`. **Secrets never go in the JSON** — credentials are referenced by n8n credential name only (`Slack account`, `GitHub account`, `OpenRouter account`, …).
-
-#### Prompts and datasets are fetched at runtime, not embedded
-
-No workflow inlines a prompt. `DownloadTemplate` (`qUfjfWLGEjV96ljf` — **not** `09xEuVQj207pjK4x`, which is `Download Content`, a URL scraper taking `{URL}`; a node pointing there returns no `output` and the caller silently falls back to its defaults) is called as a sub-workflow with `{template_name, template_vars}`, pulls `<BACKUP_GITHUB_REPO_PATH>/<template_name>` from GitHub (`agents/n8n/<template_name>`; the prefix is resolved from `$env` in its `setVars` node, never hardcoded, so moving the folder is an env-var change), substitutes `{{ VAR }}` placeholders and returns `{output}`. It **fails loudly** — `check_template_vars_present` diffs the placeholders found in the file against the keys supplied and routes to `stop_and_error` listing the missing ones.
-
-Consequences to respect when editing:
-
-- Adding a `{{ VAR }}` to a prompt without adding it to every caller's `template_vars` breaks that workflow at runtime.
-- The substituter matches on the **last dotted segment** of a placeholder, so keep placeholders flat and `UPPER_SNAKE_CASE`.
-- Prompt files are `prompts/<domain>_<step>.md` (`linkedin_post_review.md`, `curator_judge.md`); a `*_system.md` file is the system message of a `chainLlm` node.
-- The same mechanism loads config: `datasets/curator_config.json`, `datasets/credential_expiry.json` are downloaded as text and parsed by a `parse_*_config` code node that **defaults every key**, so a partial or broken file degrades instead of failing the run. Keep the two in sync when adding a knob.
-- Datasets document themselves with sibling `_comment_<key>` keys next to the key they explain. Keep that pattern; there is no schema file.
-
-#### Standard workflow skeleton
-
-```
-click_trigger ─┐
-schedule_trigger ─┴─> set_workflow_vars -> download_*_config -> parse_*_config
-   -> fetch/normalise/filter (code nodes)
-   -> if_has_candidates ──false──> notify_empty
-              └──true──> loop_* -> download_*_prompt -> *_llm -> parse_* (code)
-   -> build_digest -> notify_* -> if_write_* -> googleSheets append/update
-```
-
-- Every workflow that can be run by hand has **both** `click_trigger` and `schedule_trigger` wired into the same first node — never a manual-only or schedule-only path.
-- Schedules are cron expressions with an explicit `timezone: Europe/Madrid` in workflow settings (`0 0 6 * * 1,3,5`), not interval rules.
-- `settings` for a scheduled workflow: `executionOrder: v1`, `callerPolicy: workflowsFromSameOwner`, `executionTimeout`, `errorWorkflow`, `timezone`.
-
-#### Error handling
-
-Three layers, used together:
-
-1. **Instance-wide catch** — `errorWorkflow` points at `Catch Errors` (`fejq5nN6LP3F820w`), a two-node workflow that posts the failing workflow, message and execution URL to `#workflows`. Set it on anything scheduled. A workflow with domain-specific cleanup gets its own error workflow instead (`LinkedIn Post Sharing` → `linked_in_post_sharing_error`, which also writes the failure back to the sheet).
-2. **`ERROR` envelope between sub-workflows** — a sub-workflow that fails a business rule returns an item with `ERROR` set to a screaming-snake reason (`CANCELLED`, `MAX_RETRIES_EXCEEDED`) rather than throwing. Callers branch on it with a `check_subworkflow_error` switch testing `{{ $json.ERROR || "" }}` is empty, `fallbackOutput: extra`. Keep new reasons in that vocabulary.
-3. **Per-node tolerance** — LLM and flaky HTTP nodes set `retryOnFail` with `maxTries` 2–5 and `waitBetweenTries: 5000`; nodes whose absence is a valid state (`read_legacy_sheet`, the `probe_*` nodes, `download_full_content`) set `onError: continueRegularOutput` + `alwaysOutputData: true` so the downstream code node sees an empty item instead of the run dying.
-
-#### LLM nodes
-
-`chainLlm` + `lmChatOpenRouter` (Gemini in the image workflows). Conventions: `promptType: define` with the text coming from a `download_*_prompt` node; `needsFallback: true` with a second model node named `ai_model_fallback`; a dedicated `ai_model_bulk` for the cheap high-volume step. Model output is always parsed by a following `parse_*` code node that tolerates fenced JSON and bad output rather than trusting the model.
-
-#### Code node conventions
-
-Plain JS, no npm imports. They read named nodes (`$('parse_curator_config').first().json`) rather than relying on positional input, iterate `$input.all()`, and `return [{ json: ... }]`. HTTP from inside a code node uses `this.helpers.httpRequest`. Each non-trivial code node opens with a comment explaining **why** the step exists — several of the current ones record the incident that motivated them; match that when adding one.
-
-#### Editing checklist
-
-1. Prefer editing in the n8n UI and letting `Backup N8N Workflows` commit the export; hand-editing JSON is fine for prompts/datasets and small parameter tweaks, but the export will overwrite structural drift.
-2. Keep node `id`s and workflow `id`s stable — they are the identity across re-imports, same rule as Superset `uuid`s.
-3. Sticky notes are the docs: each workflow has one describing schedule, data flow, env vars and open TODOs. Update it in the same change.
-4. Validate a hand-edited file with `jq . agents/n8n/workflows/<file>.workflow.json` before committing; grep for `$('old_node_name')` after any rename.
-5. Commit messages for automated backups look like `chore(n8n): update backup workflow <file> (<date>)`; hand-authored changes use the normal `feat(n8n): …` / `fix(n8n): …` form.
-
 ### MCP servers
 
-`agents/mcp/` holds the MCP servers the Sympozium personas call. It exists
-because **every failure in the agent fleet was a tool-loop failure, not a writing
-failure.** A 4B model was made a careful API client — assemble
-`100 * (1 - avail/cap)` with a `group_left` join, remember that `increase(m[1h])`
-is not `m[1h]`, pass `endTime` as the literal word `now`, diff alerts against your
-own memory, know that one node's kernel is not drift against another's. Every
-incident added a paragraph to a prompt and a regex to a validator, and it did
-not converge: prompts reached 6–12KB and roughly 600 lines of that validator
-were regexes policing English. Both are gone — prompts are 4–6KB, the checks
-that survived are `agents/mcp/tests/` assertions about the expression the server
-actually sends, and the validator itself was deleted, because the method left
-the prompt.
+The servers live in
+[`datahub-local-ai-mcp`](https://github.com/datahub-local/datahub-local-ai-mcp),
+one image per server (`ghcr.io/datahub-local/mcp-homelab-facts`,
+`mcp-semantic`), both `linux/amd64,linux/arm64`. The design rationale — why
+code gathers and the model writes, the four structural properties, the byte
+budgets — is that repository's `README.md` and is not duplicated here.
 
-**Code gathers; the model writes.** `projects/homelab_facts/` exposes sixteen
-tools: eleven take no arguments at all and return one report section's worth of
-already-correct readings, and five take free text where any string is valid.
-`find_object` turns the words a person typed into exact names; `why_failed`,
-`logs` and `endpoints` run the chain after it - object, pods, containers, events,
-log tail - which is four calls of exact arguments in a fixed order and the step
-every failed run in this fleet got wrong.
+What stays this repository's concern:
 
-The tools do **not** replace reach — every persona keeps the raw `k8s_*` and
-Prometheus tools for following up. The win is *budget reallocation*: the mandatory
-readings drop from eight-plus calls to one or two, leaving the iteration budget
-for real investigation, which is exactly where the last run before the teardown
-ran out and spent 13 consecutive calls hunting a namespace that does not exist.
+- **The deployment.** `agents/sympozium/templates/mcpservers.yaml` owns the
+  `Deployment`, `Service`, `MCPServer` and the enumerated read-only
+  `ClusterRole`. A kind missing from that role is a 403, which the server keeps
+  distinct from an empty result. Pods must carry
+  `app.kubernetes.io/name: mcpserver` or core's `agent-allow-tools`
+  NetworkPolicy blocks 8080; the `MCPServer` uses the `url:` form so the
+  controller reconciles no workload of its own; and the MCP endpoint answers on
+  every non-health path, because the discovery bridge's path is undocumented
+  and guessing wrong fails silently with `status.ready: true` throughout. Read
+  `kubectl logs <run-pod> -c mcp-discover` after a deploy — it prints
+  per-server tool counts, and a whole server failing is otherwise silent.
+- **The data.** The images are generic; everything describing this cluster is a
+  mounted ConfigMap at `/etc/mcp/<server>/`. Never mount under `/app`: it is
+  WORKDIR and lands on `sys.path`, so `/app/semantic/` shadows the `semantic`
+  package and the server dies with `module 'semantic' has no attribute
+  'register'`.
 
-Four properties are structural rather than instructed, and each retires a class
-of report that reached Slack:
+| Server          | ConfigMap           | Source of the data                          |
+| --------------- | ------------------- | ------------------------------------------- |
+| `homelab-facts` | `mcp-homelab-facts` | `agents/sympozium/config/homelab_facts/`, rendered by `templates/mcp-configmaps.yaml` |
+| `semantic`      | `mcp-semantic`      | `config/semantic/registry.yaml`, a symlink to `workflows/dbt/semantic/bodega.yaml` |
 
-- **A wrong query is not expressible.** `prometheus.py` owns every expression.
-  `used_percent()` cannot be the bare ratio (which called a 2%-used volume "97.9%
-  full, write operations failing" for days), `increase_()` cannot lose its wrapper,
-  `by_nodename()` cannot drop the join.
-- **Absence is a value with a definition.** `unavailable` is *the query gave no
-  value for this node*; `n/a` is *this node has no such sensor*. Two words,
-  because one word absorbed a bug — `unavailable` was added so a missing metric
-  could be stated rather than invented, then silently absorbed a broken join.
-- **Every answer is bounded in code.** "Fat tool" means few *calls*, never big
-  *answers*: one ~16KB result reproducibly ends a run with `terminal turn had
-  empty text`, and that is not context overflow. Each tool declares a byte
-  budget, truncates by whole lines, and says that it did. A full eleven-reading
-  sweep is ~17.8KB; no single answer exceeds 4KB.
-- **Trends are measured.** Snapshots live in the server, so "new since last run"
-  is a computation. A lost snapshot degrades to "first observation", stated
-  explicitly, and can never produce a *wrong* diff.
-- **A denominator is a reading too.** Three of these were the wrong quantity
-  before the code owned them, and none of the three is fixable by naming a metric
-  in a prompt. Garage's headroom is the capacity its *layout* assigns a node
-  (10 GiB here), not the filesystem under it (1.8 TiB) — quoting the disk
-  overstates the store by two orders of magnitude and shows a full store as 1%
-  used. Prometheus holding less history than it is configured for is only loss
-  once it has been up longer than it is holding, so the verdict is computed
-  against uptime and a restart reads as *filling* instead of firing CRITICAL
-  every run for a month. And Garage's three nodes describe one shared
-  filesystem, derived from identical capacity plus free space agreeing to within
-  a scrape's drift — exact byte equality called one share three separate disks
-  the first time it ran live.
+The semantic ConfigMap carries **one** key: `registry.yaml`, the metric
+contract. Everything describing the warehouse — table names, which columns are
+documented, cardinality, dimension values — is read live from Trino by the
+server and cached with a TTL, because the warehouse is authoritative about
+itself and a copy is stale the moment the pipeline runs. A pruned dbt manifest
+and a precomputed sample file used to be shipped alongside; both are gone, and
+so are the scripts that built them.
 
-#### Nothing about the homelab is written down
+Two consequences worth knowing. `persist_docs` is **load-bearing** in
+`workflows/dbt/projects/bodega/`: the server's documentation gate reads Iceberg
+column comments, and dbt writes a NULL comment for a column listed in
+`schema.yml` with a blank description — indistinguishable from undocumented, so
+the gate would silently weaken to "the column exists". A test in
+`workflows/dbt/tests/bodega/test_project.py` fails the build if any description
+is blank. And `SEMANTIC_WAREHOUSE_SCOPES` has no default: the registry names
+models by `ref()`, which carries no catalog, so a guess would resolve nothing
+and report as a broken registry rather than a missing setting.
 
-Node names, hardware classes and per-machine sensor coverage are all derived at
-query time (`src/mcp_runner/fleet.py`). An earlier draft carried a
-`hardware_classes.yaml` naming all seven machines; that is a second copy of the
-cluster, and a stale node list produces the exact failure the server exists to
-prevent — a row of `unavailable` for a machine whose figures were available.
+The registry reaches the chart as a **symlink** —
+`agents/sympozium/config/semantic/registry.yaml` → `workflows/dbt/semantic/bodega.yaml`.
+Helm's `.Files` cannot read above the chart root but does follow a symlink
+whose target is inside the repository, which is what avoids a committed
+generated copy. Git stores it as mode `120000`, so ArgoCD's checkout resolves it
+identically; `helm template` prints a warning about it and uses the contents,
+`helmfile template` prints nothing.
 
-- **A hardware class is the kernel flavour plus the architecture**, which is not
-  an approximation of the comparability rule but *is* the rule: kernels compare
-  only within one tree. A numeric difference inside a flavour is real drift; a
-  different flavour is different silicon and can never converge. Verified against
-  this fleet — it finds the one real pair and clears the rest.
-- **Sensor coverage is whether the sensor answered**, decided per node by a
-  capability probe (`smartmon_device_smart_available` is `0` where a device
-  cannot report at all).
-- **The node inventory is the Kubernetes node list**, and the gap between it and
-  what Prometheus answered is what makes a dropped join legible.
+`chronic_alerts.yaml` and `thresholds.yaml` are judgements no cluster can
+answer — whether an alert is noise, and where a reading becomes a finding — and
+their absence is loud but never fatal. The semantic registry, by contrast, is
+fatal: without it the server has no metric definitions and must not answer.
 
-Only two config files survive, and both are judgements no cluster can answer:
-`chronic_alerts.yaml` (whether an alert is noise; it names alert *rules*, never
-machines, and keeps a `never_suppress` list so a permanently-firing *real* fault
-is not absorbed) and `thresholds.yaml`. Every tool states the threshold it
-applied.
+`PROMETHEUS_URL` and `LOKI_URL` are **required** with no default: a guessed
+address reports every reading `unavailable`, which renders a wrong endpoint as
+an absent one. Garage stays optional — no token means the bucket section
+reports itself unavailable and nothing else changes.
 
-#### Two properties worth keeping
+The semantic gate (`workflows/dbt/semantic/compile.py`) imports `registry.py`
+from the MCP repository rather than copying it, so the gate and the server
+apply identical rules instead of two copies that drift. It expects that repo
+checked out beside this one; `MCP_REPO` overrides, and a missing checkout is a
+readable error rather than an ImportError.
 
-- **The server holds no credential unless one is deliberately given.** Prometheus
-  and Loki need no auth here and are both queried directly rather than through
-  Grafana, so no datasource uid exists on either path; Kubernetes goes through
-  the pod ServiceAccount; ArgoCD state comes from `Application` CRs rather than
-  the ArgoCD API; Postgres state from the CloudNativePG operator's metrics rather
-  than a DSN. Query-level Postgres analysis stays on the existing postgres MCP
-  server, which already holds that credential. The single exception is opt-in and
-  named: **per-bucket S3 usage has no unauthenticated source**, because Garage
-  publishes no bucket label and no stored-bytes gauge to Prometheus. `garageSecret`
-  in the chart values is unset by default, the bucket section then reports itself
-  `unavailable`, and nothing else changes. Where a token is supplied the boundary
-  is in the code rather than in the credential, exactly as `kube.py` does it:
-  `garage.py` exposes two `GET`s by name with no generic request method, so a
-  write endpoint is not expressible whatever the token permits, and it strips each
-  bucket's `keys` because that field carries access key ids into a Slack message.
-  The token comes from the `mcp-s3-token` ExternalSecret in `automation` and is
-  the unscoped master admin token, so that code boundary is the *only* boundary;
-  Garage v2 supports `--scope ListBuckets,GetBucketInfo` if it ever needs a
-  second. Two wiring rules: the refs are `optional: true`, because an
-  unresolvable `secretKeyRef` holds the pod in `CreateContainerConfigError` and
-  takes down all sixteen tools rather than the one section that needs it; and
-  each key is named individually rather than pulled in with `envFrom`, because
-  that Secret also carries `AWS_SECRET_ACCESS_KEY` — S3 write credentials a
-  read-only reporter must not hold.
-- **It cannot return a Secret's contents.** `kube.py` exposes `list` plus one
-  bounded `pod_log`, and strips `data`/`stringData` at the boundary. `cert_expiry()` narrows with a
-  field selector rather than filtering afterwards — an unfiltered cluster-wide
-  Secret list transfers every value in every namespace, 25MB here, and broke the
-  connection outright.
-
-#### Deployment notes that are load-bearing
-
-The chart in `agents/sympozium/` owns the `Deployment`, `Service` and
-`MCPServer`, including the enumerated read-only `ClusterRole` - a kind missing
-from it is a 403, which the code keeps distinct from an empty result.
-
-- Pods **must** carry `app.kubernetes.io/name: mcpserver`, or core's
-  `agent-allow-tools` NetworkPolicy blocks 8080 and every call times out with no
-  useful error.
-- The `MCPServer` uses the `url:` form, which stops the controller reconciling a
-  deployment of its own.
-- **The MCP endpoint answers on every path**, deliberately. Core's `mcp-k8s`
-  404'd for three days with `status.ready: true` throughout because the discovery
-  bridge asked for the service root while the server served `/mcp` — every
-  `k8s_*` tool was missing from every persona and nothing failed loudly. The
-  bridge's path is not documented anywhere readable, so any non-health path is
-  the endpoint. Read `kubectl logs <run-pod> -c mcp-discover` after a deploy: it
-  prints per-server tool counts, and a whole server failing is otherwise silent.
-- The image is multi-arch (`linux/amd64,linux/arm64`) because agents land on the
-  Orange Pis; an arm64-less image is unschedulable there, which the agent
-  experiences as the tool simply not existing.
+Two ordering rules when deploying: both ConfigMaps must exist before the pods
+start — a missing facts mount degrades loudly but works, a missing semantic
+registry is fatal — and after a sync read
+`kubectl logs <run-pod> -c mcp-discover` for the per-server tool counts
+(**16** and **4**). A whole server failing to register is otherwise silent.
 
 ### Sympozium agents
 
@@ -477,7 +253,9 @@ agents/sympozium/
   MEMORY.md                          why every knob is set the way it is
   values/default.yaml.gotmpl         per-cluster knobs only
   templates/ensembles.yaml           assembles the Ensembles at render time
-  templates/mcpservers.yaml          Deployment + Service + MCPServer for agents/mcp
+  templates/mcpservers.yaml          Deployment + Service + MCPServer per MCP server
+  templates/mcp-configmaps.yaml      renders config/<server>/ into a ConfigMap
+  config/<server>/                   the data a server mounts at /etc/mcp/<server>/
   templates/_delivery.tpl            the postRun hook and the prompt block
   prompts/delivery/hook.md           the delivery contract, substituted per persona
   projects/<ensemble>/
@@ -494,7 +272,7 @@ Three ensembles, split on trust boundaries and not on subject:
 | `homelab-responder` | one persona you can ask a question in Slack             | **yes**, the only one   |
 | `homelab-reviewer`  | `renovate-reviewer`, the only persona with a write tool | no                      |
 
-The reporters take their readings from the facts server in `agents/mcp/`, so their
+The reporters take their readings from the facts server in `datahub-local-ai-mcp`, so their
 prompts are a report contract rather than a method — see
 [MCP servers](#mcp-servers).
 
@@ -742,7 +520,7 @@ rather than copying the outcomes, since the constraints will change.
   `group_left` join on `kube_persistentvolumeclaim_info` restricting them to
   `longhorn|longhorn-no-replica`, because all five `nfs` PVCs report the same
   shared 1.9 TB capacity and a per-volume percentage there is meaningless.
-  The expression now lives in `agents/mcp/`, where a test asserts the direction
+  The expression now lives in `datahub-local-ai-mcp`, where a test asserts the direction
   rather than a regex reading the prompt. Give a small model the
   literal expression, not a description of it — it will not assemble a join from
   prose, and it will report whatever it computes with total confidence.
@@ -819,7 +597,7 @@ rather than copying the outcomes, since the constraints will change.
   the `_total` suffix, so a suffix rule fails a correct prompt — read the type
   from Prometheus's metadata API instead (`curl -sG .../api/v1/metadata
   --data-urlencode metric=<name> | jq -r '.data[][0].type'`), which is what
-  `agents/mcp/tests/` asserts. And prose does not work: `endpoint-warden` said
+  the MCP repo's tests assert. And prose does not work: `endpoint-warden` said
   "take the rate, not the raw counter" twice and still handed the model bare
   metric names, so both prompts now write the window out. A model this size also
   drops the wrapper — given `increase(m[1h])` it sent `m[1h]` and labelled the
@@ -913,16 +691,10 @@ rather than copying the outcomes, since the constraints will change.
 - dbt `tests/` are lightweight: project/profile structure, model SQL, and `dbt parse` — no warehouse. `tests/example_db/test_integration.py` seeds the bronze source in DuckDB, runs `dbt build` **in a subprocess** (avoids DuckDB's per-process "file already attached" conflict), and asserts the medallion tables.
 - dlt `tests/example_db/` covers the local DuckDB ingest+export integration test; `tests/test_config.py` covers `projects/example_db/config.py` helpers (cross-project, stays at the tests root).
 - airflow `tests/` import the DAGs and check the dbt/dlt task arguments, env, and ordering — `test_pi_dag.py` covers the pi DAG; `test_example_db_dag.py` covers example_db.
-- `agents/mcp/tests/` needs no cluster: `tests/` holds the reusable server's tests
-  (byte budgets, JSON-RPC and path-agnostic transport, snapshot diffing, Secret
-  redaction, kernel-class derivation, expression builders) and
-  `tests/homelab_facts/` the per-project tool tests against a fake Prometheus, a
-  fake Kubernetes and a fake Loki.
-  **This is where the nine prose validators went.** `_check_fill_direction`,
-  `_check_counter_window`, `_check_nodename_join`, `_check_endtime_literal` and
-  the rest each policed English in a prompt; they are now assertions about the
-  expression the server actually sends, plus the arithmetic. The counter/gauge
-  test is worth reading — `cnpg_backends_total` is a *gauge* despite `_total` and
-  `cnpg_pg_stat_archiver_failed_count` a *counter* despite `_count`, so the test
-  shows a suffix rule failing this cluster in both directions.
+- MCP server tests moved with the code to `datahub-local-ai-mcp`. They need no
+  cluster, and are where nine prose validators went: regexes that policed
+  English in a prompt became assertions about the expression the server sends.
+  Worth knowing that the counter/gauge test shows a suffix rule failing this
+  cluster in both directions — `cnpg_backends_total` is a gauge despite
+  `_total`, `cnpg_pg_stat_archiver_failed_count` a counter despite `_count`.
 - `agents/sympozium/` tests only the delivery hook (`tests/test_deliver_slack.py`, the one piece of code there that runs in production). It has no source validator: `scripts/validate.py` was deleted on 2026-08-31 because most of it mirrored the cluster and the upstream CRD, and a mirror that drifts fails correct config. CI runs the hook tests and then renders the chart through `helmfile` — the render is the only gate on `projects/`, so anything it cannot see reaches the admission webhook (loud) or the running agent (silent). See `agents/sympozium/MEMORY.md` for what is now unguarded.

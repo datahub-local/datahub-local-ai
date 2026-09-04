@@ -17,6 +17,13 @@ models:
   bodega:
     +materialized: table
     +schema: bodega
+    # Load-bearing, not documentation polish: the semantic MCP server reads
+    # column docs from Iceberg rather than a shipped manifest, so a column with
+    # no description in schema.yml lands as a NULL comment and reads to the
+    # server as undocumented. Every column in schema.yml must carry one.
+    +persist_docs:
+      relation: true
+      columns: true
     silver:
       +database: silver
     gold:

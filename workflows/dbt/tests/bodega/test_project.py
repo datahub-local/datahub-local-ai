@@ -77,3 +77,39 @@ def test_project_parses():
         "--target", "local",
     ])
     assert result.success, getattr(result, "exception", "dbt parse failed")
+
+
+class TestPersistDocs:
+    """`persist_docs` is load-bearing: the semantic MCP server reads column docs
+    from Iceberg comments, so an undocumented column and one with an empty
+    description are indistinguishable to it (both land as a NULL comment).
+    """
+
+    def setup_method(self):
+        self.project = _load("dbt_project.yml")
+        self.schema = _load("models/schema.yml")
+
+    def test_persist_docs_enabled_for_relations_and_columns(self):
+        config = self.project["models"]["bodega"]["+persist_docs"]
+        assert config == {"relation": True, "columns": True}
+
+    def test_every_documented_column_has_a_description(self):
+        missing = [
+            f"{model['name']}.{column['name']}"
+            for model in self.schema["models"]
+            for column in model.get("columns") or []
+            if not (column.get("description") or "").strip()
+        ]
+        assert not missing, (
+            f"these columns are listed in schema.yml with no description, so dbt "
+            f"writes a NULL Iceberg comment and the semantic registry reads them "
+            f"as undocumented: {', '.join(missing)}"
+        )
+
+    def test_every_model_has_a_description(self):
+        missing = [
+            model["name"]
+            for model in self.schema["models"]
+            if not (model.get("description") or "").strip()
+        ]
+        assert not missing, f"models with no description: {', '.join(missing)}"

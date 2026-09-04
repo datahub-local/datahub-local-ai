@@ -1,19 +1,28 @@
-# Per-cluster knobs only. Rationale for every one of them lives in ../MEMORY.md.
 release_name: datahub-local-ai
 
 sympozium_mcp_servers:
   homelab-facts:
     enabled: true
-    image: ghcr.io/datahub-local/datahub-local-ai-mcp
+    image: ghcr.io/datahub-local/mcp-homelab-facts
     tag: main
-    # Per-bucket S3 size has no unauthenticated source; see ../MEMORY.md. The
-    # Secret must exist in THIS namespace - a secretKeyRef cannot cross one, and
-    # core provisions garage-credentials into `data` only. The ref is optional,
-    # so until it is replicated here the bucket section reports itself
-    # unavailable and nothing else is affected.
+    toolsPrefix: facts
+    configMap: mcp-homelab-facts
     garageSecret: mcp-s3-token
     garageTokenKey: GARAGE_ADMIN_TOKEN
     garageUrlKey: GARAGE_ADMIN_URL
+
+  semantic:
+    enabled: true
+    image: ghcr.io/datahub-local/mcp-semantic
+    tag: main
+    toolsPrefix: semantic
+    configMap: mcp-semantic
+    observabilityEnv: false
+    kubernetesReader: false
+    trinoUrl: http://datahub-local-core-data-trino-trino.data.svc.cluster.local:8080
+    trinoUser: mcp
+    warehouseScopes: silver.bodega,gold.bodega
+    cacheTTLSeconds: 3600
 
 sympozium_delivery_hook:
   image: python:3.13-alpine
@@ -58,7 +67,7 @@ sympozium_ensembles:
       runtimeClass: gvisor
 
     baseURL: http://datahub-local-core-data-ollama.data.svc:11434/v1
-    
+
     policyRef: permissive
 
   homelab-responder:
@@ -71,27 +80,13 @@ sympozium_ensembles:
     channelConfigs:
       slack: mcp-slack-token
 
-    # Who may start a run, which is a different question from how they reach the
-    # agent: slackOptions.allowedTriggers gates the *kind* of message (mention,
-    # dm) and never the sender. With this unset, anyone in the workspace who can
-    # @-mention the bot gets a run holding the facts server, the Kubernetes,
-    # ArgoCD, GitHub and Trino readers, and the Slack history reader.
-    # Inbound-only, so it cannot affect the reporters.
-    # A Slack *user id*, not an @handle - the handle is not what the API sends.
     channelAccessControl:
       slack:
-        allowedSenders:
-          - U08RV08387L
-        # Set, so a refusal is visible. Empty means rejected messages are dropped
-        # in silence and read as the agent being broken.
         denyMessage: >-
-          This agent only answers its operator. Nothing was run.
+          This agent could not run. Nothing was executed.
 
     baseURL: https://openrouter.ai/api/v1
 
-    # The provider string must match the persona's `provider:` byte for byte -
-    # the controller selects by `ref.Provider == persona.Provider` with no case
-    # folding, and a miss silently hands the run no credential at all.
     authRefs:
       - provider: openrouter
         secret: openrouter-auth-credentials

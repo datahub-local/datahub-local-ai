@@ -59,7 +59,7 @@ also accumulated ~100 lines of dead code (`CUMULATIVE_COUNTERS`,
 never called) without anything noticing, which is its own evidence.
 
 This is the same reasoning that removed `hardware_classes.yaml` from
-`agents/mcp/` and the ~600 lines of prose regexes before it. The pattern is
+the MCP repository and the ~600 lines of prose regexes before it. The pattern is
 worth naming: **a check that mirrors a system it does not own is a maintenance
 liability disguised as a safety net.**
 
@@ -187,7 +187,7 @@ What follows from it:
 - **Short, literal prompts.** One job, exact tool order, a small lookup cap with
   a named no-result exit, exact output shape, delivery. Reporters run 0.8–1.7 KB;
   the oracle 5.8 KB because it routes every question the homelab gets across five
-  servers. Deterministic gathering belongs in `agents/mcp/`, durable rationale
+  servers. Deterministic gathering belongs in the MCP repository, durable rationale
   here.
 - **Thinking is on at `high`** — see *Thinking was off, and the switch is in the
   wrong repo*.
@@ -606,7 +606,7 @@ Two traps found fixing it:
   `cnpg_backends_waiting_total` are gauges; the first draft of the validator
   keyed on the suffix and immediately failed a correct prompt. It then held an
   explicit `CUMULATIVE_COUNTERS` set read off Prometheus's metadata API, and that
-  set now lives as a test in `agents/mcp/tests/`. Read the type from the metadata
+  set now lives as a test in the MCP repository. Read the type from the metadata
   API, never from the name.
 - **The model drops the wrapper.** Given `increase(m[1h])` it sent `m[1h]` and
   labelled the raw counter as the increase. Prompts state that an `expr` is the
@@ -1210,7 +1210,7 @@ cascade-deletes the Deployment and never rebuilds it.
 as it existed two and a half minutes earlier: `imagePullPolicy: Always` pulls when
 a pod is *created*. The deployment sat on a nine-tool manifest with
 `status.ready: true`, the persona's `toolsAllow` named a tool the server did not
-expose, and neither end failed. After any change to `agents/mcp/`, wait for the
+expose, and neither end failed. After any change to the MCP repository, wait for the
 build, then
 `kubectl -n automation rollout restart deploy/datahub-local-ai-mcp-homelab-facts`,
 and confirm with a `tools/list` against the pod rather than with an agent run.
@@ -1269,14 +1269,14 @@ result).
 
 ## The facts server: code gathers, the model writes
 
-`agents/mcp/` exists because **every failure in this fleet was a tool-loop failure,
+The MCP repository exists because **every failure in this fleet was a tool-loop failure,
 not a writing failure.** Each incident above added a paragraph to a prompt and a
 regex to `validate.py`, and it did not converge: prompts reached 6–12 KB and
 roughly 600 validator lines were policing English. Both are gone — prompts are
-4–6 KB, the surviving checks are `agents/mcp/tests/` assertions about the
+4–6 KB, the surviving checks are that repository's assertions about the
 expression the server sends, and the validator was deleted outright, because the
 method moved into code.
-The design lives in `agents/mcp/README.md`; four properties are structural rather
+The design lives in the MCP repository's `README.md`; four properties are structural rather
 than instructed, and each retires a class of report that reached Slack: a wrong
 query is not expressible, absence is a value with a definition, every answer is
 bounded in code, and trends are measured in the server. Nothing about the homelab
@@ -1416,11 +1416,11 @@ as the tool simply not existing.
 
 **The one check neither Helm nor the API server can make.** Helm's `.Files` cannot
 read above the chart root, so the template cannot see whether
-`agents/mcp/projects/<project>/` exists, and the API server validates the MCPServer
+`servers/<name>/` exists in the MCP repository, and the API server validates the MCPServer
 either way. A wrong project name deploys cleanly and crash-loops on
 `no such project`. `validate.py` resolved the name the way the template does —
 hyphens to underscores — and failed on a project that was not there; that check
-is gone, so check the directory exists in `agents/mcp/projects/` by hand when
+is gone, so check the directory exists in that repository's `servers/` by hand when
 changing the name.
 
 **`LOKI_URL` points at `datahub-local-core-loki.monitoring.svc:3100`**, direct
@@ -1680,9 +1680,89 @@ sender id names a person, not the agent — same reason as `channelConfigs` — 
 is in `VALUES_ONLY_KEYS`. `validate.py` failed a channel-bound persona whose
 ensemble set neither `allowedSenders` nor `allowedChats`, and warned on a missing
 `denyMessage`; both are unguarded now. An unset `denyMessage` drops a rejected
-sender in silence and reads as a broken agent rather than a refusal, and an unset
-allowlist on the one inbound-bound persona is the open-door case — check both
-whenever `homelab-responder`'s binding changes.
+sender in silence and reads as a broken agent rather than a refusal.
+
+**As of 2026-09-04 `allowedSenders` is deliberately unset: the oracle is open to
+the whole Slack workspace.** It had been pinned to one operator id since the
+binding was created. The reasoning for opening it, which is *not* a reversal of
+the paragraph above but a decision about where the bound belongs:
+
+- The responder exists to be asked. An allowlist of user ids is a second copy of
+  the workspace directory, with the same staleness failure as the
+  `hardware_classes.yaml` that was deleted from `agents/mcp/` — a new colleague
+  is refused for a reason no error explains, and `denyMessage` is the only
+  signal.
+- **The real bound is `toolsAllow`, not the sender list.** An inbound run gets
+  **no `toolPolicy` at all** (see the `homelab-responder` README), so the sender
+  allowlist was never what made the surface safe — `mcpServers[].toolsAllow`
+  filters at the server and survives the inbound path. Every tool the oracle
+  holds is read-only, `send_channel_message` is gone from it, and no skill
+  sidecar is mounted so `execute_command` has nothing to execute. Narrow there,
+  in `projects/`, where it is reviewable per persona.
+- The blast radius is bounded by the ensemble split: `channelAccessControl` is
+  inbound-only, so it cannot reach the five reporters or `renovate-reviewer` —
+  the one persona holding a write tool, and the reason it is unbound.
+
+What this *does* grant a workspace member: cluster reads (facts server,
+Kubernetes, ArgoCD, Trino, GitHub) and Slack channel history, plus consumption
+of the single Ollama slot. Two consequences to watch rather than assume away:
+`MAX_TOOL_ITERATIONS` spend is now driven by strangers, and the Slack history
+reader means anyone who can DM the bot can have it read a channel it is in.
+Re-pin `allowedSenders` if either becomes a problem; the values comment states
+how, and that user ids are not @handles.
+
+## The MCP servers left this repository (2026-09-04)
+
+The servers moved to
+[`datahub-local-ai-mcp`](https://github.com/datahub-local/datahub-local-ai-mcp)
+and `agents/mcp/` was deleted. One image per server —
+`ghcr.io/datahub-local/mcp-homelab-facts` and `mcp-semantic`, both
+amd64+arm64 — and the runner flag is `--server`, not `--project`.
+
+**The images are generic; this repository owns the data.** That split is the
+reason for the move: the servers are reusable, a chronic-alert list is not.
+
+| Server          | ConfigMap           | Built by                                        |
+| --------------- | ------------------- | ----------------------------------------------- |
+| `homelab-facts` | `mcp-homelab-facts` | `templates/mcp-configmaps.yaml` from `config/homelab_facts/` |
+| `semantic`      | `mcp-semantic`      | `config/semantic/registry.yaml` (symlink)       |
+
+Why the two are built differently, which looks inconsistent and is not: Helm's
+`.Files` cannot read above the chart root, and the semantic definitions must
+stay in `workflows/dbt/semantic/` beside the dbt models whose columns every
+`expr` references. So homelab-facts renders from inside the chart and semantic
+is an external script that also runs the validation gate and prunes the
+manifest (671 KB to 3.4 KB, against a 1 MiB ConfigMap cap).
+
+Three things that will bite:
+
+- **`PROMETHEUS_URL` and `LOKI_URL` are now mandatory**, with no default in the
+  server. A guessed address reports every reading `unavailable`, which renders a
+  wrong endpoint as an absent one. The chart supplies both; a new deployment
+  that omits them fails loudly at first call, which is the intent.
+- **Never mount a server's data under `/app`.** It is WORKDIR and lands on
+  `sys.path`, so `/app/semantic/` shadows the `semantic` package and the server
+  dies at startup with `module 'semantic' has no attribute 'register'`. The
+  mount point is `/etc/mcp/<server>/`, which cannot collide. Verified by running
+  the container both ways.
+- **The semantic gate imports `registry.py` from the other repository**, so the
+  gate and the server apply byte-identical rules rather than two copies that
+  drift. It expects that repo checked out beside this one; `MCP_REPO` overrides.
+  A missing checkout is a readable `SystemExit`, not an ImportError.
+
+The persona files were **not** touched: they reference the MCP server by its
+Kubernetes object name (`datahub-local-ai-mcp-mcp-homelab-facts` is not it —
+the name is `datahub-local-ai-mcp-homelab-facts`), which the chart still
+renders unchanged.
+
+## The helmfile namespace is not a preference
+
+`namespace: automation` in `helmfile.yaml.gotmpl` must be the namespace the
+Sympozium controller watches — the same one the control plane and the MCPServer
+catalog live in (datahub-local-core,
+`releases/automation/values/sympozium.yaml.gotmpl`). Recorded here because the
+comment that said so was removed from the helmfile: config files carry values,
+this file carries why.
 
 ## Why the `permissive` policy
 
@@ -2547,7 +2627,7 @@ report can use. If column names are ever genuinely needed, the tool shape exists
 one database someone cares about.
 
 The payoff lands in this repository with no credential: the readings become
-`facts_promql`, then a bounded `facts_*` tool, and `agents/mcp/` keeps the property
+`facts_promql`, then a bounded `facts_*` tool, and the MCP repository keeps the property
 that it holds no DSN.
 
 ### Trino answers structure; metrics answer size
@@ -2640,7 +2720,7 @@ What held: the MCPServer name, `toolsPrefix: trino`, `status.ready: true`, a
 **Trino requires no authentication here** — `web-ui.authentication.type=FIXED`
 covers the UI only and the HTTP API accepts any `X-Trino-User`, verified by running
 `SHOW CATALOGS` as an invented user — so a Trino-backed tool holds no credential,
-which is the property `agents/mcp/` is built around. And the payoff is larger than
+which is the property the MCP servers are built around. And the payoff is larger than
 the question that prompted it: nothing in this fleet can currently see the Iceberg
 warehouse at all, and the same four tools reach `bronze`/`silver`/`gold`/`test`.
 
@@ -2775,7 +2855,7 @@ scopes which catalogs are reachable; **a catalog privilege is not a function
 privilege**, and the `system.query` EXECUTE grant is still a separate rule that
 nobody has to add — the CNPG `customQueriesConfigMap` two sections up reaches the
 same figures with history, no SQL composed by a 4B model, and no credential in
-`agents/mcp/`. Prefer it and leave the passthrough denied.
+the facts server. Prefer it and leave the passthrough denied.
 
 Of the two things core owed here, the first is **done**: the `viewer` Postgres role
 exists and every `postgresql_*` catalog answers with real rows. The second should
@@ -2951,3 +3031,74 @@ looks self-contained.
   that do not share the child's lock. **Handshake properly** (`initialize`,
   `notifications/initialized`, then `tools/list`) when reading that server's
   manifest by hand.
+
+## The warehouse describes itself; only the contract is a file (2026-09-04)
+
+`workflows/dbt/semantic/dimension_samples.json` was a committed 27 KB file: 428
+product names, the card type, the bank. It was a maintenance problem and the
+wrong thing to publish, and the first fix — have the bodega DAG refresh it into
+the ConfigMap — was replaced within the day by a better one after asking why the
+MCP server did not simply read Iceberg.
+
+The answer, measured rather than assumed:
+
+- **cardinality is already in Iceberg.** `SHOW STATS FOR silver.bodega.invoices`
+  returns a distinct count per column, from table metadata, with no scan. The
+  precomputed file was duplicating it.
+- **sample values need a query**, but a cheap one, and only for the dimensions a
+  tool is asked about.
+- **column docs were the real blocker.** Every Iceberg column comment was NULL
+  and `persist_docs` was set nowhere, so the documentation gate genuinely could
+  not be sourced from the warehouse. That is now fixed in dbt.
+
+So the server reads all three from Trino behind a TTL cache, and the ConfigMap
+carries exactly one key: `registry.yaml`, the metric contract, which no
+warehouse can answer. `build_configmap.sh`, `refresh_samples.py`, the Airflow
+task, the cross-namespace RoleBinding and the ArgoCD `ignoreDifferences` are all
+gone — the last two were prerequisites of the design that got replaced.
+
+**Everything below was verified against the live cluster, not reasoned about.**
+
+- `COMMENT ON COLUMN` works on Iceberg via Polaris — written and read back
+  through `information_schema` on a scratch table, dropped after.
+- A **blank** description writes a NULL comment, byte-identical to an
+  undocumented column. 23 of 46 documented columns had blank descriptions,
+  including `payment_method` and `card_type`, which the registry uses as
+  dimensions. All 23 were written before `persist_docs` was enabled, and
+  `tests/bodega/test_project.py` now fails the build if any is blank. Without
+  that ordering the gate would have silently weakened to "the column exists" on
+  the first deploy and nothing would have failed.
+- The registry loads with **no manifest file and no samples file**: 3 models
+  bound to real tables, 7 metrics, validated against Iceberg comments.
+- `list_dimensions` returns the same numbers the deleted file held — 25
+  categories, 418 subcategories — including the `DAIRY_EGGS` vs `Whole milk`
+  case distinction on the same model, which is why a blanket "everything is
+  uppercase" hint would be wrong.
+- The near-miss suggestion still works: a filter on `Dairy_Eggs` answers
+  `did you mean "DAIRY_EGGS"?`, driven entirely by live values. That is the
+  whole reason samples exist — silver stores `trim(upper(...))`, so a
+  wrong-case filter matches zero rows and looks fine doing it.
+- Trino is reachable from an MCP pod (HTTP 200 against the service DNS name);
+  no NetworkPolicy in `automation` selects `mcpserver` pods.
+- Helm follows a symlink whose target is inside the repository. The registry
+  reaches the chart as `config/semantic/registry.yaml` →
+  `workflows/dbt/semantic/bodega.yaml`, stored by git as mode `120000`, so no
+  generated copy is committed. `helm template` warns and uses the contents;
+  `helmfile template` is silent.
+
+**Three properties to preserve.** An outage costs freshness, not the tool: a
+failed refresh serves the last good value, and only a cold cache raises. There
+is still no `run_sql` — every statement is composed in code from a validated
+registry, and `_identifier()` re-checks each name because Trino has no bind
+parameters for identifiers. And `list_dimensions` no longer has a names-only
+mode, so its degraded state is *stale*, which is visible only in the log.
+
+**Two findings worth acting on separately.** The samples file was already
+`git add`ed — `git ls-files` showed the directory as untracked, but `git status`
+showed `AM`, and a `.gitignore` rule does nothing for a staged path while
+`git check-ignore` prints nothing for a path absent from disk. Both checks
+looked clean while the data was on its way into the first commit; check
+`git status --porcelain`. And **the homelab dbt profile cannot connect**: it
+defaults to `TRINO_USER=dbt`, Trino's `rules.json` lists only `admin` and `mcp`
+with no catch-all, and nothing in Airflow sets the variable. `dbt` is denied
+even `SELECT 1`. Untouched here — it predates this work.

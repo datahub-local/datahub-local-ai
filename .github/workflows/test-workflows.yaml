@@ -75,6 +75,12 @@ jobs:
       - name: Run integration tests (DuckDB)
         run: uv run -- pytest tests/example_db/test_integration.py -v
 
+      # The G3 gate. Offline - `dbt parse` needs no warehouse and no credential -
+      # so renaming a column the semantic registry references fails the build
+      # here rather than producing a wrong number in Slack later.
+      - name: semantic-compile (registry gate)
+        run: uv run -- python semantic/compile.py --project bodega
+
   dlt:
     name: dlt tests
     runs-on: ubuntu-latest

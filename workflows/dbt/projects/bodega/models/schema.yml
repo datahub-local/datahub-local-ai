@@ -1,6 +1,11 @@
 version: 2
 
 models:
+  # invoices, invoice_items and category_spending document every column, not
+  # just the tested ones. The semantic registry (../../../semantic/) resolves
+  # each `expr` against this list via the dbt manifest, and the manifest only
+  # carries columns that appear here — an undocumented column reads as a missing
+  # one, so `semantic-compile` fails rather than silently skipping it.
   - name: invoices
     description: "Cleaned invoice headers. One row per shopping trip."
     columns:
@@ -9,24 +14,85 @@ models:
         tests:
           - not_null
           - unique
+      - name: invoice_datetime
+        description: "Purchase instant as parsed from the receipt."
+      - name: invoice_date
+        description: "Purchase date. The aggregation time dimension."
+      - name: invoice_year
+        description: "Calendar year of invoice_date."
+      - name: invoice_month
+        description: "Calendar month of invoice_date, 1-12. Not a date - use invoice_date to aggregate."
+      - name: invoice_week
+        description: "ISO week number of invoice_date, 1-53. Not a date, and not comparable across years."
+      - name: operator_id
+        description: "Till operator on the receipt."
+      - name: store_vat_id
+        description: "Store VAT identifier. Joins to stores.store_id."
+      - name: store_name
+        description: "Store name, trimmed and uppercased."
+      - name: total_amount
+        description: "Receipt total, VAT included."
+      - name: total_tax_amount
+        description: "VAT summed from the receipt's own tax breakdown."
+      - name: total_base_amount
+        description: "Pre-VAT base summed from the receipt's tax breakdown."
+      - name: payment_method
+        description: "Payment method as printed on the receipt. TARJETA BANCARIA only, so far."
+      - name: card_type
+        description: "Card brand as printed. DEBIT MASTERCARD only, so far."
+      - name: card_number_masked
+        description: "Card number with all but the last digits masked, as printed on the receipt."
+
+      - name: supermarket
+        description: "Retail brand. MERCADONA only, so far."
+      - name: item_count
+        description: "Number of line items on the receipt."
+      - name: _ingested_at
+        description: "Ingest timestamp written by the dlt pipeline. Pipeline metadata, not receipt data."
 
   - name: invoice_items
     description: "Exploded line items. One row per product per invoice."
     columns:
       - name: invoice_number
+        description: "Invoice this line belongs to. Joins to invoices.invoice_number."
         tests:
           - not_null
       - name: item_position
+        description: "1-based position of the line on the receipt. Unique within an invoice."
         tests:
           - not_null
+      - name: invoice_date
+        description: "Purchase date, denormalised from the header."
+      - name: store_vat_id
+        description: "Store VAT identifier, denormalised from the header."
+      - name: supermarket
+        description: "Retail brand, denormalised from the header."
+
+      - name: description_raw
+        description: "Product description exactly as printed."
+      - name: description_clean
+        description: "description_raw trimmed and uppercased. The product key."
+      - name: quantity
+        description: "Units for EA lines, kilograms for KG lines."
+      - name: unit
+        description: "KG for weighted lines, EA otherwise. Derived from quantity."
+      - name: unit_price
+        description: >
+          Per-unit price as printed. Do NOT average this for a price metric —
+          avg(unit_price) and sum(total)/sum(quantity) differ by 5.2% on this
+          data. See ../../../semantic/PHASE0.md.
+      - name: total_amount
+        description: "Line total, VAT included."
 
   - name: invoice_taxes
     description: "Exploded tax breakdown. One row per tax rate per invoice."
     columns:
       - name: invoice_number
+        description: "Invoice this tax line belongs to. Joins to invoices.invoice_number."
         tests:
           - not_null
       - name: tax_rate
+        description: "VAT rate for this breakdown line, as printed on the receipt."
         tests:
           - not_null
 
@@ -34,6 +100,7 @@ models:
     description: "SCD Type 1 store dimension. One row per distinct store VAT ID."
     columns:
       - name: store_id
+        description: "Store VAT identifier. The dimension key; joins to invoices.store_vat_id."
         tests:
           - not_null
           - unique
@@ -42,6 +109,7 @@ models:
     description: "Daily spend aggregates per supermarket."
     columns:
       - name: invoice_date
+        description: "Day this row aggregates. The grain of the table."
         tests:
           - not_null
 
@@ -49,6 +117,7 @@ models:
     description: "Weekly spend aggregates per supermarket."
     columns:
       - name: week_start
+        description: "Monday of the ISO week this row aggregates, from date_trunc('week', invoice_date)."
         tests:
           - not_null
 
@@ -56,6 +125,7 @@ models:
     description: "All-time product rankings by spend and frequency."
     columns:
       - name: description_clean
+        description: "Product key, trimmed and uppercased. Joins to invoice_items.description_clean."
         tests:
           - not_null
 
@@ -65,6 +135,7 @@ models:
       weighted products, €/unit otherwise). Only products bought ≥2 times.
     columns:
       - name: description_clean
+        description: "Product key, trimmed and uppercased. Joins to invoice_items.description_clean."
         tests:
           - not_null
 
@@ -72,12 +143,36 @@ models:
     description: "Daily spend by LLM-assigned product category."
     columns:
       - name: invoice_date
+        description: "Day this row aggregates. The finest grain of the table."
         tests:
           - not_null
+      - name: week_start
+        description: "Monday of the ISO week containing invoice_date, from date_trunc('week', ...)."
+      - name: month_start
+        description: "First day of the month containing invoice_date, from date_trunc('month', ...)."
+
+      - name: category
+        description: >
+          LLM-assigned category, or the literal OTHER for a line whose product
+          has no categorisation. Uncategorised spend lands here rather than
+          being dropped.
+      - name: subcategory
+        description: "LLM-assigned subcategory. PARSE_ERROR when the LLM output failed to parse."
+      - name: supermarket
+        description: "Retail brand this row aggregates."
+      - name: invoice_count
+        description: "Distinct invoices contributing to this row."
+      - name: item_count
+        description: "Line items contributing to this row."
+      - name: total_spent
+        description: >
+          Line-item spend, already aggregated to this row's grain. Summing it
+          again is correct; averaging it is not.
 
   - name: tax_summary
     description: "Monthly tax base and amount per VAT rate."
     columns:
       - name: month_start
+        description: "First day of the month this row aggregates, from date_trunc('month', invoice_date)."
         tests:
           - not_null

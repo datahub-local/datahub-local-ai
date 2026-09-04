@@ -15,9 +15,6 @@ commonLabels:
 
 releases:
   - name: "{{ .Values.release_name }}-sympozium"
-    # Must be the namespace the Sympozium controller watches — the same one the
-    # control plane and the MCPServer catalog live in (see datahub-local-core,
-    # releases/automation/values/sympozium.yaml.gotmpl).
     namespace: automation
     chart: "."
     values:

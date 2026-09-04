@@ -1,0 +1,21 @@
+{{- range $name, $server := .Values.sympozium_mcp_servers | default dict }}
+{{-   if and $server.enabled $server.configMap }}
+{{-     $serverArg := $server.server | default (regexReplaceAll "-" $name "_") }}
+{{-     $files := $.Files.Glob (printf "config/%s/*" $serverArg) }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $server.configMap | quote }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: mcpserver
+    app.kubernetes.io/instance: {{ printf "%s-mcp-%s" $.Values.release_name $name }}
+    app.kubernetes.io/managed-by: Helm
+data: {{ if not $files }}{}{{ end }}
+{{-     range $path, $_ := $files }}
+  {{ base $path }}: |
+{{ $.Files.Get $path | indent 4 }}
+{{-     end }}
+{{-   end }}
+{{- end }}

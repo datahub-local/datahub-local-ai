@@ -4,7 +4,6 @@ on:
   pull_request:
     paths:
       - ".github/workflows/test-agents.yaml"
-      - "agents/mcp/**"
       - "agents/sympozium/**"
       - "pyproject.toml"
   push:
@@ -12,7 +11,6 @@ on:
       - main
     paths:
       - ".github/workflows/test-agents.yaml"
-      - "agents/mcp/**"
       - "agents/sympozium/**"
       - "pyproject.toml"
 
@@ -78,54 +76,3 @@ jobs:
       - name: Render ensembles
         working-directory: agents/sympozium
         run: helmfile template
-
-  mcp:
-    name: MCP servers
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: agents/mcp
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-
-      - name: Install Python with uv
-        run: uv python install 3.13
-
-      - name: Sync dependencies
-        run: uv sync --extra dev
-
-      - name: Lint
-        run: uv run -- ruff check .
-
-      - name: Test
-        run: uv run -- pytest
-
-      - name: Check the tool manifest builds
-        run: uv run -- python -m mcp_runner --project homelab_facts --list-tools
-
-  mcp-image:
-    name: MCP image
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build for both architectures
-        uses: docker/build-push-action@v5
-        with:
-          context: agents/mcp
-          push: false
-          platforms: linux/amd64,linux/arm64
-          cache-from: type=gha

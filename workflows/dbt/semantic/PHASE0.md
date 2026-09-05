@@ -1,27 +1,29 @@
 # Phase 0 — measured definitions
 
-Every number below was read from the live homelab Trino (v480) on 2026-09-04
-against `silver.bodega` / `gold.bodega`, as user `mcp`. Reproduce with the
-queries inline; each is the definition of the metric beside it.
+Each metric in `bodega.yaml` was defined by running its SQL against the live
+homelab Trino (v480) as user `mcp`, over `silver.bodega` / `gold.bodega`. This
+file records **what was found**, and the query that finds it again.
 
-Data at measurement time: **75 invoices, 1481 line items, 428 products,
-2026-01-05 to 2026-08-19**. Everything here is one supermarket (MERCADONA) and
-one payment method (TARJETA BANCARIA), which is why several `excludes` clauses
-are about absent variety rather than about disagreement.
+**No figures here, deliberately.** The bodega tables hold personal purchase
+history, so a number written down is that data committed to git — and it would
+be stale the next time the ingest runs anyway. Every finding below is stated as
+a direction or an invariant, which is the durable part; run the query beside it
+to get the current value. The same rule governs `bodega.yaml`: an `excludes`
+states what a metric leaves out, which is a property of the definition, never
+of today's rows.
+
+First measured 2026-09-04, re-measured in full 2026-09-05 after the table grew
+by roughly a seventh. **Every finding held.** A finding that reverses is the
+interesting outcome and belongs in this file.
+
+Everything here is one supermarket and one payment method, which is why several
+`excludes` clauses are about absent variety rather than about disagreement.
 
 ## The headline reconciliation
 
 The spec (§4.2, §9) predicted that `grocery_spend_eur` and `category_spend_eur`
 **cannot agree**, because invoice-level rounding and an `OTHER` bucket pull them
-apart. On this data they agree exactly:
-
-| Quantity | Source | Value |
-|----------|--------|-------|
-| `grocery_spend_eur` | `sum(total_amount)` from `silver.bodega.invoices` | **4086.96** |
-| line-item sum | `sum(total_amount)` from `silver.bodega.invoice_items` | **4086.96** |
-| `category_spend_eur` | `sum(total_spent)` from `gold.bodega.category_spending` | **4086.96** |
-
-Gap: **0.00 EUR / 0.0000%**.
+apart. **They agree exactly** — to the cent, on both measurement dates.
 
 ```sql
 WITH g AS (SELECT sum(total_amount) AS v FROM silver.bodega.invoices),
@@ -31,10 +33,10 @@ SELECT round(g.v,2), round(i.v,2), round(c.v,2), round(c.v - g.v, 2) FROM g, c, 
 ```
 
 Stronger than the aggregate: the header total equals the sum of its own lines on
-**every one of the 75 invoices**, to the cent.
+**every invoice**, to the cent. The query returns the number compared, the number
+mismatching (zero) and the largest absolute difference (zero).
 
 ```sql
--- 75 compared, 0 mismatching, max abs diff 0.0
 WITH h AS (SELECT invoice_number, total_amount FROM silver.bodega.invoices),
      l AS (SELECT invoice_number, sum(total_amount) AS items_total
            FROM silver.bodega.invoice_items GROUP BY invoice_number)
@@ -46,51 +48,51 @@ FROM h JOIN l ON h.invoice_number = l.invoice_number;
 **Why they agree, and why that is not a licence to treat them as one metric.**
 The two mechanisms the spec named are real but currently measure zero here:
 
-- *Invoice-level rounding*: Mercadona's receipts happen to have line totals that
-  sum exactly to the header. This is a property of the parsed source, not an
+- *Invoice-level rounding*: this retailer's receipts happen to have line totals
+  that sum exactly to the header. This is a property of the parsed source, not an
   invariant the pipeline enforces. A supermarket that rounds, or a receipt
   carrying a basket-level discount, reintroduces the gap with no code change.
-- *The `OTHER` bucket*: it exists and holds **2 rows / 3.75 EUR**, and no product
-  is `PARSE_ERROR` at all (0 of 428). The bucket does not currently move the
+- *The `OTHER` bucket*: it exists and holds a rounding-error share of spend, and
+  no product has ever been `PARSE_ERROR`. The bucket does not currently move the
   total because categorisation happened to cover everything. The `LEFT JOIN` in
   `category_spending.sql` means an *uncategorised* line still contributes its
   spend under `OTHER` rather than being dropped, which is what keeps the totals
   equal — so the agreement survives a categorisation gap but not a rounding one.
 
 So the `excludes` text keeps the warning, restated as measured: the two are
-equal **today at 0.00%**, they are not equal *by construction*, and the grain
-differs (per-trip vs per-line). Phase 4 compares them again; a non-zero gap is a
-finding about the source, not necessarily a registry bug.
+equal **today**, they are not equal *by construction*, and the grain differs
+(per-trip vs per-line). A non-zero gap is a finding about the source, not
+necessarily a registry bug.
 
 ## The ratio trap, quantified
 
 `AVG(unit_price)` and `SUM(total)/SUM(quantity)` are different numbers, and only
-the second is `blended_unit_price_eur`:
-
-| Expression | Value |
-|------------|-------|
-| `avg(unit_price)` — what `top_products.sql` computes | 2.5099 |
-| `sum(total_amount)/nullif(sum(quantity),0)` — the metric | **2.3850** |
-
-**5.2% apart.** The compiler must never emit the first form.
+the second is `blended_unit_price_eur`. The first — what `top_products.sql`
+computes — has come out **several percent higher** on every measurement. The
+compiler must never emit it.
 
 ```sql
 SELECT round(avg(unit_price),4), round(sum(total_amount)/nullif(sum(quantity),0),4)
 FROM silver.bodega.invoice_items;
 ```
 
-Unit composition confirms the no-fixed-unit hazard: **62 KG lines and 1419 EA
-lines**, so the blended figure mixes EUR/kg with EUR/unit exactly as
-`price_trends.sql` intends. No line has `quantity` 0 or null, so nothing is
-currently dropped by the division — but the `nullif` stays, because one such row
-would otherwise fail the whole query.
+Unit composition confirms the no-fixed-unit hazard: both `KG` and `EA` lines are
+always present, `EA` far outnumbering `KG`, so the blended figure mixes EUR/kg
+with EUR/unit exactly as `price_trends.sql` intends. No line has `quantity` 0 or
+null, so nothing is currently dropped by the division — but the `nullif` stays,
+because one such row would otherwise fail the whole query.
+
+```sql
+SELECT unit, count(*) FROM silver.bodega.invoice_items GROUP BY unit;
+```
 
 ## Findings the spec did not have
 
-1. **`price_trends` silently drops 12.9% of spend.** Its `HAVING COUNT(*) >= 2`
-   keeps only repeat-purchased products: **220 of 428 products, 3557.78 of
-   4086.96 EUR**. No `excludes` in the spec mentioned this. Any metric sourced
-   from `price_trends` must state it. This registry therefore sources
+1. **`price_trends` silently drops a double-digit share of spend.** Its
+   `HAVING COUNT(*) >= 2` keeps only repeat-purchased products — roughly half of
+   them, and with them a double-digit percentage of total spend, on every
+   measurement. No `excludes` in the spec mentioned this. Any metric sourced from
+   `price_trends` must state it. This registry therefore sources
    `blended_unit_price_eur` from `invoice_items` instead, where nothing is
    filtered out.
 
@@ -101,24 +103,35 @@ would otherwise fail the whole query.
           (SELECT sum(total_spent)  FROM gold.bodega.price_trends);
    ```
 
-2. **No returns exist in the data.** 0 negative line amounts, 0 negative
-   quantities, line range 0.15 to 35.00. `grocery_spend_eur.excludes` claims
-   returns are "included as whatever sign the receipt carried"; that is untested,
-   not observed. Stated as unobserved rather than as behaviour.
+2. **No returns exist in the data.** No negative line amounts, no negative
+   quantities, every line strictly positive.
+   `grocery_spend_eur.excludes` claims returns are "included as whatever sign the
+   receipt carried"; that is untested, not observed. Stated as unobserved rather
+   than as behaviour.
 
-3. **Tax is inside the total, verifiably.** `total_tax_amount` 414.69 +
-   `total_base_amount` 3672.27 = 4086.96, the receipt total. "VAT included" is
+   ```sql
+   SELECT count(*) FROM silver.bodega.invoice_items
+   WHERE total_amount < 0 OR quantity < 0;
+   ```
+
+3. **Tax is inside the total, verifiably.** `total_tax_amount` plus
+   `total_base_amount` equals the receipt total exactly. "VAT included" is
    measured, not assumed.
 
-4. **`avg_basket_eur` is unambiguous on this data.** `sum/count` and `avg()` both
-   give **54.4928** because there is exactly one row per invoice
-   (75 rows, 75 distinct invoice numbers). The ratio form is still the compiled
-   one — the equality is a property of the grain, and it breaks the moment a
-   metric is averaged over anything pre-aggregated.
+   ```sql
+   SELECT round(sum(total_tax_amount) + sum(total_base_amount) - sum(total_amount), 2)
+   FROM silver.bodega.invoices;
+   ```
 
-5. **The data is 16 days stale** (last invoice 2026-08-19, measured 2026-09-04).
-   The partial-period flag is therefore exercised by real data on any query whose
-   window reaches the present, which makes it testable rather than theoretical.
+4. **`avg_basket_eur` is unambiguous on this data.** `sum/count` and `avg()` give
+   the same figure because there is exactly one row per invoice. The ratio form is
+   still the compiled one — the equality is a property of the grain, and it breaks
+   the moment a metric is averaged over anything pre-aggregated.
+
+5. **The data is stale by days, not hours.** The last invoice predates any given
+   measurement, because ingest runs on receipt arrival. The partial-period flag is
+   therefore exercised by real data on any query whose window reaches the present,
+   which makes it testable rather than theoretical.
 
 ## Access control, as actually configured
 
@@ -161,12 +174,25 @@ real reduction in blast radius and `read-only` on the catalogs is genuinely
 enforced. The NetworkPolicy plus the absence of a SQL tool is still the
 boundary; the Trino user name is now a weak second layer rather than none.
 
-Two consequences for the build:
+One consequence for the build: `mcp-semantic` can send `X-Trino-User: mcp` and
+needs no credential, keeping the deployment secret-free as it is today.
 
-- `mcp-semantic` can send `X-Trino-User: mcp` and needs no credential, keeping
-  `agents/mcp/` secret-free as it is today.
-- Phase 3's planned rules change is smaller than the spec assumed: the catalog
-  rule already denies `system` and allows only read. Narrowing `mcp` from all
-  six catalogs down to `silver|gold` is the remaining work, and it still needs
-  the coordinator restart, because `security.refresh-period=60s` does not
-  reload this file.
+**The planned narrowing is not happening.** Phase 3 was going to cut `mcp` from
+six catalogs down to `silver|gold`; that was dropped deliberately. The chart
+manages three permission tiers, not per-user grants — `admin` (all), a
+read-write tier (`dbt`, `superset`, `maintenance`) and a read-only tier (`mcp`)
+— and users are assigned to a tier rather than given bespoke rules. A
+`silver|gold`-only grant would be a fourth tier existing for one user.
+
+That costs nothing real, because the boundary was never the Trino user. It is
+the NetworkPolicy plus the absence of any `run_sql` tool: the semantic server
+composes every statement in code from a validated registry, so a narrower grant
+removes no capability the agent can actually reach.
+
+Read the live rules before assuming any user works; the set has changed at least
+once and the file above is a copy, not the source:
+
+```bash
+kubectl get cm datahub-local-core-data-trino-trino-access-control-volume-coordinator \
+  -n data -o jsonpath='{.data.rules\.json}' | python3 -m json.tool
+```

@@ -146,7 +146,7 @@ spec:
             - name: SEMANTIC_REGISTRY_PATH
               value: /etc/mcp/semantic/registry.yaml
             - name: SEMANTIC_REGISTRY_VERSION
-              value: {{ $server.semanticRegistryVersion | default ($server.tag | default "main") | quote }}
+              value: {{ printf "sha256:%.12s" (sha256sum ($.Files.Get "config/semantic/registry.yaml")) | quote }}
             - name: SEMANTIC_WAREHOUSE_SCOPES
               value: {{ required "semantic needs warehouseScopes (catalog.schema pairs)" $server.warehouseScopes | quote }}
 {{-         if $server.cacheTTLSeconds }}

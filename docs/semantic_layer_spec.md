@@ -851,12 +851,15 @@ Each phase ends in something usable. Stop after any phase and the platform is
 still better than before.
 
 ### Phase 0 — Write the metrics, ship nothing
-- [ ] 6-8 metrics in YAML against the bodega models that exist today, each with a
-      written `excludes`
-- [ ] Hand-run each definition's SQL against Trino and record the number
-- [ ] Build the weekly bodega digest in n8n from those hand-written queries
+- [x] 6-8 metrics in YAML against the bodega models that exist today, each with a
+      written `excludes` — 7 metrics in `workflows/dbt/semantic/bodega.yaml`
+- [x] Hand-run each definition's SQL against Trino and record the number —
+      `PHASE0.md`, re-measured 2026-09-05 with every finding intact
+- [ ] Build the weekly bodega digest in n8n from those hand-written queries —
+      **not built.** The only bodega workflow in n8n is the Gmail *ingest*
 - **Done when:** you know whether `total_amount` summed from `invoices` and from
-  `category_spending` agree, and by how much
+  `category_spending` agree, and by how much — **they agree exactly**, on both
+  measurement dates, and per-invoice to the cent
 
 This phase is new and it is the most valuable one. It costs a day, it produces
 the digest that G1 needs as a baseline, and it front-loads the finding that
@@ -888,10 +891,12 @@ by being written against real columns.
 - [ ] Trino access-control rules for `silver.bodega` / `gold.bodega`, plus the
       coordinator restart that makes them take effect
 - [ ] Resource group, session property caps, NetworkPolicy
-- [ ] Compiler: single-model, simple and ratio metrics, bound params, allowlisted
+- [x] Compiler: single-model, simple and ratio metrics, bound params, allowlisted
       `order_by`
-- [ ] Partial-period detection
-- [ ] `query`, returning `excludes_applied`
+- [x] Partial-period detection
+- [x] `query`, returning `excludes_applied`. Executes via Trino
+      `PREPARE`/`EXECUTE ... USING`, so values stay bound to the warehouse
+      rather than interpolated by `inline_sql`, which stays display-only
 - [ ] Loki structured logging, Prometheus metrics, ServiceMonitor
 - [ ] Read `kubectl logs <run-pod> -c mcp-discover` after the deploy — a whole
       server failing to register is otherwise silent
@@ -903,6 +908,20 @@ by being written against real columns.
 - [ ] Run both in parallel for 4 weeks
 - **Done when:** the numbers are identical (G1). **Any discrepancy is a registry
   bug and is worth more than the rest of the phase.**
+
+**This phase has lost its baseline and needs rescoping.** It assumes a
+hand-written digest to migrate *from* and to run beside; Phase 0 never built
+one, so there is nothing to compare against and "run both in parallel" is not
+expressible as written. The comparison is what made this the real test, so
+dropping it silently would remove G1's only evidence.
+
+The comparison still exists, in a cheaper form. `PHASE0.md`'s queries **are**
+the hand-written baseline — they were run against Trino and their answers
+recorded — so the check is a test asserting that `query` returns those same
+numbers for the same windows, rather than four weeks of parallel n8n runs. That
+is reproducible, runs in CI, and catches exactly what the parallel run was for:
+a registry definition that no longer computes what it did. Re-measurement on
+2026-09-05 is the manual version of it and found no drift.
 
 ### Phase 5 — Wire the persona
 - [ ] Measure `homelab-oracle`'s first-call input tokens **before** the change

@@ -268,7 +268,7 @@ Two ordering rules when deploying: both ConfigMaps must exist before the pods
 start — a missing facts mount degrades loudly but works, a missing semantic
 registry is fatal — and after a sync read
 `kubectl logs <run-pod> -c mcp-discover` for the per-server tool counts
-(**16** and **4**). A whole server failing to register is otherwise silent.
+(**16** and **5**). A whole server failing to register is otherwise silent.
 
 ### Sympozium agents
 

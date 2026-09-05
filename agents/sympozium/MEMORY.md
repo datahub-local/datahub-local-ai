@@ -3193,3 +3193,89 @@ proves nothing about what the cluster is executing.
 `persist_docs` itself is confirmed working: one model run against Trino wrote
 comments for exactly the two columns `schema.yml` documents and left the other
 four NULL, which is the behaviour the documentation gate depends on.
+
+## The registry version was the image tag (2026-09-05)
+
+`query` shipped and answered correctly in-cluster on the first call, and the
+reply's header read `registry main`. `SEMANTIC_REGISTRY_VERSION` is stamped by
+`values/default.yaml.gotmpl`, which left `semanticRegistryVersion` unset, so the
+template fell through to `$server.tag | default "main"` — the *image* tag.
+
+That is the wrong identity for it. The version travels on every answer so a
+number in a digest is traceable to the definitions that produced it, and the
+definitions are `workflows/dbt/semantic/bodega.yaml` in this repository, not the
+server image. Tying them together means a definition change with no image
+rebuild reports an unchanged version, and an image rebuild with no definition
+change reports a changed one. Both are wrong in the direction that matters:
+Phase 4 runs the digest twice and treats a disagreement as a registry bug, which
+only works if the version moves exactly when the metrics do. `main` is worse
+again, being a moving pointer that never changes at all.
+
+The first fix was a pin — `semanticRegistryVersion: 2e9fe1a` in values, bumped
+by hand in whatever commit changes a definition. **That was the wrong shape and
+lasted an hour.** A hand-maintained version beside the file it describes is a
+second source of truth with nothing enforcing agreement: forget the bump and the
+server reports a version that is not what it loaded, silently, because a stale
+string still renders. It is the committed-generated-copy problem in miniature.
+
+Now **derived**: `templates/mcpservers.yaml` stamps
+`sha256:<first 12 of sha256sum>` over the same `.Files.Get` content it writes
+into the ConfigMap. It cannot disagree with what the server loads, because it is
+computed from those exact bytes; it changes when and only when the registry
+changes; and there is nothing to remember. Verified by appending a line and
+watching the rendered value move, then revert.
+
+The general rule, since this recurs: **a version that identifies a file should
+be computed from the file.** Reach for a declared one only when the identity
+must survive a byte-identical rewrite, which is not the case here.
+
+It also fixed something separate for free. The env var sits in the pod template,
+so a registry edit now changes the Deployment and Kubernetes rolls the pod by
+itself. Previously the ConfigMap changed while the pod kept serving the registry
+it loaded at boot, and picking up a definition change meant remembering to
+restart — the standard `checksum/config` annotation trick, arrived at from the
+other direction.
+
+Note the value is a *label*, not a mechanism — it is printed in four tool
+replies and nothing reads it back. That is exactly why the hand-maintained
+version was dangerous: nothing would ever have failed.
+
+`compile.py` still stamps something different — a git sha, `50ebc72-dirty` when
+the tree is dirty — because it identifies the commit under test rather than the
+deployed file. The two answer different questions and can disagree without
+either being wrong.
+
+## A measurement in an `excludes` is the wrong kind of fact (2026-09-05)
+
+PHASE0 wrote its numbers into the registry: `grocery_spend_eur.excludes` carried
+`tax 414.69 + base 3672.27 = 4086.96`, `shopping_trips` carried `75 invoices
+over 75 distinct invoice numbers`, and five more metrics carried totals, product
+counts and unit splits. All of it committed, and pushed.
+
+Two things are wrong with that and only one is about privacy.
+
+**An `excludes` states what a metric leaves out**, which is a property of the
+definition. A count of invoices is a property of today's rows. Putting the
+second in the field reserved for the first guarantees it goes stale — the
+ingest runs, the number is wrong, and nothing fails, because prose is not
+checked against anything. Re-measuring on 2026-09-05 found every *finding*
+intact and every *figure* moved, which is the shape of the mistake exactly.
+
+**And it is personal purchase history in a git repository**, which is the part
+that does not wash out with an update. The tables hold one household's grocery
+spending; the figures were pushed to GitHub in `2e9fe1a` and history was not
+rewritten, so scrubbing forward stops the bleeding rather than undoing it.
+
+The rule now: **no measurement in `bodega.yaml`, and no figure in `PHASE0.md`.**
+State the finding as a direction or an invariant — "equal to the cent every time
+it has been measured", "drops around half the products and a double-digit share
+of spend", "no product has ever been PARSE_ERROR" — and keep the query beside
+it so the current value is one command away. That is strictly more useful than a
+frozen number: it survives the next ingest, and it is what a reader needs in
+order to check.
+
+Note the structural metadata was never the problem and needs no such care. Table
+names, documented columns, cardinality and dimension values are read live from
+Trino by `warehouse.py`; nothing about them is committed. The confusion is worth
+naming because "the stats are dynamic" is true of everything the *server*
+derives and was never true of the hand-written `excludes` prose.

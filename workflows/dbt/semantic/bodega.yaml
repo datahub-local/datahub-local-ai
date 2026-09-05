@@ -93,12 +93,13 @@ metrics:
         receipt total as printed.
       excludes: >
         Only supermarkets whose e-receipts reach the Gmail inbox and parse -
-        currently MERCADONA only, all 75 invoices. Cash purchases with no
-        e-receipt, any receipt the parser rejected, and every non-grocery
-        purchase are absent entirely. VAT is inside this number (measured:
-        tax 414.69 + base 3672.27 = 4086.96 total). No returns or negative
-        lines have ever been observed in this data, so how a refund would be
-        signed is untested rather than known.
+        currently MERCADONA only, every invoice in the table. Cash purchases
+        with no e-receipt, any receipt the parser rejected, and every
+        non-grocery purchase are absent entirely. VAT is inside this number:
+        total_tax_amount plus total_base_amount equals it exactly, verified
+        every time it has been measured. No returns or negative lines have
+        ever been observed in this data, so how a refund would be signed is
+        untested rather than known.
 
   - name: category_spend_eur
     label: Spend by category (EUR)
@@ -110,17 +111,17 @@ metrics:
       description: >
         Line-item spend attributed to an LLM-assigned product category.
       excludes: >
-        Equal to grocery_spend_eur at 0.00 percent as measured on 2026-09-04
-        (both 4086.96), but NOT equal by construction and at a different grain -
-        this is per line, grocery_spend_eur is per trip. Uncategorised lines
-        land in the literal category OTHER rather than being dropped, so a
-        categorisation gap moves nothing; invoice-level rounding or a
-        basket-level discount would. Categories come from
-        silver.bodega.products, assigned once per (description_clean,
-        supermarket) by an LLM and deduped to the latest by max_by. A parse
-        failure is stored as OTHER / PARSE_ERROR and is indistinguishable from
-        a genuine OTHER; currently 0 of 428 products are PARSE_ERROR and OTHER
-        holds 2 rows totalling 3.75.
+        Equal to grocery_spend_eur to the cent every time it has been measured,
+        but NOT equal by construction and at a different grain - this is per
+        line, grocery_spend_eur is per trip. Uncategorised lines land in the
+        literal category OTHER rather than being dropped, so a categorisation
+        gap moves nothing; invoice-level rounding or a basket-level discount
+        would. Categories come from silver.bodega.products, assigned once per
+        (description_clean, supermarket) by an LLM and deduped to the latest by
+        max_by. A parse failure is stored as OTHER / PARSE_ERROR and is
+        indistinguishable from a genuine OTHER; no product has ever been
+        PARSE_ERROR, and OTHER has never held more than a rounding-error share
+        of spend.
 
   - name: shopping_trips
     label: Shopping trips
@@ -132,8 +133,8 @@ metrics:
       description: Number of invoices, i.e. distinct shopping trips.
       excludes: >
         One receipt is one trip. Two receipts on one visit count twice.
-        Measured 75 invoices over 75 distinct invoice numbers, so the count is
-        currently unambiguous.
+        Every invoice has had a distinct invoice number each time it was
+        checked, so the count is unambiguous.
 
   - name: avg_basket_eur
     label: Average basket (EUR)
@@ -150,13 +151,13 @@ metrics:
         moves it as much as a month of small trips. grain_min is week because a
         daily mean over one or two trips is noise. Compiles as
         sum(amount)/count(invoices), which equals a plain avg() here only
-        because invoices is exactly one row per trip (both 54.4928 as
-        measured); the ratio form is what stays correct over anything
-        pre-aggregated.
+        because invoices is exactly one row per trip; the ratio form is what
+        stays correct over anything pre-aggregated.
 
   # Sourced from invoice_items and deliberately NOT from gold.bodega.price_trends,
-  # which drops 208 of 428 products and 529.18 of 4086.96 EUR to its
-  # HAVING COUNT(*) >= 2 filter. See PHASE0.md finding 1.
+  # which drops every single-purchase product to its HAVING COUNT(*) >= 2
+  # filter - around half the products and a double-digit percentage of spend,
+  # each time it has been measured. See PHASE0.md finding 1.
   - name: blended_unit_price_eur
     label: Blended unit price (EUR)
     type: ratio
@@ -171,12 +172,12 @@ metrics:
       excludes: >
         The unit is NOT constant. Receipts price weighted goods per kg and
         everything else per unit, so this is EUR/kg for weighted lines and
-        EUR/unit otherwise - measured 62 KG lines against 1419 EA lines. It is
-        only meaningful filtered to one description_clean, or grouped by it,
-        and never as a single headline number. It is not avg(unit_price):
-        that gives 2.5099 where this gives 2.3850, 5.2 percent apart, and only
-        this one is the metric. Lines with quantity 0 or null would be dropped
-        by the division; none exist today.
+        EUR/unit otherwise - both kinds are always present, EA far outnumbering
+        KG. It is only meaningful filtered to one description_clean, or grouped
+        by it, and never as a single headline number. It is not avg(unit_price):
+        that has come out several percent higher every time both were measured,
+        and only this one is the metric. Lines with quantity 0 or null would be
+        dropped by the division; none have ever existed.
 
   - name: tax_paid_eur
     label: VAT paid (EUR)
@@ -191,7 +192,7 @@ metrics:
         not add the two. Summed from the receipt's own tax breakdown, so a
         receipt whose taxes_json failed to parse contributes 0 rather than
         being excluded. grain_min is month because VAT is only interesting at
-        a filing cadence. Measured 414.69 against a 3672.27 base.
+        a filing cadence.
 
   - name: items_bought
     label: Items bought
@@ -202,6 +203,6 @@ metrics:
       grain_min: day
       description: Number of receipt lines, i.e. distinct products bought.
       excludes: >
-        Counts LINES, not units - one line for 2.4 kg of tomatoes is one item,
-        not two. Use line_quantity to sum units, remembering that mixes kg with
-        counts. Measured 1481 lines across 75 invoices.
+        Counts LINES, not units - one line for a weighed bag of tomatoes is one
+        item, however many kilos it holds. Use line_quantity to sum units,
+        remembering that mixes kg with counts.

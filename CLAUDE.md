@@ -78,6 +78,44 @@ names must be DNS-1123, so `agents/sympozium/projects/` uses kebab-case
 (`homelab-ops`, `sre-sentinel`). Prompt *files* there stay `snake_case.md`, as in
 `agents/n8n/prompts/`.
 
+## Bronze is not a consumer layer
+
+**Nothing user-facing reads bronze.** Superset datasets and the semantic
+registry may reference `silver.*` and `gold.*` only. If a consumer needs
+something that exists solely in bronze, the answer is a silver model, never a
+dataset or a `semantic_model` pointing at the raw table.
+
+The reason is not tidiness. Bronze is the landing zone as the source emitted it:
+`bronze.bodega.raw_invoices` keeps `items_json` and `taxes_json` as unparsed
+JSON strings, so its 85 rows are 85 *invoices* and the 1,682 line items inside
+them are not queryable until `silver.bodega.invoice_items` expands them. A chart
+built on bronze would silently count invoices where it meant items. Bronze also
+carries loader bookkeeping (`_dlt_load_id`, `_dlt_id`, `_kafka_offset`,
+`_batch_timestamp`) that means nothing to a reader, has no `persist_docs`
+descriptions, and is rewritten by the ingest pipeline's stale-row cleanup — so a
+number read from it is not stable between runs.
+
+How each half is held today:
+
+- **Semantic MCP: structural.** `SEMANTIC_WAREHOUSE_SCOPES` is
+  `silver.bodega,gold.bodega`, so the server never discovers a bronze table and
+  a registry `ref()` to one fails to resolve. Do not add a bronze scope.
+- **dbt: structural.** `raw_invoices` is a **source**, not a model, and
+  `dbt_project.yml` materialises only into `+database: silver` or `gold`. No
+  dbt model can land in bronze.
+- **Superset: convention only.** Trino's `rules.json` grants `superset` full
+  access to `bronze|silver|gold|memory|test`, so nothing stops a virtual dataset
+  selecting from bronze. Every dataset under
+  `workflows/superset/projects/*/dashboard_export/` must therefore be checked by
+  review; today all eleven read silver or gold. Narrowing the Trino rule is the
+  enforcing fix if this is ever violated.
+
+Trino's access-control file lists users explicitly with **no catch-all**, so an
+unlisted user is denied every statement — verified: an invented name fails even
+`SELECT 1`. Currently listed: `admin` (all), `dbt`/`superset`/`maintenance`
+(all on the medallion catalogs), `mcp` (read-only). Read the live rules before
+assuming a user works; the set has changed at least once.
+
 ## Comments in YAML and helmfile
 
 **Config files carry values, not prose.** `values/*.gotmpl`, `helmfile.yaml.gotmpl`,

@@ -3382,10 +3382,36 @@ number is one value copied from one result, every set of groups is rows from one
 grouped query, every ordering is `order_by` — rather than the instances, because
 the instances are unbounded and each one reads as reasonable on its own.
 
-Not fixed here: receipt descriptions lose their accents (`PAÑALES` reaches the
-warehouse as `PAALES`, `PLÁTANO` as `PLTANO`). The dbt macros, the dlt ingest
-(`json.loads(msg.value().decode("utf-8"))`) and the n8n `parse_mercadona_invoice`
-code all pass the text through untouched, so the loss is in the n8n
-`extract_data_from_pdf` node, upstream of everything in this repository. It
-matters beyond display: a person filtering for the correct spelling matches
-nothing.
+### The accents were dropped on the way out, not on the way in
+
+`PAÑALES` reached Slack as `PAALES`, `ATÚN` as `ATN`, `CÁP.` as `CP.`. The
+warehouse is correct — Superset renders all three properly off the same tables —
+and so are the dbt macros, the dlt ingest and the n8n parser. The loss is
+`mcp_runner.render.ascii_only`, which every tool result passes through in
+`server.py`: `text.encode("ascii", errors="ignore")` deletes what it cannot
+encode.
+
+Two wrong turns are worth recording, because both looked convincing. Reasoning
+from the *output pattern* said "an ASCII byte filter" and was right about the
+mechanism but got pointed at n8n, the only place accents plausibly entered.
+Reasoning from `€` said the opposite: `€` is U+20AC and outside Latin-1, the
+accented letters are inside it, and no charset bug drops the Latin-1 range while
+keeping U+20AC — so it "had to be" PDF font mapping. That was a real constraint
+correctly applied to the wrong stage. `€` survives because `_ASCII_FALLBACK`
+happens to map it; nothing about the PDF was involved. **A read-path bug can
+imitate a source-data bug exactly, and the way to tell them apart is to read the
+same data through a second consumer.** Superset settled in one screenshot what
+two rounds of static analysis got wrong.
+
+The fix folds instead of dropping — NFD, discard combining marks, then encode —
+so `PAÑALES` renders `PANALES`, keeping the letter and the length. ASCII-only
+output stays a requirement (an invalid-UTF-8 reply still has its `status.result`
+dropped while the run reports success); only the fallback for a character with
+an obvious ASCII base changes. `€` now folds to `EUR` rather than vanishing,
+which had been rendering `TOTAL (€)` as `TOTAL ()`.
+
+It was a correctness bug and not a cosmetic one: a filter on the real spelling
+matched nothing, which is what the oracle hit when it was asked about "PAÑALES"
+and answered that one product was the only match. There was no test on
+`ascii_only` at all, which is why it shipped; `tests/test_render_ascii.py` now
+asserts a folded name keeps its length, and fails against the old code.

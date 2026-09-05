@@ -155,6 +155,20 @@ spec:
 {{-         end }}
 {{-       end }}
 {{-     end }}
+{{-     if $server.ingressRequestsMetric }}
+            - name: INGRESS_REQUESTS_METRIC
+              value: {{ $server.ingressRequestsMetric | quote }}
+            - name: INGRESS_SERVICE_LABEL
+              value: {{ required "ingressRequestsMetric needs ingressServiceLabel: grouping on the wrong label silently returns one row carrying the whole fleet" $server.ingressServiceLabel | quote }}
+{{-       if $server.ingressStatusLabel }}
+            - name: INGRESS_STATUS_LABEL
+              value: {{ $server.ingressStatusLabel | quote }}
+{{-       end }}
+{{-       if $server.ingressServiceStripPattern }}
+            - name: INGRESS_SERVICE_STRIP_PATTERN
+              value: {{ $server.ingressServiceStripPattern | quote }}
+{{-       end }}
+{{-     end }}
 {{-     if $server.trinoUrl }}
             - name: TRINO_URL
               value: {{ $server.trinoUrl | quote }}

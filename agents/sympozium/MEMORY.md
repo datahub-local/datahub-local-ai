@@ -3475,3 +3475,59 @@ the render for a sentence only the README contains. And ordering is the filename
 so a section renamed out of sequence moves silently: `07_output.md` closes with
 the delivery contract and has to stay last. The old single-file path is tried
 first and the directory only on miss, so the failure message now names both.
+
+## `workload-watch`: the label that was already taken (2026-09-05)
+
+Two questions were asked for at once - which services get used, and what is
+short of pods - and both became facts tools rather than prompt PromQL, because
+the rate wrapper is exactly what a 4B model drops (see the counter section
+above).
+
+Routing here is Traefik `IngressRoute` CRDs, not Ingress or HTTPRoute: all three
+of those kinds return *zero* objects on this cluster, so a prompt written
+against `kube_ingress_*` would have reported an empty fleet forever. Traefik
+exports `traefik_service_requests_total` with `addServicesLabels=true` and a
+ServiceMonitor scrapes all three DaemonSet pods.
+
+Three traps, all of which look right in review:
+
+- The service label is **`exported_service`**, never `service`. Prometheus
+  relabels Traefik's own `service` away because the ServiceMonitor already owns
+  that name, so `sum by (service)` returns one plausible row reading
+  `traefik-metrics` - the whole fleet in a single bucket, and no error anywhere.
+  Measured both ways: 22 services on the right label, 1 on the wrong one.
+- Router names carry a config hash: `data-...-superset-c5d8967d86cf50ee1c5a@kubernetescrd`.
+  The hash changes when the route is edited, so an uncleaned name reads as a new
+  service on the next run and every memory comparison breaks.
+- `kube_deployment_status_replicas_available < kube_deployment_spec_replicas`
+  needs the explicit `on(namespace, deployment)` join. Without it the differing
+  label sets match nothing and every workload reports healthy - the volume-fill
+  inversion in a new place, silent in the same way.
+
+**None of those three values live in the MCP image.** The server names no ingress
+controller: `INGRESS_REQUESTS_METRIC` and `INGRESS_SERVICE_LABEL` are required
+with no default, exactly as `PROMETHEUS_URL` is and for the same reason - a
+guessed metric matches no series, and no series renders as a fleet nobody uses.
+`INGRESS_SERVICE_STRIP_PATTERN` and `INGRESS_STATUS_LABEL` are optional. This
+chart supplies all three in `values/default.yaml.gotmpl`, and the template
+`required`s the label whenever the metric is set, so omitting it fails the render
+rather than the running agent - verified by deleting the line.
+
+The strip pattern is the first value in this chart carrying a `{n,}` brace pair.
+Helmfile renders values as a Go template before Helm parses the YAML, which is
+how a comment broke an ArgoCD sync on 2026-08-23 - a single brace pair in a
+value is fine, but re-render after editing it rather than assuming.
+
+The readiness tool found a real outage on its first live run
+(`automation/n8n-worker`, 0/1, stuck `ContainerCreating`), which no persona in
+the fleet was reporting.
+
+`top_services` takes **no** `window` argument, though it was written with one.
+`tests/test_expressions.py` rejects it: an argument is safe only when *any*
+string is valid, and a window has exactly one correct shape - `24h` works,
+`24 hours` does not. That is the `chatId` failure mode, and the test caught it
+rather than a reader. The window is fixed at 24h in code.
+
+The persona gets `facts_why_failed` rather than raw `k8s_events_list` and
+`k8s_pods_log`, so the three-lookup budget attaches to a tool that resolves the
+name itself instead of one whose selectors have been guessed wrong repeatedly.

@@ -258,6 +258,17 @@ address reports every reading `unavailable`, which renders a wrong endpoint as
 an absent one. Garage stays optional — no token means the bucket section
 reports itself unavailable and nothing else changes.
 
+`top_services()` names no ingress controller, so `INGRESS_REQUESTS_METRIC` and
+`INGRESS_SERVICE_LABEL` are required on the same reasoning — a guessed counter
+matches no series, and no series reads as a fleet nobody uses. The label is
+required rather than derived because it is not guessable even knowing the
+controller: a ServiceMonitor owning `service` makes Prometheus relabel the
+exporter's to `exported_service`, and grouping on the wrong one *succeeds*,
+returning one row carrying the whole fleet under the scrape job's name.
+`INGRESS_STATUS_LABEL` and `INGRESS_SERVICE_STRIP_PATTERN` are optional; the
+latter trims a router hash that would otherwise make a service look new on
+every run. All are set in `agents/sympozium/values/default.yaml.gotmpl`.
+
 The semantic gate (`workflows/dbt/semantic/compile.py`) imports `registry.py`
 from the MCP repository rather than copying it, so the gate and the server
 apply identical rules instead of two copies that drift. It expects that repo
@@ -268,7 +279,7 @@ Two ordering rules when deploying: both ConfigMaps must exist before the pods
 start — a missing facts mount degrades loudly but works, a missing semantic
 registry is fatal — and after a sync read
 `kubectl logs <run-pod> -c mcp-discover` for the per-server tool counts
-(**16** and **5**). A whole server failing to register is otherwise silent.
+(**18** and **5**). A whole server failing to register is otherwise silent.
 
 ### Sympozium agents
 
@@ -306,7 +317,7 @@ Three ensembles, split on trust boundaries and not on subject:
 
 | Ensemble            | What                                                    | Inbound?                |
 | ------------------- | ------------------------------------------------------- | ----------------------- |
-| `homelab-ops`       | five scheduled read-only reporters, one question each   | no — no channel binding |
+| `homelab-ops`       | six scheduled read-only reporters, one question each    | no — no channel binding |
 | `homelab-responder` | one persona you can ask a question in Slack             | **yes**, the only one   |
 | `homelab-reviewer`  | `renovate-reviewer`, the only persona with a write tool | no                      |
 

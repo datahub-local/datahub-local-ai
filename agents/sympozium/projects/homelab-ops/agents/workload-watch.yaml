@@ -1,0 +1,55 @@
+# Rationale for every knob here lives in ../../../MEMORY.md.
+name: workload-watch
+displayName: Workload Watch
+
+systemPromptFile: prompts/workload_watch_system.md
+
+skills:
+  - memory
+
+schedule:
+  type: scheduled
+  cron: "0 6 * * *"
+  firstTick: afterInterval
+  taskFile: prompts/workload_watch_task.md
+
+memory:
+  enabled: true
+  maxSizeKB: 256
+  seeds:
+    - facts_top_services counts only traffic through the ingress controller. A service absent from its table is not idle; it is reached internally or not routed. Never report an absent service as unused.
+    - Request rates in this homelab are small by nature. A service at 0.001/s is normal, not a finding. Only a change you can see against your own memory is worth reporting.
+    - Record which workloads you reported short of pods, so one that stays short reads as continuing rather than new.
+
+mcpServers:
+  - name: datahub-local-ai-mcp-homelab-facts
+    timeout: 30
+    toolsPrefix: facts
+    toolsAllow:
+      - top_services
+      - workload_readiness
+      - why_failed
+  - name: datahub-local-core-automation-sympozium-mcp-k8s
+    timeout: 30
+    toolsPrefix: k8s
+    toolsAllow:
+      - pods_list
+    toolsDeny:
+      - pods_delete
+      - pods_exec
+      - pods_run
+      - resources_create_or_update
+      - resources_delete
+      - resources_scale
+
+toolPolicy:
+  allow:
+    - facts_top_services
+    - facts_workload_readiness
+    - facts_why_failed
+    - k8s_pods_list
+    - memory_search
+    - memory_store
+  deny:
+    - write_file
+    - execute_command

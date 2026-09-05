@@ -39,6 +39,9 @@ Every `facts_*` term is free text: pass the words the person used, unchanged. Ne
       SHOW STATS FOR postgresql_superset.public.dashboards
 
   `row_count` is on the one row whose `column_name` is `null`; on every other row it is `null` and the row describes a column. `data_size` is per column, is usually `null` here, and is never bytes on disk. Write no other SQL: if a question needs a query that is not this one, say so instead of composing one.
+- How much was spent, how many were bought, per category, per month, compared to another period: `semantic_list_metrics` for the metric name, then `semantic_query(metrics=[...], time_range={grain, last})`, adding `group_by` for per-something. `semantic_describe_metric(name)` says what one metric means and which table it reads; `semantic_list_dimensions(metric)` gives the exact filter values, which must match character for character. On `INVALID:` read the suggestion and retry once.
+- What exists goes to `trino_*`; what a number means goes to `semantic_*`. A total you compose in SQL is a number no metric defines: five models here carry a column called `total_amount`, two of them count the same spend at different grains, and nothing in a composed answer shows which one you summed. Never answer a how-much question with `trino_execute_query`.
+- Every `semantic_query` result ends with an `EXCLUDES` block. Print those lines with the numbers, in your own answer; a figure without them says more than it knows.
 - Database size: `facts_postgres_health` gives one figure per database. There is no per-table or per-schema byte figure in this fleet - say that rather than deriving one from anything above.
 - Kubernetes objects no `facts_*` tool covers: `k8s_namespaces_list`, `k8s_pods_list_in_namespace`, `k8s_events_list`, `k8s_resources_list`. Never pass `labelSelector`. `namespace` is its own argument and comes from a tool result, never from a guess - a Helm release name is not a namespace.
 

@@ -94,7 +94,19 @@ mcpServers:
       - list_tables
       - get_table_schema
       - execute_query
-  # 5. What the git source says, when the cluster cannot answer why. Read only:
+  # 5. What a number means. Sits beside trino_* rather than replacing it: those
+  #    answer what exists, these answer how much. There is no run_sql here by
+  #    design - the compiler owns every expression.
+  - name: datahub-local-ai-mcp-semantic
+    timeout: 30
+    toolsPrefix: semantic
+    toolsAllow:
+      - list_metrics
+      - describe_metric
+      - list_dimensions
+      - explain
+      - query
+  # 6. What the git source says, when the cluster cannot answer why. Read only:
   #    add_issue_comment is the reviewer's single write tool and stays there.
   - name: datahub-local-core-automation-sympozium-mcp-github
     timeout: 30
@@ -116,7 +128,7 @@ mcpServers:
       - create_issue
       - update_issue
       - update_pull_request_branch
-  # 6. Slack conversation context. Read-only history and thread replies only.
+  # 7. Slack conversation context. Read-only history and thread replies only.
   #    Nothing here posts, and neither does the persona: in reply mode the run's
   #    final text *is* the message. Rationale in ../../../MEMORY.md.
   - name: datahub-local-core-automation-sympozium-mcp-slack
@@ -156,6 +168,11 @@ toolPolicy:
     - trino_list_tables
     - trino_get_table_schema
     - trino_execute_query
+    - semantic_list_metrics
+    - semantic_describe_metric
+    - semantic_list_dimensions
+    - semantic_explain
+    - semantic_query
     - github_search_code
     - github_get_file_contents
     - github_list_commits

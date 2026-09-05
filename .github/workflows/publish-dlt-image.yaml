@@ -5,6 +5,8 @@ on:
     workflows: [Test Workflows]
     types: [completed]
     branches: [main]
+  workflow_dispatch:
+    inputs: {}
 
 jobs:
   changes:

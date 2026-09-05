@@ -10,7 +10,7 @@ on:
 
 jobs:
   changes:
-    if: github.event.workflow_run.conclusion == 'success'
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     outputs:
       dbt: ${{ steps.filter.outputs.dbt }}
@@ -30,7 +30,7 @@ jobs:
 
   build-and-push:
     needs: changes
-    if: needs.changes.outputs.dbt == 'true'
+    if: always() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.dbt == 'true')
     runs-on: ubuntu-latest
     permissions:
       contents: read

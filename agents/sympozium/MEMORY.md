@@ -3415,3 +3415,63 @@ matched nothing, which is what the oracle hit when it was asked about "PAÑALES"
 and answered that one product was the only match. There was no test on
 `ascii_only` at all, which is why it shipped; `tests/test_render_ascii.py` now
 asserts a folded name keeps its length, and fails against the old code.
+
+## It answered about the shop that was there (2026-09-05)
+
+Asked "review my current spent in Ahorramas, where are we spending more in avg
+every week", the oracle opened with "your store data holds no Ahorramas receipts
+at all - every invoice is from MERCADONA" and then delivered eleven weekly
+averages, a two-largest callout and three caveats. Every number was Mercadona's.
+The one correct answer was the first sentence plus "did you mean Mercadona?".
+
+Nothing in the prompt covered this. The clarify branch fires only when the model
+*cannot tell what is being asked*, and here it understood perfectly - the subject
+was clear, it just was not in the data. Two rules then pushed the wrong way:
+"refusing an in-scope question is a failure" reads as licence to answer
+something, and the `semantic_*` guidance said to read the suggestion and retry
+on `INVALID:` without ever saying that a filter value which is simply absent
+means the question is finished. The server could not save it either - its
+near-miss hint uses `difflib` at `cutoff=0.6`, and AHORRAMAS against MERCADONA
+clears no such bar, so the model got a bare rejection and improvised.
+
+**A subject that is absent is an answer, not an obstacle.** Substituting the
+subject that does have data produces a report that is internally correct,
+carries real caveats, and is about something nobody asked for - the reader has
+to notice the swap to catch it, and the opening disclaimer makes it look handled.
+That is the same shape as the invented taxonomy and the silently widened window
+recorded above: the model supplying structure to fill a gap the prompt left
+unspecified. The fix names the branch, ends the run inside it, and says
+explicitly not to answer the question it just asked.
+
+Two knock-on edits were needed and are easy to miss. The delivery contract
+forbids a closing question "unless you took the clarify branch above", which
+would have banned this one - it now also permits it when the named subject is
+absent. And the seed went in as the ninth, which `reseed_memory.py` had to write:
+prompt-only would leave a run that leans on memory unchanged.
+
+## A prompt can be a directory (2026-09-05)
+
+`systemPromptFile` now takes either a file or a directory of `NN_*.md` sections
+joined in filename order. `homelab-oracle` uses the directory form; the other six
+personas keep a single file and render byte-identically, which is how the change
+was checked.
+
+The oracle's prompt had reached 19,484 bytes against 443-2,513 for every other
+persona in this chart - more than all six of them combined - and the cost was not
+size but placement. Two near-duplicate rules about empty results sat eleven lines
+apart in different halves, the bodega and semantic rules were interleaved through
+a generic tool-routing list, and each fix in this session had to be inserted by
+finding the one paragraph it belonged beside. Sections are: role, conversation,
+scope, routing, bodega, evidence, output.
+
+The prompt does not get shorter. Everything the model must obey still reaches the
+request, so this buys reviewability and nothing else - do not expect a context
+saving from it.
+
+Two things the mechanism gets wrong if copied carelessly. The glob is
+`[0-9][0-9]_*.md` and not `*.md`, because a `README.md` in the directory sorts
+*before* `01_` and became the agent's opening instruction - caught by grepping
+the render for a sentence only the README contains. And ordering is the filename,
+so a section renamed out of sequence moves silently: `07_output.md` closes with
+the delivery contract and has to stay last. The old single-file path is tried
+first and the directory only on miss, so the failure message now names both.

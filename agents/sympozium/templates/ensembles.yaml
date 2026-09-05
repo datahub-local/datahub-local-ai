@@ -46,9 +46,22 @@
 {{-     if not $promptRef }}
 {{-       fail (printf "%s: missing systemPromptFile" $personaPath) }}
 {{-     end }}
+{{- /* A prompt is one file, or a directory of sections joined in filename order
+       when it is too long to review whole. Only `NN_*.md` is a section, so a
+       README beside them is documentation and not the agent's opening line;
+       Glob sorts, so the numbers are the order and the filesystem is not. */}}
 {{-     $prompt := $.Files.Get (printf "%s/%s" $project $promptRef) }}
 {{-     if not $prompt }}
-{{-       fail (printf "%s: systemPromptFile %q is empty or unreadable (is it excluded by .helmignore?)" $personaPath $promptRef) }}
+{{-       $parts := list }}
+{{-       range $sectionPath, $section := $.Files.Glob (printf "%s/%s/[0-9][0-9]_*.md" $project $promptRef) }}
+{{-         $parts = append $parts (trim (toString $section)) }}
+{{-       end }}
+{{-       if $parts }}
+{{-         $prompt = printf "%s\n" (join "\n\n" $parts) }}
+{{-       end }}
+{{-     end }}
+{{-     if not $prompt }}
+{{-       fail (printf "%s: systemPromptFile %q is neither a readable file nor a directory of .md sections (is it excluded by .helmignore?)" $personaPath $promptRef) }}
 {{-     end }}
 {{- /* The destination decides *whether* a persona delivers, deliveryMode decides
        *how*. `channels:` is neither: it adds a channel sidecar and the inbound

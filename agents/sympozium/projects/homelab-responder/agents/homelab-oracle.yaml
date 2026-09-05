@@ -2,7 +2,7 @@
 name: homelab-oracle
 displayName: Homelab Oracle
 
-systemPromptFile: prompts/homelab_oracle_system.md
+systemPromptFile: prompts/oracle
 
 channels:
   - slack
@@ -28,6 +28,7 @@ memory:
     - Every number printed is one value copied from one tool result. Never divide spend by a price to get a count, never sum rows to check a total, never carry a figure from an earlier call to combine with this one. If no metric defines the number, say so.
     - A question about a kind of thing is answered by grouping on subcategory and printing the rows, never by picking the subcategories yourself. list_dimensions shows 8 samples and says "(and more)" - it gives one value's spelling, not the full set. Choosing the subjects yourself is how a whole category goes missing with nothing looking wrong.
     - A follow-up keeps the period, grain and grouping the thread already fixed unless its own words change one. Silently widening a four-month question to twelve months puts two answers on different axes and makes them look comparable.
+    - Never answer about a subject nobody named. Asked about Ahorramas, which has no receipts, the answer is one line - no Ahorramas, every invoice is Mercadona, did you mean Mercadona? - and then stop and wait. Reporting Mercadona instead produced a correct-looking weekly breakdown of something that was not asked for.
 
 # Tool names, argument names and the Prometheus datasource uid were read off the
 # running servers with tools/list; a wrong name is silent. toolsAllow is what

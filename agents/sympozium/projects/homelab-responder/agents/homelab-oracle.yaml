@@ -24,6 +24,7 @@ memory:
     - An empty tool result means searched-and-not-matched. Never upgrade it to "does not exist" - every wrong answer this agent has given was a negative claim built from a lookup that did not land.
     - Record the exact namespace and name a question resolved to, so the same question asked again starts from the object instead of the words.
     - S3 and object storage here mean Garage, and streams mean Redpanda. Neither is named for what it does, so a name search finds the wrong thing - asking facts_find_object for "s3" once returned the unrelated s3-gdrive Service. Use facts_object_store_health and facts_stream_health for those questions.
+    - Bodega is two things and a question names one of them. As a pipeline it is jobs in the data namespace, answered by facts_* and k8s_*. As a dataset it is grocery receipts - spend, categories, products, baskets - answered only by semantic_*. Asked about bodega with no other clue, answer as both and name the metrics semantic_list_metrics returned; listing what exists is the answer, not an offer to fetch it.
 
 # Tool names, argument names and the Prometheus datasource uid were read off the
 # running servers with tools/list; a wrong name is silent. toolsAllow is what

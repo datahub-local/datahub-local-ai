@@ -3279,3 +3279,46 @@ names, documented columns, cardinality and dimension values are read live from
 Trino by `warehouse.py`; nothing about them is committed. The confusion is worth
 naming because "the stats are dynamic" is true of everything the *server*
 derives and was never true of the hand-written `excludes` prose.
+
+## The seed drift audit missed the responder (2026-09-05)
+
+The 2026-08-24 audit that found three of five `homelab-ops` personas short of
+their git seeds checked `homelab-ops` and stopped there. `homelab-oracle` was
+worse than any of them and went unnoticed for a further eleven days: its
+`ConfigMap/homelab-responder-homelab-oracle-memory` was written 2026-08-25 and
+still carried **2 seeds that appear nowhere in git**, against the 4 the file
+declared. Not a truncation — a different, older generation of text.
+
+One of the two was actively wrong: *"Every facts_ tool takes no arguments and
+returns a reading that is already correct"*. They take `term=`, and the git
+seeds exist largely to say so. So the persona was being told the opposite of its
+own correction, which is the `db-steward` archiver failure repeating on a
+persona nobody thought to check.
+
+Found only because a new seed was being added and the caveat was re-read.
+Repaired by rewriting the ConfigMap from the YAML — it has no `ownerReferences`
+and is never reconciled, so a direct write sticks and takes effect on the next
+run.
+
+**The lesson is the audit's scope, not the drift.** "Editing seeds does nothing"
+was known and written down; what failed is that the check ran over one ensemble
+when the mechanism applies to every persona in the chart. Check all three
+ensembles, and diff the *text* rather than the count — a matching count would
+have hidden this one completely:
+
+Comparing across all seven personas then found a **second** one. `db-steward`
+carried 2 of its 5: the archiver and Valkey seeds present, and the three added
+with the newer tools absent — Garage's replication factor 1, Redpanda's counts
+coming from the controller leader alone, and Prometheus holding less history
+than configured being a finding only after enough uptime. So it read all three
+of those tools with none of the context that says what their readings mean.
+
+Only those two had drifted; the other five matched, which is why a count-only
+spot check on a couple of personas keeps concluding the fleet is fine. Both are
+repaired.
+
+The durable fix is `scripts/reseed_memory.py`, which diffs seed text against
+every persona's YAML and rewrites what drifted — written because both of these
+were found by accident, and the next one would have been too. It is the one
+thing to run after any seed edit, and the root `CLAUDE.md` conventions list says
+so where a reader will meet it.

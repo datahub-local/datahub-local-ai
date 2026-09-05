@@ -332,6 +332,16 @@ prompts are a report contract rather than a method — see
 - **Nothing is generated into the repository.** `templates/ensembles.yaml` reads
   `projects/` at render time, so the sources are the only copy. Do not reintroduce
   a committed manifest — it is a second copy that silently drifts from its source.
+- **A `memory.seeds` edit is not done when it is merged.** The controller writes
+  seeds once, at install, into `ConfigMap/<ensemble>-<persona>-memory` and never
+  reconciles them, so a sync updates the Ensemble, `systemPrompt` and
+  `toolPolicy` while the run's `## Memory Context` still carries the install-time
+  text. Nothing fails and `kubectl diff` cannot see it. Run
+  `uv run --with pyyaml python agents/sympozium/scripts/reseed_memory.py`
+  (`--apply` to repair) after any seed edit, and when a persona behaves as though
+  it never got a correction. It diffs seed *text* rather than counts — a matching
+  count with different text is what hid `homelab-oracle`'s drift for eleven days,
+  and both drifts found so far were found by accident.
 - **Source describes the agent; values describe the cluster.** Only `enabled`,
   `baseURL` and `policyRef` live in `release/values/default.yaml.gotmpl`, merged
   over `spec` at render time. The build script rejects those keys in

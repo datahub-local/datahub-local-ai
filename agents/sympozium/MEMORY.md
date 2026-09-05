@@ -3322,3 +3322,70 @@ every persona's YAML and rewrites what drifted — written because both of these
 were found by accident, and the next one would have been too. It is the one
 thing to run after any seed edit, and the root `CLAUDE.md` conventions list says
 so where a reader will meet it.
+
+## The model supplied the structure, and every number was right (2026-09-05)
+
+A seven-question bodega thread came back plausible throughout and wrong in five
+places, none of which a reader could have caught. Every figure was real — the
+tool results were correct, and no number was invented. What the model supplied
+was the *shape* around them: a taxonomy, a sort order, a time window, an
+arithmetic step. That is a different failure from `endpoint-warden` inventing a
+disk figure to fill a mandatory column, and it does not look like one.
+
+What it did, worst first. Asked "have I bought more or less nappies, are my
+babies eating more or less", it partitioned baby spending into two subcategories
+it chose itself — the nappies, and "the 120G fruit pouches" — and answered
+within that partition. `120G` is a fragment of a product name, not a stored
+dimension value, so the filter was the model's guess at a category. The next
+question, "and milk?", returned `LECHE ENTERA P6` at 51.84/month: a whole
+category the previous answer had silently excluded, surfaced only because the
+person happened to ask. `semantic_list_dimensions` shows **8 sample values and
+says `(and more)`** (`discovery.py`), so it cannot be the source of a full set
+either — the fix is to group by `subcategory` and print the rows, never to pick
+subjects.
+
+Then the arithmetic. `52.50 EUR (3 packs)` came from dividing a monthly spend by
+a unit price the model had read in an *earlier* tool call. No metric defines
+packs; `items_bought` counts lines and `line_quantity` mixes KG with EA. The
+same reflex produced `each line was bought once` and `the 9 lines add up to the
+26.75 total` — claims, not digits, and each one arithmetic the model performed
+rather than a result it read. The `unit` column is a heuristic
+(`invoice_items.sql` marks `KG` only when quantity is not a whole number), so a
+1.000 kg line is indistinguishable from one unit and "bought once" is not
+knowable.
+
+Two smaller ones with the same root. `no rows came back before January 2026, so
+milk spend only starts there` is an empty result promoted to a fact about a
+life — memory seed 2 already forbids this for objects, and it recurred in its
+data form. And the server's `PARTIAL PERIOD` header, which
+`compiler.py:_partial_bucket` deliberately returns as a value to transcribe
+rather than a rule to apply, was transcribed and then argued past: "September is
+not finished ... the direction is up, not an artifact".
+
+Separately, the thread's time range reset between turns — a four-month question
+was followed by a twelve-month answer with nothing saying the axis had changed.
+The prompt carried a good subject-continuity rule (a subjectless follow-up takes
+its subject from the thread) and no continuity rule for period, grain or
+grouping.
+
+`order_by` and `limit` have been on `semantic_query` all along
+(`query.py`, allowlisted against the projection in `compiler.py`) and the prompt
+never mentioned either, so two "most expensive" / "sorted by price" questions
+were answered by the model sorting a 200-row default in its head.
+
+**The rule: this model will supply any structure the prompt leaves unspecified,
+and the result is indistinguishable from a real one.** A prompt that bans
+composing a total in SQL has not banned composing it by arithmetic; one that
+pins filter values has not said where a set of categories comes from; one that
+fixes a subject across turns has not fixed a window. Ban the *class* — every
+number is one value copied from one result, every set of groups is rows from one
+grouped query, every ordering is `order_by` — rather than the instances, because
+the instances are unbounded and each one reads as reasonable on its own.
+
+Not fixed here: receipt descriptions lose their accents (`PAÑALES` reaches the
+warehouse as `PAALES`, `PLÁTANO` as `PLTANO`). The dbt macros, the dlt ingest
+(`json.loads(msg.value().decode("utf-8"))`) and the n8n `parse_mercadona_invoice`
+code all pass the text through untouched, so the loss is in the n8n
+`extract_data_from_pdf` node, upstream of everything in this repository. It
+matters beyond display: a person filtering for the correct spelling matches
+nothing.

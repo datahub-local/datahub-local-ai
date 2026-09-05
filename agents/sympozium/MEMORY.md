@@ -3156,3 +3156,40 @@ but a DM is a lower-friction path than an @-mention and leaves no channel-side
 trace, so per-run OpenRouter spend is now reachable by any workspace member
 without an audit trail. The boundary remains `toolsAllow`, never
 `allowedSenders` — the inbound path discards `toolPolicy` entirely.
+
+## The gate that failed CI, and the image that never rebuilt (2026-09-05)
+
+`persist_docs` was committed and correct, a dbt run completed, and **every
+column comment in the warehouse was still NULL** — worse than before, because
+rebuilding the tables dropped the ones applied by hand during verification. The
+semantic server would have loaded a registry that resolved no documented
+columns.
+
+The cause was two links in a chain, neither of which announces itself:
+
+1. `semantic/compile.py` imports `registry.py` from the MCP repository rather
+   than copying it, so the gate and the server apply identical rules. **CI never
+   checked that repository out.** The step failed with the readable error the
+   code was written to produce — which nobody reads, because it is one red job.
+2. `publish-dbt-image.yaml` triggers on `workflow_run` of *Test Workflows* and
+   is gated on `conclusion == 'success'`. A failed gate therefore does not fail
+   loudly; it **skips the image build**. The last successful dbt image is
+   2026-08-18, so the pipeline runs an image that predates `persist_docs` and
+   cannot write comments whatever the repository says.
+
+Fixed by checking out `datahub-local/datahub-local-ai-mcp` into the dbt job and
+passing `MCP_REPO`. It is public, so the default `GITHUB_TOKEN` suffices.
+Verified by simulating the CI layout: `git archive` into a temp directory and
+`MCP_REPO=... compile.py`, which passes.
+
+**The lesson is about the shape, not this bug.** A cross-repository import is
+invisible to the repository that depends on it: nothing in this checkout fails
+until CI runs somewhere with a different working directory. And a *skipped*
+build reads exactly like a build that had nothing to do. When a deploy depends
+on an image, check `gh run list --workflow=publish-<tool>-image.yaml` for the
+last **success**, not the last run — and remember the config being right in git
+proves nothing about what the cluster is executing.
+
+`persist_docs` itself is confirmed working: one model run against Trino wrote
+comments for exactly the two columns `schema.yml` documents and left the other
+four NULL, which is the behaviour the documentation gate depends on.

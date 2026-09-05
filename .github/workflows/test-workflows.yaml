@@ -58,6 +58,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # The semantic gate imports registry.py from the MCP repo rather than
+      # copying it, so the gate and the server apply identical rules. compile.py
+      # expects it beside this checkout; MCP_REPO overrides the location.
+      - name: Checkout datahub-local-ai-mcp
+        uses: actions/checkout@v4
+        with:
+          repository: datahub-local/datahub-local-ai-mcp
+          path: datahub-local-ai-mcp
+
       - name: Set up uv
         uses: astral-sh/setup-uv@v5
         with:
@@ -79,6 +88,8 @@ jobs:
       # so renaming a column the semantic registry references fails the build
       # here rather than producing a wrong number in Slack later.
       - name: semantic-compile (registry gate)
+        env:
+          MCP_REPO: ${{ github.workspace }}/datahub-local-ai-mcp
         run: uv run -- python semantic/compile.py --project bodega
 
   dlt:

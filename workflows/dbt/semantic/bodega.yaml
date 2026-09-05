@@ -27,6 +27,7 @@ semantic_models:
       - {name: store_name, type: categorical}
       - {name: payment_method, type: categorical}
       - {name: card_type, type: categorical}
+      - {name: invoice_number, type: categorical}
     measures:
       - {name: basket_amount, agg: sum, expr: total_amount}
       - {name: basket_count, agg: count, expr: invoice_number}
@@ -49,6 +50,7 @@ semantic_models:
       - {name: description_clean, type: categorical}
       - {name: supermarket, type: categorical}
       - {name: unit, type: categorical}
+      - {name: invoice_number, type: categorical}
     measures:
       - {name: line_amount, agg: sum, expr: total_amount}
       - {name: line_quantity, agg: sum, expr: quantity}
@@ -193,6 +195,23 @@ metrics:
         receipt whose taxes_json failed to parse contributes 0 rather than
         being excluded. grain_min is month because VAT is only interesting at
         a filing cadence.
+
+  - name: line_spend_eur
+    label: Spend by product line (EUR)
+    type: simple
+    type_params: {measure: line_amount}
+    meta:
+      owner: alvaro
+      grain_min: day
+      description: >
+        Line-level spend, VAT included. Grouped by description_clean this is
+        what each product cost; grouped by invoice_number it is one receipt.
+      excludes: >
+        Sums the same money as grocery_spend_eur at a finer grain - per line
+        rather than per trip - so the two must never be added together. Unlike
+        blended_unit_price_eur this is a plain total and carries no unit
+        hazard, which is why it is allowed at day grain: a weighed line and a
+        counted line both contribute euros.
 
   - name: items_bought
     label: Items bought

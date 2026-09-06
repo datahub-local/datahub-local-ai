@@ -944,13 +944,18 @@ a registry definition that no longer computes what it did. Re-measurement on
 - [ ] Second domain, forcing the declared-join work
 - [ ] Fan-out-safe CTEs for multi-model queries
 - [ ] Registry into `iceberg.semantic.*` if coverage charting is wanted
-- [ ] Superset write-back (§6.6), `uuid` stability handled
+- [ ] Superset write-back (§6.6), `uuid` stability handled — note Phase 8d
+      touches the same bundle without migrating any chart to the layer
 
 ### Phase 8 — Location semantics
 
 Specified separately in
 [`002-02-semantic-layer-location.md`](002-02-semantic-layer-location.md):
-province, municipality and postal code as dimensions, plus a bounded `near`.
+province, municipality and postal code as dimensions, plus a bounded `near`,
+plus the same dimensions on the Superset datasets that can carry them (its §8).
+**Phase 8a is built** — the dimensions exist on `invoices` and `invoice_items`
+and this registry carries them; 8b (`near`), 8c (the agent) and 8d (the
+dashboard) are not.
 
 It is the concrete instance of Phase 7's "second domain", and it establishes
 that the declared-join work is **not** what geography needs — the compiler emits
@@ -961,7 +966,10 @@ the oracle invented a street address and treated every row as matching.
 
 Phase 8a needs no external dataset and no network — the postal code is already
 inside `silver.bodega.stores.address`, and its first two digits are the INE
-province code.
+province code. Building it found two things this spec's readers should know: the
+proposed regex took a 5-digit house number over the postal code, and Trino
+returns `NULL` where DuckDB returns `''` for a non-match, so the `UNKNOWN`
+sentinel needed normalising to work on both engines.
 
 ---
 
@@ -1003,6 +1011,13 @@ reopened by accident.
    and accept the drift?** Still open. Leaning: keep them, and treat any
    disagreement found in Phase 4 as a bug in one of the two. Superset's queries
    are reviewed YAML in git already, which is most of the governance argument.
+   Phase 8d's scoping adds evidence for that lean: all 25 charts were inspected
+   and every one aggregates additively, with even the average written as
+   `SUM(amount) / SUM(count)` rather than a mean of means — the same form the
+   registry uses. The two datasets that *do* expose a mean-of-means
+   (`spending_by_day.avg_basket_amount`, `spending_by_week.max_basket_amount`)
+   are read by no chart, so the drift risk here is a latent column rather than a
+   live number. Deleting those two is the cheap half of this question.
 5. ~~Registry version pinning for digests~~ — **closed.** Yes. Cheap, and it is
    the difference between a trend line and a coincidence. The digest pins a
    `registry_version` and a definition change requires an explicit bump.

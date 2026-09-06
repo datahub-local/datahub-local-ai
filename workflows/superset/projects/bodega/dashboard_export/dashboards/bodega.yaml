@@ -869,4 +869,29 @@ metadata:
     description: Only affects the invoice datasets (the only ones with invoice_number);
       scope must stay ROOT_ID because hand-written exports carry no chartsInScope
       and Superset ignores rootPath/excluded without it.
+  - id: NATIVE_FILTER-bodega-town
+    name: Town
+    filterType: filter_select
+    targets:
+    - column:
+        name: store_town
+      datasetUuid: 2fcc3db9-6666-4c13-a7c7-69acc7e3a976
+    defaultDataMask:
+      extraFormData: {}
+      filterState: {}
+    controlValues:
+      multiSelect: true
+      enableEmptyFilter: false
+      defaultToFirstItem: false
+      searchAllOptions: false
+      inverseSelection: false
+    cascadeParentIds: []
+    scope:
+      rootPath:
+      - ROOT_ID
+      excluded: []
+    type: NATIVE_FILTER
+    description: Only affects the charts on the row-grain silver datasets. The charts
+      reading the gold aggregates carry no location and are left unfiltered rather
+      than narrowed. UNKNOWN means the shop address did not parse.
 version: 1.0.0

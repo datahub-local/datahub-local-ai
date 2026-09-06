@@ -192,7 +192,9 @@ consumer to an existing table rather than a table.
 
 In: province, municipality and postal code as dimensions on the metrics whose
 models can carry them; a bounded "near" that works for the motivating question;
-the prompt and seed changes that stop the agent inventing geography.
+the prompt and seed changes that stop the agent inventing geography; the same
+three dimensions on the Superset datasets that can carry them (§8), including
+retiring the raw `store_address` as a filter.
 
 Out: anything requiring a boundary polygon (`ST_Contains` is Geometry-only on
 Trino and needs a planar projection); `category_spend_eur` by location (Gate 5);
@@ -209,7 +211,8 @@ drive time; any second country.
 | L3 | The agent never invents geography again | The §7 eval set: every location question either answers from a dimension or refuses by name. No invented address, no unfiltered total wearing a filtered question's words |
 | L4 | An ungeocoded shop is visible, never silently dropped | Totals with and without a location `group_by` agree to the cent; unresolved rows land in a literal `UNKNOWN` |
 | L5 | The CI gate still passes offline | `semantic-compile` needs no warehouse, no network, no API key |
-| L6 | No store address, coordinate or shop list enters git | Grep the diff; the enrichment writes to Iceberg, never to the repo |
+| L6 | No store address, coordinate or shop list enters git | Grep the diff; the enrichment writes to Iceberg, never to the repo. Note the Superset bundle is reviewed source, so a `defaultDataMask` is a real way to commit one (§8.4) |
+| L7 | The dashboard offers a location filter that groups | `store_town` is groupable on the three row-grain datasets and the raw `store_address` is no longer filterable (§8.2) |
 
 ### 2.1 Non-goals
 
@@ -217,6 +220,10 @@ drive time; any second country.
   both cheaper and the only registry-legal shape.
 - Boundary containment. `ST_Contains` needs Geometry, not `SphericalGeography`.
 - `category_spend_eur` by location (Gate 5).
+- Location on the gold aggregates, and so on 16 of the 25 Superset charts: that
+  is a dbt grain change, not a dashboard one (§8.1).
+- Migrating any Superset chart onto the semantic layer. Still spec 001's open
+  question; §8 only adds columns to datasets that already compute their own SQL.
 - Geocoding at query time. It happens once per new shop, in the pipeline.
 - A general place-name resolver. §5.3 pins the reference points to a reviewed
   list rather than resolving free text, for the disambiguation reason in Gate 3.
@@ -244,12 +251,14 @@ flowchart TB
 
     REG["bodega.yaml<br/>store_province, store_town,<br/>store_postal_code, store_near"]:::sem
     MCP["mcp-semantic"]:::sem
+    SUP["Superset: 3 row-grain datasets<br/>+ Town filter (8d)"]:::sem
 
     ADDR --> PARSE --> STORES
     PROV --> PARSE
     CC -.-> GEO -.-> STORES
     NEAR --> GEO
     STORES --> INV --> REG --> MCP
+    INV --> SUP
 ```
 
 Two properties of that shape are the point:
@@ -283,6 +292,12 @@ list, it is tiny, and it is reviewable. This is the same judgement the repo
 already applies to `categories.csv` in the dlt project, and the opposite of the
 one that deleted `dimension_samples.json`: that file was 428 *product names*
 from the receipts, which is the household's data and was rightly removed.
+
+> **As built, this is a macro rather than a file** — `bodega_provinces()` in
+> `macros/cross_engine.sql`. dbt's Jinja has no filesystem read, so a model
+> cannot join a YAML; see the "Deviations" note under Phase 8a in §9. The
+> reasoning above is unchanged and is why it stayed in git and reviewable
+> instead of becoming a seed.
 
 ### 4.2 The dbt work
 
@@ -338,6 +353,11 @@ existing test already fails the build on a blank description
 `stores` gets a `semantic_models` entry at last, and `invoices` /
 `invoice_items` gain the three dimensions. No new metric: these are dimensions
 on metrics that already exist.
+
+> **As built, `stores` got no entry.** Every semantic tool reaches dimensions
+> through a metric, so a measureless model is unreachable while still needing a
+> fabricated `agg_time_dimension`; see the "Deviations" note in §9. The three
+> dimensions on `invoices`/`invoice_items` are what L1 and L2 need.
 
 The `excludes` on every affected metric must gain the location caveat, because
 `excludes` is where "what this number leaves out" lives and location introduces
@@ -517,7 +537,136 @@ for this phase, and G6's >= 95% target applies to them.
 
 ---
 
-## 8. Implementation plan
+## 8. Superset dashboards
+
+Spec 001 left "do Superset charts migrate to semantic-layer SQL" open, and §11's
+question 5 deferred the location half of it. Deferring it again is not free: the
+dashboard is the other consumer of these models, and after 8a it has three
+columns it does not show. Worse, it already publishes the **unparsed** form —
+`invoice_list` selects `s.address AS store_address` as a groupable, filterable
+column, so the dashboard offers a location filter today that is free text, one
+distinct value per shop, and useless for grouping.
+
+This section is Phase 8d. It does **not** migrate any chart to the semantic
+layer; that stays spec 001's open question. It adds the parsed dimensions to the
+datasets that can carry them, and states plainly which charts cannot have them.
+
+### 8.1 The grain split, and what it does *not* cost
+
+The 25 charts sit on 11 datasets, and the split is not by subject but by grain:
+
+| Dataset | Reads | Charts | Location? |
+|---------|-------|--------|-----------|
+| `invoice_lines` | `silver.bodega.invoice_items` + `invoices` | 3 | **yes**, row grain |
+| `product_purchases` | `silver.bodega.invoice_items` | 4 | **yes**, row grain |
+| `invoice_list` | `silver.bodega.invoices` + `stores` | 2 | **yes**, row grain |
+| `spending_by_day` | `gold.bodega.spending_by_day` | **6** | no — grain change |
+| `category_spending` | `gold.bodega.category_spending` | 3 | no — Gate 5 |
+| `spending_by_week` | `gold.bodega.spending_by_week` | 1 | no — grain change |
+| `price_trends`, `price_index`, `price_movers` | `gold.bodega.price_trends` | 4 | no — product grain |
+| `tax_summary` | `gold.bodega.tax_summary` | 2 | no — grain change |
+
+Nine of the 25 charts gain location by adding three columns to a `SELECT`. The
+other 16 read a gold aggregate, and every one of those is `GROUP BY
+invoice_date, supermarket` (verified in `models/gold/spending_by_day.sql` and
+`spending_by_week.sql`), so location there means a new `GROUP BY` key — a dbt
+change to a model with other consumers, not a Superset change.
+
+**The cost of that is smaller than it first appears, and the check is worth
+recording because it contradicts the obvious guess.** Every one of the 16 charts
+was inspected: all of them aggregate *additively*. Even the average is safe —
+`Bodega - Average basket` computes `SUM(total_amount) / SUM(invoice_count)`
+rather than `AVG(avg_basket_amount)`, which is the same correctly-weighted ratio
+form the registry's `avg_basket_eur` uses and which re-sums identically over a
+finer grain. No chart uses `AVG`, `MIN` or `MAX` over a pre-aggregated column.
+So a finer grain would **not** silently change any number on the dashboard
+today.
+
+What it would do is arm two loaded guns. `spending_by_day.avg_basket_amount` and
+`spending_by_week.max_basket_amount` are exposed as groupable dataset columns
+and used by **no chart** — a mean of means and a max of maxes waiting for the
+first reader who drags one onto a chart. They are wrong at the current grain
+already; a location key makes them wronger and adds towns as a way to reach
+them. Dropping them is the fix, and it is not this phase's.
+
+Phase 8d is therefore partial by choice of *blast radius*, not because the
+numbers would break: it changes only files under `workflows/superset/`, and it
+leaves the gold models alone. Extending location into the gold aggregates is the
+same grain change as §11's question 3, wants those two columns removed first,
+and belongs there — measured before and after.
+
+### 8.2 What changes
+
+**Three virtual datasets** gain `store_province`, `store_town` and
+`store_postal_code`, each as a `groupby: true, filterable: true` column of type
+`VARCHAR`:
+
+- `invoice_lines` and `product_purchases` select them straight off
+  `silver.bodega.invoice_items`, which 8a denormalised them onto.
+- `invoice_list` selects them off `silver.bodega.invoices`, for the same reason
+  — **not** off its existing `LEFT JOIN silver.bodega.stores`, which would put a
+  third copy of the `UNKNOWN` sentinel in a third place. See the deviation note
+  under Phase 8d in §9.
+
+**`store_address` stops being groupable.** It stays in the dataset as a display
+column for the invoice list, but `groupby` and `filterable` go to `false`: it is
+free text at one distinct value per shop, it is what the parsed columns replace,
+and leaving it filterable beside a real `store_town` invites a reader to filter
+on the wrong one. `store_phone` gets the same treatment in the same edit —
+verified alongside it, groupable and filterable today, and a phone number is
+neither a useful grouping nor something to offer as a filter value list. These
+are the only *removals* in the phase and are why 8d is not purely additive.
+
+**One native filter, `Town`, on `invoice_lines`.** Not province: with the data
+spanning two provinces and one shop each, a province filter is a two-value
+control, while town is the level a reader actually asks about. It targets
+`invoice_lines`' `store_town`.
+
+The Town filter must carry the same warning the `Invoice` filter already does,
+and for the same reason: **a native filter targets one dataset**, so it silently
+does nothing to the 16 charts on the gold aggregates. The existing `Invoice`
+filter's own description records this trap ("Only affects the invoice datasets
+... scope must stay `ROOT_ID`"). A filter that appears global and moves half the
+dashboard is worse than no filter, so the filter's own `description` field
+carries its scope — that field is what a reader sees in the UI, and it is the
+only place the warning reaches them.
+
+**No new chart.** The three location columns are groupable, so a reader can
+pivot an existing chart. A "spend by town" chart with two towns in it is a bar
+chart with two bars; add one when the data spans more shops.
+
+### 8.3 What must not change
+
+- **Every `uuid` stays.** Datasets, charts and the dashboard are identified by
+  `uuid` across re-imports; regenerating one orphans the deployed object. The
+  three edited datasets keep theirs, and the new native filter gets a new
+  `NATIVE_FILTER-bodega-town` id, which is not a `uuid` and is dashboard-local.
+- **`invoice_label` stays byte-identical** in `invoice_list` and
+  `invoice_lines`. Both files carry a comment saying so: it is the cross-filter
+  key joining the list to the drill-down charts, and the location columns are
+  added nowhere near it.
+- **Bronze stays unreachable.** All three datasets read `silver.*`, which is
+  the standing rule; nothing here adds a bronze reference.
+
+### 8.4 Done when
+
+- `store_province`, `store_town`, `store_postal_code` are groupable and
+  filterable on all three row-grain datasets
+- `store_address` and `store_phone` are present but neither groupable nor
+  filterable
+- the `Town` native filter works on the nine row-grain charts, and its description
+  says it does not affect the gold-aggregate charts
+- `python3 scripts/build_bundles.py` rebuilds with no diff beyond the three
+  datasets and the dashboard, and `release/files/bodega.zip` is committed
+- a chart grouped by `store_town` totals the same as the same chart ungrouped
+  (**L4** again, at the dashboard rather than the metric)
+- no address, coordinate or shop name enters the repo (**L6**) — note the
+  dashboard YAML is *reviewed source*, so this is a real risk here in a way it
+  is not in dbt: a `defaultDataMask` with a town in it would commit one
+
+---
+
+## 9. Implementation plan
 
 Each phase ends usable. Stop after 8a and province, town and postal code work
 with no network anywhere.
@@ -632,9 +781,50 @@ occurring in the real data rather than hypothetically.
 - **Done when:** the eval set passes and no location question in a fortnight's
   log was answered with an invented value (**L3**)
 
+### Phase 8d — the dashboard (§8)
+- [x] `store_province`, `store_town`, `store_postal_code` into `invoice_lines`,
+      `product_purchases` and `invoice_list` — all three read them off the
+      **denormalised** columns, not the `stores` join; see "Deviation" below.
+      SQL **and** the `columns:` block, which Superset needs separately
+- [x] `store_address` and `store_phone` -> `groupby: false, filterable: false`,
+      both kept for display, each with a description saying what to use instead
+- [x] `Town` native filter on `invoice_lines`, with a description stating it does
+      not reach the gold-aggregate charts, and an empty `defaultDataMask` (**L6**)
+- [x] `python3 scripts/build_bundles.py`, commit `release/files/bodega.zip` —
+      39 files, round-trips: the three datasets carry the location columns, the
+      two demoted columns are `false/false`, and all five filters parse
+- [ ] `helmfile apply` from `workflows/superset/release/`, or let ArgoCD sync
+- [ ] confirm in the UI that a chart grouped by `store_town` totals the same as
+      ungrouped, and that the 16 gold-aggregate charts are visibly unaffected by
+      the Town filter rather than silently wrong
+- **Done when:** §8.4 — the source half is met; the two cluster checks are not
+
+#### Deviation: `invoice_list` reads the denormalised columns too
+
+§8.2 said `invoice_list` would select location off its existing `LEFT JOIN
+silver.bodega.stores`, since the join is already there for `address` and
+`phone`. It reads `i.store_province` / `i.store_town` / `i.store_postal_code`
+off `invoices` instead, so all three datasets read the same denormalised
+columns.
+
+`stores.sql` does apply the `UNKNOWN` sentinel, so an unparseable *address*
+reads `UNKNOWN` by either route. The difference is the **join miss**: an invoice
+whose `store_vat_id` matches no `stores` row. `invoices.sql` and
+`invoice_items.sql` wrap their `LEFT JOIN` in `COALESCE(..., 'UNKNOWN')` for
+exactly that case; `invoice_list`'s own `LEFT JOIN stores` does not, and adding
+one there would be a third copy of the sentinel to keep in step. Reading the
+denormalised column inherits it instead. The `stores` join stays for `address`
+and `phone`, which have no equivalent upstream.
+
+**8d depends on 8a being *built*, not merged.** The three datasets are virtual
+SQL executed against Trino, so they select columns that only exist after
+`dbt build --target homelab` has run — importing the bundle first gives every
+location chart a Trino error, not an empty result. Order: dbt build, then the
+bundle.
+
 ---
 
-## 9. Risks
+## 10. Risks
 
 | Risk | Mitigation |
 |------|------------|
@@ -645,12 +835,16 @@ occurring in the real data rather than hypothetically.
 | **`store_near` looks like a general place resolver** and a missing place reads as "no spend nearby" | `loc-005`; the prompt states the values are pinned |
 | **`ST_Point` argument order, or a missing `to_spherical_geography`** | Both verified in §5.3. Both fail *plausibly* rather than loudly, which is why they are written out |
 | **Geocoding a shop puts an address or coordinate in git** (**L6**) | The pipeline writes to Iceberg. `git status --porcelain` before committing — a staged file is not caught by `.gitignore`, which is exactly how `dimension_samples.json` nearly shipped |
+| **A native filter looks global and silently misses 16 charts** | The `Town` filter's description states its scope, as the `Invoice` filter's already does; 8d's done-when checks the gold-aggregate charts are visibly unaffected rather than wrong |
+| **`avg_basket_amount` / `max_basket_amount` are groupable, chart-less and already wrong at any grain** | Found while scoping §8.1. Not fixed here — recorded in §11's question 3, which is where the gold grain change lives |
+| **The bundle is imported before dbt has built the columns** | Every location chart errors in Trino rather than reading empty. 8d states the order: dbt build, then bundle |
+| **A `uuid` is regenerated while editing a dataset** | Orphans the deployed object. §8.3; the three edited datasets keep theirs |
 | **8b's network dependency reaches the local target** | 8a is offline by construction; §5.1 makes the choice explicit rather than incidental |
 | **A measured figure lands in `excludes`** and goes stale | State the omission, never the count. The standing rule |
 
 ---
 
-## 10. Open questions
+## 11. Open questions
 
 1. **Is 15 km the right radius?** It is a defensible starting guess rather than
    a derived value, and two sanity checks say it is in the right range: it
@@ -676,13 +870,19 @@ occurring in the real data rather than hypothetically.
    unchanged 2025 -> 2026 with 4 renames and zero code changes, and province
    codes are far more stable still. Codes are the join key; names are display.
    Low risk, worth knowing.
-5. **Do Superset dashboards get the location dimensions too?** Spec 001 left the
-   Superset-versus-semantic drift question open and this adds surface to it.
-   Deferred, not rejected.
+5. ~~Do Superset dashboards get the location dimensions too?~~ — **closed.**
+   Yes, for the nine charts whose datasets read silver at row grain; §8 is the
+   design and Phase 8d the plan. The 16 charts on the gold aggregates do not —
+   not because their numbers would change (§8.1 checked: every one aggregates
+   additively, and even the average is a weighted ratio) but because location
+   there is a dbt grain change to models with other consumers. That moves to
+   question 3 rather than being solved here. What stays open is spec 001's larger question of whether
+   these charts should compute their own SQL at all; §8 deliberately does not
+   migrate any chart to the semantic layer.
 
 ---
 
-## 11. Definition of done
+## 12. Definition of done
 
 - Spend by province, by town and by postal code are answerable, and the totals
   match the ungrouped total to the cent
@@ -694,6 +894,9 @@ occurring in the real data rather than hypothetically.
   they could answer
 - `semantic-compile` still passes with no warehouse and no network
 - No store address, coordinate, town list or shop name is in the repository
+- The dashboard groups and filters by town on the nine row-grain charts, the raw
+  `store_address` is no longer offered as a filter, and the charts that cannot
+  carry location are documented rather than silently unfiltered (§8)
 - `06_evidence.md`'s location paragraph no longer says the data cannot carry
   location, because it now can
 - `agents/sympozium/MEMORY.md` gains the entry for whatever this breaks in

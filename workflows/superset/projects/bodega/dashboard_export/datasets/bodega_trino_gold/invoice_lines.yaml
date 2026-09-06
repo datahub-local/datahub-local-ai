@@ -23,7 +23,10 @@ sql: |-
       i.unit,
       i.unit_price,
       i.total_amount,
-      i.supermarket
+      i.supermarket,
+      i.store_province,
+      i.store_town,
+      i.store_postal_code
   FROM silver.bodega.invoice_items i
   JOIN silver.bodega.invoices inv
       ON i.invoice_number = inv.invoice_number
@@ -200,6 +203,45 @@ columns:
   filterable: true
   expression: null
   description: null
+  python_date_format: null
+  extra: null
+- column_name: store_province
+  verbose_name: Province
+  is_dttm: false
+  is_active: true
+  type: VARCHAR
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: Province of the shop, parsed from its address. UNKNOWN when the address
+    did not parse.
+  python_date_format: null
+  extra: null
+- column_name: store_town
+  verbose_name: Town
+  is_dttm: false
+  is_active: true
+  type: VARCHAR
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: Town of the shop, uppercased and unaccented so a filter value matches
+    regardless of accent. UNKNOWN when the address did not parse.
+  python_date_format: null
+  extra: null
+- column_name: store_postal_code
+  verbose_name: Postal code
+  is_dttm: false
+  is_active: true
+  type: VARCHAR
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: Postal code of the shop, parsed from its address. UNKNOWN when the
+    address did not parse.
   python_date_format: null
   extra: null
 version: 1.0.0

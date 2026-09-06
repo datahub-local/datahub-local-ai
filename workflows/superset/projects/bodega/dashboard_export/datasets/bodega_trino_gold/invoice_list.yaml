@@ -20,6 +20,9 @@ sql: |-
       i.store_name,
       s.address AS store_address,
       s.phone AS store_phone,
+      i.store_province,
+      i.store_town,
+      i.store_postal_code,
       i.payment_method,
       i.card_type,
       i.card_number_masked,
@@ -177,10 +180,12 @@ columns:
   is_active: true
   type: VARCHAR
   advanced_data_type: null
-  groupby: true
-  filterable: true
+  groupby: false
+  filterable: false
   expression: null
-  description: null
+  description: Raw address as printed on the receipt, for display only. Group and
+    filter on store_town or store_province instead — this is free text at one distinct
+    value per shop.
   python_date_format: null
   extra: null
 - column_name: store_phone
@@ -189,10 +194,49 @@ columns:
   is_active: true
   type: VARCHAR
   advanced_data_type: null
+  groupby: false
+  filterable: false
+  expression: null
+  description: Shop phone number, for display only.
+  python_date_format: null
+  extra: null
+- column_name: store_province
+  verbose_name: Province
+  is_dttm: false
+  is_active: true
+  type: VARCHAR
+  advanced_data_type: null
   groupby: true
   filterable: true
   expression: null
-  description: null
+  description: Province of the shop, parsed from its address. UNKNOWN when the address
+    did not parse.
+  python_date_format: null
+  extra: null
+- column_name: store_town
+  verbose_name: Town
+  is_dttm: false
+  is_active: true
+  type: VARCHAR
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: Town of the shop, uppercased and unaccented so a filter value matches
+    regardless of accent. UNKNOWN when the address did not parse.
+  python_date_format: null
+  extra: null
+- column_name: store_postal_code
+  verbose_name: Postal code
+  is_dttm: false
+  is_active: true
+  type: VARCHAR
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: Postal code of the shop, parsed from its address. UNKNOWN when the
+    address did not parse.
   python_date_format: null
   extra: null
 - column_name: invoice_items

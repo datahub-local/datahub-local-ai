@@ -30,6 +30,12 @@ models:
         description: "Store VAT identifier. Joins to stores.store_id."
       - name: store_name
         description: "Store name, trimmed and uppercased."
+      - name: store_province
+        description: "Province of the store, from the INE province code in its address. The literal UNKNOWN when the address did not parse."
+      - name: store_town
+        description: "Town of the store, uppercased and unaccented. The filter target for a location question. The literal UNKNOWN when the address did not parse."
+      - name: store_postal_code
+        description: "5-digit postal code of the store, parsed from its address. The literal UNKNOWN when the address did not parse."
       - name: total_amount
         description: "Receipt total, VAT included."
       - name: total_tax_amount
@@ -68,6 +74,12 @@ models:
       - name: supermarket
         description: "Retail brand, denormalised from the header."
 
+      - name: store_province
+        description: "Province of the store, from the INE province code in its address. The literal UNKNOWN when the address did not parse."
+      - name: store_town
+        description: "Town of the store, uppercased and unaccented. The filter target for a location question. The literal UNKNOWN when the address did not parse."
+      - name: store_postal_code
+        description: "5-digit postal code of the store, parsed from its address. The literal UNKNOWN when the address did not parse."
       - name: description_raw
         description: "Product description exactly as printed."
       - name: description_clean
@@ -104,6 +116,16 @@ models:
         tests:
           - not_null
           - unique
+      - name: postal_code
+        description: "5-digit postal code parsed from the address. The literal UNKNOWN when no valid code was found."
+      - name: province_code
+        description: "INE province code (CPRO), the first two digits of the postal code. The join key to the province name. UNKNOWN when unparsed."
+      - name: province
+        description: "Province name for province_code, official spelling. Display only - join on the code. UNKNOWN when unparsed or the code is not in the list."
+      - name: town_raw
+        description: "Town as printed on the receipt, accents intact. Display only; filter on town."
+      - name: town
+        description: "Town uppercased and unaccented. The filter target, because a wrong-accent match returns zero rows with no correction offered."
 
   - name: spending_by_day
     description: "Daily spend aggregates per supermarket."

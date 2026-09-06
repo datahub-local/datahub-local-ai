@@ -45,7 +45,19 @@ _INV2 = (
     json.dumps([{"rate": "4%", "base": "5.05", "tax": "0.20"}]),
     "MERCADONA", 1, "2026-01-16T10:01:00+00:00",
 )
-RAW_ROWS = [_INV1, _INV2]
+# A second store, whose address carries a postal code and an accented town: exercises
+# the address parse, the accent stripping, and (against _INV1/_INV2, whose address has
+# no postal code and so lands in UNKNOWN) that both kinds keep their spend in a total.
+_INV3 = (
+    "INV-3", "2026-01-17T12:00:00", "OP2", "Mercadona Test Dos", "B99999999",
+    "C/ TEST 2, 03700 TESTV\u00cdLA", "900333444", 4.00, "CARD", "VISA", "**** **** **** 9999",
+    json.dumps([
+        {"description": "Leche Entera", "quantity": "1", "unit_price": "0.85", "total": "0.85"},
+    ]),
+    json.dumps([{"rate": "4%", "base": "3.85", "tax": "0.15"}]),
+    "MERCADONA", 2, "2026-01-17T12:01:00+00:00",
+)
+RAW_ROWS = [_INV1, _INV2, _INV3]
 
 # Product dimension the dlt enrich step would categorise (silver.bodega.products).
 # LECHE ENTERA appears twice (the Iceberg filesystem destination downgrades dlt's
@@ -146,11 +158,11 @@ def test_silver_invoices_item_count_from_json(con):
     counts = con.execute(
         "SELECT invoice_number, item_count FROM silver.bodega.invoices ORDER BY invoice_number"
     ).fetchall()
-    assert counts == [("INV-1", 2), ("INV-2", 2)]
+    assert counts == [("INV-1", 2), ("INV-2", 2), ("INV-3", 1)]
 
 
 def test_silver_invoice_items_exploded_with_position(con):
-    assert _count(con, "silver.bodega.invoice_items") == 4
+    assert _count(con, "silver.bodega.invoice_items") == 5
     positions = con.execute(
         "SELECT DISTINCT item_position FROM silver.bodega.invoice_items ORDER BY item_position"
     ).fetchall()
@@ -166,17 +178,18 @@ def test_silver_invoice_items_derives_unit(con):
 
 
 def test_silver_invoice_taxes_exploded(con):
-    assert _count(con, "silver.bodega.invoice_taxes") == 2
+    assert _count(con, "silver.bodega.invoice_taxes") == 3
 
 
 def test_silver_stores_dedups_by_vat(con):
-    assert _count(con, "silver.bodega.stores") == 1
+    assert _count(con, "silver.bodega.stores") == 2
 
 
 def test_silver_stores_latest_invoice_wins(con):
     # INV-2 is the most recent invoice, so its descriptive fields win.
     row = con.execute(
         "SELECT name, address, first_seen_date, last_seen_date FROM silver.bodega.stores"
+        " WHERE store_id = 'B12345678'"
     ).fetchone()
     assert row[0] == "MERCADONA CENTRO"
     assert row[1] == "Calle Mayor, 1"
@@ -200,7 +213,7 @@ def test_gold_top_products_dedupes_product_dimension(con):
         " WHERE description_clean = 'LECHE ENTERA'"
     ).fetchone()
     assert count == 1
-    assert spent == pytest.approx(1.70 + 2.55)
+    assert spent == pytest.approx(1.70 + 2.55 + 0.85)
 
 
 def test_gold_price_trends_keeps_only_repeat_products(con):
@@ -226,3 +239,56 @@ def test_gold_category_spending_in_gold_catalog(con):
 
 def test_gold_tax_summary_sums_by_month(con):
     assert _count(con, "gold.bodega.tax_summary") == 2
+
+
+class TestLocationParsing:
+    """Postal code, province and town parsed out of the free-text store address.
+
+    The two stores are deliberately different shapes: B99999999's address carries a
+    postal code and an accented town, B12345678's carries neither.
+    """
+
+    def test_parses_postal_code_province_and_town(self, con):
+        row = con.execute(
+            "SELECT postal_code, province_code, province, town_raw, town"
+            " FROM silver.bodega.stores WHERE store_id = 'B99999999'"
+        ).fetchone()
+        assert row == ("03700", "03", "Alicante/Alacant", "TESTVÍLA", "TESTVILA")
+
+    def test_unparseable_address_is_unknown_not_null(self, con):
+        # NULL would drop the row from a grouped query; UNKNOWN keeps it visible.
+        row = con.execute(
+            "SELECT postal_code, province_code, province, town_raw, town"
+            " FROM silver.bodega.stores WHERE store_id = 'B12345678'"
+        ).fetchone()
+        assert row == ("UNKNOWN",) * 5
+
+    def test_town_is_unaccented_for_filtering(self, con):
+        # The semantic layer's near-miss suggester is skipped for `contains`, so a
+        # wrong-accent filter would return zero rows and read as "no spend there".
+        assert con.execute(
+            "SELECT COUNT(*) FROM silver.bodega.stores WHERE town = 'TESTVILA'"
+        ).fetchone()[0] == 1
+
+    @pytest.mark.parametrize("table", ["invoices", "invoice_items"])
+    def test_location_denormalised_onto_metric_models(self, con, table):
+        # A semantic dimension must be a bare column on the metric's own model.
+        rows = dict(con.execute(
+            f"SELECT store_vat_id, MAX(store_town) FROM silver.bodega.{table}"
+            " GROUP BY store_vat_id"
+        ).fetchall())
+        assert rows == {"B12345678": "UNKNOWN", "B99999999": "TESTVILA"}
+
+    @pytest.mark.parametrize(
+        "table,amount",
+        [("invoices", "total_amount"), ("invoice_items", "total_amount")],
+    )
+    @pytest.mark.parametrize("dimension", ["store_province", "store_town", "store_postal_code"])
+    def test_grouped_total_equals_ungrouped_total(self, con, table, amount, dimension):
+        """L4: no spend is lost to a location breakdown, including the UNKNOWN bucket."""
+        ungrouped = con.execute(f"SELECT SUM({amount}) FROM silver.bodega.{table}").fetchone()[0]
+        grouped = con.execute(
+            f"SELECT SUM(s) FROM (SELECT SUM({amount}) AS s FROM silver.bodega.{table}"
+            f" GROUP BY {dimension}) AS g"
+        ).fetchone()[0]
+        assert grouped == pytest.approx(ungrouped)

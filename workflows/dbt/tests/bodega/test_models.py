@@ -179,3 +179,77 @@ class TestGoldTaxSummary:
         lower = self.sql.lower()
         assert "base_amount" in lower
         assert "tax_amount" in lower
+
+
+class TestAddressParsing:
+    """The address regex, executed rather than pattern-matched.
+
+    The pattern is extracted from the macro so the test cannot drift from what the
+    models actually run. It is asserted on DuckDB; Trino agrees on every case here,
+    except that a non-match yields NULL there and '' on DuckDB — which is why the
+    models wrap it in `bodega_blank_to_null`.
+    """
+
+    def setup_method(self):
+        import re
+
+        macro = (PROJECT_DIR / "macros" / "cross_engine.sql").read_text()
+        patterns = re.findall(r"regexp_extract\(\{\{ col \}\}, '([^']+)'", macro)
+        assert len(set(patterns)) == 1, f"dialects disagree on the pattern: {set(patterns)}"
+        self.pattern = patterns[0]
+
+    def _parse(self, address: str) -> tuple[str, str]:
+        """(postal_code, town) as the models compute them, '' when unparsed."""
+        import duckdb
+
+        con = duckdb.connect()
+        cp1, cp2, town = con.execute(
+            "SELECT regexp_extract(?, ?, 1), regexp_extract(?, ?, 2), "
+            "trim(regexp_extract(?, ?, 3))",
+            [address, self.pattern] * 3,
+        ).fetchone()
+        con.close()
+        return (cp1 + cp2 if cp1 else ""), town
+
+    def test_parses_the_documented_address_shape(self):
+        assert self._parse("C/ TEST 1, 28001 MADRID") == ("28001", "MADRID")
+
+    def test_parses_a_no_comma_sin_numero_address(self):
+        assert self._parse("C/ MAYOR S/N 28522 RIVAS-VACIAMADRID") == (
+            "28522", "RIVAS-VACIAMADRID",
+        )
+
+    def test_postal_code_wins_over_an_earlier_five_digit_house_number(self):
+        # The pattern is tail-anchored for exactly this: the parser prints the
+        # postal code last, so a leading match would take the wrong number.
+        assert self._parse("C/ GRAN VIA 28001, 03700 DENIA") == ("03700", "DENIA")
+
+    def test_drops_a_trailing_country(self):
+        assert self._parse("PLAZA MAYOR 12, 28001 MADRID, ESPANA") == ("28001", "MADRID")
+
+    def test_unparseable_addresses_yield_nothing(self):
+        # No postal code at all, a phone fragment, and an out-of-range province
+        # code — each must fall through to the models' UNKNOWN sentinel.
+        for address in ("Calle Mayor, 1", "C/ TEST 1, 91757 8853", "POLIGONO 45, 99999 NOWHERE"):
+            assert self._parse(address) == ("", ""), address
+
+    def test_province_code_bounds_are_the_ine_range(self):
+        assert self._parse("C/ X 1, 01001 VITORIA") == ("01001", "VITORIA")
+        assert self._parse("C/ X 1, 52001 MELILLA") == ("52001", "MELILLA")
+        assert self._parse("C/ X 1, 53001 NOWHERE") == ("", "")
+
+
+class TestProvinceList:
+    def setup_method(self):
+        import re
+
+        macro = (PROJECT_DIR / "macros" / "cross_engine.sql").read_text()
+        body = macro.split("macro bodega_provinces()")[1]
+        self.rows = re.findall(r"\('(\d{2})', '([^']+)'\)", body)
+
+    def test_covers_every_ine_province_code(self):
+        assert [code for code, _ in self.rows] == [f"{n:02d}" for n in range(1, 53)]
+
+    def test_names_are_unique(self):
+        names = [name for _, name in self.rows]
+        assert len(set(names)) == len(names)

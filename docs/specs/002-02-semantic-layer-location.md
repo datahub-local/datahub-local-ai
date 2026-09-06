@@ -523,19 +523,90 @@ Each phase ends usable. Stop after 8a and province, town and postal code work
 with no network anywhere.
 
 ### Phase 8a — parse (no network)
-- [ ] `provinces.yml`, 52 rows (§4.1)
-- [ ] `bodega_parse_postal_code` in `macros/cross_engine.sql`, both dialects
-- [ ] `stores.sql`: `postal_code`, `province_code`, `province`, `town_raw`,
+- [x] the 52-row province list — as a **macro, not `provinces.yml`**; see
+      "Deviations" below
+- [x] `bodega_address_part` + `bodega_blank_to_null` + `bodega_unaccent_upper`
+      in `macros/cross_engine.sql`, both dialects
+- [x] `stores.sql`: `postal_code`, `province_code`, `province`, `town_raw`,
       `town` — `LEFT` joins, `UNKNOWN` sentinel (§4.2)
-- [ ] denormalise onto `invoices.sql` and `invoice_items.sql` (Gate 4)
-- [ ] `schema.yml` descriptions for every new column, non-blank (§4.4)
-- [ ] registry: `stores` model entry + three dimensions; location caveat in the
-      affected `excludes` (§4.5)
-- [ ] a test asserting the regex against the known address shapes, including a
-      `S/N` variant and an unparseable one
-- [ ] a test asserting grouped and ungrouped totals agree (**L4**)
-- [ ] check the "match EXACTLY" line survives (§4.6)
-- **Done when:** §4.7
+- [x] denormalise onto `invoices.sql` and `invoice_items.sql` (Gate 4)
+- [x] `schema.yml` descriptions for every new column, non-blank (§4.4)
+- [x] registry: three dimensions on `invoices`/`invoice_items`; location caveat
+      in seven `excludes` (§4.5). **No `stores` model entry** — see "Deviations"
+- [x] a test asserting the regex against the known address shapes, including a
+      `S/N` variant and an unparseable one — `tests/bodega/test_models.py`,
+      executed against DuckDB rather than pattern-matched, plus a test that the
+      two dialects carry the same pattern
+- [x] a test asserting grouped and ungrouped totals agree (**L4**) — for both
+      models, across all three dimensions
+- [x] check the "match EXACTLY" line survives (§4.6) — 1243 of 2048 bytes with
+      8 pessimistic sample values per dimension, simulated against the real
+      `truncate_lines`. Re-check on the live server after the 8c deploy
+- **Done when:** §4.7 — met, except that the Trino half is verified by ad-hoc
+      query rather than a `--target homelab` build
+
+#### Deviations from this spec, and why
+
+Both were forced by something the spec assumed and the code does not support.
+
+**`provinces.yml` is a macro, not a file.** dbt's Jinja context exposes
+`fromyaml` but **no filesystem read** — the context is `env_var`, `modules`
+(`re`, `datetime`, `pytz`), `fromjson`/`fromyaml` and no `open`/`load_file`. So
+a YAML at `semantic/geo/provinces.yml` cannot be joined by a model, and
+`semantic/` is outside the dbt project root besides. The options were a dbt
+seed — a new materialisation into a catalog plus a `dbt seed` step in
+`bodega_dag.py`, for 52 static rows — or an inlined `VALUES` list, which is what
+`pi/macros/generate_samples.sql` already does for reference data. The macro
+`bodega_provinces()` holds it, and a test asserts all 52 INE codes are present
+and the names unique. It stays reviewable and in git, which was the §4.1
+requirement; only the file format changed.
+
+**`stores` gets no `semantic_models` entry.** Every semantic tool reaches
+dimensions *through a metric* — `list_metrics`, `describe_metric` and
+`list_dimensions` all resolve `registry.model_for(metric)`, and nothing
+enumerates `registry.models`. A `stores` entry carries no measures, so no metric
+can own it and no tool would ever surface it, while `_validate_model` would
+still demand a `defaults.agg_time_dimension` — forcing a meaningless
+`last_seen_date` to satisfy a validator for an entry with no reader. The three
+dimensions land on `invoices` and `invoice_items`, which is what L1 and L2
+actually need. Add the entry when a metric is defined over `stores` (a shop
+count), not before.
+
+**The location caveat went into seven `excludes`, not five.** §0's Gate 5 says
+"five of the eight metrics"; the true split is seven, because every metric on
+`invoices` and `invoice_items` becomes location-filterable — `grocery_spend_eur`,
+`shopping_trips`, `avg_basket_eur`, `blended_unit_price_eur`, `tax_paid_eur`,
+`line_spend_eur` and `items_bought`. Only `category_spend_eur` is left out, which
+is the substance of Gate 5 and is unchanged.
+
+#### Two findings the gate checks missed
+
+**The spec's regex takes the wrong number when a 5-digit house number precedes
+the postal code.** `.*` tail-anchoring fixes it, and the case is now a test:
+
+```
+C/ GRAN VIA 28001, 03700 DENIA
+  §0's pattern -> province 28, town ", 03700 DENIA"
+  as shipped   -> province 03, town "DENIA"
+```
+
+The shipped pattern also parses `28001MADRID` (no space) and drops a trailing
+`, ESPANA`, neither of which §0's did.
+
+**Trino and DuckDB disagree on a non-match:** Trino's `regexp_extract` returns
+`NULL`, DuckDB's returns `''`. Left alone, the `UNKNOWN` sentinel would work on
+one engine and not the other — `COALESCE` never fires on an empty string. Hence
+`bodega_blank_to_null`, which every caller wraps the extract in. Both engines
+were checked against the same nine address shapes and agree on all of them once
+normalised.
+
+Accent stripping is also dialect-split: DuckDB has `strip_accents`, Trino needs
+`regexp_replace(normalize(x, NFD), '\p{Mn}', '')`. Verified equal on both,
+including `Ñ -> N`.
+
+The live `silver.bodega.stores` was read while writing this: its one shop parses
+to province `03`, and its town comes back **accented**, which is §4.3's trap
+occurring in the real data rather than hypothetically.
 
 ### Phase 8b — near (network, opt-in)
 - [ ] `dlt` `geo` pipeline, `enrich.py`'s idempotency and retry semantics (§5.2)

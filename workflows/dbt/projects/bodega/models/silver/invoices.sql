@@ -1,20 +1,35 @@
+{#
+  Location is denormalised from `stores` rather than joined at query time: the semantic
+  compiler emits one FROM and every dimension must be a bare column on the metric's own
+  model, so a location filter only works if these columns live here. LEFT join with an
+  UNKNOWN sentinel, so a store whose address did not parse keeps its spend in the total.
+#}
+WITH store_location AS (
+    SELECT store_id, province, town, postal_code
+    FROM {{ ref('stores') }}
+)
+
 SELECT
-    invoice_number,
-    {{ bodega_parse_dt('invoice_date') }}                               AS invoice_datetime,
-    CAST({{ bodega_parse_dt('invoice_date') }} AS DATE)                 AS invoice_date,
-    year({{ bodega_parse_dt('invoice_date') }})                        AS invoice_year,
-    month({{ bodega_parse_dt('invoice_date') }})                       AS invoice_month,
-    week({{ bodega_parse_dt('invoice_date') }})                        AS invoice_week,
-    operator_id,
-    store_vat_id,
-    trim(upper(store_name))                                             AS store_name,
-    total_amount,
-    {{ bodega_json_sum('taxes_json', 'tax') }}                          AS total_tax_amount,
-    {{ bodega_json_sum('taxes_json', 'base') }}                         AS total_base_amount,
-    payment_method,
-    card_type,
-    card_number_masked,
-    supermarket,
-    {{ bodega_json_len('items_json') }}                                 AS item_count,
-    _ingested_at
-FROM {{ source('bodega', 'raw_invoices') }}
+    b.invoice_number,
+    {{ bodega_parse_dt('b.invoice_date') }}                             AS invoice_datetime,
+    CAST({{ bodega_parse_dt('b.invoice_date') }} AS DATE)               AS invoice_date,
+    year({{ bodega_parse_dt('b.invoice_date') }})                       AS invoice_year,
+    month({{ bodega_parse_dt('b.invoice_date') }})                      AS invoice_month,
+    week({{ bodega_parse_dt('b.invoice_date') }})                       AS invoice_week,
+    b.operator_id,
+    b.store_vat_id,
+    trim(upper(b.store_name))                                           AS store_name,
+    COALESCE(loc.province, 'UNKNOWN')                                   AS store_province,
+    COALESCE(loc.town, 'UNKNOWN')                                       AS store_town,
+    COALESCE(loc.postal_code, 'UNKNOWN')                                AS store_postal_code,
+    b.total_amount,
+    {{ bodega_json_sum('b.taxes_json', 'tax') }}                        AS total_tax_amount,
+    {{ bodega_json_sum('b.taxes_json', 'base') }}                       AS total_base_amount,
+    b.payment_method,
+    b.card_type,
+    b.card_number_masked,
+    b.supermarket,
+    {{ bodega_json_len('b.items_json') }}                               AS item_count,
+    b._ingested_at
+FROM {{ source('bodega', 'raw_invoices') }} AS b
+LEFT JOIN store_location AS loc ON loc.store_id = b.store_vat_id

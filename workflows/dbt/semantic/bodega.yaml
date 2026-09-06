@@ -25,6 +25,9 @@ semantic_models:
         type_params: {time_granularity: day}
       - {name: supermarket, type: categorical}
       - {name: store_name, type: categorical}
+      - {name: store_province, type: categorical}
+      - {name: store_town, type: categorical}
+      - {name: store_postal_code, type: categorical}
       - {name: payment_method, type: categorical}
       - {name: card_type, type: categorical}
       - {name: invoice_number, type: categorical}
@@ -50,6 +53,9 @@ semantic_models:
       - {name: description_clean, type: categorical}
       - {name: supermarket, type: categorical}
       - {name: unit, type: categorical}
+      - {name: store_province, type: categorical}
+      - {name: store_town, type: categorical}
+      - {name: store_postal_code, type: categorical}
       - {name: invoice_number, type: categorical}
     measures:
       - {name: line_amount, agg: sum, expr: total_amount}
@@ -101,7 +107,10 @@ metrics:
         total_tax_amount plus total_base_amount equals it exactly, verified
         every time it has been measured. No returns or negative lines have
         ever been observed in this data, so how a refund would be signed is
-        untested rather than known.
+        untested rather than known. Location comes from the store address: spend at a shop whose
+        address did not parse stays in the total and appears under the
+        literal UNKNOWN in a breakdown by province, town or postal code.
+        Town is stored unaccented and uppercased, so filter it that way.
 
   - name: category_spend_eur
     label: Spend by category (EUR)
@@ -136,7 +145,10 @@ metrics:
       excludes: >
         One receipt is one trip. Two receipts on one visit count twice.
         Every invoice has had a distinct invoice number each time it was
-        checked, so the count is unambiguous.
+        checked, so the count is unambiguous. Location comes from the store address: spend at a shop whose
+        address did not parse stays in the total and appears under the
+        literal UNKNOWN in a breakdown by province, town or postal code.
+        Town is stored unaccented and uppercased, so filter it that way.
 
   - name: avg_basket_eur
     label: Average basket (EUR)
@@ -154,7 +166,10 @@ metrics:
         daily mean over one or two trips is noise. Compiles as
         sum(amount)/count(invoices), which equals a plain avg() here only
         because invoices is exactly one row per trip; the ratio form is what
-        stays correct over anything pre-aggregated.
+        stays correct over anything pre-aggregated. Location comes from the store address: spend at a shop whose
+        address did not parse stays in the total and appears under the
+        literal UNKNOWN in a breakdown by province, town or postal code.
+        Town is stored unaccented and uppercased, so filter it that way.
 
   # Sourced from invoice_items and deliberately NOT from gold.bodega.price_trends,
   # which drops every single-purchase product to its HAVING COUNT(*) >= 2
@@ -179,7 +194,10 @@ metrics:
         by it, and never as a single headline number. It is not avg(unit_price):
         that has come out several percent higher every time both were measured,
         and only this one is the metric. Lines with quantity 0 or null would be
-        dropped by the division; none have ever existed.
+        dropped by the division; none have ever existed. Location comes from the store address: spend at a shop whose
+        address did not parse stays in the total and appears under the
+        literal UNKNOWN in a breakdown by province, town or postal code.
+        Town is stored unaccented and uppercased, so filter it that way.
 
   - name: tax_paid_eur
     label: VAT paid (EUR)
@@ -194,7 +212,10 @@ metrics:
         not add the two. Summed from the receipt's own tax breakdown, so a
         receipt whose taxes_json failed to parse contributes 0 rather than
         being excluded. grain_min is month because VAT is only interesting at
-        a filing cadence.
+        a filing cadence. Location comes from the store address: spend at a shop whose
+        address did not parse stays in the total and appears under the
+        literal UNKNOWN in a breakdown by province, town or postal code.
+        Town is stored unaccented and uppercased, so filter it that way.
 
   - name: line_spend_eur
     label: Spend by product line (EUR)
@@ -211,7 +232,10 @@ metrics:
         rather than per trip - so the two must never be added together. Unlike
         blended_unit_price_eur this is a plain total and carries no unit
         hazard, which is why it is allowed at day grain: a weighed line and a
-        counted line both contribute euros.
+        counted line both contribute euros. Location comes from the store address: spend at a shop whose
+        address did not parse stays in the total and appears under the
+        literal UNKNOWN in a breakdown by province, town or postal code.
+        Town is stored unaccented and uppercased, so filter it that way.
 
   - name: items_bought
     label: Items bought
@@ -224,4 +248,7 @@ metrics:
       excludes: >
         Counts LINES, not units - one line for a weighed bag of tomatoes is one
         item, however many kilos it holds. Use line_quantity to sum units,
-        remembering that mixes kg with counts.
+        remembering that mixes kg with counts. Location comes from the store address: spend at a shop whose
+        address did not parse stays in the total and appears under the
+        literal UNKNOWN in a breakdown by province, town or postal code.
+        Town is stored unaccented and uppercased, so filter it that way.

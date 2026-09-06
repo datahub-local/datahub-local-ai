@@ -3643,3 +3643,41 @@ occurrence of that name and it arrives from the registry, not from a prompt.
 The general form is now in the root `CLAUDE.md` beside the `toolsAllow` and
 committed-manifest entries, because this is the same objection in a fourth
 medium and the pattern is what generalises.
+
+## Two rules met and the reply was nothing (2026-09-06)
+
+`ch-n7r5x` ended `Succeeded` with a null `result`, and Slack rendered
+`(no response)`. The log says it exactly: `task="something shop with Rivas or
+Luna?"`, then `WARNING: terminal turn had empty text and no prior reasoning to
+fall back on`, `input=15383 output=7 tool_calls=0`, run over in 1.2 seconds. The
+model produced seven tokens, called nothing, wrote nothing.
+
+This was not the UTF-8 path and not `MAX_TOOL_ITERATIONS`. Two rules had closed
+every exit. The clarify branch says to reply with one short question and
+`never repeat a question already asked in this thread` - and the turn before had
+asked "Did you mean that?". The absent-subject branch says to ask and then
+`wait for them to say yes`. So a vague follow-up in a thread where a question was
+already asked matched a branch that forbade asking, while nothing told it what to
+write instead. It stopped.
+
+**A prompt made only of prohibitions can rule out every reply, and a model that
+runs out of permitted moves emits nothing rather than breaking one.** Both rules
+were individually right and each was written to fix a real incident; neither
+mentioned the other. The fixes are three. `01_role.md` now opens with the
+guarantee that every turn is a tool call or text, that no combination of the
+rules below leaves nothing to write, and what to fall back to - what you were
+asked, what you can see, what you cannot. The clarify branch names the specific
+dead end: having asked once, take the most likely reading, look it up, and say
+which reading you took; a name you do not recognise is a lookup, not a question.
+And the absent-subject branch now ends the run *with its one line written*, and
+reads the next message as the go-ahead rather than asking again.
+
+Worth recording that the same thread shows two earlier fixes working: the
+absent-subject reply was one line and stopped, and asked to filter by province it
+listed the dimensions that exist and said the filter could not be applied instead
+of inventing a location - the exact failure from the day before.
+
+The generic lesson for any persona here: when adding a rule that forbids a
+reply, check what the model is left with, and make sure at least one branch ends
+in text. Nothing in CI can see this - the render passes, the CRD is valid, and
+the run reports success.

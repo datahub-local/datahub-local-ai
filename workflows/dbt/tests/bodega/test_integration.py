@@ -57,7 +57,20 @@ _INV3 = (
     json.dumps([{"rate": "4%", "base": "3.85", "tax": "0.15"}]),
     "MERCADONA", 2, "2026-01-17T12:01:00+00:00",
 )
-RAW_ROWS = [_INV1, _INV2, _INV3]
+# A second shop of the SAME company as _INV3: a chain prints one company VAT on every
+# receipt, so B99999999 covers two physical shops in two towns. Keying stores on the VAT
+# collapsed them into one row and gave both shops whichever town was on the latest
+# receipt - a confidently wrong location rather than a visible UNKNOWN.
+_INV4 = (
+    "INV-4", "2026-01-18T09:00:00", "OP3", "Mercadona Test Tres", "B99999999",
+    "AV OTRA 7, 45002 TESTRIVAS", "900555666", 3.00, "CARD", "VISA", "**** **** **** 9999",
+    json.dumps([
+        {"description": "Aceite Oliva", "quantity": "1", "unit_price": "3.00", "total": "3.00"},
+    ]),
+    json.dumps([{"rate": "4%", "base": "2.88", "tax": "0.12"}]),
+    "MERCADONA", 3, "2026-01-18T09:01:00+00:00",
+)
+RAW_ROWS = [_INV1, _INV2, _INV3, _INV4]
 
 # Product dimension the dlt enrich step would categorise (silver.bodega.products).
 # LECHE ENTERA appears twice (the Iceberg filesystem destination downgrades dlt's
@@ -69,6 +82,7 @@ PRODUCT_ROWS = [
     ("LECHE ENTERA",   "MERCADONA", "DAIRY_EGGS",        "Milk",  False, "2026-01-17T00:00:00+00:00"),
     ("PAN INTEGRAL",   "MERCADONA", "BAKERY_PASTRY",     "Bread", False, "2026-01-17T00:00:00+00:00"),
     ("MANZANA GOLDEN", "MERCADONA", "FRUITS_VEGETABLES", "Apple", True,  "2026-01-17T00:00:00+00:00"),
+    ("ACEITE OLIVA",   "MERCADONA", "PANTRY",            "Oil",   False, "2026-01-18T00:00:00+00:00"),
 ]
 
 ROOT = Path(__file__).parent.parent.parent
@@ -158,11 +172,11 @@ def test_silver_invoices_item_count_from_json(con):
     counts = con.execute(
         "SELECT invoice_number, item_count FROM silver.bodega.invoices ORDER BY invoice_number"
     ).fetchall()
-    assert counts == [("INV-1", 2), ("INV-2", 2), ("INV-3", 1)]
+    assert counts == [("INV-1", 2), ("INV-2", 2), ("INV-3", 1), ("INV-4", 1)]
 
 
 def test_silver_invoice_items_exploded_with_position(con):
-    assert _count(con, "silver.bodega.invoice_items") == 5
+    assert _count(con, "silver.bodega.invoice_items") == 6
     positions = con.execute(
         "SELECT DISTINCT item_position FROM silver.bodega.invoice_items ORDER BY item_position"
     ).fetchall()
@@ -178,18 +192,20 @@ def test_silver_invoice_items_derives_unit(con):
 
 
 def test_silver_invoice_taxes_exploded(con):
-    assert _count(con, "silver.bodega.invoice_taxes") == 3
+    assert _count(con, "silver.bodega.invoice_taxes") == 4
 
 
-def test_silver_stores_dedups_by_vat(con):
-    assert _count(con, "silver.bodega.stores") == 2
+def test_silver_stores_is_one_row_per_shop(con):
+    # Three shops across two VATs: B12345678 has one (reached by two invoices whose
+    # addresses differ only in street-type prefix), B99999999 has two in two towns.
+    assert _count(con, "silver.bodega.stores") == 3
 
 
 def test_silver_stores_latest_invoice_wins(con):
     # INV-2 is the most recent invoice, so its descriptive fields win.
     row = con.execute(
         "SELECT name, address, first_seen_date, last_seen_date FROM silver.bodega.stores"
-        " WHERE store_id = 'B12345678'"
+        " WHERE vat_id = 'B12345678'"
     ).fetchone()
     assert row[0] == "MERCADONA CENTRO"
     assert row[1] == "Calle Mayor, 1"
@@ -202,7 +218,7 @@ def test_gold_top_products_joins_categories(con):
         "SELECT description_clean, category FROM gold.bodega.top_products ORDER BY description_clean"
     ).fetchall()
     assert ("LECHE ENTERA", "DAIRY_EGGS") in rows
-    assert len(rows) == 3
+    assert len(rows) == 4
 
 
 def test_gold_top_products_dedupes_product_dimension(con):
@@ -251,7 +267,7 @@ class TestLocationParsing:
     def test_parses_postal_code_province_and_town(self, con):
         row = con.execute(
             "SELECT postal_code, province_code, province, town_raw, town"
-            " FROM silver.bodega.stores WHERE store_id = 'B99999999'"
+            " FROM silver.bodega.stores WHERE vat_id = 'B99999999'"
         ).fetchone()
         assert row == ("03700", "03", "Alicante/Alacant", "TESTVÍLA", "TESTVILA")
 
@@ -259,9 +275,31 @@ class TestLocationParsing:
         # NULL would drop the row from a grouped query; UNKNOWN keeps it visible.
         row = con.execute(
             "SELECT postal_code, province_code, province, town_raw, town"
-            " FROM silver.bodega.stores WHERE store_id = 'B12345678'"
+            " FROM silver.bodega.stores WHERE vat_id = 'B12345678'"
         ).fetchone()
         assert row == ("UNKNOWN",) * 5
+
+    def test_two_shops_one_vat_keep_separate_towns(self, con):
+        # store_vat_id is the operating company's VAT, so a chain prints one across every
+        # shop. Keying stores on it collapsed B99999999's two shops into a single row and
+        # gave both invoices whichever town was on the latest receipt.
+        rows = dict(con.execute(
+            "SELECT invoice_number, store_town FROM silver.bodega.invoices"
+            " WHERE store_vat_id = 'B99999999'"
+        ).fetchall())
+        assert rows == {"INV-3": "TESTVILA", "INV-4": "TESTRIVAS"}
+
+    def test_store_id_is_per_shop_not_per_vat(self, con):
+        assert con.execute(
+            "SELECT COUNT(DISTINCT store_id) FROM silver.bodega.stores"
+            " WHERE vat_id = 'B99999999'"
+        ).fetchone()[0] == 2
+
+    def test_address_variants_of_one_shop_collapse(self, con):
+        # INV-1 and INV-2 are the same shop written 'C/ Mayor 1' and 'Calle Mayor, 1'.
+        assert con.execute(
+            "SELECT COUNT(*) FROM silver.bodega.stores WHERE vat_id = 'B12345678'"
+        ).fetchone()[0] == 1
 
     def test_town_is_unaccented_for_filtering(self, con):
         # The semantic layer's near-miss suggester is skipped for `contains`, so a

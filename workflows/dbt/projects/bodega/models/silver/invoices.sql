@@ -3,9 +3,13 @@
   compiler emits one FROM and every dimension must be a bare column on the metric's own
   model, so a location filter only works if these columns live here. LEFT join with an
   UNKNOWN sentinel, so a store whose address did not parse keeps its spend in the total.
+
+  The join is on the normalised address, not `store_vat_id`: that column is the operating
+  company's VAT, so a chain shares one across every shop and joining on it would give
+  every branch the same town.
 #}
 WITH store_location AS (
-    SELECT store_id, province, town, postal_code
+    SELECT address_key, store_id, store_label, province, town, postal_code
     FROM {{ ref('stores') }}
 )
 
@@ -19,6 +23,8 @@ SELECT
     b.operator_id,
     b.store_vat_id,
     trim(upper(b.store_name))                                           AS store_name,
+    loc.store_id,
+    COALESCE(loc.store_label, 'UNKNOWN')                                AS store_label,
     COALESCE(loc.province, 'UNKNOWN')                                   AS store_province,
     COALESCE(loc.town, 'UNKNOWN')                                       AS store_town,
     COALESCE(loc.postal_code, 'UNKNOWN')                                AS store_postal_code,
@@ -32,4 +38,5 @@ SELECT
     {{ bodega_json_len('b.items_json') }}                               AS item_count,
     b._ingested_at
 FROM {{ source('bodega', 'raw_invoices') }} AS b
-LEFT JOIN store_location AS loc ON loc.store_id = b.store_vat_id
+LEFT JOIN store_location AS loc
+    ON loc.address_key = {{ bodega_blank_to_null(bodega_address_key('b.store_address')) }}

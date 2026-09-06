@@ -20,6 +20,7 @@ sql: |-
       i.store_name,
       s.address AS store_address,
       s.phone AS store_phone,
+      i.store_label,
       i.store_province,
       i.store_town,
       i.store_postal_code,
@@ -35,7 +36,9 @@ sql: |-
       round(i.total_tax_amount, 2) AS invoice_tax
   FROM silver.bodega.invoices i
   LEFT JOIN silver.bodega.stores s
-      ON i.store_vat_id = s.store_id
+      -- store_id is the shop; store_vat_id is the chain's company VAT and matches
+      -- many shops, so joining on it would fan this one-row-per-invoice list out.
+      ON i.store_id = s.store_id
 params: null
 template_params: null
 filter_select_enabled: true
@@ -198,6 +201,20 @@ columns:
   filterable: false
   expression: null
   description: Shop phone number, for display only.
+  python_date_format: null
+  extra: null
+- column_name: store_label
+  verbose_name: Shop
+  is_dttm: false
+  is_active: true
+  type: VARCHAR
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: One physical shop - name, street, town and postal code. Group on this
+    rather than store_name or supermarket, both of which are one value for a whole
+    chain. UNKNOWN when the shop did not resolve.
   python_date_format: null
   extra: null
 - column_name: store_province

@@ -18,7 +18,7 @@ semantic_models:
       agg_time_dimension: invoice_date
     entities:
       - {name: invoice, type: primary, expr: invoice_number}
-      - {name: store, type: foreign, expr: store_vat_id}
+      - {name: store, type: foreign, expr: store_id}
     dimensions:
       - name: invoice_date
         type: time
@@ -44,7 +44,7 @@ semantic_models:
       agg_time_dimension: invoice_date
     entities:
       - {name: invoice, type: foreign, expr: invoice_number}
-      - {name: store, type: foreign, expr: store_vat_id}
+      - {name: store, type: foreign, expr: store_id}
       - {name: product, type: foreign, expr: description_clean}
     dimensions:
       - name: invoice_date
@@ -74,9 +74,10 @@ semantic_models:
       agg_time_dimension: invoice_date
     entities:
       # Deliberately NOT named `store`: this model's grain carries `supermarket`
-      # (a brand) where invoices/invoice_items carry `store_vat_id` (a location).
+      # (a brand) where invoices/invoice_items carry `store_id` (one physical shop).
       # One entity name over two different keys is a wrong join waiting for the
-      # first declared join path.
+      # first declared join path. Note `store_vat_id` is a brand-level key too - it
+      # is the operating company's VAT, shared across every shop of a chain.
       - {name: brand, type: foreign, expr: supermarket}
     dimensions:
       - name: invoice_date

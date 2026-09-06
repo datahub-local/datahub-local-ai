@@ -145,3 +145,60 @@
         ) AS _p(province_code, province_name)
     )
 {%- endmacro %}
+
+{# Address collapsed to a comparison key: unaccented, uppercased, street-type prefix
+   dropped, punctuation to spaces, runs squeezed. The receipts carry the same shop
+   under different street-type abbreviations, so a
+   raw address is not a key - the same street appears with and without a `C/` prefix.
+   This is the dedup key only - never a display value.
+   Dialect-split because DuckDB's regexp_replace needs an explicit 'g' to replace past
+   the first match while Trino always replaces all - unsplit, the two engines key the
+   same shop differently. #}
+{% macro bodega_address_key(col) -%}
+    {{ return(adapter.dispatch('bodega_address_key', 'bodega')(col)) }}
+{%- endmacro %}
+{% macro trino__bodega_address_key(col) -%}
+    trim(regexp_replace(
+        regexp_replace(
+            regexp_replace(
+                {{ bodega_unaccent_upper(col) }},
+                '^\s*(C/|CL|AV|AVDA|AVENIDA|CALLE|PZ|PLAZA|PS|PASEO|CTRA|CARRETERA)[ .]+', ''),
+            '[^A-Z0-9 ]', ' '),
+        ' +', ' '))
+{%- endmacro %}
+{% macro duckdb__bodega_address_key(col) -%}
+    trim(regexp_replace(
+        regexp_replace(
+            regexp_replace(
+                {{ bodega_unaccent_upper(col) }},
+                '^\s*(C/|CL|AV|AVDA|AVENIDA|CALLE|PZ|PLAZA|PS|PASEO|CTRA|CARRETERA)[ .]+', '', 'g'),
+            '[^A-Z0-9 ]', ' ', 'g'),
+        ' +', ' ', 'g'))
+{%- endmacro %}
+
+{# md5 hex, lowercase on both engines. Trino's md5 takes and returns varbinary and
+   to_hex uppercases; DuckDB's md5 returns lowercase hex text directly. Unwrapped, the
+   same shop would hash to two different ids depending on the target. #}
+{% macro bodega_md5_hex(expr) -%}
+    {{ return(adapter.dispatch('bodega_md5_hex', 'bodega')(expr)) }}
+{%- endmacro %}
+{% macro trino__bodega_md5_hex(expr) -%}
+    lower(to_hex(md5(to_utf8({{ expr }}))))
+{%- endmacro %}
+{% macro duckdb__bodega_md5_hex(expr) -%}
+    lower(md5({{ expr }}))
+{%- endmacro %}
+
+{# The address key with its trailing `<CP> <TOWN>` removed, for display. The key itself
+   carries the town twice once the town is also its own column, which reads as noise in
+   a label. Same 01..52 CPRO bound as the parser, so a house number is not mistaken for
+   the postal code. #}
+{% macro bodega_street_key(col) -%}
+    {{ return(adapter.dispatch('bodega_street_key', 'bodega')(col)) }}
+{%- endmacro %}
+{% macro trino__bodega_street_key(col) -%}
+    trim(regexp_replace({{ col }}, ' (0[1-9]|[1-4][0-9]|5[0-2])[0-9]{3}( .*)?$', ''))
+{%- endmacro %}
+{% macro duckdb__bodega_street_key(col) -%}
+    trim(regexp_replace({{ col }}, ' (0[1-9]|[1-4][0-9]|5[0-2])[0-9]{3}( .*)?$', '', 'g'))
+{%- endmacro %}

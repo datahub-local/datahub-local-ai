@@ -17,10 +17,10 @@ sql: |-
       i.invoice_datetime,
       i.invoice_date,
       i.supermarket,
-      i.store_name,
+      i.company_name,
       s.address AS store_address,
       s.phone AS store_phone,
-      i.store_label,
+      i.store_name,
       i.store_province,
       i.store_town,
       i.store_postal_code,
@@ -117,8 +117,8 @@ columns:
   description: null
   python_date_format: null
   extra: null
-- column_name: store_name
-  verbose_name: null
+- column_name: company_name
+  verbose_name: Company
   is_dttm: false
   is_active: true
   type: VARCHAR
@@ -126,7 +126,8 @@ columns:
   groupby: true
   filterable: true
   expression: null
-  description: null
+  description: Legal company name off the receipt header. One value for a whole chain
+    - group on store_name to tell shops apart.
   python_date_format: null
   extra: null
 - column_name: payment_method
@@ -203,7 +204,7 @@ columns:
   description: Shop phone number, for display only.
   python_date_format: null
   extra: null
-- column_name: store_label
+- column_name: store_name
   verbose_name: Shop
   is_dttm: false
   is_active: true
@@ -212,9 +213,9 @@ columns:
   groupby: true
   filterable: true
   expression: null
-  description: One physical shop - name, street, town and postal code. Group on this
-    rather than store_name or supermarket, both of which are one value for a whole
-    chain. UNKNOWN when the shop did not resolve.
+  description: One physical shop - company, street, town and postal code. Group on
+    this rather than company_name or supermarket, both of which are one value for a
+    whole chain. UNKNOWN when the shop did not resolve.
   python_date_format: null
   extra: null
 - column_name: store_province

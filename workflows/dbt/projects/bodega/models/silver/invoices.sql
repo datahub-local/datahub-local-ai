@@ -9,7 +9,7 @@
   every branch the same town.
 #}
 WITH store_location AS (
-    SELECT address_key, store_id, store_label, province, town, postal_code
+    SELECT address_key, store_id, store_name, province, town, postal_code
     FROM {{ ref('stores') }}
 )
 
@@ -22,9 +22,9 @@ SELECT
     week({{ bodega_parse_dt('b.invoice_date') }})                       AS invoice_week,
     b.operator_id,
     b.store_vat_id,
-    trim(upper(b.store_name))                                           AS store_name,
+    trim(upper(b.store_name))                                           AS company_name,
     loc.store_id,
-    COALESCE(loc.store_label, 'UNKNOWN')                                AS store_label,
+    COALESCE(loc.store_name, 'UNKNOWN')                                 AS store_name,
     COALESCE(loc.province, 'UNKNOWN')                                   AS store_province,
     COALESCE(loc.town, 'UNKNOWN')                                       AS store_town,
     COALESCE(loc.postal_code, 'UNKNOWN')                                AS store_postal_code,

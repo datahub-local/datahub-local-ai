@@ -204,7 +204,7 @@ def test_silver_stores_is_one_row_per_shop(con):
 def test_silver_stores_latest_invoice_wins(con):
     # INV-2 is the most recent invoice, so its descriptive fields win.
     row = con.execute(
-        "SELECT name, address, first_seen_date, last_seen_date FROM silver.bodega.stores"
+        "SELECT company_name, address, first_seen_date, last_seen_date FROM silver.bodega.stores"
         " WHERE vat_id = 'B12345678'"
     ).fetchone()
     assert row[0] == "MERCADONA CENTRO"

@@ -24,7 +24,7 @@ sql: |-
       i.unit_price,
       i.total_amount,
       i.supermarket,
-      i.store_label,
+      i.store_name,
       i.store_province,
       i.store_town,
       i.store_postal_code
@@ -206,7 +206,7 @@ columns:
   description: null
   python_date_format: null
   extra: null
-- column_name: store_label
+- column_name: store_name
   verbose_name: Shop
   is_dttm: false
   is_active: true
@@ -215,9 +215,9 @@ columns:
   groupby: true
   filterable: true
   expression: null
-  description: One physical shop - name, street, town and postal code. Group on this
-    rather than store_name or supermarket, both of which are one value for a whole
-    chain. UNKNOWN when the shop did not resolve.
+  description: One physical shop - company, street, town and postal code. Group on
+    this rather than company_name or supermarket, both of which are one value for a
+    whole chain. UNKNOWN when the shop did not resolve.
   python_date_format: null
   extra: null
 - column_name: store_province

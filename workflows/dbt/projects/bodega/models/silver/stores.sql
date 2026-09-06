@@ -6,8 +6,9 @@
 
   Receipts carry the same shop under different street-type abbreviations, so the raw
   address is not a key either - `bodega_address_key` normalises it and `store_id` is its
-  hash. `store_label` is the readable form of the same identity, for a reader who needs
-  to tell shops apart without decoding a hash.
+  hash. `store_name` is the readable form of the same identity, for a reader who needs
+  to tell shops apart without decoding a hash. `company_name` is the legal name off the
+  receipt header and is one value for a whole chain - it names the company, not a shop.
 
   Descriptive fields are taken from the most recent invoice for the shop rather than
   grouped on, since the parser emits casing and punctuation variants.
@@ -62,7 +63,7 @@ parsed AS (
 
 SELECT
     {{ bodega_md5_hex('parsed.identity_key') }}                                 AS store_id,
-    trim(upper(parsed.store_name))                                              AS name,
+    trim(upper(parsed.store_name))                                              AS company_name,
     parsed.store_vat_id                                                         AS vat_id,
     parsed.store_address                                                        AS address,
     parsed.address_key,
@@ -78,7 +79,7 @@ SELECT
         || COALESCE(
                ', ' || {{ bodega_unaccent_upper('parsed.town_parsed') }}
                     || ' (' || parsed.cp_province || parsed.cp_rest || ')',
-               '')                                                              AS store_label,
+               '')                                                              AS store_name,
     seen.first_seen_date,
     seen.last_seen_date
 FROM parsed

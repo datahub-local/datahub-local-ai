@@ -28,12 +28,12 @@ models:
         description: "Till operator on the receipt."
       - name: store_vat_id
         description: "Operating company VAT as printed on the receipt. Not a shop identifier: a chain prints one across every branch. Join on store_id."
-      - name: store_name
-        description: "Store name, trimmed and uppercased."
+      - name: company_name
+        description: "Legal company name as printed on the receipt header, trimmed and uppercased. One value for a whole chain - it names the company, not a shop."
       - name: store_id
         description: "Shop identifier, denormalised from stores. Joins to stores.store_id. NULL when the shop is not in the dimension."
-      - name: store_label
-        description: "Readable shop identity: name, street, town and postal code. Display only. The literal UNKNOWN when the shop did not resolve."
+      - name: store_name
+        description: "Readable shop identity: company, street, town and postal code. One physical shop. The literal UNKNOWN when the shop did not resolve."
       - name: store_province
         description: "Province of the store, from the INE province code in its address. The literal UNKNOWN when the address did not parse."
       - name: store_town
@@ -77,8 +77,8 @@ models:
         description: "Operating company VAT, denormalised from the header. Not a shop identifier: a chain prints one across every branch. Join on store_id."
       - name: store_id
         description: "Shop identifier, denormalised from stores. Joins to stores.store_id. NULL when the shop is not in the dimension."
-      - name: store_label
-        description: "Readable shop identity: name, street, town and postal code. Display only. The literal UNKNOWN when the shop did not resolve."
+      - name: store_name
+        description: "Readable shop identity: company, street, town and postal code. One physical shop. The literal UNKNOWN when the shop did not resolve."
       - name: supermarket
         description: "Retail brand, denormalised from the header."
 
@@ -120,12 +120,14 @@ models:
     description: "SCD Type 1 store dimension. One row per physical shop, keyed on the normalised address - store_vat_id is the operating company's VAT and a chain shares one across every shop."
     columns:
       - name: store_id
-        description: "md5 of the normalised address, lowercase hex. The dimension key; joins to invoices.store_id. Opaque - read store_label to tell shops apart."
+        description: "md5 of the normalised address, lowercase hex. The dimension key; joins to invoices.store_id. Opaque - read store_name to tell shops apart."
         tests:
           - not_null
           - unique
-      - name: store_label
-        description: "Readable shop identity: name, street, town and postal code. Display only - join on store_id."
+      - name: store_name
+        description: "Readable shop identity: company, street, town and postal code. One physical shop; display only - join on store_id."
+      - name: company_name
+        description: "Legal company name as printed on the receipt header. One value for a whole chain - it names the company, not a shop."
       - name: address_key
         description: "Address normalised for comparison: unaccented, uppercased, street-type prefix dropped, punctuation squeezed. The join key onto invoices; never a display value."
       - name: vat_id

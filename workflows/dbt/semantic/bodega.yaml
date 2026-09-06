@@ -53,6 +53,7 @@ semantic_models:
       - {name: description_clean, type: categorical}
       - {name: supermarket, type: categorical}
       - {name: unit, type: categorical}
+      - {name: store_name, type: categorical}
       - {name: store_province, type: categorical}
       - {name: store_town, type: categorical}
       - {name: store_postal_code, type: categorical}

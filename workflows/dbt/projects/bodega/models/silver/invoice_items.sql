@@ -5,7 +5,7 @@
   on the normalised address rather than `store_vat_id`, which is the chain's company VAT.
 #}
 WITH store_location AS (
-    SELECT address_key, store_id, store_label, province, town, postal_code
+    SELECT address_key, store_id, store_name, province, town, postal_code
     FROM {{ ref('stores') }}
 )
 
@@ -16,7 +16,7 @@ SELECT
     b.store_vat_id,
     b.supermarket,
     loc.store_id,
-    COALESCE(loc.store_label, 'UNKNOWN')                                           AS store_label,
+    COALESCE(loc.store_name, 'UNKNOWN')                                            AS store_name,
     COALESCE(loc.province, 'UNKNOWN')                                              AS store_province,
     COALESCE(loc.town, 'UNKNOWN')                                                  AS store_town,
     COALESCE(loc.postal_code, 'UNKNOWN')                                           AS store_postal_code,

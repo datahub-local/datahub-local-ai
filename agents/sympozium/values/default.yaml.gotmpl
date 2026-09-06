@@ -12,7 +12,7 @@ sympozium_mcp_servers:
     garageUrlKey: GARAGE_ADMIN_URL
     ingressRequestsMetric: traefik_service_requests_total
     ingressServiceLabel: exported_service
-    ingressServiceStripPattern: -[0-9a-f]{16,}@[a-z]+$
+    ingressServiceStripPattern: (-[0-9a-f]{16,})?@[a-z]+$
 
   semantic:
     enabled: true

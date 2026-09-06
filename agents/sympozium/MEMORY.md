@@ -3531,3 +3531,39 @@ rather than a reader. The window is fixed at 24h in code.
 The persona gets `facts_why_failed` rather than raw `k8s_events_list` and
 `k8s_pods_log`, so the three-lookup budget attaches to a tool that resolves the
 name itself instead of one whose selectors have been guessed wrong repeatedly.
+
+### What was deliberately left out of it, and why (2026-09-05)
+
+Six signals were tested against live Prometheus before extending the persona.
+Three were added - restarts, idle services, and the stuck-rollout cause path.
+The other three were rejected on evidence, and the evidence is the point: each
+looks obviously useful and each would have produced a confident permanent lie.
+
+- **Latency p95.** Traefik's default buckets here are `[0.1, 0.3, 1.2, 5.0,
+  +Inf]`, so `histogram_quantile` interpolates everything past 1.2s to roughly
+  5.0 - Superset and headlamp both read exactly `5`. That is a bucket edge, not
+  a measurement, and a 4B model would page `p95 5s CRITICAL` on every run
+  forever. It needs Traefik's buckets reconfigured in core first; until then
+  there is no honest latency number to report.
+- **The 4xx share.** ArgoCD reads 17%, which is 21 requests carrying code `499`
+  - a *client* closing a streaming connection, i.e. a closed browser tab - plus
+  one `401` login redirect. Normal UI behaviour rendered as a permanent finding,
+  which is the orpi-0 kernel-drift bug again: a rule the fleet cannot satisfy.
+  Only 5xx is reported.
+- **Week-over-week traffic trend.** `offset 7d` returns nothing: the Traefik
+  pods restarted 7d6h ago and the counters reset with them. Worse than empty, it
+  would return *wrong* ratios after any future restart, because `offset` spans a
+  counter lifetime that `rate()` would have handled. Any trend here has to come
+  from a stored snapshot, as `volume_fill` and `alerts_snapshot` already do.
+
+Restarts are an `increase(...[24h])` filtered `> 0`, never the bare counter -
+the archiver-counter mistake in a new place, and a fleet at rest must return
+nothing rather than a page of zeroes. Idle services are reported as a count with
+names only on repetition, because eight of them are dashboards that are supposed
+to sit unused.
+
+One shape correction found the same day: the strip pattern was
+`-[0-9a-f]{16,}@[a-z]+$` and missed 1 router of 25, a `TraefikService` error
+page carrying no config hash. Widened to `(-[0-9a-f]{16,})?@[a-z]+$`, which is a
+values edit rather than a code change - which is the point of the setting being
+a regex rather than a hardcoded rule.

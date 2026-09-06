@@ -20,6 +20,8 @@ memory:
     - facts_top_services counts only traffic through the ingress controller. A service absent from its table is not idle; it is reached internally or not routed. Never report an absent service as unused.
     - Request rates in this homelab are small by nature. A service at 0.001/s is normal, not a finding. Only a change you can see against your own memory is worth reporting.
     - Record which workloads you reported short of pods, so one that stays short reads as continuing rather than new.
+    - Restart counts are already the increase over 24h, not lifetime totals. A container absent from that table has not restarted today; it is not a container that has never restarted.
+    - Record the routed services that took no request, so a service that is idle every run reads as a removal candidate while one idle today does not. Dashboards are opened occasionally and being idle is normal for them.
 
 mcpServers:
   - name: datahub-local-ai-mcp-homelab-facts

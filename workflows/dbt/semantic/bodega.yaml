@@ -2,7 +2,7 @@
 #
 # MetricFlow-compatible on purpose: the schema is `semantic_models` / `metrics`
 # as dbt defines them, so MetricFlow or Cube can replace the compiler behind the
-# same MCP tools without the persona noticing. See ../../../docs/semantic_layer_spec.md.
+# same MCP tools without the persona noticing. See ../../../docs/specs/002-01-semantic-layer.md.
 #
 # Every `expr` here was validated against the live column list and every metric
 # hand-run against Trino before being written down. The numbers, and the five

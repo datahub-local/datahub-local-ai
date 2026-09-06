@@ -78,6 +78,41 @@ names must be DNS-1123, so `agents/sympozium/projects/` uses kebab-case
 (`homelab-ops`, `sre-sentinel`). Prompt *files* there stay `snake_case.md`, as in
 `agents/n8n/prompts/`.
 
+### Design specs (`docs/specs/`)
+
+Every design spec lives in `docs/specs/`, named `NNN-kebab-case-title.md`. `NNN`
+orders the files; a spec that extends an existing one takes a **sub-number**
+under its parent rather than a new top number, so `002-01-semantic-layer.md` and
+`002-02-semantic-layer-location.md` are the layer and the phase that extends it.
+
+- **The filename number is not the number the prose uses.** Files are numbered
+  by position on disk, and specs refer to each other by their *logical* order —
+  `003-data-quality-and-lineage.md` is "spec 002" in text, because it is the
+  second design spec. Every spec therefore opens with a blockquote naming its
+  siblings by relative link and stating which number it is in each scheme. The
+  set is currently inconsistent about this — `002-02` calls itself "Third spec"
+  by file position while `003` calls itself "Second spec" by logical order.
+  Pick the logical reading when adding the next one, and fix a file you touch.
+- **Link siblings by relative path** (`[002-01-semantic-layer.md](002-01-semantic-layer.md)`),
+  never by title alone. Renumbering happens, and a link is what makes it a
+  mechanical fix instead of a search.
+- **Renaming a spec means grepping the whole repo, not just `docs/`.** Code
+  points at these files — `workflows/dbt/semantic/bodega.yaml` carries a path to
+  the semantic-layer spec in a comment, and a stale path there is invisible
+  until someone follows it.
+- **A spec is a decision record, not a plan that gets deleted when done.** Keep
+  the reasoning that was rejected and why (the "Alternatives considered" and
+  "Gate findings" sections), because the next spec re-litigates it otherwise.
+  Mark tasks `[x]` as they land rather than removing them.
+- Structure follows the existing specs: gate findings first when a spec had
+  blocking unknowns, then context, goals with acceptance signals, architecture,
+  the design, an implementation plan of PR-sized checkboxed tasks with stable
+  ids (`WF-1`, `INFRA-3`, `AI-2`) and cross-repo `blocked by` links, risks, open
+  questions, definition of done.
+- **Mark what you could not verify.** `[UNVERIFIED]` in place beats dropping a
+  fact or asserting it — the same standing rule as agent prompts, for the same
+  reason.
+
 ## Bronze is not a consumer layer
 
 **Nothing user-facing reads bronze.** Superset datasets and the semantic

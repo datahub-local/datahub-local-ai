@@ -5,7 +5,7 @@ One definition per metric, in git, consumed by the `semantic` MCP server in
 This directory holds the **definitions**; the code that serves them is there,
 and the image carries none of this — it is mounted as the `mcp-semantic`
 ConfigMap. Design rationale is in
-[`docs/semantic_layer_spec.md`](../../../docs/semantic_layer_spec.md).
+[`docs/specs/002-01-semantic-layer.md`](../../../docs/specs/002-01-semantic-layer.md).
 
 It lives here, beside the dbt projects, because every `expr` is a column of a
 dbt model and `semantic-compile` resolves it against dbt's own manifest.

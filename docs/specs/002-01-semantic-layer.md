@@ -946,6 +946,23 @@ a registry definition that no longer computes what it did. Re-measurement on
 - [ ] Registry into `iceberg.semantic.*` if coverage charting is wanted
 - [ ] Superset write-back (§6.6), `uuid` stability handled
 
+### Phase 8 — Location semantics
+
+Specified separately in
+[`002-02-semantic-layer-location.md`](002-02-semantic-layer-location.md):
+province, municipality and postal code as dimensions, plus a bounded `near`.
+
+It is the concrete instance of Phase 7's "second domain", and it establishes
+that the declared-join work is **not** what geography needs — the compiler emits
+one `FROM` and every `expr` must be a bare column, so location is denormalised
+onto the model tables and any spatial predicate is pre-computed in dbt. The
+motivating failure is already in production: asked to filter shops by location,
+the oracle invented a street address and treated every row as matching.
+
+Phase 8a needs no external dataset and no network — the postal code is already
+inside `silver.bodega.stores.address`, and its first two digits are the INE
+province code.
+
 ---
 
 ## 9. Risks

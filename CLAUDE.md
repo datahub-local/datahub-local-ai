@@ -337,6 +337,24 @@ prompts are a report contract rather than a method — see
   persona files and the `grafana_list_datasources` note into four before this
   split. Stripping all of it changed neither the parsed YAML nor a byte of
   `helm template` output.
+- **A prompt or seed names the lookup; the server holds the data.** Write what a
+  persona should *do* — which tool answers which question, how to read a result,
+  what to say when nothing comes back — and never what the data currently
+  contains. No dimension lists, no column names a tool returns, no shop or
+  product or namespace names, no counts, no "every invoice is X". Those are rows,
+  and a copy of a row in a prompt or a `memory.seeds` entry is stale the next
+  time the pipeline runs, with nothing to revalidate it: the agent cannot tell a
+  remembered value from a retrieved one, so it states the stale copy with the
+  same confidence. Prefer the shape over the instance — `semantic_list_dimensions
+  (metric) says which dimensions exist` outlives `it carries supermarket,
+  store_name and store_vat_id`, which was wrong the moment a dimension was added.
+  Keep an example generic (`a shop with no rows`, not a brand) so it illustrates
+  the rule instead of asserting a fact. What legitimately stays is wiring that is
+  true by construction — that S3 here is Garage, that bodega-as-dataset is
+  answered by `semantic_*` — because that describes the plumbing rather than what
+  flowed through it. This is the same objection as the `toolsAllow` comments and
+  the committed manifest above, and it has now cost four incidents; the concrete
+  numbers belong in `MEMORY.md`, which is documentation and is read by people.
 - **Prompts are files, never inlined.** A persona sets `systemPromptFile` and
   `schedule.taskFile`; the build script *rejects* a literal `systemPrompt` or
   `schedule.task`. Same reasoning as `agents/n8n/prompts/`.

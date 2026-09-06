@@ -3567,3 +3567,79 @@ One shape correction found the same day: the strip pattern was
 page carrying no config hash. Widened to `(-[0-9a-f]{16,})?@[a-z]+$`, which is a
 values edit rather than a code change - which is the point of the setting being
 a regex rather than a hardcoded rule.
+
+## It knew where the shop was (2026-09-06)
+
+Asked "what about the sum of all invoices of a market not in Madrid", the oracle
+opened: "Every store in the table is the same one market: MERCADONA, S.A. at AV
+MIGUEL HERNANDEZ 23, 03700 DENIA." The address is not in the data. The semantic
+registry exposes `supermarket`, `store_name` and `store_vat_id` and no address
+dimension; `silver.bodega.invoices` does not even select `store_address` - it
+survives only in `silver.bodega.stores`, which no metric reads. The one SQL
+statement this persona may send is a fixed `SHOW STATS`, against `postgresql_*`
+catalogs that do not reach the Iceberg medallion at all. No allowed call could
+have returned that street and postcode.
+
+The rule that should have caught it was too specific: "invent no date, time or
+duration" enumerates three things, and a **place** was not one of them. An
+enumeration reads as the whole list. It now bans inventing a detail of any kind
+and names address, city, version, owner and name as examples rather than as the
+set.
+
+Two more in the same reply, both quieter. It answered a question it could not
+evaluate - no dimension carries a location, so "not in Madrid" is unfilterable,
+and concluding that every row qualifies is not a filtered answer but the
+unfiltered one wearing the question's words. And "all invoices" widened the
+range, which is right, while also dropping the grain to month and the grouping to
+none, which is not: the words reached the window only. Saying "I changed the
+window" out loud made the swap look handled, exactly as the Ahorramas disclaimer
+did - **announcing a substitution is not the same as being asked for one**, and
+this agent now does it fluently enough that the announcement is becoming the tell.
+
+Working, and worth recording because both were fixed this week: `PARTIAL PERIOD`
+was printed and not argued past, and the window change was stated rather than
+made silently. The category breakdown that preceded this was correct.
+
+The first fix for this was itself the bug. The seed written for it began "the
+semantic layer carries supermarket, store_name and store_vat_id. It carries no
+address, city or postcode" - a copy of the registry pasted into memory, which
+`semantic_list_dimensions` returns live and which is wrong the first time a
+dimension is added. The same reflex had put "every invoice is Mercadona" in
+another seed and "all of this data is Mercadona card receipts" in the prompt: an
+observation about today's rows, frozen where nothing revalidates it, and the
+agent has no way to tell a stale memory from a current one.
+
+**A seed says how to find out; the server says what is there.** Seeds now name
+the lookup - "semantic_list_dimensions(metric) is what says which dimensions
+exist; never decide from memory that one does" - and carry no dimension names,
+no store names and no row facts. The Ahorramas seed and the prompt's version of
+it were rewritten the same way, taking both halves of the reply from the tool
+result rather than from a remembered value. What stays is routing that is true
+by construction: that bodega-as-dataset is answered by `semantic_*`, that S3
+here is Garage. Those describe the wiring, not the contents.
+
+This is the fourth thing in this file whose cause is a second copy of a fact -
+after the `toolsAllow` comments, the committed manifest, and the sample file the
+semantic server used to ship. The failure mode is the same every time and only
+the medium changes.
+
+The seeds and prompts are now brand-agnostic as well as schema-agnostic. They
+had carried a shop name in three places and a city in a fourth, all as
+illustration - "asked about <shop> this agent reported <other shop>" - which
+reads as harmless until the example is the thing the model recalls. An example
+naming a real value teaches the value alongside the rule, and the agent has no
+way to mark one as illustrative. They now read `a shop with no rows`, `filter
+shops by location`, `in a given city`.
+
+Two things deliberately keep their specifics. `MEMORY.md` is documentation, read
+by people, and an incident without its actual values is not diagnosable - the
+generic rule belongs in the prompt, the concrete story belongs here. And the
+`excludes` text naming the one supermarket lives in the semantic registry, so it
+reaches the model as a tool result versioned with the metric it qualifies, which
+is the direction this whole rule is pushing everything: the server states what is
+there, the prompt states how to ask. The rendered chart contains exactly one
+occurrence of that name and it arrives from the registry, not from a prompt.
+
+The general form is now in the root `CLAUDE.md` beside the `toolsAllow` and
+committed-manifest entries, because this is the same objection in a fourth
+medium and the pattern is what generalises.

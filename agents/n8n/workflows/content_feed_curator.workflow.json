@@ -206,7 +206,6 @@
             "name": "Google Sheets account"
           }
         },
-        "onError": "continueRegularOutput",
         "notes": "articles_2_linkedin is frozen history. Read for the already-seen set only, so nothing published before the migration can be queued again."
       },
       {
@@ -247,7 +246,6 @@
             "name": "Google Sheets account"
           }
         },
-        "onError": "continueRegularOutput",
         "notes": "content_queue: the live queue. Referenced by tab name so it resolves as soon as the tab exists. Both reads sit on the single-item spine so they never run per candidate."
       },
       {
@@ -2410,7 +2408,6 @@
           "name": "Google Sheets account"
         }
       },
-      "onError": "continueRegularOutput",
       "notes": "articles_2_linkedin is frozen history. Read for the already-seen set only, so nothing published before the migration can be queued again."
     },
     {
@@ -2451,7 +2448,6 @@
           "name": "Google Sheets account"
         }
       },
-      "onError": "continueRegularOutput",
       "notes": "content_queue: the live queue. Referenced by tab name so it resolves as soon as the tab exists. Both reads sit on the single-item spine so they never run per candidate."
     },
     {
@@ -3590,7 +3586,8 @@
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate",
-    "availableInMCP": false
+    "availableInMCP": false,
+    "errorWorkflow": "fejq5nN6LP3F820w"
   },
   "shared": [
     {

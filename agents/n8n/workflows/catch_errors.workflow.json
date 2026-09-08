@@ -9,10 +9,11 @@
           "select": "channel",
           "channelId": {
             "__rl": true,
-            "value": "#workflows",
-            "mode": "name"
+            "value": "C08RQNXQV3P",
+            "mode": "list",
+            "cachedResultName": "workflows"
           },
-          "text": "=:x: Error executing a workflow[{{ $json.workflow.name }}]: {{ $json.execution.error.message }}.\n\nPlease check {{ $json.execution.url }}\n ",
+          "text": "=:x: *{{ $json.workflow.name }}* failed (`{{ $json.workflow.id }}`)\nNode: {{ $json.execution.lastNodeExecuted }}\nError: {{ $json.execution.error.message }}\n{{ $json.execution.url }}",
           "otherOptions": {
             "includeLinkToWorkflow": false
           }
@@ -92,10 +93,11 @@
         "select": "channel",
         "channelId": {
           "__rl": true,
-          "value": "#workflows",
-          "mode": "name"
+          "value": "C08RQNXQV3P",
+          "mode": "list",
+          "cachedResultName": "workflows"
         },
-        "text": "=:x: Error executing a workflow[{{ $json.workflow.name }}]: {{ $json.execution.error.message }}.\n\nPlease check {{ $json.execution.url }}\n ",
+        "text": "=:x: *{{ $json.workflow.name }}* failed (`{{ $json.workflow.id }}`)\nNode: {{ $json.execution.lastNodeExecuted }}\nError: {{ $json.execution.error.message }}\n{{ $json.execution.url }}",
         "otherOptions": {
           "includeLinkToWorkflow": false
         }

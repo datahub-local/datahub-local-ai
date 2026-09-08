@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A monorepo of data workflow definitions for a local/homelab Datahub stack. Sub-projects are grouped by what they are: `agents/` holds AI agent definitions, `workflows/` holds the data pipelines and the dashboards built on them. The Python ones have their own `pyproject.toml` and `uv` environment:
 
-- `agents/n8n/` — n8n workflow JSON exports, LLM prompt templates and JSON config datasets (no Python code); see [n8n workflows](#n8n-workflows)
+- `agents/n8n/` — n8n workflow JSON exports, LLM prompt templates and JSON config datasets, plus one operational script that pushes export changes back to the live instance; see [n8n workflows](#n8n-workflows)
 - `agents/sympozium/` — Sympozium agent ensembles (Kubernetes CRs) plus a Helm release that deploys them onto the control plane datahub-local-core runs in `automation`; also deploys the MCP servers and owns the data they mount (`config/`), though the server code itself lives in [`datahub-local-ai-mcp`](https://github.com/datahub-local/datahub-local-ai-mcp); see [Sympozium agents](#sympozium-agents) and [MCP servers](#mcp-servers)
 - `workflows/airflow/` — Airflow DAGs that orchestrate the dlt + dbt tasks via Kubernetes pods
 - `workflows/dbt/` — dbt Core pipelines on **Trino** (homelab) / **DuckDB** (local), Iceberg + Apache Polaris, medallion architecture; a thin Python `dbt_runner` wraps `dbt build`
@@ -173,6 +173,16 @@ which prose buries.
 Python and shell keep comments, sparingly, for a non-obvious *why*. Workflow
 files under `.github/` keep them too — they are procedure, not config.
 
+## Git commits
+
+At the end of every iteration, suggest the commit text for what changed —
+subject in the `type(scope): summary` form the history already uses
+(`fix(dbt,semantic): ...`, `docs(spec): ...`), with a body whenever the change
+needs a why. Suggest it; do not commit unless asked.
+
+Work here regularly spans two repositories — this one and datahub-local-core —
+so suggest one message per repository rather than one message covering both.
+
 ## Commands
 
 Each sub-project uses `uv`. Run commands from the sub-project directory.
@@ -223,6 +233,69 @@ uv sync
 uv run pytest          # all tests
 uv run pytest tests/tasks/test_dlt.py  # single file
 ```
+
+### n8n workflows
+
+`agents/n8n/` is a **backup, not a source.** The `Backup N8N Workflows` flow
+reads the live instance and writes here — core points `BACKUP_GITHUB_REPO_*` at
+this path — and nothing reads the other way. So editing a `*.workflow.json`
+changes nothing in the cluster, and the next backup run overwrites the file and
+commits the revert.
+
+**Every workflow must have error handling before it is considered done.** A new
+or edited workflow is not finished until its failure path is wired: an entry
+point carries `settings.errorWorkflow`, a sub-workflow raises so its parent
+reports, and no node swallows a failure that nothing downstream handles. This is
+a hard requirement, not a preference — a workflow without it fails completely
+silently. n8n logs no line for a failed execution (verified: a Loki query across
+every n8n pod for 7 days matches nothing at `log_level: info`), so an unwired
+failure is invisible in Slack, in the logs and in Prometheus at once. Thirteen of
+fifteen workflows were in that state, for months.
+
+Nothing enforces this. There is no schema, no CI gate and no admission webhook
+on a workflow export, so it is review and this rule. When adding a workflow,
+state in the PR which of the three categories it is and how its failure
+surfaces.
+
+**Always ask before applying workflow changes to the live instance.** Editing
+the JSON here is cheap and reviewable; writing it back is not. `PUT
+/api/v1/workflows/{id}` replaces the nodes and connections of a running
+automation that may be mid-execution, it carries no `active` field so a trigger
+can come back deactivated, and the export in git may be older than the live
+version. Show the diff, ask, and only then apply — reading each workflow live
+and writing back the changed fields, never posting a whole exported body.
+
+`scripts/apply_error_workflows.py` is that apply step, and the reason it exists
+is the same one `reseed_memory.py` exists for in `agents/sympozium/`: a source
+edit that nothing reconciles is not done when it is merged. It diffs live
+against the intended wiring, prints the plan, and writes only on `--apply`.
+`--print-pod-overrides` emits its own pod spec with the key wired from the
+secret, so the payload can never drift from the file being run.
+
+The API is reachable **in-cluster only**: the public host routes `/api/` through
+oauth2-proxy, which an API key does not satisfy. The key is
+`security/n8n-root` → `N8N_API_KEY`; mount it into a pod rather than reading it
+into a shell.
+
+Four structural things worth knowing before editing an export:
+
+- **Every export carries its nodes twice**, at the top level and inside
+  `activeVersion`. Edit both or the file is self-inconsistent.
+- **`settings.errorWorkflow` is per workflow and there is no instance-wide
+  default** — verified against `@n8n/config` in the running image, no such env
+  var exists. A workflow without it fails silently.
+- **Entry points notify, sub-workflows raise.** A workflow a schedule, webhook
+  or form starts sets `errorWorkflow`, because nothing upstream could report for
+  it. A workflow only ever called by a parent leaves it unset, so the error
+  propagates and the parent reports once with its own context; setting it on both
+  notifies twice for one failure. An error handler never sets it — it would
+  trigger itself. Derive which is which from the `executeWorkflow` call graph,
+  not from the trigger nodes present: two workflows here carry an
+  `executeWorkflowTrigger` that nothing calls.
+- **`onError: continueRegularOutput` makes a failure invisible to every alerting
+  path** — the execution reports success, no error workflow fires, and the
+  Prometheus histogram records `status="success"`. Use it only where a downstream
+  node actually handles the empty result, and say where in a node `notes`.
 
 ### MCP servers
 

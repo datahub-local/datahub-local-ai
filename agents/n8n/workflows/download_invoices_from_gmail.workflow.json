@@ -1099,7 +1099,8 @@
   },
   "settings": {
     "executionOrder": "v1",
-    "binaryMode": "separate"
+    "binaryMode": "separate",
+    "errorWorkflow": "fejq5nN6LP3F820w"
   },
   "shared": [
     {

@@ -709,17 +709,25 @@
   "nodeGroups": [],
   "nodes": [
     {
-      "parameters": {},
+      "id": "ec06463b-450e-46bb-a2a5-a73083e4e822",
+      "name": "When clicking 'Execute workflow’",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
       "position": [
         432,
         656
       ],
-      "id": "ec06463b-450e-46bb-a2a5-a73083e4e822",
-      "name": "When clicking 'Execute workflow’"
+      "parameters": {}
     },
     {
+      "id": "d7c03f5b-acf9-49b7-a140-00ed1359143f",
+      "name": "set_vars",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        656,
+        464
+      ],
       "parameters": {
         "assignments": {
           "assignments": [
@@ -756,17 +764,17 @@
           ]
         },
         "options": {}
-      },
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        656,
-        464
-      ],
-      "id": "d7c03f5b-acf9-49b7-a140-00ed1359143f",
-      "name": "set_vars"
+      }
     },
     {
+      "id": "400958b9-5433-4a10-959d-4347bbeab364",
+      "name": "When Executed by Another Workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        432,
+        464
+      ],
       "parameters": {
         "workflowInputs": {
           "values": [
@@ -784,32 +792,24 @@
             }
           ]
         }
-      },
-      "type": "n8n-nodes-base.executeWorkflowTrigger",
-      "typeVersion": 1.1,
-      "position": [
-        432,
-        464
-      ],
-      "id": "400958b9-5433-4a10-959d-4347bbeab364",
-      "name": "When Executed by Another Workflow"
+      }
     },
     {
-      "parameters": {
-        "operation": "getAll",
-        "filters": {
-          "q": "=from:{{ $json.FROM_FILTER }} after:{{ $('switch_invoice_type').item.json.FROM_DATE }} before:{{ $('switch_invoice_type').item.json.TO_DATE }}"
-        }
-      },
+      "id": "c182e048-ce45-403e-9a12-73c68bebfbbe",
+      "name": "get_messages",
+      "webhookId": "bcfe80f1-ed55-4ca0-8232-171b43bd6cd1",
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.1,
       "position": [
         1328,
         464
       ],
-      "id": "c182e048-ce45-403e-9a12-73c68bebfbbe",
-      "name": "get_messages",
-      "webhookId": "bcfe80f1-ed55-4ca0-8232-171b43bd6cd1",
+      "parameters": {
+        "operation": "getAll",
+        "filters": {
+          "q": "=from:{{ $json.FROM_FILTER }} after:{{ $('switch_invoice_type').item.json.FROM_DATE }} before:{{ $('switch_invoice_type').item.json.TO_DATE }}"
+        }
+      },
       "credentials": {
         "gmailOAuth2": {
           "id": "GVSyKsDywK5nuwNG",
@@ -818,6 +818,14 @@
       }
     },
     {
+      "id": "49fb26d2-516c-4146-935b-c0b443f87742",
+      "name": "set_output",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1776,
+        304
+      ],
       "parameters": {
         "assignments": {
           "assignments": [
@@ -831,30 +839,31 @@
         },
         "includeOtherFields": true,
         "options": {}
-      },
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        1776,
-        304
-      ],
-      "id": "49fb26d2-516c-4146-935b-c0b443f87742",
-      "name": "set_output"
+      }
     },
     {
-      "parameters": {
-        "jsCode": "let results = [];\n\nfor (item of items) {\n    for (key of Object.keys(item.binary)) {\n        results.push({\n            json: {\n                fileName: item.binary[key].fileName\n            },\n            binary: {\n                data: item.binary[key],\n            }\n        });\n    }\n}\n\nreturn results;"
-      },
+      "id": "7fec2e9a-9b5c-4030-841b-03a07337217e",
+      "name": "parse_attachments",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         2000,
         496
       ],
-      "id": "7fec2e9a-9b5c-4030-841b-03a07337217e",
-      "name": "parse_attachments"
+      "parameters": {
+        "jsCode": "let results = [];\n\nfor (item of items) {\n    for (key of Object.keys(item.binary)) {\n        results.push({\n            json: {\n                fileName: item.binary[key].fileName\n            },\n            binary: {\n                data: item.binary[key],\n            }\n        });\n    }\n}\n\nreturn results;"
+      }
     },
     {
+      "id": "e090062a-c9d9-4b8d-80a5-3f65632d2a97",
+      "name": "donwload_message",
+      "webhookId": "42a76ee5-fb83-43fa-8409-84f4468aea09",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1776,
+        496
+      ],
       "parameters": {
         "operation": "get",
         "messageId": "={{ $json.id }}",
@@ -863,15 +872,6 @@
           "downloadAttachments": true
         }
       },
-      "type": "n8n-nodes-base.gmail",
-      "typeVersion": 2.1,
-      "position": [
-        1776,
-        496
-      ],
-      "id": "e090062a-c9d9-4b8d-80a5-3f65632d2a97",
-      "name": "donwload_message",
-      "webhookId": "42a76ee5-fb83-43fa-8409-84f4468aea09",
       "credentials": {
         "gmailOAuth2": {
           "id": "GVSyKsDywK5nuwNG",
@@ -880,33 +880,41 @@
       }
     },
     {
-      "parameters": {
-        "options": {}
-      },
+      "id": "ed4492bd-424e-4031-b608-247bec594b1d",
+      "name": "loop_messages",
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
       "position": [
         1552,
         464
       ],
-      "id": "ed4492bd-424e-4031-b608-247bec594b1d",
-      "name": "loop_messages"
+      "parameters": {
+        "options": {}
+      }
     },
     {
-      "parameters": {
-        "operation": "pdf",
-        "options": {}
-      },
+      "id": "d156b1d1-7719-4e4e-8291-ef5a5793c6f7",
+      "name": "extract_data_from_pdf",
       "type": "n8n-nodes-base.extractFromFile",
       "typeVersion": 1,
       "position": [
         2224,
         496
       ],
-      "id": "d156b1d1-7719-4e4e-8291-ef5a5793c6f7",
-      "name": "extract_data_from_pdf"
+      "parameters": {
+        "operation": "pdf",
+        "options": {}
+      }
     },
     {
+      "id": "262b870f-86d8-4a24-9c8d-472c00b75926",
+      "name": "set_mercadona_vars",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1104,
+        464
+      ],
       "parameters": {
         "assignments": {
           "assignments": [
@@ -919,17 +927,17 @@
           ]
         },
         "options": {}
-      },
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        1104,
-        464
-      ],
-      "id": "262b870f-86d8-4a24-9c8d-472c00b75926",
-      "name": "set_mercadona_vars"
+      }
     },
     {
+      "id": "e83b6931-d787-4dac-86d0-e0f02ddc95ce",
+      "name": "switch_invoice_type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        880,
+        464
+      ],
       "parameters": {
         "rules": {
           "values": [
@@ -958,17 +966,17 @@
           ]
         },
         "options": {}
-      },
+      }
+    },
+    {
+      "id": "1e2411ba-8949-482d-a6b1-6eacd70fa19c",
+      "name": "switch_parse_invoice",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        880,
-        464
+        2448,
+        496
       ],
-      "id": "e83b6931-d787-4dac-86d0-e0f02ddc95ce",
-      "name": "switch_invoice_type"
-    },
-    {
       "parameters": {
         "rules": {
           "values": [
@@ -999,44 +1007,36 @@
         "options": {
           "allMatchingOutputs": true
         }
-      },
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 3.2,
-      "position": [
-        2448,
-        496
-      ],
-      "id": "1e2411ba-8949-482d-a6b1-6eacd70fa19c",
-      "name": "switch_parse_invoice"
+      }
     },
     {
-      "parameters": {
-        "jsCode": "// Invoice Example (new format as of 2026):\n/**\n * MERCADONA, S.A. A-46103834\n * C/ LOLO RICO, 1\n * 28523 RIVAS-VACIAMADRID\n * TELÉFONO: 917578853\n * 18/06/2026 17:25 OP: 3158540\n * FACTURA SIMPLIFICADA: 4693-022-777911\n * Descripción P. Unit Importe\n * 2 AGUADOY P-6X1,5L 1,62 3,24\n * 1 COCA COLA ZERO 4L 3,80\n * 1 SANDIA BAJA SEMILLAS\n * 6,595 kg 0,85 €/kg 5,61\n * TOTAL (€) 130,76\n * TARJETA BANCARIA 130,76\n * IVA BASE IMPONIBLE (€) CUOTA (€)\n * 4% 42,60 1,70\n * 10% 46,28 4,63\n * 21% 29,38 6,17\n * TOTAL 118,26 12,50\n * TARJ BANCARIA: **** **** **** 6403\n * AUT: 308795 ARC: 00 AID:\n * A0000000041010\n * Verificado por dispositivo\n * Importe: 130,76 € \n * DEBIT\n * MASTERCARD\n * SE ADMITEN DEVOLUCIONES CON TICKET\n */\nfunction parseInvoice(text) {\n\tconst lines = text.split('\\n').map(line => line.trim());\n\n\tconst nameVatRegex = /^(.+)\\s+([A-Z]-\\d+)/;\n\n\tconst store = {\n\t\tname: lines[0].match(nameVatRegex)[1],\n\t\tvat_id: lines[0].match(nameVatRegex)[2],\n\t\taddress: lines[1] + ', ' + lines[2],\n\t\tphone: lines[3].split(':')[1].trim()\n\t};\n\n\tconst dateLine = lines[4];\n\tconst [day, month, year] = dateLine.split(' ')[0].split('/');\n\tconst time = dateLine.split(' ')[1];\n\tconst invoice = {\n\t\tnumber: lines[5].split(':')[1].trim(),\n\t\toperator: dateLine.split('OP:')[1].trim(),\n\t\tdate: `${year}-${month}-${day}T${time}:00`\n\t};\n\n\tconst items = [];\n\tlet i = 6;\n\twhile (i < lines.length && !lines[i].startsWith('TOTAL (€)')) {\n\t\tlet line = lines[i];\n\n\t\t// Handle weighted product weight line: \"6,595 kg 0,85 €/kg 5,61\"\n\t\tif (line.includes('€/kg')) {\n\t\t\tconst prevLine = lines[i - 1];\n\t\t\tconst [, ...descArr] = prevLine.split(' '); // skip leading \"1\" unit count\n\t\t\tconst description = descArr.join(' ');\n\t\t\tconst weightMatch = line.match(/^([\\d,.]+)\\s+kg\\s+([\\d,.]+)\\s+€\\/kg\\s+([\\d,.]+)/);\n\t\t\tconst quantity = parseFloat(weightMatch[1].replace(',', '.'));\n\t\t\tconst unit_price = parseFloat(weightMatch[2].replace(',', '.'));\n\t\t\tconst total = parseFloat(weightMatch[3].replace(',', '.'));\n\t\t\titems.push({ description, quantity, unit_price, total });\n\t\t\ti++;\n\t\t\tcontinue;\n\t\t}\n\n\t\t// Handle multiple quantity items: \"N DESC UNIT_PRICE TOTAL\"\n\t\tlet multiMatch = line.match(/^(\\d+)\\s+(.+?)\\s+([\\d,.]+)\\s+([\\d,.]+)$/);\n\t\tif (multiMatch) {\n\t\t\tconst quantity = parseInt(multiMatch[1]);\n\t\t\tconst description = multiMatch[2].trim();\n\t\t\tconst unit_price = parseFloat(multiMatch[3].replace(',', '.'));\n\t\t\tconst total = parseFloat(multiMatch[4].replace(',', '.'));\n\t\t\titems.push({ description, quantity, unit_price, total });\n\t\t\ti++;\n\t\t\tcontinue;\n\t\t}\n\n\t\t// Handle single quantity items: \"1 DESC PRICE\"\n\t\tlet singleMatch = line.match(/^1\\s+(.+?)\\s+([\\d,.]+)$/);\n\t\tif (singleMatch) {\n\t\t\tconst quantity = 1;\n\t\t\tconst description = singleMatch[1].trim();\n\t\t\tconst unit_price = parseFloat(singleMatch[2].replace(',', '.'));\n\t\t\tconst total = unit_price;\n\t\t\titems.push({ description, quantity, unit_price, total });\n\t\t\ti++;\n\t\t\tcontinue;\n\t\t}\n\n\t\ti++;\n\t}\n\n\tconst totalLine = lines.find(l => l.startsWith('TOTAL (€)'));\n\tconst totalAmount = parseFloat(totalLine.split(' ')[2].replace(',', '.'));\n\n\t// Parse taxes dynamically — number of VAT rates can vary\n\tconst taxesStart = lines.indexOf('IVA BASE IMPONIBLE (€) CUOTA (€)') + 1;\n\tconst taxes = [];\n\tfor (let t = taxesStart; t < lines.length; t++) {\n\t\tif (lines[t].startsWith('TOTAL')) break;\n\t\tconst parts = lines[t].split(' ');\n\t\tif (parts.length >= 3 && /^\\d+%$/.test(parts[0])) {\n\t\t\ttaxes.push({\n\t\t\t\trate: parts[0],\n\t\t\t\tbase: parseFloat(parts[1].replace(',', '.')),\n\t\t\t\ttax: parseFloat(parts[2].replace(',', '.')),\n\t\t\t});\n\t\t}\n\t}\n\n\t// Card number: handle both \"TARJ. BANCARIA:\" (old) and \"TARJ BANCARIA:\" (new)\n\tconst cardLine = lines.find(l => /^TARJ\\.?\\s+BANCARIA:/.test(l));\n\tconst cardMatch = cardLine ? cardLine.match(/TARJ\\.?\\s+BANCARIA:\\s+(.+)/) : null;\n\tconst cardNumber = cardMatch ? cardMatch[1].trim() : 'unknown';\n\n\t// Card type: may be on same line as \"Importe:\" (old) or on following lines (new)\n\tconst importeIdx = lines.findIndex(l => l.startsWith('Importe:'));\n\tconst importeMatch = importeIdx >= 0 ? lines[importeIdx].match(/Importe:\\s*[\\d,.]+\\s*€\\s*(.*)/) : null;\n\tlet cardType = (importeMatch && importeMatch[1].trim()) || '';\n\tif (!cardType && importeIdx >= 0) {\n\t\tconst afterImporte = lines.slice(importeIdx + 1)\n\t\t\t.filter(l => l && !/^SE ADMITEN|^Verificado/.test(l));\n\t\tcardType = afterImporte.slice(0, 3).join(' ').trim();\n\t}\n\tcardType = cardType || 'UNKNOWN';\n\n\treturn {\n\t\tstore,\n\t\tinvoice,\n\t\titems,\n\t\ttotals: {\n\t\t\tamount: totalAmount,\n\t\t\tpayment_method: 'TARJETA BANCARIA',\n\t\t\tcard_type: cardType,\n\t\t\tcard_number: cardNumber\n\t\t},\n\t\ttaxes\n\t};\n}\n\nlet results = [];\n\nfor (item of items) {\n\tconst invoiceText = item.json.text;\n\n\tresults.push({\n\t\tjson: parseInvoice(invoiceText)\n\t});\n}\n\nreturn results;"
-      },
+      "id": "c00b91ac-cc7c-4ca8-91de-eeafc2185199",
+      "name": "parse_mercadona_invoice",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         2672,
         560
       ],
-      "id": "c00b91ac-cc7c-4ca8-91de-eeafc2185199",
-      "name": "parse_mercadona_invoice"
+      "parameters": {
+        "jsCode": "// Invoice Example (new format as of 2026):\n/**\n * MERCADONA, S.A. A-46103834\n * C/ LOLO RICO, 1\n * 28523 RIVAS-VACIAMADRID\n * TELÉFONO: 917578853\n * 18/06/2026 17:25 OP: 3158540\n * FACTURA SIMPLIFICADA: 4693-022-777911\n * Descripción P. Unit Importe\n * 2 AGUADOY P-6X1,5L 1,62 3,24\n * 1 COCA COLA ZERO 4L 3,80\n * 1 SANDIA BAJA SEMILLAS\n * 6,595 kg 0,85 €/kg 5,61\n * TOTAL (€) 130,76\n * TARJETA BANCARIA 130,76\n * IVA BASE IMPONIBLE (€) CUOTA (€)\n * 4% 42,60 1,70\n * 10% 46,28 4,63\n * 21% 29,38 6,17\n * TOTAL 118,26 12,50\n * TARJ BANCARIA: **** **** **** 6403\n * AUT: 308795 ARC: 00 AID:\n * A0000000041010\n * Verificado por dispositivo\n * Importe: 130,76 € \n * DEBIT\n * MASTERCARD\n * SE ADMITEN DEVOLUCIONES CON TICKET\n */\nfunction parseInvoice(text) {\n\tconst lines = text.split('\\n').map(line => line.trim());\n\n\tconst nameVatRegex = /^(.+)\\s+([A-Z]-\\d+)/;\n\n\tconst store = {\n\t\tname: lines[0].match(nameVatRegex)[1],\n\t\tvat_id: lines[0].match(nameVatRegex)[2],\n\t\taddress: lines[1] + ', ' + lines[2],\n\t\tphone: lines[3].split(':')[1].trim()\n\t};\n\n\tconst dateLine = lines[4];\n\tconst [day, month, year] = dateLine.split(' ')[0].split('/');\n\tconst time = dateLine.split(' ')[1];\n\tconst invoice = {\n\t\tnumber: lines[5].split(':')[1].trim(),\n\t\toperator: dateLine.split('OP:')[1].trim(),\n\t\tdate: `${year}-${month}-${day}T${time}:00`\n\t};\n\n\tconst items = [];\n\tlet i = 6;\n\twhile (i < lines.length && !lines[i].startsWith('TOTAL (€)')) {\n\t\tlet line = lines[i];\n\n\t\t// Handle weighted product weight line: \"6,595 kg 0,85 €/kg 5,61\"\n\t\tif (line.includes('€/kg')) {\n\t\t\tconst prevLine = lines[i - 1];\n\t\t\tconst [, ...descArr] = prevLine.split(' '); // skip leading \"1\" unit count\n\t\t\tconst description = descArr.join(' ');\n\t\t\tconst weightMatch = line.match(/^([\\d,.]+)\\s+kg\\s+([\\d,.]+)\\s+€\\/kg\\s+([\\d,.]+)/);\n\t\t\tconst quantity = parseFloat(weightMatch[1].replace(',', '.'));\n\t\t\tconst unit_price = parseFloat(weightMatch[2].replace(',', '.'));\n\t\t\tconst total = parseFloat(weightMatch[3].replace(',', '.'));\n\t\t\titems.push({ description, quantity, unit_price, total });\n\t\t\ti++;\n\t\t\tcontinue;\n\t\t}\n\n\t\t// Handle multiple quantity items: \"N DESC UNIT_PRICE TOTAL\"\n\t\tlet multiMatch = line.match(/^(\\d+)\\s+(.+?)\\s+([\\d,.]+)\\s+([\\d,.]+)$/);\n\t\tif (multiMatch) {\n\t\t\tconst quantity = parseInt(multiMatch[1]);\n\t\t\tconst description = multiMatch[2].trim();\n\t\t\tconst unit_price = parseFloat(multiMatch[3].replace(',', '.'));\n\t\t\tconst total = parseFloat(multiMatch[4].replace(',', '.'));\n\t\t\titems.push({ description, quantity, unit_price, total });\n\t\t\ti++;\n\t\t\tcontinue;\n\t\t}\n\n\t\t// Handle single quantity items: \"1 DESC PRICE\"\n\t\tlet singleMatch = line.match(/^1\\s+(.+?)\\s+([\\d,.]+)$/);\n\t\tif (singleMatch) {\n\t\t\tconst quantity = 1;\n\t\t\tconst description = singleMatch[1].trim();\n\t\t\tconst unit_price = parseFloat(singleMatch[2].replace(',', '.'));\n\t\t\tconst total = unit_price;\n\t\t\titems.push({ description, quantity, unit_price, total });\n\t\t\ti++;\n\t\t\tcontinue;\n\t\t}\n\n\t\ti++;\n\t}\n\n\tconst totalLine = lines.find(l => l.startsWith('TOTAL (€)'));\n\tconst totalAmount = parseFloat(totalLine.split(' ')[2].replace(',', '.'));\n\n\t// Parse taxes dynamically — number of VAT rates can vary\n\tconst taxesStart = lines.indexOf('IVA BASE IMPONIBLE (€) CUOTA (€)') + 1;\n\tconst taxes = [];\n\tfor (let t = taxesStart; t < lines.length; t++) {\n\t\tif (lines[t].startsWith('TOTAL')) break;\n\t\tconst parts = lines[t].split(' ');\n\t\tif (parts.length >= 3 && /^\\d+%$/.test(parts[0])) {\n\t\t\ttaxes.push({\n\t\t\t\trate: parts[0],\n\t\t\t\tbase: parseFloat(parts[1].replace(',', '.')),\n\t\t\t\ttax: parseFloat(parts[2].replace(',', '.')),\n\t\t\t});\n\t\t}\n\t}\n\n\t// Card number: handle both \"TARJ. BANCARIA:\" (old) and \"TARJ BANCARIA:\" (new)\n\tconst cardLine = lines.find(l => /^TARJ\\.?\\s+BANCARIA:/.test(l));\n\tconst cardMatch = cardLine ? cardLine.match(/TARJ\\.?\\s+BANCARIA:\\s+(.+)/) : null;\n\tconst cardNumber = cardMatch ? cardMatch[1].trim() : 'unknown';\n\n\t// Card type: may be on same line as \"Importe:\" (old) or on following lines (new)\n\tconst importeIdx = lines.findIndex(l => l.startsWith('Importe:'));\n\tconst importeMatch = importeIdx >= 0 ? lines[importeIdx].match(/Importe:\\s*[\\d,.]+\\s*€\\s*(.*)/) : null;\n\tlet cardType = (importeMatch && importeMatch[1].trim()) || '';\n\tif (!cardType && importeIdx >= 0) {\n\t\tconst afterImporte = lines.slice(importeIdx + 1)\n\t\t\t.filter(l => l && !/^SE ADMITEN|^Verificado/.test(l));\n\t\tcardType = afterImporte.slice(0, 3).join(' ').trim();\n\t}\n\tcardType = cardType || 'UNKNOWN';\n\n\treturn {\n\t\tstore,\n\t\tinvoice,\n\t\titems,\n\t\ttotals: {\n\t\t\tamount: totalAmount,\n\t\t\tpayment_method: 'TARJETA BANCARIA',\n\t\t\tcard_type: cardType,\n\t\t\tcard_number: cardNumber\n\t\t},\n\t\ttaxes\n\t};\n}\n\nlet results = [];\n\nfor (item of items) {\n\tconst invoiceText = item.json.text;\n\n\tresults.push({\n\t\tjson: parseInvoice(invoiceText)\n\t});\n}\n\nreturn results;"
+      }
     },
     {
-      "parameters": {
-        "topic": "={{ $('set_vars').item.json.TOPIC_NAME }}",
-        "options": {
-          "acks": true
-        }
-      },
+      "id": "5e3d618e-1933-4830-a895-6a198da3a590",
+      "name": "Kafka",
       "type": "n8n-nodes-base.kafka",
       "typeVersion": 1,
       "position": [
         2000,
         304
       ],
-      "id": "5e3d618e-1933-4830-a895-6a198da3a590",
-      "name": "Kafka",
+      "parameters": {
+        "topic": "={{ $('set_vars').item.json.TOPIC_NAME }}",
+        "options": {
+          "acks": true
+        }
+      },
       "credentials": {
         "kafka": {
           "id": "vGnDLI3UczrsivDG",
@@ -1045,21 +1045,21 @@
       }
     },
     {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "airflow-download-invoices-from-gmail",
-        "authentication": "headerAuth",
-        "options": {}
-      },
+      "id": "1152bf0b-dd78-4627-97f6-4b0854689d1c",
+      "name": "Airflow Webhook",
+      "webhookId": "a2f3b4c5-d6e7-8901-2345-678901234567",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
         432,
         272
       ],
-      "id": "1152bf0b-dd78-4627-97f6-4b0854689d1c",
-      "name": "Airflow Webhook",
-      "webhookId": "a2f3b4c5-d6e7-8901-2345-678901234567",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "airflow-download-invoices-from-gmail",
+        "authentication": "headerAuth",
+        "options": {}
+      },
       "credentials": {
         "httpHeaderAuth": {
           "id": "3OSbNivZY7LzNGHN",
@@ -1114,6 +1114,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 1,
-  "updatedAt": "2026-07-09T18:04:24.178Z",
+  "updatedAt": "2026-09-08T17:43:46.056Z",
   "versionId": "b5b3672a-379d-4454-9055-26d38798b31c"
 }

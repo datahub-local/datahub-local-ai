@@ -63,6 +63,15 @@
   "nodeGroups": [],
   "nodes": [
     {
+      "id": "0556a41f-299d-439f-b8e6-823e1cdace5c",
+      "name": "On form submission",
+      "webhookId": "d869b846-111d-4f53-96e4-2c4a533d9ed6",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        160,
+        272
+      ],
       "parameters": {
         "formTitle": "Form with mutually exclusive branching",
         "formDescription": "This form contains branches, but only one branch will ever be executed.",
@@ -86,18 +95,17 @@
           ]
         },
         "options": {}
-      },
-      "type": "n8n-nodes-base.formTrigger",
-      "typeVersion": 2.2,
-      "position": [
-        160,
-        272
-      ],
-      "id": "0556a41f-299d-439f-b8e6-823e1cdace5c",
-      "name": "On form submission",
-      "webhookId": "d869b846-111d-4f53-96e4-2c4a533d9ed6"
+      }
     },
     {
+      "id": "5e55e642-5bd8-424f-abc6-6fe786550cf0",
+      "name": "Switch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        384,
+        272
+      ],
       "parameters": {
         "rules": {
           "values": [
@@ -152,17 +160,18 @@
           ]
         },
         "options": {}
-      },
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 3.2,
-      "position": [
-        384,
-        272
-      ],
-      "id": "5e55e642-5bd8-424f-abc6-6fe786550cf0",
-      "name": "Switch"
+      }
     },
     {
+      "id": "cf5efc9d-06b2-4092-a4d4-291c84e51e70",
+      "name": "If not recommended",
+      "webhookId": "3579ba77-7ba2-4a97-8a29-a228aac297d5",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 1,
+      "position": [
+        608,
+        464
+      ],
       "parameters": {
         "formFields": {
           "values": [
@@ -173,78 +182,78 @@
           ]
         },
         "options": {}
-      },
-      "type": "n8n-nodes-base.form",
-      "typeVersion": 1,
-      "position": [
-        608,
-        464
-      ],
-      "id": "cf5efc9d-06b2-4092-a4d4-291c84e51e70",
-      "name": "If not recommended",
-      "webhookId": "3579ba77-7ba2-4a97-8a29-a228aac297d5"
+      }
     },
     {
-      "parameters": {
-        "operation": "completion",
-        "completionTitle": "Thank you for your review!",
-        "options": {}
-      },
+      "id": "4c8c9219-6362-455f-9009-52114904b1fa",
+      "name": "Thanks for the review",
+      "webhookId": "bce3f77b-3005-4989-bd61-b9c5ff19e59e",
       "type": "n8n-nodes-base.form",
       "typeVersion": 1,
       "position": [
         832,
         64
       ],
-      "id": "4c8c9219-6362-455f-9009-52114904b1fa",
-      "name": "Thanks for the review",
-      "webhookId": "bce3f77b-3005-4989-bd61-b9c5ff19e59e"
-    },
-    {
       "parameters": {
         "operation": "completion",
-        "completionTitle": "Thank you for your feedback",
+        "completionTitle": "Thank you for your review!",
         "options": {}
-      },
+      }
+    },
+    {
+      "id": "400fa4f1-55bd-442a-8471-b2c97d4a1e91",
+      "name": "Thanks for the feedback",
+      "webhookId": "8b1a34e2-aa24-4c12-841c-79f6491cb779",
       "type": "n8n-nodes-base.form",
       "typeVersion": 1,
       "position": [
         832,
         464
       ],
-      "id": "400fa4f1-55bd-442a-8471-b2c97d4a1e91",
-      "name": "Thanks for the feedback",
-      "webhookId": "8b1a34e2-aa24-4c12-841c-79f6491cb779"
+      "parameters": {
+        "operation": "completion",
+        "completionTitle": "Thank you for your feedback",
+        "options": {}
+      }
     },
     {
-      "parameters": {
-        "content": "## Form with mutually exclusive branching\nThis form contains a branch where only one of the two paths will execute, depending on your selections.",
-        "width": 380
-      },
+      "id": "92473c83-5915-4c68-bef8-8547b2aa7d8f",
+      "name": "Sticky Note",
       "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
       "position": [
         0,
         0
       ],
-      "typeVersion": 1,
-      "id": "92473c83-5915-4c68-bef8-8547b2aa7d8f",
-      "name": "Sticky Note"
+      "parameters": {
+        "content": "## Form with mutually exclusive branching\nThis form contains a branch where only one of the two paths will execute, depending on your selections.",
+        "width": 380
+      }
     },
     {
-      "parameters": {
-        "content": "This Switch node determines which branch will execute.\n\nThe switch uses data from a dropdown field with single selection enforced, so only one path will execute.",
-        "color": 5
-      },
+      "id": "18b72550-5679-433f-9ee0-7b7863d4bfba",
+      "name": "Sticky Note1",
       "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
       "position": [
         608,
         272
       ],
-      "typeVersion": 1,
-      "id": "18b72550-5679-433f-9ee0-7b7863d4bfba",
-      "name": "Sticky Note1"
+      "parameters": {
+        "content": "This Switch node determines which branch will execute.\n\nThe switch uses data from a dropdown field with single selection enforced, so only one path will execute.",
+        "color": 5
+      }
     },
     {
+      "id": "613cc4df-41ef-40b8-83be-316964b8a639",
+      "name": "If recommended",
+      "webhookId": "f8298b40-1f61-465b-b228-30a659075f30",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 1,
+      "position": [
+        608,
+        64
+      ],
       "parameters": {
         "formFields": {
           "values": [
@@ -255,16 +264,7 @@
           ]
         },
         "options": {}
-      },
-      "type": "n8n-nodes-base.form",
-      "typeVersion": 1,
-      "position": [
-        608,
-        64
-      ],
-      "id": "613cc4df-41ef-40b8-83be-316964b8a639",
-      "name": "If recommended",
-      "webhookId": "f8298b40-1f61-465b-b228-30a659075f30"
+      }
     }
   ],
   "pinData": {},
@@ -285,6 +285,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 1,
-  "updatedAt": "2026-03-15T21:09:04.058Z",
+  "updatedAt": "2026-09-08T17:43:48.472Z",
   "versionId": "d680ccd2-c14c-4cab-84b3-2a855a7c1014"
 }

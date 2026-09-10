@@ -265,13 +265,20 @@ was wrong. A cron change is two edits.
 
 | Persona             | Schedule       | Why that cadence                                                                                                                                                                                                  |
 | ------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `sre-sentinel`      | heartbeat, 6h  | Not the detector — the digest. Alertmanager already routes every alert to Robusta, which posts to Slack; this adds new-vs-chronic, root cause and the volume fill check no alert rule covers. At 30m it was 48 messages a day restating Robusta. |
+| `sre-sentinel`      | `0 7,19 * * *` | Not the detector — the digest. Alertmanager already routes every alert to Robusta, which posts to Slack; this adds new-vs-chronic, root cause and the volume fill check no alert rule covers. At 30m it was 48 messages a day restating Robusta. Moved off `heartbeat, 6h` to fixed 07:00/19:00 UTC on 2026-09-10, so the digest lands at the start and end of a working day rather than drifting with the last apply. |
 | `endpoint-warden`   | `30 4 * * *`   | 04:30 UTC = 06:30 Madrid summer.                                                                                                                                                                                  |
 | `service-janitor`   | `0 5 * * *`    | Daily, not weekly: certificates, tokens and backup freshness all move inside a day.                                                                                                                               |
 | `db-steward`        | `30 5 * * *`   | Half an hour after the warden so the two do not contend for the GPU.                                                                                                                                              |
-| `gitops-auditor`    | every 4h       | Nothing else watches ArgoCD sync state — Robusta forwards events and alerts, not drift. 4h still gives its "drift that survives two consecutive runs" rule an 8h window.                                          |
+| `gitops-auditor`    | `0 7,19 * * *` | Nothing else watches ArgoCD sync state — Robusta forwards events and alerts, not drift. Was `4 */4 * * *`; at twice a day its "drift that survives two consecutive runs" rule now spans 24h rather than 8h, so drift is reported a day later and a fix that lands between two runs is never seen as drift at all. |
 | `renovate-reviewer` | `0 10 * * 0,6` | Weekends, off the weekday slot: a 4B model re-reviewing the same PR hourly is noise and would hold the GPU against the ops agents.                                                                                 |
 | `homelab-oracle`    | none           | Inbound only.                                                                                                                                                                                                     |
+
+`sre-sentinel` and `gitops-auditor` share both ticks exactly, which is the one
+thing every other row here avoids — `db-steward` sits half an hour off
+`endpoint-warden` precisely so the two do not contend for the single Ollama
+slot. Two runs queued in the same second do not fail; they serialise, and the
+second waits out the first's `runTimeout`. Offsetting one by a few minutes is
+the fix if a run is ever seen waiting.
 
 Other per-persona notes:
 

@@ -175,10 +175,14 @@ files under `.github/` keep them too — they are procedure, not config.
 
 ## Git commits
 
-At the end of every iteration, suggest the commit text for what changed —
-subject in the `type(scope): summary` form the history already uses
-(`fix(dbt,semantic): ...`, `docs(spec): ...`), with a body whenever the change
-needs a why. Suggest it; do not commit unless asked.
+At the end of every iteration, suggest the commit text for what changed — **one
+short line**, in the `type(scope): summary` form the history already uses
+(`fix(dbt,semantic): ...`, `docs(spec): ...`). That line is the whole message:
+no body unless one is asked for. Suggest it; do not commit unless asked.
+
+The rationale a body would carry goes where it is actually read — this file, a
+sub-project `MEMORY.md`, or a spec in `docs/specs/` — not into a log entry
+nobody greps. Say what changed, not how it was applied.
 
 Work here regularly spans two repositories — this one and datahub-local-core —
 so suggest one message per repository rather than one message covering both.
@@ -242,6 +246,14 @@ this path — and nothing reads the other way. So editing a `*.workflow.json`
 changes nothing in the cluster, and the next backup run overwrites the file and
 commits the revert.
 
+The one time an export edit is legitimate is *alongside* the live apply below,
+so the change is reviewable in a commit now instead of whenever the backup next
+runs. Write the same value live and in the file, and match the API's key order
+so the next backup regenerates the same bytes rather than a reformat — read the
+order off the live node (`executeOnce` sits between `typeVersion` and
+`alwaysOutputData`, not where a hand edit would put it). An export edit with no
+live apply behind it is still a revert waiting to happen.
+
 **Every workflow must have error handling before it is considered done.** A new
 or edited workflow is not finished until its failure path is wired: an entry
 point carries `settings.errorWorkflow`, a sub-workflow raises so its parent
@@ -265,19 +277,34 @@ can come back deactivated, and the export in git may be older than the live
 version. Show the diff, ask, and only then apply — reading each workflow live
 and writing back the changed fields, never posting a whole exported body.
 
-`scripts/apply_error_workflows.py` is that apply step, and the reason it exists
-is the same one `reseed_memory.py` exists for in `agents/sympozium/`: a source
-edit that nothing reconciles is not done when it is merged. It diffs live
-against the intended wiring, prints the plan, and writes only on `--apply`.
-`--print-pod-overrides` emits its own pod spec with the key wired from the
-secret, so the payload can never drift from the file being run.
+`scripts/apply_workflow_changes.py` is that apply step, and the reason it
+exists is the same one `reseed_memory.py` exists for in `agents/sympozium/`: a
+source edit that nothing reconciles is not done when it is merged. It reads each
+workflow live, sets only the named fields, prints the plan, and writes on
+`--apply` and not before. `--print-pod-overrides` emits its own pod spec with
+the key wired from the secret, so the payload can never drift from the file
+being run.
+
+It is deliberately **generic — do not write a second one.** A change is
+`--set 'node:field=value'` (dotted paths reach into `parameters`),
+`--set-setting 'field=value'` for `settings.errorWorkflow` and its neighbours,
+and `--changes file.json` for a batch across many workflows. `--workflow` takes
+an id or an exact name. It re-reads after the PUT to confirm each field landed,
+and re-activates the workflow if `active` flipped, since the PUT carries no
+`active` field.
+
+Pair every change with `--require-edge 'src>dst'`. A change is argued from the
+graph — "these two nodes sit downstream of a per-item stream" — and the graph
+is exactly what may have moved since; a mismatch aborts before writing. This is
+not hypothetical: the fan-out below was reasoned about correctly in a node
+`notes` string that had been false in every committed version of the export.
 
 The API is reachable **in-cluster only**: the public host routes `/api/` through
 oauth2-proxy, which an API key does not satisfy. The key is
 `security/n8n-root` → `N8N_API_KEY`; mount it into a pod rather than reading it
 into a shell.
 
-Four structural things worth knowing before editing an export:
+Five structural things worth knowing before editing an export:
 
 - **Every export carries its nodes twice**, at the top level and inside
   `activeVersion`. Edit both or the file is self-inconsistent.
@@ -296,6 +323,21 @@ Four structural things worth knowing before editing an export:
   path** — the execution reports success, no error workflow fires, and the
   Prometheus histogram records `status="success"`. Use it only where a downstream
   node actually handles the empty result, and say where in a node `notes`.
+- **A node past `typeVersion` 4.1 re-runs its operation once per input item**,
+  so a read node's cost is the size of the stream reaching it, not one call.
+  (Sheets is explicit about it: `read.operation.ts` does `let length = 1; if
+  (nodeVersion > 4.1) length = items.length;`.) Two chained Sheets reads on the
+  Content Feed Curator's per-candidate stream therefore issued N and then N×L
+  `spreadsheets.values.get` calls against a 60/min quota, and failed every run
+  with a non-trivial candidate pool. `executeOnce` on each is the fix and takes
+  it to two calls; reordering does not, because the second read still fans out
+  over the first one's rows. It was safe to set because the consumer pulls both
+  tabs with `$('node').all()` rather than consuming the stream — check that
+  before setting it, or the change is a correctness bug rather than a saving.
+  Note this bug is invisible in the export: nothing records a node's effective
+  input cardinality, so it is read off the connection graph or not at all. A
+  node `notes` claiming otherwise is the same second-copy-of-a-decision problem
+  as a comment beside a value, and drifted the same way.
 
 ### MCP servers
 

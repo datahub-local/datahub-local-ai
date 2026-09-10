@@ -172,6 +172,7 @@
         "notes": "articles_2_linkedin is frozen history. Read for the already-seen set only, so nothing published before the migration can be queued again.",
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
+        "executeOnce": true,
         "alwaysOutputData": true,
         "position": [
           -20128,
@@ -214,6 +215,7 @@
         "notes": "content_queue: the live queue. Referenced by tab name so it resolves as soon as the tab exists. Both reads sit on the single-item spine so they never run per candidate.",
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
+        "executeOnce": true,
         "alwaysOutputData": true,
         "position": [
           -19904,
@@ -1378,6 +1380,42 @@
         "parameters": {
           "jsCode": "// Re-emit the admitted rows, one item per sheet row, immediately before the append.\n//\n// Why this node exists at all: if_write_to_sheet is four nodes downstream of\n// admit_to_backlog, and everything between them collapses the stream to a single item -\n// build_digest returns one digest, notify_digest replaces it with Slack's API response.\n// So append_content_queue was receiving {ok, channel, message: {...}} and every\n// ={{ $json.URL }} mapping resolved to undefined. It appended one blank row per run and\n// reported success, because an append of undefined values is not an error.\n//\n// n8n has no way to \"go back\" to an earlier node's items in a mapping - a node reference in\n// an expression reads ONE item, not the list - so restoring the stream needs a code node.\n// This is the standard shape for it: read the named node, re-emit.\n//\n// Only the 18 sheet columns are emitted. admit_to_backlog's items also carry _stats,\n// features, topic_hits and the rest, which the append does not map and nobody downstream\n// reads; dropping them here keeps what reaches Google Sheets equal to what the header says.\nconst COLUMNS = [\n  'URL',\n  'TITLE',\n  'STATUS',\n  'PRIORITY',\n  'SCORE',\n  'ORIGIN',\n  'TOPIC',\n  'SOURCE',\n  'RATIONALE',\n  'EXTRA_PROMPT',\n  'MAX_WORDS',\n  'PUBLISHED_AT',\n  'UPDATE_DATE',\n  'RELEASE_DATE',\n  'LINKEDIN_URL',\n  'ENTRY_ID',\n  'ERROR',\n  'EXECUTION_ID',\n];\n\n// admit_to_backlog emits a single { no_selection: true } item when nothing cleared the\n// judge or the backlog had no room. That is a normal outcome, not a row - if it reached the\n// append it would be the blank-row bug again, wearing a different hat.\nconst rows = $('admit_to_backlog')\n  .all()\n  .map((i) => i.json)\n  .filter((j) => j && j.no_selection !== true && j.URL);\n\nconsole.log('build_queue_rows: ' + rows.length + ' row(s) to append');\n\nreturn rows.map((r) => {\n  const out = {};\n  for (const c of COLUMNS) out[c] = r[c] != null ? r[c] : '';\n  return { json: out };\n});\n"
         }
+      },
+      {
+        "id": "3633700b-239c-43d9-b99b-30f52b9e2b28",
+        "name": "if_has_finalists",
+        "notes": "A run with nothing to judge is a normal outcome, not an error. pick_finalists emits one sentinel item carrying no article, so send it straight to admit_to_backlog, which already treats an empty admission set as a no-op and still builds the digest.",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          -18672,
+          1984
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "loose",
+              "version": 2
+            },
+            "combinator": "and",
+            "conditions": [
+              {
+                "id": "5ce1b574-7861-4450-ae33-42288b144af4",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                },
+                "leftValue": "={{ $json.no_selection !== true }}",
+                "rightValue": ""
+              }
+            ]
+          },
+          "looseTypeValidation": true,
+          "options": {}
+        }
       }
     ],
     "connections": {
@@ -1524,7 +1562,7 @@
         "main": [
           [
             {
-              "node": "loop_judge_finalists",
+              "node": "if_has_finalists",
               "type": "main",
               "index": 0
             }
@@ -1783,6 +1821,24 @@
             }
           ]
         ]
+      },
+      "if_has_finalists": {
+        "main": [
+          [
+            {
+              "node": "loop_judge_finalists",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "admit_to_backlog",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
       }
     },
     "nodeGroups": [],
@@ -1938,7 +1994,7 @@
       "main": [
         [
           {
-            "node": "loop_judge_finalists",
+            "node": "if_has_finalists",
             "type": "main",
             "index": 0
           }
@@ -2197,6 +2253,24 @@
           }
         ]
       ]
+    },
+    "if_has_finalists": {
+      "main": [
+        [
+          {
+            "node": "loop_judge_finalists",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "admit_to_backlog",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "createdAt": "2026-07-25T15:27:39.990Z",
@@ -2374,6 +2448,7 @@
       "notes": "articles_2_linkedin is frozen history. Read for the already-seen set only, so nothing published before the migration can be queued again.",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
+      "executeOnce": true,
       "alwaysOutputData": true,
       "position": [
         -20128,
@@ -2416,6 +2491,7 @@
       "notes": "content_queue: the live queue. Referenced by tab name so it resolves as soon as the tab exists. Both reads sit on the single-item spine so they never run per candidate.",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
+      "executeOnce": true,
       "alwaysOutputData": true,
       "position": [
         -19904,
@@ -3579,6 +3655,42 @@
       ],
       "parameters": {
         "jsCode": "// Re-emit the admitted rows, one item per sheet row, immediately before the append.\n//\n// Why this node exists at all: if_write_to_sheet is four nodes downstream of\n// admit_to_backlog, and everything between them collapses the stream to a single item -\n// build_digest returns one digest, notify_digest replaces it with Slack's API response.\n// So append_content_queue was receiving {ok, channel, message: {...}} and every\n// ={{ $json.URL }} mapping resolved to undefined. It appended one blank row per run and\n// reported success, because an append of undefined values is not an error.\n//\n// n8n has no way to \"go back\" to an earlier node's items in a mapping - a node reference in\n// an expression reads ONE item, not the list - so restoring the stream needs a code node.\n// This is the standard shape for it: read the named node, re-emit.\n//\n// Only the 18 sheet columns are emitted. admit_to_backlog's items also carry _stats,\n// features, topic_hits and the rest, which the append does not map and nobody downstream\n// reads; dropping them here keeps what reaches Google Sheets equal to what the header says.\nconst COLUMNS = [\n  'URL',\n  'TITLE',\n  'STATUS',\n  'PRIORITY',\n  'SCORE',\n  'ORIGIN',\n  'TOPIC',\n  'SOURCE',\n  'RATIONALE',\n  'EXTRA_PROMPT',\n  'MAX_WORDS',\n  'PUBLISHED_AT',\n  'UPDATE_DATE',\n  'RELEASE_DATE',\n  'LINKEDIN_URL',\n  'ENTRY_ID',\n  'ERROR',\n  'EXECUTION_ID',\n];\n\n// admit_to_backlog emits a single { no_selection: true } item when nothing cleared the\n// judge or the backlog had no room. That is a normal outcome, not a row - if it reached the\n// append it would be the blank-row bug again, wearing a different hat.\nconst rows = $('admit_to_backlog')\n  .all()\n  .map((i) => i.json)\n  .filter((j) => j && j.no_selection !== true && j.URL);\n\nconsole.log('build_queue_rows: ' + rows.length + ' row(s) to append');\n\nreturn rows.map((r) => {\n  const out = {};\n  for (const c of COLUMNS) out[c] = r[c] != null ? r[c] : '';\n  return { json: out };\n});\n"
+      }
+    },
+    {
+      "id": "3633700b-239c-43d9-b99b-30f52b9e2b28",
+      "name": "if_has_finalists",
+      "notes": "A run with nothing to judge is a normal outcome, not an error. pick_finalists emits one sentinel item carrying no article, so send it straight to admit_to_backlog, which already treats an empty admission set as a no-op and still builds the digest.",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -18672,
+        1984
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "5ce1b574-7861-4450-ae33-42288b144af4",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.no_selection !== true }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
       }
     }
   ],

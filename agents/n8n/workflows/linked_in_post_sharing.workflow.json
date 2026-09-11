@@ -192,7 +192,8 @@
               "URL": "={{ $('select_article_to_post').item.json.URL }}",
               "EXTRA_PROMPT": "={{ $('select_article_to_post').item.json.EXTRA_PROMPT }}",
               "CONTENT": "={{ $('download_content').item.json.contentMkdown }}",
-              "ENABLE_CHECK": true
+              "ENABLE_CHECK": true,
+              "FEEDBACK": "={{ $('notification_retry_or_cancel').isExecuted && $('notification_retry_or_cancel').last().json.data.Feedback ? $('notification_retry_or_cancel').last().json.data.Feedback : '' }}"
             },
             "matchingColumns": [],
             "schema": [
@@ -240,6 +241,16 @@
                 "display": true,
                 "canBeUsedToMatch": true,
                 "type": "boolean",
+                "removed": false
+              },
+              {
+                "id": "FEEDBACK",
+                "displayName": "FEEDBACK",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
                 "removed": false
               }
             ],
@@ -355,14 +366,13 @@
                   },
                   "conditions": [
                     {
-                      "leftValue": "={{ $json.data.approved }}",
-                      "rightValue": "true",
+                      "id": "8d1c4a02-5f7e-4b13-9a60-2c4e7f0b91d3",
+                      "leftValue": "={{ $json.data.Action }}",
+                      "rightValue": "Retry",
                       "operator": {
-                        "type": "boolean",
-                        "operation": "true",
-                        "singleValue": true
-                      },
-                      "id": "1ff89881-6b63-4c71-b452-518d97a6e351"
+                        "type": "string",
+                        "operation": "equals"
+                      }
                     }
                   ],
                   "combinator": "and"
@@ -378,13 +388,12 @@
                   },
                   "conditions": [
                     {
-                      "id": "ff5900ad-ed83-4755-a621-d0a21c4cbc39",
-                      "leftValue": "={{ $json.data.approved }}",
-                      "rightValue": "RETRY",
+                      "id": "b47f9e15-3a28-4c6d-8e51-7d0a2b93c4f6",
+                      "leftValue": "={{ $json.data.Action }}",
+                      "rightValue": "Cancel",
                       "operator": {
-                        "type": "boolean",
-                        "operation": "false",
-                        "singleValue": true
+                        "type": "string",
+                        "operation": "equals"
                       }
                     }
                   ],
@@ -414,7 +423,7 @@
             "mode": "list",
             "cachedResultName": "workflows"
           },
-          "message": "=Do You want to Retry or Cancel the post for URL {{ $('select_article_to_post').item.json.URL }}\"?",
+          "message": "=The post text for {{ $('select_article_to_post').item.json.URL }} was not approved. Choose Retry or Cancel, and say what must change.",
           "approvalOptions": {
             "values": {
               "approvalType": "double",
@@ -423,7 +432,35 @@
             }
           },
           "options": {
-            "appendAttribution": true
+            "appendAttribution": true,
+            "responseFormTitle": "LinkedIn post - retry or cancel",
+            "messageButtonLabel": "Respond"
+          },
+          "responseType": "customForm",
+          "formFields": {
+            "values": [
+              {
+                "fieldLabel": "Action",
+                "fieldType": "dropdown",
+                "fieldOptions": {
+                  "values": [
+                    {
+                      "option": "Retry"
+                    },
+                    {
+                      "option": "Cancel"
+                    }
+                  ]
+                },
+                "requiredField": true
+              },
+              {
+                "fieldLabel": "Feedback",
+                "fieldType": "textarea",
+                "placeholder": "What must change in the next draft. This overrides the writing rules. Leave empty to regenerate unchanged.",
+                "requiredField": false
+              }
+            ]
           }
         },
         "type": "n8n-nodes-base.slack",
@@ -1955,7 +1992,7 @@
             "mode": "list",
             "cachedResultName": "workflows"
           },
-          "message": "=Do You want to Retry or Cancel the image for URL {{ $('select_article_to_post').item.json.URL }}\"?",
+          "message": "=The image for {{ $('select_article_to_post').item.json.URL }} was not approved. Choose Retry or Cancel, and say what must change.",
           "approvalOptions": {
             "values": {
               "approvalType": "double",
@@ -1964,7 +2001,35 @@
             }
           },
           "options": {
-            "appendAttribution": true
+            "appendAttribution": true,
+            "responseFormTitle": "LinkedIn image - retry or cancel",
+            "messageButtonLabel": "Respond"
+          },
+          "responseType": "customForm",
+          "formFields": {
+            "values": [
+              {
+                "fieldLabel": "Action",
+                "fieldType": "dropdown",
+                "fieldOptions": {
+                  "values": [
+                    {
+                      "option": "Retry"
+                    },
+                    {
+                      "option": "Cancel"
+                    }
+                  ]
+                },
+                "requiredField": true
+              },
+              {
+                "fieldLabel": "Feedback",
+                "fieldType": "textarea",
+                "placeholder": "What must change in the next image. This overrides the art direction. Leave empty to regenerate unchanged.",
+                "requiredField": false
+              }
+            ]
           }
         },
         "type": "n8n-nodes-base.slack",
@@ -1995,7 +2060,8 @@
           "workflowInputs": {
             "mappingMode": "defineBelow",
             "value": {
-              "POST_CONTENT": "={{ $('execute_post_creator').item.json.text }}"
+              "POST_CONTENT": "={{ $('execute_post_creator').item.json.text }}",
+              "FEEDBACK": "={{ $('notification_retry_or_cancel_image').isExecuted && $('notification_retry_or_cancel_image').last().json.data.Feedback ? $('notification_retry_or_cancel_image').last().json.data.Feedback : '' }}"
             },
             "matchingColumns": [
               "POST_CONTENT"
@@ -2004,6 +2070,16 @@
               {
                 "id": "POST_CONTENT",
                 "displayName": "POST_CONTENT",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "FEEDBACK",
+                "displayName": "FEEDBACK",
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
@@ -2040,14 +2116,13 @@
                   },
                   "conditions": [
                     {
-                      "leftValue": "={{ $json.data.approved }}",
-                      "rightValue": "true",
+                      "id": "8d1c4a02-5f7e-4b13-9a60-2c4e7f0b91d3",
+                      "leftValue": "={{ $json.data.Action }}",
+                      "rightValue": "Retry",
                       "operator": {
-                        "type": "boolean",
-                        "operation": "true",
-                        "singleValue": true
-                      },
-                      "id": "1ff89881-6b63-4c71-b452-518d97a6e351"
+                        "type": "string",
+                        "operation": "equals"
+                      }
                     }
                   ],
                   "combinator": "and"
@@ -2063,13 +2138,12 @@
                   },
                   "conditions": [
                     {
-                      "id": "ff5900ad-ed83-4755-a621-d0a21c4cbc39",
-                      "leftValue": "={{ $json.data.approved }}",
-                      "rightValue": "RETRY",
+                      "id": "b47f9e15-3a28-4c6d-8e51-7d0a2b93c4f6",
+                      "leftValue": "={{ $json.data.Action }}",
+                      "rightValue": "Cancel",
                       "operator": {
-                        "type": "boolean",
-                        "operation": "false",
-                        "singleValue": true
+                        "type": "string",
+                        "operation": "equals"
                       }
                     }
                   ],
@@ -2435,6 +2509,13 @@
               "type": "main",
               "index": 0
             }
+          ],
+          [
+            {
+              "node": "update_status_cancelled",
+              "type": "main",
+              "index": 0
+            }
           ]
         ]
       },
@@ -2778,6 +2859,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "update_status_cancelled",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -3001,7 +3089,8 @@
             "URL": "={{ $('select_article_to_post').item.json.URL }}",
             "EXTRA_PROMPT": "={{ $('select_article_to_post').item.json.EXTRA_PROMPT }}",
             "CONTENT": "={{ $('download_content').item.json.contentMkdown }}",
-            "ENABLE_CHECK": true
+            "ENABLE_CHECK": true,
+            "FEEDBACK": "={{ $('notification_retry_or_cancel').isExecuted && $('notification_retry_or_cancel').last().json.data.Feedback ? $('notification_retry_or_cancel').last().json.data.Feedback : '' }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -3049,6 +3138,16 @@
               "display": true,
               "canBeUsedToMatch": true,
               "type": "boolean",
+              "removed": false
+            },
+            {
+              "id": "FEEDBACK",
+              "displayName": "FEEDBACK",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
               "removed": false
             }
           ],
@@ -3164,14 +3263,13 @@
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.data.approved }}",
-                    "rightValue": "true",
+                    "id": "8d1c4a02-5f7e-4b13-9a60-2c4e7f0b91d3",
+                    "leftValue": "={{ $json.data.Action }}",
+                    "rightValue": "Retry",
                     "operator": {
-                      "type": "boolean",
-                      "operation": "true",
-                      "singleValue": true
-                    },
-                    "id": "1ff89881-6b63-4c71-b452-518d97a6e351"
+                      "type": "string",
+                      "operation": "equals"
+                    }
                   }
                 ],
                 "combinator": "and"
@@ -3187,13 +3285,12 @@
                 },
                 "conditions": [
                   {
-                    "id": "ff5900ad-ed83-4755-a621-d0a21c4cbc39",
-                    "leftValue": "={{ $json.data.approved }}",
-                    "rightValue": "RETRY",
+                    "id": "b47f9e15-3a28-4c6d-8e51-7d0a2b93c4f6",
+                    "leftValue": "={{ $json.data.Action }}",
+                    "rightValue": "Cancel",
                     "operator": {
-                      "type": "boolean",
-                      "operation": "false",
-                      "singleValue": true
+                      "type": "string",
+                      "operation": "equals"
                     }
                   }
                 ],
@@ -3223,7 +3320,7 @@
           "mode": "list",
           "cachedResultName": "workflows"
         },
-        "message": "=Do You want to Retry or Cancel the post for URL {{ $('select_article_to_post').item.json.URL }}\"?",
+        "message": "=The post text for {{ $('select_article_to_post').item.json.URL }} was not approved. Choose Retry or Cancel, and say what must change.",
         "approvalOptions": {
           "values": {
             "approvalType": "double",
@@ -3232,7 +3329,35 @@
           }
         },
         "options": {
-          "appendAttribution": true
+          "appendAttribution": true,
+          "responseFormTitle": "LinkedIn post - retry or cancel",
+          "messageButtonLabel": "Respond"
+        },
+        "responseType": "customForm",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Action",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Retry"
+                  },
+                  {
+                    "option": "Cancel"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Feedback",
+              "fieldType": "textarea",
+              "placeholder": "What must change in the next draft. This overrides the writing rules. Leave empty to regenerate unchanged.",
+              "requiredField": false
+            }
+          ]
         }
       },
       "type": "n8n-nodes-base.slack",
@@ -4764,7 +4889,7 @@
           "mode": "list",
           "cachedResultName": "workflows"
         },
-        "message": "=Do You want to Retry or Cancel the image for URL {{ $('select_article_to_post').item.json.URL }}\"?",
+        "message": "=The image for {{ $('select_article_to_post').item.json.URL }} was not approved. Choose Retry or Cancel, and say what must change.",
         "approvalOptions": {
           "values": {
             "approvalType": "double",
@@ -4773,7 +4898,35 @@
           }
         },
         "options": {
-          "appendAttribution": true
+          "appendAttribution": true,
+          "responseFormTitle": "LinkedIn image - retry or cancel",
+          "messageButtonLabel": "Respond"
+        },
+        "responseType": "customForm",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Action",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Retry"
+                  },
+                  {
+                    "option": "Cancel"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Feedback",
+              "fieldType": "textarea",
+              "placeholder": "What must change in the next image. This overrides the art direction. Leave empty to regenerate unchanged.",
+              "requiredField": false
+            }
+          ]
         }
       },
       "type": "n8n-nodes-base.slack",
@@ -4804,7 +4957,8 @@
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "POST_CONTENT": "={{ $('execute_post_creator').item.json.text }}"
+            "POST_CONTENT": "={{ $('execute_post_creator').item.json.text }}",
+            "FEEDBACK": "={{ $('notification_retry_or_cancel_image').isExecuted && $('notification_retry_or_cancel_image').last().json.data.Feedback ? $('notification_retry_or_cancel_image').last().json.data.Feedback : '' }}"
           },
           "matchingColumns": [
             "POST_CONTENT"
@@ -4813,6 +4967,16 @@
             {
               "id": "POST_CONTENT",
               "displayName": "POST_CONTENT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "FEEDBACK",
+              "displayName": "FEEDBACK",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -4849,14 +5013,13 @@
                 },
                 "conditions": [
                   {
-                    "leftValue": "={{ $json.data.approved }}",
-                    "rightValue": "true",
+                    "id": "8d1c4a02-5f7e-4b13-9a60-2c4e7f0b91d3",
+                    "leftValue": "={{ $json.data.Action }}",
+                    "rightValue": "Retry",
                     "operator": {
-                      "type": "boolean",
-                      "operation": "true",
-                      "singleValue": true
-                    },
-                    "id": "1ff89881-6b63-4c71-b452-518d97a6e351"
+                      "type": "string",
+                      "operation": "equals"
+                    }
                   }
                 ],
                 "combinator": "and"
@@ -4872,13 +5035,12 @@
                 },
                 "conditions": [
                   {
-                    "id": "ff5900ad-ed83-4755-a621-d0a21c4cbc39",
-                    "leftValue": "={{ $json.data.approved }}",
-                    "rightValue": "RETRY",
+                    "id": "b47f9e15-3a28-4c6d-8e51-7d0a2b93c4f6",
+                    "leftValue": "={{ $json.data.Action }}",
+                    "rightValue": "Cancel",
                     "operator": {
-                      "type": "boolean",
-                      "operation": "false",
-                      "singleValue": true
+                      "type": "string",
+                      "operation": "equals"
                     }
                   }
                 ],

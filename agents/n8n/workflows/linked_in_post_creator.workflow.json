@@ -254,7 +254,7 @@
           "workflowInputs": {
             "mappingMode": "defineBelow",
             "value": {
-              "template_vars": "={{ {\n\"RULES\": $('set_workflow_vars').item.json.RULES,\n\"EXTRA_PROMPT\": $('main_trigger').item.json.EXTRA_PROMPT,\n\"CONTENT\": $('main_trigger').item.json.CONTENT,\n\"VARIETY_DIRECTIVES\": $('set_variety_directives').item.json.VARIETY_DIRECTIVES,\n} }}",
+              "template_vars": "={{ {\n\"RULES\": $('set_workflow_vars').item.json.RULES,\n\"EXTRA_PROMPT\": $('main_trigger').item.json.EXTRA_PROMPT,\n\"CONTENT\": $('main_trigger').item.json.CONTENT,\n\"VARIETY_DIRECTIVES\": $('set_variety_directives').item.json.VARIETY_DIRECTIVES,\n\"FEEDBACK\": $('main_trigger').item.json.FEEDBACK || \"\",\n} }}",
               "template_name": "prompts/linkedin_post.md"
             },
             "matchingColumns": [],
@@ -354,7 +354,7 @@
           "workflowInputs": {
             "mappingMode": "defineBelow",
             "value": {
-              "template_vars": "={{ {\n\"RULES\": $('set_workflow_vars').item.json.RULES,\n\"EXTRA_PROMPT\": $('main_trigger').item.json.EXTRA_PROMPT,\n\"URL\": $('main_trigger').item.json.URL,\n\"TEXT\": $json.text,\n\"VARIETY_DIRECTIVES\": $('set_variety_directives').item.json.VARIETY_DIRECTIVES,\n} }}",
+              "template_vars": "={{ {\n\"RULES\": $('set_workflow_vars').item.json.RULES,\n\"EXTRA_PROMPT\": $('main_trigger').item.json.EXTRA_PROMPT,\n\"URL\": $('main_trigger').item.json.URL,\n\"TEXT\": $json.text,\n\"VARIETY_DIRECTIVES\": $('set_variety_directives').item.json.VARIETY_DIRECTIVES,\n\"FEEDBACK\": $('main_trigger').item.json.FEEDBACK || \"\",\n} }}",
               "template_name": "prompts/linkedin_post_review.md"
             },
             "matchingColumns": [],
@@ -464,6 +464,9 @@
               },
               {
                 "name": "ENABLE_CHECK"
+              },
+              {
+                "name": "FEEDBACK"
               }
             ]
           }
@@ -1379,7 +1382,7 @@
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "template_vars": "={{ {\n\"RULES\": $('set_workflow_vars').item.json.RULES,\n\"EXTRA_PROMPT\": $('main_trigger').item.json.EXTRA_PROMPT,\n\"CONTENT\": $('main_trigger').item.json.CONTENT,\n\"VARIETY_DIRECTIVES\": $('set_variety_directives').item.json.VARIETY_DIRECTIVES,\n} }}",
+            "template_vars": "={{ {\n\"RULES\": $('set_workflow_vars').item.json.RULES,\n\"EXTRA_PROMPT\": $('main_trigger').item.json.EXTRA_PROMPT,\n\"CONTENT\": $('main_trigger').item.json.CONTENT,\n\"VARIETY_DIRECTIVES\": $('set_variety_directives').item.json.VARIETY_DIRECTIVES,\n\"FEEDBACK\": $('main_trigger').item.json.FEEDBACK || \"\",\n} }}",
             "template_name": "prompts/linkedin_post.md"
           },
           "matchingColumns": [],
@@ -1479,7 +1482,7 @@
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "template_vars": "={{ {\n\"RULES\": $('set_workflow_vars').item.json.RULES,\n\"EXTRA_PROMPT\": $('main_trigger').item.json.EXTRA_PROMPT,\n\"URL\": $('main_trigger').item.json.URL,\n\"TEXT\": $json.text,\n\"VARIETY_DIRECTIVES\": $('set_variety_directives').item.json.VARIETY_DIRECTIVES,\n} }}",
+            "template_vars": "={{ {\n\"RULES\": $('set_workflow_vars').item.json.RULES,\n\"EXTRA_PROMPT\": $('main_trigger').item.json.EXTRA_PROMPT,\n\"URL\": $('main_trigger').item.json.URL,\n\"TEXT\": $json.text,\n\"VARIETY_DIRECTIVES\": $('set_variety_directives').item.json.VARIETY_DIRECTIVES,\n\"FEEDBACK\": $('main_trigger').item.json.FEEDBACK || \"\",\n} }}",
             "template_name": "prompts/linkedin_post_review.md"
           },
           "matchingColumns": [],
@@ -1589,6 +1592,9 @@
             },
             {
               "name": "ENABLE_CHECK"
+            },
+            {
+              "name": "FEEDBACK"
             }
           ]
         }

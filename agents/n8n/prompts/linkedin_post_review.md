@@ -27,6 +27,14 @@ Assigned to this specific post. It MUST follow them in spirit — a reasonable a
 
 {{ VARIETY_DIRECTIVES }}
 
+## Reviewer Feedback
+
+HIGHEST PRIORITY. A human rejected a previous draft and asked for these changes. The text passes only if it applies them. Where the feedback conflicts with a criterion above, the feedback wins and the criterion it overrides is not a failure. If the block is empty, ignore this section.
+
+<feedback>
+{{ FEEDBACK }}
+</feedback>
+
 ## Actual input
 
 <url>{{ URL }}</url>

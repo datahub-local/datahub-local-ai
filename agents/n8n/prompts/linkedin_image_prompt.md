@@ -67,6 +67,14 @@ Return only this, including only the tags for the chosen mode:
 <mermaid>Diagram only: raw Mermaid code, no code fences.</mermaid>
 </visual>
 
+## Reviewer Feedback
+
+HIGHEST PRIORITY. A human rejected the previous image and asked for these changes. Apply every one of them. Where the feedback conflicts with any constraint, step or rule above, the feedback wins. If the block is empty, ignore this section.
+
+<feedback>
+{{ FEEDBACK }}
+</feedback>
+
 ## Input Content
 
 <linkedin_post>

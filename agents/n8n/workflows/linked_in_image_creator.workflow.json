@@ -55,6 +55,12 @@
                 "name": "TEXT_MODEL_FALLBACK",
                 "value": "xiaomi/mimo-v2.5:nitro",
                 "type": "string"
+              },
+              {
+                "id": "f1a7c204-9b36-4e58-8d21-6a0f3c95e7b8",
+                "name": "FEEDBACK",
+                "value": "={{ $json.FEEDBACK || \"\" }}",
+                "type": "string"
               }
             ]
           },
@@ -111,6 +117,9 @@
               },
               {
                 "name": "IMAGE_RESOLUTION"
+              },
+              {
+                "name": "FEEDBACK"
               }
             ]
           }
@@ -136,7 +145,7 @@
           "workflowInputs": {
             "mappingMode": "defineBelow",
             "value": {
-              "template_vars": "={{ {\n\"POST_CONTENT\": $('set_workflow_vars').item.json.POST_CONTENT,\n\"IMAGE_ASPECT_RATIO\": $('set_workflow_vars').item.json.IMAGE_ASPECT_RATIO,\n\"SUBJECT_MOTIFS\": $('parse_image_motifs').first().json.SUBJECT_MOTIFS,\n\"ART_DIRECTION\": [\n'cinematic 3D render: near-black background, one glowing focal object, volumetric light, subtle depth of field',\n'dramatic macro photography of a physical metaphor: shallow depth of field, moody studio lighting, dark backdrop',\n'isometric miniature scene: highly detailed tiny world on a dark backdrop, single saturated accent color',\n'retro-futurist poster: bold flat shapes, heavy grain texture, strong diagonal composition, two-color palette',\n'blueprint noir: dark navy technical blueprint background, precise white and cyan line work, one orange highlighted element',\n'glass-and-neon minimalism: translucent 3D glass shapes on near-black, one neon accent color, soft reflections',\n'papercraft diorama: layered cut-paper scene, strong directional shadows, one saturated accent color on a dark base',\n'chalk on black slate: expressive hand-drawn strokes, white chalk with a single element in vivid colored chalk'\n][Math.floor(Math.random() * 8)]\n} }}",
+              "template_vars": "={{ {\n\"POST_CONTENT\": $('set_workflow_vars').item.json.POST_CONTENT,\n\"IMAGE_ASPECT_RATIO\": $('set_workflow_vars').item.json.IMAGE_ASPECT_RATIO,\n\"SUBJECT_MOTIFS\": $('parse_image_motifs').first().json.SUBJECT_MOTIFS,\n\"ART_DIRECTION\": [\n'cinematic 3D render: near-black background, one glowing focal object, volumetric light, subtle depth of field',\n'dramatic macro photography of a physical metaphor: shallow depth of field, moody studio lighting, dark backdrop',\n'isometric miniature scene: highly detailed tiny world on a dark backdrop, single saturated accent color',\n'retro-futurist poster: bold flat shapes, heavy grain texture, strong diagonal composition, two-color palette',\n'blueprint noir: dark navy technical blueprint background, precise white and cyan line work, one orange highlighted element',\n'glass-and-neon minimalism: translucent 3D glass shapes on near-black, one neon accent color, soft reflections',\n'papercraft diorama: layered cut-paper scene, strong directional shadows, one saturated accent color on a dark base',\n'chalk on black slate: expressive hand-drawn strokes, white chalk with a single element in vivid colored chalk'\n][Math.floor(Math.random() * 8)],\n\"FEEDBACK\": $('set_workflow_vars').item.json.FEEDBACK,\n} }}",
               "template_name": "prompts/linkedin_image_prompt.md"
             },
             "matchingColumns": [],
@@ -780,6 +789,12 @@
               "name": "TEXT_MODEL_FALLBACK",
               "value": "xiaomi/mimo-v2.5:nitro",
               "type": "string"
+            },
+            {
+              "id": "f1a7c204-9b36-4e58-8d21-6a0f3c95e7b8",
+              "name": "FEEDBACK",
+              "value": "={{ $json.FEEDBACK || \"\" }}",
+              "type": "string"
             }
           ]
         },
@@ -836,6 +851,9 @@
             },
             {
               "name": "IMAGE_RESOLUTION"
+            },
+            {
+              "name": "FEEDBACK"
             }
           ]
         }
@@ -861,7 +879,7 @@
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "template_vars": "={{ {\n\"POST_CONTENT\": $('set_workflow_vars').item.json.POST_CONTENT,\n\"IMAGE_ASPECT_RATIO\": $('set_workflow_vars').item.json.IMAGE_ASPECT_RATIO,\n\"SUBJECT_MOTIFS\": $('parse_image_motifs').first().json.SUBJECT_MOTIFS,\n\"ART_DIRECTION\": [\n'cinematic 3D render: near-black background, one glowing focal object, volumetric light, subtle depth of field',\n'dramatic macro photography of a physical metaphor: shallow depth of field, moody studio lighting, dark backdrop',\n'isometric miniature scene: highly detailed tiny world on a dark backdrop, single saturated accent color',\n'retro-futurist poster: bold flat shapes, heavy grain texture, strong diagonal composition, two-color palette',\n'blueprint noir: dark navy technical blueprint background, precise white and cyan line work, one orange highlighted element',\n'glass-and-neon minimalism: translucent 3D glass shapes on near-black, one neon accent color, soft reflections',\n'papercraft diorama: layered cut-paper scene, strong directional shadows, one saturated accent color on a dark base',\n'chalk on black slate: expressive hand-drawn strokes, white chalk with a single element in vivid colored chalk'\n][Math.floor(Math.random() * 8)]\n} }}",
+            "template_vars": "={{ {\n\"POST_CONTENT\": $('set_workflow_vars').item.json.POST_CONTENT,\n\"IMAGE_ASPECT_RATIO\": $('set_workflow_vars').item.json.IMAGE_ASPECT_RATIO,\n\"SUBJECT_MOTIFS\": $('parse_image_motifs').first().json.SUBJECT_MOTIFS,\n\"ART_DIRECTION\": [\n'cinematic 3D render: near-black background, one glowing focal object, volumetric light, subtle depth of field',\n'dramatic macro photography of a physical metaphor: shallow depth of field, moody studio lighting, dark backdrop',\n'isometric miniature scene: highly detailed tiny world on a dark backdrop, single saturated accent color',\n'retro-futurist poster: bold flat shapes, heavy grain texture, strong diagonal composition, two-color palette',\n'blueprint noir: dark navy technical blueprint background, precise white and cyan line work, one orange highlighted element',\n'glass-and-neon minimalism: translucent 3D glass shapes on near-black, one neon accent color, soft reflections',\n'papercraft diorama: layered cut-paper scene, strong directional shadows, one saturated accent color on a dark base',\n'chalk on black slate: expressive hand-drawn strokes, white chalk with a single element in vivid colored chalk'\n][Math.floor(Math.random() * 8)],\n\"FEEDBACK\": $('set_workflow_vars').item.json.FEEDBACK,\n} }}",
             "template_name": "prompts/linkedin_image_prompt.md"
           },
           "matchingColumns": [],

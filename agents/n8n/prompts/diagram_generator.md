@@ -27,4 +27,12 @@ Use Diagram Type as the base label, Diagram Description for essential structure 
 "[DIAGRAM_TYPE] diagram of [TOPIC_SUMMARY]. Show up to 4-6 key items only. [Short structural/layout instruction]. [If flow matters, DAG notation: A -> B -> C; branching as Start -> Decision, Decision(Yes) -> Outcome A, Decision(No) -> Outcome B]. [Only explicitly mapped notes/callouts, attached to their nodes or edges]. Style: [VISUAL_STYLE]. Palette: [COLOR_PRESET]. Clean vector diagram, crisp labels."
 ```
 
+## Reviewer Feedback
+
+HIGHEST PRIORITY. A human rejected the previous prompt and asked for these changes. Apply every one of them. Where the feedback conflicts with any input, rule or output format above, the feedback wins. If the block is empty, ignore this section.
+
+<feedback>
+{{FEEDBACK}}
+</feedback>
+
 Now generate the image prompt for the inputs above.

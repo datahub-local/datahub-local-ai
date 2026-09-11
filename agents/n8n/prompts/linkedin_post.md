@@ -97,6 +97,14 @@ Source here: SOME_URL
 #DataGovernance #ModernDataStack #DataArchitecture
 </output>
 
+## Reviewer Feedback
+
+HIGHEST PRIORITY. A human rejected the previous draft and asked for these changes. Apply every one of them. Where the feedback conflicts with anything above -- the rules, the extra rules, the variety directives, the examples -- the feedback wins. If the block is empty, ignore this section.
+
+<feedback>
+{{ FEEDBACK }}
+</feedback>
+
 ## Actual Input
 
 <content>

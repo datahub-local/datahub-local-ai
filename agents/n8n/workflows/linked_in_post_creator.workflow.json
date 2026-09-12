@@ -1,10 +1,22 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "50e80a34-04dc-4c9a-ae59-ce09043c015d",
+    "versionId": "3688962b-43f6-4e4c-9368-e9558e08a01f",
     "workflowId": "PaeHFdCsdoVbQx11",
     "nodes": [
       {
+        "id": "aedd481c-fff5-417a-a202-f697005601a6",
+        "name": "create_post_ai",
+        "type": "@n8n/n8n-nodes-langchain.chainLlm",
+        "typeVersion": 1.6,
+        "alwaysOutputData": false,
+        "retryOnFail": true,
+        "maxTries": 5,
+        "waitBetweenTries": 5000,
+        "position": [
+          -15424,
+          -928
+        ],
         "parameters": {
           "promptType": "define",
           "text": "={{ $('download_post_prompt').item.json.output }}",
@@ -16,39 +28,35 @@
               }
             ]
           }
-        },
-        "type": "@n8n/n8n-nodes-langchain.chainLlm",
-        "typeVersion": 1.6,
-        "position": [
-          -15424,
-          -928
-        ],
-        "id": "aedd481c-fff5-417a-a202-f697005601a6",
-        "name": "create_post_ai",
-        "alwaysOutputData": false,
-        "retryOnFail": true,
-        "waitBetweenTries": 5000,
-        "maxTries": 5
+        }
       },
       {
-        "parameters": {
-          "promptType": "define",
-          "text": "={{ $('download_post_review_prompt').item.json.output }}",
-          "needsFallback": true
-        },
+        "id": "4fcc2aad-e372-45ce-a595-1ff7af6ee2ad",
+        "name": "check_rules_llm",
         "type": "@n8n/n8n-nodes-langchain.chainLlm",
         "typeVersion": 1.6,
+        "retryOnFail": true,
+        "maxTries": 5,
+        "waitBetweenTries": 5000,
         "position": [
           -14400,
           -912
         ],
-        "id": "4fcc2aad-e372-45ce-a595-1ff7af6ee2ad",
-        "name": "check_rules_llm",
-        "retryOnFail": true,
-        "waitBetweenTries": 5000,
-        "maxTries": 5
+        "parameters": {
+          "promptType": "define",
+          "text": "={{ $('download_post_review_prompt').item.json.output }}",
+          "needsFallback": true
+        }
       },
       {
+        "id": "d36aa02f-3279-4793-bf0c-28d0fa4298b1",
+        "name": "switch_check_rules_llm",
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.2,
+        "position": [
+          -13824,
+          -864
+        ],
         "parameters": {
           "rules": {
             "values": [
@@ -101,17 +109,17 @@
           "options": {
             "fallbackOutput": "extra"
           }
-        },
-        "type": "n8n-nodes-base.switch",
-        "typeVersion": 3.2,
-        "position": [
-          -13824,
-          -864
-        ],
-        "id": "d36aa02f-3279-4793-bf0c-28d0fa4298b1",
-        "name": "switch_check_rules_llm"
+        }
       },
       {
+        "id": "907dc5e4-349f-4b7b-a0db-a23ed12f1fff",
+        "name": "set_error_max_tries",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          -13600,
+          -800
+        ],
         "parameters": {
           "assignments": {
             "assignments": [
@@ -124,17 +132,17 @@
             ]
           },
           "options": {}
-        },
+        }
+      },
+      {
+        "id": "9c1913df-41ee-4b51-82e4-f1a0eed82c64",
+        "name": "set_workflow_vars",
         "type": "n8n-nodes-base.set",
         "typeVersion": 3.4,
         "position": [
-          -13600,
-          -800
+          -16896,
+          -928
         ],
-        "id": "907dc5e4-349f-4b7b-a0db-a23ed12f1fff",
-        "name": "set_error_max_tries"
-      },
-      {
         "parameters": {
           "assignments": {
             "assignments": [
@@ -190,30 +198,30 @@
           },
           "includeOtherFields": true,
           "options": {}
-        },
-        "type": "n8n-nodes-base.set",
-        "typeVersion": 3.4,
-        "position": [
-          -16896,
-          -928
-        ],
-        "id": "9c1913df-41ee-4b51-82e4-f1a0eed82c64",
-        "name": "set_workflow_vars"
+        }
       },
       {
-        "parameters": {
-          "jsCode": "// Randomly pick variety directives so consecutive posts never share the same shape.\n// Duplicated entries act as weights.\nconst pick = (arr) => arr[Math.floor(Math.random() * arr.length)];\n\n// Content-aware hook eligibility. Some hook archetypes presuppose material that\n// isn't in every source: NEWS REACTION needs an actual announcement, HARD NUMBER\n// needs a concrete figure. classify_content inspects the source and flags both,\n// so a hook the content cannot support is never assigned (which would otherwise\n// force the writer off-source and get the post rejected by the reviewer).\nconst classification = $('classify_content').item.json.text || '';\nconst flag = (name) => new RegExp('\"' + name + '\"\\\\s*:\\\\s*true').test(classification);\nconst isNews = flag('is_news');\nconst hasHardNumber = flag('has_hard_number');\n\n// These four archetypes work on any content.\nconst hooks = [\n  'CONTRARIAN CLAIM: open with a blunt statement that challenges accepted practice',\n  'WAR STORY: open with a concrete incident or observation from production work',\n  'MISCONCEPTION: open by naming a common misconception and correcting it',\n  'TRADE-OFF: open by framing the underlying trade-off most people ignore',\n];\n// These two are only eligible when the source actually supports them.\nif (isNews) hooks.push('NEWS REACTION: open with your immediate, opinionated take on the announcement or release');\nif (hasHardNumber) hooks.push('HARD NUMBER: open with a specific figure, cost, or metric and why it matters');\n\nconst hook = pick(hooks);\n\nconst format = pick([\n  'PURE PROSE: no bullet points at all, 3-5 flowing paragraphs',\n  'PURE PROSE: no bullet points at all, 3-5 flowing paragraphs',\n  'PUNCHY: several very short paragraphs, at least two of them a single sentence',\n  'PUNCHY: several very short paragraphs, at least two of them a single sentence',\n  'ONE BULLET BLOCK: exactly one bullet list of 3-4 short items, with prose before and after',\n]);\n\n// The word target is a point inside [MIN_WORDS, MAX_WORDS], not a percentage of MAX.\n// A percentage of MAX can fall below MIN - 40% of 300 is 120 against a minimum of 180 -\n// and the directives are declared MANDATORY in the prompt, so the model follows the\n// contradiction down and writes short.\nconst MIN_WORDS = $('main_trigger').first().json.MIN_WORDS || 150;\nconst MAX_WORDS = $('main_trigger').first().json.MAX_WORDS || 200;\nconst span = Math.max(0, MAX_WORDS - MIN_WORDS);\nconst target = (frac) => Math.round(MIN_WORDS + span * frac);\n\nconst lengthBand = pick([\n  ['SHORT', 0.15],\n  ['MEDIUM', 0.5],\n  ['MEDIUM', 0.5],\n  ['FULL', 0.9],\n]);\nconst length = lengthBand[0] + ': aim for about ' + target(lengthBand[1]) +\n  ' words, never fewer than ' + MIN_WORDS + ' and never more than ' + MAX_WORDS;\n\nconst closing = pick([\n  'DIRECT QUESTION: end the body with one specific question to technical peers',\n  'DIRECT QUESTION: end the body with one specific question to technical peers',\n  'SHARED EXPERIENCE: end by inviting others to share how they handle it, phrased as a statement, no question mark',\n  'HOT TAKE: end the body on a blunt one-line statement, no question, no invitation',\n  'HOT TAKE: end the body on a blunt one-line statement, no question, no invitation',\n  'NONE: end when the argument is complete, with no closing question or invitation',\n]);\n\nconst VARIETY_DIRECTIVES = [\n  `- Hook — ${hook}.`,\n  `- Format — ${format}.`,\n  `- Length — ${length}.`,\n  `- Closing — ${closing}. The \"Source here\" line and hashtags always follow the body regardless.`,\n].join('\\n');\n\nreturn [{ json: { ...$input.first().json, VARIETY_DIRECTIVES } }];\n"
-        },
+        "id": "dd1dfb5f-278f-463a-abce-4b97ebb7c81a",
+        "name": "set_variety_directives",
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
           -16096,
           -928
         ],
-        "id": "dd1dfb5f-278f-463a-abce-4b97ebb7c81a",
-        "name": "set_variety_directives"
+        "parameters": {
+          "jsCode": "// Randomly pick variety directives so consecutive posts never share the same shape.\n// Duplicated entries act as weights.\nconst pick = (arr) => arr[Math.floor(Math.random() * arr.length)];\n\n// Content-aware hook eligibility. Some hook archetypes presuppose material that\n// isn't in every source: NEWS REACTION needs an actual announcement, HARD NUMBER\n// needs a concrete figure. classify_content inspects the source and flags both,\n// so a hook the content cannot support is never assigned (which would otherwise\n// force the writer off-source and get the post rejected by the reviewer).\nconst classification = $('classify_content').item.json.text || '';\nconst flag = (name) => new RegExp('\"' + name + '\"\\\\s*:\\\\s*true').test(classification);\nconst isNews = flag('is_news');\nconst hasHardNumber = flag('has_hard_number');\n\n// These four archetypes work on any content.\nconst hooks = [\n  'CONTRARIAN CLAIM: open with a blunt statement that challenges accepted practice',\n  'WAR STORY: open with a concrete incident or observation from production work',\n  'MISCONCEPTION: open by naming a common misconception and correcting it',\n  'TRADE-OFF: open by framing the underlying trade-off most people ignore',\n];\n// These two are only eligible when the source actually supports them.\nif (isNews) hooks.push('NEWS REACTION: open with your immediate, opinionated take on the announcement or release');\nif (hasHardNumber) hooks.push('HARD NUMBER: open with a specific figure, cost, or metric and why it matters');\n\nconst hook = pick(hooks);\n\nconst format = pick([\n  'PURE PROSE: no bullet points at all, 3-5 flowing paragraphs',\n  'PURE PROSE: no bullet points at all, 3-5 flowing paragraphs',\n  'PUNCHY: several very short paragraphs, at least two of them a single sentence',\n  'PUNCHY: several very short paragraphs, at least two of them a single sentence',\n  'ONE BULLET BLOCK: exactly one bullet list of 3-4 short items, with prose before and after',\n]);\n\n// The word target is a point inside [MIN_WORDS, MAX_WORDS], not a percentage of MAX.\n// A percentage of MAX can fall below MIN - 40% of 300 is 120 against a minimum of 180 -\n// and the directives are declared MANDATORY in the prompt, so the model follows the\n// contradiction down and writes short.\nconst MIN_WORDS = $('main_trigger').first().json.MIN_WORDS || 150;\nconst MAX_WORDS = $('main_trigger').first().json.MAX_WORDS || 200;\nconst span = Math.max(0, MAX_WORDS - MIN_WORDS);\nconst target = (frac) => Math.round(MIN_WORDS + span * frac);\n\nconst lengthBand = pick([\n  ['SHORT', 0.15],\n  ['MEDIUM', 0.5],\n  ['MEDIUM', 0.5],\n  ['FULL', 0.9],\n]);\nconst length = lengthBand[0] + ': aim for about ' + target(lengthBand[1]) +\n  ' words, never fewer than ' + MIN_WORDS + ' and never more than ' + MAX_WORDS;\n\nconst closing = pick([\n  'DIRECT QUESTION: end the body with one specific question to technical peers',\n  'DIRECT QUESTION: end the body with one specific question to technical peers',\n  'SHARED EXPERIENCE: end by inviting others to share how they handle it, phrased as a statement, no question mark',\n  'HOT TAKE: end the body on a blunt one-line statement, no question, no invitation',\n  'HOT TAKE: end the body on a blunt one-line statement, no question, no invitation',\n  'NONE: end when the argument is complete, with no closing question or invitation',\n]);\n\nconst VARIETY_DIRECTIVES = [\n  `- Hook — ${hook}.`,\n  `- Format — ${format}.`,\n  `- Length — ${length}.`,\n  `- Closing — ${closing}. The \"Source here\" line and hashtags always follow the body regardless.`,\n].join('\\n');\n\nreturn [{ json: { ...$input.first().json, VARIETY_DIRECTIVES } }];\n"
+        }
       },
       {
+        "id": "55f8def3-33b7-4715-87c4-1d01803bb358",
+        "name": "set_output",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          -13600,
+          -1024
+        ],
         "parameters": {
           "assignments": {
             "assignments": [
@@ -232,17 +240,17 @@
             ]
           },
           "options": {}
-        },
-        "type": "n8n-nodes-base.set",
-        "typeVersion": 3.4,
-        "position": [
-          -13600,
-          -1024
-        ],
-        "id": "55f8def3-33b7-4715-87c4-1d01803bb358",
-        "name": "set_output"
+        }
       },
       {
+        "id": "0aa35d43-7472-4ebe-b5e6-bc0213d3be0d",
+        "name": "download_post_prompt",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          -15872,
+          -928
+        ],
         "parameters": {
           "workflowId": {
             "__rl": true,
@@ -282,17 +290,17 @@
             "convertFieldsToString": true
           },
           "options": {}
-        },
+        }
+      },
+      {
+        "id": "4dfca31e-e087-47e5-a40a-31f8d481010e",
+        "name": "download_post_system_prompt",
         "type": "n8n-nodes-base.executeWorkflow",
         "typeVersion": 1.2,
         "position": [
-          -15872,
+          -15648,
           -928
         ],
-        "id": "0aa35d43-7472-4ebe-b5e6-bc0213d3be0d",
-        "name": "download_post_prompt"
-      },
-      {
         "parameters": {
           "workflowId": {
             "__rl": true,
@@ -332,17 +340,17 @@
             "convertFieldsToString": true
           },
           "options": {}
-        },
+        }
+      },
+      {
+        "id": "6549c8a4-f260-407b-9e20-df8f5c4800fb",
+        "name": "download_post_review_prompt",
         "type": "n8n-nodes-base.executeWorkflow",
         "typeVersion": 1.2,
         "position": [
-          -15648,
-          -928
+          -14624,
+          -912
         ],
-        "id": "4dfca31e-e087-47e5-a40a-31f8d481010e",
-        "name": "download_post_system_prompt"
-      },
-      {
         "parameters": {
           "workflowId": {
             "__rl": true,
@@ -382,17 +390,17 @@
             "convertFieldsToString": true
           },
           "options": {}
-        },
+        }
+      },
+      {
+        "id": "eca73597-562f-4bff-bbf0-520daa48a3f1",
+        "name": "download_post_rules_prompt",
         "type": "n8n-nodes-base.executeWorkflow",
         "typeVersion": 1.2,
         "position": [
-          -14624,
-          -912
+          -17120,
+          -928
         ],
-        "id": "6549c8a4-f260-407b-9e20-df8f5c4800fb",
-        "name": "download_post_review_prompt"
-      },
-      {
         "parameters": {
           "workflowId": {
             "__rl": true,
@@ -431,17 +439,17 @@
             "convertFieldsToString": true
           },
           "options": {}
-        },
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.2,
-        "position": [
-          -17120,
-          -928
-        ],
-        "id": "eca73597-562f-4bff-bbf0-520daa48a3f1",
-        "name": "download_post_rules_prompt"
+        }
       },
       {
+        "id": "d0893749-0b1d-40a2-89c9-d77865da1eb9",
+        "name": "main_trigger",
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          -17344,
+          -928
+        ],
         "parameters": {
           "workflowInputs": {
             "values": [
@@ -470,30 +478,30 @@
               }
             ]
           }
-        },
-        "type": "n8n-nodes-base.executeWorkflowTrigger",
-        "typeVersion": 1.1,
-        "position": [
-          -17344,
-          -928
-        ],
-        "id": "d0893749-0b1d-40a2-89c9-d77865da1eb9",
-        "name": "main_trigger"
+        }
       },
       {
-        "parameters": {
-          "jsCode": "for (const item of $input.all()) {\n  const { text } = item.json;\n\n  const output = text.includes('<output>') && text.includes('</output>')\n    ? text.split('<output>')[1].split('</output>')[0]\n    : 'false';\n  \n  item.json.output = output;\n}\n\nreturn $input.all();"
-        },
+        "id": "f2e0538b-696e-49d4-9312-696c1433fc58",
+        "name": "parse_llm_check_output",
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
           -14048,
           -912
         ],
-        "id": "f2e0538b-696e-49d4-9312-696c1433fc58",
-        "name": "parse_llm_check_output"
+        "parameters": {
+          "jsCode": "for (const item of $input.all()) {\n  const { text } = item.json;\n\n  const output = text.includes('<output>') && text.includes('</output>')\n    ? text.split('<output>')[1].split('</output>')[0]\n    : 'false';\n  \n  item.json.output = output;\n}\n\nreturn $input.all();"
+        }
       },
       {
+        "id": "d4767c7e-0170-4a2e-9638-7c749d3c5811",
+        "name": "if_enabled_check",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          -14848,
+          -992
+        ],
         "parameters": {
           "conditions": {
             "options": {
@@ -518,31 +526,23 @@
           },
           "looseTypeValidation": true,
           "options": {}
-        },
-        "type": "n8n-nodes-base.if",
-        "typeVersion": 2.2,
-        "position": [
-          -14848,
-          -992
-        ],
-        "id": "d4767c7e-0170-4a2e-9638-7c749d3c5811",
-        "name": "if_enabled_check"
+        }
       },
       {
-        "parameters": {
-          "model": "={{ $('set_workflow_vars').item.json.MODEL_FALLBACK }}",
-          "options": {
-            "maxRetries": 5
-          }
-        },
+        "id": "500e2c45-a17f-46ee-8a97-68a57492b087",
+        "name": "ai_model_fallback",
         "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
         "typeVersion": 1,
         "position": [
           -16312,
           -696
         ],
-        "id": "500e2c45-a17f-46ee-8a97-68a57492b087",
-        "name": "ai_model_fallback",
+        "parameters": {
+          "model": "={{ $('set_workflow_vars').item.json.MODEL_FALLBACK }}",
+          "options": {
+            "maxRetries": 5
+          }
+        },
         "credentials": {
           "openRouterApi": {
             "id": "QBmSiBlACt26uQAX",
@@ -551,6 +551,14 @@
         }
       },
       {
+        "id": "76e77493-8cb9-41e8-9ea1-f73109c0375a",
+        "name": "download_post_classify_prompt",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          -16672,
+          -928
+        ],
         "parameters": {
           "workflowId": {
             "__rl": true,
@@ -590,49 +598,41 @@
             "convertFieldsToString": true
           },
           "options": {}
-        },
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.2,
-        "position": [
-          -16672,
-          -928
-        ],
-        "id": "76e77493-8cb9-41e8-9ea1-f73109c0375a",
-        "name": "download_post_classify_prompt"
+        }
       },
       {
-        "parameters": {
-          "promptType": "define",
-          "text": "={{ $('download_post_classify_prompt').item.json.output }}",
-          "needsFallback": true
-        },
+        "id": "07a801d5-8405-4d47-bcf8-21db01ef4e04",
+        "name": "classify_content",
         "type": "@n8n/n8n-nodes-langchain.chainLlm",
         "typeVersion": 1.6,
+        "retryOnFail": true,
+        "maxTries": 5,
+        "waitBetweenTries": 5000,
         "position": [
           -16448,
           -928
         ],
-        "id": "07a801d5-8405-4d47-bcf8-21db01ef4e04",
-        "name": "classify_content",
-        "retryOnFail": true,
-        "maxTries": 5,
-        "waitBetweenTries": 5000
+        "parameters": {
+          "promptType": "define",
+          "text": "={{ $('download_post_classify_prompt').item.json.output }}",
+          "needsFallback": true
+        }
       },
       {
-        "parameters": {
-          "model": "={{ $('set_workflow_vars').item.json.MODEL }}",
-          "options": {
-            "maxRetries": 5
-          }
-        },
+        "id": "08ca09dd-4f72-4084-9422-9986a34f99e9",
+        "name": "ai_model",
         "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
         "typeVersion": 1,
         "position": [
           -16440,
           -696
         ],
-        "id": "08ca09dd-4f72-4084-9422-9986a34f99e9",
-        "name": "ai_model",
+        "parameters": {
+          "model": "={{ $('set_workflow_vars').item.json.MODEL }}",
+          "options": {
+            "maxRetries": 5
+          }
+        },
         "credentials": {
           "openRouterApi": {
             "id": "QBmSiBlACt26uQAX",
@@ -641,17 +641,17 @@
         }
       },
       {
-        "parameters": {
-          "jsCode": "// n8n Code node — mode: \"Run Once for Each Item\"\n\nconst url = $('set_workflow_vars').item.json.URL;\nconst text = $json.text;\n\n// Pull the <output>...</output> block; fall back to the whole text if absent\nconst match = /<output>([\\s\\S]*?)<\\/output>/.exec(text);\nlet result = match ? match[1].trim() : text;\n\n// Apply the two replacements (function form = $-safe URLs)\nresult = result\n  .replace(/(Source here: ).*/g, (m, p1) => p1 + url)\n  .replace(/(.*): SOME_URL/g,   (m, p1) => p1 + ': ' + url);\n\nreturn { json: { ...$json, result } };"
-        },
+        "id": "b45f5127-085e-46b8-9243-225837a738cb",
+        "name": "parse_llm_output",
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
           -15072,
           -992
         ],
-        "id": "b45f5127-085e-46b8-9243-225837a738cb",
-        "name": "parse_llm_output"
+        "parameters": {
+          "jsCode": "// n8n Code node — mode: \"Run Once for Each Item\"\n\nconst url = $('set_workflow_vars').item.json.URL;\nconst text = $json.text;\n\n// Pull the <output>...</output> block; fall back to the whole text if absent\nconst match = /<output>([\\s\\S]*?)<\\/output>/.exec(text);\nlet result = match ? match[1].trim() : text;\n\n// Apply the two replacements (function form = $-safe URLs)\nresult = result\n  .replace(/(Source here: ).*/g, (m, p1) => p1 + url)\n  .replace(/(.*): SOME_URL/g,   (m, p1) => p1 + ': ' + url);\n\nreturn { json: { ...$json, result } };"
+        }
       }
     ],
     "connections": {
@@ -886,13 +886,13 @@
     },
     "nodeGroups": [],
     "authors": "no name",
-    "name": "Version 50e80a34",
-    "description": "",
-    "autosaved": true,
-    "createdAt": "2026-09-04T11:48:37.829Z",
-    "updatedAt": "2026-09-04T11:49:14.826Z"
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "createdAt": "2026-09-11T14:42:35.097Z",
+    "updatedAt": "2026-09-11T14:42:35.097Z"
   },
-  "activeVersionId": "50e80a34-04dc-4c9a-ae59-ce09043c015d",
+  "activeVersionId": "3688962b-43f6-4e4c-9368-e9558e08a01f",
   "connections": {
     "create_post_ai": {
       "main": [
@@ -1133,6 +1133,18 @@
   "nodeGroups": [],
   "nodes": [
     {
+      "id": "aedd481c-fff5-417a-a202-f697005601a6",
+      "name": "create_post_ai",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.6,
+      "alwaysOutputData": false,
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "position": [
+        -15424,
+        -928
+      ],
       "parameters": {
         "promptType": "define",
         "text": "={{ $('download_post_prompt').item.json.output }}",
@@ -1144,39 +1156,35 @@
             }
           ]
         }
-      },
-      "type": "@n8n/n8n-nodes-langchain.chainLlm",
-      "typeVersion": 1.6,
-      "position": [
-        -15424,
-        -928
-      ],
-      "id": "aedd481c-fff5-417a-a202-f697005601a6",
-      "name": "create_post_ai",
-      "alwaysOutputData": false,
-      "retryOnFail": true,
-      "waitBetweenTries": 5000,
-      "maxTries": 5
+      }
     },
     {
-      "parameters": {
-        "promptType": "define",
-        "text": "={{ $('download_post_review_prompt').item.json.output }}",
-        "needsFallback": true
-      },
+      "id": "4fcc2aad-e372-45ce-a595-1ff7af6ee2ad",
+      "name": "check_rules_llm",
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "typeVersion": 1.6,
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
       "position": [
         -14400,
         -912
       ],
-      "id": "4fcc2aad-e372-45ce-a595-1ff7af6ee2ad",
-      "name": "check_rules_llm",
-      "retryOnFail": true,
-      "waitBetweenTries": 5000,
-      "maxTries": 5
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('download_post_review_prompt').item.json.output }}",
+        "needsFallback": true
+      }
     },
     {
+      "id": "d36aa02f-3279-4793-bf0c-28d0fa4298b1",
+      "name": "switch_check_rules_llm",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -13824,
+        -864
+      ],
       "parameters": {
         "rules": {
           "values": [
@@ -1229,17 +1237,17 @@
         "options": {
           "fallbackOutput": "extra"
         }
-      },
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 3.2,
-      "position": [
-        -13824,
-        -864
-      ],
-      "id": "d36aa02f-3279-4793-bf0c-28d0fa4298b1",
-      "name": "switch_check_rules_llm"
+      }
     },
     {
+      "id": "907dc5e4-349f-4b7b-a0db-a23ed12f1fff",
+      "name": "set_error_max_tries",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -13600,
+        -800
+      ],
       "parameters": {
         "assignments": {
           "assignments": [
@@ -1252,17 +1260,17 @@
           ]
         },
         "options": {}
-      },
+      }
+    },
+    {
+      "id": "9c1913df-41ee-4b51-82e4-f1a0eed82c64",
+      "name": "set_workflow_vars",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        -13600,
-        -800
+        -16896,
+        -928
       ],
-      "id": "907dc5e4-349f-4b7b-a0db-a23ed12f1fff",
-      "name": "set_error_max_tries"
-    },
-    {
       "parameters": {
         "assignments": {
           "assignments": [
@@ -1318,30 +1326,30 @@
         },
         "includeOtherFields": true,
         "options": {}
-      },
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        -16896,
-        -928
-      ],
-      "id": "9c1913df-41ee-4b51-82e4-f1a0eed82c64",
-      "name": "set_workflow_vars"
+      }
     },
     {
-      "parameters": {
-        "jsCode": "// Randomly pick variety directives so consecutive posts never share the same shape.\n// Duplicated entries act as weights.\nconst pick = (arr) => arr[Math.floor(Math.random() * arr.length)];\n\n// Content-aware hook eligibility. Some hook archetypes presuppose material that\n// isn't in every source: NEWS REACTION needs an actual announcement, HARD NUMBER\n// needs a concrete figure. classify_content inspects the source and flags both,\n// so a hook the content cannot support is never assigned (which would otherwise\n// force the writer off-source and get the post rejected by the reviewer).\nconst classification = $('classify_content').item.json.text || '';\nconst flag = (name) => new RegExp('\"' + name + '\"\\\\s*:\\\\s*true').test(classification);\nconst isNews = flag('is_news');\nconst hasHardNumber = flag('has_hard_number');\n\n// These four archetypes work on any content.\nconst hooks = [\n  'CONTRARIAN CLAIM: open with a blunt statement that challenges accepted practice',\n  'WAR STORY: open with a concrete incident or observation from production work',\n  'MISCONCEPTION: open by naming a common misconception and correcting it',\n  'TRADE-OFF: open by framing the underlying trade-off most people ignore',\n];\n// These two are only eligible when the source actually supports them.\nif (isNews) hooks.push('NEWS REACTION: open with your immediate, opinionated take on the announcement or release');\nif (hasHardNumber) hooks.push('HARD NUMBER: open with a specific figure, cost, or metric and why it matters');\n\nconst hook = pick(hooks);\n\nconst format = pick([\n  'PURE PROSE: no bullet points at all, 3-5 flowing paragraphs',\n  'PURE PROSE: no bullet points at all, 3-5 flowing paragraphs',\n  'PUNCHY: several very short paragraphs, at least two of them a single sentence',\n  'PUNCHY: several very short paragraphs, at least two of them a single sentence',\n  'ONE BULLET BLOCK: exactly one bullet list of 3-4 short items, with prose before and after',\n]);\n\n// The word target is a point inside [MIN_WORDS, MAX_WORDS], not a percentage of MAX.\n// A percentage of MAX can fall below MIN - 40% of 300 is 120 against a minimum of 180 -\n// and the directives are declared MANDATORY in the prompt, so the model follows the\n// contradiction down and writes short.\nconst MIN_WORDS = $('main_trigger').first().json.MIN_WORDS || 150;\nconst MAX_WORDS = $('main_trigger').first().json.MAX_WORDS || 200;\nconst span = Math.max(0, MAX_WORDS - MIN_WORDS);\nconst target = (frac) => Math.round(MIN_WORDS + span * frac);\n\nconst lengthBand = pick([\n  ['SHORT', 0.15],\n  ['MEDIUM', 0.5],\n  ['MEDIUM', 0.5],\n  ['FULL', 0.9],\n]);\nconst length = lengthBand[0] + ': aim for about ' + target(lengthBand[1]) +\n  ' words, never fewer than ' + MIN_WORDS + ' and never more than ' + MAX_WORDS;\n\nconst closing = pick([\n  'DIRECT QUESTION: end the body with one specific question to technical peers',\n  'DIRECT QUESTION: end the body with one specific question to technical peers',\n  'SHARED EXPERIENCE: end by inviting others to share how they handle it, phrased as a statement, no question mark',\n  'HOT TAKE: end the body on a blunt one-line statement, no question, no invitation',\n  'HOT TAKE: end the body on a blunt one-line statement, no question, no invitation',\n  'NONE: end when the argument is complete, with no closing question or invitation',\n]);\n\nconst VARIETY_DIRECTIVES = [\n  `- Hook — ${hook}.`,\n  `- Format — ${format}.`,\n  `- Length — ${length}.`,\n  `- Closing — ${closing}. The \"Source here\" line and hashtags always follow the body regardless.`,\n].join('\\n');\n\nreturn [{ json: { ...$input.first().json, VARIETY_DIRECTIVES } }];\n"
-      },
+      "id": "dd1dfb5f-278f-463a-abce-4b97ebb7c81a",
+      "name": "set_variety_directives",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         -16096,
         -928
       ],
-      "id": "dd1dfb5f-278f-463a-abce-4b97ebb7c81a",
-      "name": "set_variety_directives"
+      "parameters": {
+        "jsCode": "// Randomly pick variety directives so consecutive posts never share the same shape.\n// Duplicated entries act as weights.\nconst pick = (arr) => arr[Math.floor(Math.random() * arr.length)];\n\n// Content-aware hook eligibility. Some hook archetypes presuppose material that\n// isn't in every source: NEWS REACTION needs an actual announcement, HARD NUMBER\n// needs a concrete figure. classify_content inspects the source and flags both,\n// so a hook the content cannot support is never assigned (which would otherwise\n// force the writer off-source and get the post rejected by the reviewer).\nconst classification = $('classify_content').item.json.text || '';\nconst flag = (name) => new RegExp('\"' + name + '\"\\\\s*:\\\\s*true').test(classification);\nconst isNews = flag('is_news');\nconst hasHardNumber = flag('has_hard_number');\n\n// These four archetypes work on any content.\nconst hooks = [\n  'CONTRARIAN CLAIM: open with a blunt statement that challenges accepted practice',\n  'WAR STORY: open with a concrete incident or observation from production work',\n  'MISCONCEPTION: open by naming a common misconception and correcting it',\n  'TRADE-OFF: open by framing the underlying trade-off most people ignore',\n];\n// These two are only eligible when the source actually supports them.\nif (isNews) hooks.push('NEWS REACTION: open with your immediate, opinionated take on the announcement or release');\nif (hasHardNumber) hooks.push('HARD NUMBER: open with a specific figure, cost, or metric and why it matters');\n\nconst hook = pick(hooks);\n\nconst format = pick([\n  'PURE PROSE: no bullet points at all, 3-5 flowing paragraphs',\n  'PURE PROSE: no bullet points at all, 3-5 flowing paragraphs',\n  'PUNCHY: several very short paragraphs, at least two of them a single sentence',\n  'PUNCHY: several very short paragraphs, at least two of them a single sentence',\n  'ONE BULLET BLOCK: exactly one bullet list of 3-4 short items, with prose before and after',\n]);\n\n// The word target is a point inside [MIN_WORDS, MAX_WORDS], not a percentage of MAX.\n// A percentage of MAX can fall below MIN - 40% of 300 is 120 against a minimum of 180 -\n// and the directives are declared MANDATORY in the prompt, so the model follows the\n// contradiction down and writes short.\nconst MIN_WORDS = $('main_trigger').first().json.MIN_WORDS || 150;\nconst MAX_WORDS = $('main_trigger').first().json.MAX_WORDS || 200;\nconst span = Math.max(0, MAX_WORDS - MIN_WORDS);\nconst target = (frac) => Math.round(MIN_WORDS + span * frac);\n\nconst lengthBand = pick([\n  ['SHORT', 0.15],\n  ['MEDIUM', 0.5],\n  ['MEDIUM', 0.5],\n  ['FULL', 0.9],\n]);\nconst length = lengthBand[0] + ': aim for about ' + target(lengthBand[1]) +\n  ' words, never fewer than ' + MIN_WORDS + ' and never more than ' + MAX_WORDS;\n\nconst closing = pick([\n  'DIRECT QUESTION: end the body with one specific question to technical peers',\n  'DIRECT QUESTION: end the body with one specific question to technical peers',\n  'SHARED EXPERIENCE: end by inviting others to share how they handle it, phrased as a statement, no question mark',\n  'HOT TAKE: end the body on a blunt one-line statement, no question, no invitation',\n  'HOT TAKE: end the body on a blunt one-line statement, no question, no invitation',\n  'NONE: end when the argument is complete, with no closing question or invitation',\n]);\n\nconst VARIETY_DIRECTIVES = [\n  `- Hook — ${hook}.`,\n  `- Format — ${format}.`,\n  `- Length — ${length}.`,\n  `- Closing — ${closing}. The \"Source here\" line and hashtags always follow the body regardless.`,\n].join('\\n');\n\nreturn [{ json: { ...$input.first().json, VARIETY_DIRECTIVES } }];\n"
+      }
     },
     {
+      "id": "55f8def3-33b7-4715-87c4-1d01803bb358",
+      "name": "set_output",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -13600,
+        -1024
+      ],
       "parameters": {
         "assignments": {
           "assignments": [
@@ -1360,17 +1368,17 @@
           ]
         },
         "options": {}
-      },
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        -13600,
-        -1024
-      ],
-      "id": "55f8def3-33b7-4715-87c4-1d01803bb358",
-      "name": "set_output"
+      }
     },
     {
+      "id": "0aa35d43-7472-4ebe-b5e6-bc0213d3be0d",
+      "name": "download_post_prompt",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -15872,
+        -928
+      ],
       "parameters": {
         "workflowId": {
           "__rl": true,
@@ -1410,17 +1418,17 @@
           "convertFieldsToString": true
         },
         "options": {}
-      },
+      }
+    },
+    {
+      "id": "4dfca31e-e087-47e5-a40a-31f8d481010e",
+      "name": "download_post_system_prompt",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        -15872,
+        -15648,
         -928
       ],
-      "id": "0aa35d43-7472-4ebe-b5e6-bc0213d3be0d",
-      "name": "download_post_prompt"
-    },
-    {
       "parameters": {
         "workflowId": {
           "__rl": true,
@@ -1460,17 +1468,17 @@
           "convertFieldsToString": true
         },
         "options": {}
-      },
+      }
+    },
+    {
+      "id": "6549c8a4-f260-407b-9e20-df8f5c4800fb",
+      "name": "download_post_review_prompt",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        -15648,
-        -928
+        -14624,
+        -912
       ],
-      "id": "4dfca31e-e087-47e5-a40a-31f8d481010e",
-      "name": "download_post_system_prompt"
-    },
-    {
       "parameters": {
         "workflowId": {
           "__rl": true,
@@ -1510,17 +1518,17 @@
           "convertFieldsToString": true
         },
         "options": {}
-      },
+      }
+    },
+    {
+      "id": "eca73597-562f-4bff-bbf0-520daa48a3f1",
+      "name": "download_post_rules_prompt",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        -14624,
-        -912
+        -17120,
+        -928
       ],
-      "id": "6549c8a4-f260-407b-9e20-df8f5c4800fb",
-      "name": "download_post_review_prompt"
-    },
-    {
       "parameters": {
         "workflowId": {
           "__rl": true,
@@ -1559,17 +1567,17 @@
           "convertFieldsToString": true
         },
         "options": {}
-      },
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        -17120,
-        -928
-      ],
-      "id": "eca73597-562f-4bff-bbf0-520daa48a3f1",
-      "name": "download_post_rules_prompt"
+      }
     },
     {
+      "id": "d0893749-0b1d-40a2-89c9-d77865da1eb9",
+      "name": "main_trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -17344,
+        -928
+      ],
       "parameters": {
         "workflowInputs": {
           "values": [
@@ -1598,30 +1606,30 @@
             }
           ]
         }
-      },
-      "type": "n8n-nodes-base.executeWorkflowTrigger",
-      "typeVersion": 1.1,
-      "position": [
-        -17344,
-        -928
-      ],
-      "id": "d0893749-0b1d-40a2-89c9-d77865da1eb9",
-      "name": "main_trigger"
+      }
     },
     {
-      "parameters": {
-        "jsCode": "for (const item of $input.all()) {\n  const { text } = item.json;\n\n  const output = text.includes('<output>') && text.includes('</output>')\n    ? text.split('<output>')[1].split('</output>')[0]\n    : 'false';\n  \n  item.json.output = output;\n}\n\nreturn $input.all();"
-      },
+      "id": "f2e0538b-696e-49d4-9312-696c1433fc58",
+      "name": "parse_llm_check_output",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         -14048,
         -912
       ],
-      "id": "f2e0538b-696e-49d4-9312-696c1433fc58",
-      "name": "parse_llm_check_output"
+      "parameters": {
+        "jsCode": "for (const item of $input.all()) {\n  const { text } = item.json;\n\n  const output = text.includes('<output>') && text.includes('</output>')\n    ? text.split('<output>')[1].split('</output>')[0]\n    : 'false';\n  \n  item.json.output = output;\n}\n\nreturn $input.all();"
+      }
     },
     {
+      "id": "d4767c7e-0170-4a2e-9638-7c749d3c5811",
+      "name": "if_enabled_check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -14848,
+        -992
+      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -1646,31 +1654,23 @@
         },
         "looseTypeValidation": true,
         "options": {}
-      },
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        -14848,
-        -992
-      ],
-      "id": "d4767c7e-0170-4a2e-9638-7c749d3c5811",
-      "name": "if_enabled_check"
+      }
     },
     {
-      "parameters": {
-        "model": "={{ $('set_workflow_vars').item.json.MODEL_FALLBACK }}",
-        "options": {
-          "maxRetries": 5
-        }
-      },
+      "id": "500e2c45-a17f-46ee-8a97-68a57492b087",
+      "name": "ai_model_fallback",
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
       "typeVersion": 1,
       "position": [
         -16312,
         -696
       ],
-      "id": "500e2c45-a17f-46ee-8a97-68a57492b087",
-      "name": "ai_model_fallback",
+      "parameters": {
+        "model": "={{ $('set_workflow_vars').item.json.MODEL_FALLBACK }}",
+        "options": {
+          "maxRetries": 5
+        }
+      },
       "credentials": {
         "openRouterApi": {
           "id": "QBmSiBlACt26uQAX",
@@ -1679,6 +1679,14 @@
       }
     },
     {
+      "id": "76e77493-8cb9-41e8-9ea1-f73109c0375a",
+      "name": "download_post_classify_prompt",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -16672,
+        -928
+      ],
       "parameters": {
         "workflowId": {
           "__rl": true,
@@ -1718,49 +1726,41 @@
           "convertFieldsToString": true
         },
         "options": {}
-      },
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        -16672,
-        -928
-      ],
-      "id": "76e77493-8cb9-41e8-9ea1-f73109c0375a",
-      "name": "download_post_classify_prompt"
+      }
     },
     {
-      "parameters": {
-        "promptType": "define",
-        "text": "={{ $('download_post_classify_prompt').item.json.output }}",
-        "needsFallback": true
-      },
+      "id": "07a801d5-8405-4d47-bcf8-21db01ef4e04",
+      "name": "classify_content",
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "typeVersion": 1.6,
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
       "position": [
         -16448,
         -928
       ],
-      "id": "07a801d5-8405-4d47-bcf8-21db01ef4e04",
-      "name": "classify_content",
-      "retryOnFail": true,
-      "maxTries": 5,
-      "waitBetweenTries": 5000
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('download_post_classify_prompt').item.json.output }}",
+        "needsFallback": true
+      }
     },
     {
-      "parameters": {
-        "model": "={{ $('set_workflow_vars').item.json.MODEL }}",
-        "options": {
-          "maxRetries": 5
-        }
-      },
+      "id": "08ca09dd-4f72-4084-9422-9986a34f99e9",
+      "name": "ai_model",
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
       "typeVersion": 1,
       "position": [
         -16440,
         -696
       ],
-      "id": "08ca09dd-4f72-4084-9422-9986a34f99e9",
-      "name": "ai_model",
+      "parameters": {
+        "model": "={{ $('set_workflow_vars').item.json.MODEL }}",
+        "options": {
+          "maxRetries": 5
+        }
+      },
       "credentials": {
         "openRouterApi": {
           "id": "QBmSiBlACt26uQAX",
@@ -1769,17 +1769,17 @@
       }
     },
     {
-      "parameters": {
-        "jsCode": "// n8n Code node — mode: \"Run Once for Each Item\"\n\nconst url = $('set_workflow_vars').item.json.URL;\nconst text = $json.text;\n\n// Pull the <output>...</output> block; fall back to the whole text if absent\nconst match = /<output>([\\s\\S]*?)<\\/output>/.exec(text);\nlet result = match ? match[1].trim() : text;\n\n// Apply the two replacements (function form = $-safe URLs)\nresult = result\n  .replace(/(Source here: ).*/g, (m, p1) => p1 + url)\n  .replace(/(.*): SOME_URL/g,   (m, p1) => p1 + ': ' + url);\n\nreturn { json: { ...$json, result } };"
-      },
+      "id": "b45f5127-085e-46b8-9243-225837a738cb",
+      "name": "parse_llm_output",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         -15072,
         -992
       ],
-      "id": "b45f5127-085e-46b8-9243-225837a738cb",
-      "name": "parse_llm_output"
+      "parameters": {
+        "jsCode": "// n8n Code node — mode: \"Run Once for Each Item\"\n\nconst url = $('set_workflow_vars').item.json.URL;\nconst text = $json.text;\n\n// Pull the <output>...</output> block; fall back to the whole text if absent\nconst match = /<output>([\\s\\S]*?)<\\/output>/.exec(text);\nlet result = match ? match[1].trim() : text;\n\n// Apply the two replacements (function form = $-safe URLs)\nresult = result\n  .replace(/(Source here: ).*/g, (m, p1) => p1 + url)\n  .replace(/(.*): SOME_URL/g,   (m, p1) => p1 + ': ' + url);\n\nreturn { json: { ...$json, result } };"
+      }
     }
   ],
   "pinData": {},
@@ -1802,6 +1802,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 0,
-  "updatedAt": "2026-09-04T11:48:37.838Z",
-  "versionId": "50e80a34-04dc-4c9a-ae59-ce09043c015d"
+  "updatedAt": "2026-09-11T14:42:35.093Z",
+  "versionId": "3688962b-43f6-4e4c-9368-e9558e08a01f"
 }

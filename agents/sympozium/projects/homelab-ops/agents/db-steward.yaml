@@ -34,6 +34,7 @@ mcpServers:
       - stream_health
       - metrics_store_health
       - volume_fill
+      - promql
   - name: datahub-local-core-automation-sympozium-mcp-postgres
     timeout: 30
     toolsPrefix: pg
@@ -51,6 +52,7 @@ toolPolicy:
     - facts_stream_health
     - facts_metrics_store_health
     - facts_volume_fill
+    - facts_promql
     - pg_analyze_db_health
     - pg_get_top_queries
     - memory_search

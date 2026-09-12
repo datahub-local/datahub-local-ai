@@ -45,6 +45,12 @@ mcpServers:
       - resources_create_or_update
       - resources_delete
       - resources_scale
+  - name: datahub-local-core-automation-sympozium-mcp-argocd
+    timeout: 30
+    toolsPrefix: argocd
+    toolsAllow:
+      - get_application
+      - get_application_events
 
 toolPolicy:
   allow:
@@ -57,6 +63,8 @@ toolPolicy:
     - k8s_events_list
     - k8s_pods_log
     - k8s_resources_list
+    - argocd_get_application
+    - argocd_get_application_events
     - memory_search
     - memory_store
   deny:

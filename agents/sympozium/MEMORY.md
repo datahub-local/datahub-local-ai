@@ -178,6 +178,64 @@ What this changes and what it does not:
   ensembles were still on Ollama and working. The move is one change rather than
   three for that reason.
 
+## The small-model posture was retired, the evidence guards were not (2026-09-12)
+
+The fleet is on the hosted model, so the parts of the design that existed only
+because a 4B model ran on one GPU were loosened. The parts that exist because the
+*runner* mishandles a failure were not touched, and the distinction is the whole
+change. See
+[`docs/specs/004-agents-hosted-model.md`](../../docs/specs/004-agents-hosted-model.md).
+
+What was relaxed:
+
+- **Lookup caps, three to six** (four to seven on a `semantic_*` question). The
+  cap-and-exit rule survives in every prompt; only the number moved. The exit
+  literals (`cause not determined`, `not found with <call>`) are unchanged.
+- **A reporter with `facts_promql` may write a complete expression.** Given the
+  literal expression rule always existed to stop a small model assembling a join
+  from prose, not to forbid the tool. Where a facts tool answers, the facts tool
+  is still the instruction.
+- **New read-only reach.** `sre-sentinel` gained the ArgoCD app tools,
+  `gitops-auditor` the GitHub read tools, `workload-watch` `resources_list` and
+  `facts_promql`, `db-steward` `facts_promql` back, `renovate-reviewer`
+  `github_search_code` and `argocd_get_application`. Every name was already
+  verified in this repository; the MCP repository is not checked out here, so rule
+  12 applies and no new name was inferred.
+- **`endpoint-warden` now reads what core instruments and nothing used**:
+  `node_apt_security_upgrades_pending`, `node_apt_upgrades_pending`,
+  `node_reboot_required`, `node_systemd_unit_state{state="failed"}` and
+  `node_pressure_io_stalled_seconds_total` — the "systemd and apt are instrumented
+  but unused" gap in this file, closed with the node-name join the node-exporter
+  section requires. EDAC was left out on purpose: this file records that
+  memory-error counters exist but never their metric names, and rule 12 forbids
+  writing one in from memory.
+
+What did not move, because none of it was a 4B workaround:
+
+- absence as a value, the no-clock rule, no arithmetic on top of two readings, the
+  `labelSelector` ban, literal tool names and arguments, the delivery split, no
+  `send_channel_message`, and the reviewer's read-then-write phasing.
+
+**One new guard came with the wider allowlists.** `templates/ensembles.yaml` now
+`fail`s the render when `mcpServers[].toolsAllow` and `toolPolicy.allow` disagree
+in either direction, with built-ins exempt. Drift between those two lists was the
+first row of the lost-checks table since the validator was deleted, it fails
+nothing, and it costs prompt budget on every call — so it belongs where the render
+can see it, not in a new validator. Verified by rendering a persona with an
+unregistered `toolPolicy` entry: the render fails and names the tool.
+
+**Delegation is not enabled, deliberately.** `workflowType: delegation` has never
+run on this control plane or model, and a failed delegated run ends `status:
+error`, so the `postRun` hook never fires and nothing arrives. All three ensembles
+stay `autonomous` until a hand-applied `AgentRun` shows `delegate_to_persona`
+returning a coherent child result; the probe is in spec 004, and the natural home
+is the responder, not a scheduled reporter.
+
+Still `[UNVERIFIED]` and to be measured before anything is treated as fixed: the
+effective context at the LiteLLM gateway (the 90K in `README.md` was the Ollama
+figure), and whether `runTimeout` or `MAX_TOOL_ITERATIONS` still bind now that the
+single-GPU queue is off the path.
+
 ---
 
 ## The model constrains the design

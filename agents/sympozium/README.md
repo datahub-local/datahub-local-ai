@@ -22,26 +22,37 @@ that does not say `enabled: true` deploys but never runs.
 
 ## Prompt and context budget
 
-The effective model context has a hard **90K-token maximum**. The prompt,
-registered tool schemas, every tool result, memory and final answer all share it.
-Treat it as a ceiling, not usable working space: leave room for results and the
-final answer. `toolsAllow` is therefore a context control as well as a
-permission control; never attach a server or tool a persona does not need.
+All three ensembles run on the LiteLLM gateway (`opencode-go/deepseek-v4.1-flash`,
+router fallback `opencode-go/glm-5.3-flash`), not on the cluster-local 4B model.
+The effective context is set by that gateway and is currently `[UNVERIFIED]` —
+the old 90K figure described the Ollama path and the old 65536 window described
+the local model; neither is a constraint here any more. Measure it from a run
+log before treating it as fixed.
 
-Write every persona prompt in a compact, literal "caveman" style:
+What did not change is that `toolsAllow` bounds the **registered** schema, so a
+tool registers its JSON schema on every call whether or not the model may use it.
+It is still a context control as well as a permission control; never attach a
+server or tool a persona does not need.
 
-- one job; literal tools in the required order; stop when the answer exists;
-- a small, explicit lookup cap and a valid no-result answer;
-- exact output sections, once and in order, when the persona is a reporter;
-- short hard rules for evidence (`unavailable`, `ERROR:`) and final delivery;
-- no repeated background, prose tutorials, copied schemas, or speculative
-  alternatives — deterministic gathering belongs in MCP code.
+Prompts stay compact, literal and imperative — one job, named tools, an explicit
+lookup cap with a valid no-result answer, exact output sections, and short hard
+rules for evidence (`unavailable`, `ERROR:`) and final delivery. What the hosted
+model retired is the *absolute* small-model posture:
 
-Prefer a short imperative over explanation: `Call facts_node_fleet. Trust the
-notes. Three lookups max. No result: cause not determined.` Prompt files are the
-only source, so make this edit there rather than generating or inlining text.
-Measure real runs after a change: the runner's cumulative `input=` token log is
-the evidence that the budget still has headroom.
+- lookup caps are larger (six per subject on a reporter, six on the oracle) and a
+  persona may correlate across servers, but a cap and a named exit are still
+  required — an instruction to investigate with no bound is how a run ends on an
+  empty terminal turn;
+- a persona given `facts_promql` may write a complete expression from scratch,
+  but deterministic readings still belong in a facts tool wherever one exists;
+- a persona given a read-only source server (ArgoCD, GitHub, Trino) may use it to
+  explain a finding, not to widen its one job.
+
+Keep the structural guards regardless of model size: absence stays expressible,
+tool names and arguments stay literal, `labelSelector` is never passed, no number
+or date is invented, and no arithmetic is done that a tool did not return. Those
+were tool-loop fixes, not 4B workarounds. Durable rationale in
+[MEMORY.md](MEMORY.md).
 
 ## Layout
 
@@ -162,23 +173,25 @@ anywhere at all lives in the other.
 
 | Persona           | Schedule (UTC) | What it answers                               | MCP surface            |
 | ----------------- | -------------- | --------------------------------------------- | ---------------------- |
-| `sre-sentinel`    | heartbeat, 30m | What is firing, and why?                      | `grafana`, `k8s`       |
-| `gitops-auditor`  | sweep, 1h      | Does the cluster match what git says?         | `argocd`               |
-| `endpoint-warden` | daily 04:30    | Are the machines themselves degrading?        | `grafana`, `k8s`       |
-| `db-steward`      | daily 05:30    | Are Postgres and Valkey healthy and roomy?    | `pg`, `grafana`, `k8s` |
-| `service-janitor` | Mon 05:00      | Is the homelab recoverable? What is expiring? | `k8s`, `grafana`       |
+| `sre-sentinel`    | `0 7,19 * * *` | What is firing, and why?                      | `facts`, `k8s`, `argocd` |
+| `gitops-auditor`  | `0 7,19 * * *` | Does the cluster match what git says?         | `facts`, `argocd`, `github` |
+| `endpoint-warden` | `30 4 * * *`   | Are the machines themselves degrading?        | `facts`, `k8s`         |
+| `service-janitor` | `0 5 * * *`    | Is the homelab recoverable? What is expiring? | `facts`, `k8s`         |
+| `db-steward`      | `30 5 * * *`   | Are Postgres and Valkey healthy and roomy?    | `facts`, `pg`          |
+| `workload-watch`  | `0 6 * * *`    | Is anything short of pods, restarting or idle? | `facts`, `k8s`        |
 
-Each persona is **one question with five to seven tools**. That is the whole
-reason there are five of them rather than three fatter ones — see
-[the model constrains the design](MEMORY.md#the-model-constrains-the-design). A persona
-carries exactly one schedule in the CRD, so "same agent, different focus on a
-different day" is not expressible; it has to be another persona.
+Every reporter holds `facts` first. Each is **one question**, with a larger lookup
+budget now that the model is hosted — six lookups per subject rather than three —
+and one read-only source server where a finding needs explaining, not a second
+job. See [the hosted-model re-tune](MEMORY.md#the-small-model-posture-was-retired-the-evidence-guards-were-not-2026-09-12).
+A persona carries exactly one schedule in the CRD, so "same agent, different focus
+on a different day" is not expressible; it has to be another persona.
 
 ### `homelab-reviewer` — the only write surface
 
 | Persona             | Schedule (UTC) | What it answers                                  | MCP surface        |
 | ------------------- | -------------- | ------------------------------------------------ | ------------------ |
-| `renovate-reviewer` | Mon–Fri 06:00  | Is this bump safe, and what does migrating cost? | `github`, `argocd` |
+| `renovate-reviewer` | `0 10 * * 0,6` | Is this bump safe, and what does migrating cost? | `github`, `argocd` |
 
 Its one write tool is `github_add_issue_comment`. Merging, pushing, approving
 and branch creation are denied at the server edge, not merely left out of the

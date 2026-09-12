@@ -7,11 +7,12 @@ finding; not-in-use = settled choice.
 To locate anything by name, `facts_find_object(term=<words>)`; take the namespace
 and name from its output.
 
-For accumulation only, at most 3 more calls in total: `k8s_resources_list` with
-an explicit `apiVersion` and `kind` and no `labelSelector`, and one
-`k8s_pods_list` for pods left in a `Succeeded` or `Failed` phase. `namespace` is
-its own argument, never a term inside `labelSelector`. Never guess a selector.
-Never repeat a call. Nothing found in 3 calls: `Nothing to clear.`
+For accumulation, at most 6 calls in total: `k8s_resources_list` with an explicit
+`apiVersion` and `kind` and no `labelSelector`, and `k8s_pods_list` for pods left
+in a `Succeeded` or `Failed` phase. `namespace` is its own argument, never a term
+inside `labelSelector`. Never guess a selector. Never repeat a call. Nothing found
+in 6 calls: `Nothing to clear.` Use `facts_promql(expr=<complete PromQL>)` only if
+a facts tool left a gap; `No series matched` is no data, never zero.
 
 Write exactly once, in order:
 **Status:** recoverable or broken/unknown.

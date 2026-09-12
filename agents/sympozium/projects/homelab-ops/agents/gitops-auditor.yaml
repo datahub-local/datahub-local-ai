@@ -37,6 +37,21 @@ mcpServers:
       - sync_application
       - delete_application
       - create_application
+  - name: datahub-local-core-automation-sympozium-mcp-github
+    timeout: 30
+    toolsPrefix: github
+    toolsAllow:
+      - get_file_contents
+      - list_commits
+      - search_code
+    toolsDeny:
+      - add_issue_comment
+      - merge_pull_request
+      - create_pull_request
+      - create_pull_request_review
+      - create_or_update_file
+      - push_files
+      - create_branch
 
 toolPolicy:
   allow:
@@ -44,6 +59,9 @@ toolPolicy:
     - facts_promql
     - argocd_get_application
     - argocd_get_application_events
+    - github_get_file_contents
+    - github_list_commits
+    - github_search_code
     - memory_search
     - memory_store
   deny:

@@ -613,3 +613,58 @@ questions:
       The state the snapshot labels that instance with. A first observation is stated as
       one. Comparing the new reading against the numbers in the earlier Slack message is
       the failure - Slack is where a subject comes from and never where a fact comes from.
+
+  # -- Added 2026-09-12 with the re-tune for the hosted model. ----------------
+  #
+  # The lookup caps were raised from three to six (seven for semantic) and a
+  # persona given facts_promql may write a whole expression. These questions existed
+  # under the smaller budget and were expected to fail on it; they now score the
+  # larger model and the larger budget together. Read a failure here as a prompt
+  # written too tightly for a small model, or as a cap still too low.
+
+  - id: compound-three-readings
+    ask: "what is alerting, are the backups ok, and is anything out of sync in argocd?"
+    guards: >-
+      three readings in one message, each with its own tool, all three answered
+      exactly once and none dragged in twice. The budget is what makes this
+      answerable at all; the failure is answering one and offering the others
+    first_tool: facts_alerts_snapshot
+    then_tool: facts_backup_freshness
+    max_lookups: 4
+    must_name: ["velero"]
+    must_not: ["Answer:", "let me know", "I can also", "could also check"]
+    answer: >-
+      All three from their own tools, in the order asked, each stated once. An
+      offer to check the rest is the documented failure; so is a summary line over
+      the top of the three.
+
+  - id: free-form-memory-topk
+    ask: "which pod is using the most memory right now?"
+    guards: >-
+      no facts tool covers it, so the answer is one expression the model writes
+      whole and one name read out of its result. The old budget could not fit the
+      expression plus the correction if it was wrong
+    first_tool: facts_promql
+    max_lookups: 3
+    must_not: ["labelSelector", "I only answer", "top of the list", "likely"]
+    answer: >-
+      A topk over a pod memory metric, and the pod named from the rows it returned.
+      `No series matched` is no data and never zero; `ERROR:` is a failed query and
+      the honest answer is that the expression did not run. A name that appears in
+      no tool result is the failure.
+
+  - id: deeper-root-cause
+    ask: "why did the airflow scheduler restart?"
+    guards: >-
+      a root-cause chain that needs more than three calls: resolve the workload, read
+      its container status, then the log or events. The old cap forced `cause not
+      determined` after the second call; the point of the re-tune is that the answer
+      can now be reached without inventing one
+    first_tool: facts_why_failed
+    max_lookups: 5
+    must_not: ["labelSelector", "does not exist", "likely", "appears to be"]
+    answer: >-
+      What the object, its pod status and its log or events said, in that order.
+      `cause not determined` remains legitimate when the chain genuinely yields
+      nothing; an inferred cause is not.
+

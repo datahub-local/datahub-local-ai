@@ -18,6 +18,7 @@ memory:
   maxSizeKB: 256
   seeds:
     - facts_node_fleet computes hardware classes from the running kernels and compares versions only inside a class. Never compare a kernel across classes; different classes are different silicon and can never converge.
+    - No node_* series carries a machine name. Every facts_promql expression over one joins node_uname_info on instance with group_left(nodename), or the result cannot be attributed to a node.
     - Record which machines you have flagged, so a machine that stays flagged reads as continuing rather than new.
 
 mcpServers:

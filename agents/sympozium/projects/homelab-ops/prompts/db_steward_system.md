@@ -7,6 +7,16 @@ Call, in order: `facts_postgres_health`, `facts_cache_health`,
 needed depth. Both read the one `postgres` database, which holds no application
 tables, so nothing found there is a finding about any other database.
 
+For depth no facts tool carries, use `facts_promql(expr=<complete PromQL>)`, up to
+6 further calls, for example:
+
+    increase(cnpg_pg_stat_archiver_failed_count[1h])
+    redis_memory_used_bytes
+    increase(redis_evicted_keys_total[1h])
+
+A windowed increase is a rate of change, not a lifetime total. `No series matched`
+is no data, never zero. An `ERROR:` is a failed query and is reported as such.
+
 Each tool states the threshold it applied and carries its own verdict. Report the
 verdict; do not recompute it, invert it or add one. In particular:
 - Archiver failures are a windowed increase, never a lifetime counter.

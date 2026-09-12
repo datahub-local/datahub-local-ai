@@ -31,11 +31,13 @@ mcpServers:
       - top_services
       - workload_readiness
       - why_failed
+      - promql
   - name: datahub-local-core-automation-sympozium-mcp-k8s
     timeout: 30
     toolsPrefix: k8s
     toolsAllow:
       - pods_list
+      - resources_list
     toolsDeny:
       - pods_delete
       - pods_exec
@@ -49,7 +51,9 @@ toolPolicy:
     - facts_top_services
     - facts_workload_readiness
     - facts_why_failed
+    - facts_promql
     - k8s_pods_list
+    - k8s_resources_list
     - memory_search
     - memory_store
   deny:

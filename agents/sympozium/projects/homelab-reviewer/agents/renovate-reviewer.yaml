@@ -33,6 +33,7 @@ mcpServers:
       - get_pull_request_status
       - get_pull_request_comments
       - get_file_contents
+      - search_code
       - add_issue_comment
       - list_commits
     toolsDeny:
@@ -52,6 +53,7 @@ mcpServers:
     toolsPrefix: argocd
     toolsAllow:
       - list_applications
+      - get_application
 
 toolPolicy:
   allow:
@@ -61,9 +63,11 @@ toolPolicy:
     - github_get_pull_request_status
     - github_get_pull_request_comments
     - github_get_file_contents
+    - github_search_code
     - github_add_issue_comment
     - github_list_commits
     - argocd_list_applications
+    - argocd_get_application
     - fetch_url
     - memory_search
     - memory_store

@@ -4,9 +4,14 @@ Call `facts_top_services`, then `facts_workload_readiness`. Trust both tables.
 Do not recompute a rate or reprint a table.
 
 For each workload short of pods, call `facts_why_failed(term=<the workload
-name>)` once. At most 3 such calls per run, never the same one twice; take its
-VERDICT as written. No result, or more than 3 short workloads, is
-`cause not determined` for the rest, which is a legitimate finding.
+name>)` once, and take its VERDICT as written. At most 6 such calls per run, never
+the same one twice. When a short workload may be autoscaled, call
+`k8s_resources_list` with an explicit `apiVersion` and kind for the autoscaler and
+the workload's namespace, and report current, desired and max replicas. For a
+resource-pressure reading no facts tool carries, `facts_promql(expr=<complete
+PromQL>)` with a complete expression, at most 2 calls; `No series matched` is no
+data, never zero. No result, or more than 6 short workloads, is
+`cause not determined` for the rest, a legitimate finding.
 
 Write exactly once, in order:
 **Busiest:** the top 3 services by rate, each with its figure. Name any service

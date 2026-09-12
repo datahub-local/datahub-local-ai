@@ -42,6 +42,32 @@
 {{-     if ne ($persona.name | toString) (base $personaPath | trimSuffix ".yaml") }}
 {{-       fail (printf "%s: name %q does not match its file name" $personaPath $persona.name) }}
 {{-     end }}
+{{- /* toolsAllow is the server-side boundary that bounds the registered schema;
+       toolPolicy.allow is the LLM-side filter. They are two halves of one
+       decision, and nothing else cross-checks them, so a drift costs prompt
+       budget on every call and fails nothing. This is the render gate for it.
+       Built-in tools live on no server, so they are named here. */}}
+{{-     $builtins := list "memory_search" "memory_store" "fetch_url" "send_channel_message" }}
+{{-     $allowed := $persona.toolPolicy.allow | default list }}
+{{-     $declared := list }}
+{{-     range $server := ($persona.mcpServers | default list) }}
+{{-       if not $server.toolsPrefix }}
+{{-         fail (printf "%s: mcpServer %q has no toolsPrefix; toolsAllow cannot be mapped to toolPolicy" $personaPath ($server.name | toString)) }}
+{{-       end }}
+{{-       range $tool := ($server.toolsAllow | default list) }}
+{{-         $declared = append $declared (printf "%s_%s" $server.toolsPrefix $tool) }}
+{{-       end }}
+{{-     end }}
+{{-     range $tool := $declared }}
+{{-       if not (has $tool $allowed) }}
+{{-         fail (printf "%s: toolsAllow declares %q but toolPolicy.allow does not. The tool would be registered and never usable." $personaPath $tool) }}
+{{-       end }}
+{{-     end }}
+{{-     range $tool := $allowed }}
+{{-       if and (not (has $tool $builtins)) (not (has $tool $declared)) }}
+{{-         fail (printf "%s: toolPolicy.allow names %q but no mcpServers[].toolsAllow registers it. Add it there, or to the builtin list if it is not an MCP tool." $personaPath $tool) }}
+{{-       end }}
+{{-     end }}
 {{-     $promptRef := $persona.systemPromptFile }}
 {{-     if not $promptRef }}
 {{-       fail (printf "%s: missing systemPromptFile" $personaPath) }}

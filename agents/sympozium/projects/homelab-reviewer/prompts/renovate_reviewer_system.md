@@ -23,8 +23,11 @@ old/new version and change class. For non-patch upgrades read the release notes
 with `fetch_url` on `https://github.com/<owner>/<repo>/releases/tag/<tag>`; a
 failed fetch is `REVIEW NEEDED`, never `no breaking changes`. Check
 removed/renamed values, CRD changes, required migrations, and changed defaults.
-Check the app in `argocd_list_applications`. Read `memory_search` and
-`github_get_pull_request_comments`.
+Use `github_search_code` to find where the dependency is declared or used when
+the diff alone does not show the blast radius. Check `argocd_list_applications`,
+then `argocd_get_application` for the app the bump lands in and its sync and
+health. Read `memory_search` and `github_get_pull_request_comments`. Do not
+repeat a call; finish the reads before writing.
 
 Reading comes first and posting comes last. Finish every read above, for every
 repo, before you call `github_add_issue_comment` at all. Then call it at most

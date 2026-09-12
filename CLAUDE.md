@@ -873,35 +873,30 @@ rather than copying the outcomes, since the constraints will change.
   read a pack's `.spec.skills[].content` **and** `.spec.sidecar.rbac`
   before mounting it: a skill is prose competing with the persona's prompt, and
   prose wins.
-- **The model constrains the design.** Inference is cluster-local Ollama
-  (`qwen3.5:4b`, one 6 GiB GPU, one resident model, a 90K maximum context as of
-  2026-08-27 — read the effective value from Ollama's `GET /api/ps` with the
-  model resident, not from `/api/show`, which reports the architecture ceiling).
-  The prompt, tool schemas, accumulated results, memory and final answer share
-  that limit; leave headroom rather than treating 90K as a target. **Every agent
-  prompt must stay short and literal, like a compact GitHub/Copilot prompt:**
-  one job, exact tool order, a small lookup cap with an explicit no-result exit,
-  exact output shape, and final delivery instruction. Put deterministic
-  gathering, reusable context, and detailed method in MCP code or `MEMORY.md`,
-  not prompt prose. Do not restore long tutorials, copied schemas, or repeated
-  background explanation. `toolsAllow`
-  bounds injected schema and is a context-budget control, not merely permission.
-  Hence
-  `workflowType: autonomous` rather than `delegation` (too small to be trusted
-  with `delegate_to_persona`), five-to-eleven-tool allowlists, two skills per
-  persona, `runTimeout: 30m` against a 10m default, and staggered schedules with
-  `firstTick: afterInterval`. Note the staggering only holds for cron ticks: the
-  Ensemble controller starts a run within the same second as every
-  `SympoziumSchedule` it rewrites, so one `helmfile apply` touching N personas
-  queues N real runs — they post to Slack, spend `MAX_TOOL_ITERATIONS` and write
-  memory — against a single Ollama slot, whatever `firstTick` says and with
-  `status.nextRunTime` still pointing at tomorrow. Apply once and probe with a
-  hand-applied `AgentRun`. Do not answer the queueing with
-  `OLLAMA_NUM_PARALLEL`: llama.cpp divides `n_ctx` across slots, so two slots
-  would hand each run the 32,768 window that used to truncate the persona out of
-  its own prompt. Prompts name the tools to call in order and end with a required
-  section layout and a "no report, no run" rule. Loosen all of this if a hosted
-  model is wired in — that is a `baseURL` change plus an `authRefs` secret.
+- **The model constrains the design.** The fleet runs on the LiteLLM gateway in
+  `data` (`http://datahub-local-core-data-litellm.data.svc.cluster.local:4000/v1`),
+  model `opencode-go/deepseek-v4.1-flash`, with `opencode-go/glm-5.3-flash` as
+  the gateway's router fallback. The cluster-local Ollama GPU queue is no longer
+  on the path; the 90K window and `OLLAMA_NUM_PARALLEL` reasoning that used to
+  live here are history, not constraints. **Every agent prompt must still stay
+  short and literal, like a compact GitHub/Copilot prompt:** one job, exact tool
+  order, a small lookup cap with an explicit no-result exit, exact output shape,
+  and final delivery instruction. Put deterministic gathering, reusable context,
+  and detailed method in MCP code or `MEMORY.md`, not prompt prose. Do not
+  restore long tutorials, copied schemas, or repeated background explanation.
+  `toolsAllow` bounds injected schema and is a context-budget control, not merely
+  permission. `workflowType: autonomous`, five-to-eleven-tool allowlists, two
+  skills per persona, `runTimeout: 30m` (45m for the reviewer) and staggered
+  schedules with `firstTick: afterInterval` all stay as reviewable defaults —
+  revisit them with measurements, not assumptions, now that the serving model
+  changed. Note the staggering still only holds for cron ticks: the Ensemble
+  controller starts a run within the same second as every `SympoziumSchedule` it
+  rewrites, so one `helmfile apply` touching N personas queues N real runs —
+  they post to Slack, spend `MAX_TOOL_ITERATIONS` and write memory — whatever
+  `firstTick` says and with `status.nextRunTime` still pointing at tomorrow.
+  Apply once and probe with a hand-applied `AgentRun`. Prompts name the tools to
+  call in order and end with a required section layout and a "no report, no run"
+  rule.
 - **`policyRef: permissive` is deliberate.** `restrictive` and
   `network-isolated` both set `networkPolicy.denyAll` with no `allowedEgress`,
   which would cut agents off from Ollama *and* every MCP server; `restrictive`

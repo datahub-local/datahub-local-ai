@@ -4,9 +4,7 @@ No real Trino, DuckDB, or OpenRouter calls — all external dependencies are moc
 """
 
 import json
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import patch
 
 
 class TestCategorizeBatch:
@@ -68,16 +66,16 @@ class TestCategorizeBatch:
         headers = mock_post.call_args.kwargs["headers"]
         assert "Authorization" not in headers
 
-    def test_openrouter_sends_bearer_token(self):
-        """Non-empty api_key (OpenRouter) must include Authorization header."""
+    def test_litellm_sends_bearer_token(self):
+        """Non-empty api_key (LiteLLM gateway) must include Authorization header."""
         with patch("dlt_runner.llm.httpx.post") as mock_post:
             mock_post.return_value.json.return_value = {
                 "choices": [{"message": {"content": json.dumps([{"category": "OTHER", "subcategory": "", "is_weighted": False}])}}]
             }
             from bodega.enrich import _categorize_batch
-            _categorize_batch(["X"], base_url="https://openrouter.ai/api/v1", api_key="sk-or-test", model_id="deepseek/deepseek-v4-flash:nitro")
+            _categorize_batch(["X"], base_url="http://datahub-local-core-data-litellm:4000/v1", api_key="sk-litellm-test", model_id="opencode-go/deepseek-v4.1-flash")
         headers = mock_post.call_args.kwargs["headers"]
-        assert headers["Authorization"] == "Bearer sk-or-test"
+        assert headers["Authorization"] == "Bearer sk-litellm-test"
 
 
 class TestProductsResource:

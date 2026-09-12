@@ -148,6 +148,38 @@ evidence.
 
 ---
 
+## The fleet runs on the LiteLLM gateway now (2026-09-12)
+
+All three ensembles moved off cluster-local Ollama to the LiteLLM gateway in
+`data`, model `opencode-go/deepseek-v4.1-flash`, with `opencode-go/glm-5.3-flash`
+as the gateway's router fallback. The endpoint, `provider: openrouter` and the
+`litellm-auth-credentials` secret are a matched set across two files — change one
+half and the run has no credential, which is not a startup error.
+
+`provider: openrouter` is deliberate and does not name the model vendor: the
+agent-runner treats any unrecognized provider as an OpenAI-compatible endpoint,
+and `openrouter` selects the cloud defaults (no per-request timeout, five
+retries). Leaving `ollama` would have imposed the five-minute local-provider
+timeout and two retries on a request that now leaves the cluster. The gateway is
+the only holder of the OpenCode Go subscription key; no persona or workflow
+holds it.
+
+What this changes and what it does not:
+
+- The single-GPU request queue and the fixed Ollama context window are no longer
+  on the path. `runTimeout`, `MAX_TOOL_ITERATIONS` and the five-to-eleven tool
+  allowlists were sized for that queue — `[UNVERIFIED]` whether they still bind
+  now; re-measure before treating them as fixed.
+- The prompt-budget rule still holds in spirit — a short literal prompt is what
+  the wheel wants — but the 4B ceiling below is no longer the reason. Keep it as
+  history, not as the current constraint.
+- `homelab-responder`'s OpenRouter key was already deleted from `automation` when
+  this landed, so its runs were broken between then and the apply; the other two
+  ensembles were still on Ollama and working. The move is one change rather than
+  three for that reason.
+
+---
+
 ## The model constrains the design
 
 Inference is the cluster-local Ollama core deploys, on one 6 GiB RTX 3060 Laptop

@@ -119,9 +119,9 @@ def test_enrich_s3_secrets():
     assert env_map["S3_SECRET_KEY"].value_from.secret_key_ref.name == "s3-credentials"
 
 
-def test_enrich_openrouter_secret():
+def test_enrich_litellm_secret():
     enrich = _dag().get_task("dlt_enrich_bodega")
     env_map = {e.name: e for e in enrich.env_vars}
-    secret_ref = env_map["OPENROUTER_API_KEY"].value_from.secret_key_ref
-    assert secret_ref.name == "openrouter-auth-credentials"
+    secret_ref = env_map["LITELLM_API_KEY"].value_from.secret_key_ref
+    assert secret_ref.name == "litellm-auth-credentials"
     assert secret_ref.key == "api_key"

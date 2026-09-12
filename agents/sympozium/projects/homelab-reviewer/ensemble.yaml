@@ -16,8 +16,8 @@ spec:
     storageSize: 1Gi
 
 defaults:
-  provider: ollama
-  model: qwen3.5:4b
+  provider: openrouter
+  model: opencode-go/deepseek-v4.1-flash
   runTimeout: 45m
   env:
     MAX_TOOL_ITERATIONS: "100"

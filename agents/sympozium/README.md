@@ -334,10 +334,10 @@ real thing — a different prompt, a narrower tool policy, no delivery:
       mode: task
       useContext: false
       model:
-        provider: ollama
-        model: qwen3.5:4b
-        baseURL: http://datahub-local-core-data-ollama.data.svc:11434/v1
-        authSecretRef: ""
+        provider: openrouter
+        model: opencode-go/deepseek-v4.1-flash
+        baseURL: http://datahub-local-core-data-litellm.data.svc.cluster.local:4000/v1
+        authSecretRef: litellm-auth-credentials
       systemPrompt: |
         <the prompt under test>
       task: |

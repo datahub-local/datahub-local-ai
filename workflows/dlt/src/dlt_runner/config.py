@@ -121,16 +121,20 @@ def trino_url() -> str:
 
 
 def llm_provider() -> str:
-    """LLM provider to use for enrichment. Values: 'openrouter' or 'ollama' (default)."""
-    return env("LLM_PROVIDER", "openrouter")
+    """LLM provider to use for enrichment. Values: 'litellm' (default) or 'ollama'."""
+    return env("LLM_PROVIDER", "litellm")
 
 
-def openrouter_api_key() -> str:
-    return os.environ["OPENROUTER_API_KEY"]
+def litellm_base_url() -> str:
+    return env("LITELLM_BASE_URL", "http://datahub-local-core-data-litellm:4000/v1")
 
 
-def openrouter_model() -> str:
-    return env("OPENROUTER_MODEL", "deepseek/deepseek-v4-flash:nitro")
+def litellm_api_key() -> str:
+    return os.environ["LITELLM_API_KEY"]
+
+
+def litellm_model() -> str:
+    return env("LITELLM_MODEL", "opencode-go/deepseek-v4.1-flash")
 
 
 def ollama_base_url() -> str:
@@ -146,7 +150,7 @@ def llm_settings() -> tuple[str, str, str]:
     provider = llm_provider()
     if provider == "ollama":
         return ollama_base_url(), "", ollama_model()
-    return "https://openrouter.ai/api/v1", openrouter_api_key(), openrouter_model()
+    return litellm_base_url(), litellm_api_key(), litellm_model()
 
 
 def llm_timeout() -> float:

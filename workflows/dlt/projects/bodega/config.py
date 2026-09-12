@@ -9,20 +9,21 @@ from __future__ import annotations
 import os
 
 from dlt_runner.config import VALID_TARGETS as VALID_TARGETS
+from dlt_runner.config import bronze_bucket as bronze_bucket
 from dlt_runner.config import configure_iceberg_env as configure_iceberg_env
 from dlt_runner.config import duckdb_path as duckdb_path
 from dlt_runner.config import env as env
+from dlt_runner.config import litellm_api_key as litellm_api_key
+from dlt_runner.config import litellm_base_url as litellm_base_url
+from dlt_runner.config import litellm_model as litellm_model
 from dlt_runner.config import llm_provider as llm_provider
 from dlt_runner.config import llm_settings as llm_settings
 from dlt_runner.config import llm_timeout as llm_timeout
 from dlt_runner.config import ollama_base_url as ollama_base_url
 from dlt_runner.config import ollama_model as ollama_model
-from dlt_runner.config import openrouter_api_key as openrouter_api_key
-from dlt_runner.config import openrouter_model as openrouter_model
 from dlt_runner.config import polaris_uri as polaris_uri
 from dlt_runner.config import s3_credentials as s3_credentials
 from dlt_runner.config import s3_endpoint as s3_endpoint
-from dlt_runner.config import bronze_bucket as bronze_bucket
 from dlt_runner.config import silver_bucket as silver_bucket
 from dlt_runner.config import trino_url as trino_url
 from dlt_runner.config import validate_target as validate_target

@@ -1,7 +1,7 @@
 """Shared helper for calling an OpenAI-compatible chat-completions endpoint.
 
-Works against both OpenRouter and Ollama's OpenAI-compatible API — the two
-providers ``dlt_runner.config.llm_settings`` resolves.
+Works against both the LiteLLM gateway and Ollama's OpenAI-compatible API — the
+two providers ``dlt_runner.config.llm_settings`` resolves.
 """
 
 from __future__ import annotations

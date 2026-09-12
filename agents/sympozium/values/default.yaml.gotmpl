@@ -58,7 +58,11 @@ sympozium_ensembles:
     channelConfigs:
       slack: mcp-slack-token
 
-    baseURL: http://datahub-local-core-data-ollama.data.svc:11434/v1
+    baseURL: http://datahub-local-core-data-litellm.data.svc.cluster.local:4000/v1
+
+    authRefs:
+      - provider: openrouter
+        secret: litellm-auth-credentials
 
     policyRef: permissive
 
@@ -69,7 +73,11 @@ sympozium_ensembles:
       enabled: false
       runtimeClass: gvisor
 
-    baseURL: http://datahub-local-core-data-ollama.data.svc:11434/v1
+    baseURL: http://datahub-local-core-data-litellm.data.svc.cluster.local:4000/v1
+
+    authRefs:
+      - provider: openrouter
+        secret: litellm-auth-credentials
 
     policyRef: permissive
 
@@ -88,10 +96,10 @@ sympozium_ensembles:
         denyMessage: >-
           This agent could not run. Nothing was executed.
 
-    baseURL: https://openrouter.ai/api/v1
+    baseURL: http://datahub-local-core-data-litellm.data.svc.cluster.local:4000/v1
 
     authRefs:
       - provider: openrouter
-        secret: openrouter-auth-credentials
+        secret: litellm-auth-credentials
 
     policyRef: permissive

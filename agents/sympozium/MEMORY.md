@@ -2191,9 +2191,13 @@ persona.
 **Cost is unmeasured here on purpose.** $0.065/M in, $0.18/M out against a 1.31M
 context, and the chart's pricing table (`files/pricing/defaults.yaml`) carries
 `openai`, `anthropic` and `bedrock` only — no `openrouter` entry, so Sympozium's
-own cost estimate for these runs is empty rather than wrong. Add
-`pricing.extraEntries` in core if the number is ever wanted; that is a
-cluster-side change, not one for this chart.
+own cost estimate for these runs is empty rather than wrong. **That entry now
+exists**: core's `releases/automation/values/sympozium.yaml.gotmpl` adds
+`pricing.extraEntries` for `opencode-go/deepseek-v4.1-flash`, so
+`sympozium_agentrun_cost_micro_usd` populates and the dashboard's cost panel is no
+longer blank. The prices are the previous OpenRouter ones carried over and remain
+`[UNVERIFIED]` as OpenCode Go list prices. This is a cluster-side change and the
+chart stays out of it.
 
 ## An apply fires an immediate run per touched schedule
 

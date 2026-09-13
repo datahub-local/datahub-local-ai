@@ -231,6 +231,55 @@ stay `autonomous` until a hand-applied `AgentRun` shows `delegate_to_persona`
 returning a coherent child result; the probe is in spec 004, and the natural home
 is the responder, not a scheduled reporter.
 
+## The first full eval replay (2026-09-13)
+
+All 44 questions in `evals/questions.yaml` were run against the live oracle as
+hand-applied `AgentRun`s, one per question, each carrying the live 22.5 KB system
+prompt and the persona's real 38-tool surface. **All 44 runs reported `Succeeded`**
+— no empty terminal turn, no iteration cap, no crash, which is itself the headline
+for a model-and-prompt change of this size.
+
+Results, once the scorer was fixed, in the self-contained subset (36 of 44; the
+other 8 need a real Slack thread the harness cannot synthesise):
+
+    33/36 full pass (every mechanical score)
+
+Four scoring defects were found and fixed before the numbers meant anything, and
+three of them are the same defect the file's own header warns about:
+
+- **`must_not` matched vocabulary, not claims.** A correct answer that refuses or
+  disclaims names the thing it refuses: "not a missing Service", "there is no pod
+  state", "Trino's `data_size` is not bytes on disk", "needs a `WHERE` clause",
+  "I will not ask anyone for an API key". Five questions failed on this and none
+  was a real failure. The entries are now the assertions (`"the Service is
+  missing"`, `"as instructed"`, `"where created_on"`), never the bare words.
+- **`no-repeat` keyed on tool name only.** The rule is byte-for-byte, so a retry
+  with a different argument is not a repeat — `term="foobar-sync job"` then
+  `"foobar-sync"`, and `autoscaling/v2` then `autoscaling/v1` (which the answer
+  even lists as its evidence). Both were flagged; neither was a repeat. The scorer
+  now keys on name plus args.
+- **The tool surface was mis-read.** An early harness run parsed `toolsAllow` as
+  `facts_"find_object"` and dropped the Slack tools, so the mandatory
+  `slack_slack_get_thread_replies` was unregistered and the model emitted it as
+  text — which looked like a model fault and was a harness fault. Worth recording
+  because the same garbled allow-list would silently disarm a real persona.
+
+**The one genuine finding: ambiguity is answered, not asked.** `ambiguous` ("why
+is the database slow?") and `elliptical-no-subject` ("is it fixed now?") both got
+a confident reading instead of the one short clarifying question the prompt
+prescribes. Neither is a wrong answer — in `ambiguous` the model hedged, named
+what it cannot see, and answered about Postgres, the only cluster — but it is the
+behaviour the prompt asks for and the model did not take. `[UNVERIFIED]` whether
+this is the larger model being more willing to commit or the rule losing to the
+rest of the prompt; the mechanical score is the refusal literal and the question
+mark, and both were absent.
+
+Two harness facts worth keeping. A hand-applied `AgentRun` runs at the runner's
+`max_tool_iterations=50` default: the Agent's `MAX_TOOL_ITERATIONS: "100"` env is
+**not** inherited, the same gap as `toolPolicy`. And the run's log must be
+streamed while the pod lives — it is deleted on completion, and the result marker
+is `__SYMPOZIUM_RESULT__{json}__SYMPOZIUM_END__`.
+
 Still `[UNVERIFIED]` and to be measured before anything is treated as fixed: the
 effective context at the LiteLLM gateway (the 90K in `README.md` was the Ollama
 figure), and whether `runTimeout` or `MAX_TOOL_ITERATIONS` still bind now that the

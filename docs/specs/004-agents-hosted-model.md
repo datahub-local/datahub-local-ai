@@ -144,6 +144,10 @@ holds.
   a probe. Runbook in §7. **Do not enable from this repository alone.**
 - [ ] **AI-13** (pending) Deterministic status line and friendlier formatting in
   `files/deliver-slack.py`; reply-mode fallback in the oracle prompt. See §7a.
+- [x] **AI-14** First full eval replay, 44 questions, 2026-09-13: all runs
+  succeeded, 33/36 self-contained full pass after fixing four scorer defects.
+  One real finding: ambiguity is answered rather than asked. Rationale in
+  `agents/sympozium/MEMORY.md`.
 
 ## 6. Risks
 

@@ -802,8 +802,10 @@ rather than copying the outcomes, since the constraints will change.
   new prompt that names one of those three; nothing checks it for you.
 - **`MAX_TOOL_ITERATIONS` is a real ceiling and hitting it is silent.** The
   runner caps tool calls per run at 50; five runs have hit it, and the failure is
-  worse than a truncated report — the run ends `status: error`, so the
-  `lifecycle.postRun` hook never fires and nothing arrives at all.
+  worse than a truncated report — the run ends `status: error` and the whole
+  sweep is lost, leaving the delivery hook a failure notice to post instead of a
+  report. (The hook *does* run on a failed run — `postRun` is best-effort and
+  fires whatever the phase; this file said otherwise until 2026-09-13.)
   `endpoint-warden` used 48 of 50 one run and failed on 50 the next. Both
   ensembles set it to `"100"` in `defaults:`, quoted because the CRD types `env`
   as `map[string]string` and the webhook decodes strictly. The real limit is the

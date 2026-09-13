@@ -7,7 +7,11 @@ point: every channel sidecar delivers every instance's outbound message, so a
 report posted through the bus arrives once per bound persona. See
 ../MEMORY.md#every-report-arrived-five-times-and-only-one-agent-sent-it
 
-    AGENT_RESULT      the run's own final text (may be empty)
+    AGENT_RESULT      the run's own final text, or the runner's error when the
+                      run failed (either may be empty)
+    AGENT_EXIT_CODE   the agent container's exit code; non-zero means the run
+                      failed and AGENT_RESULT is not a report
+    AGENT_RUN_ID      the AgentRun's name, so a failure names what to go and read
     AGENT_LABEL       "<Agent> | <ensemble> | <cadence>", the header line
     SLACK_CHANNEL     destination, e.g. #monitoring-ai-alerts
     SLACK_BOT_TOKEN   from a Secret, by reference
@@ -18,11 +22,12 @@ notation it already knows, and the conversion is deterministic, testable and
 identical for every persona. Asking a 4B model to emit mrkdwn directly did not
 hold - `**bold**` and `##` arrived anyway.
 
-Four classes, one job each, so that every pattern belongs to something:
+Five classes, one job each, so that every pattern belongs to something:
 
     Html      reduces HTML to the text it wrapped
     Mrkdwn    Markdown -> Slack mrkdwn
-    Report    the message body: conversion plus the header rule
+    Verdict   the emoji on the Status line, computed from the report
+    Report    the message body: conversion plus the header and failure rules
     Slack     posts it
 
 `Html.TAG_START` and `Mrkdwn.BOLD` were `TAG_START_RE` and `BOLD_RE` in one flat
@@ -371,11 +376,38 @@ class Report:
 
     EMPTY = "Error 404: the data is on a coffee break.. ☕☕\U0001f916"
 
-    def __init__(self, result: str, label: str = "") -> None:
+    # What a failed run gets instead of a report. The runner's error is quoted
+    # verbatim in a code block: it is not Markdown a model wrote, so converting
+    # it would rewrite the operator's one piece of evidence -- the angle
+    # brackets and asterisks an error carries are exactly what the passes above
+    # eat.
+    FAILED = "Run failed (exit {code}). This is the runner's error, not a report."
+    NO_DETAIL = "The runner recorded no detail; read status.error on the AgentRun."
+    DETAIL_LIMIT = 1500
+
+    def __init__(
+        self, result: str, label: str = "", exit_code: str = "0", run_id: str = ""
+    ) -> None:
         self.result = result
         self.label = label
+        self.exit_code = (exit_code or "0").strip() or "0"
+        self.run_id = run_id.strip()
+
+    @property
+    def failed(self) -> bool:
+        """True when the agent container exited non-zero.
+
+        A failed run reaches this hook exactly like a successful one - postRun
+        is best-effort and the controller starts it whatever the phase - and it
+        arrives carrying the runner's error in AGENT_RESULT, which no amount of
+        reading the text can tell apart from a report. The exit code is the only
+        thing that separates them, so it is what decides.
+        """
+        return self.exit_code != "0"
 
     def body(self) -> str:
+        if self.failed:
+            return self._failure()
         if not self.result.strip():
             return self.EMPTY
         return self._drop_own_header(Mrkdwn.convert(self.result), self.label)
@@ -387,12 +419,32 @@ class Report:
         known exactly, so the model is told not to write one -- and a model that
         writes one anyway must not produce a pair.
         """
+        if self.failed:
+            # A failed run has no report to classify: the verdict is the failure.
+            return self._headed(self._failure())
         if not self.result.strip():
             # A run that produced no text has no report and no verdict; the
             # placeholder must not wear a green check.
-            return f"*{self.label}*\n\n{self.EMPTY}" if self.label else self.EMPTY
-        body = Verdict.prefix(self._drop_own_header(Mrkdwn.convert(self.result), self.label))
+            return self._headed(self.EMPTY)
+        return self._headed(
+            Verdict.prefix(self._drop_own_header(Mrkdwn.convert(self.result), self.label))
+        )
+
+    def _headed(self, body: str) -> str:
         return f"*{self.label}*\n\n{body}" if self.label else body
+
+    def _failure(self) -> str:
+        """The failure notice: the red verdict, the run to read, and the error."""
+        head = f"{Verdict.ERROR} {self.FAILED.format(code=self.exit_code)}"
+        if self.run_id:
+            head = f"{head}\nAgentRun: `{self.run_id}`"
+        detail = self.result.strip()
+        if not detail:
+            return f"{head}\n{self.NO_DETAIL}"
+        if len(detail) > self.DETAIL_LIMIT:
+            detail = detail[: self.DETAIL_LIMIT].rstrip() + " ..."
+        detail = detail.replace("```", "'''")  # a fence would close the block early
+        return f"{head}\n```\n{detail}\n```"
 
     @staticmethod
     def _drop_own_header(body: str, label: str) -> str:
@@ -453,7 +505,12 @@ class Slack:
 
 
 def main() -> int:
-    report = Report(os.environ.get("AGENT_RESULT", ""), os.environ.get("AGENT_LABEL", ""))
+    report = Report(
+        os.environ.get("AGENT_RESULT", ""),
+        os.environ.get("AGENT_LABEL", ""),
+        os.environ.get("AGENT_EXIT_CODE", "0"),
+        os.environ.get("AGENT_RUN_ID", ""),
+    )
     slack = Slack(os.environ["SLACK_BOT_TOKEN"], os.environ["SLACK_CHANNEL"])
 
     response = slack.post(report.message())

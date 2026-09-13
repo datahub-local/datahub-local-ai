@@ -425,8 +425,8 @@ pasted into every file.
   workflows. Local times are in the persona table below, not beside each cron.
 - **`MAX_TOOL_ITERATIONS: "100"`** in every ensemble's `defaults:`. The runner
   caps tool calls at 50 and hitting it is silent *and worse than truncation*: the
-  run ends `status: error`, so the `postRun` delivery hook never fires and nothing
-  arrives. Five runs hit it; `endpoint-warden` used 48 of 50 on 2026-08-24 04:30
+  run ends `status: error` with no result, so the delivery hook -- which does
+  fire, see below -- posts a failure notice rather than the sweep. Five runs hit it; `endpoint-warden` used 48 of 50 on 2026-08-24 04:30
   and failed on 50 at 06:15. Quoted because the CRD types `env` as
   `map[string]string` and the webhook decodes strictly. The real ceiling is the
   65536 context every accumulated result must fit inside, so this is headroom,
@@ -746,6 +746,47 @@ The first classification cases in `tests/test_deliver_slack.py` are the real
 report shapes, including the chronic-only run and the real-finding-in-Still-firing
 run. A test that only exercises a clean report would pass on a classifier that
 returns OK for everything.
+
+### A failed run reaches the hook too, and wore the green check (2026-09-13)
+
+`sre-sentinel-schedule-70` and `gitops-auditor-schedule-102` both died at 19:00
+UTC on a LiteLLM `429`, and both posted the runner's error text to Slack under a
+green check. One message, two independent mistakes:
+
+- **`postRun` fires whatever the phase.** The controller logs `Agent container
+  terminated with error {"exitCode": 1}` and then `Starting postRun lifecycle
+  hooks {"exitCode": 1}` seven seconds later; the CRD says so too — *PostRun
+  failures are recorded as Conditions but do not change the agent's final phase
+  (best-effort semantics)*. **Two places in this file claimed the hook never
+  fires on a failed run, and both were wrong.** The claim was inferred from
+  "nothing arrived" after a `MAX_TOOL_ITERATIONS` failure, which has other
+  causes; nobody had looked at a failed run's postrun pod.
+- **The error cannot be told from a report by reading it.** `status.result` is
+  null on a failed run and the controller puts its own error into `AGENT_RESULT`
+  anyway, so `Verdict` saw prose with no `ERROR:` literal and no populated
+  finding section and returned OK. Every text-side rule would have to guess at
+  the wording of an error it has never seen.
+
+`AGENT_EXIT_CODE` is the only thing that knows, and it is injected: a probe
+`AgentRun` against a nonexistent model, with a hook that dumped its environment,
+came back with `AGENT_EXIT_CODE=1`, `AGENT_RESULT=<the LLM error>`,
+`AGENT_RUN_ID` and `AGENT_NAMESPACE` — the CRD documents only the first two, so
+re-check the other two after a control-plane bump. `Report` branches on the exit
+code before anything else now: a non-zero exit posts the red verdict, the run id
+to go and read, and the error **verbatim in a code block**. Verbatim because it
+is evidence rather than Markdown a model wrote, and the HTML and mrkdwn passes
+eat precisely the angle brackets and asterisks an error carries.
+
+It still posts, deliberately. A failed run is the one event here that nothing
+else reports, and the silence is what cost three runs on 2026-08-22.
+
+The 429 is not this repo's to fix, but its shape is worth keeping: the gateway's
+fallback did fire and hit the same wall — `Error doing the fallback: ... 5-hour
+usage limit reached` — because `opencode-go/glm-5.3-flash` is served by the same
+opencode-go account as `opencode-go/deepseek-v4.1-flash` and shares one 5-hour
+budget. **A fallback inside the same provider's quota is not a fallback.** Both
+runs that died also share `cron: "0 7,19"`, the one schedule collision left in
+the fleet, so the fleet's only two evening runs fail as a pair.
 
 ## The report names its agent; it never invents a time
 
@@ -2219,8 +2260,9 @@ there is no `error` and no condition.
    runner *does* have a reasoning fallback, and the wording is about *prior* turns,
    so a non-empty reasoning trace on the terminal turn itself is not one it takes.
 3. **`exceeded maximum tool-call iterations`** — worse than the other two, because
-   the run ends `status: error` and the `postRun` hook never fires, so nothing
-   arrives at all, not even a placeholder. Hence `MAX_TOOL_ITERATIONS: "100"`.
+   the run ends `status: error` with the whole sweep lost. The `postRun` hook does
+   fire (that was wrong here until 2026-09-13), so what arrives is a failure
+   notice, not the report. Hence `MAX_TOOL_ITERATIONS: "100"`.
 
 In `reply` mode the runner's placeholder *is* the reply, so it goes into the
 thread as the answer.
@@ -2596,9 +2638,13 @@ model and its facts.
   `kubectl logs deploy/<persona>-channel-slack`, and it logs failures only.
   Anything watching for "the reports stopped arriving" has to watch Slack or that
   log, not the run history.
-- **`#monitoring-ai-runs` has no producer.** A failed `AgentRun` notifies nobody:
-  an agent that cannot run cannot report that it cannot run, which is how the
-  Ollama restart on 2026-08-22 cost three runs in silence. It happened again on
+- **`#monitoring-ai-runs` has no producer, but a failed run is no longer silent.**
+  Since 2026-09-13 the delivery hook posts a red failure notice naming the
+  `AgentRun`, so a hook-mode reporter that cannot run says so in its own channel.
+  That covers the five `homelab-ops` reporters only — a failed `homelab-oracle`
+  or `renovate-reviewer` run carries no hook and still notifies nobody, and so
+  does anything that fails before the hook (an unschedulable pod, a pull error).
+  This was how the Ollama restart on 2026-08-22 cost three runs in silence. It happened again on
   2026-08-26 and that one shows how little is left behind — `renovate-reviewer`
   fired at 06:00, the Ollama pod restarted at 06:01:00, the run died three seconds
   later on `connect: connection refused`, and the `AgentRun` retained

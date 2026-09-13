@@ -190,9 +190,7 @@ class _Response:
 
 
 def test_post_returns_the_parsed_response(monkeypatch):
-    monkeypatch.setattr(
-        deliver.urllib.request, "urlopen", lambda *a, **k: _Response({"ok": True})
-    )
+    monkeypatch.setattr(deliver.urllib.request, "urlopen", lambda *a, **k: _Response({"ok": True}))
     assert deliver.Slack("tok", "#c").post("text") == {"ok": True}
 
 
@@ -414,4 +412,91 @@ def test_verdict_is_on_the_real_report(monkeypatch):
         "**Status:** healthy\n\n**Postgres:** healthy\n\n**Room to grow:** Nothing above the warn threshold.",
     )
     assert deliver.main() == 0
-    assert sent["text"].startswith(f"*DB Steward | homelab-ops | heartbeat, daily*\n\n{STATUS.OK} ") 
+    assert sent["text"].startswith(f"*DB Steward | homelab-ops | heartbeat, daily*\n\n{STATUS.OK} ")
+
+
+# -- Failed runs ------------------------------------------------------------
+
+# The LiteLLM 429 that reached #monitoring-ai-alerts on 2026-09-13 as
+# `sre-sentinel-schedule-70`, truncated by the controller exactly as here.
+LLM_429 = (
+    'OpenAI API error (HTTP 429): POST "http://datahub-local-core-data-litellm.data'
+    '.svc.cluster.local:4000/v1/chat/completions": 429 Too Many Requests '
+    '{"message":"litellm.RateLimitError: RateLimitError: OpenAIException - 5-hour '
+    "usage limit reached. Resets in 42min. Received Model Group="
+    "opencode-go/deepseek-v4.1-flash\nError doin..."
+)
+
+
+def test_a_failed_run_does_not_wear_a_green_check():
+    """The real one: a failed run's error read as a clean report.
+
+    Nothing in the text says failure - `Verdict` found no `ERROR:` literal and
+    no populated finding section, so the run that produced no report at all was
+    posted under a tick. The exit code is the only thing that knows.
+    """
+    text = deliver.Report(
+        LLM_429, "SRE Sentinel | homelab-ops | scheduled", "1", "run-70"
+    ).message()
+    assert STATUS.OK not in text
+    assert text.startswith("*SRE Sentinel | homelab-ops | scheduled*\n\n" + STATUS.ERROR)
+    assert "Run failed (exit 1)" in text
+    assert "run-70" in text
+
+
+def test_a_failed_run_quotes_its_error_verbatim():
+    """The error is evidence, not Markdown: the passes must not touch it."""
+    raw = "boom: <nil> **not bold** [x](y) ## nope"
+    text = deliver.Report(raw, "A | b | c", "1").message()
+    assert raw in text
+    assert text.count("```") == 2
+
+
+def test_a_fence_in_the_error_cannot_close_the_block():
+    text = deliver.Report("before\n```\nafter", "A | b | c", "1").message()
+    assert text.count("```") == 2
+    assert "after" in text
+
+
+def test_a_long_error_is_truncated():
+    text = deliver.Report("x" * 5000, "A | b | c", "1").message()
+    assert len(text) < 2000
+    assert text.rstrip("`\n").endswith("...")
+
+
+def test_a_failed_run_with_no_detail_still_says_so():
+    text = deliver.Report("", "A | b | c", "1", "run-9").message()
+    assert STATUS.ERROR in text
+    assert deliver.Report.NO_DETAIL in text
+    assert deliver.Report.EMPTY not in text
+    assert "run-9" in text
+
+
+def test_exit_code_zero_is_an_ordinary_report():
+    text = deliver.Report("**Status:** healthy", "A | b | c", "0").message()
+    assert text.endswith(f"{STATUS.OK} *Status:* healthy")
+
+
+def test_a_missing_exit_code_is_a_success():
+    """Nothing here may start calling every run a failure if the var goes away."""
+    assert not deliver.Report("**Status:** healthy", "A | b | c").failed
+
+
+def test_failed_run_end_to_end(monkeypatch):
+    """The hook runs on a failed run - postRun is best-effort - so main() sees it."""
+    sent = {}
+    monkeypatch.setattr(
+        deliver.Slack, "post", lambda self, text: sent.update(text=text) or {"ok": True}
+    )
+    monkeypatch.setenv("SLACK_CHANNEL", "#c")
+    monkeypatch.setenv("SLACK_BOT_TOKEN", "tok")
+    monkeypatch.setenv("AGENT_LABEL", "SRE Sentinel | homelab-ops | scheduled")
+    monkeypatch.setenv("AGENT_RESULT", LLM_429)
+    monkeypatch.setenv("AGENT_EXIT_CODE", "1")
+    monkeypatch.setenv("AGENT_RUN_ID", "homelab-ops-sre-sentinel-schedule-70")
+
+    # Delivery itself worked, so the hook must not report a PostRunFailed.
+    assert deliver.main() == 0
+    assert STATUS.ERROR in sent["text"]
+    assert STATUS.OK not in sent["text"]
+    assert "homelab-ops-sre-sentinel-schedule-70" in sent["text"]

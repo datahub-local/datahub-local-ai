@@ -224,12 +224,22 @@ nothing, and it costs prompt budget on every call — so it belongs where the re
 can see it, not in a new validator. Verified by rendering a persona with an
 unregistered `toolPolicy` entry: the render fails and names the tool.
 
-**Delegation is not enabled, deliberately.** `workflowType: delegation` has never
-run on this control plane or model, and a failed delegated run ends `status:
-error`, so the `postRun` hook never fires and nothing arrives. All three ensembles
-stay `autonomous` until a hand-applied `AgentRun` shows `delegate_to_persona`
-returning a coherent child result; the probe is in spec 004, and the natural home
-is the responder, not a scheduled reporter.
+**Delegation works, and the fleet still does not use it.** Probed 2026-09-13 on
+`v0.10.61` and `deepseek-v4.1-flash` with a throwaway two-persona ensemble in a
+disposable namespace: the model emitted `delegate_to_persona {"targetPersona":
+"worker", "task": ...}` unprompted beyond the tool being named, the run passed
+through `AwaitingDelegate`, and `status.delegates` came back with a `Succeeded`
+child carrying the result verbatim. Two facts from the probe matter more than the
+result. `delegate_to_persona` is registered on *any* ensemble Agent — the runner
+logs `relationship context injected for persona manager` — but the Spawner
+validates the edge against the delegator's own Ensemble, so a `homelab-ops`
+reporter is not a legal target from `homelab-responder`. The natural home is still
+the responder (one inbound question, many expertises) but it needs a second
+persona and a `delegation` edge first, which is a design change rather than a
+config flip. And a failed delegated run ends `status: error`, so the `postRun`
+hook never fires and nothing arrives — hence the probe stays mandatory before a
+schedule or channel is allowed to delegate. All three ensembles remain
+`autonomous` until that target persona exists. Full evidence in spec 004 §7.
 
 ## The first full eval replay (2026-09-13)
 
@@ -273,6 +283,51 @@ behaviour the prompt asks for and the model did not take. `[UNVERIFIED]` whether
 this is the larger model being more willing to commit or the rule losing to the
 rest of the prompt; the mechanical score is the refusal literal and the question
 mark, and both were absent.
+
+**Fixed 2026-09-13: the rule was losing, not the model.** Two clauses overrode
+the clarify branch. `Prefer a lookup over a question` made looking up the default
+even when the words did not say what to look for, and the scope sentence admits
+any word that *could* be a cluster thing — which `the database` is. The branch in
+`03_scope.md` now states its own trigger: the question points at a subject
+without naming it (`is it fixed now?`) and neither message nor thread names one,
+or it treats a class as one unnamed member when more than one would fit (`why is
+the database slow?` when Postgres and Valkey both are). It also carves out the
+opposite shape — a question that ranges over the class (`what is the biggest
+database?`, `which certificates expire?`) is the set as subject, not ambiguity —
+so the fix cannot over-ask. `02_conversation.md` now forbids picking the likeliest
+subject when the thread names none. Re-run as hand-applied `AgentRun`s:
+`ambiguous` returned exactly `Which database - Postgres or Valkey?` and
+`elliptical-no-subject` one short question naming the choices, both with **zero
+tool calls**; `biggest-database` still answered from one `facts_postgres_health`
+call. Eight neighbouring no-lookup and named-subject questions re-ran clean
+(`firing-alerts`, `false-premise-stream`, `out-of-scope`, `unsupported-sql`,
+`no-clock`, `where-does-it-run`, plus the two fixed). The prompt edit is in git,
+so it still needs one apply to reach the live Agent.
+
+**A side effect of every replay: the probe pollutes the persona it tests.** A
+hand-applied `AgentRun` auto-stores its task and response into the persona's
+memory even with `useContext: false`. The first replay and the ambiguity re-run
+left 256 entries in the oracle's store, 252 tagged `auto,agent-run` and four the
+model had written with `memory_store` — all of it run records, none of it
+curated. The fixed question sat in it twice with opposite answers: `why is the
+database slow?` as the old Postgres answer and as the new clarifying one, so
+retrieval could have outvoted the prompt fix.
+
+**Cleared 2026-09-13, and the honest way it was done.** `DELETE /delete` is
+gated on `MEMORY_ADMIN_TOKEN`, and core sets `memory.adminDelete.enabled: false`
+for the regenerated-token reason, so the endpoint is 403. Patching the token into
+the memory Deployment is undone by the Ensemble controller within seconds — the
+Deployment is controller-owned. The store was cleared by mounting its Longhorn
+PVC (`<ensemble>-<persona>-memory-db`, RWO, same node) in a throwaway Job running
+`python:3.12-slim` and issuing `DELETE FROM memories;` (the FTS triggers clear
+the index; verified 256 -> 0 rows, 0 FTS, then `DELETE /list` empty). The Job and
+its temporary secret are gone; the oracle keeps its seeded ConfigMap.
+
+**The oracle is a Slack bot and nothing else.** It is the wrong thing to point a
+replay at: every hand-applied probe writes into the memory real answers are read
+back from. Test a throwaway persona, or clear the store after, or give the runner
+a way to suppress auto-store for a probe. Nothing in `evals/` does any of that
+yet, so a future replay re-pollutes it.
 
 Two harness facts worth keeping. A hand-applied `AgentRun` runs at the runner's
 `max_tool_iterations=50` default: the Agent's `MAX_TOOL_ITERATIONS: "100"` env is

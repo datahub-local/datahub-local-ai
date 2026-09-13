@@ -14,13 +14,14 @@
 
 ## 0. Gate findings — read first
 
-Three things were unknown when this work started. Two are `[UNVERIFIED]` and
-shape what may be changed without a cluster.
+Three things were unknown when this work started. Delegation has since been
+probed and verified; the gateway context is still `[UNVERIFIED]` and shapes what
+may be changed without a cluster.
 
 | Unknown | State | Consequence |
 |---------|-------|-------------|
 | Effective context at the LiteLLM gateway | `[UNVERIFIED]` — the old 90K described Ollama, the old 65536 the local model | Budgets and allowlists are loosened modestly; no prompt relies on a number we have not measured. Re-measure from a run log. |
-| Whether `workflowType: delegation` works on this control plane and model | `[UNVERIFIED]` — never run | **Not enabled.** Staged in §7 with a probe runbook; the source stays `autonomous`. |
+| Whether `workflowType: delegation` works on this control plane and model | Verified 2026-09-13: **yes** (`v0.10.61`, `deepseek-v4.1-flash`) | **Still not enabled in source.** The probe passed in a throwaway ensemble; §7 records the evidence and the same-pack constraint that keeps the source `autonomous` for now. |
 | Whether a stronger model removes the need for the evidence guards | Partly known | It does not. MEMORY.md is explicit that the guards were tool-loop fixes, not 4B workarounds. Only the small-model posture is relaxed. |
 
 The MCP repository is not checked out beside this one, so §6's rule 12 applies:
@@ -140,14 +141,22 @@ holds.
   `argocd_get_application` added, comment idempotency reinforced.
 - [x] **AI-11** Evals extended for the new behaviours; MEMORY.md records the
   model-era rationale and the open `[UNVERIFIED]` items.
-- [ ] **AI-12** (blocked) Enable `workflowType: delegation` on one ensemble after
-  a probe. Runbook in §7. **Do not enable from this repository alone.**
+- [ ] **AI-12** Enable `workflowType: delegation` on one ensemble. The probe ran
+  and passed on 2026-09-13 (evidence in §7); enabling is held because the
+  responder has no second persona to delegate to. **Do not enable from this
+  repository alone.**
 - [x] **AI-13** Deterministic status line in `files/deliver-slack.py`; a
   `Verdict` class and its tests. The oracle and the reviewer take no line. §7a.
 - [x] **AI-14** First full eval replay, 44 questions, 2026-09-13: all runs
   succeeded, 33/36 self-contained full pass after fixing four scorer defects.
-  One real finding: ambiguity is answered rather than asked. Rationale in
-  `agents/sympozium/MEMORY.md`.
+  One real finding: ambiguity is answered rather than asked (fixed by AI-15).
+  Rationale in `agents/sympozium/MEMORY.md`.
+- [x] **AI-15** Ambiguity fix, 2026-09-13: the clarify branch in
+  `03_scope.md` states its own trigger (no antecedent, or a class with more than
+  one member) and carves out class-ranging questions, so it is no longer
+  overridden by "prefer a lookup"; `02_conversation.md` forbids guessing the
+  likeliest subject. `ambiguous` and `elliptical-no-subject` now ask with zero
+  tool calls; eight neighbouring questions re-run clean, and the chart renders.
 
 ## 6. Risks
 
@@ -159,21 +168,38 @@ holds.
 | Prompt bloat creeping back | One job per persona; deterministic text stays in the facts server. |
 | A new tool that does not exist fails silently | Rule 12: only names already verified in this repository are added. |
 
-## 7. Delegation staging (AI-12, blocked)
+## 7. Delegation staging (AI-12)
 
-Do not set `workflowType: delegation` on instinct. Probe first:
+**Probe: passed 2026-09-13.** A throwaway two-persona ensemble (`manager` →
+`worker`, `workflowType: delegation`, one delegation edge) in a disposable
+namespace, on control plane `v0.10.61` and `opencode-go/deepseek-v4.1-flash`,
+produced the full signal:
 
-1. Hand-apply an `AgentRun` with `spec.model` set to the gateway and
-   `systemPrompt` from the candidate manager persona, asking it to hand one
-   subtask to a named reporter.
-2. Stream `kubectl logs <pod> -c agent -f`; the success signal is a
-   `delegate_to_persona` tool call with a coherent payload and a returned child
-   result.
-3. Only then change `workflowType` in `projects/<ensemble>/ensemble.yaml`, and
-   re-probe with a hand-applied run before letting a schedule use it.
-4. If delegation works, the natural home is `homelab-responder` (one inbound
-   question, many possible expertises), not the scheduled reporters — a failed
-   delegated run ends `status: error` and the `postRun` hook never fires.
+    tool call: delegate_to_persona args={"targetPersona": "worker", "task": "Reply with exactly: PROBE-OK ..."}
+    Delegation to "worker" succeeded (8 bytes)
+    status.delegates: [{childRunName: sub-<run>-1, phase: Succeeded, result: PROBE-OK, targetPersona: worker}]
+    status.result: PROBE-OK
+
+The runner logged `relationship context injected for persona manager` before the
+call and the run passed through `AwaitingDelegate`; the child's result returned
+verbatim. No prompt coaxing was needed beyond naming the tool.
+
+**What the probe adds: a same-pack constraint.** `delegate_to_persona` is
+registered on any ensemble Agent, but the Spawner validates the edge against the
+delegator's own Ensemble, so a reporter in `homelab-ops` is not a legal target
+from `homelab-responder`. The natural home is still the responder — one inbound
+question, many possible expertises, not the scheduled reporters — but it must
+first gain a second persona to delegate to. That is a design step, not a config
+flip, which is why the source stays `autonomous`.
+
+Remaining steps, when such a target exists:
+
+1. Add the target persona to `homelab-responder` and a `delegation` relationship
+   edge from the oracle to it.
+2. Set `workflowType: delegation`, apply once, and re-probe with a hand-applied
+   `AgentRun` before a schedule or channel can use it. A failed delegated run
+   ends `status: error` and the `postRun` hook never fires, so the probe is not
+   optional.
 
 ## 7a. Message formatting: a deterministic status line (AI-13, landed)
 

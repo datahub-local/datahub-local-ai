@@ -175,17 +175,16 @@ files under `.github/` keep them too — they are procedure, not config.
 
 ## Git commits
 
-At the end of every iteration, suggest the commit text for what changed — **one
-short line**, in the `type(scope): summary` form the history already uses
-(`fix(dbt,semantic): ...`, `docs(spec): ...`). That line is the whole message:
-no body unless one is asked for. Suggest it; do not commit unless asked.
+Governed by the global rule in `~/.claude/CLAUDE.md`: **never commit unless asked
+directly**, and suggest one short `type(scope): summary` line instead. Repeating
+it here would be a second copy that drifts; the global file is the one place it
+lives.
 
-The rationale a body would carry goes where it is actually read — this file, a
-sub-project `MEMORY.md`, or a spec in `docs/specs/` — not into a log entry
-nobody greps. Say what changed, not how it was applied.
-
-Work here regularly spans two repositories — this one and datahub-local-core —
-so suggest one message per repository rather than one message covering both.
+The local convention it points at: this repo's history uses
+(`fix(dbt,semantic): ...`, `docs(spec): ...`), and the rationale a body would
+carry goes where it is actually read — this file, a sub-project `MEMORY.md`, or
+a spec in `docs/specs/` — not into a log entry nobody greps. Work here spans this
+repo and datahub-local-core, so suggest one message per repository.
 
 ## Commands
 

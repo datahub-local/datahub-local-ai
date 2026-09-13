@@ -2638,22 +2638,25 @@ model and its facts.
   `kubectl logs deploy/<persona>-channel-slack`, and it logs failures only.
   Anything watching for "the reports stopped arriving" has to watch Slack or that
   log, not the run history.
-- **`#monitoring-ai-runs` has no producer, but a failed run is no longer silent.**
-  Since 2026-09-13 the delivery hook posts a red failure notice naming the
-  `AgentRun`, so a hook-mode reporter that cannot run says so in its own channel.
-  That covers the five `homelab-ops` reporters only — a failed `homelab-oracle`
-  or `renovate-reviewer` run carries no hook and still notifies nobody, and so
-  does anything that fails before the hook (an unschedulable pod, a pull error).
-  This was how the Ollama restart on 2026-08-22 cost three runs in silence. It happened again on
+- **A failed run now reports twice, and neither path covers everything.** Core's
+  `SympoziumAgentRunFailed` alert reads the phase off kube-state-metrics and posts
+  to `#monitoring-ai-runs`; the delivery hook posts a red failure notice into the
+  persona's own channel. The alert sees every run — including the oracle and the
+  reviewer, which carry no hook — and it is the only one that sees a run that
+  fails before the hook could start (an unschedulable pod, a pull error); the hook
+  is the only one that carries the error into the channel a person is already
+  reading. Neither is redundant, so do not remove one for the other.
+  It used to be that neither existed: the Ollama restart on 2026-08-22 cost three
+  runs in silence. It happened again on
   2026-08-26 and that one shows how little is left behind — `renovate-reviewer`
   fired at 06:00, the Ollama pod restarted at 06:01:00, the run died three seconds
   later on `connect: connection refused`, and the `AgentRun` retained
   `phase: Failed`, empty `status.message`, empty `status.result`,
   `conditions: null`, with the Job already pruned so the pod log was gone too. The
   whole diagnosis came from the controller log, where `agent.run.failed` with
-  `reason: llm_error` lands. That signal has to come from outside the fleet — an
-  alert on `AgentRun` phase, or an n8n workflow polling it, alongside
-  `Catch Errors` which already does this job for n8n.
+  `reason: llm_error` lands — still the only place a cause is recorded once the
+  Job is pruned, and still the reason the alert quotes `status.error` rather than
+  trying to name a cause of its own.
 - **Slack channels are named, not `C0…` ids.** Slack accepts a name for
   `chat.postMessage`, but it is the legacy form and it breaks silently on a
   rename. Swapping is a one-line values change per channel.

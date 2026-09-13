@@ -200,6 +200,172 @@ class Mrkdwn:
         return cls.SENTINEL_PATTERN.sub(lambda m: spans[int(m.group(1))], line)
 
 
+class Verdict:
+    """The emoji borne by the report's Status line, computed from the report.
+
+    The model is asked for a plain `Status:` section and never for an emoji: a
+    model that picks its own symbol picks the wrong one, and the one field a
+    reader scans first must not depend on that. Classification is deterministic
+    and lives here, next to the Markdown translation, for the same reason.
+
+    Rules, in order:
+
+        ERROR    any line carries the `ERROR:` literal (a failed check)
+        WARNING  a section a persona fills only when something is wrong is not
+                 one of its "nothing" forms, or `Still firing` carries an entry
+                 the alert tool did not label `chronic` or `-`
+        OK       everything else
+
+    `Still firing` is excluded from the blanket rule on purpose: chronic alerts
+    fire permanently here, so a run whose only continuing items are chronic is a
+    clean run, and treating it as a warning would make every run a warning. The
+    one thing that lifts that section out of OK is a non-chronic entry inside it,
+    which is how a `REAL-chronic` or unclassified alert reads.
+    """
+
+    OK = "\u2705"
+    WARNING = "\u26a0\ufe0f"
+    ERROR = "\U0001f534"
+
+    # A section label at the start of a line. Three accepted shapes, because the
+    # model writes all of them: `*Findings:* ...` (bolded, colon inside - what
+    # `**Findings:**` converts to), `*Backups*` (bolded, no colon), and the
+    # un-bolded `Status: ...`. Plain prose matches none: a plain shape must have
+    # a colon, and a bolded one must be the whole label run.
+    LABEL = re.compile(
+        r"^\*(?P<bold>[A-Za-z][A-Za-z ]{0,30}?):?\*\s*(?P<bold_body>.*)$"
+        r"|^(?P<plain>[A-Za-z][A-Za-z ]{1,30}?):\s*(?P<plain_body>.*)$"
+    )
+
+    # The sections whose populated form is a finding. `Still firing` is handled
+    # by its own rule, and `Status` is the verdict line itself.
+    FINDING_SECTIONS = frozenset(
+        {
+            "new",
+            "findings",
+            "escalating",
+            "drift",
+            "backups",
+            "expiring",
+            "accumulation",
+            "maintenance",
+            "short of pods",
+            "restarting",
+            "idle",
+            "filling up",
+            "room to grow",
+        }
+    )
+
+    # What every persona writes where a section is clean. A section holding only
+    # one of these is empty, whatever else the wording is.
+    NOTHING = re.compile(
+        r"^\s*(?:nothing|everything|none|no \w+|all clear|healthy)\b",
+        re.IGNORECASE,
+    )
+
+    # The alert tool's own class label. `chronic` is noise; an entry without it
+    # is `-`/`REAL-chronic` or unclassified, and both read as real.
+    CHRONIC = re.compile(r"\bchronic\b", re.IGNORECASE)
+
+    @classmethod
+    def classify(cls, body: str) -> str:
+        """The emoji for a converted report body."""
+        if re.search(r"\bERROR:", body):
+            return cls.ERROR
+        sections = cls._sections(body)
+        for name, content in sections.items():
+            if name in cls.FINDING_SECTIONS and not cls._is_empty(content):
+                return cls.WARNING
+        still = sections.get("still firing", "")
+        if still and not cls._is_empty(still) and cls._has_real_entry(still):
+            return cls.WARNING
+        return cls.OK
+
+    @classmethod
+    def prefix(cls, body: str) -> str:
+        """Prepend the emoji to the Status line, on the line as it stands.
+
+        The model keeps writing its own `Status:` sentence; this only puts the
+        symbol in front of it. When the model wrote no Status section the emoji
+        still has to appear, so it goes on the first line instead of being lost.
+        """
+        emoji = cls.classify(body)
+        lines = body.split("\n")
+        for i, line in enumerate(lines):
+            found = cls._label(line)
+            if found and found[0] == "status":
+                head = line.lstrip()
+                indent = line[: len(line) - len(head)]
+                lines[i] = f"{indent}{emoji} {head}"
+                return "\n".join(lines)
+        # No Status section: put the emoji on the first line that has text,
+        # rather than on a line of its own above a blank.
+        for i, line in enumerate(lines):
+            if line.strip():
+                lines[i] = f"{emoji} {line}"
+                return "\n".join(lines)
+        return emoji
+
+    @classmethod
+    def _label(cls, line: str) -> tuple[str, str] | None:
+        """Split a line into (label, inline content), or None if it is not one."""
+        match = cls.LABEL.match(line.strip())
+        if not match:
+            return None
+        label = match.group("bold") or match.group("plain")
+        body = match.group("bold_body")
+        if body is None:
+            body = match.group("plain_body")
+        return label.strip().lower(), (body or "").strip()
+
+    @classmethod
+    def _sections(cls, body: str) -> dict[str, str]:
+        """Map lowercase label -> its content, concatenating a repeated label."""
+        sections: dict[str, str] = {}
+        current: str | None = None
+        buf: list[str] = []
+        for line in body.split("\n"):
+            found = cls._label(line)
+            if found:
+                if current is not None:
+                    sections[current] = "\n".join(buf).strip()
+                current, inline = found
+                buf = [inline]
+            elif current is not None:
+                buf.append(line)
+        if current is not None:
+            sections[current] = "\n".join(buf).strip()
+        return sections
+
+    @classmethod
+    def _is_empty(cls, content: str) -> bool:
+        """True when a section holds no finding - only its nothing form."""
+        for line in content.split("\n"):
+            stripped = line.strip().lstrip("-").strip().strip("*").strip()
+            if not stripped:
+                continue
+            if not cls.NOTHING.match(stripped):
+                return False
+        return True
+
+    @classmethod
+    def _has_real_entry(cls, content: str) -> bool:
+        """True when a `Still firing` section names an alert that is not chronic.
+
+        Each entry is a bullet; an alert is real unless its line says `chronic`.
+        A continuation line (the wrapped detail of the entry above) does not
+        start an entry of its own.
+        """
+        for line in content.split("\n"):
+            stripped = line.strip()
+            if not stripped.startswith("-") and not stripped.startswith("*"):
+                continue
+            if not cls.CHRONIC.search(stripped):
+                return True
+        return False
+
+
 class Report:
     """The message that gets posted: the run's text, converted, under a header."""
 
@@ -221,7 +387,12 @@ class Report:
         known exactly, so the model is told not to write one -- and a model that
         writes one anyway must not produce a pair.
         """
-        return f"*{self.label}*\n\n{self.body()}" if self.label else self.body()
+        if not self.result.strip():
+            # A run that produced no text has no report and no verdict; the
+            # placeholder must not wear a green check.
+            return f"*{self.label}*\n\n{self.EMPTY}" if self.label else self.EMPTY
+        body = Verdict.prefix(self._drop_own_header(Mrkdwn.convert(self.result), self.label))
+        return f"*{self.label}*\n\n{body}" if self.label else body
 
     @staticmethod
     def _drop_own_header(body: str, label: str) -> str:

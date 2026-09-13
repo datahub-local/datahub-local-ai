@@ -142,8 +142,8 @@ holds.
   model-era rationale and the open `[UNVERIFIED]` items.
 - [ ] **AI-12** (blocked) Enable `workflowType: delegation` on one ensemble after
   a probe. Runbook in §7. **Do not enable from this repository alone.**
-- [ ] **AI-13** (pending) Deterministic status line and friendlier formatting in
-  `files/deliver-slack.py`; reply-mode fallback in the oracle prompt. See §7a.
+- [x] **AI-13** Deterministic status line in `files/deliver-slack.py`; a
+  `Verdict` class and its tests. The oracle and the reviewer take no line. §7a.
 - [x] **AI-14** First full eval replay, 44 questions, 2026-09-13: all runs
   succeeded, 33/36 self-contained full pass after fixing four scorer defects.
   One real finding: ambiguity is answered rather than asked. Rationale in
@@ -175,37 +175,37 @@ Do not set `workflowType: delegation` on instinct. Probe first:
    question, many possible expertises), not the scheduled reporters — a failed
    delegated run ends `status: error` and the `postRun` hook never fires.
 
-## 7a. Message formatting: a deterministic status line (AI-13, pending)
+## 7a. Message formatting: a deterministic status line (AI-13, landed)
 
 The reports are correct and read poorly. With a stronger model the fix is a
 consistent, scannable shape, and the one field that must never be left to the
 model is the top-line verdict.
 
-**Decision:** `files/deliver-slack.py` owns the status line. It parses the
-report's own first section, classifies it, and prepends an emoji-bearing line
-under the existing agent header. The model keeps writing plain prose and never
-touches an emoji.
+**Decision:** `files/deliver-slack.py` owns the status line. A `Verdict` class
+classifies the **converted** report from its own sections and prefixes an
+emoji-bearing line to the `Status:` line the model already writes. The model
+never emits an emoji.
 
-Classification is by **section content**, not a token the model emits:
+Classification, in order:
 
-- `ERROR` if any line carries the `ERROR:` literal;
-- else `WARNING` if any section holds a finding or a continuing item rather than
-  its `nothing` literal;
-- else `OK`.
+- `ERROR` (red circle) if any line carries the `ERROR:` literal;
+- `WARNING` (warning sign) if a finding-bearing section is not one of its
+  "nothing" forms, or if `Still firing` names an alert whose line does not say
+  `chronic`;
+- `OK` (white check) otherwise.
 
-Open points to settle when this is built:
+`Still firing` is excluded from the blanket rule because chronic alerts fire
+permanently here — treating a chronic-only run as a warning would warn every
+run. A `REAL-chronic` or unclassified entry lifts it out of OK, which is the
+2026-09-13 shape where the real finding sat inside that section.
 
-- the exact literal list that counts as "nothing" per persona (each section's
-  empty form is already stated in its prompt);
-- whether the numeral summary after the emoji is composed by the script from the
-  `Status:` line or by the model;
-- the reply-mode fallback: the oracle leaves through the channel sidecar with no
-  converter, so it must write the status line itself from its prompt.
-- `homelab-reviewer` delivers as a PR comment, not a Slack message, so it takes
-  the friendly formatting but not the emoji line.
+**Scope, settled:** the six scheduled reporters, whose reports have a `Status:`
+section. `homelab-reviewer` posts a PR comment and keeps its Markdown. The
+oracle answers questions, not findings — "what URL is grafana on?" has no
+verdict — so it takes no status line and its prompt is unchanged.
 
-Rationale belongs in `MEMORY.md`; the conversion and its classification get tests
-beside the existing Markdown tests in `tests/test_deliver_slack.py`.
+Tests live beside the Markdown tests in `tests/test_deliver_slack.py`; the
+classification cases are the shapes live reports actually produced.
 
 ## 8. Open questions
 

@@ -296,3 +296,122 @@ def test_each_pattern_has_one_owner():
     # Nothing regex-shaped is left loose at module level.
     loose = [n for n, v in vars(deliver).items() if isinstance(v, type(deliver.Html.TAG_START))]
     assert loose == [], f"module-level patterns with no owner: {loose}"
+
+
+# -- Verdict ----------------------------------------------------------------
+#
+# The emoji on the Status line is computed here, never written by the model.
+# These are the shapes the personas actually emit, taken from live reports.
+
+STATUS = deliver.Verdict
+
+
+def test_ok_when_every_section_is_a_nothing_form():
+    body = (
+        "*Status:* all clear.\n\n*New:* Nothing new.\n\n*Still firing:* 4, all chronic:\n"
+        "- CPUThrottlingHigh, chronic, on x\n- InfoInhibitor, chronic, on data\n\n"
+        "*Resolved:* Nothing resolved.\n\n*Filling up:* Nothing above the warn threshold."
+    )
+    assert STATUS.classify(body) == STATUS.OK
+
+
+def test_chronic_alerts_alone_do_not_warn():
+    """chronic fires permanently here; a run whose only continuing items are
+    chronic is a clean run, not a warning."""
+    body = "*Status:* all clear.\n\n*Still firing:* Nothing new.\n- Watchdog, chronic"
+    assert STATUS.classify(body) == STATUS.OK
+
+
+def test_a_real_entry_inside_still_firing_warns():
+    """The 2026-09-13 shape: the real finding sat inside Still firing, marked
+    class `-` rather than `chronic`."""
+    body = (
+        "*Status:* 0 new, 5 still firing.\n\n*New:* Nothing new.\n\n"
+        "*Still firing:* 5 alerts:\n"
+        "- PrometheusOperatorRejectedResources (warning), class -\n"
+        "- CPUThrottlingHigh, chronic x2\n- Watchdog, chronic\n\n"
+        "*Resolved:* Nothing resolved."
+    )
+    assert STATUS.classify(body) == STATUS.WARNING
+
+
+def test_a_populated_finding_section_warns():
+    body = (
+        "*Status:* one finding.\n\n*Findings:* amd-1 - kernel drift - upgrade.\n\n"
+        "*Maintenance:* Nothing to act on."
+    )
+    assert STATUS.classify(body) == STATUS.WARNING
+
+
+def test_drift_that_is_not_a_nothing_form_warns():
+    body = "*Status:* 1 not synced.\n\n*Drift:* app, sync=Unknown.\n\n*Escalating:* growing."
+    assert STATUS.classify(body) == STATUS.WARNING
+
+
+def test_error_literal_beats_everything():
+    body = "*Status:* degraded.\n\n*Postgres:* ERROR: archiver query failed.\n\n*Cache:* healthy."
+    assert STATUS.classify(body) == STATUS.ERROR
+
+
+def test_plain_colon_labels_are_read():
+    """The un-bolded form converts nothing and must still be classified."""
+    body = "Status: all clear.\nNew: Nothing new.\nFilling up: Nothing above the warn threshold."
+    assert STATUS.classify(body) == STATUS.OK
+
+
+def test_bold_labels_without_a_colon_are_read():
+    body = "*Backups*\nNothing inside the window.\n\n*Expiring*\nNothing inside the window."
+    assert STATUS.classify(body) == STATUS.OK
+
+
+def test_prose_with_a_colon_is_not_a_section():
+    """A sentence containing a colon must not start a phantom section."""
+    body = "*Status:* healthy.\n\nNote that this sentence happens to contain: a colon and more."
+    assert STATUS.classify(body) == STATUS.OK
+
+
+def test_prefix_puts_the_emoji_on_the_status_line():
+    body = "*Status:* all clear.\n\n*New:* Nothing new."
+    assert STATUS.prefix(body) == f"{STATUS.OK} *Status:* all clear.\n\n*New:* Nothing new."
+
+
+def test_prefix_adds_an_emoji_when_no_status_section_exists():
+    body = "Just prose, then a section.\n\n*New:* Nothing new."
+    assert STATUS.prefix(body).startswith(STATUS.OK + " ")
+
+
+def test_prefix_on_an_empty_body_is_just_the_emoji():
+    assert STATUS.prefix("") == STATUS.OK
+
+
+def test_empty_result_placeholder_wears_no_verdict(monkeypatch):
+    """A run with no text has no report; the placeholder must not get a tick."""
+    sent = {}
+    monkeypatch.setattr(
+        deliver.Slack, "post", lambda self, text: sent.update(text=text) or {"ok": True}
+    )
+    monkeypatch.setenv("SLACK_CHANNEL", "#c")
+    monkeypatch.setenv("SLACK_BOT_TOKEN", "tok")
+    monkeypatch.setenv("AGENT_LABEL", "A | b | c")
+    monkeypatch.setenv("AGENT_RESULT", "   ")
+    assert deliver.main() == 0
+    assert STATUS.OK not in sent["text"]
+    assert STATUS.WARNING not in sent["text"]
+    assert STATUS.ERROR not in sent["text"]
+
+
+def test_verdict_is_on_the_real_report(monkeypatch):
+    """A real db-steward report, end to end, with its computed verdict."""
+    sent = {}
+    monkeypatch.setattr(
+        deliver.Slack, "post", lambda self, text: sent.update(text=text) or {"ok": True}
+    )
+    monkeypatch.setenv("SLACK_CHANNEL", "#c")
+    monkeypatch.setenv("SLACK_BOT_TOKEN", "tok")
+    monkeypatch.setenv("AGENT_LABEL", "DB Steward | homelab-ops | heartbeat, daily")
+    monkeypatch.setenv(
+        "AGENT_RESULT",
+        "**Status:** healthy\n\n**Postgres:** healthy\n\n**Room to grow:** Nothing above the warn threshold.",
+    )
+    assert deliver.main() == 0
+    assert sent["text"].startswith(f"*DB Steward | homelab-ops | heartbeat, daily*\n\n{STATUS.OK} ") 

@@ -653,6 +653,45 @@ per line as `airflow 19.0MiB`. **Forbid a shape and the model finds the next
 shape; name the shape you want.** Do not "make it consistent" without moving its
 delivery too.
 
+### The verdict emoji is computed, never written by the model (2026-09-13)
+
+A reader scans a channel for the one report that is bad, and the model cannot be
+trusted with the field that says which: an emoji it picks is one it can omit, and
+the top line is the last place for a judgement call. So `Verdict` in
+`files/deliver-slack.py` classifies the converted report and prefixes the symbol
+to the `Status:` line the model already writes. Same split as the Markdown
+translation directly above — the model writes prose, the code owns the one thing
+that must be consistent across every persona.
+
+The classification is by section, and the one non-obvious rule is `Still firing`:
+**chronic alerts fire permanently here, so a chronic-only run is OK**, and
+treating any non-empty `Still firing` as a warning would warn on every run. Only
+an entry whose line does not say `chronic` lifts it out of OK — which is exactly
+the 2026-09-13 shape, where a real `PrometheusOperatorRejectedResources` finding
+sat inside that section while four chronic alerts sat beside it. A section that
+*only* exists when something is wrong (`Findings`, `Drift`, `Escalating`,
+`Backups`, `Expiring`, `Accumulation`, `Maintenance`, `Short of pods`,
+`Restarting`, `Idle`, `Filling up`, `Room to grow`) warns when it is not one of
+its `Nothing…`/`Everything…`/healthy forms; any `ERROR:` anywhere is an error
+whatever else the report says.
+
+Three shapes of label are read because the model writes all three and the
+converter produces the first: `*Findings:*` (what `**Findings:**` becomes),
+`*Backups*`, and the un-bolded `Status:`. **The colon sits inside the asterisks**,
+which is what a first regex got wrong — it is `*Label:*`, not `*Label*:`.
+
+**The oracle takes no status line, and that is a decision, not an omission.** It
+answers questions rather than reporting findings: "what URL is grafana on?" has
+no verdict, and an emoji on it would be noise the model then has to defend. The
+reviewer is the same case in a different medium — its delivery is a PR comment,
+not a Slack message. The three-way scope is: reporters get the computed line,
+the oracle and the reviewer get none.
+
+The first classification cases in `tests/test_deliver_slack.py` are the real
+report shapes, including the chronic-only run and the real-finding-in-Still-firing
+run. A test that only exercises a clean report would pass on a classifier that
+returns OK for everything.
+
 ## The report names its agent; it never invents a time
 
 Nothing in this fleet returns the current time — verified: the runtime injects no

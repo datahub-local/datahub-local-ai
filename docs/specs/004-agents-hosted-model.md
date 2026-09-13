@@ -142,6 +142,8 @@ holds.
   model-era rationale and the open `[UNVERIFIED]` items.
 - [ ] **AI-12** (blocked) Enable `workflowType: delegation` on one ensemble after
   a probe. Runbook in §7. **Do not enable from this repository alone.**
+- [ ] **AI-13** (pending) Deterministic status line and friendlier formatting in
+  `files/deliver-slack.py`; reply-mode fallback in the oracle prompt. See §7a.
 
 ## 6. Risks
 
@@ -168,6 +170,38 @@ Do not set `workflowType: delegation` on instinct. Probe first:
 4. If delegation works, the natural home is `homelab-responder` (one inbound
    question, many possible expertises), not the scheduled reporters — a failed
    delegated run ends `status: error` and the `postRun` hook never fires.
+
+## 7a. Message formatting: a deterministic status line (AI-13, pending)
+
+The reports are correct and read poorly. With a stronger model the fix is a
+consistent, scannable shape, and the one field that must never be left to the
+model is the top-line verdict.
+
+**Decision:** `files/deliver-slack.py` owns the status line. It parses the
+report's own first section, classifies it, and prepends an emoji-bearing line
+under the existing agent header. The model keeps writing plain prose and never
+touches an emoji.
+
+Classification is by **section content**, not a token the model emits:
+
+- `ERROR` if any line carries the `ERROR:` literal;
+- else `WARNING` if any section holds a finding or a continuing item rather than
+  its `nothing` literal;
+- else `OK`.
+
+Open points to settle when this is built:
+
+- the exact literal list that counts as "nothing" per persona (each section's
+  empty form is already stated in its prompt);
+- whether the numeral summary after the emoji is composed by the script from the
+  `Status:` line or by the model;
+- the reply-mode fallback: the oracle leaves through the channel sidecar with no
+  converter, so it must write the status line itself from its prompt.
+- `homelab-reviewer` delivers as a PR comment, not a Slack message, so it takes
+  the friendly formatting but not the emoji line.
+
+Rationale belongs in `MEMORY.md`; the conversion and its classification get tests
+beside the existing Markdown tests in `tests/test_deliver_slack.py`.
 
 ## 8. Open questions
 

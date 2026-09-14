@@ -754,7 +754,11 @@
           560
         ],
         "parameters": {
-          "model": "=opencode-go/deepseek-v4.1-flash",
+          "model": {
+            "__rl": true,
+            "mode": "id",
+            "value": "=opencode-go/deepseek-v4.1-flash"
+          },
           "options": {}
         },
         "credentials": {
@@ -774,7 +778,11 @@
           560
         ],
         "parameters": {
-          "model": "=opencode-go/glm-5.3-flash",
+          "model": {
+            "__rl": true,
+            "mode": "id",
+            "value": "=opencode-go/glm-5.3-flash"
+          },
           "options": {}
         },
         "credentials": {
@@ -2187,7 +2195,11 @@
         560
       ],
       "parameters": {
-        "model": "=opencode-go/deepseek-v4.1-flash",
+        "model": {
+          "__rl": true,
+          "mode": "id",
+          "value": "=opencode-go/deepseek-v4.1-flash"
+        },
         "options": {}
       },
       "credentials": {
@@ -2207,7 +2219,11 @@
         560
       ],
       "parameters": {
-        "model": "=opencode-go/glm-5.3-flash",
+        "model": {
+          "__rl": true,
+          "mode": "id",
+          "value": "=opencode-go/glm-5.3-flash"
+        },
         "options": {}
       },
       "credentials": {

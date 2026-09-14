@@ -587,7 +587,11 @@
           2176
         ],
         "parameters": {
-          "model": "={{ $('set_workflow_vars').first().json.MODEL }}",
+          "model": {
+            "__rl": true,
+            "mode": "id",
+            "value": "={{ $('set_workflow_vars').first().json.MODEL }}"
+          },
           "options": {
             "maxRetries": 5
           }
@@ -609,7 +613,11 @@
           2176
         ],
         "parameters": {
-          "model": "={{ $('set_workflow_vars').first().json.MODEL_FALLBACK }}",
+          "model": {
+            "__rl": true,
+            "mode": "id",
+            "value": "={{ $('set_workflow_vars').first().json.MODEL_FALLBACK }}"
+          },
           "options": {
             "maxRetries": 5
           }
@@ -2863,7 +2871,11 @@
         2176
       ],
       "parameters": {
-        "model": "={{ $('set_workflow_vars').first().json.MODEL }}",
+        "model": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('set_workflow_vars').first().json.MODEL }}"
+        },
         "options": {
           "maxRetries": 5
         }
@@ -2885,7 +2897,11 @@
         2176
       ],
       "parameters": {
-        "model": "={{ $('set_workflow_vars').first().json.MODEL_FALLBACK }}",
+        "model": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('set_workflow_vars').first().json.MODEL_FALLBACK }}"
+        },
         "options": {
           "maxRetries": 5
         }

@@ -324,7 +324,11 @@
           2096
         ],
         "parameters": {
-          "model": "={{ $('set_workflow_vars').item.json.TEXT_MODEL_FALLBACK }}",
+          "model": {
+            "__rl": true,
+            "mode": "id",
+            "value": "={{ $('set_workflow_vars').item.json.TEXT_MODEL_FALLBACK }}"
+          },
           "options": {
             "maxRetries": 2
           }
@@ -346,7 +350,11 @@
           2096
         ],
         "parameters": {
-          "model": "={{ $('set_workflow_vars').item.json.TEXT_MODEL }}",
+          "model": {
+            "__rl": true,
+            "mode": "id",
+            "value": "={{ $('set_workflow_vars').item.json.TEXT_MODEL }}"
+          },
           "options": {
             "maxRetries": 2
           }
@@ -1058,7 +1066,11 @@
         2096
       ],
       "parameters": {
-        "model": "={{ $('set_workflow_vars').item.json.TEXT_MODEL_FALLBACK }}",
+        "model": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('set_workflow_vars').item.json.TEXT_MODEL_FALLBACK }}"
+        },
         "options": {
           "maxRetries": 2
         }
@@ -1080,7 +1092,11 @@
         2096
       ],
       "parameters": {
-        "model": "={{ $('set_workflow_vars').item.json.TEXT_MODEL }}",
+        "model": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('set_workflow_vars').item.json.TEXT_MODEL }}"
+        },
         "options": {
           "maxRetries": 2
         }

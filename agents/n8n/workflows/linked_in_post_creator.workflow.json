@@ -538,7 +538,11 @@
           -696
         ],
         "parameters": {
-          "model": "={{ $('set_workflow_vars').item.json.MODEL_FALLBACK }}",
+          "model": {
+            "__rl": true,
+            "mode": "id",
+            "value": "={{ $('set_workflow_vars').item.json.MODEL_FALLBACK }}"
+          },
           "options": {
             "maxRetries": 5
           }
@@ -628,7 +632,11 @@
           -696
         ],
         "parameters": {
-          "model": "={{ $('set_workflow_vars').item.json.MODEL }}",
+          "model": {
+            "__rl": true,
+            "mode": "id",
+            "value": "={{ $('set_workflow_vars').item.json.MODEL }}"
+          },
           "options": {
             "maxRetries": 5
           }
@@ -1666,7 +1674,11 @@
         -696
       ],
       "parameters": {
-        "model": "={{ $('set_workflow_vars').item.json.MODEL_FALLBACK }}",
+        "model": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('set_workflow_vars').item.json.MODEL_FALLBACK }}"
+        },
         "options": {
           "maxRetries": 5
         }
@@ -1756,7 +1768,11 @@
         -696
       ],
       "parameters": {
-        "model": "={{ $('set_workflow_vars').item.json.MODEL }}",
+        "model": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('set_workflow_vars').item.json.MODEL }}"
+        },
         "options": {
           "maxRetries": 5
         }

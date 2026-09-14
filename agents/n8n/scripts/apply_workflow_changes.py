@@ -165,9 +165,12 @@ def summarize_main(main):
 
 
 def outgoing(connections, name):
+    # Every connection type, not just main: a sub-node attaches to its consumer
+    # over ai_languageModel, and a guard that only saw main could not express it.
     return [
         o["node"]
-        for branch in connections.get(name, {}).get("main", []) or []
+        for branches in connections.get(name, {}).values()
+        for branch in branches or []
         for o in (branch or [])
     ]
 

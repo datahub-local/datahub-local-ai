@@ -201,7 +201,7 @@
               "URL": "={{ $('select_article_to_post').item.json.URL }}",
               "EXTRA_PROMPT": "={{ $('select_article_to_post').item.json.EXTRA_PROMPT }}",
               "CONTENT": "={{ $('download_content').item.json.contentMkdown }}",
-              "ENABLE_CHECK": true,
+              "ENABLE_CHECK": "true",
               "FEEDBACK": "={{ $('notification_retry_or_cancel').isExecuted && $('notification_retry_or_cancel').last().json.data.Feedback ? $('notification_retry_or_cancel').last().json.data.Feedback : '' }}"
             },
             "matchingColumns": [],
@@ -3089,7 +3089,7 @@
             "URL": "={{ $('select_article_to_post').item.json.URL }}",
             "EXTRA_PROMPT": "={{ $('select_article_to_post').item.json.EXTRA_PROMPT }}",
             "CONTENT": "={{ $('download_content').item.json.contentMkdown }}",
-            "ENABLE_CHECK": true,
+            "ENABLE_CHECK": "true",
             "FEEDBACK": "={{ $('notification_retry_or_cancel').isExecuted && $('notification_retry_or_cancel').last().json.data.Feedback ? $('notification_retry_or_cancel').last().json.data.Feedback : '' }}"
           },
           "matchingColumns": [],

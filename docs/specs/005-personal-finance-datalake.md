@@ -662,7 +662,7 @@ bound, and the UI answers over TLS at the ingress with password login.
 - [x] **WF-5** Airflow: extend `VALID_PIPELINES` with `"sync"` (+ test),
       `finance_daily` DAG with the ingest task wired and both finance secrets.
       *Blocked by WF-4.*
-- [ ] **N8N-1** Daily renewal workflow in n8n (fresh export in
+- [x] **N8N-1** Daily renewal workflow in n8n (fresh export in
       `agents/n8n/workflows/`, error workflow wired, `--require-edge` verified):
       daily check → ≤3-day Slack nudge with the form link → form-bank-form
       cycle (§4.2.1) → upsert `finance-enablebanking-token`. The form URL must

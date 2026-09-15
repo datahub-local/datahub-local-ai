@@ -1,0 +1,145 @@
+version: 2
+
+models:
+  # Every column of every model is documented, not just the tested ones. The semantic
+  # registry (../../../semantic/) resolves each `expr` against this list via the dbt
+  # manifest, and persist_docs writes the descriptions as Iceberg comments the MCP
+  # server reads live - an undocumented column reads as a missing one.
+  - name: transactions
+    description: "One row per booked bank transaction, typed and readable. Enrich joins here on payee_clean."
+    columns:
+      - name: provider
+        description: "Source provider slug. The literal enablebanking today."
+        tests:
+          - not_null
+      - name: account_id
+        description: "Pipeline account identity: the alias from finance-enablebanking, stable across consent renewals. Joins to accounts."
+        tests:
+          - not_null
+      - name: stable_id
+        description: "Transaction identity from the adapter: the ASPSP entry_reference when present, else a deterministic hash. Unique within an account."
+        tests:
+          - not_null
+      - name: institution_id
+        description: "Bank (ASPSP) name the account belongs to, from the account's alias."
+      - name: booking_date
+        description: "Date the bank recorded the transaction. The aggregation time dimension."
+        tests:
+          - not_null
+      - name: value_date
+        description: "Date funds become available. NULL when the provider omitted it."
+      - name: amount
+        description: "Signed amount in the account currency: negative for money out, positive for money in."
+      - name: direction
+        description: "inflow or outflow, derived from the sign of amount. Kept as its own dimension so refunds never net against purchases."
+        tests:
+          - not_null
+          - accepted_values:
+              values: ["inflow", "outflow"]
+      - name: currency
+        description: "ISO 4217 currency of amount."
+      - name: payee
+        description: "Best human counterparty label: creditor name, else debtor name, else the remittance text."
+      - name: payee_clean
+        description: "payee uppercased, trimmed and whitespace-collapsed. The merchant_categories join key - never a display value."
+      - name: creditor_name
+        description: "Creditor (money-in) party name as the bank supplied it."
+      - name: debtor_name
+        description: "Debtor (money-out) party name as the bank supplied it."
+      - name: creditor_iban
+        description: "Creditor account IBAN as supplied. Unmasked: this is the counterparty, not our account."
+      - name: debtor_iban
+        description: "Debtor account IBAN as supplied. Our own account appears here on outflows."
+      - name: bank_transaction_code
+        description: "ASPSP transaction code when supplied, else NULL."
+      - name: remittance_info
+        description: "Free-text payment detail lines joined into one string."
+      - name: iban_masked
+        description: "Our account's IBAN with all but the last four digits masked, joined from accounts."
+      - name: _ingested_at
+        description: "Loader timestamp of the bronze row this came from."
+
+  - name: accounts
+    description: "One row per authorised account: the latest snapshot, with the IBAN masked."
+    columns:
+      - name: provider
+        description: "Source provider slug. The literal enablebanking today."
+      - name: account_id
+        description: "Pipeline account identity: the alias from finance-enablebanking, stable across consent renewals."
+        tests:
+          - not_null
+          - unique
+      - name: institution_id
+        description: "Bank (ASPSP) name, from the account's alias."
+      - name: iban_masked
+        description: "IBAN with all but the last four digits masked. Full IBANs stay in bronze only."
+      - name: currency
+        description: "Account currency, ISO 4217."
+      - name: status
+        description: "Authorisation state recorded by the adapter. AUTHORIZED while a live session covers the account."
+      - name: _ingested_at
+        description: "Loader timestamp of the latest snapshot used."
+
+  - name: balances
+    description: "Latest balance reading per account, date and balance type."
+    columns:
+      - name: account_id
+        description: "Pipeline account identity (alias). Joins to accounts."
+        tests:
+          - not_null
+      - name: balance_date
+        description: "Provider reference date, or the ingestion date when the provider left it NULL."
+        tests:
+          - not_null
+      - name: balance_type
+        description: "ISO 20022 balance type code, e.g. CLBD for closing booked. Part of the key: one day can carry several."
+      - name: amount
+        description: "Balance amount in the account currency."
+      - name: currency
+        description: "ISO 4217 currency of amount."
+      - name: _ingested_at
+        description: "Loader timestamp of the snapshot chosen for this key."
+
+  - name: monthly_category_spend
+    description: "Money moved per month, category, bank and direction. The spend/inflow metric source."
+    columns:
+      - name: month_start
+        description: "First day of the calendar month. The aggregation time dimension."
+        tests:
+          - not_null
+      - name: category
+        description: "LLM-assigned spend category from merchant_categories; the literal UNCATEGORISED when the payee has not been categorised."
+        tests:
+          - not_null
+      - name: institution_id
+        description: "Bank (ASPSP) name the transaction belongs to."
+      - name: direction
+        description: "inflow or outflow, carried through from transactions so the two never net."
+        tests:
+          - not_null
+          - accepted_values:
+              values: ["inflow", "outflow"]
+      - name: currency
+        description: "ISO 4217 currency of amount."
+      - name: amount
+        description: "Total money moved in this month/category/bank/direction, as a positive magnitude."
+      - name: transaction_count
+        description: "Number of transactions behind amount."
+
+  - name: account_balance_series
+    description: "Balance series labelled for charts: accounts joined on so each row carries the masked IBAN and bank."
+    columns:
+      - name: account_id
+        description: "Pipeline account identity (alias)."
+      - name: balance_date
+        description: "Date of the reading - provider reference date or ingestion date."
+      - name: balance_type
+        description: "ISO 20022 balance type code, e.g. CLBD."
+      - name: amount
+        description: "Balance amount in the account currency."
+      - name: currency
+        description: "ISO 4217 currency of amount."
+      - name: iban_masked
+        description: "Masked account IBAN for labelling, joined from accounts."
+      - name: institution_id
+        description: "Bank (ASPSP) name for labelling, joined from accounts."

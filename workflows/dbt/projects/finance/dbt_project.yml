@@ -1,0 +1,30 @@
+name: "finance"
+version: "1.0.0"
+config-version: 2
+
+profile: "finance"
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+# Each medallion layer is a real catalog (Trino: Iceberg over Apache Polaris;
+# DuckDB: an attached database). Models set +database (catalog) and +schema (namespace),
+# yielding `<catalog>.finance.<table>`. generate_schema_name (macros/) keeps the schema
+# verbatim instead of prefixing it with the target schema.
+models:
+  finance:
+    +materialized: table
+    +schema: finance
+    # Load-bearing, not documentation polish: the semantic MCP server reads
+    # column docs from Iceberg rather than a shipped manifest, so a column with
+    # no description in schema.yml lands as a NULL comment and reads to the
+    # server as undocumented. Every column in schema.yml must carry one.
+    +persist_docs:
+      relation: true
+      columns: true
+    silver:
+      +database: silver
+    gold:
+      +database: gold

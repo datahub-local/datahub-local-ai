@@ -1,0 +1,31 @@
+version: 2
+
+sources:
+  - name: finance
+    description: "Raw bank-data landing zone (bronze catalog), populated by the dlt ingest pipeline from Enable Banking."
+    database: bronze
+    schema: finance
+    tables:
+      - name: raw_transactions
+        description: >
+          Booked transactions as Enable Banking returned them (status=BOOK only), one row
+          per transaction. payload_json is the untouched provider object.
+      - name: raw_accounts
+        description: >
+          Authorised account snapshots, one row per fetch. Owner names and full IBANs live
+          here and stop here - Silver masks the IBAN.
+      - name: raw_balances
+        description: >
+          Append-only balance snapshots, one row per fetch per balance type. reference_date
+          is often NULL from the provider; Silver falls back to the ingestion date.
+
+  - name: finance_enrich
+    description: "LLM payee categorisation (silver catalog), populated by the dlt enrich pipeline."
+    database: silver
+    schema: finance
+    tables:
+      - name: merchant_categories
+        description: >
+          Payee -> category mapping keyed on payee_clean, written by the dlt enrich step
+          between dbt silver and dbt gold runs. Append-mode in Iceberg, so Silver/Gold
+          dedupe to the latest categorisation per payee.

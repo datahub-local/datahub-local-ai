@@ -48,7 +48,7 @@ def _run_dbt(project: str, target: str, select: str | None, full_refresh: bool) 
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="dbt_runner")
-    parser.add_argument("--project", required=True, choices=["example_db", "pi", "bodega"])
+    parser.add_argument("--project", required=True, choices=["example_db", "pi", "bodega", "finance"])
     parser.add_argument("--target", default="homelab", choices=["homelab", "local"])
     parser.add_argument("--select", default="")
     parser.add_argument("--full-refresh", action="store_true")

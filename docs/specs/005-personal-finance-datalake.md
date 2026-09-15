@@ -442,13 +442,18 @@ benefit):
   (`****` + last 4), `institution_id`, `stable_id`, `account_id`.
 - `accounts` — one row per account: masked IBAN, institution, currency,
   status from the latest `raw_accounts` snapshot.
-- `balances` — one row per account per `reference_date`, latest snapshot
-  wins (row_number over `_ingested_at`).
+- `balances` — one row per account per `reference_date` **per `balance_type`**,
+  latest snapshot wins (row_number over `_ingested_at`). `balance_type` was added
+  to the key during WF-6: a single day can carry several ISO 20022 types
+  (`CLBD`, `ITAV`, ...) and collapsing them would silently drop all but one —
+  and `reference_date` is often NULL, so it falls back to the ingestion date.
 
 Gold:
 
 - `monthly_category_spend` — transactions x `merchant_categories` joined on
-  `payee_clean`, grouped by month x category, inflow/outflow separated.
+  `payee_clean`, grouped by month x category x `institution_id` x `direction`
+  x `currency` (the dimensions the semantic model in §4.10 filters on), with
+  the amount a positive magnitude so a refund never nets against a purchase.
   Uncategorised payees keep an `UNCATEGORISED` sentinel row rather than
   vanishing from the total — absence is expressible.
 - `account_balance_series` — balances joined to accounts, one row per
@@ -679,7 +684,7 @@ deliberately expired session fails as `ACCESS_EXPIRED`.
 
 ### Phase C — transform
 
-- [ ] **WF-6** `workflows/dbt/projects/finance/`: silver (`transactions`,
+- [x] **WF-6** `workflows/dbt/projects/finance/`: silver (`transactions`,
       `accounts`, `balances`), gold (`monthly_category_spend`,
       `account_balance_series`), `schema.yml` with every description
       non-blank, the blank-description test copied from bodega,

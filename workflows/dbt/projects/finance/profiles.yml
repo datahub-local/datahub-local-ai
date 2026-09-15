@@ -1,0 +1,33 @@
+# homelab runs on Trino (Iceberg catalogs over Apache Polaris REST + S3); local runs on DuckDB.
+# The medallion layers are real catalogs (bronze/silver/gold), set per model in
+# dbt_project.yml via +database. `database`/`schema` here are just the default landing spot.
+#
+# Trino-side catalogs (bronze/silver/gold backed by Apache Polaris) are configured on
+# the Trino server, not by dbt — see README.
+#
+# For the local (DuckDB) target each catalog is a separate attached DuckDB file under
+# DBT_DUCKDB_PATH's directory, so `database.schema.table` resolves identically to Trino.
+finance:
+  target: homelab
+  outputs:
+    homelab:
+      type: trino
+      method: none
+      host: "{{ env_var('TRINO_HOST', 'datahub-local-core-data-trino-trino') }}"
+      port: "{{ env_var('TRINO_PORT', '8080') | int }}"
+      user: "{{ env_var('TRINO_USER', 'dbt') }}"
+      http_scheme: http
+      database: bronze
+      schema: finance
+      threads: 4
+    local:
+      type: duckdb
+      path: "{{ env_var('DBT_DUCKDB_PATH', '/tmp/duckdb/bronze.duckdb') }}"
+      database: bronze
+      schema: finance
+      threads: 4
+      attach:
+        - path: "{{ env_var('DBT_DUCKDB_SILVER_PATH', '/tmp/duckdb/silver.duckdb') }}"
+          alias: silver
+        - path: "{{ env_var('DBT_DUCKDB_GOLD_PATH', '/tmp/duckdb/gold.duckdb') }}"
+          alias: gold

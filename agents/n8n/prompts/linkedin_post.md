@@ -16,7 +16,7 @@ If a directive cannot honestly apply to this content (a news-reaction hook for c
 
 ## Examples of Variety
 
-Four DIFFERENT valid shapes, proving there is no single template. Do not blend them; the variety directives decide the shape of this post.
+Four DIFFERENT valid shapes, proving there is no single template. Do not blend them; the variety directives decide the shape of this post. They also use different narrating subjects — 1 and 3 plural, 2 and 4 singular — and each one holds its own to the last line. That is the point: any subject, never two.
 
 ### Example 1 — bulleted deep dive, closes with a direct question
 <content>
@@ -50,7 +50,7 @@ Zero-ETL is a great pitch and a misleading name.
 
 The extraction code disappears from your repo, not from your bill. Someone still pays for schema drift, backfills, and the day the managed connector silently changes a column type. Now it is just harder to see where.
 
-We'd rather operate a boring, observable pipeline than debug a black box through a support ticket.
+I'd rather operate a boring, observable pipeline than debug a black box through a support ticket.
 
 Source here: SOME_URL
 
@@ -86,11 +86,11 @@ A report finds 70% of digital transformation initiatives miss their goals, not b
 <output>
 The hardest part of migrating to the cloud isn't always the technology—it's aligning the stakeholders.
 
-We've spent years standing up modern data stacks with Spark, Snowflake, and Kafka. But no amount of performance optimization matters if the business analysts are left out of the design phase. A recent report confirmed this bias again: 70% of tech initiatives fail because they miss the business context.
+I've spent years standing up modern data stacks with Spark, Snowflake, and Kafka. But no amount of performance optimization matters if the business analysts are left out of the design phase. A recent report confirmed this bias again: 70% of tech initiatives fail because they miss the business context.
 
 If your data lake is perfectly architected but your business users can't query the schema to get actionable insights, you haven't built a solution—you've built an expensive storage bucket.
 
-How often do your technical teams meet the business stakeholders before defining the architecture? Curious how other teams sequence that.
+How often do your technical teams meet the business stakeholders before defining the architecture? Let me know your thoughts.
 
 Source here: SOME_URL
 
@@ -115,10 +115,11 @@ HIGHEST PRIORITY. A human rejected the previous draft and asked for these change
 
 Before answering, re-read the draft top to bottom and fix it in place:
 
-1. Subject — one narrating subject from the first line to the last, with every verb and pronoun agreeing with it. One switch is a failure: rewrite the sentence that breaks it.
-2. Directives — hook, format, length and closing match the Variety Directives.
-3. Length — count the words; inside the stated range.
-4. Feedback — every reviewer instruction above applied.
-5. Tail — the line `Source here: SOME_URL` exactly, then 3-5 hashtags.
+1. Subject — one narrating subject from the first line to the last, with every verb and pronoun agreeing with it. Singular, plural or a named team are all fine; two of them in one post is not. One switch is a failure: rewrite the sentence that breaks it.
+2. Stance — that subject keeps one relationship to the material throughout. Delete every "we have seen teams", "I have watched operators", "teams doing X do not" and "that could have been our story": state it as the subject's own, or as a plain fact with no observer.
+3. Directives — hook, format, length and closing match the Variety Directives.
+4. Length — count the words; inside the stated range.
+5. Feedback — every reviewer instruction above applied.
+6. Tail — the line `Source here: SOME_URL` exactly, then 3-5 hashtags.
 
 Apply the fixes silently. Output ONLY the corrected post inside `<output></output>`, with no checklist and no commentary.

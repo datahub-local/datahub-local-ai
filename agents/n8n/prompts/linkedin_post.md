@@ -50,7 +50,7 @@ Zero-ETL is a great pitch and a misleading name.
 
 The extraction code disappears from your repo, not from your bill. Someone still pays for schema drift, backfills, and the day the managed connector silently changes a column type. Now it is just harder to see where.
 
-I'd rather operate a boring, observable pipeline than debug a black box through a support ticket.
+We'd rather operate a boring, observable pipeline than debug a black box through a support ticket.
 
 Source here: SOME_URL
 
@@ -86,11 +86,11 @@ A report finds 70% of digital transformation initiatives miss their goals, not b
 <output>
 The hardest part of migrating to the cloud isn't always the technology—it's aligning the stakeholders.
 
-I've spent years standing up modern data stacks using Spark, Snowflake, and Kafka. But no amount of performance optimization matters if the business analysts are left out of the design phase. A recent report confirmed this bias again: 70% of tech initiatives fail because they miss the business context.
+We've spent years standing up modern data stacks with Spark, Snowflake, and Kafka. But no amount of performance optimization matters if the business analysts are left out of the design phase. A recent report confirmed this bias again: 70% of tech initiatives fail because they miss the business context.
 
 If your data lake is perfectly architected but your business users can't query the schema to get actionable insights, you haven't built a solution—you've built an expensive storage bucket.
 
-How often are your technical teams meeting directly with the business stakeholders before defining the architecture? Let me know your thoughts.
+How often do your technical teams meet the business stakeholders before defining the architecture? Curious how other teams sequence that.
 
 Source here: SOME_URL
 
@@ -110,3 +110,15 @@ HIGHEST PRIORITY. A human rejected the previous draft and asked for these change
 <content>
 {{ CONTENT }}
 </content>
+
+## Final Pass
+
+Before answering, re-read the draft top to bottom and fix it in place:
+
+1. Subject — one narrating subject from the first line to the last, with every verb and pronoun agreeing with it. One switch is a failure: rewrite the sentence that breaks it.
+2. Directives — hook, format, length and closing match the Variety Directives.
+3. Length — count the words; inside the stated range.
+4. Feedback — every reviewer instruction above applied.
+5. Tail — the line `Source here: SOME_URL` exactly, then 3-5 hashtags.
+
+Apply the fixes silently. Output ONLY the corrected post inside `<output></output>`, with no checklist and no commentary.

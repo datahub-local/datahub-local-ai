@@ -12,6 +12,7 @@ Always follow it with `<explanation>your reasoning here</explanation>`, kept sho
 - No banned AI-speak (delve, leverage, harness, tapestry, ...).
 - Hook, format, length and closing match the assigned variety directives. A bulleted post when PURE PROSE was assigned, or a closing question when HOT TAKE was assigned, is a failure.
 - Word count of the body is within the range the Validation Criteria state. Count the words; below the minimum is a failure even if the post reads well.
+- One narrating subject from first line to last, with grammar agreeing throughout. "We" turning into "I", or our own work attributed to "a team" or "one company", is a failure on its own even if the post reads well. "You" for the reader and "other teams" when addressing the audience are not switches.
 
 ## Validation Criteria
 

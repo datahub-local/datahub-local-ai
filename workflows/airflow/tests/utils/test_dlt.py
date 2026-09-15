@@ -62,3 +62,11 @@ def test_create_dlt_task_uses_dlt_image():
     assert task.arguments == [
         "--pipeline", "ingest", "--project", "example_db", "--target", "homelab",
     ]
+
+
+def test_sync_pipeline_is_valid():
+    # spec 005 gate 9: VALID_PIPELINES grows by one for the Actual Budget push
+    task_config = DltTaskConfig(task_id="dlt_sync", project="example_db", pipeline="sync")
+    assert build_dlt_arguments(task_config) == [
+        "--pipeline", "sync", "--project", "example_db", "--target", task_config.target,
+    ]

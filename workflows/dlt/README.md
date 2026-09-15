@@ -18,8 +18,13 @@ workflows/dlt/
     config.py         env-driven config (catalog→warehouse map, DuckDB paths, DSNs)
     ingest.py         CSV → bronze medallion layer
     export.py         silver/gold → Postgres or DuckDB export file
+  finance/            personal banking pipeline (spec 005; Enable Banking provider)
+    config.py         env-driven config (Enable Banking accounts, FINANCE_* windows)
+    onboard.py        onboarding CLI (consent flow → accounts.json fragment)
+    providers/        `BankDataProvider` protocol + EnableBanking adapter
   tests/
     example_db/       integration test (local DuckDB ingest + export end-to-end)
+    finance/          adapter + onboarding unit tests (synthetic fixtures, mock transport)
     test_config.py    config unit tests
   Dockerfile
   pyproject.toml      package: datahub-local-ai-dlt
@@ -78,6 +83,44 @@ docker run --rm -e DBT_DUCKDB_DIR=/data datahub-local-ai-dlt \
   --pipeline ingest --project example_db --target local
 ```
 
+## Finance onboarding (Enable Banking)
+
+The bank consent is a browser flow (PSD2 strong customer authentication) and is
+the **only manual step** in the finance pipeline. It happens once per account per
+consent window (~180 days); the daily DAG reuses the session the onboarding
+produced and never consents on its own. Actual Budget's *built-in* bank sync
+must stay unconfigured — it would become a second fetcher competing for the same
+per-account daily budget (spec 005 §5, the recorded ordering mistake).
+
+### First link / re-link
+
+```bash
+cd workflows/dlt
+export ENABLEBANKING_PRIVATE_KEY_FILE=~/Downloads/<app-id>.pem  # key from app registration
+export ENABLEBANKING_APP_ID=<app-id>                            # also the JWT kid
+export ENABLEBANKING_REDIRECT_URL=<one whitelisted redirect URL>
+
+uv run python -m finance.onboard aspsps                          # 1. exact bank name
+uv run python -m finance.onboard auth --aspsp "<bank name>"      # 2. open URL, approve
+uv run python -m finance.onboard session --code <code> --alias <alias>   # 3. paste block
+```
+
+The browser lands on the redirect URL carrying `?code=...`; the page itself does
+not need to load. `session` prints an `accounts.json` fragment —
+`{alias: {iban, uid, app_id, valid_until, institution_id}}` — to paste into the
+`finance-enablebanking` secret (`datahub-local-secrets/release/values/default.yaml.gotmpl`,
+rendered and applied from that repo).
+
+### When a run fails with `ACCESS_EXPIRED`
+
+1. Re-run the three commands above for the account the failure named.
+2. Paste the fresh `uid` / `valid_until` into the secret **keeping the same
+   alias**: the uid is session-scoped and changes every re-link, the alias is
+   the pipeline identity — re-keying it would duplicate history in bronze.
+3. If the failure is a 429 instead, nothing is expired: the account hit its
+   per-endpoint daily budget. Re-run after the bank's reset; the fetch never
+   retries in a loop.
+
 ## Environment variables
 
 | Variable                                                     | Default                                                   | Used by          |
@@ -91,3 +134,10 @@ docker run --rm -e DBT_DUCKDB_DIR=/data datahub-local-ai-dlt \
 | `EXAMPLE_DB_SCHEMA`                                          | `public`                                                  | export           |
 | `DBT_DUCKDB_DIR` / `DBT_DUCKDB_*`                            | `/tmp/duckdb`                                             | local            |
 | `DLT_EXPORT_DUCKDB_PATH`                                     | `<dir>/export.duckdb`                                     | export (local)   |
+| `ENABLEBANKING_PRIVATE_KEY` / `ENABLEBANKING_PRIVATE_KEY_FILE` | — (PEM from app registration)                           | finance          |
+| `ENABLEBANKING_APP_ID`                                       | — (application id, the JWT `kid`)                         | finance          |
+| `ENABLEBANKING_ACCOUNTS`                                     | — (the secret's `accounts.json` JSON)                     | finance          |
+| `ENABLEBANKING_BASE_URL`                                     | `https://api.enablebanking.com`                           | finance          |
+| `ENABLEBANKING_REDIRECT_URL`                                 | — (must be whitelisted on the application)                | onboard          |
+| `FINANCE_FETCH_STRATEGY`                                     | `default` (`longest` on backfill runs)                    | finance          |
+| `FINANCE_FROM_DATE` / `FINANCE_TO_DATE`                      | — (14-day DAG lookback)                                   | finance          |

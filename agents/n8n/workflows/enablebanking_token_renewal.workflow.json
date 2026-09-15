@@ -1,0 +1,440 @@
+{
+  "name": "EnableBanking Token Renewal",
+  "nodes": [
+    {
+      "id": "6a1f5f01-6f66-400e-9101-70e5a426a9a1",
+      "name": "Sticky Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -620,
+        -420
+      ],
+      "parameters": {
+        "content": "## Enable Banking Token Renewal (spec 005 section 4.2.1)\nDaily check reads both finance Secrets through the k8s API with the pod's own ServiceAccount (Role n8n-finance-secrets).\n\n- valid_until within 3 days -> Slack nudge to #workflows with the renewal form link\n- Form: submit -> POST /auth -> Form Ending redirect to the bank consent\n- Bank redirect lands on /webhook/enablebanking-consent?code=... -> POST /sessions -> upsert finance-enablebanking-token -> Slack confirm\n\nThe bank login itself is the manual PSD2 step and cannot be automated. The consent URL whitelisted on the Enable Banking application must be exactly https://automation-n8n.homelab.alvsanand.com/webhook/enablebanking-consent"
+      }
+    },
+    {
+      "id": "71d6c4c8-6fdc-4df3-9bb1-ded1b9fd26d9",
+      "name": "Daily Check",
+      "notes": "Runs before the 06:00 finance DAG so a renewal decided today is in the Secret before the next ingest.",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -560,
+        80
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 4 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "5db03cdd-b209-422b-8329-e55d1679f5a4",
+      "name": "Check Consent Expiry",
+      "notes": "token Secret 404 is an expected state (renewal-owned); everything else non-200 throws",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -320,
+        80
+      ],
+      "parameters": {
+        "jsCode": "// Daily consent-expiry check (spec 005 \u00a74.2.1).\n// k8s reads use the pod ServiceAccount (Role n8n-finance-secrets: get on the two\n// named Secrets). A 404 on the token Secret means \"no tokens yet\" and every\n// account is treated as due; anything else non-200 is thrown so the error\n// workflow reports it rather than printing a healthy day.\nconst https = require('node:https');\nconst fs = require('node:fs');\n\nasync function kubernetes(namespace, name) {\n  const token = fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/token', 'utf8').trim();\n  const ca = fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/ca.crt');\n  const options = {\n    hostname: 'kubernetes.default.svc',\n    path: `/api/v1/namespaces/${namespace}/secrets/${name}`,\n    method: 'GET',\n    headers: { authorization: `Bearer ${token}` },\n    ca,\n    timeout: 15000,\n  };\n  return new Promise((resolve, reject) => {\n    const request = https.request(options, (response) => {\n      let raw = '';\n      response.on('data', (chunk) => (raw += chunk));\n      response.on('end', () => resolve({ status: response.statusCode, body: raw }));\n    });\n    request.on('error', reject);\n    request.end();\n  });\n}\n\nconst stable = await kubernetes('data', 'finance-enablebanking');\nif (stable.status !== 200) {\n  throw new Error(\n    `finance-enablebanking unreadable (HTTP ${stable.status}); check RoleBinding n8n-finance-secrets`\n  );\n}\nconst accounts = JSON.parse(\n  Buffer.from(JSON.parse(stable.body).data['accounts.json'], 'base64').toString()\n);\n\nconst tokens = await kubernetes('data', 'finance-enablebanking-token');\nlet tokensByAlias = {};\nif (tokens.status === 404) {\n  // renewal-owned Secret not created yet: treat every account as due\n  tokensByAlias = {};\n} else if (tokens.status === 200) {\n  tokensByAlias = JSON.parse(\n    Buffer.from(JSON.parse(tokens.body).data['tokens.json'], 'base64').toString()\n  );\n} else {\n  throw new Error(`finance-enablebanking-token unexpected status ${tokens.status}`);\n}\n\nconst due = [];\nfor (const [alias, cfg] of Object.entries(accounts)) {\n  const entry = tokensByAlias[alias];\n  const until = entry ? entry.valid_until : null;\n  const days = until ? Math.floor((new Date(until) - Date.now()) / 86400000) : -1;\n  if (days <= 3) {\n    const when = until ? new Date(until).toISOString().slice(0, 10) : 'no token yet';\n    due.push(`- *${alias}* (${cfg.institution_id || alias}): expires on ${when}`);\n  }\n}\n\nconst needsRenewal = due.length > 0;\nreturn [\n  {\n    json: {\n      needs_renewal: needsRenewal,\n      accounts_due: needsRenewal ? due.join('\\n') : '',\n      nudge_text: needsRenewal\n        ? `Enable Banking consent expiring:\\n${due.join('\\n')}\\n\\nRenew now (the bank login is the one manual step): https://automation-n8n.homelab.alvsanand.com/form/7c1f51ab-5f61-4b21-9b31-01befd1d0d02`\n        : 'all consents healthy',\n    },\n  },\n];\n"
+      }
+    },
+    {
+      "id": "c4acb5db-a331-4df6-a232-87edce54d0c9",
+      "name": "Renewal Due?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -80,
+        80
+      ],
+      "parameters": {
+        "options": {},
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a9eeadf1-fbf6-4960-84c7-e48d19ad531b",
+              "leftValue": "={{ $json.needs_renewal }}",
+              "rightValue": null,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "c8666806-582d-4e6d-b074-09570b91b7bd",
+      "name": "Nudge to Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "webhookId": "cb9ccb07-80a2-4f2a-a4c0-aec642e741ca",
+      "position": [
+        160,
+        -60
+      ],
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C08RQNXQV3P",
+          "mode": "list",
+          "cachedResultName": "workflows"
+        },
+        "text": "={{ $json.nudge_text }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "DszMmPE7WwOjHQjz",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "id": "d83d9631-2fcf-4d70-bdc6-3aecfdfeaf86",
+      "name": "Healthy, No Action",
+      "notes": "Fires on healthy days; keeps the false branch explicit.",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        160,
+        240
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "7c1f51ab-5f61-4b21-9b31-01befd1d0d02",
+      "name": "Form: Start Renewal",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "webhookId": "7c1f51ab-5f61-4b21-9b31-01befd1d0d02",
+      "position": [
+        -560,
+        520
+      ],
+      "parameters": {
+        "formTitle": "Renew Enable Banking consent",
+        "formDescription": "Generates the bank consent link; completing the consent updates the tokens Secret automatically.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Account alias",
+              "fieldType": "text",
+              "defaultValue": "cuenta_compartida",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "f3b8ba91-3d1e-45e0-ab70-6c3553d87b31",
+      "name": "Start Consent Flow",
+      "notes": "reads the stable Secret, mints the RS256 JWT and calls POST /auth",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -320,
+        520
+      ],
+      "parameters": {
+        "jsCode": "// Form-submission branch: mint the RS256 JWT and create the authorization\n// (POST /auth). The Form Ending node then redirects the user to the consent URL.\n// The JS below runs inside an n8n Code node (node built-ins available, verified\n// against the live instance 2026-09-14).\nconst https = require('node:https');\nconst fs = require('node:fs');\nconst crypto = require('node:crypto');\n\nasync function kubernetesSecret(namespace, name) {\n  const token = fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/token', 'utf8').trim();\n  const ca = fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/ca.crt');\n  const options = {\n    hostname: 'kubernetes.default.svc',\n    path: `/api/v1/namespaces/${namespace}/secrets/${name}`,\n    method: 'GET',\n    headers: { authorization: `Bearer ${token}` },\n    ca,\n    timeout: 15000,\n  };\n  return new Promise((resolve, reject) => {\n    const request = https.request(options, (response) => {\n      let raw = '';\n      response.on('data', (chunk) => (raw += chunk));\n      response.on('end', () => resolve({ status: response.statusCode, body: raw }));\n    });\n    request.on('error', reject);\n    request.end();\n  });\n}\n\nfunction requestEnableBanking(authorization, path, body) {\n  const options = {\n    hostname: 'api.enablebanking.com',\n    path,\n    method: body ? 'POST' : 'GET',\n    headers: { authorization, 'content-type': 'application/json' },\n    timeout: 30000,\n  };\n  return new Promise((resolve, reject) => {\n    const request = https.request(options, (response) => {\n      let raw = '';\n      response.on('data', (chunk) => (raw += chunk));\n      response.on('end', () => resolve({ status: response.statusCode, body: raw }));\n    });\n    request.on('error', reject);\n    if (body) request.write(JSON.stringify(body));\n    request.end();\n  });\n}\n\nfunction base64url(object) {\n  return Buffer.from(JSON.stringify(object)).toString('base64url');\n}\n\nfunction mintJwt(pem, appId) {\n  // RSA-SHA256 over \"<header>.<payload>\"; iss/aud fixed by the Enable Banking\n  // API reference, kid is the application id registered in the Control Panel.\n  const issuedAt = Math.floor(Date.now() / 1000);\n  const head = base64url({ typ: 'JWT', alg: 'RS256', kid: appId });\n  const payload = base64url({\n    iss: 'enablebanking.com',\n    aud: 'api.enablebanking.com',\n    iat: issuedAt,\n    exp: issuedAt + 3600,\n  });\n  const signer = crypto.createSign('RSA-SHA256');\n  signer.update(`${head}.${payload}`);\n  signer.end();\n  return `${head}.${payload}.${signer.sign(pem).toString('base64url')}`;\n}\n\nconst alias = $('Form: Start Renewal').first().json['Account alias'];\nconst stable = await kubernetesSecret('data', 'finance-enablebanking');\nif (stable.status !== 200) {\n  throw new Error(`finance-enablebanking unreadable (HTTP ${stable.status}): ${stable.body}`);\n}\nconst stableBody = JSON.parse(stable.body);\nconst accounts = JSON.parse(Buffer.from(stableBody.data['accounts.json'], 'base64').toString());\nconst config = accounts[alias];\nif (!config) {\n  throw new Error(`unknown alias '${alias}'; configured aliases: ${Object.keys(accounts).join(', ')}`);\n}\nconst pem = Buffer.from(stableBody.data['private_key'], 'base64').toString();\nconst jwt = mintJwt(pem, config.app_id);\nconst authorizationBody = {\n  access: { valid_until: new Date(Date.now() + 180 * 86400000).toISOString() },\n  aspsp: { name: config.institution_id || alias, country: 'ES' },\n  state: crypto.randomUUID(),\n  redirect_url: 'https://automation-n8n.homelab.alvsanand.com/webhook/enablebanking-consent',\n  psu_type: 'personal',\n};\nconst response = await requestEnableBanking(`Bearer ${jwt}`, '/auth', authorizationBody);\nif (response.status !== 200) {\n  throw new Error(`POST /auth rejected (HTTP ${response.status}): ${response.body}`);\n}\nconst consent = JSON.parse(response.body);\nreturn [{ json: { consent_url: consent.url, alias, authorization_id: consent.authorization_id } }];\n"
+      }
+    },
+    {
+      "id": "72e90c00-193d-41dd-8fc7-06292a9493f0",
+      "name": "Form: To Bank Consent",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.2,
+      "webhookId": "93ed62f2-3ec5-478d-bd6a-97342b9ab257",
+      "position": [
+        -80,
+        520
+      ],
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "redirect",
+        "redirectUrl": "={{ $json.consent_url }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "ff2b7de4-2f2d-4906-9e42-f4a190f4a098",
+      "name": "EnableBanking Redirect",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "webhookId": "5c7105c2-9ac2-4f9a-9501-1e7527d72703",
+      "position": [
+        -560,
+        860
+      ],
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "enablebanking-consent",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "236472cc-3156-4f92-a338-4779b997dde9",
+      "name": "Code Present?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -300,
+        860
+      ],
+      "parameters": {
+        "options": {},
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "79d24b2a-5ee1-49ae-a0bc-db850af5fbf9",
+              "leftValue": "={{ $json.query.code }}",
+              "rightValue": null,
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "b1846792-0eea-47e9-a918-98742f2848e8",
+      "name": "Respond: Missing Code",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -60,
+        1000
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"error\": \"Enable Banking redirect did not carry ?code= - restart the renewal form\" } }}",
+        "options": {
+          "responseCode": 400
+        }
+      }
+    },
+    {
+      "id": "3c2e8a85-4f27-436d-8e7f-9f07637049b1",
+      "name": "Exchange and Store Token",
+      "notes": "talks to Enable Banking and upserts the k8s Secret; errors reach the error workflow",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -40,
+        740
+      ],
+      "parameters": {
+        "jsCode": "// Enable Banking consent exchange + token Secret upsert (spec 005 \u00a74.2.1).\n//\n// Runs inside an n8n Code node (node built-ins available in the sandbox,\n// verified against the live instance 2026-09-14). The consent code arrives on\n// the bank's redirect to /webhook/enablebanking-consent?code=...; this node\n// exchanges it for a session, merges the per-alias session material into\n// finance-enablebanking-token (creating the Secret when it is missing - the\n// renewal owns it, so ArgoCD never fights the write) and reports what it stored.\n//\n// Error handling: any failure here is thrown and reaches the error workflow -\n// a malformed consent (no ?code=) is answered by the \"Respond: Missing Code\"\n// branch *without* touching either API.\nconst https = require('node:https');\nconst fs = require('node:fs');\nconst crypto = require('node:crypto');\n\nconst SA_TOKEN_PATH = '/var/run/secrets/kubernetes.io/serviceaccount/token';\nconst SA_CA_PATH = '/var/run/secrets/kubernetes.io/serviceaccount/ca.crt';\nconst NAMESPACE = 'data';\nconst STABLE_SECRET = 'finance-enablebanking';\nconst TOKEN_SECRET = 'finance-enablebanking-token';\n\nasync function kubernetes(path, method, body) {\n  const token = fs.readFileSync(SA_TOKEN_PATH, 'utf8').trim();\n  const ca = fs.readFileSync(SA_CA_PATH);\n  const payload = body ? JSON.stringify(body) : null;\n  const options = {\n    hostname: 'kubernetes.default.svc',\n    path,\n    method,\n    headers: { authorization: `Bearer ${token}` },\n    ca,\n    timeout: 15000,\n  };\n  if (payload) {\n    options.headers['content-type'] = 'application/strategic-merge-patch+json';\n    options.headers['content-length'] = Buffer.byteLength(payload);\n  }\n  return new Promise((resolve, reject) => {\n    const request = https.request(options, (response) => {\n      let raw = '';\n      response.on('data', (chunk) => (raw += chunk));\n      response.on('end', () => resolve({ status: response.statusCode, body: raw }));\n    });\n    request.on('error', reject);\n    if (payload) request.write(payload);\n    request.end();\n  });\n}\n\nfunction requestEnableBanking(authorization, path, body) {\n  const options = {\n    hostname: 'api.enablebanking.com',\n    path,\n    method: body ? 'POST' : 'GET',\n    headers: { authorization, 'content-type': 'application/json' },\n    timeout: 30000,\n  };\n  return new Promise((resolve, reject) => {\n    const request = https.request(options, (response) => {\n      let raw = '';\n      response.on('data', (chunk) => (raw += chunk));\n      response.on('end', () => resolve({ status: response.statusCode, body: raw }));\n    });\n    request.on('error', reject);\n    if (body) request.write(JSON.stringify(body));\n    request.end();\n  });\n}\n\nfunction mintJwt(pem, appId) {\n  // RS256 over \"<header>.<payload>\"; iss/aud fixed by the Enable Banking API\n  // reference; kid is the application id registered in the Control Panel.\n  const issuedAt = Math.floor(Date.now() / 1000);\n  const head = Buffer.from(JSON.stringify({ typ: 'JWT', alg: 'RS256', kid: appId })).toString('base64url');\n  const payload = Buffer.from(\n    JSON.stringify({\n      iss: 'enablebanking.com',\n      aud: 'api.enablebanking.com',\n      iat: issuedAt,\n      exp: issuedAt + 3600,\n    })\n  ).toString('base64url');\n  const signer = crypto.createSign('RSA-SHA256');\n  signer.update(`${head}.${payload}`);\n  signer.end();\n  return `${head}.${payload}.${signer.sign(pem).toString('base64url')}`;\n}\n\nconst code = $('EnableBanking Redirect').first().json.query.code;\n\nconst stable = await kubernetes(`/api/v1/namespaces/${NAMESPACE}/secrets/${STABLE_SECRET}`, 'GET');\nif (stable.status !== 200) {\n  throw new Error(`${STABLE_SECRET} unreadable (HTTP ${stable.status}); check RoleBinding n8n-finance-secrets`);\n}\nconst stableBody = JSON.parse(stable.body);\nconst accounts = JSON.parse(Buffer.from(stableBody.data['accounts.json'], 'base64').toString());\n\nconst pem = Buffer.from(stableBody.data['private_key'], 'base64').toString();\nconst firstAlias = Object.keys(accounts)[0];\n// Sessions are exchanged by the application that started the consent; this\n// fleet uses one application (one app_id in accounts.json), so its kid signs\n// the exchange. A second application needs the alias tracked through the\n// consent state before this node can serve both.\nconst jwt = mintJwt(pem, accounts[firstAlias].app_id);\n\nconst sessionResponse = await requestEnableBanking(`Bearer ${jwt}`, '/sessions', { code });\nif (sessionResponse.status !== 200) {\n  throw new Error(`POST /sessions failed (HTTP ${sessionResponse.status}): ${sessionResponse.body}`);\n}\nconst session = JSON.parse(sessionResponse.body);\nconst validUntil = (session.access || {}).valid_until;\nif (!validUntil) {\n  throw new Error(`session response carried no access.valid_until: ${sessionResponse.body}`);\n}\n\nconst tokensGet = await kubernetes(`/api/v1/namespaces/${NAMESPACE}/secrets/${TOKEN_SECRET}`, 'GET');\nlet tokens = {};\nlet tokenSecretExisted = false;\nif (tokensGet.status === 404) {\n  // renewal-owned Secret not created yet: the upsert creates it\n  tokens = {};\n} else if (tokensGet.status === 200) {\n  const existingData = (JSON.parse(tokensGet.body).data || {})['tokens.json'];\n  tokens = existingData ? JSON.parse(Buffer.from(existingData, 'base64').toString()) : {};\n  tokenSecretExisted = true;\n} else {\n  throw new Error(`${TOKEN_SECRET} GET failed (HTTP ${tokensGet.status}): ${tokensGet.body}`);\n}\n\nconst renewals = [];\nfor (const resource of session.accounts || []) {\n  if (!resource.uid) continue;\n  const iban = (resource.account_id || {}).iban;\n  const matched = Object.entries(accounts).filter(([, cfg]) => cfg.iban === iban);\n  const alias = matched.length ? matched[0][0] : null;\n  if (!alias) {\n    throw new Error(\n      `session account ****${String(iban).slice(-4)} is not in ${STABLE_SECRET} accounts.json; add its alias first`\n    );\n  }\n  tokens[alias] = { uid: resource.uid, valid_until: validUntil };\n  renewals.push(alias);\n}\nif (renewals.length === 0) {\n  throw new Error('Enable Banking session authorized zero accounts; nothing to store');\n}\n\nconst tokensJson = JSON.stringify(tokens);\nconst upsertBody = {\n  apiVersion: 'v1',\n  kind: 'Secret',\n  metadata: { name: TOKEN_SECRET, namespace: NAMESPACE },\n  stringData: { 'tokens.json': tokensJson },\n};\nif (tokenSecretExisted) {\n  const replacement = await kubernetes(\n    `/api/v1/namespaces/${NAMESPACE}/secrets/${TOKEN_SECRET}`,\n    'PUT',\n    upsertBody\n  );\n  if (replacement.status !== 200) {\n    throw new Error(`${TOKEN_SECRET} PUT failed (HTTP ${replacement.status}): ${replacement.body}`);\n  }\n} else {\n  const created = await kubernetes(`/api/v1/namespaces/${NAMESPACE}/secrets`, 'POST', upsertBody);\n  if (created.status !== 201) {\n    throw new Error(`${TOKEN_SECRET} create failed (HTTP ${created.status}): ${created.body}`);\n  }\n}\n\nconst untilDate = new Date(validUntil).toISOString().slice(0, 10);\nreturn [\n  {\n    json: {\n      result: tokenSecretExisted ? 'updated' : 'created',\n      aliases_renewed: renewals,\n      valid_until: untilDate,\n      slack_text: `Enable Banking token renewed for ${renewals.join(', ')} (Openbank): consent valid until ${untilDate}. The daily pipeline picks it up on the next run.`,\n    },\n  },\n];\n"
+      }
+    },
+    {
+      "id": "8b9c6016-f487-41bb-a17c-27bf8d15ada7",
+      "name": "Notify Renewed",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "webhookId": "f92ae3ac-fc1f-4869-9afe-6b436a632259",
+      "position": [
+        220,
+        740
+      ],
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C08RQNXQV3P",
+          "mode": "list",
+          "cachedResultName": "workflows"
+        },
+        "text": "={{ $json.slack_text }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "DszMmPE7WwOjHQjz",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "id": "1c6b06e4-881f-4845-8bc4-8124bc89eeb7",
+      "name": "Respond: Renewed",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        460,
+        740
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ 'Enable Banking token ' + $json.result + ' for ' + $json.aliases_renewed.join(', ') + ': consent valid until ' + $json.valid_until + '. The daily pipeline picks it up on the next run.' }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Daily Check": {
+      "main": [
+        [
+          {
+            "node": "Check Consent Expiry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Consent Expiry": {
+      "main": [
+        [
+          {
+            "node": "Renewal Due?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Renewal Due?": {
+      "main": [
+        [
+          {
+            "node": "Nudge to Slack",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Healthy, No Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Form: Start Renewal": {
+      "main": [
+        [
+          {
+            "node": "Start Consent Flow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start Consent Flow": {
+      "main": [
+        [
+          {
+            "node": "Form: To Bank Consent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EnableBanking Redirect": {
+      "main": [
+        [
+          {
+            "node": "Code Present?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code Present?": {
+      "main": [
+        [
+          {
+            "node": "Exchange and Store Token",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond: Missing Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Exchange and Store Token": {
+      "main": [
+        [
+          {
+            "node": "Notify Renewed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Renewed": {
+      "main": [
+        [
+          {
+            "node": "Respond: Renewed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "errorWorkflow": "fejq5nN6LP3F820w"
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "1f94e052868811125a74dc63385a38f60e7a14ab6e00497af83e8b68412ec251"
+  },
+  "active": false,
+  "tags": []
+}

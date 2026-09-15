@@ -320,7 +320,9 @@ consent window per account (gate 4). Three steps, the first two in a browser:
    exact ASPSP name, `POST /auth` for the chosen bank, print the consent URL,
    exchange the returned `code` for a session (`POST /sessions`), then print
    each account's alias, masked IBAN, `uid` and the session `valid_until`. The
-   operator pastes the printed values into `finance-enablebanking`.
+   operator pastes the printed values into the two finance secrets
+   (§4.7): stable material into `finance-enablebanking`, session material into
+   `finance-enablebanking-token`.
 
 Rules that fall out of the flow:
 
@@ -330,19 +332,55 @@ Rules that fall out of the flow:
   account can be linked and still have no session; the adapter fails naming the
   credential to fix rather than reporting zero rows.
 - No `app_id`, private key, IBAN, account uid or session is committed to git
-  beyond the operator-managed `finance-enablebanking` secret.
+  beyond the operator-managed finance secrets
+  (`datahub-local-secrets`).
 
-The secret `finance-enablebanking` holds the shared RSA `private_key` and
-`accounts.json` — `{alias: {iban, uid, app_id, valid_until, institution_id}}`.
-`valid_until` is per account so the pipeline can name an expired consent before
-the data call, not after; `uid` is rewritten on every re-link (Enable Banking
-scopes it to the session and it is only valid while that session is
-authorized), which is exactly why the alias, not the uid, is the pipeline
-identity.
+The secrets `finance-enablebanking` (shared RSA `private_key` and
+`accounts.json` — `{alias: {iban, app_id, institution_id}}`) and
+`finance-enablebanking-token` (`tokens.json` — `{alias: {uid, valid_until}}`)
+are read together at run time (§4.7). `uid` is rewritten on every renewal
+(Enable Banking scopes it to the session and it is only valid while that
+session is authorized), which is exactly why the alias, not the uid, is the
+pipeline identity — and why the session half lives in its own Secret the
+renewal workflow may rewrite without Git drift (§4.2.1).
 
 *Alternative rejected:* an interactive OAuth helper that writes the session
 into the lake. A session is a credential; it belongs in the k8s secret, pasted
 by the operator, exactly as bodega's onboarding pastes into its secret.
+
+#### 4.2.1 Automatic token renewal (n8n)
+
+The onboard CLI above stays the *break-glass* path ( Wash: first link, or when
+n8n itself is broken). The standing renewal is automated because it is the one
+part of spec that could otherwise turn "nothing from my side" into a
+twice-yearly surprise:
+
+- **Trigger.** An n8n workflow (schedule, daily) reads the token Secret, and
+  when any account's `valid_until` is ≤ **3 days** out it nudges the Slack
+  `#workflows` channel with a link to the renewal form. The check repeats daily
+  until renewed — a flaky bank day never silently lapses the consent.
+- **Flow.** Form page ("renew <alias>") → **Form Ending: redirect** to the bank
+  consent URL (generated live by the same execution) → the operator approves at
+  the bank (the PSD2 step that cannot be automated) → the bank redirects to the
+  form's own URL (whitelisted on the application, public via the n8n webhook
+  route) carrying `?code=` → the workflow mints an RS256 JWT (n8n Code node,
+  `node:crypto`; verified available in the sandbox 2026-09-14), calls
+  `POST /sessions {code}`, and **upserts** `finance-enablebanking-token`.
+- **Secret split.** `finance-enablebanking` keeps the stable half
+  (`private_key`, `{alias: {iban, app_id, institution_id}}`); the session-scoped
+  half (`{alias: {uid, valid_until}}`) moves to `finance-enablebanking-token`,
+  which is **not chart-rendered** — ArgoCD does not own it, so a dynamic patch
+  cannot drift against Git, and the DAG reads both Secrets and fails loudly
+  (goal 6) through the same `ACCESS_EXPIRED` path if the token is stale.
+- **Write path.** n8n has never had Kubernetes write access; it gets exactly
+  one: a Role/RoleBinding in `data` scoped to `get/patch/create` on the single
+  named Secret `finance-enablebanking-token`, bound to the n8n ServiceAccount.
+  Reads of `finance-enablebanking` (for the PEM) are granted by the same Role.
+  Nothing else, and an unlisted verb still 403s.
+
+*Alternative rejected:* letting Actual Budget's own sync maintain consent. Same
+reason as the §5 ordering mistake — a second fetcher fighting for the budget of
+an already rate-limited bank.
 
 *GoCardless, for the record:* it would have been
 `secret_id`/`secret_key` -> `POST /token/new` -> agreement -> requisition ->
@@ -495,11 +533,15 @@ own built-in bank sync is never configured (§5).
 ### 4.7 Secrets and data privacy
 
 Secrets (k8s, `data` namespace, wired via the existing `SecretEnvVarRef`
-pattern): `finance-enablebanking` (RSA `private_key` + `accounts.json` =
-alias -> `{iban, app_id, valid_until}`) and `finance-actual` (server password,
-sync id, account map). The Enable Banking material is already written into
-`datahub-local-secrets`; nothing else is committed to git, and the onboarding
-CLI prints the rest for the operator to paste.
+pattern): `finance-enablebanking` (anything stable: RSA `private_key`,
+`accounts.json` = alias -> `{iban, app_id, institution_id}` — **no session
+material**) and `finance-enablebanking-token` (`tokens.json` = alias ->
+`{uid, valid_until}`, maintained *dynamically* by the §4.2.1 renewal workflow,
+never chart-rendered) plus `finance-actual` (server password, sync id, account
+map). Stable material is written into `datahub-local-secrets`; the token half
+is created by the renewal workflow, not ArgoCD, exactly so a renewal cannot
+drift against Git. The onboarding CLI prints the rest for the operator to
+paste.
 
 Bank transactions are personal data, so the lake's normal openness is
 deliberately narrowed:
@@ -606,20 +648,30 @@ bound, and the UI answers over TLS at the ingress with password login.
       `ACCESS_EXPIRED` and 429), stable-id rule. New deps `pyjwt` +
       `cryptography`. Unit tests against **synthetic** JSON fixtures (no live
       API in CI, and no real account data in the repo).
-- [ ] **WF-2** `finance.onboard` CLI + the re-link runbook in
+- [x] **WF-2** `finance.onboard` CLI + the re-link runbook in
       `workflows/dlt/README.md`. *Blocked by WF-1.*
 - [ ] **WF-3** Live onboarding: operator links the bank, runs the CLI,
       records each target bank's observed history cap and `transaction_id`
       presence (closes gates 2/5 `[UNVERIFIED]`), and writes/updates
       `finance-enablebanking` in `datahub-local-secrets`. *Blocked by WF-2;
       needs operator + real bank access.*
-- [ ] **WF-4** `ingest.py` pipeline: three bronze resources, merge/append
+- [x] **WF-4** `ingest.py` pipeline: three bronze resources, merge/append
       dispositions, window env, `local` + `homelab` targets. Tests: local
       DuckDB end-to-end from fixtures; homelab verified by WF-3's real run.
       *Blocked by WF-1.*
-- [ ] **WF-5** Airflow: extend `VALID_PIPELINES` with `"sync"` (+ test),
-      `finance_daily` DAG with the ingest task wired and secrets.
+- [x] **WF-5** Airflow: extend `VALID_PIPELINES` with `"sync"` (+ test),
+      `finance_daily` DAG with the ingest task wired and both finance secrets.
       *Blocked by WF-4.*
+- [ ] **N8N-1** Daily renewal workflow in n8n (fresh export in
+      `agents/n8n/workflows/`, error workflow wired, `--require-edge` verified):
+      daily check → ≤3-day Slack nudge with the form link → form-bank-form
+      cycle (§4.2.1) → upsert `finance-enablebanking-token`. The form URL must
+      be whitelisted on the Enable Banking application (operator, Control
+      Panel). *Blocked by WF-4 (needs the split Secrets to exist); needs live
+      apply agreement.*
+- [x] **N8N-2** datahub-local-core: the §4.2.1 Role/RoleBinding (automation n8n
+      SA → exactly the two finance Secrets in `data`). *Blocks N8N-1's k8s
+      calls; independent of WF-*.*
 
 **Done when:** goals 1, 2 and 6 hold against the first live bank — two
 consecutive runs add nothing, backfill depth matches the recorded cap, and a
@@ -703,6 +755,7 @@ exists for this).
 | Enable Banking changes access terms or a restricted application stops working | Personal, single-account scale is well inside the restricted mode's terms; the adapter interface (§4.1) is the escape hatch — a provider change is an adapter, not a rewrite |
 | The consent expires and is forgotten until the DAG fails | Failing loudly *is* the design (goal 6): the run names the account and the runbook, and `valid_until` in `finance-enablebanking` lets a pre-flight check catch staleness before the data call; a silent zero-row success is the failure mode this spec forbids |
 | Personal data reaches an agent or a dashboard | §4.7: silver masks IBANs, consumers read silver/gold only, semantic metrics are aggregates with no counterparty dimension, no persona gets row-level Trino access to `silver.finance` |
+| The token renewal flow drifts: a stale `finance-enablebanking-token` makes every ingest fail while n8n looks green | The Secret write is n8n-owned and out of ArgoCD; the daily ingest fails as `ACCESS_EXPIRED` (goal 6) naming the account, and §4.2.1's nudge repeats daily — a stuck renewal is at most a loud repeat, never silent data loss. Working around the checker with Actual's built-in sync stays forbidden (§5) |
 | The budget PVC is the only copy of the SQLite budget files | INFRA-1 must state how `/data` is backed up under core's existing regime for PVC apps; an unbacked single-PVC app is how budget history dies quietly |
 
 ### Open questions

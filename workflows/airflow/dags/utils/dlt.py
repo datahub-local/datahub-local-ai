@@ -24,7 +24,7 @@ from utils import (
     build_pod_resources,
 )
 
-VALID_PIPELINES = ("ingest", "export", "enrich")
+VALID_PIPELINES = ("ingest", "export", "enrich", "sync")
 
 
 @dataclass(frozen=True)

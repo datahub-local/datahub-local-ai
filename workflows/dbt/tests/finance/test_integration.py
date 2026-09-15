@@ -32,6 +32,11 @@ TRANSACTION_ROWS = [
     ("enablebanking", "acct_a", "S3", "2026-02-02", None, -5.00, "EUR",
      "ACME  UNKNOWN", None, None, None, None, None,
      "Openbank", "{}", "2026-02-03T06:00:00+00:00"),
+    # card template with no counterparty: the merchant, not the whole remittance, is the key
+    ("enablebanking", "acct_a", "S4", "2026-02-05", None, -9.90, "EUR",
+     "GOOGLE PAY: COMPRA EN Sample Cafe, CON LA TARJETA : XXXXXXXXXXXX1234 EL 2026-02-05",
+     None, None, None, None, None,
+     "Openbank", "{}", "2026-02-06T06:00:00+00:00"),
 ]
 ACCOUNTS_COLUMNS = [
     "provider", "account_id", "institution_id", "iban", "currency", "owner_name", "status",
@@ -136,9 +141,10 @@ class TestSilver:
             "FROM silver.finance.transactions ORDER BY stable_id"
         ).fetchall()
         assert [(r[0], str(r[1]), float(r[2])) for r in rows] == [
-            ("S1", "2026-01-15", -12.34), ("S2", "2026-01-20", 100.0), ("S3", "2026-02-02", -5.0),
+            ("S1", "2026-01-15", -12.34), ("S2", "2026-01-20", 100.0),
+            ("S3", "2026-02-02", -5.0), ("S4", "2026-02-05", -9.9),
         ]
-        assert [r[3] for r in rows] == ["outflow", "inflow", "outflow"]
+        assert [r[3] for r in rows] == ["outflow", "inflow", "outflow", "outflow"]
 
     def test_payee_precedence_and_cleaning(self, con):
         payees = dict(con.execute(
@@ -147,6 +153,7 @@ class TestSilver:
         assert payees["S1"] == "SAMPLE SHOP SL"     # creditor name, uppercased
         assert payees["S2"] == "SAMPLE EMPLOYER"    # debtor name fallback
         assert payees["S3"] == "ACME UNKNOWN"       # remittance, whitespace collapsed
+        assert payees["S4"] == "SAMPLE CAFE"        # card template: merchant only, not the whole text
 
     def test_account_iban_is_masked_and_joined(self, con):
         row = con.execute(
@@ -175,7 +182,8 @@ class TestGold:
         assert ("SHOPPING", "outflow", 12.34, 1) in normalised
         # the payee the LLM has not seen stays in the total instead of vanishing
         assert ("UNCATEGORISED", "inflow", 100.0, 1) in normalised
-        assert ("UNCATEGORISED", "outflow", 5.0, 1) in normalised
+        # both February uncategorised outflows land in one row
+        assert ("UNCATEGORISED", "outflow", 14.9, 2) in normalised
 
     def test_monthly_spend_is_magnitudes_not_signed(self, con):
         total = con.execute(

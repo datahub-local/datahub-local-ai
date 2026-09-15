@@ -41,7 +41,7 @@ models:
       - name: payee
         description: "Best human counterparty label: creditor name, else debtor name, else the remittance text."
       - name: payee_clean
-        description: "payee uppercased, trimmed and whitespace-collapsed. The merchant_categories join key - never a display value."
+        description: "Merchant join key for merchant_categories: uppercased, trimmed, whitespace-collapsed, and with the card-purchase template's merchant extracted (`COMPRA EN <merchant>, CON LA TARJETA`) so a daily card purchase keys on the shop, not on the date. Falls back to the cleaned payee when the text does not match. Never a display value - use payee for that."
       - name: creditor_name
         description: "Creditor (money-in) party name as the bank supplied it."
       - name: debtor_name

@@ -126,10 +126,26 @@ def _balance_row(balance, ingested_at: str) -> dict:
     name=TABLE_TRANSACTIONS,
     write_disposition="merge",
     primary_key=["provider", "account_id", "stable_id"],
+
+    # dlt only materialises a column that saw a value; a run whose rows all had a
+    # NULL counterparty would otherwise ship a table missing that column entirely,
+    # and Silver's CAST on it would fail. Every column is therefore declared.
     columns={
+        "provider": {"data_type": "text"},
+        "account_id": {"data_type": "text"},
+        "stable_id": {"data_type": "text"},
+        "institution_id": {"data_type": "text"},
         "booking_date": {"data_type": "text"},
         "value_date": {"data_type": "text"},
         "amount": {"data_type": "decimal"},
+        "currency": {"data_type": "text"},
+        "remittance_info": {"data_type": "text"},
+        "creditor_name": {"data_type": "text"},
+        "debtor_name": {"data_type": "text"},
+        "creditor_iban": {"data_type": "text"},
+        "debtor_iban": {"data_type": "text"},
+        "bank_transaction_code": {"data_type": "text"},
+        "payload_json": {"data_type": "text"},
         "_ingested_at": {"data_type": "text"},
     },
 )
@@ -141,6 +157,17 @@ def raw_transactions(rows):
     name=TABLE_ACCOUNTS,
     write_disposition="merge",
     primary_key=["provider", "account_id"],
+    columns={
+        "provider": {"data_type": "text"},
+        "account_id": {"data_type": "text"},
+        "institution_id": {"data_type": "text"},
+        "iban": {"data_type": "text"},
+        "currency": {"data_type": "text"},
+        "owner_name": {"data_type": "text"},
+        "status": {"data_type": "text"},
+        "payload_json": {"data_type": "text"},
+        "_ingested_at": {"data_type": "text"},
+    },
 )
 def raw_accounts(rows):
     yield from rows
@@ -149,7 +176,14 @@ def raw_accounts(rows):
 @dlt.resource(
     name=TABLE_BALANCES,
     write_disposition="append",
-    columns={"amount": {"data_type": "decimal"}, "_ingested_at": {"data_type": "text"}},
+    columns={
+        "account_id": {"data_type": "text"},
+        "balance_type": {"data_type": "text"},
+        "amount": {"data_type": "decimal"},
+        "currency": {"data_type": "text"},
+        "reference_date": {"data_type": "text"},
+        "_ingested_at": {"data_type": "text"},
+    },
 )
 def raw_balances(rows):
     yield from rows

@@ -24,6 +24,12 @@ class TestSilverTransactions:
         assert "payee_clean" in self.sql
         assert "finance_clean_key" in self.sql
 
+    def test_extracts_the_card_merchant_before_falling_back(self):
+        # without this the key would carry the date and card digits, fragmenting a
+        # merchant into one key per transaction and defeating the enrich reuse
+        assert "COMPRA EN (.*?), CON LA TARJETA" in self.sql
+        assert "regexp_extract" in self.sql
+
     def test_casts_dates_and_amounts(self):
         assert "CAST(t.booking_date AS DATE)" in self.sql
         assert "DECIMAL(18, 2)" in self.sql

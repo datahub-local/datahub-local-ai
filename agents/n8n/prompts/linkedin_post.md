@@ -120,6 +120,7 @@ Before answering, re-read the draft top to bottom and fix it in place:
 3. Directives — hook, format, length and closing match the Variety Directives.
 4. Length — count the words; inside the stated range.
 5. Feedback — every reviewer instruction above applied.
-6. Tail — the line `Source here: SOME_URL` exactly, then 3-5 hashtags.
+6. Naming — the product, technology or company the post is about is named in the opening sentences, not left as an abstraction.
+7. Tail — the line `Source here: SOME_URL` exactly, then 3-5 hashtags.
 
 Apply the fixes silently. Output ONLY the corrected post inside `<output></output>`, with no checklist and no commentary.

@@ -26,6 +26,15 @@ ICEBERG_SECRET_ENV_VARS = S3_SECRET_ENV_VARS + (
 LITELLM_SECRET_ENV_VARS = (
     SecretEnvVarRef(secret_name="litellm-auth-credentials", secret_key="api_key", env_name="LITELLM_API_KEY"),
 )
+# The Actual Budget server address lives in the secret too, so core owns it
+# alongside the password: the service name is decided when the release lands
+# (INFRA-1), and a guessed host would reach nothing.
+ACTUAL_SECRET_ENV_VARS = (
+    SecretEnvVarRef(secret_name="finance-actual", secret_key="base_url", env_name="FINANCE_ACTUAL_BASE_URL"),
+    SecretEnvVarRef(secret_name="finance-actual", secret_key="password", env_name="FINANCE_ACTUAL_PASSWORD"),
+    SecretEnvVarRef(secret_name="finance-actual", secret_key="sync_id", env_name="FINANCE_ACTUAL_FILE"),
+    SecretEnvVarRef(secret_name="finance-actual", secret_key="accounts.json", env_name="FINANCE_ACTUAL_ACCOUNTS"),
+)
 
 default_args = {
     "owner": "datahub-local",
@@ -47,12 +56,11 @@ FINANCE_ENV_VARS = {
     "FINANCE_TO_DATE": TO_DATE_EXPR,
 }
 
-# The Actual Budget sync (WF-8/9) attaches after dbt_gold as `dlt_sync_actual` once
-# the server is deployed; the ordered chain is spec 005 §4.8.
+# The ordered chain is spec 005 §4.8: ingest → silver → enrich → gold → sync.
 with DAG(
     dag_id="finance_daily",
     default_args=default_args,
-    description="finance pipeline: Enable Banking → dlt ingest → dbt silver → dlt enrich → dbt gold",
+    description="finance pipeline: Enable Banking → dlt ingest → dbt silver → dlt enrich → dbt gold → Actual sync",
     schedule="0 6 * * *",
     start_date=datetime(2025, 1, 1),
     catchup=False,
@@ -107,4 +115,13 @@ with DAG(
         )
     )
 
-    dlt_ingest_finance >> dbt_silver_finance >> dlt_enrich_finance >> dbt_gold_finance
+    dlt_sync_actual = create_dlt_task(
+        DltTaskConfig(
+            task_id="dlt_sync_actual",
+            project="finance",
+            pipeline="sync",
+            secret_env_vars=ACTUAL_SECRET_ENV_VARS,
+        )
+    )
+
+    dlt_ingest_finance >> dbt_silver_finance >> dlt_enrich_finance >> dbt_gold_finance >> dlt_sync_actual

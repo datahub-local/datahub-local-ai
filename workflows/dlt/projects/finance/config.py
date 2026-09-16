@@ -132,3 +132,52 @@ def ingest_from_date() -> str | None:
 def ingest_to_date() -> str | None:
     """End (inclusive) of the transaction window, if scoped."""
     return env("FINANCE_TO_DATE")
+
+
+def actual_base_url() -> str:
+    """Actual Budget server URL (no default: a guessed host reaches nothing)."""
+    return os.environ["FINANCE_ACTUAL_BASE_URL"]
+
+
+def actual_password() -> str:
+    return os.environ["FINANCE_ACTUAL_PASSWORD"]
+
+
+def actual_file() -> str:
+    """The budget to sync: its sync id or its unique name (spec 005 §4.6)."""
+    return os.environ["FINANCE_ACTUAL_FILE"]
+
+
+def actual_account_map() -> dict[str, str]:
+    """Bank ``account_id`` (the alias) -> Actual account name.
+
+    Shape — the ``accounts.json`` key of the ``finance-actual`` secret::
+
+        {"<alias>": "<Actual account name>"}
+
+    Accounts must pre-exist in the budget (created once by hand in the UI); a
+    row whose alias is missing fails the sync naming the account rather than
+    being silently skipped (§4.6).
+    """
+    raw = env("FINANCE_ACTUAL_ACCOUNTS")
+    return json.loads(raw) if raw else {}
+
+
+def sync_window_days() -> int:
+    """How far back the daily sync re-reads silver (late-posted corrections)."""
+    return int(env("FINANCE_SYNC_WINDOW_DAYS", "60"))
+
+
+def sync_from_date() -> str | None:
+    """First-run override: push full history from this date (inclusive)."""
+    return env("FINANCE_SYNC_FROM_DATE")
+
+
+def sync_to_date() -> str | None:
+    """End (inclusive) of the sync window, if scoped."""
+    return env("FINANCE_SYNC_TO_DATE")
+
+
+def sync_dry_run() -> bool:
+    """When true, stop before ``actual.commit()`` and only log the counts."""
+    return env("FINANCE_SYNC_DRY_RUN", "false").lower() in ("1", "true", "yes")

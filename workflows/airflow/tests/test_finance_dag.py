@@ -16,12 +16,12 @@ def _dag():
 def test_dag_importable():
     dag = _dag()
     assert dag.dag_id == "finance_daily"
-    # the sync task attaches next to dbt_gold once the Actual Budget server lands (WF-8/9)
     assert set(dag.task_ids) == {
         "dlt_ingest_finance",
         "dbt_silver_finance",
         "dlt_enrich_finance",
         "dbt_gold_finance",
+        "dlt_sync_actual",
     }
 
 
@@ -92,10 +92,27 @@ def test_enrich_wires_iceberg_and_litellm_secrets():
     assert env_map["LITELLM_API_KEY"].value_from.secret_key_ref.key == "api_key"
 
 
+def test_sync_wires_the_actual_secret():
+    mod = _module()
+    sync = mod.dag.get_task("dlt_sync_actual")
+    env_map = {e.name: e for e in sync.env_vars}
+    assert env_map["FINANCE_ACTUAL_BASE_URL"].value_from.secret_key_ref.name == "finance-actual"
+    assert env_map["FINANCE_ACTUAL_BASE_URL"].value_from.secret_key_ref.key == "base_url"
+    assert env_map["FINANCE_ACTUAL_PASSWORD"].value_from.secret_key_ref.key == "password"
+    assert env_map["FINANCE_ACTUAL_FILE"].value_from.secret_key_ref.key == "sync_id"
+    assert env_map["FINANCE_ACTUAL_ACCOUNTS"].value_from.secret_key_ref.key == "accounts.json"
+
+
 def test_task_chain_order():
     mod = _module()
     dag = mod.dag
-    order = ["dlt_ingest_finance", "dbt_silver_finance", "dlt_enrich_finance", "dbt_gold_finance"]
+    order = [
+        "dlt_ingest_finance",
+        "dbt_silver_finance",
+        "dlt_enrich_finance",
+        "dbt_gold_finance",
+        "dlt_sync_actual",
+    ]
     for upstream, downstream in zip(order, order[1:]):
         assert downstream in {
             d.task_id for d in dag.get_task(upstream).downstream_list

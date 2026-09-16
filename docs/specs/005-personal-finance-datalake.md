@@ -730,9 +730,15 @@ deliberately expired session fails as `ACCESS_EXPIRED`.
       deployed server: does the pinned actualpy talk to the pinned server,
       and do budget rules apply to synced transactions? (closes gate 7
       `[UNVERIFIED]`; fallback = http-api sidecar, transport-only swap).
-      *Blocked by INFRA-1, WF-6.*
+      *Blocked by INFRA-1, WF-6.* **Code and local tests landed 2026-09-16**
+      (`actualpy==0.22.3` in `uv.lock`; 13 tests, no server). The live probe
+      and gate 7 remain, and the pin is provisional until INFRA-1 fixes the
+      server image tag (gate 14).
 - [ ] **WF-9** Complete the DAG (`dlt_sync_actual`)
       and run the full chain on `homelab`. *Blocked by WF-7, WF-8.*
+      **DAG wiring landed 2026-09-16** (`dlt_sync_actual` after `dbt_gold`,
+      wired to the `finance-actual` secret with airflow tests); the
+      end-to-end `homelab` run remains.
 - [x] **WF-10** Superset bundle: `projects/finance/dashboard_export/`
       (datasets on silver/gold only), `build_bundles.py`, helmfile apply.
       *Blocked by WF-6.*

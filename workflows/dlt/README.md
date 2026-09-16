@@ -142,3 +142,8 @@ rendered and applied from that repo).
 | `FINANCE_FETCH_STRATEGY`                                     | `default` (`longest` on backfill runs)                    | finance          |
 | `FINANCE_FROM_DATE` / `FINANCE_TO_DATE`                      | — (14-day DAG lookback)                                   | finance          |
 | `FINANCE_PAYEE_LANGUAGE`                                     | `Spanish`                                                 | finance (enrich) |
+| `FINANCE_SYNC_WINDOW_DAYS`                                   | `60`                                                      | finance (sync)   |
+| `FINANCE_SYNC_FROM_DATE` / `FINANCE_SYNC_TO_DATE`            | — (full-history first run / today)                        | finance (sync)   |
+| `FINANCE_SYNC_DRY_RUN`                                       | `false` (`local` target is dry-run regardless)            | finance (sync)   |
+| `FINANCE_ACTUAL_BASE_URL` / `FINANCE_ACTUAL_PASSWORD` / `FINANCE_ACTUAL_FILE` | — (finance-actual secret)            | finance (sync)   |
+| `FINANCE_ACTUAL_ACCOUNTS`                                    | — (`{"<alias>": "<Actual account>"}` JSON)                | finance (sync)   |

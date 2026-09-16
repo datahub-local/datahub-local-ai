@@ -1,5 +1,5 @@
 {
-  "_comment": "Motif vocabulary for prompts/linkedin_image_prompt.md, downloaded by LinkedIn Image Creator and injected as the prompt's SUBJECT_MOTIFS placeholder. It exists because the art director kept picking domain-free tension objects (handcuffs, icebergs, houses of cards) that stopped the scroll but said nothing about AI, data or automation. ART_DIRECTION decides how the image is rendered; this file decides what is in it.",
+  "_comment": "Visual vocabulary for prompts/linkedin_image_prompt.md, downloaded by LinkedIn Image Creator and injected into the prompt's SUBJECT_MOTIFS placeholder (domains) and HOOK_TREATMENT placeholder (hooks). It exists because the art director kept picking domain-free tension objects (handcuffs, icebergs, houses of cards) that stopped the scroll but said nothing about AI, data or automation. ART_DIRECTION decides how the image is rendered; this file decides what is in it and how the post's hook shapes the composition.",
   "_comment_no_placeholders": "Never write a doubled-curly-brace placeholder anywhere in this file, not even inside a comment. DownloadTemplate scans the whole downloaded text for them and routes to stop_and_error for any name it was not passed, and this file is fetched with an empty template_vars - so one such mention in a comment kills every image run.",
   "_comment_scoring": "parse_image_motifs scores the post text against each domain's keywords (whole-word, case-insensitive, one point per distinct keyword matched) and injects the winning block. Keep keywords literal - they must be words that actually appear in a post, not concepts.",
   "_comment_runner_up_ratio": "A domain joins the winner when it scores at least this fraction of the top score. It is a ratio and not a fixed margin because a post is routinely two domains at once with very different weights: the reference post scored data-engineering 7 (its material) against career-craft 4 and automation 4 (its tension), and a margin of 1 would have thrown away exactly the anchors that fix the image.",
@@ -7,6 +7,32 @@
   "max_domains": 3,
   "runner_up_ratio": 0.5,
   "default_domain": "default",
+  "default_hook": "default",
+  "hooks": {
+    "CONTRARIAN": {
+      "treatment": "Split the frame in two. On one side the prevailing assumption sits as a solid, worn, desaturated object crossed out by one bold stroke; on the other the counterexample is lit in the accent and visibly working. The headline names the belief being overturned."
+    },
+    "WAR_STORY": {
+      "treatment": "A left-to-right timeline of three moments from one incident: the state before, the failure or discovery, the fix. Only the pivotal middle moment carries the accent; the other two stay dim. Three stations, two arrows, nothing else."
+    },
+    "MISCONCEPTION": {
+      "treatment": "Two panels side by side: MYTH on the left, dim, cracked or faded; REALITY on the right, lit, intact and accented. One crossing stroke or arrow moves from the myth to the reality. The headline states the correction."
+    },
+    "TRADE_OFF": {
+      "treatment": "A balance, beam or two-pan scale caught mid-tilt: one side rises dim while the other falls into the accent, and the heavier consequence is the lit one. The headline names what is being weighed."
+    },
+    "NEWS_REACTION": {
+      "treatment": "One just-landed object or dated marker, centre-frame and accented, with the frame still settling around it: motion lines, displaced dust, or a before/after split at the edge. The headline is the immediate verdict, not a description."
+    },
+    "HARD_NUMBER": {
+      "treatment": "One oversized figure fills most of the frame in the accent color, its unit beside it, and a small before-to-after mark stays subordinate to it. Everything else is minimal. The headline carries the same figure."
+    },
+    "default": {
+      "treatment": "One bold central comparison: the thing being left behind on one side, dim, and the successor on the other, lit in the accent, joined by one arrow. One idea only; do not split into more."
+    }
+  },
+  "_comment_hooks": "hooks = the composition device the image must use, chosen by the post's own hook archetype. The hook is the one curator_judge.md assigns and admit_to_backlog writes as the leading 'Hook: X.' on the sheet's EXTRA_PROMPT; the image creator receives that string and parse_image_motifs extracts the archetype here, deterministically, so a 4B text model is never asked to classify it. The same six archetypes are listed in content_feed_curator's set_variety_directives. An unknown or empty hook gets 'default' rather than a guess, so a post queued before the hook was recorded still gets a shape.",
+  "_comment_infographic": "Both prompts modes read the same domain anchors: hero renders one as the fused object, infographic builds its blocks, arrows and containers out of them plus a few exact labels. Infographic-specific rules (block count, label size, no fake dashboards) live in the prompt template, not here, because the mode is chosen by the text model per post and this file is parsed before that choice is known.",
   "_comment_caps": "Caps applied after merging the selected domains. A small text model dilutes with a long list, so the block stays short on purpose.",
   "max_anchors": 8,
   "max_motifs": 4,

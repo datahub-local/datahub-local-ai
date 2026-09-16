@@ -2067,7 +2067,8 @@
             "mappingMode": "defineBelow",
             "value": {
               "POST_CONTENT": "={{ $('execute_post_creator').item.json.text }}",
-              "FEEDBACK": "={{ $('notification_retry_or_cancel_image').isExecuted && $('notification_retry_or_cancel_image').last().json.data.Feedback ? $('notification_retry_or_cancel_image').last().json.data.Feedback : '' }}"
+              "FEEDBACK": "={{ $('notification_retry_or_cancel_image').isExecuted && $('notification_retry_or_cancel_image').last().json.data.Feedback ? $('notification_retry_or_cancel_image').last().json.data.Feedback : '' }}",
+              "HOOK": "={{ $('select_article_to_post').item.json.EXTRA_PROMPT || \"\" }}"
             },
             "matchingColumns": [
               "POST_CONTENT"
@@ -2106,6 +2107,16 @@
               {
                 "id": "FEEDBACK",
                 "displayName": "FEEDBACK",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "HOOK",
+                "displayName": "HOOK",
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
@@ -4982,7 +4993,8 @@
           "mappingMode": "defineBelow",
           "value": {
             "POST_CONTENT": "={{ $('execute_post_creator').item.json.text }}",
-            "FEEDBACK": "={{ $('notification_retry_or_cancel_image').isExecuted && $('notification_retry_or_cancel_image').last().json.data.Feedback ? $('notification_retry_or_cancel_image').last().json.data.Feedback : '' }}"
+            "FEEDBACK": "={{ $('notification_retry_or_cancel_image').isExecuted && $('notification_retry_or_cancel_image').last().json.data.Feedback ? $('notification_retry_or_cancel_image').last().json.data.Feedback : '' }}",
+            "HOOK": "={{ $('select_article_to_post').item.json.EXTRA_PROMPT || \"\" }}"
           },
           "matchingColumns": [
             "POST_CONTENT"
@@ -5021,6 +5033,16 @@
             {
               "id": "FEEDBACK",
               "displayName": "FEEDBACK",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "HOOK",
+              "displayName": "HOOK",
               "required": false,
               "defaultMatch": false,
               "display": true,

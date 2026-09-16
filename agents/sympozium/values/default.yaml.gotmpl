@@ -27,6 +27,21 @@ sympozium_mcp_servers:
     warehouseScopes: silver.bodega,gold.bodega
     cacheTTLSeconds: 3600
 
+  semantic-finance:
+    enabled: true
+    server: semantic
+    configDir: semantic-finance
+    image: ghcr.io/datahub-local/mcp-semantic
+    tag: main
+    toolsPrefix: finance
+    configMap: mcp-semantic-finance
+    observabilityEnv: false
+    kubernetesReader: false
+    trinoUrl: http://datahub-local-core-data-trino-trino.data.svc.cluster.local:8080
+    trinoUser: mcp
+    warehouseScopes: silver.finance,gold.finance
+    cacheTTLSeconds: 3600
+
 sympozium_delivery_hook:
   image: python:3.13-alpine
   secret: mcp-slack-token

@@ -1,0 +1,139 @@
+# Finance semantic registry.
+#
+# MetricFlow-compatible on purpose, exactly like bodega.yaml: `semantic_models` /
+# `metrics` as dbt defines them. See ../../../docs/specs/002-01-semantic-layer.md
+# and, for this domain, docs/specs/005-personal-finance-datalake.md (AI-1).
+#
+# Every `expr` here is a bare documented column of the dbt model, because the
+# compiler validates it against dbt's manifest and the server binds the model's
+# table from the live warehouse scopes (silver.finance,gold.finance). A registry
+# may carry no SQL fragment, so a metric cannot filter by `direction` itself:
+# direction is a dimension the caller groups or filters on, and each metric that
+# mixes directions says so in `excludes`.
+#
+# Bank transactions are personal data. This registry is deliberately aggregate:
+# no metric or dimension names a counterparty, so a persona can answer "how much
+# went out last month" and cannot enumerate "every payment to X" (spec 005 §4.7).
+# `payee` exists in silver.finance.transactions and is intentionally not exposed.
+
+semantic_models:
+  # Pre-aggregated to (month, category, institution, direction, currency) by the
+  # gold model. `amount` is already a SUM, so summing it again is correct and
+  # averaging it is not - the registry marks it `pre_aggregated` and the
+  # validator refuses avg/min/max over it.
+  - name: monthly_category_spend
+    description: Money moved per month, LLM-assigned category, bank and direction.
+    model: ref('monthly_category_spend')
+    pre_aggregated: true
+    defaults:
+      agg_time_dimension: month_start
+    entities:
+      - {name: institution, type: foreign, expr: institution_id}
+    dimensions:
+      - name: month_start
+        type: time
+        type_params: {time_granularity: month}
+      - {name: category, type: categorical}
+      - {name: institution_id, type: categorical}
+      - {name: direction, type: categorical}
+      - {name: currency, type: categorical}
+    measures:
+      - {name: category_amount, agg: sum, expr: amount}
+      - {name: category_txns, agg: sum, expr: transaction_count}
+
+  # One row per account/date/balance-type reading. A day can carry several ISO
+  # 20022 types, so balance is an average over readings rather than a sum that
+  # would count the same account twice - see the metric excludes.
+  - name: account_balance_series
+    description: Balance readings over time, labelled with the masked IBAN and bank.
+    model: ref('account_balance_series')
+    defaults:
+      agg_time_dimension: balance_date
+    entities:
+      - {name: account, type: foreign, expr: account_id}
+    dimensions:
+      - name: balance_date
+        type: time
+        type_params: {time_granularity: day}
+      - {name: balance_type, type: categorical}
+      - {name: iban_masked, type: categorical}
+      - {name: institution_id, type: categorical}
+      - {name: currency, type: categorical}
+      - {name: account_id, type: categorical}
+    measures:
+      - {name: reading_amount, agg: avg, expr: amount}
+      - {name: reading_count, agg: count, expr: balance_date}
+
+metrics:
+  - name: money_moved_eur
+    label: Money moved (EUR)
+    type: simple
+    type_params: {measure: category_amount}
+    meta:
+      owner: alvaro
+      grain_min: month
+      description: >
+        Total money moved for the matching month/category/bank rows, as a positive
+        magnitude. The month is the aggregation time dimension.
+      excludes: >
+        Sums inflow and outflow together unless the caller groups or filters on
+        `direction` - the column carries both, because a registry expr may be a
+        bare column only and cannot filter itself. Amounts are already absolute
+        values, so a refund does not net against a purchase within one direction
+        either; summing the two directions therefore double-counts nothing but
+        answers "how much moved", not "how much was spent". Only booked
+        transactions are ingested. Payees the enrich step has not categorised
+        land in the literal UNCATEGORISED rather than being dropped, so a
+        categorisation gap moves nothing. Multi-currency is not converted:
+        currency is a dimension and the amounts of different currencies must not
+        be added.
+
+  - name: transactions_count
+    label: Transactions
+    type: simple
+    type_params: {measure: category_txns}
+    meta:
+      owner: alvaro
+      grain_min: month
+      description: Number of booked transactions behind money_moved_eur for the same rows.
+      excludes: >
+        Counts the monthly aggregate's own transaction_count column, already a
+        count per month/category/bank/direction group, so summing it is correct.
+        Pending transactions are never ingested, so a payment appears here only
+        once the bank books it. Payees the enrich step has not categorised are
+        counted under the literal UNCATEGORISED, not dropped.
+
+  - name: avg_balance_eur
+    label: Average balance (EUR)
+    type: simple
+    type_params: {measure: reading_amount}
+    meta:
+      owner: alvaro
+      grain_min: day
+      description: >
+        Mean balance reading across the matching rows in the period.
+      excludes: >
+        A mean over READINGS, not time-weighted: a day with one reading and a day
+        with four move it equally. One day can carry several ISO 20022 balance
+        types (closing booked, available, ...), and each contributes a row, so
+        group or filter on `balance_type` to compare like with like; this is why
+        the metric is an average and not a sum, which would count the same
+        account once per type. `reference_date` is frequently absent from the
+        provider, in which case the ingestion date stands in for the reading
+        date, so a day the pipeline did not run can be labelled with the next
+        day's ingestion. Multi-currency is not converted: currency is a
+        dimension and amounts of different currencies must not be averaged
+        together.
+
+  - name: balance_readings
+    label: Balance readings
+    type: simple
+    type_params: {measure: reading_count}
+    meta:
+      owner: alvaro
+      grain_min: day
+      description: Number of balance readings behind avg_balance_eur for the same rows.
+      excludes: >
+        Counts READINGS, not days and not accounts: one account returning two
+        ISO 20022 balance types on one day contributes two. Use it as the
+        denominator context for avg_balance_eur, not as a count of accounts.

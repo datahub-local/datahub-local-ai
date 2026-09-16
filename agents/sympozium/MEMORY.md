@@ -3974,3 +3974,35 @@ The generic lesson for any persona here: when adding a rule that forbids a
 reply, check what the model is left with, and make sure at least one branch ends
 in text. Nothing in CI can see this - the render passes, the CRD is valid, and
 the run reports success.
+
+## `semantic-finance`: the served module and the config directory are not the same thing (2026-09-16)
+
+The finance domain (spec 005 AI-1) needed a second semantic registry. Reading
+`datahub-local-ai-mcp/servers/semantic/settings.py` settled what the spec had
+left `[UNVERIFIED]`: the server reads exactly **one** `SEMANTIC_REGISTRY_PATH`,
+so a second registry means a second `MCPServer`, not a second file in one
+process.
+
+The template did not support that as written. `templates/mcpservers.yaml`
+derived the served module (`--server`), the `MCP_CONFIG_DIR`, the config mount
+path and the ConfigMap glob all from one `$serverArg`, and gated the whole
+semantic env block on `eq $serverArg "semantic"`. A second server therefore had
+no way to load the `semantic` module while mounting its own registry: name it
+`semantic` and it collides with bodega's mount and registry path, name it
+anything else and it never gets `SEMANTIC_*` at all.
+
+The fix is one optional value, `configDir`, defaulting to `$serverArg`, used for
+the directory half only, plus keying the semantic env block on
+`warehouseScopes` instead of the name. Every existing render is byte-identical -
+checked with `helmfile template` and `diff` before the new entry was added -
+because the default reproduces the old path exactly.
+
+Two things that are easy to get wrong on a second server:
+
+- **`toolsPrefix` must differ.** The catalog is keyed on the prefixed tool name,
+  so a second semantic server with prefix `semantic` duplicates every
+  `semantic_*` tool name. Finance uses `finance`.
+- **The finance tables do not exist until the first live ingest.** The server
+  binds each model's table from the live warehouse scopes, so with no
+  `silver.finance`/`gold.finance` tables it resolves nothing and reports that on
+  first use. That is loud and per-server; the bodega registry is unaffected.

@@ -34,13 +34,15 @@ Examples:
     #   {"workflow": id-or-name, "requireEdges": [["a","b"]],
     #    "nodes": {"n": {"field": value}}, "settings": {"field": value},
     #    "addNodes": [ {full n8n node object} ],
+    #    "removeNodes": ["some_node"],
     #    "connections": {"src": [[{"node": "dst", "type": "main", "index": 0}]]}}
     --changes /tmp/changes.json
 
-Adding a node or rewiring is file-only: a node object does not fit on a command
-line, and a graph edit is the kind that wants reviewing before it runs. Both are
-idempotent -- an addNodes entry whose name already exists is skipped, and a
-connections entry already matching is skipped -- so a spec can be re-run.
+Adding a node, removing one, or rewiring is file-only: a node object does not fit
+on a command line, and a graph edit is the kind that wants reviewing before it
+runs. All are idempotent -- an addNodes entry whose name already exists is skipped,
+a removeNodes entry already absent is skipped, and a connections entry already
+matching is skipped -- so a spec can be re-run.
 """
 
 import argparse
@@ -201,6 +203,21 @@ def process(url, key, spec, do_apply):
 
     # Rewiring replaces a source's whole main array, because a connection is a
     # position in a list -- there is no stable id to patch a single edge by.
+    for node in spec.get("removeNodes", []):
+        if node not in by_name:
+            print(f"  node {node!r} already absent")
+            continue
+        wf["nodes"] = [n for n in wf["nodes"] if n["name"] != node]
+        del by_name[node]
+        # A removed node is a graph edit, so drop it as a source and strip every
+        # inbound edge to it -- a dangling target makes the live graph invalid.
+        wf["connections"].pop(node, None)
+        for branches in wf["connections"].values():
+            for main in branches.values():
+                for i, branch in enumerate(main):
+                    main[i] = [o for o in (branch or []) if o.get("node") != node]
+        changes.append((node, "<removed>", "present", "removed"))
+
     for src, main in spec.get("connections", {}).items():
         if src not in by_name:
             sys.exit(f"connection source {src!r} is not a node in the workflow")
@@ -267,6 +284,10 @@ def process(url, key, spec, do_apply):
         if field == "<node>":
             ok = node_name in after_nodes
             print(f"  wrote node {node_name}: {'present' if ok else 'MISSING'}")
+            continue
+        if field == "<removed>":
+            ok = node_name not in after_nodes
+            print(f"  removed node {node_name}: {'absent' if ok else 'STILL PRESENT'}")
             continue
         if field == "<connections>":
             got = summarize_main(after_wf["connections"].get(node_name, {}).get("main"))

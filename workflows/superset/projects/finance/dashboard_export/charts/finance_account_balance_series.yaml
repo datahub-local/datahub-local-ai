@@ -1,0 +1,34 @@
+slice_name: Finance - Account balance series
+description: Balance over time per account and ISO 20022 balance type. Grouping by
+  type as well keeps a day's closing and available readings apart instead of collapsing
+  one into the other.
+viz_type: echarts_timeseries_line
+params:
+  datasource: 0__table
+  viz_type: echarts_timeseries_line
+  x_axis: balance_date
+  time_grain_sqla: P1D
+  metrics:
+  - expressionType: SIMPLE
+    aggregate: AVG
+    column:
+      column_name: amount
+      type: DECIMAL(18,2)
+    label: Balance
+    optionName: metric_finance_balance
+  groupby:
+  - iban_masked
+  - balance_type
+  show_legend: true
+  rich_tooltip: true
+  y_axis_format: SMART_NUMBER
+  currency_format:
+    symbol: EUR
+    symbolPosition: prefix
+  row_limit: 10000
+  time_range: No filter
+query_context: null
+cache_timeout: null
+uuid: 11656e1c-c173-433a-95e8-e7be0a46fd13
+version: 1.0.0
+dataset_uuid: 98620b90-c615-4f6a-86b0-9a61e832ac4e

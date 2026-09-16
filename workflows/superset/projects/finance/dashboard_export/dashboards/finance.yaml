@@ -1,0 +1,230 @@
+dashboard_title: Finance - Personal banking analytics
+description: 'Single-tab dashboard over the finance dbt silver/gold layers: monthly flow, category spend, balance series and top payees.'
+css: ''
+slug: finance
+uuid: 8fdc2234-6cf3-43f7-b400-95879b119049
+position:
+  DASHBOARD_VERSION_KEY: v2
+  ROOT_ID:
+    type: ROOT
+    id: ROOT_ID
+    children:
+    - GRID_ID
+  GRID_ID:
+    type: GRID
+    id: GRID_ID
+    parents:
+    - ROOT_ID
+    children:
+    - TABS-finance
+  HEADER_ID:
+    type: HEADER
+    id: HEADER_ID
+    meta:
+      text: Finance - Personal banking analytics
+  TABS-finance:
+    type: TABS
+    id: TABS-finance
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    children:
+    - TAB-overview
+    meta: {}
+  TAB-overview:
+    type: TAB
+    id: TAB-overview
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - TABS-finance
+    children:
+    - ROW-overview-flow
+    - ROW-overview-categories
+    - ROW-overview-balances
+    - ROW-overview-payees
+    meta:
+      text: Overview
+      defaultText: Tab title
+      placeholder: Tab title
+  CHART-flow:
+    type: CHART
+    id: CHART-flow
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - TABS-finance
+    - TAB-overview
+    - ROW-overview-flow
+    children: []
+    meta:
+      chartId: 201
+      uuid: 627ade36-51fe-4b61-a850-cc64ca8e2fb4
+      width: 6
+      height: 50
+      sliceName: Finance - Monthly inflow vs outflow
+  CHART-cat-monthly:
+    type: CHART
+    id: CHART-cat-monthly
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - TABS-finance
+    - TAB-overview
+    - ROW-overview-flow
+    children: []
+    meta:
+      chartId: 202
+      uuid: c46bcf66-62f5-4466-b1a3-226756baac32
+      width: 6
+      height: 50
+      sliceName: Finance - Monthly spend by category
+  ROW-overview-flow:
+    type: ROW
+    id: ROW-overview-flow
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - TABS-finance
+    - TAB-overview
+    children:
+    - CHART-flow
+    - CHART-cat-monthly
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-balances:
+    type: CHART
+    id: CHART-balances
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - TABS-finance
+    - TAB-overview
+    - ROW-overview-balances
+    children: []
+    meta:
+      chartId: 203
+      uuid: 11656e1c-c173-433a-95e8-e7be0a46fd13
+      width: 12
+      height: 50
+      sliceName: Finance - Account balance series
+  ROW-overview-balances:
+    type: ROW
+    id: ROW-overview-balances
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - TABS-finance
+    - TAB-overview
+    children:
+    - CHART-balances
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-payees:
+    type: CHART
+    id: CHART-payees
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - TABS-finance
+    - TAB-overview
+    - ROW-overview-payees
+    children: []
+    meta:
+      chartId: 204
+      uuid: f785bbb8-4c05-4655-9f09-d03357b032a7
+      width: 12
+      height: 50
+      sliceName: Finance - Top payees
+  ROW-overview-payees:
+    type: ROW
+    id: ROW-overview-payees
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - TABS-finance
+    - TAB-overview
+    children:
+    - CHART-payees
+    meta:
+      background: BACKGROUND_TRANSPARENT
+metadata:
+  color_scheme: supersetColors
+  refresh_frequency: 0
+  expanded_slices: {}
+  label_colors: {}
+  timed_refresh_immune_slices: []
+  cross_filters_enabled: true
+  # Only correct cross-filter emitters are on this dashboard: vertical stacked bars
+  # with a dimension, a line with dimensions, and an aggregate table. The charts that
+  # emit the wrong filter in Superset 6.1.0 are horizontal echarts bars (transposed
+  # series) and raw-mode tables (every cell emits its own value); neither is used, so
+  # no chart_configuration exclusions are needed.
+  chart_configuration: {}
+  native_filter_configuration:
+  - id: NATIVE_FILTER-finance-time
+    name: Date range
+    filterType: filter_time
+    targets: []
+    defaultDataMask:
+      extraFormData:
+        time_range: Last year
+      filterState:
+        value: Last year
+    controlValues: {}
+    cascadeParentIds: []
+    scope:
+      rootPath:
+      - ROOT_ID
+      excluded: []
+    type: NATIVE_FILTER
+    description: ''
+  - id: NATIVE_FILTER-finance-bank
+    name: Bank
+    filterType: filter_select
+    targets:
+    - column:
+        name: institution_id
+      datasetUuid: f4619989-2d35-4859-b589-574f215c5a0c
+    defaultDataMask:
+      extraFormData: {}
+      filterState: {}
+    controlValues:
+      multiSelect: true
+      enableEmptyFilter: false
+      defaultToFirstItem: false
+      searchAllOptions: false
+      inverseSelection: false
+    cascadeParentIds: []
+    scope:
+      rootPath:
+      - ROOT_ID
+      excluded: []
+    type: NATIVE_FILTER
+    description: Filters the charts that carry a bank column; the balance series reads
+      its own institution from a different dataset and is left unfiltered rather than
+      narrowed.
+  - id: NATIVE_FILTER-finance-category
+    name: Category
+    filterType: filter_select
+    targets:
+    - column:
+        name: category
+      datasetUuid: f4619989-2d35-4859-b589-574f215c5a0c
+    defaultDataMask:
+      extraFormData: {}
+      filterState: {}
+    controlValues:
+      multiSelect: true
+      enableEmptyFilter: false
+      defaultToFirstItem: false
+      searchAllOptions: true
+      inverseSelection: false
+    cascadeParentIds: []
+    scope:
+      rootPath:
+      - ROOT_ID
+      excluded: []
+    type: NATIVE_FILTER
+    description: ''
+version: 1.0.0

@@ -2,6 +2,7 @@
 {{-   if $server.enabled }}
 {{-     $fullName := printf "%s-mcp-%s" $.Values.release_name $name }}
 {{-     $serverArg := $server.server | default (regexReplaceAll "-" $name "_") }}
+{{-     $configDir := $server.configDir | default $serverArg }}
 {{-     if not $server.image }}
 {{-       fail (printf "sympozium_mcp_servers.%s: image is required" $name) }}
 {{-     end }}
@@ -129,7 +130,7 @@ spec:
               value: /state
 {{-     if $server.configMap }}
             - name: MCP_CONFIG_DIR
-              value: {{ printf "/etc/mcp/%s" $serverArg | quote }}
+              value: {{ printf "/etc/mcp/%s" $configDir | quote }}
 {{-     end }}
 {{-     if or (not (hasKey $server "observabilityEnv")) $server.observabilityEnv }}
             - name: PROMETHEUS_URL
@@ -141,18 +142,16 @@ spec:
             - name: LOKI_TIMEOUT_SECONDS
               value: {{ $server.lokiTimeoutSeconds | default 20 | quote }}
 {{-     end }}
-{{-     if $server.configMap }}
-{{-       if eq $serverArg "semantic" }}
+{{-     if and $server.configMap $server.warehouseScopes }}
             - name: SEMANTIC_REGISTRY_PATH
-              value: /etc/mcp/semantic/registry.yaml
+              value: {{ printf "/etc/mcp/%s/registry.yaml" $configDir }}
             - name: SEMANTIC_REGISTRY_VERSION
-              value: {{ printf "sha256:%.12s" (sha256sum ($.Files.Get "config/semantic/registry.yaml")) | quote }}
+              value: {{ printf "sha256:%.12s" (sha256sum ($.Files.Get (printf "config/%s/registry.yaml" $configDir))) | quote }}
             - name: SEMANTIC_WAREHOUSE_SCOPES
               value: {{ required "semantic needs warehouseScopes (catalog.schema pairs)" $server.warehouseScopes | quote }}
-{{-         if $server.cacheTTLSeconds }}
+{{-       if $server.cacheTTLSeconds }}
             - name: SEMANTIC_CACHE_TTL_SECONDS
               value: {{ $server.cacheTTLSeconds | quote }}
-{{-         end }}
 {{-       end }}
 {{-     end }}
 {{-     if $server.ingressRequestsMetric }}
@@ -230,7 +229,7 @@ spec:
               mountPath: /tmp
 {{-     if $server.configMap }}
             - name: config
-              mountPath: {{ printf "/etc/mcp/%s" $serverArg | quote }}
+              mountPath: {{ printf "/etc/mcp/%s" $configDir | quote }}
               readOnly: true
 {{-     end }}
       volumes:

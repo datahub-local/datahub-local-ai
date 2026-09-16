@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.sdk import Param
 
+from utils.dbt import DbtTaskConfig, create_dbt_task
 from utils.dlt import DltTaskConfig, SecretEnvVarRef, create_dlt_task
 
 # Spot the one secret split: stable Enable Banking credential material vs the
@@ -21,6 +22,9 @@ S3_SECRET_ENV_VARS = (
 ICEBERG_SECRET_ENV_VARS = S3_SECRET_ENV_VARS + (
     SecretEnvVarRef(secret_name="polaris-auth-credentials", secret_key="user", env_name="POLARIS_CLIENT_ID"),
     SecretEnvVarRef(secret_name="polaris-auth-credentials", secret_key="password", env_name="POLARIS_CLIENT_SECRET"),
+)
+LITELLM_SECRET_ENV_VARS = (
+    SecretEnvVarRef(secret_name="litellm-auth-credentials", secret_key="api_key", env_name="LITELLM_API_KEY"),
 )
 
 default_args = {
@@ -43,13 +47,12 @@ FINANCE_ENV_VARS = {
     "FINANCE_TO_DATE": TO_DATE_EXPR,
 }
 
-# Silver/gold (WF-6), enrich (WF-7) and the Actual Budget sync (WF-8/9) attach here
-# as they land; the ordered chain is spec 005 §4.8 and the ingest-only DAG is still
-# the correct scheduled state until then — bronze is append-merge and idempotent.
+# The Actual Budget sync (WF-8/9) attaches after dbt_gold as `dlt_sync_actual` once
+# the server is deployed; the ordered chain is spec 005 §4.8.
 with DAG(
     dag_id="finance_daily",
     default_args=default_args,
-    description="finance pipeline: Enable Banking → dlt ingest into bronze.finance",
+    description="finance pipeline: Enable Banking → dlt ingest → dbt silver → dlt enrich → dbt gold",
     schedule="0 6 * * *",
     start_date=datetime(2025, 1, 1),
     catchup=False,
@@ -78,3 +81,30 @@ with DAG(
             secret_env_vars=ICEBERG_SECRET_ENV_VARS + ENABLEBANKING_SECRET_ENV_VARS,
         )
     )
+
+    dbt_silver_finance = create_dbt_task(
+        DbtTaskConfig(
+            task_id="dbt_silver_finance",
+            project="finance",
+            select_model="silver.*",
+        )
+    )
+
+    dlt_enrich_finance = create_dlt_task(
+        DltTaskConfig(
+            task_id="dlt_enrich_finance",
+            project="finance",
+            pipeline="enrich",
+            secret_env_vars=ICEBERG_SECRET_ENV_VARS + LITELLM_SECRET_ENV_VARS,
+        )
+    )
+
+    dbt_gold_finance = create_dbt_task(
+        DbtTaskConfig(
+            task_id="dbt_gold_finance",
+            project="finance",
+            select_model="gold.*",
+        )
+    )
+
+    dlt_ingest_finance >> dbt_silver_finance >> dlt_enrich_finance >> dbt_gold_finance

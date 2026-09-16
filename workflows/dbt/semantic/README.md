@@ -12,22 +12,28 @@ dbt model and `semantic-compile` resolves it against dbt's own manifest.
 
 ```
 semantic/
-  bodega.yaml   the metrics and the models they read
-  PHASE0.md     every number, measured against live Trino
-  compile.py    the CI gate. Offline
+  bodega.yaml    the metrics and the models they read
+  finance.yaml   the personal-finance metrics (spec 005 AI-1)
+  PHASE0.md      every number, measured against live Trino
+  compile.py     the CI gate. Offline
 ```
 
-`bodega.yaml` reaches the cluster as a **symlink**,
-`agents/sympozium/config/semantic/registry.yaml`, so the chart renders the
-ConfigMap from this file and nothing is generated or committed twice. It is the
-only key that mount carries: table names, documented columns, cardinality and
-dimension values are all read live from Trino by the server.
+Each registry reaches the cluster as a **symlink** —
+`agents/sympozium/config/semantic/registry.yaml` for bodega and
+`agents/sympozium/config/semantic-finance/registry.yaml` for finance — so the
+chart renders the ConfigMap from these files and nothing is generated or
+committed twice. The server reads **one** registry per process, so finance is a
+second `MCPServer` (`semantic-finance`, scopes `silver.finance,gold.finance`)
+over the same image, mounted from its own ConfigMap. That mount carries only
+`registry.yaml`: table names, documented columns, cardinality and dimension
+values are all read live from Trino by the server.
 
 ## Commands
 
 ```bash
 # The gate. Runs dbt parse, validates, stamps registry_version. No warehouse.
 uv run python semantic/compile.py --project bodega
+uv run python semantic/compile.py --project finance
 
 # The ConfigMap is rendered by the chart from the symlink; there is nothing to
 # build. Deploying a definition change is a sync plus a pod restart, because

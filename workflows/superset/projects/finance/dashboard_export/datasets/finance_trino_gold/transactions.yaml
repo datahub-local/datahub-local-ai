@@ -1,0 +1,149 @@
+table_name: transactions
+main_dttm_col: booking_date
+description: One row per booked transaction (dbt silver). Row grain, so it is the only
+  dataset that can rank payees; the aggregates live in the gold datasets.
+default_endpoint: null
+offset: 0
+cache_timeout: null
+schema: null
+catalog: null
+sql: |-
+  SELECT
+      t.booking_date,
+      t.payee,
+      t.payee_clean,
+      t.amount,
+      t.direction,
+      t.currency,
+      t.institution_id,
+      t.iban_masked,
+      t.account_id
+  FROM silver.finance.transactions t
+params: null
+template_params: null
+filter_select_enabled: true
+fetch_values_predicate: null
+extra: null
+normalize_columns: false
+always_filter_main_dttm: false
+uuid: bffd5a77-a4ef-4217-a108-fe3c83e23b78
+metrics:
+- metric_name: count
+  verbose_name: COUNT(*)
+  metric_type: count
+  expression: COUNT(*)
+  description: null
+  d3format: null
+  extra: null
+  warning_text: null
+columns:
+- column_name: booking_date
+  verbose_name: Date
+  is_dttm: true
+  is_active: true
+  type: DATE
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: "Date the bank recorded the transaction."
+  python_date_format: null
+  extra: null
+- column_name: payee
+  verbose_name: Payee
+  is_dttm: false
+  is_active: true
+  type: VARCHAR
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: "Best human counterparty label: creditor name, else debtor name, else the remittance text."
+  python_date_format: null
+  extra: null
+- column_name: payee_clean
+  verbose_name: Payee (clean)
+  is_dttm: false
+  is_active: true
+  type: VARCHAR
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: "Merchant join key used by the enrich step; never a display value."
+  python_date_format: null
+  extra: null
+- column_name: amount
+  verbose_name: Amount
+  is_dttm: false
+  is_active: true
+  type: DECIMAL(18,2)
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: "Signed amount in the account currency: negative for money out, positive for money in."
+  python_date_format: null
+  extra: null
+- column_name: direction
+  verbose_name: Direction
+  is_dttm: false
+  is_active: true
+  type: VARCHAR
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: "inflow or outflow, derived from the sign of amount."
+  python_date_format: null
+  extra: null
+- column_name: currency
+  verbose_name: Currency
+  is_dttm: false
+  is_active: true
+  type: VARCHAR
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: "ISO 4217 currency of amount."
+  python_date_format: null
+  extra: null
+- column_name: institution_id
+  verbose_name: Bank
+  is_dttm: false
+  is_active: true
+  type: VARCHAR
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: "Bank (ASPSP) the transaction belongs to."
+  python_date_format: null
+  extra: null
+- column_name: iban_masked
+  verbose_name: Account
+  is_dttm: false
+  is_active: true
+  type: VARCHAR
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: "The account's IBAN with all but the last four digits masked."
+  python_date_format: null
+  extra: null
+- column_name: account_id
+  verbose_name: Account id
+  is_dttm: false
+  is_active: true
+  type: VARCHAR
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: "Pipeline account identity (the finance-enablebanking alias)."
+  python_date_format: null
+  extra: null
+version: 1.0.0
+database_uuid: 9a88124a-9fc7-44e5-8e54-64a5531ab448

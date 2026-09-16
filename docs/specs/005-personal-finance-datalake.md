@@ -45,7 +45,7 @@ intake assumption (row 8: Actual Budget needs no Postgres).
 | 9 | Airflow pipeline names | `VALID_PIPELINES = ("ingest", "export", "enrich")` hardcoded; `dlt_runner` itself discovers `<project>.<pipeline>` modules dynamically | `workflows/airflow/dags/utils/dlt.py:29`, `workflows/dlt/src/dlt_runner/__main__.py` | The app-push step named `sync` needs a one-line tuple extension + test in workflows/airflow; no runner change |
 | 10 | Trino ACL | Access rules are catalog-anchored (`^(memory\|bronze\|silver\|gold\|test)$`) with schema `.*` for writers | `datahub-local-core/releases/data/values/trino.yaml.gotmpl:112-134` | A new `finance` schema inside the existing catalogs needs **zero** ACL change |
 | 11 | Iceberg namespace creation | `create-schemas.sh` creates only `<catalog>.main`, yet `bodega` exists in bronze/silver/gold — dlt/dbt auto-create namespaces | script read + live `SHOW SCHEMAS` on the Trino coordinator | `finance` namespaces self-create; no Polaris job change |
-| 12 | Semantic registry, multi-domain | The MCP server reads **one** `SEMANTIC_REGISTRY_PATH` (`/etc/mcp/semantic/registry.yaml`); the ConfigMap template globs every file under `config/semantic/*` into keys; scopes come from values (`silver.bodega,gold.bodega`) | `agents/sympozium/templates/mcpservers.yaml:146-153`, `mcp-configmaps.yaml` | `[UNVERIFIED]` whether mcp-semantic accepts multiple registries (no MCP checkout beside this repo). Settled by AI-1; fallbacks in §4.10 |
+| 12 | Semantic registry, multi-domain | The MCP server reads **one** `SEMANTIC_REGISTRY_PATH` (`/etc/mcp/semantic/registry.yaml`); the ConfigMap template globs every file under `config/semantic/*` into keys; scopes come from values (`silver.bodega,gold.bodega`) | `agents/sympozium/templates/mcpservers.yaml:146-153`, `mcp-configmaps.yaml`; **settled by AI-1** reading `datahub-local-ai-mcp/servers/semantic/settings.py` | **Settled 2026-09-16: one registry only, no multi-registry support.** Finance uses the second-MCPServer fallback (a), which needed a chart change the spec had assumed away — see §4.10 |
 | 13 | dlt stack | dlt pinned **1.30.0**; `httpx` already a dependency; **`pyjwt` + `cryptography` are new** (RS256 signing) | `workflows/dlt/uv.lock:391`, `workflows/dlt/pyproject.toml` | The Enable Banking client is a plain httpx resource; new dependencies are `pyjwt`/`cryptography` for the JWT and `actualpy` for sync |
 | 14 | Actual server version | Image `actualbudget/actual-server`; current line is 26.x; actualpy must be version-matched to the server | docker hub, npm `@actual-app/api@26.9.0` types | `[UNVERIFIED]` exact pin at deploy time — settled by INFRA-1 (pin the chart's image tag, pin the matching actualpy in `workflows/dlt/uv.lock`) |
 
@@ -625,6 +625,26 @@ it; (b) an MCP-server change to accept a registry list. A merged single
 file is rejected: it would be a second copy drifting from the per-domain
 registries beside their dbt projects.
 
+> **Resolved by AI-1 (repo side, 2026-09-16).** Reading
+> `datahub-local-ai-mcp/servers/semantic/settings.py` settles gate 12: the
+> server reads exactly **one** `SEMANTIC_REGISTRY_PATH`, so (b) would be a
+> server change and (a) is the path taken. Fallback (a) as written did *not*
+> work unchanged, though: `templates/mcpservers.yaml` derives both the served
+> module (`--server`) and the config directory from one `$serverArg` and gates
+> the semantic env block on `eq $serverArg "semantic"`, so a second server
+> could not share the `semantic` module while mounting a different registry.
+> The template now takes an optional `configDir` (defaulting to `$serverArg`,
+> so every existing render is byte-identical) and keys the semantic env block
+> on `warehouseScopes` instead of the name. The new `semantic-finance` entry
+> uses `server: semantic` + `configDir: semantic-finance` +
+> `toolsPrefix: finance` (a colliding prefix would duplicate every
+> `semantic_*` tool name in the catalog). The finance tables do not exist in
+> the warehouse until the first live ingest, so the finance server resolves no
+> model and reports that loudly on first use; the bodega server is unaffected.
+> What remains is the live half of AI-1: after a sync, read
+> `kubectl logs <run-pod> -c mcp-discover` and confirm both servers register.
+
+
 Superset: `workflows/superset/projects/finance/dashboard_export/` with
 datasets over `silver.finance.transactions`, `gold.finance.*` (never
 bronze), charts (monthly category spend, balance series, top payees,
@@ -696,7 +716,7 @@ deliberately expired session fails as `ACCESS_EXPIRED`.
       non-blank, the blank-description test copied from bodega,
       `dbt parse` green on both targets + integration test on DuckDB.
       *Blocked by WF-4 (bronze shape).*
-- [ ] **WF-7** `enrich.py` + `categories.csv` + prompt template; local
+- [x] **WF-7** `enrich.py` + `categories.csv` + prompt template; local
       tests with a stubbed `call_llm`; wire `dbt_silver`, `dlt_enrich`,
       `dbt_gold` into the DAG. *Blocked by WF-6.*
 
@@ -713,14 +733,17 @@ deliberately expired session fails as `ACCESS_EXPIRED`.
       *Blocked by INFRA-1, WF-6.*
 - [ ] **WF-9** Complete the DAG (`dlt_sync_actual`)
       and run the full chain on `homelab`. *Blocked by WF-7, WF-8.*
-- [ ] **WF-10** Superset bundle: `projects/finance/dashboard_export/`
+- [x] **WF-10** Superset bundle: `projects/finance/dashboard_export/`
       (datasets on silver/gold only), `build_bundles.py`, helmfile apply.
       *Blocked by WF-6.*
-- [ ] **AI-1** `workflows/dbt/semantic/finance.yaml` + compile gate green;
+- [x] **AI-1** `workflows/dbt/semantic/finance.yaml` + compile gate green;
       resolve gate 12 (multi-registry support, else the second-MCPServer
       fallback); add the finance scopes; verify per-server tool counts in
       `mcp-discover` logs after sync. *Blocked by WF-6; needs a
-      datahub-local-ai-mcp checkout for `compile.py`.*
+      datahub-local-ai-mcp checkout for `compile.py`.* The live
+      `mcp-discover` count check remains after the first sync (DoD item 4);
+      until then the finance server resolves no model because the tables do
+      not exist yet, and says so loudly.
 
 **Done when:** goal 5 and goal 7 signals hold, and one scheduled
 `finance_daily` run has gone green end to end with the transactions visible
@@ -776,7 +799,7 @@ exists for this).
 | Each bank's observed history cap and `transaction_id` presence for CaixaBank, BBVA, ING, Openbank, Santander (gate 2/5 `[UNVERIFIED]`; Openbank known: no `transaction_id`) | WF-3: inspect the first real ingest per bank and record the values in the onboarding runbook |
 | ~~Is Openbank's unattended `transactions` limit really 1/day?~~ **Answered 2026-09-15: yes** — a fresh day allowed exactly one `transactions` call, every later one returned 429. The daily schedule fits; a manual backfill of the same window does not, so use `strategy=longest` on the first run rather than repeated re-fetches |
 | Does the pinned actualpy speak to the pinned server, and do budget rules run over synced transactions (gate 7 `[UNVERIFIED]`)? | WF-8 probe against a throwaway budget on the deployed server |
-| Does mcp-semantic accept more than one registry file, or does finance need the second-MCPServer fallback (gate 12 `[UNVERIFIED]`)? | AI-1, with a datahub-local-ai-mcp checkout beside this repo (`compile.py` imports from it) |
+| ~~Does mcp-semantic accept more than one registry file, or does finance need the second-MCPServer fallback?~~ **Answered 2026-09-16: one registry only** (`settings.py`); the second-MCPServer fallback is wired, and the template needed a `configDir` decoupling the spec had assumed it already had (§4.10). | AI-1 — done except the post-sync `mcp-discover` count check |
 | Exact Actual server version to pin (gate 14 `[UNVERIFIED]`) | INFRA-1: pin the chart's `image.tag`, then pin the matching actualpy in the same PR series |
 | One Actual account per bank account, or one per bank? (the account map in §4.6 depends on it) | Operator, in the budget-setup step before the first WF-8 sync — recorded in the `finance-actual` configmap |
 | The finance `categories.csv` taxonomy — is the seeded ~25-category list the operator's? | WF-7: seed it, run enrich once, review the distribution; the CSV is operator-owned afterwards, exactly like bodega's |

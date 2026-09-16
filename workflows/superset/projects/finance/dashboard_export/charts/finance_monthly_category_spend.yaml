@@ -1,0 +1,39 @@
+slice_name: Finance - Monthly spend by category
+description: Outflow per month and LLM-assigned category, stacked. Uncategorised payees
+  fall into UNCATEGORISED rather than leaving the total.
+viz_type: echarts_timeseries_bar
+params:
+  datasource: 0__table
+  viz_type: echarts_timeseries_bar
+  x_axis: month_start
+  time_grain_sqla: P1M
+  metrics:
+  - expressionType: SIMPLE
+    aggregate: SUM
+    column:
+      column_name: amount
+      type: DECIMAL(18,2)
+    label: Spent
+    optionName: metric_finance_cat_monthly
+  groupby:
+  - category
+  adhoc_filters:
+  - clause: WHERE
+    comparator: outflow
+    expressionType: SIMPLE
+    operator: ==
+    subject: direction
+  stack: Stack
+  show_legend: true
+  rich_tooltip: true
+  y_axis_format: SMART_NUMBER
+  currency_format:
+    symbol: EUR
+    symbolPosition: prefix
+  row_limit: 5000
+  time_range: No filter
+query_context: null
+cache_timeout: null
+uuid: c46bcf66-62f5-4466-b1a3-226756baac32
+version: 1.0.0
+dataset_uuid: f4619989-2d35-4859-b589-574f215c5a0c

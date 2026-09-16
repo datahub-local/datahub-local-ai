@@ -119,6 +119,11 @@ def fetch_strategy() -> str:
     return env("FINANCE_FETCH_STRATEGY", "default")
 
 
+def payee_language() -> str:
+    """Language of the raw payee text fed to the enrich LLM prompt."""
+    return env("FINANCE_PAYEE_LANGUAGE", "Spanish")
+
+
 def ingest_from_date() -> str | None:
     """Start (inclusive) of the transaction window, if scoped."""
     return env("FINANCE_FROM_DATE")

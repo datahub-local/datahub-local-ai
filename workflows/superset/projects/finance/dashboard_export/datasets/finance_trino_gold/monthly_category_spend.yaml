@@ -1,0 +1,115 @@
+table_name: monthly_category_spend
+main_dttm_col: month_start
+description: Money moved per month, category, bank and direction (dbt gold). Amount
+  is a positive magnitude, so a refund never nets against a purchase; UNCATEGORISED
+  collects payees the enrich step has not categorised yet.
+default_endpoint: null
+offset: 0
+cache_timeout: null
+schema: finance
+catalog: null
+sql: null
+params: null
+template_params: null
+filter_select_enabled: true
+fetch_values_predicate: null
+extra: null
+normalize_columns: false
+always_filter_main_dttm: false
+uuid: f4619989-2d35-4859-b589-574f215c5a0c
+metrics:
+- metric_name: count
+  verbose_name: COUNT(*)
+  metric_type: count
+  expression: COUNT(*)
+  description: null
+  d3format: null
+  extra: null
+  warning_text: null
+columns:
+- column_name: month_start
+  verbose_name: Month
+  is_dttm: true
+  is_active: true
+  type: DATE
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: "First day of the calendar month the money moved in."
+  python_date_format: null
+  extra: null
+- column_name: category
+  verbose_name: Category
+  is_dttm: false
+  is_active: true
+  type: VARCHAR
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: "LLM-assigned spend category; UNCATEGORISED when the payee has not been categorised."
+  python_date_format: null
+  extra: null
+- column_name: institution_id
+  verbose_name: Bank
+  is_dttm: false
+  is_active: true
+  type: VARCHAR
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: "Bank (ASPSP) the transactions belong to."
+  python_date_format: null
+  extra: null
+- column_name: direction
+  verbose_name: Direction
+  is_dttm: false
+  is_active: true
+  type: VARCHAR
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: "inflow or outflow; kept apart so the two never net."
+  python_date_format: null
+  extra: null
+- column_name: currency
+  verbose_name: Currency
+  is_dttm: false
+  is_active: true
+  type: VARCHAR
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: "ISO 4217 currency of amount."
+  python_date_format: null
+  extra: null
+- column_name: amount
+  verbose_name: Amount
+  is_dttm: false
+  is_active: true
+  type: DECIMAL(18,2)
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: "Total money moved for this month/category/bank/direction, as a positive magnitude."
+  python_date_format: null
+  extra: null
+- column_name: transaction_count
+  verbose_name: Transactions
+  is_dttm: false
+  is_active: true
+  type: BIGINT
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: "Number of transactions behind amount."
+  python_date_format: null
+  extra: null
+version: 1.0.0
+database_uuid: 9a88124a-9fc7-44e5-8e54-64a5531ab448

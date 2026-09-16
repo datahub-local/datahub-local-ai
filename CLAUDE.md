@@ -370,6 +370,7 @@ What stays this repository's concern:
 | --------------- | ------------------- | ------------------------------------------- |
 | `homelab-facts` | `mcp-homelab-facts` | `agents/sympozium/config/homelab_facts/`, rendered by `templates/mcp-configmaps.yaml` |
 | `semantic`      | `mcp-semantic`      | `config/semantic/registry.yaml`, a symlink to `workflows/dbt/semantic/bodega.yaml` |
+| `semantic-finance` | `mcp-semantic-finance` | `config/semantic-finance/registry.yaml`, a symlink to `workflows/dbt/semantic/finance.yaml` (scopes `silver.finance,gold.finance`, `toolsPrefix: finance`) |
 
 The semantic ConfigMap carries **one** key: `registry.yaml`, the metric
 contract. Everything describing the warehouse — table names, which columns are
@@ -378,6 +379,17 @@ server and cached with a TTL, because the warehouse is authoritative about
 itself and a copy is stale the moment the pipeline runs. A pruned dbt manifest
 and a precomputed sample file used to be shipped alongside; both are gone, and
 so are the scripts that built them.
+
+The server reads **one** registry, verified in
+`datahub-local-ai-mcp/servers/semantic/settings.py` (`SEMANTIC_REGISTRY_PATH`),
+so `semantic-finance` is a second `MCPServer` over the same image rather than a
+second registry in one process. `templates/mcpservers.yaml` therefore takes an
+optional `configDir` and keys the semantic env block on `warehouseScopes`, not
+on the name: the served module (`--server semantic`), the config directory and
+the `toolsPrefix` are three separate things, and the finance server needs the
+bodega module with its own mount and a non-colliding prefix (`finance`). A
+second server that shares a `toolsPrefix` duplicates every tool name in the
+catalog.
 
 Two consequences worth knowing. `persist_docs` is **load-bearing** in
 `workflows/dbt/projects/bodega/`: the server's documentation gate reads Iceberg
@@ -390,7 +402,8 @@ models by `ref()`, which carries no catalog, so a guess would resolve nothing
 and report as a broken registry rather than a missing setting.
 
 The registry reaches the chart as a **symlink** —
-`agents/sympozium/config/semantic/registry.yaml` → `workflows/dbt/semantic/bodega.yaml`.
+`agents/sympozium/config/semantic/registry.yaml` → `workflows/dbt/semantic/bodega.yaml`
+(and `config/semantic-finance/registry.yaml` → `finance.yaml`, same mechanism).
 Helm's `.Files` cannot read above the chart root but does follow a symlink
 whose target is inside the repository, which is what avoids a committed
 generated copy. Git stores it as mode `120000`, so ArgoCD's checkout resolves it

@@ -1,7 +1,8 @@
 {{- range $name, $server := .Values.sympozium_mcp_servers | default dict }}
 {{-   if and $server.enabled $server.configMap }}
 {{-     $serverArg := $server.server | default (regexReplaceAll "-" $name "_") }}
-{{-     $files := $.Files.Glob (printf "config/%s/*" $serverArg) }}
+{{-     $configDir := $server.configDir | default $serverArg }}
+{{-     $files := $.Files.Glob (printf "config/%s/*" $configDir) }}
 ---
 apiVersion: v1
 kind: ConfigMap

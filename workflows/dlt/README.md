@@ -121,6 +121,30 @@ rendered and applied from that repo).
    per-endpoint daily budget. Re-run after the bank's reset; the fetch never
    retries in a loop.
 
+## Actual Budget sync (`--pipeline sync`)
+
+Pushes `silver.finance.transactions` into Actual Budget, deduped on
+`imported_id = enablebanking:<stable_id>`. The `finance-actual` secret in
+`datahub-local-secrets` carries `base_url`, `password`, `file` and
+`accounts.json` (bank alias -> Actual account name).
+
+Operator setup, once, before the first sync:
+
+1. Log into Actual and set the server password to the value in
+   `finance-actual.password` (Actual has no env for it — the UI stores a hash).
+2. Create one account per bank account in the UI, and map each to an
+   Enable Banking alias in `finance-actual.accounts.json`. An unmapped alias
+   fails the run naming it.
+3. Name the budget exactly as `finance-actual.file` (`Finance`). Actual mints
+   the Sync ID and offers no way to choose it, so `file` is pinned to the
+   budget **name**, which `actualpy` matches alongside the file id and the sync
+   id. Rename the budget only together with that secret key.
+
+`local` is dry-run by default; `FINANCE_SYNC_DRY_RUN=true` makes a homelab run
+log what it would add without committing. A 60-day window re-reads silver, so
+late-posted corrections are picked up and the `imported_id` check keeps
+re-runs idempotent.
+
 ## Environment variables
 
 | Variable                                                     | Default                                                   | Used by          |

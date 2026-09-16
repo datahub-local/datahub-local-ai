@@ -99,7 +99,7 @@ def test_sync_wires_the_actual_secret():
     assert env_map["FINANCE_ACTUAL_BASE_URL"].value_from.secret_key_ref.name == "finance-actual"
     assert env_map["FINANCE_ACTUAL_BASE_URL"].value_from.secret_key_ref.key == "base_url"
     assert env_map["FINANCE_ACTUAL_PASSWORD"].value_from.secret_key_ref.key == "password"
-    assert env_map["FINANCE_ACTUAL_FILE"].value_from.secret_key_ref.key == "sync_id"
+    assert env_map["FINANCE_ACTUAL_FILE"].value_from.secret_key_ref.key == "file"
     assert env_map["FINANCE_ACTUAL_ACCOUNTS"].value_from.secret_key_ref.key == "accounts.json"
 
 

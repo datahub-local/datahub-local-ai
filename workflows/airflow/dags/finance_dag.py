@@ -32,7 +32,7 @@ LITELLM_SECRET_ENV_VARS = (
 ACTUAL_SECRET_ENV_VARS = (
     SecretEnvVarRef(secret_name="finance-actual", secret_key="base_url", env_name="FINANCE_ACTUAL_BASE_URL"),
     SecretEnvVarRef(secret_name="finance-actual", secret_key="password", env_name="FINANCE_ACTUAL_PASSWORD"),
-    SecretEnvVarRef(secret_name="finance-actual", secret_key="sync_id", env_name="FINANCE_ACTUAL_FILE"),
+    SecretEnvVarRef(secret_name="finance-actual", secret_key="file", env_name="FINANCE_ACTUAL_FILE"),
     SecretEnvVarRef(secret_name="finance-actual", secret_key="accounts.json", env_name="FINANCE_ACTUAL_ACCOUNTS"),
 )
 

@@ -47,7 +47,7 @@ intake assumption (row 8: Actual Budget needs no Postgres).
 | 11 | Iceberg namespace creation | `create-schemas.sh` creates only `<catalog>.main`, yet `bodega` exists in bronze/silver/gold — dlt/dbt auto-create namespaces | script read + live `SHOW SCHEMAS` on the Trino coordinator | `finance` namespaces self-create; no Polaris job change |
 | 12 | Semantic registry, multi-domain | The MCP server reads **one** `SEMANTIC_REGISTRY_PATH` (`/etc/mcp/semantic/registry.yaml`); the ConfigMap template globs every file under `config/semantic/*` into keys; scopes come from values (`silver.bodega,gold.bodega`) | `agents/sympozium/templates/mcpservers.yaml:146-153`, `mcp-configmaps.yaml`; **settled by AI-1** reading `datahub-local-ai-mcp/servers/semantic/settings.py` | **Settled 2026-09-16: one registry only, no multi-registry support.** Finance uses the second-MCPServer fallback (a), which needed a chart change the spec had assumed away — see §4.10 |
 | 13 | dlt stack | dlt pinned **1.30.0**; `httpx` already a dependency; **`pyjwt` + `cryptography` are new** (RS256 signing) | `workflows/dlt/uv.lock:391`, `workflows/dlt/pyproject.toml` | The Enable Banking client is a plain httpx resource; new dependencies are `pyjwt`/`cryptography` for the JWT and `actualpy` for sync |
-| 14 | Actual server version | Image `actualbudget/actual-server`; current line is 26.x; actualpy must be version-matched to the server | docker hub, npm `@actual-app/api@26.9.0` types | `[UNVERIFIED]` exact pin at deploy time — settled by INFRA-1 (pin the chart's image tag, pin the matching actualpy in `workflows/dlt/uv.lock`) |
+| 14 | Actual server version | Image `actualbudget/actual-server`; current line is 26.x; actualpy must be version-matched to the server | docker hub, npm `@actual-app/api@26.9.0` types; **settled by INFRA-1** 2026-09-16 | Chart `community-charts/actualbudget` 1.9.4 pinned; server image pinned **`26.1.0`** (actualpy 0.22.3's own `docker/compose.yaml` target) rather than the chart's `26.9.0` default, because a server-side sync-protocol change over a pinned actualpy can corrupt the budget on commit. `actualpy==0.22.3` pinned in `workflows/dlt/uv.lock` |
 
 **Rejected at the gate:** Actual Budget's *built-in* bank sync (GoCardless /
 SimpleFIN) would make the fetch half of this spec unnecessary. Rejected: it
@@ -548,11 +548,18 @@ pattern): `finance-enablebanking` (anything stable: RSA `private_key`,
 `accounts.json` = alias -> `{iban, app_id, institution_id}` — **no session
 material**) and `finance-enablebanking-token` (`tokens.json` = alias ->
 `{uid, valid_until}`, maintained *dynamically* by the §4.2.1 renewal workflow,
-never chart-rendered) plus `finance-actual` (server password, sync id, account
-map). Stable material is written into `datahub-local-secrets`; the token half
-is created by the renewal workflow, not ArgoCD, exactly so a renewal cannot
-drift against Git. The onboarding CLI prints the rest for the operator to
-paste.
+never chart-rendered) plus `finance-actual` (`base_url`, `password`, `file`,
+`accounts.json` = alias -> Actual account name). Stable material is written
+into `datahub-local-secrets`; the token half is created by the renewal
+workflow, not ArgoCD, exactly so a renewal cannot drift against Git. The
+onboarding CLI prints the rest for the operator to paste. `finance-actual` is
+rendered by `datahub-local-secrets` into the `data` namespace (spec 005
+INFRA-1); `base_url` is the in-cluster Service, and `password`/`accounts.json`
+ship as operator-owned values. `file` is pinned to the budget **name**
+(`Finance`), not its Sync ID: Actual mints the Sync ID UUID with no way to
+choose it, and `actualpy.set_file` matches the name, the file id or the sync
+id, so a fixed unique name is the only value that can be committed. The
+password must equal the one set once in Actual's UI.
 
 Bank transactions are personal data, so the lake's normal openness is
 deliberately narrowed:
@@ -661,13 +668,38 @@ Task ids: `WF-*` = this repo (`workflows/*`), `INFRA-*` = datahub-local-core,
 
 ### Phase A — hosting (core)
 
-- [ ] **INFRA-1** Add the `actualbudget` release: chart pinned in
+- [x] **INFRA-1** Add the `actualbudget` release: chart pinned in
       `values/_version.yaml`, `persistence.enabled: true` (10Gi, Longhorn),
       image tag pinned, password login from a core secret, TLS ingress.
       Record the chosen server version for the actualpy pin.
 
+> **Landed in datahub-local-core 2026-09-16** (`community-charts/actualbudget`
+> 1.9.4, server `actualbudget/actual-server:26.1.0` — actualpy 0.22.3's own test
+> target, not the chart's `26.9.0` default; PVC `longhorn` 10Gi; Velero opt-in
+> via `podLabels`/`podAnnotations`). Three findings changed the spec's wording:
+>
+> - **The chart cannot use core's ingress.** Every core HTTP route is a Traefik
+>   `IngressRoute`, and this chart's `values.schema.json` is
+>   `additionalProperties: false` with no `extraResources`, so it can only emit a
+>   standard `Ingress` (which core does not use). It is deployed without ingress
+>   and the `IngressRoute` is added in `releases/other/templates/`, alongside the
+>   Stirling-PDF one. It deliberately carries **no** `oauth2-proxy-auth` — Actual
+>   has its own password login, matching the openwebui/miniflux precedent.
+> - **No secret-backed password exists.** Actual has no `ACTUAL_SERVER_PASSWORD`;
+>   with `login.method: password` the password is set once in the UI and stored
+>   hashed in `account.sqlite`. So "from a core secret" cannot be literal: the
+>   operator sets the UI password to match `finance-actual.password`, which is
+>   what actualpy authenticates with.
+> - **The PVC is backed up by the existing Velero regime**, via the pod opt-in
+>   `backup.velero.io/custom-backup-daily-fs: "true"` +
+>   `backup.velero.io/backup-volumes: data`, the same mechanism n8n uses.
+
 **Done when:** goal 8's signal holds: the release is healthy, the PVC is
-bound, and the UI answers over TLS at the ingress with password login.
+bound, and the UI answers over TLS at the ingress with password login. The
+repo change is rendered (`helmfile template`) but not yet synced: nothing is
+live until `datahub-local-core` is pushed and ArgoCD syncs, and the
+`finance-actual` account map and UI password remain operator-owned (the budget
+name and the in-cluster URL are pinned).
 
 ### Phase B — fetch
 
@@ -796,7 +828,7 @@ exists for this).
 | The consent expires and is forgotten until the DAG fails | Failing loudly *is* the design (goal 6): the run names the account and the runbook, and `valid_until` in `finance-enablebanking` lets a pre-flight check catch staleness before the data call; a silent zero-row success is the failure mode this spec forbids |
 | Personal data reaches an agent or a dashboard | §4.7: silver masks IBANs, consumers read silver/gold only, semantic metrics are aggregates with no counterparty dimension, no persona gets row-level Trino access to `silver.finance` |
 | The token renewal flow drifts: a stale `finance-enablebanking-token` makes every ingest fail while n8n looks green | The Secret write is n8n-owned and out of ArgoCD; the daily ingest fails as `ACCESS_EXPIRED` (goal 6) naming the account, and §4.2.1's nudge repeats daily — a stuck renewal is at most a loud repeat, never silent data loss. Working around the checker with Actual's built-in sync stays forbidden (§5) |
-| The budget PVC is the only copy of the SQLite budget files | INFRA-1 must state how `/data` is backed up under core's existing regime for PVC apps; an unbacked single-PVC app is how budget history dies quietly |
+| The budget PVC is the only copy of the SQLite budget files | **Addressed by INFRA-1:** the pod opts into core's daily Velero fs-backup (`backup.velero.io/custom-backup-daily-fs: "true"` + `backup.velero.io/backup-volumes: data`), the same regime n8n uses; the PVC is on `longhorn`. Worth re-checking a restore, not just the schedule |
 
 ### Open questions
 
@@ -806,7 +838,7 @@ exists for this).
 | ~~Is Openbank's unattended `transactions` limit really 1/day?~~ **Answered 2026-09-15: yes** — a fresh day allowed exactly one `transactions` call, every later one returned 429. The daily schedule fits; a manual backfill of the same window does not, so use `strategy=longest` on the first run rather than repeated re-fetches |
 | Does the pinned actualpy speak to the pinned server, and do budget rules run over synced transactions (gate 7 `[UNVERIFIED]`)? | WF-8 probe against a throwaway budget on the deployed server |
 | ~~Does mcp-semantic accept more than one registry file, or does finance need the second-MCPServer fallback?~~ **Answered 2026-09-16: one registry only** (`settings.py`); the second-MCPServer fallback is wired, and the template needed a `configDir` decoupling the spec had assumed it already had (§4.10). | AI-1 — done except the post-sync `mcp-discover` count check |
-| Exact Actual server version to pin (gate 14 `[UNVERIFIED]`) | INFRA-1: pin the chart's `image.tag`, then pin the matching actualpy in the same PR series |
+| ~~Exact Actual server version to pin~~ **Answered 2026-09-16: `26.1.0`** (actualpy 0.22.3's tested target), chart 1.9.4, in `datahub-local-core` | INFRA-1 — done in the repo; live verification after sync |
 | One Actual account per bank account, or one per bank? (the account map in §4.6 depends on it) | Operator, in the budget-setup step before the first WF-8 sync — recorded in the `finance-actual` configmap |
 | The finance `categories.csv` taxonomy — is the seeded ~25-category list the operator's? | WF-7: seed it, run enrich once, review the distribution; the CSV is operator-owned afterwards, exactly like bodega's |
 | Whether gold grows beyond the two models (e.g. payee-level spend, fee tracking) | After the first month of real data; a follow-up phase of this spec, not a silent model addition |

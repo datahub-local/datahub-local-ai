@@ -22,10 +22,14 @@ class _FakeBudget:
     def __init__(self, existing=None):
         self.existing = set(existing or [])
         self.created = []
+        self.ensured = []
         self.committed = False
 
     def existing_imported_ids(self):
         return set(self.existing)
+
+    def ensure_account(self, name):
+        self.ensured.append(name)
 
     def create(self, **kwargs):
         self.created.append(kwargs)
@@ -136,6 +140,29 @@ class TestSync:
         assert created["amount"] == Decimal("-10.00")
         assert created["booking_date"] == date(2024, 1, 1)
         assert len(created["notes"]) == sync.NOTES_MAX
+
+    def test_creates_each_missing_account_once(self):
+        rows = _rows(
+            ("a", "S1", date(2024, 1, 1), "X", "-1.00", None),
+            ("a", "S2", date(2024, 1, 2), "Y", "-2.00", None),
+            ("b", "S3", date(2024, 1, 3), "Z", "-3.00", None),
+        )
+        budget = _FakeBudget()
+        _sync(rows, {"a": "Account A", "b": "Account B"}, _SETTINGS, dry_run=False, client_factory=lambda s: _fake_factory(budget))
+        assert budget.ensured == ["Account A", "Account B"]
+
+    def test_does_not_ensure_accounts_for_already_imported_rows(self):
+        rows = _rows(("a", "S1", date(2024, 1, 1), "X", "-1.00", None))
+        budget = _FakeBudget(existing={"enablebanking:S1"})
+        _sync(rows, {"a": "Account A"}, _SETTINGS, dry_run=False, client_factory=lambda s: _fake_factory(budget))
+        assert budget.ensured == []
+        assert budget.created == []
+
+    def test_dry_run_creates_no_accounts(self):
+        rows = _rows(("a", "S1", date(2024, 1, 1), "X", "-1.00", None))
+        budget = _FakeBudget()
+        _sync(rows, {"a": "Account A"}, _SETTINGS, dry_run=True, client_factory=lambda s: _fake_factory(budget))
+        assert budget.ensured == []
 
     def test_dry_run_creates_nothing_and_does_not_commit(self):
         rows = _rows(("alias", "S1", date(2024, 1, 1), "SHOP", "-10.00", None))

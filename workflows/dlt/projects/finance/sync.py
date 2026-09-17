@@ -13,10 +13,12 @@ Two rules from the spec shape the code:
 - **No category is ever set.** The budget's own rules own categorisation; the
   lake only supplies date, account, amount, payee text and an imported id.
 
-Accounts must pre-exist in the budget (created once by hand in the UI); the map
-from bank ``account_id`` to Actual account name lives in the ``finance-actual``
-secret. A row whose account is unmapped fails the run naming it — never a silent
-skip.
+The map from bank ``account_id`` to Actual account name lives in the
+``finance-actual`` secret; a row whose account is not in the map fails the run
+naming it — never a silent skip. The mapped account is created in the budget on
+the first sync if it does not exist (``get_or_create_account``, matched by name),
+so no manual UI step is needed; actualpy sets only name and ``offbudget``, so an
+account needing a specific type is still created by hand.
 
 ``local`` is dry-run by default and stops before ``actual.commit()``; when Actual
 is not configured at all it reports the rows read without claiming to have
@@ -58,6 +60,8 @@ class BudgetClient(Protocol):
     """The slice of the Actual budget this pipeline needs, and nothing else."""
 
     def existing_imported_ids(self) -> set[str]: ...
+
+    def ensure_account(self, name: str) -> None: ...
 
     def create(
         self,
@@ -172,6 +176,11 @@ class _ActualPaymentClient:
         ).all()
         return {row for row in rows if row}
 
+    def ensure_account(self, name: str) -> None:
+        from actual.queries import get_or_create_account
+
+        get_or_create_account(self._actual.session, name)
+
     def create(self, *, booking_date, account, amount, imported_id, payee, notes) -> None:
         from actual.queries import create_transaction
 
@@ -233,6 +242,11 @@ def _sync(
                 "would_add": len(to_add),
                 "committed": False,
             }
+
+        # Create any missing Actual accounts first, once each, so the first sync needs
+        # no manual UI step. Accounts are matched by name; a later rename splits one.
+        for account_name in sorted({account_map[row["account_id"]] for row in to_add}):
+            client.ensure_account(account_name)
 
         for row in to_add:
             client.create(

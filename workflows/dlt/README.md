@@ -132,9 +132,12 @@ Operator setup, once, before the first sync:
 
 1. Log into Actual and set the server password to the value in
    `finance-actual.password` (Actual has no env for it — the UI stores a hash).
-2. Create one account per bank account in the UI, and map each to an
-   Enable Banking alias in `finance-actual.accounts.json`. An unmapped alias
-   fails the run naming it.
+2. Map each Enable Banking alias to an Actual account name in
+   `finance-actual.accounts.json`. An unmapped alias fails the run naming it.
+   The account is created on the first sync if it does not exist
+   (`get_or_create_account`, matched by name); actualpy sets only the name and
+   `offbudget`, so create it by hand first if it needs a specific type. Names
+   must stay stable — a UI rename makes the next sync create a new account.
 3. Name the budget exactly as `finance-actual.file` (`Finance`). Actual mints
    the Sync ID and offers no way to choose it, so `file` is pinned to the
    budget **name**, which `actualpy` matches alongside the file id and the sync

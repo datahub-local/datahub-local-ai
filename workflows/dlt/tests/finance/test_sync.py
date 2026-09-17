@@ -23,6 +23,7 @@ class _FakeBudget:
         self.existing = set(existing or [])
         self.created = []
         self.ensured = []
+        self.ruled = []
         self.committed = False
 
     def existing_imported_ids(self):
@@ -33,6 +34,10 @@ class _FakeBudget:
 
     def create(self, **kwargs):
         self.created.append(kwargs)
+        return kwargs
+
+    def run_rules(self, transactions):
+        self.ruled.append(transactions)
 
     def commit(self):
         self.committed = True
@@ -178,6 +183,27 @@ class TestSync:
         budget = _FakeBudget()
         _sync(rows, {"alias": "My account"}, _SETTINGS, dry_run=False, client_factory=lambda s: _fake_factory(budget))
         assert budget.created[0]["payee"] is None
+
+    def test_rules_run_on_created_transactions_before_commit(self):
+        rows = _rows(
+            ("alias", "S1", date(2024, 1, 1), "SHOP A", "-10.00", None),
+            ("alias", "S2", date(2024, 1, 2), "SHOP B", "-20.00", None),
+        )
+        budget = _FakeBudget(existing={"enablebanking:S1"})
+        _sync(rows, {"alias": "My account"}, _SETTINGS, dry_run=False, client_factory=lambda s: _fake_factory(budget))
+        assert budget.ruled == [[budget.created[0]]]
+
+    def test_rules_not_run_when_nothing_is_created(self):
+        rows = _rows(("alias", "S1", date(2024, 1, 1), "SHOP", "-10.00", None))
+        budget = _FakeBudget(existing={"enablebanking:S1"})
+        _sync(rows, {"alias": "My account"}, _SETTINGS, dry_run=False, client_factory=lambda s: _fake_factory(budget))
+        assert budget.ruled == []
+
+    def test_dry_run_does_not_run_rules(self):
+        rows = _rows(("alias", "S1", date(2024, 1, 1), "SHOP", "-10.00", None))
+        budget = _FakeBudget()
+        _sync(rows, {"alias": "My account"}, _SETTINGS, dry_run=True, client_factory=lambda s: _fake_factory(budget))
+        assert budget.ruled == []
 
 
 class TestRun:

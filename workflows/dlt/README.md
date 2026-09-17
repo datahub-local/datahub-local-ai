@@ -148,6 +148,11 @@ log what it would add without committing. A 60-day window re-reads silver, so
 late-posted corrections are picked up and the `imported_id` check keeps
 re-runs idempotent.
 
+Actual never runs the budget's rules over transactions inserted through
+actualpy, so the sync calls `run_rules(created)` on just the new rows before
+committing. Categorisation is still the budget's — the pipeline only triggers
+the rules, it never picks a category itself.
+
 ## Environment variables
 
 | Variable                                                     | Default                                                   | Used by          |

@@ -10,8 +10,12 @@ Two rules from the spec shape the code:
   ``create_transaction`` does not reconcile like the Node ``importTransactions``
   (gate 7), so the existing ``financial_id``s are pre-queried and a row already
   present is skipped explicitly.
-- **No category is ever set.** The budget's own rules own categorisation; the
-  lake only supplies date, account, amount, payee text and an imported id.
+- **No category is ever set by the pipeline.** The budget's own rules own
+  categorisation; the lake only supplies date, account, amount, payee text and
+  an imported id. Actual does **not** run those rules on transactions inserted
+  via actualpy (probed 2026-09-17, gate 7), so the run invokes
+  ``run_rules(created)`` on exactly the new transactions before committing,
+  which is the app applying its own rules — not the lake writing categories.
 
 The map from bank ``account_id`` to Actual account name lives in the
 ``finance-actual`` secret; a row whose account is not in the map fails the run
@@ -72,7 +76,9 @@ class BudgetClient(Protocol):
         imported_id: str,
         payee: str | None,
         notes: str | None,
-    ) -> None: ...
+    ) -> object: ...
+
+    def run_rules(self, transactions: list) -> None: ...
 
     def commit(self) -> None: ...
 
@@ -181,10 +187,10 @@ class _ActualPaymentClient:
 
         get_or_create_account(self._actual.session, name)
 
-    def create(self, *, booking_date, account, amount, imported_id, payee, notes) -> None:
+    def create(self, *, booking_date, account, amount, imported_id, payee, notes) -> object:
         from actual.queries import create_transaction
 
-        create_transaction(
+        return create_transaction(
             self._actual.session,
             date=booking_date,
             account=account,
@@ -194,6 +200,11 @@ class _ActualPaymentClient:
             imported_id=imported_id,
             imported_payee=payee,
         )
+
+    def run_rules(self, transactions: list) -> None:
+        # Actual itself never runs rules over actualpy-inserted rows (gate 7),
+        # so the app's rules are applied here to the new transactions only.
+        self._actual.run_rules(transactions)
 
     def commit(self) -> None:
         self._actual.commit()
@@ -248,15 +259,20 @@ def _sync(
         for account_name in sorted({account_map[row["account_id"]] for row in to_add}):
             client.ensure_account(account_name)
 
+        created = []
         for row in to_add:
-            client.create(
-                booking_date=row["booking_date"],
-                account=account_map[row["account_id"]],
-                amount=row["amount"],
-                imported_id=IMPORTED_ID_PREFIX + row["stable_id"],
-                payee=row["payee"],
-                notes=(row["remittance_info"] or "")[:NOTES_MAX] or None,
+            created.append(
+                client.create(
+                    booking_date=row["booking_date"],
+                    account=account_map[row["account_id"]],
+                    amount=row["amount"],
+                    imported_id=IMPORTED_ID_PREFIX + row["stable_id"],
+                    payee=row["payee"],
+                    notes=(row["remittance_info"] or "")[:NOTES_MAX] or None,
+                )
             )
+        if created:
+            client.run_rules(created)
         client.commit()
 
         counts = {

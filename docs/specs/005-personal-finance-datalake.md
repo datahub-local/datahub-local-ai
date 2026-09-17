@@ -40,7 +40,7 @@ intake assumption (row 8: Actual Budget needs no Postgres).
 | 4 | Consent expiry | No requisition: the session carries `access.valid_until` (EEA ~180 days; the live test returned `2027-03-12`). An expired or revoked session fails the data call | reference + live `POST /sessions` | Fetch surfaces it as `ACCESS_EXPIRED` naming the account/bank; re-link runbook in §4.2; `valid_until` is stored per account in `finance-enablebanking` so staleness is checkable before the run |
 | 5 | Transaction id stability | Enable Banking exposes `entry_reference` — "unique and immutable ... can be used for matching transactions across multiple PSU authentication sessions" — and `transaction_id`, which the docs say "may change if the list of transactions is retrieved again" (**not** stable; `null` where detail-fetch is unsupported) | API reference `Transaction` schema; live sample | Bronze stable id = `entry_reference` when present, else a deterministic hash. `transaction_id` is **never** used as identity. Which banks supply `entry_reference` is `[UNVERIFIED]` until WF-3 — Openbank's live sample had it `null` on every row |
 | 6 | Actual Budget API | **No REST API exists.** The official path is `@actual-app/api` (Node headless engine, CRDT sync); its `importTransactions` dedups on `imported_id` and runs the budget's rules | actualbudget.org/docs/api + api reference.md | A Python push needs `actualpy` or an HTTP-wrapper sidecar (row 7) |
-| 7 | Python push mechanism | `actualpy` (PyPI; SQLAlchemy over a locally downloaded budget copy, `create_transaction(imported_id=...)`, `match_transaction`, `actual.commit()` syncs CRDT messages to the server) vs `jhonderson/actual-http-api` (Docker REST wrapper around the Node API, API-key auth) | pypi.org/project/actualpy, github.com/jhonderson/actual-http-api | **actualpy first** — no new service. `[UNVERIFIED]`: actualpy<->server version match and whether budget *rules* run on actualpy-inserted transactions; settled by the WF-8 probe, fallback = the sidecar |
+| 7 | Python push mechanism | `actualpy` (PyPI; SQLAlchemy over a locally downloaded budget copy, `create_transaction(imported_id=...)`, `match_transaction`, `actual.commit()` syncs CRDT messages to the server) vs `jhonderson/actual-http-api` (Docker REST wrapper around the Node API, API-key auth) | pypi.org/project/actualpy, github.com/jhonderson/actual-http-api | **actualpy first** — no new service. **Settled 2026-09-17 (WF-8 probe):** `actualpy==0.22.3` talks to `actual-server:26.1.0` end to end (login, `create_budget`, upload, insert, `commit`, re-download, delete). Budget rules do **not** run on actualpy-inserted transactions — the client's `run_rules()` is never called by `create_transaction`/`commit` — so `sync.py` now calls `run_rules(created)` on exactly the new transactions before `commit()`. The sidecar fallback is not needed |
 | 8 | Actual server storage | SQLite files under `/data` (`server-files`, `user-files`); **no external Postgres** | actualbudget.org/docs/config | Corrects the intake assumption. One PVC, no CNPG database. Deployed with core's `app-template` chart: one `persistentVolumeClaim` mounted at `/data`, no DB |
 | 9 | Airflow pipeline names | `VALID_PIPELINES = ("ingest", "export", "enrich")` hardcoded; `dlt_runner` itself discovers `<project>.<pipeline>` modules dynamically | `workflows/airflow/dags/utils/dlt.py:29`, `workflows/dlt/src/dlt_runner/__main__.py` | The app-push step named `sync` needs a one-line tuple extension + test in workflows/airflow; no runner change |
 | 10 | Trino ACL | Access rules are catalog-anchored (`^(memory\|bronze\|silver\|gold\|test)$`) with schema `.*` for writers | `datahub-local-core/releases/data/values/trino.yaml.gotmpl:112-134` | A new `finance` schema inside the existing catalogs needs **zero** ACL change |
@@ -533,12 +533,14 @@ Flow per run:
    `local` target by default) stops before commit and logs the counts that
    would be added.
 
-No `category` is ever set (§4.5). Whether the budget's *rules* run over
-synced transactions on the server is `[UNVERIFIED]` (gate 7) — WF-8 probes
-it with a throwaway budget; if rules do not apply, transactions arrive with
-payee text and the user's rules categorise on next app open or not at all —
-acceptable per the non-goal, but recorded. If actualpy proves unable to
-talk to the pinned server version at all, the fallback is the
+No `category` is ever set by the pipeline (§4.5). Whether the budget's *rules*
+run over synced transactions was `[UNVERIFIED]` (gate 7); the WF-8 probe
+(2026-09-17) settled it — Actual never applies rules to actualpy-inserted rows,
+so step 4 also calls `actual.run_rules(created)` on the new transactions before
+`actual.commit()`. Rules therefore categorise by the pipeline triggering them,
+not the pipeline picking categories; to that end `run_rules` is scoped to the
+rows just created, so an existing transaction is never re-run or overwritten.
+If actualpy ever fails to talk to the pinned server version, the fallback is the
 `jhonderson/actual-http-api` sidecar in the core release (gate 7), and the
 sync pipeline swaps transport only — the read/dedup/map logic is unchanged.
 
@@ -770,9 +772,14 @@ deliberately expired session fails as `ACCESS_EXPIRED`.
       and do budget rules apply to synced transactions? (closes gate 7
       `[UNVERIFIED]`; fallback = http-api sidecar, transport-only swap).
       *Blocked by INFRA-1, WF-6.* **Code and local tests landed 2026-09-16**
-      (`actualpy==0.22.3` in `uv.lock`; 13 tests, no server). The live probe
-      and gate 7 remain, and the pin is provisional until INFRA-1 fixes the
-      server image tag (gate 14).
+      (`actualpy==0.22.3` in `uv.lock`). **Gate 7 probed 2026-09-17** against a
+      throwaway budget on the deployed `26.1.0` server: connectivity is green,
+      but rules do not run automatically, so `sync.py` now calls
+      `run_rules(created)` before `commit()` (tests updated, 19 passing). The
+      `finance-actual` secret's `file` (`Finance`) does **not** match the live
+      budget (named `My Finances`), so the real sync still fails
+      `UnknownFileId` until the operator renames the budget or updates the
+      secret. The live probe against the *operator's* budget remains.
 - [ ] **WF-9** Complete the DAG (`dlt_sync_actual`)
       and run the full chain on `homelab`. *Blocked by WF-7, WF-8.*
       **DAG wiring landed 2026-09-16** (`dlt_sync_actual` after `dbt_gold`,
@@ -843,7 +850,8 @@ exists for this).
 |----------|-----------|
 | Each bank's observed history cap and `transaction_id` presence for CaixaBank, BBVA, ING, Openbank, Santander (gate 2/5 `[UNVERIFIED]`; Openbank known: no `transaction_id`) | WF-3: inspect the first real ingest per bank and record the values in the onboarding runbook |
 | ~~Is Openbank's unattended `transactions` limit really 1/day?~~ **Answered 2026-09-15: yes** — a fresh day allowed exactly one `transactions` call, every later one returned 429. The daily schedule fits; a manual backfill of the same window does not, so use `strategy=longest` on the first run rather than repeated re-fetches |
-| Does the pinned actualpy speak to the pinned server, and do budget rules run over synced transactions (gate 7 `[UNVERIFIED]`)? | WF-8 probe against a throwaway budget on the deployed server |
+| ~~Does the pinned actualpy speak to the pinned server, and do budget rules run over synced transactions (gate 7 `[UNVERIFIED]`)?~~ **Answered 2026-09-17: yes and no, respectively** — connectivity green (`actualpy 0.22.3` ↔ `actual-server 26.1.0`), rules only when `run_rules()` is invoked, so `sync.py` invokes it on the created rows. | WF-8 probe — done |
+| Will the live sync find the budget? | `finance-actual.file` is `Finance` but the live budget is named `My Finances`; the run fails `UnknownFileId` until the operator renames the budget to `Finance` or the secret key is changed. Operator, before WF-9 |
 | ~~Does mcp-semantic accept more than one registry file, or does finance need the second-MCPServer fallback?~~ **Answered 2026-09-16: one registry only** (`settings.py`); the second-MCPServer fallback is wired, and the template needed a `configDir` decoupling the spec had assumed it already had (§4.10). | AI-1 — done except the post-sync `mcp-discover` count check |
 | ~~Exact Actual server version to pin~~ **Answered 2026-09-16: `26.1.0`** (actualpy 0.22.3's tested target), on core's `app-template` chart in `datahub-local-core` | INFRA-1 — done in the repo; live verification after sync |
 | One Actual account per bank account, or one per bank? (the account map in §4.6 depends on it) | Operator, in the budget-setup step before the first WF-8 sync — recorded in the `finance-actual` configmap |

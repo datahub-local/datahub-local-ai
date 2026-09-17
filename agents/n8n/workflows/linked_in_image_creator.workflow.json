@@ -1,7 +1,7 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "e27fe371-e682-4881-a4fd-b207a41b830c",
+    "versionId": "d67f2dd0-d94e-4013-ab23-b20ade03c9f9",
     "workflowId": "a9tFFs8qkRu8taC2",
     "nodes": [
       {
@@ -267,6 +267,7 @@
             "mode": "id",
             "value": "={{ $('set_workflow_vars').item.json.TEXT_MODEL_FALLBACK }}"
           },
+          "builtInTools": {},
           "options": {
             "maxRetries": 2
           }
@@ -293,6 +294,7 @@
             "mode": "id",
             "value": "={{ $('set_workflow_vars').item.json.TEXT_MODEL }}"
           },
+          "builtInTools": {},
           "options": {
             "maxRetries": 2
           }
@@ -501,10 +503,10 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-09-14T17:23:38.660Z",
-    "updatedAt": "2026-09-14T17:23:38.660Z"
+    "createdAt": "2026-09-16T19:28:14.479Z",
+    "updatedAt": "2026-09-16T19:28:14.479Z"
   },
-  "activeVersionId": "e27fe371-e682-4881-a4fd-b207a41b830c",
+  "activeVersionId": "d67f2dd0-d94e-4013-ab23-b20ade03c9f9",
   "connections": {
     "set_workflow_vars": {
       "main": [
@@ -627,6 +629,14 @@
   "nodeGroups": [],
   "nodes": [
     {
+      "id": "edabfe70-c47d-476f-9e95-e020d3fca036",
+      "name": "set_workflow_vars",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1344,
+        1856
+      ],
       "parameters": {
         "assignments": {
           "assignments": [
@@ -694,17 +704,17 @@
         },
         "includeOtherFields": true,
         "options": {}
-      },
-      "id": "edabfe70-c47d-476f-9e95-e020d3fca036",
-      "name": "set_workflow_vars",
+      }
+    },
+    {
+      "id": "6d8ce981-496c-4d51-8811-88c5a26a7a46",
+      "name": "set_output",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        -1344,
-        1856
-      ]
-    },
-    {
+        576,
+        1952
+      ],
       "parameters": {
         "assignments": {
           "assignments": [
@@ -723,17 +733,17 @@
           ]
         },
         "options": {}
-      },
-      "id": "6d8ce981-496c-4d51-8811-88c5a26a7a46",
-      "name": "set_output",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        576,
-        1952
-      ]
+      }
     },
     {
+      "id": "32757a2f-2e2f-439b-af1f-375aa8e9c25d",
+      "name": "main_trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1568,
+        1856
+      ],
       "parameters": {
         "workflowInputs": {
           "values": [
@@ -754,17 +764,17 @@
             }
           ]
         }
-      },
-      "id": "32757a2f-2e2f-439b-af1f-375aa8e9c25d",
-      "name": "main_trigger",
-      "type": "n8n-nodes-base.executeWorkflowTrigger",
-      "typeVersion": 1.1,
-      "position": [
-        -1568,
-        1856
-      ]
+      }
     },
     {
+      "id": "02dc3ae8-dfad-43d1-85c6-0f17207ca5bb",
+      "name": "download_image_prompt",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -672,
+        1856
+      ],
       "parameters": {
         "workflowId": {
           "__rl": true,
@@ -804,20 +814,9 @@
           "convertFieldsToString": true
         },
         "options": {}
-      },
-      "id": "02dc3ae8-dfad-43d1-85c6-0f17207ca5bb",
-      "name": "download_image_prompt",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        -672,
-        1856
-      ]
+      }
     },
     {
-      "parameters": {
-        "jsCode": "// Parse the <visual> block. Both modes (hero, infographic) return one image-generation\n// prompt, so there is no branch here any more: mode is logged, not routed.\nconst raw = $input.first().json.text || '';\nconst grab = (tag) => {\n  const m = raw.match(new RegExp('<' + tag + '>([\\\\s\\\\S]*?)</' + tag + '>'));\n  return m ? m[1].trim() : '';\n};\nconst mode = (grab('mode') || 'hero').toLowerCase();\nconst imagePrompt = grab('image_prompt');\nreturn [{\n  json: {\n    mode,\n    concept: grab('concept'),\n    headline: grab('headline'),\n    // Logged, not used downstream: it is how you audit whether the art director actually\n    // anchored the metaphor in the post's subject, named the subject it lettered, and\n    // invented an emblem instead of a real logo.\n    subject_anchor: grab('subject_anchor'),\n    wordmark: grab('wordmark'),\n    emblem: grab('emblem'),\n    text: imagePrompt || raw,\n  },\n}];\n"
-      },
       "id": "7f2f2b05-9421-452c-9fb3-7c181f08ccb0",
       "name": "parse_llm_output",
       "type": "n8n-nodes-base.code",
@@ -825,14 +824,12 @@
       "position": [
         -96,
         1856
-      ]
+      ],
+      "parameters": {
+        "jsCode": "// Parse the <visual> block. Both modes (hero, infographic) return one image-generation\n// prompt, so there is no branch here any more: mode is logged, not routed.\nconst raw = $input.first().json.text || '';\nconst grab = (tag) => {\n  const m = raw.match(new RegExp('<' + tag + '>([\\\\s\\\\S]*?)</' + tag + '>'));\n  return m ? m[1].trim() : '';\n};\nconst mode = (grab('mode') || 'hero').toLowerCase();\nconst imagePrompt = grab('image_prompt');\nreturn [{\n  json: {\n    mode,\n    concept: grab('concept'),\n    headline: grab('headline'),\n    // Logged, not used downstream: it is how you audit whether the art director actually\n    // anchored the metaphor in the post's subject, named the subject it lettered, and\n    // invented an emblem instead of a real logo.\n    subject_anchor: grab('subject_anchor'),\n    wordmark: grab('wordmark'),\n    emblem: grab('emblem'),\n    text: imagePrompt || raw,\n  },\n}];\n"
+      }
     },
     {
-      "parameters": {
-        "promptType": "define",
-        "text": "={{ $('download_image_prompt').item.json.output }}",
-        "needsFallback": true
-      },
       "id": "98691954-814d-4118-a9a4-8603187095fb",
       "name": "create_image_prompt_ai",
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
@@ -843,19 +840,14 @@
       "position": [
         -448,
         1856
-      ]
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('download_image_prompt').item.json.output }}",
+        "needsFallback": true
+      }
     },
     {
-      "parameters": {
-        "method": "POST",
-        "url": "http://datahub-local-core-data-litellm.data.svc.cluster.local:4000/openrouter/images",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpBearerAuth",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"model\": \"{{ $('set_workflow_vars').item.json.IMAGE_MODEL }}\",\n  \"prompt\": {{ $json.text.toJsonString() }},\n  \"aspect_ratio\": \"{{ $('set_workflow_vars').item.json.IMAGE_ASPECT_RATIO }}\",\n  \"resolution\": \"{{ $('set_workflow_vars').item.json.IMAGE_RESOLUTION }}\"\n}",
-        "options": {}
-      },
       "id": "28f04c4b-2690-4281-8c64-80162616b6cf",
       "name": "generate_image",
       "type": "n8n-nodes-base.httpRequest",
@@ -867,6 +859,16 @@
         352,
         1952
       ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://datahub-local-core-data-litellm.data.svc.cluster.local:4000/openrouter/images",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"{{ $('set_workflow_vars').item.json.IMAGE_MODEL }}\",\n  \"prompt\": {{ $json.text.toJsonString() }},\n  \"aspect_ratio\": \"{{ $('set_workflow_vars').item.json.IMAGE_ASPECT_RATIO }}\",\n  \"resolution\": \"{{ $('set_workflow_vars').item.json.IMAGE_RESOLUTION }}\"\n}",
+        "options": {}
+      },
       "credentials": {
         "httpBearerAuth": {
           "id": "LitellmN8nBera01",
@@ -875,6 +877,14 @@
       }
     },
     {
+      "id": "69ae0e6e-0b8d-48db-b25c-eb733f42515d",
+      "name": "ai_model_fallback",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -320,
+        2096
+      ],
       "parameters": {
         "model": {
           "__rl": true,
@@ -886,14 +896,6 @@
           "maxRetries": 2
         }
       },
-      "id": "69ae0e6e-0b8d-48db-b25c-eb733f42515d",
-      "name": "ai_model_fallback",
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-      "typeVersion": 1.3,
-      "position": [
-        -320,
-        2096
-      ],
       "credentials": {
         "openAiApi": {
           "id": "LitellmN8nAcct01",
@@ -902,6 +904,14 @@
       }
     },
     {
+      "id": "38223886-b533-40b1-992b-817d99e4f8e0",
+      "name": "ai_model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -448,
+        2096
+      ],
       "parameters": {
         "model": {
           "__rl": true,
@@ -913,14 +923,6 @@
           "maxRetries": 2
         }
       },
-      "id": "38223886-b533-40b1-992b-817d99e4f8e0",
-      "name": "ai_model",
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-      "typeVersion": 1.3,
-      "position": [
-        -448,
-        2096
-      ],
       "credentials": {
         "openAiApi": {
           "id": "LitellmN8nAcct01",
@@ -929,6 +931,14 @@
       }
     },
     {
+      "id": "657514f0-aaff-44ef-b8ac-dab426ce819b",
+      "name": "download_image_motifs",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -1120,
+        1856
+      ],
       "parameters": {
         "workflowId": {
           "__rl": true,
@@ -968,20 +978,9 @@
           "convertFieldsToString": true
         },
         "options": {}
-      },
-      "id": "657514f0-aaff-44ef-b8ac-dab426ce819b",
-      "name": "download_image_motifs",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        -1120,
-        1856
-      ]
+      }
     },
     {
-      "parameters": {
-        "jsCode": "// Pick the motif vocabulary and the hook treatment for this post out of\n// datasets/image_motifs.json, and render them as the {{ SUBJECT_MOTIFS }} and\n// {{ HOOK_TREATMENT }} blocks of prompts/linkedin_image_prompt.md.\n//\n// Why this node exists: ART_DIRECTION only ever controlled *style*, so the art director had\n// no lever for subject at all and kept returning domain-free tension objects - a chalk\n// drawing of bare handcuffs for a post about data engineers being automated. It stopped the\n// scroll and said nothing about AI. Scoring is keyword-based and deterministic on purpose: a\n// wrong domain shows up in the execution log and is fixed in the dataset, where an LLM\n// classifier would be a second thing to debug on a 4B model.\n//\n// The hook comes in as the raw EXTRA_PROMPT the curator wrote (\"Hook: X. <angle>\"), so the\n// archetype is extracted here rather than asked of the text model - the same reasoning, and\n// the same regex build_expire_rows uses to recover the hook for its TTL.\nconst raw = $json.output || '{}';\nlet cfg;\ntry {\n  cfg = JSON.parse(raw);\n} catch (e) {\n  throw new Error('datasets/image_motifs.json is not valid JSON: ' + e.message);\n}\n\nconst num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);\nconst arr = (v, d) => (Array.isArray(v) ? v : d);\nconst obj = (v, d) => (v && typeof v === 'object' && !Array.isArray(v) ? v : d);\nconst str = (v) => String(v == null ? '' : v);\n\n// Every knob defaults, so a partial or truncated dataset degrades to the default domain\n// instead of taking an image run down.\nconst domains = obj(cfg.domains, {});\nconst minScore = num(cfg.min_score, 2);\nconst maxDomains = Math.max(1, num(cfg.max_domains, 2));\nconst runnerUpRatio = Math.min(1, Math.max(0, num(cfg.runner_up_ratio, 0.5)));\nconst defaultDomain = str(cfg.default_domain) || 'default';\nconst maxAnchors = Math.max(1, num(cfg.max_anchors, 8));\nconst maxMotifs = Math.max(1, num(cfg.max_motifs, 4));\nconst maxAvoid = Math.max(1, num(cfg.max_avoid, 8));\nconst universalAvoid = arr(cfg.universal_avoid, []).map(str).filter(Boolean);\n\n// Hook -> composition device. An unknown, empty or absent hook gets default, never a guess.\nconst hooksCfg = obj(cfg.hooks, {});\nconst defaultHook = str(cfg.default_hook) || 'default';\nconst hookRaw = str($('set_workflow_vars').first().json.HOOK);\nconst hookMatch = hookRaw.match(/^Hook:\\s*([A-Z_]+)\\./);\nconst hook = hookMatch ? hookMatch[1].toUpperCase() : '';\nconst hookKey = obj(hooksCfg[hook], null) ? hook : defaultHook;\nconst hookTreatment = str(obj(hooksCfg[hookKey], {}).treatment);\n\nconst post = str($('set_workflow_vars').first().json.POST_CONTENT).toLowerCase();\n\n// Whole-word match: \"gpu\" must not fire inside an unrelated token, and plural/adjective\n// forms are listed explicitly in the dataset rather than guessed at with stemming.\nconst matches = (kw) => {\n  const esc = kw.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');\n  return new RegExp('(^|[^a-z0-9])' + esc + '([^a-z0-9]|$)').test(post);\n};\n\nconst scored = Object.keys(domains)\n  .filter((k) => k !== defaultDomain)\n  .map((k) => ({\n    key: k,\n    score: arr(obj(domains[k], {}).keywords, [])\n      .map((s) => str(s).toLowerCase())\n      .filter(Boolean)\n      .filter(matches).length,\n  }))\n  .sort((a, b) => b.score - a.score || a.key.localeCompare(b.key));\n\n// A post is routinely two things at once - the reference post was data engineering by\n// material and career by tension - and it is the weaker domain that usually holds the\n// anchor that saves the image. So runners-up join on a ratio of the top score, not a fixed\n// margin, capped because a long list dilutes a small model.\nlet selected = [];\nif (scored.length && scored[0].score >= minScore) {\n  const cut = Math.max(minScore, Math.ceil(scored[0].score * runnerUpRatio));\n  selected = scored.filter((d) => d.score >= cut).slice(0, maxDomains);\n}\nif (!selected.length) selected = [{ key: defaultDomain, score: 0 }];\n\n// Rotate the examples within each domain. Domain choice stays deterministic and logged, but\n// WHICH anchors and fusions get shown varies per run: the reference post shipped career-craft\n// fusion 1 near-verbatim, and without rotation the handful of injected examples would become the\n// entire feed. Same Math.random() approach the ART_DIRECTION list in download_image_prompt uses.\nconst rotate = (list) => {\n  const out = list.slice();\n  for (let i = out.length - 1; i > 0; i--) {\n    const j = Math.floor(Math.random() * (i + 1));\n    const t = out[i];\n    out[i] = out[j];\n    out[j] = t;\n  }\n  return out;\n};\n\n// Round-robin across the selected domains rather than concatenating them, so the cap\n// cannot spend every slot on the top domain and silently drop the runner-up's fusion\n// example - which is the one that carries the post's tension.\nconst pick = (field, cap) => {\n  const pools = selected.map((d) => rotate(arr(obj(domains[d.key], {})[field], []).map(str).filter(Boolean)));\n  const seen = new Set();\n  const out = [];\n  const depth = Math.max(0, ...pools.map((p) => p.length));\n  for (let i = 0; i < depth && out.length < cap; i++) {\n    for (const pool of pools) {\n      if (out.length >= cap) break;\n      const v = pool[i];\n      if (!v) continue;\n      const k = v.toLowerCase();\n      if (seen.has(k)) continue;\n      seen.add(k);\n      out.push(v);\n    }\n  }\n  return out;\n};\n\nconst anchors = pick('anchors', maxAnchors);\nconst motifs = pick('motifs', maxMotifs);\nconst avoid = pick('avoid', maxAvoid);\nfor (const v of universalAvoid) {\n  if (!avoid.some((a) => a.toLowerCase() === v.toLowerCase())) avoid.push(v);\n}\n\nconst lines = [];\nlines.push('Detected subject domain(s): ' + selected.map((d) => d.key + ' [' + d.score + ']').join(', '));\nif (anchors.length) {\n  lines.push('');\n  lines.push(\"SUBJECT ANCHORS - render this post's subject as one of these concrete things:\");\n  anchors.forEach((a) => lines.push('- ' + a));\n}\nif (motifs.length) {\n  lines.push('');\n  lines.push('EXAMPLE FUSIONS - the degree of fusion required between tension and anchor. Do not reuse one verbatim; produce one of this kind for THIS post:');\n  motifs.forEach((m) => lines.push('- ' + m));\n}\nif (avoid.length) {\n  lines.push('');\n  lines.push('AVOID - these read as stock AI/tech imagery and are banned:');\n  avoid.forEach((a) => lines.push('- ' + a));\n}\n\nconst hookLines = [];\nif (hookTreatment) {\n  hookLines.push('HOOK TREATMENT - the post opens as ' + hookKey + '. Shape the composition this way:');\n  hookLines.push('- ' + hookTreatment);\n}\n\nreturn [{\n  // pairedItem is explicit because download_image_prompt and generate_image both still read\n  // $('set_workflow_vars').item, and this node now sits between them and that node.\n  pairedItem: { item: 0 },\n  json: {\n    SUBJECT_MOTIFS: lines.join('\\n'),\n    HOOK_TREATMENT: hookLines.join('\\n'),\n    // Kept for the execution log: the domain and hook choices are the first thing to check\n    // when an image comes back off-subject or off-message.\n    motif_domains: selected.map((d) => d.key + ':' + d.score),\n    motif_hook: hookKey,\n  },\n}];\n"
-      },
       "id": "4a2967f2-ab90-4a57-9cf1-9d8c31d72fd2",
       "name": "parse_image_motifs",
       "type": "n8n-nodes-base.code",
@@ -989,15 +988,12 @@
       "position": [
         -896,
         1856
-      ]
+      ],
+      "parameters": {
+        "jsCode": "// Pick the motif vocabulary and the hook treatment for this post out of\n// datasets/image_motifs.json, and render them as the {{ SUBJECT_MOTIFS }} and\n// {{ HOOK_TREATMENT }} blocks of prompts/linkedin_image_prompt.md.\n//\n// Why this node exists: ART_DIRECTION only ever controlled *style*, so the art director had\n// no lever for subject at all and kept returning domain-free tension objects - a chalk\n// drawing of bare handcuffs for a post about data engineers being automated. It stopped the\n// scroll and said nothing about AI. Scoring is keyword-based and deterministic on purpose: a\n// wrong domain shows up in the execution log and is fixed in the dataset, where an LLM\n// classifier would be a second thing to debug on a 4B model.\n//\n// The hook comes in as the raw EXTRA_PROMPT the curator wrote (\"Hook: X. <angle>\"), so the\n// archetype is extracted here rather than asked of the text model - the same reasoning, and\n// the same regex build_expire_rows uses to recover the hook for its TTL.\nconst raw = $json.output || '{}';\nlet cfg;\ntry {\n  cfg = JSON.parse(raw);\n} catch (e) {\n  throw new Error('datasets/image_motifs.json is not valid JSON: ' + e.message);\n}\n\nconst num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);\nconst arr = (v, d) => (Array.isArray(v) ? v : d);\nconst obj = (v, d) => (v && typeof v === 'object' && !Array.isArray(v) ? v : d);\nconst str = (v) => String(v == null ? '' : v);\n\n// Every knob defaults, so a partial or truncated dataset degrades to the default domain\n// instead of taking an image run down.\nconst domains = obj(cfg.domains, {});\nconst minScore = num(cfg.min_score, 2);\nconst maxDomains = Math.max(1, num(cfg.max_domains, 2));\nconst runnerUpRatio = Math.min(1, Math.max(0, num(cfg.runner_up_ratio, 0.5)));\nconst defaultDomain = str(cfg.default_domain) || 'default';\nconst maxAnchors = Math.max(1, num(cfg.max_anchors, 8));\nconst maxMotifs = Math.max(1, num(cfg.max_motifs, 4));\nconst maxAvoid = Math.max(1, num(cfg.max_avoid, 8));\nconst universalAvoid = arr(cfg.universal_avoid, []).map(str).filter(Boolean);\n\n// Hook -> composition device. An unknown, empty or absent hook gets default, never a guess.\nconst hooksCfg = obj(cfg.hooks, {});\nconst defaultHook = str(cfg.default_hook) || 'default';\nconst hookRaw = str($('set_workflow_vars').first().json.HOOK);\nconst hookMatch = hookRaw.match(/^Hook:\\s*([A-Z_]+)\\./);\nconst hook = hookMatch ? hookMatch[1].toUpperCase() : '';\nconst hookKey = obj(hooksCfg[hook], null) ? hook : defaultHook;\nconst hookTreatment = str(obj(hooksCfg[hookKey], {}).treatment);\n\nconst post = str($('set_workflow_vars').first().json.POST_CONTENT).toLowerCase();\n\n// Whole-word match: \"gpu\" must not fire inside an unrelated token, and plural/adjective\n// forms are listed explicitly in the dataset rather than guessed at with stemming.\nconst matches = (kw) => {\n  const esc = kw.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');\n  return new RegExp('(^|[^a-z0-9])' + esc + '([^a-z0-9]|$)').test(post);\n};\n\nconst scored = Object.keys(domains)\n  .filter((k) => k !== defaultDomain)\n  .map((k) => ({\n    key: k,\n    score: arr(obj(domains[k], {}).keywords, [])\n      .map((s) => str(s).toLowerCase())\n      .filter(Boolean)\n      .filter(matches).length,\n  }))\n  .sort((a, b) => b.score - a.score || a.key.localeCompare(b.key));\n\n// A post is routinely two things at once - the reference post was data engineering by\n// material and career by tension - and it is the weaker domain that usually holds the\n// anchor that saves the image. So runners-up join on a ratio of the top score, not a fixed\n// margin, capped because a long list dilutes a small model.\nlet selected = [];\nif (scored.length && scored[0].score >= minScore) {\n  const cut = Math.max(minScore, Math.ceil(scored[0].score * runnerUpRatio));\n  selected = scored.filter((d) => d.score >= cut).slice(0, maxDomains);\n}\nif (!selected.length) selected = [{ key: defaultDomain, score: 0 }];\n\n// Rotate the examples within each domain. Domain choice stays deterministic and logged, but\n// WHICH anchors and fusions get shown varies per run: the reference post shipped career-craft\n// fusion 1 near-verbatim, and without rotation the handful of injected examples would become the\n// entire feed. Same Math.random() approach the ART_DIRECTION list in download_image_prompt uses.\nconst rotate = (list) => {\n  const out = list.slice();\n  for (let i = out.length - 1; i > 0; i--) {\n    const j = Math.floor(Math.random() * (i + 1));\n    const t = out[i];\n    out[i] = out[j];\n    out[j] = t;\n  }\n  return out;\n};\n\n// Round-robin across the selected domains rather than concatenating them, so the cap\n// cannot spend every slot on the top domain and silently drop the runner-up's fusion\n// example - which is the one that carries the post's tension.\nconst pick = (field, cap) => {\n  const pools = selected.map((d) => rotate(arr(obj(domains[d.key], {})[field], []).map(str).filter(Boolean)));\n  const seen = new Set();\n  const out = [];\n  const depth = Math.max(0, ...pools.map((p) => p.length));\n  for (let i = 0; i < depth && out.length < cap; i++) {\n    for (const pool of pools) {\n      if (out.length >= cap) break;\n      const v = pool[i];\n      if (!v) continue;\n      const k = v.toLowerCase();\n      if (seen.has(k)) continue;\n      seen.add(k);\n      out.push(v);\n    }\n  }\n  return out;\n};\n\nconst anchors = pick('anchors', maxAnchors);\nconst motifs = pick('motifs', maxMotifs);\nconst avoid = pick('avoid', maxAvoid);\nfor (const v of universalAvoid) {\n  if (!avoid.some((a) => a.toLowerCase() === v.toLowerCase())) avoid.push(v);\n}\n\nconst lines = [];\nlines.push('Detected subject domain(s): ' + selected.map((d) => d.key + ' [' + d.score + ']').join(', '));\nif (anchors.length) {\n  lines.push('');\n  lines.push(\"SUBJECT ANCHORS - render this post's subject as one of these concrete things:\");\n  anchors.forEach((a) => lines.push('- ' + a));\n}\nif (motifs.length) {\n  lines.push('');\n  lines.push('EXAMPLE FUSIONS - the degree of fusion required between tension and anchor. Do not reuse one verbatim; produce one of this kind for THIS post:');\n  motifs.forEach((m) => lines.push('- ' + m));\n}\nif (avoid.length) {\n  lines.push('');\n  lines.push('AVOID - these read as stock AI/tech imagery and are banned:');\n  avoid.forEach((a) => lines.push('- ' + a));\n}\n\nconst hookLines = [];\nif (hookTreatment) {\n  hookLines.push('HOOK TREATMENT - the post opens as ' + hookKey + '. Shape the composition this way:');\n  hookLines.push('- ' + hookTreatment);\n}\n\nreturn [{\n  // pairedItem is explicit because download_image_prompt and generate_image both still read\n  // $('set_workflow_vars').item, and this node now sits between them and that node.\n  pairedItem: { item: 0 },\n  json: {\n    SUBJECT_MOTIFS: lines.join('\\n'),\n    HOOK_TREATMENT: hookLines.join('\\n'),\n    // Kept for the execution log: the domain and hook choices are the first thing to check\n    // when an image comes back off-subject or off-message.\n    motif_domains: selected.map((d) => d.key + ':' + d.score),\n    motif_hook: hookKey,\n  },\n}];\n"
+      }
     },
     {
-      "parameters": {
-        "content": "## LinkedIn Image Creator\n\nSub-workflow. In: `POST_CONTENT`, optional `IMAGE_ASPECT_RATIO` / `IMAGE_RESOLUTION` / `HOOK`.\nOut: `omImage ` - a JSON string `{\"url\": \"data:<type>;base64,...\"}`.\nCalled by **LinkedIn Post Sharing** (`execute_image_creator`), which passes the row's raw\n`EXTRA_PROMPT` as `HOOK`.\n\n**Flow**\n\n```\nmain_trigger -> set_workflow_vars\n  -> download_image_motifs -> parse_image_motifs      (datasets/image_motifs.json)\n  -> download_image_prompt -> create_image_prompt_ai  (prompts/linkedin_image_prompt.md)\n  -> parse_llm_output -> generate_image -> set_output\n```\n\n**Both modes are images.** The art director picks `hero` (one fused object) or\n`infographic` (three to five labelled blocks and arrows) and returns ONE image prompt\neither way. Mermaid and Kroki are gone: the old `diagram` mode emitted diagram markup the\nimage model could not render and Kroki rendered as a plain chart, which was the complaint.\n\n**The three prompt axes** - keep them separate:\n\n- `ART_DIRECTION` (inline list in `download_image_prompt`, random per run) = *style only*:\n  medium, lighting, palette, texture.\n- `SUBJECT_MOTIFS` (`datasets/image_motifs.json`, keyword-scored per post) = *subject*:\n  the anchors the metaphor or the infographic blocks are built from, and the cliches it\n  must avoid.\n- `HOOK_TREATMENT` (same dataset, keyed by the post's hook archetype) = *composition*: the\n  device the layout must use (split frame, timeline, myth/reality, scale, landing, one\n  figure). The hook is extracted from `HOOK` in `parse_image_motifs`, never classified by\n  the text model.\n\nWhen an image lands off-subject, check `motif_domains` and `motif_hook` in the\n`parse_image_motifs` output first, then add the failed cliche to that domain's `avoid`\nlist rather than editing the prompt.\n\n**Models** (in `set_workflow_vars`): `IMAGE_MODEL`, `IMAGE_MODEL_FALLBACK`, `TEXT_MODEL`,\n`TEXT_MODEL_FALLBACK`. No env vars; OpenRouter credential only.\n\n**Image geometry** - `IMAGE_ASPECT_RATIO` (default `4:5`, LinkedIn's mobile feed portrait)\nand `IMAGE_RESOLUTION` (default `1K`). Both are sub-workflow inputs, so\na caller can override either; omitting them keeps the defaults.\n\n`generate_image` posts to the image endpoint (`/api/v1/images`), **not**\n`/chat/completions`. The chat route only honours `image_config.aspect_ratio` and ignores\nresolution entirely - and resolution is what the bill is made of, since this model is\npriced per output *image token* and those scale with pixel count. `512` at `4:5` (~448x560)\nis the cheapest frame that fills a phone feed, but it cannot resolve the code/config engraved\ninto the subject as texture - and that engraving is the whole domain signal, the thing that\nmakes the image read as software rather than as generic industrial props. `1K` is also the only\nvalue **both** `IMAGE_MODEL` and `IMAGE_MODEL_FALLBACK` accept, so it removes the silent-clamp\nhazard on fallback. Hence `1K` despite the cost. The response shape differs\nfrom the chat route - `data[0].b64_json` + `data[0].media_type`, which is what `set_output`\nassembles the data URL from.\n\nResolution support is per model, and OpenRouter clamps unsupported values **silently**:\n`google/gemini-3.1-flash-image` takes `512|1K|2K|4K`, but `IMAGE_MODEL_FALLBACK`\n(`google/gemini-3.1-flash-lite-image`) takes only `1K`. Re-check\n`/api/v1/images/models/<model>/endpoints` after any model swap.\n\n`IMAGE_ASPECT_RATIO` is also passed to the prompt template, so the art director composes\nfor the same frame the image model renders - do not hardcode a ratio in the prompt again.\n\n**Text in the frame** - the art director returns a `wordmark` (the subject's name, the\nlargest text) and an `emblem` (an invented geometric shape for that technology), both logged by\n`parse_llm_output`. The emblem is deliberately NOT a real logo: image models mangle real marks,\nand a wrong Kafka logo on a Kafka post is worse than none. When an image comes back with a\ngarbled brand mark, check `emblem` in the log - the art director invented a logo lookalike\ninstead of a shape, and the fix is the `universal_avoid` entry, not the prompt.\n\nIf the wordmark, headline, a label or the engraved config comes back mangled, the canvas is\nstill too small for what the prompt asked for - shorten the text before raising\n`IMAGE_RESOLUTION` to `2K`, since only `IMAGE_MODEL` supports it. A long subject name is the\nlikeliest cause now that the wordmark is set at 22% of image height, and a long infographic\nlabel the likeliest cause in infographic mode.\n",
-        "height": 1000,
-        "width": 700,
-        "color": 4
-      },
       "id": "c0bebd3b-9a16-44a0-9379-d3dcf0db434c",
       "name": "sticky_overview",
       "type": "n8n-nodes-base.stickyNote",
@@ -1005,7 +1001,13 @@
       "position": [
         -1408,
         768
-      ]
+      ],
+      "parameters": {
+        "content": "## LinkedIn Image Creator\n\nSub-workflow. In: `POST_CONTENT`, optional `IMAGE_ASPECT_RATIO` / `IMAGE_RESOLUTION` / `HOOK`.\nOut: `omImage ` - a JSON string `{\"url\": \"data:<type>;base64,...\"}`.\nCalled by **LinkedIn Post Sharing** (`execute_image_creator`), which passes the row's raw\n`EXTRA_PROMPT` as `HOOK`.\n\n**Flow**\n\n```\nmain_trigger -> set_workflow_vars\n  -> download_image_motifs -> parse_image_motifs      (datasets/image_motifs.json)\n  -> download_image_prompt -> create_image_prompt_ai  (prompts/linkedin_image_prompt.md)\n  -> parse_llm_output -> generate_image -> set_output\n```\n\n**Both modes are images.** The art director picks `hero` (one fused object) or\n`infographic` (three to five labelled blocks and arrows) and returns ONE image prompt\neither way. Mermaid and Kroki are gone: the old `diagram` mode emitted diagram markup the\nimage model could not render and Kroki rendered as a plain chart, which was the complaint.\n\n**The three prompt axes** - keep them separate:\n\n- `ART_DIRECTION` (inline list in `download_image_prompt`, random per run) = *style only*:\n  medium, lighting, palette, texture.\n- `SUBJECT_MOTIFS` (`datasets/image_motifs.json`, keyword-scored per post) = *subject*:\n  the anchors the metaphor or the infographic blocks are built from, and the cliches it\n  must avoid.\n- `HOOK_TREATMENT` (same dataset, keyed by the post's hook archetype) = *composition*: the\n  device the layout must use (split frame, timeline, myth/reality, scale, landing, one\n  figure). The hook is extracted from `HOOK` in `parse_image_motifs`, never classified by\n  the text model.\n\nWhen an image lands off-subject, check `motif_domains` and `motif_hook` in the\n`parse_image_motifs` output first, then add the failed cliche to that domain's `avoid`\nlist rather than editing the prompt.\n\n**Models** (in `set_workflow_vars`): `IMAGE_MODEL`, `IMAGE_MODEL_FALLBACK`, `TEXT_MODEL`,\n`TEXT_MODEL_FALLBACK`. No env vars; OpenRouter credential only.\n\n**Image geometry** - `IMAGE_ASPECT_RATIO` (default `4:5`, LinkedIn's mobile feed portrait)\nand `IMAGE_RESOLUTION` (default `1K`). Both are sub-workflow inputs, so\na caller can override either; omitting them keeps the defaults.\n\n`generate_image` posts to the image endpoint (`/api/v1/images`), **not**\n`/chat/completions`. The chat route only honours `image_config.aspect_ratio` and ignores\nresolution entirely - and resolution is what the bill is made of, since this model is\npriced per output *image token* and those scale with pixel count. `512` at `4:5` (~448x560)\nis the cheapest frame that fills a phone feed, but it cannot resolve the code/config engraved\ninto the subject as texture - and that engraving is the whole domain signal, the thing that\nmakes the image read as software rather than as generic industrial props. `1K` is also the only\nvalue **both** `IMAGE_MODEL` and `IMAGE_MODEL_FALLBACK` accept, so it removes the silent-clamp\nhazard on fallback. Hence `1K` despite the cost. The response shape differs\nfrom the chat route - `data[0].b64_json` + `data[0].media_type`, which is what `set_output`\nassembles the data URL from.\n\nResolution support is per model, and OpenRouter clamps unsupported values **silently**:\n`google/gemini-3.1-flash-image` takes `512|1K|2K|4K`, but `IMAGE_MODEL_FALLBACK`\n(`google/gemini-3.1-flash-lite-image`) takes only `1K`. Re-check\n`/api/v1/images/models/<model>/endpoints` after any model swap.\n\n`IMAGE_ASPECT_RATIO` is also passed to the prompt template, so the art director composes\nfor the same frame the image model renders - do not hardcode a ratio in the prompt again.\n\n**Text in the frame** - the art director returns a `wordmark` (the subject's name, the\nlargest text) and an `emblem` (an invented geometric shape for that technology), both logged by\n`parse_llm_output`. The emblem is deliberately NOT a real logo: image models mangle real marks,\nand a wrong Kafka logo on a Kafka post is worse than none. When an image comes back with a\ngarbled brand mark, check `emblem` in the log - the art director invented a logo lookalike\ninstead of a shape, and the fix is the `universal_avoid` entry, not the prompt.\n\nIf the wordmark, headline, a label or the engraved config comes back mangled, the canvas is\nstill too small for what the prompt asked for - shorten the text before raising\n`IMAGE_RESOLUTION` to `2K`, since only `IMAGE_MODEL` supports it. A long subject name is the\nlikeliest cause now that the wordmark is set at 22% of image height, and a long infographic\nlabel the likeliest cause in infographic mode.\n",
+        "height": 1000,
+        "width": 700,
+        "color": 4
+      }
     }
   ],
   "pinData": {},
@@ -1028,6 +1030,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 0,
-  "updatedAt": "2026-09-14T19:36:01.836Z",
-  "versionId": "f7bbac59-9e5c-4dae-bf3f-929fb02d09c7"
+  "updatedAt": "2026-09-16T19:28:14.489Z",
+  "versionId": "d67f2dd0-d94e-4013-ab23-b20ade03c9f9"
 }

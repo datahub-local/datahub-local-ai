@@ -1,7 +1,8 @@
 table_name: transactions
 main_dttm_col: booking_date
-description: One row per booked transaction (dbt silver). Row grain, so it is the only
-  dataset that can rank payees; the aggregates live in the gold datasets.
+description: One row per booked transaction (dbt silver) left-joined to the enrich
+  category for its payee. Row grain, so it is the only dataset that can rank payees;
+  the aggregates live in the gold datasets.
 default_endpoint: null
 offset: 0
 cache_timeout: null
@@ -17,8 +18,11 @@ sql: |-
       t.currency,
       t.institution_id,
       t.iban_masked,
-      t.account_id
+      t.account_id,
+      COALESCE(mc.category, 'UNCATEGORISED') AS category
   FROM silver.finance.transactions t
+  LEFT JOIN silver.finance.merchant_categories mc
+      ON t.payee_clean = mc.payee_clean
 params: null
 template_params: null
 filter_select_enabled: true
@@ -143,6 +147,18 @@ columns:
   filterable: true
   expression: null
   description: "Pipeline account identity (the finance-enablebanking alias)."
+  python_date_format: null
+  extra: null
+- column_name: category
+  verbose_name: Category
+  is_dttm: false
+  is_active: true
+  type: VARCHAR
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: "LLM-assigned spend category for the payee, or UNCATEGORISED before enrich has seen it."
   python_date_format: null
   extra: null
 version: 1.0.0

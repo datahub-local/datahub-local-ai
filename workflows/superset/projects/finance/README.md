@@ -10,12 +10,13 @@ the gold marts are monthly aggregates and carry no per-payee detail).
 |---|---|---|
 | Overview | monthly inflow vs outflow (stacked bar) · monthly spend by category (stacked bar) · account balance series (line) · top payees (aggregate table) | `monthly_category_spend`, `account_balance_series`, `transactions` (virtual) |
 
-Native filters (scope: all charts): date range (default *Last year*), bank
-(`institution_id`) and category, both on `monthly_category_spend`. Scope is
-`ROOT_ID` on purpose: a hand-written export carries no `chartsInScope`, and
-without it Superset ignores `rootPath`/`excluded`; effective scoping comes from
-column matching — the balance series carries its own `institution_id` from a
-different dataset and is left unfiltered rather than narrowed.
+Native filters (scope: `ROOT_ID`, all charts): date range (default *Last
+year*), bank (`institution_id`) and category. Bank and category target the
+column on **two** datasets — `monthly_category_spend` and the row-grain
+`transactions` — because a native filter only reaches a chart whose dataset is
+one of its targets: the top-payees table would otherwise never see them. The
+balance series carries its own `institution_id` from a third dataset and is
+left unfiltered rather than narrowed.
 
 Notes:
 
@@ -31,4 +32,8 @@ Notes:
   carry several ISO 20022 types (closing booked, available, ...) and collapsing
   them would silently drop all but one.
 - The `transactions` virtual dataset is row grain and is the only dataset that
-  can rank payees; it joins nothing — categories live in the gold aggregates.
+  can rank payees; it left-joins `silver.finance.merchant_categories` on
+  `payee_clean` so the category filter reaches the table (`UNCATEGORISED` until
+  enrich has seen the payee), and the chart pins `granularity_sqla:
+  booking_date` so the dashboard date range applies — a table with no time
+  column is not time-filtered at all.

@@ -165,7 +165,8 @@ metadata:
   - id: NATIVE_FILTER-finance-time
     name: Date range
     filterType: filter_time
-    targets: []
+    targets:
+    - {}
     defaultDataMask:
       extraFormData:
         time_range: Last year
@@ -186,6 +187,9 @@ metadata:
     - column:
         name: institution_id
       datasetUuid: f4619989-2d35-4859-b589-574f215c5a0c
+    - column:
+        name: institution_id
+      datasetUuid: bffd5a77-a4ef-4217-a108-fe3c83e23b78
     defaultDataMask:
       extraFormData: {}
       filterState: {}
@@ -211,6 +215,9 @@ metadata:
     - column:
         name: category
       datasetUuid: f4619989-2d35-4859-b589-574f215c5a0c
+    - column:
+        name: category
+      datasetUuid: bffd5a77-a4ef-4217-a108-fe3c83e23b78
     defaultDataMask:
       extraFormData: {}
       filterState: {}

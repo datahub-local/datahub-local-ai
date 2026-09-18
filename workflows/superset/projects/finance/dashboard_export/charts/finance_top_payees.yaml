@@ -6,6 +6,7 @@ params:
   datasource: 0__table
   viz_type: table
   query_mode: aggregate
+  granularity_sqla: booking_date
   groupby:
   - payee
   adhoc_filters:

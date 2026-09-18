@@ -41,8 +41,8 @@ intake assumption (row 8: Actual Budget needs no Postgres).
 | # | Unknown | Finding | Source | Consequence |
 |---|---------|---------|--------|-------------|
 | 1 | Enable Banking API shape | Auth is a **self-signed RS256 JWT** per run — `iss=enablebanking.com`, `aud=api.enablebanking.com`, header `kid` = the application id — signed with the RSA key the browser generated at registration. Flow: `POST /auth` (aspsp name+country, `redirect_url`, `psu_type`, `access.valid_until`) -> browser consent -> `POST /sessions {code}` -> account `uid`s -> `GET /accounts/{uid}/transactions?date_from&date_to` and `/balances` | enablebanking.com/docs quick-start + API reference + live sandbox call 2026-09-14 | JWT minted **per run** (lives <=1 h, no refresh token ever persisted); only `status=BOOK` ingested — `PDNG` skipped (identity unstable, breaks idempotency). No `secret_id`/`secret_key` pair exists |
-| 2 | History depth | No agreement object and no `max_historical_days`. `GET /transactions` accepts `strategy=longest` — "tries to find the longest possible period of transactions and fetches transactions for that period" — but "may use extra ASPSP calls"; daily calls use the default strategy and an explicit window. Date filters are honoured inconsistently (the sandbox doc notes some ASPSPs ignore them) | API reference + sandbox docs | Hardest available history is pulled once with `strategy=longest` on the backfill run; thereafter the DAG uses the configured window; the oldest `booking_date` seen per account is recorded as the observed cap. Per-bank cap is `[UNVERIFIED]` until WF-3 |
-| 3 | Bank rate limits | PSD2 default as low as **4 calls/day/account per endpoint** for a PSU-not-present app; Enable Banking returns `429 ASPSP_RATE_LIMIT_EXCEEDED` ("Daily PSU not present consultation limit has been exceeded") with **no reset header**. Measured live 2026-09-14 against Openbank: `balances` answered 200 while the **first** `transactions` call was already 429 — the link/consent had consumed that endpoint's budget. Budget is **per endpoint, per account**, not per app | enablebanking.com docs + live Openbank call | Daily DAG = 1 transactions call/account; on 429 the fetch fails loudly and never retries in a loop. **Measured 2026-09-15: Openbank's unattended transactions budget is 1/day** — one successful call, then `429` on every later call that day; the daily DAG is inside it, an ad-hoc re-run is not |
+| 2 | History depth | No agreement object and no `max_historical_days`. `GET /transactions` accepts `strategy=longest` — "tries to find the longest possible period of transactions and fetches transactions for that period" — but "may use extra ASPSP calls". With `longest`, `date_to` is ignored and `date_from` is only a lower border, so a window would cap the history rather than scope it. Date filters are honoured inconsistently (the sandbox doc notes some ASPSPs ignore them) | API reference + sandbox docs | Every run uses `strategy=longest` with **no date window**, so it re-reads the hardest available history and merge on the stable key makes the re-fetch idempotent; the oldest `booking_date` seen per account is recorded as the observed cap. Per-bank cap is `[UNVERIFIED]` until WF-3 |
+| 3 | Bank rate limits | PSD2 default as low as **4 calls/day/account per endpoint** for a PSU-not-present app; Enable Banking returns `429 ASPSP_RATE_LIMIT_EXCEEDED` ("Daily PSU not present consultation limit has been exceeded") with **no reset header**. Measured live 2026-09-14 against Openbank: `balances` answered 200 while the **first** `transactions` call was already 429 — the link/consent had consumed that endpoint's budget. Budget is **per endpoint, per account**, not per app | enablebanking.com docs + live Openbank call | Daily DAG = 1 transactions call/account; on 429 the fetch fails loudly and never retries in a loop. **Measured 2026-09-15: Openbank's unattended transactions budget is 1/day** — one successful call, then `429` on every later call that day; the daily DAG is inside it, an ad-hoc re-run is not. `strategy=longest` "may use extra ASPSP calls", so on a bank that paginates the full history a daily run can exceed this budget; the 429 fails the run loudly rather than silently truncating, and `[UNVERIFIED]` which banks do so until WF-3 |
 | 4 | Consent expiry | No requisition: the session carries `access.valid_until` (EEA ~180 days; the live test returned `2027-03-12`). An expired or revoked session fails the data call | reference + live `POST /sessions` | Fetch surfaces it as `ACCESS_EXPIRED` naming the account/bank; re-link runbook in §4.2; `valid_until` is stored per account in `finance-enablebanking` so staleness is checkable before the run |
 | 5 | Transaction id stability | Enable Banking exposes `entry_reference` — "unique and immutable ... can be used for matching transactions across multiple PSU authentication sessions" — and `transaction_id`, which the docs say "may change if the list of transactions is retrieved again" (**not** stable; `null` where detail-fetch is unsupported) | API reference `Transaction` schema; live sample | Bronze stable id = `entry_reference` when present, else a deterministic hash. `transaction_id` is **never** used as identity. Which banks supply `entry_reference` is `[UNVERIFIED]` until WF-3 — Openbank's live sample had it `null` on every row |
 | 6 | Actual Budget API | **No REST API exists.** The official path is `@actual-app/api` (Node headless engine, CRDT sync); its `importTransactions` dedups on `imported_id` and runs the budget's rules | actualbudget.org/docs/api + api reference.md | A Python push needs `actualpy` or an HTTP-wrapper sidecar (row 7) |
@@ -273,13 +273,15 @@ implementation owns:
   `uid` and never re-keys bronze. `list_accounts()` reads
   `/accounts/{uid}/details` per account for currency and holder name (one call
   per account on the details endpoint, which has its own budget).
-- **Window**: `GET /accounts/{uid}/transactions?date_from&date_to`, following
-  `continuation_key` until it stops (batches are provider-sized and ordered
-  newest-first; the sandbox doc warns size and order vary per ASPSP). The
-  first (backfill) run passes `strategy=longest`, which asks the ASPSP for the
-  longest period it can return — this is the max-history mechanism in place of
+- **Window**: `GET /accounts/{uid}/transactions`, following `continuation_key`
+  until it stops (batches are provider-sized and ordered newest-first; the
+  sandbox doc warns size and order vary per ASPSP). Every run passes
+  `strategy=longest` and no date bounds: with that strategy `date_to` is
+  ignored and `date_from` is only a lower border, so any window would cap the
+  history rather than scope it. This is the max-history mechanism in place of
   GoCardless's `max_historical_days` (gate 2). It "may use extra ASPSP calls",
-  so daily runs use the default strategy and the explicit window.
+  which is why merge-idempotency (no duplicates) is what makes re-reading the
+  full history every run safe.
 - **Error classification**: `429 ASPSP_RATE_LIMIT_EXCEEDED` fails the run
   quoting the daily PSU-not-present limit (gate 3 — no reset header, so the
   message plus the account is all there is); an expired or revoked session
@@ -402,7 +404,7 @@ credential per run beats storing one, whatever the wire format.
 
 ### 4.3 Bronze schema
 
-Three tables in `bronze.finance`, dlt `merge` disposition except balances:
+Three tables in `bronze.finance`, all dlt `merge` disposition:
 
 - `raw_transactions` — PK `(provider, account_id, stable_id)`. Columns:
   `booking_date`, `value_date`, `amount` (decimal), `currency`,
@@ -411,10 +413,11 @@ Three tables in `bronze.finance`, dlt `merge` disposition except balances:
   `payload_json`, `_ingested_at`.
 - `raw_accounts` — PK `(provider, account_id)`: `institution_id`,
   `iban`, `currency`, `owner_name`, `status`, `payload_json`, `_ingested_at`.
-- `raw_balances` — **append**: one snapshot per fetch per balance type:
-  `account_id`, `balance_type`, `amount`, `currency`, `reference_date`,
-  `_ingested_at`. Append because a balance is a fact-at-a-time; the series
-  is the point (goal 3's gold model).
+- `raw_balances` — PK `(account_id, balance_type, reference_date)`:
+  `amount`, `currency`, `_ingested_at`. One snapshot per balance type per day;
+  a NULL `reference_date` falls back to the ingestion date, so a re-run rewrites
+  the same key instead of appending a duplicate. The daily series is still the
+  point (goal 3's gold model).
 
 > Every bronze column carries an explicit dlt type hint: dlt only materialises a
 > column that saw a value in the load, so a run whose rows all had a NULL
@@ -431,11 +434,15 @@ sign of `amount`; `provider` is the literal `enablebanking`; and
 often `null` on balances, so `raw_balances` falls back to the date of
 `_ingested_at` for the series key.
 
-Ingest window: `FINANCE_FROM_DATE` / `FINANCE_TO_DATE` env (DAG params,
-default 14-day lookback — longer than bodega's 7 because banks post
-settlements late), always re-fetched and merged, so overlaps are free.
-Unlike bodega there is **no stale-row deletion**: bank transactions are
-immutable once booked, and a provider-side correction arrives as a new
+Ingest window: the default strategy is `longest`, so a run sends no
+`date_from`/`date_to` and re-reads the fullest history the ASPSP will return;
+the whole history is merged on the stable key every run, so re-fetching is
+idempotent and adds no duplicates (goal 1/2). `FINANCE_FROM_DATE` /
+`FINANCE_TO_DATE` (DAG params, 14-day default — longer than bodega's 7
+because banks post settlements late) apply only when
+`FINANCE_FETCH_STRATEGY=default`. Unlike bodega there is **no stale-row
+deletion**: bank transactions are immutable once booked, and a
+provider-side correction arrives as a new
 booking, not a deletion. A transaction that vanishes from the API stays in
 bronze — the lake is the longer memory (that is goal 2's entire point).
 

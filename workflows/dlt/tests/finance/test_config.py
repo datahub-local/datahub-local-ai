@@ -76,11 +76,11 @@ def test_provider_composes_both_secret_halves(monkeypatch):
     assert provider.tokens["sample_account"].uid == "00000000-0000-0000-0000-000000000001"
 
 
-def test_fetch_strategy_defaults_to_default(monkeypatch):
+def test_fetch_strategy_defaults_to_longest(monkeypatch):
     monkeypatch.delenv("FINANCE_FETCH_STRATEGY", raising=False)
-    assert config.fetch_strategy() == "default"
+    assert config.fetch_strategy() == "longest"
 
 
 def test_fetch_strategy_can_be_overridden(monkeypatch):
-    monkeypatch.setenv("FINANCE_FETCH_STRATEGY", "longest")
-    assert config.fetch_strategy() == "longest"
+    monkeypatch.setenv("FINANCE_FETCH_STRATEGY", "default")
+    assert config.fetch_strategy() == "default"

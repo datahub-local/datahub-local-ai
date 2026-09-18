@@ -2,8 +2,8 @@
 
 Runs ``ingest.run("local")`` against a stubbed provider (unit tests in
 ``test_enablebanking.py`` cover the wire normalisation; here the contract under
-test is the dlt pipeline itself): bronze destination, merge/append dispositions
-and idempotent second runs. Uses tmp DuckDB - no warehouse, no network.
+test is the dlt pipeline itself): bronze destination, merge dispositions and
+idempotent second runs. Uses tmp DuckDB - no warehouse, no network.
 """
 
 from __future__ import annotations
@@ -137,14 +137,23 @@ def test_accounts_carry_stable_fields(tmp_path, monkeypatch):
     assert rows == [("stub_account", "SAMPLE HOLDER", "AUTHORIZED")]
 
 
-def test_second_run_is_idempotent_but_balances_append(tmp_path, monkeypatch):
+def test_second_run_rewrites_without_duplicates(tmp_path, monkeypatch):
     _run_ingest(tmp_path, monkeypatch)
     _run_ingest(tmp_path, monkeypatch)
-    # booked transactions and accounts merge on stable identity...
+    # every table merges on its stable key, so a re-fetch rewrites the same rows
     assert _table_rows(tmp_path, "raw_transactions") == 1
     assert _table_rows(tmp_path, "raw_accounts") == 1
-    # ...while balances are an append-only snapshot series
-    assert _table_rows(tmp_path, "raw_balances") == 2
+    # balances merge on (account, type, reference_date): a NULL reference_date
+    # falls back to the ingestion date, so a same-day re-run is one snapshot
+    assert _table_rows(tmp_path, "raw_balances") == 1
+
+
+def test_longest_omits_the_date_window(tmp_path, monkeypatch):
+    # longest treats date_from as a lower border and ignores date_to, so sending
+    # the 14-day window would cap the history instead of extending it
+    assert ingest._fetch_window("longest") == (None, None)
+    from_date, to_date = ingest._fetch_window("default")
+    assert from_date is not None and to_date is not None
 
 
 def test_untokenized_account_fails_before_any_data_call(tmp_path, monkeypatch):

@@ -182,8 +182,8 @@ onto Actual's own `Income` category.
 | `ENABLEBANKING_ACCOUNTS`                                     | — (the secret's `accounts.json` JSON)                     | finance          |
 | `ENABLEBANKING_BASE_URL`                                     | `https://api.enablebanking.com`                           | finance          |
 | `ENABLEBANKING_REDIRECT_URL`                                 | — (must be whitelisted on the application)                | onboard          |
-| `FINANCE_FETCH_STRATEGY`                                     | `default` (`longest` on backfill runs)                    | finance          |
-| `FINANCE_FROM_DATE` / `FINANCE_TO_DATE`                      | — (14-day DAG lookback)                                   | finance          |
+| `FINANCE_FETCH_STRATEGY`                                     | `longest` (full history every run)                        | finance          |
+| `FINANCE_FROM_DATE` / `FINANCE_TO_DATE`                      | — (only with `FINANCE_FETCH_STRATEGY=default`)            | finance          |
 | `FINANCE_PAYEE_LANGUAGE`                                     | `Spanish`                                                 | finance (enrich) |
 | `FINANCE_SYNC_WINDOW_DAYS`                                   | `60`                                                      | finance (sync)   |
 | `FINANCE_SYNC_FROM_DATE` / `FINANCE_SYNC_TO_DATE`            | — (full-history first run / today)                        | finance (sync)   |

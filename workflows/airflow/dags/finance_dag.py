@@ -46,8 +46,10 @@ default_args = {
 
 # Defaults are computed via Jinja/macros at task render time (wall-clock "now"), not
 # with datetime.now() in the DAG constructor — the latter re-evaluates on every
-# DAG-file parse and bumps the DAG version on no real change. 14 days rather than
-# bodega's 7 because banks post settlements late (spec 005 §4.3).
+# DAG-file parse and bumps the DAG version on no real change. Ingest defaults to
+# FINANCE_FETCH_STRATEGY=longest, which ignores this window; it applies only when
+# that env is set to `default` (14 days rather than bodega's 7 because banks post
+# settlements late, spec 005 §4.3).
 FROM_DATE_EXPR = "{{ params.from_date or macros.ds_add(macros.datetime.now() | ds, -14) }}"
 TO_DATE_EXPR = "{{ params.to_date or macros.ds_add(macros.datetime.now() | ds, 1) }}"
 

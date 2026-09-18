@@ -16,8 +16,9 @@ sources:
           here and stop here - Silver masks the IBAN.
       - name: raw_balances
         description: >
-          Append-only balance snapshots, one row per fetch per balance type. reference_date
-          is often NULL from the provider; Silver falls back to the ingestion date.
+          Balance snapshots merged on (account_id, balance_type, reference_date), one row
+          per balance type per day. reference_date is often NULL from the provider and
+          falls back to the ingestion date, so a re-run rewrites rather than appends.
 
   - name: finance_enrich
     description: "LLM payee categorisation (silver catalog), populated by the dlt enrich pipeline."

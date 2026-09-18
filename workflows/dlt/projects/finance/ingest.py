@@ -7,7 +7,13 @@ lands three tables in ``bronze.finance`` (spec 005 §4.3):
   booked rows (the adapter filters), no stale-row deletion: a transaction that
   vanishes from the bank stays in bronze, the lake is the longer memory.
 - ``raw_accounts`` — merge on ``(provider, account_id)``.
-- ``raw_balances`` — append: a balance is a fact-at-a-time; the series is the point.
+- ``raw_balances`` — merge on ``(account_id, balance_type, reference_date)``,
+  where a NULL ``reference_date`` falls back to the ingestion date: one snapshot
+  per balance type per day, so a re-run rewrites rather than appends.
+
+The default fetch strategy is ``longest`` (spec 005 §4.1): each run re-reads the
+full history the ASPSP will return, and every table merges on its stable key, so
+re-fetching is idempotent and a run adds no duplicates.
 
 - ``local``   → DuckDB file (the same ``bronze.duckdb`` the dbt local target reads).
 - ``homelab`` → Iceberg table via Apache Polaris REST + S3.
@@ -52,6 +58,18 @@ def _window() -> tuple[date, date]:
     if to_date is None:
         to_date = datetime.now(UTC).date().isoformat()
     return date.fromisoformat(from_date), date.fromisoformat(to_date)
+
+
+def _fetch_window(strategy: str) -> tuple[date | None, date | None]:
+    """Dates sent to the provider for ``strategy``.
+
+    ``longest`` sends none: ``date_to`` is ignored and ``date_from`` is only a
+    lower border, so any window would cap the history instead of extending it
+    (spec 005 §4.1). The explicit window is for the ``default`` strategy.
+    """
+    if strategy == "longest":
+        return None, None
+    return _window()
 
 
 def _preflight(provider: BankDataProvider) -> None:
@@ -117,7 +135,9 @@ def _balance_row(balance, ingested_at: str) -> dict:
         "balance_type": balance.balance_type,
         "amount": balance.amount,
         "currency": balance.currency,
-        "reference_date": balance.reference_date.isoformat() if balance.reference_date else None,
+        "reference_date": (
+            balance.reference_date.isoformat() if balance.reference_date else ingested_at[:10]
+        ),
         "_ingested_at": ingested_at,
     }
 
@@ -175,7 +195,8 @@ def raw_accounts(rows):
 
 @dlt.resource(
     name=TABLE_BALANCES,
-    write_disposition="append",
+    write_disposition="merge",
+    primary_key=["account_id", "balance_type", "reference_date"],
     columns={
         "account_id": {"data_type": "text"},
         "balance_type": {"data_type": "text"},
@@ -194,7 +215,8 @@ def run(target: str) -> dict[str, int]:
     provider = config.enablebanking_provider()
     _preflight(provider)
 
-    from_date, to_date = _window()
+    strategy = config.fetch_strategy()
+    from_date, to_date = _fetch_window(strategy)
     ingested_at = datetime.now(UTC).isoformat()
     institutions = {
         alias: (account.institution_id or alias) for alias, account in provider.accounts.items()
@@ -238,7 +260,7 @@ def run(target: str) -> dict[str, int]:
         logger.info("%s: %s load %s rows=%s", PIPELINE_NAME, table, load_info, counts[table])
 
     logger.info(
-        "%s: window=[%s..%s] accounts=%s row counts=%s",
-        PIPELINE_NAME, from_date, to_date, sorted(institutions), counts,
+        "%s: strategy=%s window=[%s..%s] accounts=%s row counts=%s",
+        PIPELINE_NAME, strategy, from_date, to_date, sorted(institutions), counts,
     )
     return counts

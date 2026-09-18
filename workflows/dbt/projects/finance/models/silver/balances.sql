@@ -1,7 +1,8 @@
 {# Balance snapshots reduced to the latest reading per account/date/type. Balance type is
    part of the key: Enable Banking can return several for one day (closing booked,
-   available, ...), and collapsing them would silently drop all but one. reference_date is
-   frequently NULL from the provider, so the ingestion date stands in for the series key. #}
+   available, ...), and collapsing them would silently drop all but one. Bronze already
+   merges on (account_id, balance_type, reference_date) with the ingestion date standing
+   in when reference_date is NULL; the ranking here is the backstop for older loads. #}
 WITH dated AS (
     SELECT
         account_id,

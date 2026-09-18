@@ -244,6 +244,16 @@ class TestFetchTransactions:
         assert params["date_to"] == "2026-01-31"
         assert params["strategy"] == "longest"
 
+    def test_omitted_window_is_not_sent(self):
+        # longest with no dates: the API determines the earliest available itself
+        captured = []
+        handler = self._handler_for({"transactions": []}, captured=captured)
+        _provider(handler, strategy="longest").fetch_transactions(ACCOUNT.alias, None, None)
+        params = captured[0].url.params
+        assert "date_from" not in params
+        assert "date_to" not in params
+        assert params["strategy"] == "longest"
+
 
 class TestFetchBalances:
     def test_normalises_balance(self):

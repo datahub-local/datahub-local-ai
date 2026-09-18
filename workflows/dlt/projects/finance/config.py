@@ -115,8 +115,8 @@ def enablebanking_provider() -> EnableBankingProvider:
 
 
 def fetch_strategy() -> str:
-    """``longest`` on a backfill run, ``default`` for the daily window (§4.1)."""
-    return env("FINANCE_FETCH_STRATEGY", "default")
+    """``longest`` by default: every run re-reads the full available history (§4.1)."""
+    return env("FINANCE_FETCH_STRATEGY", "longest")
 
 
 def payee_language() -> str:

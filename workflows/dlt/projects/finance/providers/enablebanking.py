@@ -172,7 +172,7 @@ class EnableBankingProvider:
         return accounts
 
     def fetch_transactions(
-        self, account_id: str, date_from: date, date_to: date
+        self, account_id: str, date_from: date | None, date_to: date | None
     ) -> list[Transaction]:
         account, token = self._pair(account_id)
         transactions: list[Transaction] = []
@@ -183,8 +183,8 @@ class EnableBankingProvider:
                 token,
                 f"/accounts/{token.uid}/transactions",
                 {
-                    "date_from": date_from.isoformat(),
-                    "date_to": date_to.isoformat(),
+                    "date_from": date_from.isoformat() if date_from else None,
+                    "date_to": date_to.isoformat() if date_to else None,
                     "strategy": self._strategy,
                     "continuation_key": continuation_key,
                 },

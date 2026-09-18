@@ -17,6 +17,7 @@ from finance import ingest
 from finance.providers.base import (
     Account,
     Balance,
+    RateLimitError,
     TokenMissingError,
     Transaction,
 )
@@ -60,6 +61,38 @@ class _UntokenizedProvider(_StubProvider):
     def __init__(self):
         super().__init__()
         self.tokens = {}
+
+
+class _RateLimitedSecondAccountProvider(_StubProvider):
+    """First account fetches fine, the second raises 429 (the Openbank case)."""
+
+    def __init__(self):
+        super().__init__()
+        self.accounts = {
+            **self.accounts,
+            "stub_account_2": AccountConfig(
+                alias="stub_account_2", iban="ES2222222222222222222222",
+                app_id="00000000-0000-0000-0000-0000000000aa", institution_id="Sample Bank",
+            ),
+        }
+        self.tokens = {
+            **self.tokens,
+            "stub_account_2": TokenConfig(
+                alias="stub_account_2", uid="00000000-0000-0000-0000-000000000002",
+            ),
+        }
+
+    def list_accounts(self):
+        return super().list_accounts() + [Account(
+            account_id="stub_account_2", institution_id="Sample Bank",
+            iban="ES2222222222222222222222", currency="EUR", owner_name="SAMPLE HOLDER",
+            status="AUTHORIZED", payload_json="{}",
+        )]
+
+    def fetch_transactions(self, account_id, date_from, date_to):
+        if account_id == "stub_account_2":
+            raise RateLimitError("stub 429 on the second account")
+        return super().fetch_transactions(account_id, date_from, date_to)
 
 
 def _run_ingest(tmp_path, monkeypatch, provider=None):
@@ -154,6 +187,15 @@ def test_longest_omits_the_date_window(tmp_path, monkeypatch):
     assert ingest._fetch_window("longest") == (None, None)
     from_date, to_date = ingest._fetch_window("default")
     assert from_date is not None and to_date is not None
+
+
+def test_rate_limited_account_keeps_the_rows_already_loaded(tmp_path, monkeypatch):
+    # per-account loading: the first account is written before the second 429s,
+    # so a mid-fleet rate limit leaves partial data instead of discarding all
+    with pytest.raises(RateLimitError, match="second account"):
+        _run_ingest(tmp_path, monkeypatch, provider=_RateLimitedSecondAccountProvider())
+    assert _table_rows(tmp_path, "raw_transactions") == 1
+    assert _table_rows(tmp_path, "raw_accounts") == 2
 
 
 def test_untokenized_account_fails_before_any_data_call(tmp_path, monkeypatch):

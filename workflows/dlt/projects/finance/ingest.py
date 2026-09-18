@@ -222,18 +222,6 @@ def run(target: str) -> dict[str, int]:
         alias: (account.institution_id or alias) for alias, account in provider.accounts.items()
     }
 
-    transaction_rows = [
-        _transaction_row(txn, institutions[alias], ingested_at)
-        for alias in sorted(provider.accounts)
-        for txn in provider.fetch_transactions(alias, from_date, to_date)
-    ]
-    account_rows = [_account_row(account, ingested_at) for account in provider.list_accounts()]
-    balance_rows = [
-        _balance_row(balance, ingested_at)
-        for alias in sorted(provider.accounts)
-        for balance in provider.fetch_balances(alias)
-    ]
-
     if target == "homelab":
         config.configure_iceberg_env("bronze")
         destination = dlt.destinations.filesystem(
@@ -245,19 +233,41 @@ def run(target: str) -> dict[str, int]:
 
     pipeline = dlt.pipeline(pipeline_name=PIPELINE_NAME, destination=destination, dataset_name=DATASET_NAME)
     resource_for = {"raw_transactions": raw_transactions, "raw_accounts": raw_accounts, "raw_balances": raw_balances}
-    counts: dict[str, int] = {}
-    for table, rows in (
-        (TABLE_TRANSACTIONS, transaction_rows),
-        (TABLE_ACCOUNTS, account_rows),
-        (TABLE_BALANCES, balance_rows),
-    ):
+    counts: dict[str, int] = {TABLE_TRANSACTIONS: 0, TABLE_ACCOUNTS: 0, TABLE_BALANCES: 0}
+
+    def load(table: str, rows) -> None:
+        """Write one fetched batch immediately.
+
+        Each account is fetched *and* loaded before the next is read, so a
+        429/expiry part-way through the fleet keeps the accounts already
+        fetched instead of discarding every page at the end (§4.1). The merge
+        disposition makes a retry land the rest without duplication.
+        """
+        rows = list(rows)
+        if not rows:
+            return
         resource = resource_for[table](rows)
         if target == "homelab":
             resource.apply_hints(table_format="iceberg")
         load_info = pipeline.run(resource)
         row_counts = pipeline.last_trace.last_normalize_info.row_counts
-        counts[table] = int(row_counts.get(table, 0) or 0)
-        logger.info("%s: %s load %s rows=%s", PIPELINE_NAME, table, load_info, counts[table])
+        loaded = int(row_counts.get(table, 0) or 0)
+        counts[table] += loaded
+        logger.info("%s: %s load %s rows=%s", PIPELINE_NAME, table, load_info, loaded)
+
+    load(TABLE_ACCOUNTS, (_account_row(account, ingested_at) for account in provider.list_accounts()))
+    for alias in sorted(provider.accounts):
+        load(
+            TABLE_TRANSACTIONS,
+            (
+                _transaction_row(txn, institutions[alias], ingested_at)
+                for txn in provider.fetch_transactions(alias, from_date, to_date)
+            ),
+        )
+        load(
+            TABLE_BALANCES,
+            (_balance_row(balance, ingested_at) for balance in provider.fetch_balances(alias)),
+        )
 
     logger.info(
         "%s: strategy=%s window=[%s..%s] accounts=%s row counts=%s",

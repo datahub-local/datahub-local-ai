@@ -442,7 +442,10 @@ stable key, so overlaps are free and re-runs add no duplicates (goal 1/2). A
 one-off backfill sets `FINANCE_FETCH_STRATEGY=longest`, which sends no dates
 and re-reads the fullest history the ASPSP will return — opt-in because, at one
 `transactions` call/day on Openbank, it exhausts the budget while paginating
-(gate 3). Unlike bodega there is **no stale-row
+(gate 3). Each account is fetched **and loaded** before the next is read, so a
+429 (or an expiry) part-way through the fleet keeps the accounts already
+fetched rather than discarding every page; the merge disposition makes the
+retry land the rest without duplication. Unlike bodega there is **no stale-row
 deletion**: bank transactions are immutable once booked, and a
 provider-side correction arrives as a new
 booking, not a deletion. A transaction that vanishes from the API stays in
@@ -792,8 +795,9 @@ name and the in-cluster URL are pinned).
       presence (closes gates 2/5 `[UNVERIFIED]`), and writes/updates
       `finance-enablebanking` in `datahub-local-secrets`. *Blocked by WF-2;
       needs operator + real bank access.*
-- [x] **WF-4** `ingest.py` pipeline: three bronze resources, merge/append
-      dispositions, window env, `local` + `homelab` targets. Tests: local
+- [x] **WF-4** `ingest.py` pipeline: three bronze resources, merge
+      dispositions, per-account fetch-and-load (a mid-fleet 429 keeps what
+      already landed), window env, `local` + `homelab` targets. Tests: local
       DuckDB end-to-end from fixtures; homelab verified by WF-3's real run.
       *Blocked by WF-1.*
 - [x] **WF-5** Airflow: extend `VALID_PIPELINES` with `"sync"` (+ test),

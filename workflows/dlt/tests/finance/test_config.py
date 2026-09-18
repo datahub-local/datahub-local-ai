@@ -76,11 +76,13 @@ def test_provider_composes_both_secret_halves(monkeypatch):
     assert provider.tokens["sample_account"].uid == "00000000-0000-0000-0000-000000000001"
 
 
-def test_fetch_strategy_defaults_to_longest(monkeypatch):
+def test_fetch_strategy_defaults_to_default(monkeypatch):
+    # longest is a backfill opt-in: as a daily default it exhausts the PSD2
+    # calls/day budget while paginating (measured 429 on 2026-09-18)
     monkeypatch.delenv("FINANCE_FETCH_STRATEGY", raising=False)
-    assert config.fetch_strategy() == "longest"
+    assert config.fetch_strategy() == "default"
 
 
 def test_fetch_strategy_can_be_overridden(monkeypatch):
-    monkeypatch.setenv("FINANCE_FETCH_STRATEGY", "default")
-    assert config.fetch_strategy() == "default"
+    monkeypatch.setenv("FINANCE_FETCH_STRATEGY", "longest")
+    assert config.fetch_strategy() == "longest"

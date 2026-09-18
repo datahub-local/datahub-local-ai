@@ -46,11 +46,11 @@ default_args = {
 
 # Defaults are computed via Jinja/macros at task render time (wall-clock "now"), not
 # with datetime.now() in the DAG constructor — the latter re-evaluates on every
-# DAG-file parse and bumps the DAG version on no real change. Ingest defaults to
-# FINANCE_FETCH_STRATEGY=longest, which ignores this window; it applies only when
-# that env is set to `default` (14 days rather than bodega's 7 because banks post
-# settlements late, spec 005 §4.3).
-FROM_DATE_EXPR = "{{ params.from_date or macros.ds_add(macros.datetime.now() | ds, -14) }}"
+# DAG-file parse and bumps the DAG version on no real change. Daily ingest uses
+# FINANCE_FETCH_STRATEGY=default over this window (4 weeks rather than bodega's 7
+# days because banks post settlements late, spec 005 §4.3); `longest` is a one-off
+# backfill opt-in that ignores the window and can exhaust the PSD2 calls/day budget.
+FROM_DATE_EXPR = "{{ params.from_date or macros.ds_add(macros.datetime.now() | ds, -28) }}"
 TO_DATE_EXPR = "{{ params.to_date or macros.ds_add(macros.datetime.now() | ds, 1) }}"
 
 FINANCE_ENV_VARS = {
@@ -72,7 +72,7 @@ with DAG(
             default=None,
             type=["string", "null"],
             format="date",
-            description="Start date (YYYY-MM-DD). Defaults to 14 days before today (run's wall-clock date).",
+            description="Start date (YYYY-MM-DD). Defaults to 4 weeks before today (run's wall-clock date).",
         ),
         "to_date": Param(
             default=None,

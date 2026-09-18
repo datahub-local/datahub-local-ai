@@ -115,8 +115,14 @@ def enablebanking_provider() -> EnableBankingProvider:
 
 
 def fetch_strategy() -> str:
-    """``longest`` by default: every run re-reads the full available history (§4.1)."""
-    return env("FINANCE_FETCH_STRATEGY", "longest")
+    """``default`` for the daily window; ``longest`` only for a one-off backfill (§4.1).
+
+    ``longest`` paginates from the earliest transaction on every run and cannot
+    resume across days, so at one call/day (Openbank) it exhausts the budget
+    before completing and fails the run. It is an explicit opt-in, never the
+    daily default.
+    """
+    return env("FINANCE_FETCH_STRATEGY", "default")
 
 
 def payee_language() -> str:

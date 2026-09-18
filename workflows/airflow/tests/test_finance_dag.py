@@ -66,9 +66,9 @@ def test_ingest_s3_and_polaris_secrets():
     assert env_map["POLARIS_CLIENT_SECRET"].value_from.secret_key_ref.key == "password"
 
 
-def test_14_day_lookback_window():
+def test_four_week_lookback_window():
     mod = _module()
-    assert "-14" in mod.FROM_DATE_EXPR
+    assert "-28" in mod.FROM_DATE_EXPR
     assert "params.from_date or" in mod.FROM_DATE_EXPR
     assert "macros.datetime.now() | ds" in mod.TO_DATE_EXPR
     assert "params.to_date or" in mod.TO_DATE_EXPR

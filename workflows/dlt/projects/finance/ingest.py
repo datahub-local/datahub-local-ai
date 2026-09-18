@@ -11,9 +11,9 @@ lands three tables in ``bronze.finance`` (spec 005 §4.3):
   where a NULL ``reference_date`` falls back to the ingestion date: one snapshot
   per balance type per day, so a re-run rewrites rather than appends.
 
-The default fetch strategy is ``longest`` (spec 005 §4.1): each run re-reads the
-full history the ASPSP will return, and every table merges on its stable key, so
-re-fetching is idempotent and a run adds no duplicates.
+Daily runs use the bounded ``default`` strategy (spec 005 §4.1); ``longest`` is an
+explicit backfill opt-in. Every table merges on its stable key, so re-fetching a
+window is idempotent and a run adds no duplicates.
 
 - ``local``   → DuckDB file (the same ``bronze.duckdb`` the dbt local target reads).
 - ``homelab`` → Iceberg table via Apache Polaris REST + S3.
@@ -44,13 +44,13 @@ PROVIDER = "enablebanking"
 TABLE_TRANSACTIONS = "raw_transactions"
 TABLE_ACCOUNTS = "raw_accounts"
 TABLE_BALANCES = "raw_balances"
-DEFAULT_LOOKBACK_DAYS = 14
+DEFAULT_LOOKBACK_DAYS = 28
 
 logger = logging.getLogger(__name__)
 
 
 def _window() -> tuple[date, date]:
-    """``[from_date, to_date]`` inclusive; defaults to a 14-day lookback (§4.3)."""
+    """``[from_date, to_date]`` inclusive; defaults to a 4-week (28-day) lookback (§4.3)."""
     from_date = config.ingest_from_date()
     to_date = config.ingest_to_date()
     if from_date is None:

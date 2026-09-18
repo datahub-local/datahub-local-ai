@@ -150,7 +150,7 @@ def test_second_run_rewrites_without_duplicates(tmp_path, monkeypatch):
 
 def test_longest_omits_the_date_window(tmp_path, monkeypatch):
     # longest treats date_from as a lower border and ignores date_to, so sending
-    # the 14-day window would cap the history instead of extending it
+    # the 4-week window would cap the history instead of extending it
     assert ingest._fetch_window("longest") == (None, None)
     from_date, to_date = ingest._fetch_window("default")
     assert from_date is not None and to_date is not None

@@ -21,6 +21,12 @@
 > names Enable Banking; GoCardless stays in the record as the deferred
 > alternative rather than being deleted. The provider *interface* is unchanged —
 > that is what made this a section rewrite and not a redesign.
+>
+> **Categorisation revised 2026-09-18: rules seeded from the lake.** The first
+> live sync landed transactions into a budget with no rules, so nothing was
+> categorised and no credit counted as income. §4.6 step 3 and §4.6.1 now
+> materialise `silver.finance.merchant_categories` as Actual categories and
+> rules, the app still being the thing that applies them (goal 9).
 
 ---
 
@@ -125,9 +131,14 @@ One DAG, one merge, one domain.
   Nothing reads them back into the lake (non-goal: no bidirectional sync).
 - **Actual Budget owns budgeting state.** Budgets, category assignments,
   payee renames and manual transactions inside the app are never harvested
-  into the lake. The LLM categorisation in `silver.finance` is a *lake-side
-  analytics dimension*, not a write into the app's category tree (§4.6 pushes
-  transactions without categories — the app's own rules decide).
+  into the lake. The LLM categorisation in `silver.finance` reaches the app
+  only as **rules the app executes**, never as a category written per
+  transaction (§4.6): the sync materialises the lake's merchants into Actual
+  categories and one `payee -> category` rule each, so the app remains the
+  thing that categorises and a human can retune any rule without the next
+  sync reverting it. Since 2026-09-18 the app's default rule set was empty, so
+  every synced transaction stayed uncategorised and no credit counted as
+  income; the seeding in §4.6 is the fix, not a reversal of the one-way rule.
 - **The provider adapter owns wire-format knowledge.** PSD2-via-Enable-Banking
   quirks (string amounts, `remittance_information` as a list, per-bank missing
   fields, `transaction_id` sometimes null) are normalised once, in the
@@ -147,6 +158,7 @@ One DAG, one merge, one domain.
 | 6 | Access expiry is actionable, not silent | A run against an expired or revoked session fails with `ACCESS_EXPIRED` naming the account and the re-link runbook; it never reports success with zero rows |
 | 7 | Analytics surfaces live | The Superset `Finance` dashboard imports from the built bundle; `workflows/dbt/semantic/finance.yaml` passes `compile.py` and its metrics answer through the `semantic_*` MCP tools with the finance scopes added |
 | 8 | Actual Budget deployed by core | The `actualbudget` release (core's `app-template` chart) is healthy in the `other` namespace with a Longhorn PVC, version pinned in `values/_version.yaml` and matching the actualpy pin in `workflows/dlt/uv.lock`; reachable at the standard ingress with OpenID login |
+| 9 | Synced transactions are categorised by rules seeded from the lake | After a sync, every transaction whose `payee_clean` is a known merchant carries that merchant's category in Actual, an unclassified credit lands in `Income`, and two consecutive runs leave the same one-upserted-rule-per-merchant set plus the inflow rule (§4.6.1) |
 
 ### Non-goals
 
@@ -498,7 +510,9 @@ blank description is indistinguishable from undocumented (CLAUDE.md,
 *Alternative rejected:* pushing lake categories into Actual Budget
 transactions. Rejected at intake (one-way, app owns categories): writing
 `category` from the lake would fight the app's own rules on every sync and
-make two systems co-owners of one field.
+make two systems co-owners of one field. The path taken instead is §4.6.1 —
+the lake's merchant categories become **rules the app executes**, so the lake
+supplies the mapping and the app still owns the act of categorising.
 
 ### 4.6 Actual Budget sync (actualpy)
 
@@ -511,38 +525,80 @@ Flow per run:
 1. Read `silver.finance.transactions` for the sync window
    (`FINANCE_SYNC_WINDOW_DAYS`, default 60 — late-posted corrections arrive
    within days, and the first run pushes full history via
-   `FINANCE_FROM_DATE`-style override).
+   `FINANCE_FROM_DATE`-style override), plus `silver.finance.merchant_categories`
+   (the enrich table, `PARSE_ERROR` rows excluded).
 2. `Actual(base_url, password, file=<sync id>)` — download the budget,
    query the transactions already carrying each `imported_id`, build the
    skip set. **This check is the pipeline's, not the library's**: actualpy's
    `create_transaction` does not reconcile like Node's `importTransactions`
    (gate 7), so dedup is explicit: `imported_id = "enablebanking:" + stable_id`
    and a pre-query of existing `financial_id`s in the window.
-3. Ensure each mapped Actual account exists —
-    `get_or_create_account(session, name)`, once per distinct account, skipped
-    on a dry run — then for each remaining row:
-    `create_transaction(session, date=booking_date, account=<mapped Actual
-    account>, payee=None, imported_payee=payee, amount=signed decimal,
-    imported_id=..., notes=remittance truncated)`. The map bank `account_id`
-    -> Actual account name lives in the `finance-actual` secret/configmap; a
-    row whose account is unmapped fails the run naming the account — never
-    silently skipped. Auto-creation removes the manual UI step but sets only
-    name and `offbudget`, so an account needing a specific type is still
-    created by hand (and names must stay stable: matching is by name).
-4. `actual.commit()` once at the end. `FINANCE_SYNC_DRY_RUN=true` (and the
+3. Seed the app's rule set from the lake's merchant categories (§4.6.1). This
+   runs on every sync, before any transaction is inserted, so the rules exist
+   when `run_rules()` fires.
+4. Ensure each mapped Actual account exists —
+   `get_or_create_account(session, name)`, once per distinct account, skipped
+   on a dry run — then for each remaining row:
+   `create_transaction(session, date=booking_date, account=<mapped Actual
+   account>, payee=payee_clean, imported_payee=payee, amount=signed decimal,
+   imported_id=..., notes=remittance truncated)`. The payee is the **clean**
+   merchant key, because the raw card-purchase label carries the transaction
+   date and would mint a new payee every day; the raw text is kept as
+   `imported_payee`. The map bank `account_id` -> Actual account name lives in
+   the `finance-actual` secret/configmap; a row whose account is unmapped fails
+   the run naming the account — never silently skipped. Auto-creation removes
+   the manual UI step but sets only name and `offbudget`, so an account needing
+   a specific type is still created by hand (and names must stay stable:
+   matching is by name).
+5. `actual.commit()` once at the end. `FINANCE_SYNC_DRY_RUN=true` (and the
    `local` target by default) stops before commit and logs the counts that
    would be added.
 
-No `category` is ever set by the pipeline (§4.5). Whether the budget's *rules*
-run over synced transactions was `[UNVERIFIED]` (gate 7); the WF-8 probe
-(2026-09-17) settled it — Actual never applies rules to actualpy-inserted rows,
-so step 4 also calls `actual.run_rules(created)` on the new transactions before
-`actual.commit()`. Rules therefore categorise by the pipeline triggering them,
-not the pipeline picking categories; to that end `run_rules` is scoped to the
-rows just created, so an existing transaction is never re-run or overwritten.
+No `category` is ever set per transaction by the pipeline (§4.5). Whether the
+budget's *rules* run over synced transactions was `[UNVERIFIED]` (gate 7); the
+WF-8 probe (2026-09-17) settled it — Actual never applies rules to
+actualpy-inserted rows, so step 5 also calls `actual.run_rules(targets)` before
+`actual.commit()`. `targets` is the rows just created **plus** any existing
+transaction still lacking a category, so a rule added or corrected later
+backfills the backlog without ever overwriting a category a human set. The
+pipeline triggers the app's rule engine; it does not pick categories itself.
 If actualpy ever fails to talk to the pinned server version, the fallback is the
 `jhonderson/actual-http-api` sidecar in the core release (gate 7), and the
 sync pipeline swaps transport only — the read/dedup/map logic is unchanged.
+
+#### 4.6.1 Rule seeding (added 2026-09-18)
+
+The first live sync (2026-09-17) landed 67 transactions into a budget whose
+rule set was **empty**, so every row stayed uncategorised and no credit counted
+as income: Actual's envelope budget only counts money assigned to an income
+category (`IncomeCategory.received`), and the default template ships categories
+but no rules. The app was never going to categorise anything on its own.
+
+The fix keeps the app as the categoriser and feeds it the lake's categories:
+
+- **Categories.** Each lake category the registry knows becomes an Actual
+  category under an `Auto-categorised` group; the lake's `INCOME` maps onto
+  Actual's own `Income` category so credits land in the envelope's income side
+  and `To Budget` stops reading zero.
+- **Rules.** One rule per merchant: `description IS <payee_id>` → set category.
+  The catch-all is seeded **first**: `amount_inflow > 0` → `Income`, so an
+  unclassified credit is income while a positive row whose payee has a rule (a
+  refund) keeps its spending category — rules run in insertion order inside a
+  stage. All generated rules use the `pre` stage, which leaves every operator
+  rule (default stage) free to override them.
+- **Ownership.** Every generated rule's id is `uuid5(RULE_NAMESPACE, key)`, so a
+  re-run upserts its own rules and never creates duplicates or touches the
+  operator's; a category the rule would overwrite is never overwritten because
+  the backfill only targets rows with no category.
+- **Payee stability.** The rule matches the Actual payee created from
+  `payee_clean`, which is why step 4 passes `payee_clean` as the payee. Without
+  it the card template's per-transaction date makes a fresh payee every day and
+  no rule could ever match.
+
+Verified end to end against the deployed `actual-server:26.1.0` (throwaway
+budget, deleted after): four rows, two merchants and one uncategorised credit
+produced three rules, categorised as GROCERIES / FUEL / Income / GROCERIES
+(refund), and a second run added zero rows and zero rules.
 
 Single writer: the DAG places `sync` last and nothing else writes; Actual's
 own built-in bank sync is never configured (§5).
@@ -774,12 +830,20 @@ deliberately expired session fails as `ACCESS_EXPIRED`.
       *Blocked by INFRA-1, WF-6.* **Code and local tests landed 2026-09-16**
       (`actualpy==0.22.3` in `uv.lock`). **Gate 7 probed 2026-09-17** against a
       throwaway budget on the deployed `26.1.0` server: connectivity is green,
-      but rules do not run automatically, so `sync.py` now calls
-      `run_rules(created)` before `commit()` (tests updated, 19 passing). The
-      `finance-actual` secret's `file` (`Finance`) does **not** match the live
-      budget (named `My Finances`), so the real sync still fails
-      `UnknownFileId` until the operator renames the budget or updates the
-      secret. The live probe against the *operator's* budget remains.
+      but rules do not run automatically, so `sync.py` calls `run_rules()`
+      before `commit()`. The `finance-actual` secret's `file` (`Finance`) now
+      matches the live budget (renamed by the operator; the four `WF8-Probe`
+      throwaways are deleted). 67 transactions are live in the `Finance`
+      budget, all uncategorised — addressed by **WF-11**.
+- [x] **WF-11** Seed Actual's categories and rules from
+      `silver.finance.merchant_categories` and backfill uncategorised rows
+      (§4.6.1): deterministic-id rule upsert, catch-all inflow -> `Income`,
+      payee matched on `payee_clean`. **Landed 2026-09-18**: `sync.py`, 24
+      passing tests, and an end-to-end probe against the deployed `26.1.0`
+      server (throwaway budget, deleted after) confirmed one-rule-per-merchant
+      idempotency and correct GROCERIES/FUEL/Income/refund categorisation.
+      Remaining: the live `Finance` budget categorises on the next sync after
+      the image deploys. *Blocked by WF-8.*
 - [ ] **WF-9** Complete the DAG (`dlt_sync_actual`)
       and run the full chain on `homelab`. *Blocked by WF-7, WF-8.*
       **DAG wiring landed 2026-09-16** (`dlt_sync_actual` after `dbt_gold`,
@@ -809,7 +873,7 @@ in Superset and exactly once in Actual Budget.
 | 2 | this repo (dlt) | WF-1..WF-4 | 1-5, 13 |
 | 3 | this repo (airflow) | WF-5 | 9 |
 | 4 | this repo (dbt/dlt) | WF-6, WF-7 | — |
-| 5 | this repo | WF-8 | 7 |
+| 5 | this repo | WF-8, WF-11 | 7, 9 |
 | 6 | this repo (superset/sympozium) | WF-9, WF-10, AI-1 | 12 |
 
 **The ordering mistake most likely to waste a weekend:** configuring Actual
@@ -851,7 +915,7 @@ exists for this).
 | Each bank's observed history cap and `transaction_id` presence for CaixaBank, BBVA, ING, Openbank, Santander (gate 2/5 `[UNVERIFIED]`; Openbank known: no `transaction_id`) | WF-3: inspect the first real ingest per bank and record the values in the onboarding runbook |
 | ~~Is Openbank's unattended `transactions` limit really 1/day?~~ **Answered 2026-09-15: yes** — a fresh day allowed exactly one `transactions` call, every later one returned 429. The daily schedule fits; a manual backfill of the same window does not, so use `strategy=longest` on the first run rather than repeated re-fetches |
 | ~~Does the pinned actualpy speak to the pinned server, and do budget rules run over synced transactions (gate 7 `[UNVERIFIED]`)?~~ **Answered 2026-09-17: yes and no, respectively** — connectivity green (`actualpy 0.22.3` ↔ `actual-server 26.1.0`), rules only when `run_rules()` is invoked, so `sync.py` invokes it on the created rows. | WF-8 probe — done |
-| Will the live sync find the budget? | `finance-actual.file` is `Finance` but the live budget is named `My Finances`; the run fails `UnknownFileId` until the operator renames the budget to `Finance` or the secret key is changed. Operator, before WF-9 |
+| ~~Will the live sync find the budget?~~ **Answered 2026-09-18: yes** — the operator renamed the budget to `Finance`, matching `finance-actual.file`; the four `WF8-Probe` throwaways are deleted. The `Finance` budget holds 67 synced transactions (goals 5, 9). | Operator — done |
 | ~~Does mcp-semantic accept more than one registry file, or does finance need the second-MCPServer fallback?~~ **Answered 2026-09-16: one registry only** (`settings.py`); the second-MCPServer fallback is wired, and the template needed a `configDir` decoupling the spec had assumed it already had (§4.10). | AI-1 — done except the post-sync `mcp-discover` count check |
 | ~~Exact Actual server version to pin~~ **Answered 2026-09-16: `26.1.0`** (actualpy 0.22.3's tested target), on core's `app-template` chart in `datahub-local-core` | INFRA-1 — done in the repo; live verification after sync |
 | One Actual account per bank account, or one per bank? (the account map in §4.6 depends on it) | Operator, in the budget-setup step before the first WF-8 sync — recorded in the `finance-actual` configmap |
@@ -861,7 +925,7 @@ exists for this).
 
 ### Definition of done
 
-Goals 1-8 all hold, evidenced by:
+Goals 1-9 all hold, evidenced by:
 
 1. One scheduled `finance_daily` run goes green end to end on `homelab`
    (goals 1, 3, 4 — ingest, silver, enrich, gold all report row counts).
@@ -872,12 +936,15 @@ Goals 1-8 all hold, evidenced by:
 4. The Superset `Finance` dashboard renders from the imported bundle and
    `semantic_*` answers a finance metric with the new scopes (goal 7).
 5. The `actualbudget` release is healthy, pinned and backed up (goal 8).
+6. Every known merchant's transactions carry a category in the app, an
+   unclassified credit lands in `Income`, and a second sync adds neither rows
+   nor rules (goal 9).
 
 The one check that sums the whole spec — run it after everything above and
 again a day later:
 
 > Two consecutive `finance_daily` runs. The second adds **zero** rows to
-> `bronze.finance.raw_transactions`, **zero** transactions to Actual Budget,
-> and both surfaces show identical totals for the window. A pipeline that is
-> idempotent against its provider, its lake and its app is the entire
-> promise of this spec in one observation.
+> `bronze.finance.raw_transactions`, **zero** transactions and **zero** rules
+> to Actual Budget, and both surfaces show identical totals for the window. A
+> pipeline that is idempotent against its provider, its lake and its app is the
+> entire promise of this spec in one observation.

@@ -149,9 +149,20 @@ late-posted corrections are picked up and the `imported_id` check keeps
 re-runs idempotent.
 
 Actual never runs the budget's rules over transactions inserted through
-actualpy, so the sync calls `run_rules(created)` on just the new rows before
-committing. Categorisation is still the budget's — the pipeline only triggers
-the rules, it never picks a category itself.
+actualpy, so the sync calls `run_rules()` itself: on the new rows, and on any
+existing transaction still lacking a category (a backfill that never overwrites
+a category a human set). Categorisation is still the budget's — the pipeline
+only triggers the rules, it never picks a category itself.
+
+Those rules are seeded from the lake, not invented: every merchant in
+`silver.finance.merchant_categories` becomes a category under the
+`Auto-categorised` group and one `payee -> category` rule, and a catch-all
+`amount_inflow > 0 -> Income` rule makes credits count as income. Generated
+rules are upserted by deterministic id (`uuid5` of the merchant key) and run in
+the `pre` stage, so a re-run never duplicates them and any rule you write in the
+Actual UI overrides them. The payee is the clean merchant key (`payee_clean`);
+the raw bank text is kept as `imported_payee`. The lake's `INCOME` category maps
+onto Actual's own `Income` category.
 
 ## Environment variables
 

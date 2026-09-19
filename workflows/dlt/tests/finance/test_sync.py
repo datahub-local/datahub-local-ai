@@ -20,9 +20,11 @@ from finance.sync import ActualAccountMapError, ActualSettings, _sync
 
 
 class _FakeBudget:
-    def __init__(self, existing=None, uncategorised=None):
+    def __init__(self, existing=None, uncategorised=None, reconciled=0):
         self.existing = set(existing or [])
         self.uncategorised_rows = list(uncategorised or [])
+        self.reconciled = reconciled
+        self.reconcile_calls = []
         self.created = []
         self.ensured = []
         self.categories = []
@@ -33,6 +35,10 @@ class _FakeBudget:
 
     def existing_imported_ids(self):
         return set(self.existing)
+
+    def reconcile_payees(self, rows):
+        self.reconcile_calls.append(list(rows))
+        return self.reconciled
 
     def ensure_account(self, name):
         self.ensured.append(name)
@@ -195,7 +201,7 @@ class TestSync:
         )
         budget = _FakeBudget(existing={"enablebanking:S1"})
         counts = _run_sync(rows, [], budget)
-        assert counts == {"read": 2, "added": 1, "skipped": 1, "committed": True}
+        assert counts == {"read": 2, "added": 1, "skipped": 1, "reconciled": 0, "committed": True}
         assert [c["imported_id"] for c in budget.created] == ["enablebanking:S2"]
         assert budget.committed is True
 
@@ -260,6 +266,15 @@ class TestSync:
         budget = _FakeBudget(existing={"enablebanking:S1"})
         _run_sync(rows, [], budget)
         assert budget.ruled == []
+
+    def test_reconciles_existing_rows_onto_clean_payee(self):
+        rows = _rows(("alias", "S1", date(2024, 1, 1), "RAW BANK TEXT", "MERCADONA", "-10.00", None))
+        orphan = object()
+        budget = _FakeBudget(existing={"enablebanking:S1"}, uncategorised=[orphan], reconciled=1)
+        counts = _run_sync(rows, _categories(("MERCADONA", "GROCERIES")), budget)
+        assert counts["reconciled"] == 1
+        assert budget.reconcile_calls == [rows]
+        assert budget.ruled == [[orphan]]
 
     def test_dry_run_seeds_nothing_and_does_not_commit(self):
         rows = _rows(("alias", "S1", date(2024, 1, 1), "SHOP", "SHOP", "-10.00", None))

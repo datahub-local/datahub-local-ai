@@ -164,6 +164,10 @@ Actual UI overrides them. The payee is the clean merchant key (`payee_clean`);
 the raw bank text is kept as `imported_payee`. The lake's `INCOME` category maps
 onto Actual's own `Income` category.
 
+Every sync also reconciles the payee of rows it already imported onto
+`payee_clean`, so transactions landed before that key existed become matchable
+by the merchant rules; a payee a human renamed is left alone.
+
 ## Environment variables
 
 | Variable                                                     | Default                                                   | Used by          |

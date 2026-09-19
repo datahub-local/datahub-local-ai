@@ -17,6 +17,8 @@ def test_dag_importable():
     dag = _dag()
     assert dag.dag_id == "finance_daily"
     assert set(dag.task_ids) == {
+        "route_ingest",
+        "skip_ingest",
         "dlt_ingest_finance",
         "dbt_silver_finance",
         "dlt_enrich_finance",
@@ -31,9 +33,10 @@ def test_dag_schedule():
 
 def test_dag_params_default_to_none():
     dag = _dag()
-    assert set(dag.params) == {"from_date", "to_date"}
+    assert set(dag.params) == {"from_date", "to_date", "skip_ingest"}
     assert dag.params["from_date"] is None
     assert dag.params["to_date"] is None
+    assert dag.params["skip_ingest"] is False
 
 
 def test_ingest_date_window_env_vars():
@@ -117,3 +120,12 @@ def test_task_chain_order():
         assert downstream in {
             d.task_id for d in dag.get_task(upstream).downstream_list
         }, f"{upstream} -> {downstream}"
+
+
+def test_ingest_is_skippable_at_runtime():
+    dag = _dag()
+    branch = dag.get_task("route_ingest")
+    assert {d.task_id for d in branch.downstream_list} == {"dlt_ingest_finance", "skip_ingest"}
+    assert {d.task_id for d in dag.get_task("skip_ingest").downstream_list} == {"dbt_silver_finance"}
+    silver = dag.get_task("dbt_silver_finance")
+    assert silver.trigger_rule == "none_failed_min_one_success"

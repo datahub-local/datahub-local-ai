@@ -36,6 +36,7 @@ class DbtTaskConfig:
     configmap_env_vars: tuple[ConfigMapEnvVarRef, ...] = field(default_factory=tuple)
     cpu: str | None = None
     memory: str | None = None
+    trigger_rule: str | None = None
     startup_timeout_seconds: int = DEFAULT_STARTUP_TIMEOUT_SECONDS
 
 
@@ -67,6 +68,9 @@ def build_dbt_container_resources(task_config: DbtTaskConfig) -> V1ResourceRequi
 
 
 def create_dbt_task(task_config: DbtTaskConfig) -> KubernetesJobOperator:
+    operator_kwargs = (
+        {"trigger_rule": task_config.trigger_rule} if task_config.trigger_rule else {}
+    )
     return KubernetesJobOperator(
         task_id=task_config.task_id,
         name=task_config.task_id.replace("_", "-"),
@@ -89,4 +93,5 @@ def create_dbt_task(task_config: DbtTaskConfig) -> KubernetesJobOperator:
         on_execute_callback=_on_task_start,
         on_success_callback=_on_task_end,
         on_failure_callback=_on_task_failure,
+        **operator_kwargs,
     )

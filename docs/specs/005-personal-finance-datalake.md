@@ -612,6 +612,20 @@ budget, deleted after): four rows, two merchants and one uncategorised credit
 produced three rules, categorised as GROCERIES / FUEL / Income / GROCERIES
 (refund), and a second run added zero rows and zero rules.
 
+**Payee reconciliation added 2026-09-18.** After the live sync the operator
+still saw 58 of 104 transactions uncategorised, all outflows. The cause was the
+*first* sync (2026-09-17), which predated clean payees: it passed the raw bank
+label (`Google pay: COMPRA EN AHORRAMAS, CON LA TARJETA : ... EL <date>`) as
+the payee, so those rows carry a payee no `payee_clean` rule can match. The
+sync now re-keys each transaction it already imported onto its row's
+`payee_clean` (creating the payee if needed) before `run_rules()`, so the
+backlog heals on the next run. A payee that is neither the expected clean name
+nor the row's raw label is a human rename and is left untouched. Verified
+in-cluster against the live `Finance` budget without committing: 58
+uncategorised before, 61 payees reconciled, **0** uncategorised after
+`run_rules()`. The `skip_ingest` DAG param (§4.8) exists so this backlog repair
+does not need a fresh provider fetch.
+
 Single writer: the DAG places `sync` last and nothing else writes; Actual's
 own built-in bank sync is never configured (§5).
 
@@ -653,13 +667,22 @@ deliberately narrowed:
 `finance_daily` in `workflows/airflow/dags/`, bodega's DAG shape:
 
 ```
-dlt_ingest_finance >> dbt_silver_finance >> dlt_enrich_finance
-    >> dbt_gold_finance >> dlt_sync_actual
+route_ingest ─┬─ dlt_ingest_finance ─┐
+              └─ skip_ingest ────────┴─ dbt_silver_finance >> dlt_enrich_finance
+                                        >> dbt_gold_finance >> dlt_sync_actual
 ```
+
+`route_ingest` is a `@task.branch` that follows `dlt_ingest_finance` by default
+and `skip_ingest` when the `skip_ingest` param is true, so a layer recalculation
+can run without a provider fetch (which would spend the PSD2 daily budget).
+`dbt_silver_finance` joins the two paths with
+`trigger_rule: none_failed_min_one_success`, since one of them is always
+skipped.
 
 Schedule `0 6 * * *` UTC (bodega runs 08:00 — staggered; the PSD2 budget is
 per account per endpoint so there is no contention, the stagger is for cluster
-load). Params `from_date`/`to_date` default to a 4-week lookback (§4.3). Secret
+load). Params `from_date`/`to_date` default to a 4-week lookback (§4.3);
+`skip_ingest` defaults to false. Secret
 wiring per task: ingest needs ICEBERG + enablebanking; enrich needs ICEBERG +
 LITELLM; sync needs finance-actual. `retries: 1` like every DAG
 here; a 429-classified failure retries once and then surfaces through the
@@ -855,8 +878,14 @@ deliberately expired session fails as `ACCESS_EXPIRED`.
       passing tests, and an end-to-end probe against the deployed `26.1.0`
       server (throwaway budget, deleted after) confirmed one-rule-per-merchant
       idempotency and correct GROCERIES/FUEL/Income/refund categorisation.
-      Remaining: the live `Finance` budget categorises on the next sync after
-      the image deploys. *Blocked by WF-8.*
+      **Reconciliation landed 2026-09-18**: rows imported before the clean-payee
+      change are re-keyed onto `payee_clean` on every sync, verified in-cluster
+      against the live `Finance` budget (58 uncategorised -> 0 without
+      committing). *Blocked by WF-8.*
+- [x] **WF-12** `skip_ingest` DAG param (§4.8): branch past the Enable Banking
+      ingest so the silver/enrich/gold/sync layers can be recalculated from the
+      existing bronze without spending the PSD2 daily budget. **Landed
+      2026-09-18** with airflow tests. *Blocked by WF-9.*
 - [ ] **WF-9** Complete the DAG (`dlt_sync_actual`)
       and run the full chain on `homelab`. *Blocked by WF-7, WF-8.*
       **DAG wiring landed 2026-09-16** (`dlt_sync_actual` after `dbt_gold`,

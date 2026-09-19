@@ -4,7 +4,7 @@ The app half of spec 005 §4.6. It reads the curated silver rows for the sync
 window and imports each into the budget the operator actually budgets in,
 keyed on ``imported_id = "enablebanking:" + stable_id`` so a re-run adds nothing.
 
-Three rules from the spec shape the code:
+Four rules from the spec shape the code:
 
 - **Dedup is the pipeline's, not the library's.** actualpy's
   ``create_transaction`` does not reconcile like the Node ``importTransactions``
@@ -24,6 +24,14 @@ Three rules from the spec shape the code:
   same rule and the operator's own rules are never touched. They run in the
   ``pre`` stage, which leaves every operator rule (default stage) free to
   override them.
+- **Existing rows are re-keyed onto ``payee_clean``.** The first live sync
+  (2026-09-17) predated clean payees and passed the raw bank text as the payee,
+  so its rows carried a payee a merchant rule can never match and stayed
+  uncategorised forever. Every run reconciles the payee of a transaction it
+  already imported onto its ``payee_clean`` (creating the payee if needed)
+  before ``run_rules()``, so the backlog heals on the next sync. A payee that is
+  neither the expected clean name nor the raw bank label is left alone — that is
+  a human rename, which the pipeline does not own.
 
 The map from bank ``account_id`` to Actual account name lives in the
 ``finance-actual`` secret; a row whose account is not in the map fails the run
@@ -81,6 +89,8 @@ class BudgetClient(Protocol):
     """The slice of the Actual budget this pipeline needs, and nothing else."""
 
     def existing_imported_ids(self) -> set[str]: ...
+
+    def reconcile_payees(self, rows: list[dict]) -> int: ...
 
     def ensure_account(self, name: str) -> None: ...
 
@@ -266,6 +276,34 @@ class _ActualPaymentClient:
             )
         ).all()
         return {row for row in rows if row}
+
+    def reconcile_payees(self, rows: list[dict]) -> int:
+        from actual.database import Transactions
+        from actual.queries import get_or_create_payee
+
+        session = self._actual.session
+        fixed = 0
+        for row in rows:
+            clean = row["payee_clean"] or row["payee"]
+            if not clean:
+                continue
+            transaction = session.exec(
+                self._select(Transactions).where(
+                    Transactions.financial_id == IMPORTED_ID_PREFIX + row["stable_id"]
+                )
+            ).first()
+            if transaction is None:
+                continue
+            current = transaction.payee.name if transaction.payee is not None else None
+            if current == clean:
+                continue
+            # Only rewrite the pipeline's own raw bank label; anything else is a
+            # rename a human made in the budget, which the pipeline must not undo.
+            if current is not None and current.strip() != (row["payee"] or "").strip():
+                continue
+            transaction.payee_id = get_or_create_payee(session, clean).id
+            fixed += 1
+        return fixed
 
     def ensure_account(self, name: str) -> None:
         from actual.queries import get_or_create_account
@@ -470,6 +508,10 @@ def _sync(
         # applies no rules on its own to actualpy-inserted transactions.
         _seed_rules(client, categories)
 
+        # Re-key rows imported before the clean-payee change onto payee_clean, so
+        # a merchant rule can finally match them; run before run_rules() below.
+        reconciled = client.reconcile_payees(rows)
+
         # Create any missing Actual accounts first, once each, so the first sync needs
         # no manual UI step. Accounts are matched by name; a later rename splits one.
         for account_name in sorted({account_map[row["account_id"]] for row in to_add}):
@@ -497,6 +539,7 @@ def _sync(
             "read": len(rows),
             "added": len(to_add),
             "skipped": len(rows) - len(to_add),
+            "reconciled": reconciled,
             "committed": True,
         }
         logger.info("%s: %s", PIPELINE_NAME, counts)

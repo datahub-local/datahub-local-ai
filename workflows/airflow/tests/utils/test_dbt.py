@@ -114,6 +114,14 @@ def test_create_dbt_task_applies_arguments_and_image():
     assert not task.volumes
 
 
+def test_create_dbt_task_applies_trigger_rule():
+    task = create_dbt_task(
+        DbtTaskConfig(task_id="dbt_silver", project="finance", trigger_rule="none_failed_min_one_success")
+    )
+
+    assert task.trigger_rule == "none_failed_min_one_success"
+
+
 def test_validate_task_config_does_not_require_local_project_files():
     task_config = DbtTaskConfig(task_id="dbt_missing", project="missing-project")
 

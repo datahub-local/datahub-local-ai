@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 
 from airflow import DAG
-from airflow.sdk import Param
+from airflow.sdk import Param, task
 
 from utils.dbt import DbtTaskConfig, create_dbt_task
 from utils.dlt import DltTaskConfig, SecretEnvVarRef, create_dlt_task
@@ -80,8 +80,21 @@ with DAG(
             format="date",
             description="End date (YYYY-MM-DD). Defaults to today (run's wall-clock date).",
         ),
+        "skip_ingest": Param(
+            default=False,
+            type="boolean",
+            description="Skip the Enable Banking ingest and recalculate the layers from the existing bronze table.",
+        ),
     },
 ) as dag:
+    @task.branch
+    def route_ingest(**context) -> str:
+        return "skip_ingest" if context["params"]["skip_ingest"] else "dlt_ingest_finance"
+
+    @task
+    def skip_ingest() -> None:
+        return None
+
     dlt_ingest_finance = create_dlt_task(
         DltTaskConfig(
             task_id="dlt_ingest_finance",
@@ -97,6 +110,7 @@ with DAG(
             task_id="dbt_silver_finance",
             project="finance",
             select_model="silver.*",
+            trigger_rule="none_failed_min_one_success",
         )
     )
 
@@ -126,4 +140,9 @@ with DAG(
         )
     )
 
-    dlt_ingest_finance >> dbt_silver_finance >> dlt_enrich_finance >> dbt_gold_finance >> dlt_sync_actual
+    route_ingest_task = route_ingest()
+    skip_ingest_task = skip_ingest()
+
+    route_ingest_task >> dlt_ingest_finance >> dbt_silver_finance
+    route_ingest_task >> skip_ingest_task >> dbt_silver_finance
+    dbt_silver_finance >> dlt_enrich_finance >> dbt_gold_finance >> dlt_sync_actual

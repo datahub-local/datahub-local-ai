@@ -22,6 +22,7 @@ TOKENS_JSON = json.dumps(
         "sample_account": {
             "uid": "00000000-0000-0000-0000-000000000001",
             "valid_until": "2027-01-01T00:00:00Z",
+            "session_id": "00000000-0000-0000-0000-0000000000dd",
         }
     }
 )
@@ -65,6 +66,15 @@ def test_tokens_are_parsed_with_utc_expiry(monkeypatch):
     assert tokens[0].uid == "00000000-0000-0000-0000-000000000001"
     assert tokens[0].valid_until is not None
     assert tokens[0].valid_until.year == 2027
+    assert tokens[0].session_id == "00000000-0000-0000-0000-0000000000dd"
+
+
+def test_token_session_id_is_optional(monkeypatch):
+    # tokens written before the session liveness check carry no session_id
+    monkeypatch.setenv("ENABLEBANKING_TOKENS", json.dumps(
+        {"sample_account": {"uid": "00000000-0000-0000-0000-000000000001"}}
+    ))
+    assert config.enablebanking_tokens()[0].session_id is None
 
 
 def test_provider_composes_both_secret_halves(monkeypatch):

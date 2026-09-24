@@ -70,11 +70,15 @@ class TokenConfig:
 
     ``uid`` is Enable Banking's per-session account id, valid only while the
     session is authorized; expired tokens fail loudly before any data call.
+    ``session_id`` is kept so the renewal workflow's daily check can read the
+    session's own status — an Enable Banking call that never reaches the ASPSP,
+    so it spends no PSD2 data-call budget.
     """
 
     alias: str
     uid: str
     valid_until: datetime | None = None
+    session_id: str | None = None
 
     def consent_expired(self, now: datetime | None = None) -> bool:
         if self.valid_until is None:
@@ -104,6 +108,21 @@ def mint_jwt(private_key: str, app_id: str) -> str:
     )
 
 
+def _error_message(body: dict, response: httpx.Response) -> str:
+    """``message`` plus the ``detail`` Enable Banking attaches to a failure.
+
+    ``detail`` is where the ASPSP's own reason lands, so dropping it makes a
+    revoked consent read the same as a transient fault.
+    """
+    name = str(body.get("error") or body.get("code") or "")
+    message = str(body.get("message") or name or response.reason_phrase)
+    detail = body.get("detail")
+    if detail in (None, "", [], {}):
+        return message
+    rendered = detail if isinstance(detail, str) else json.dumps(detail, sort_keys=True, default=str)
+    return message if rendered in message else f"{message}: {rendered}"
+
+
 def raise_for_status(response: httpx.Response, context: str) -> None:
     """Classify an Enable Banking error response into a named provider error."""
     if response.is_success:
@@ -113,7 +132,7 @@ def raise_for_status(response: httpx.Response, context: str) -> None:
     except ValueError:
         body = {}
     name = str(body.get("error") or body.get("code") or "")
-    message = str(body.get("message") or name or response.reason_phrase)
+    message = _error_message(body, response)
     if response.status_code == 429 or "RATE_LIMIT" in name.upper():
         raise RateLimitError(
             f"{context}: PSD2 daily limit reached for this endpoint "

@@ -172,15 +172,19 @@ def token_fragments(
     session: dict, *, alias: str
 ) -> dict[str, dict[str, str | None]]:
     """Build the session-scoped ``tokens.json`` entries for
-    ``finance-enablebanking-token`` — uid and ``access.valid_until`` keyed by
-    the same alias the stable fragment used."""
+    ``finance-enablebanking-token`` — uid, ``access.valid_until`` and the session
+    id, keyed by the same alias the stable fragment used. The session id lets the
+    §4.2.1 daily check read the session's status without a data call (an Enable
+    Banking lookup, no ASPSP consultation)."""
     valid_until = (session.get("access") or {}).get("valid_until")
+    session_id = session.get("session_id")
     fragments: dict[str, dict[str, str | None]] = {}
     for index, resource in enumerate(session.get("accounts") or []):
         key = alias if index == 0 else f"{alias}_{index + 1}"
         fragments[key] = {
             "uid": resource.get("uid"),
             "valid_until": valid_until,
+            "session_id": session_id,
         }
     return fragments
 

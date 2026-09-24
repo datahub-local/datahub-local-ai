@@ -43,7 +43,7 @@ intake assumption (row 8: Actual Budget needs no Postgres).
 | 1 | Enable Banking API shape | Auth is a **self-signed RS256 JWT** per run — `iss=enablebanking.com`, `aud=api.enablebanking.com`, header `kid` = the application id — signed with the RSA key the browser generated at registration. Flow: `POST /auth` (aspsp name+country, `redirect_url`, `psu_type`, `access.valid_until`) -> browser consent -> `POST /sessions {code}` -> account `uid`s -> `GET /accounts/{uid}/transactions?date_from&date_to` and `/balances` | enablebanking.com/docs quick-start + API reference + live sandbox call 2026-09-14 | JWT minted **per run** (lives <=1 h, no refresh token ever persisted); only `status=BOOK` ingested — `PDNG` skipped (identity unstable, breaks idempotency). No `secret_id`/`secret_key` pair exists |
 | 2 | History depth | No agreement object and no `max_historical_days`. `GET /transactions` accepts `strategy=longest` — "tries to find the longest possible period of transactions and fetches transactions for that period" — but "may use extra ASPSP calls". With `longest`, `date_to` is ignored and `date_from` is only a lower border, so a window would cap the history rather than scope it. Date filters are honoured inconsistently (the sandbox doc notes some ASPSPs ignore them) | API reference + sandbox docs | Daily runs use `strategy=default` with the explicit window; a one-off backfill sets `FINANCE_FETCH_STRATEGY=longest` and sends no dates, re-reading the hardest available history — merge on the stable key makes the re-fetch idempotent. The oldest `booking_date` seen per account is recorded as the observed cap. Per-bank cap is `[UNVERIFIED]` until WF-3 |
 | 3 | Bank rate limits | PSD2 default as low as **4 calls/day/account per endpoint** for a PSU-not-present app; Enable Banking returns `429 ASPSP_RATE_LIMIT_EXCEEDED` ("Daily PSU not present consultation limit has been exceeded") with **no reset header**. Measured live 2026-09-14 against Openbank: `balances` answered 200 while the **first** `transactions` call was already 429 — the link/consent had consumed that endpoint's budget. Budget is **per endpoint, per account**, not per app | enablebanking.com docs + live Openbank call | Daily DAG = 1 transactions call/account; on 429 the fetch fails loudly and never retries in a loop. **Measured 2026-09-15: Openbank's unattended transactions budget is 1/day** — one successful call, then `429` on every later call that day; the daily DAG is inside it, an ad-hoc re-run is not. `strategy=longest` "may use extra ASPSP calls": run as the daily strategy on 2026-09-18 it paginated through 6 `transactions` calls and the 7th returned 429, failing the whole run before any table loaded — so `longest` is a backfill opt-in, never the daily default |
-| 4 | Consent expiry | No requisition: the session carries `access.valid_until` (EEA ~180 days; the live test returned `2027-03-12`). An expired or revoked session fails the data call | reference + live `POST /sessions` | Fetch surfaces it as `ACCESS_EXPIRED` naming the account/bank; re-link runbook in §4.2; `valid_until` is stored per account in `finance-enablebanking` so staleness is checkable before the run |
+| 4 | Consent expiry | No requisition: the session carries `access.valid_until` (EEA ~180 days; the live test returned `2027-03-12`). An expired or revoked session fails the data call | reference + live `POST /sessions` | Fetch surfaces it as `ACCESS_EXPIRED` naming the account/bank; re-link runbook in §4.2; `valid_until` and the session id are stored per account in `finance-enablebanking-token` so staleness is checkable before the run, and the §4.2.1 daily check also reads `GET /sessions/{id}` (free) because `valid_until` is only the session clock, not the ASPSP's consent expiry |
 | 5 | Transaction id stability | Enable Banking exposes `entry_reference` — "unique and immutable ... can be used for matching transactions across multiple PSU authentication sessions" — and `transaction_id`, which the docs say "may change if the list of transactions is retrieved again" (**not** stable; `null` where detail-fetch is unsupported) | API reference `Transaction` schema; live sample | Bronze stable id = `entry_reference` when present, else a deterministic hash. `transaction_id` is **never** used as identity. Which banks supply `entry_reference` is `[UNVERIFIED]` until WF-3 — Openbank's live sample had it `null` on every row |
 | 6 | Actual Budget API | **No REST API exists.** The official path is `@actual-app/api` (Node headless engine, CRDT sync); its `importTransactions` dedups on `imported_id` and runs the budget's rules | actualbudget.org/docs/api + api reference.md | A Python push needs `actualpy` or an HTTP-wrapper sidecar (row 7) |
 | 7 | Python push mechanism | `actualpy` (PyPI; SQLAlchemy over a locally downloaded budget copy, `create_transaction(imported_id=...)`, `match_transaction`, `actual.commit()` syncs CRDT messages to the server) vs `jhonderson/actual-http-api` (Docker REST wrapper around the Node API, API-key auth) | pypi.org/project/actualpy, github.com/jhonderson/actual-http-api | **actualpy first** — no new service. **Settled 2026-09-17 (WF-8 probe):** `actualpy==0.22.3` talks to `actual-server:26.1.0` end to end (login, `create_budget`, upload, insert, `commit`, re-download, delete). Budget rules do **not** run on actualpy-inserted transactions — the client's `run_rules()` is never called by `create_transaction`/`commit` — so `sync.py` now calls `run_rules(created)` on exactly the new transactions before `commit()`. The sidecar fallback is not needed |
@@ -352,7 +352,7 @@ Rules that fall out of the flow:
 
 The secrets `finance-enablebanking` (shared RSA `private_key` and
 `accounts.json` — `{alias: {iban, app_id, institution_id}}`) and
-`finance-enablebanking-token` (`tokens.json` — `{alias: {uid, valid_until}}`)
+`finance-enablebanking-token` (`tokens.json` — `{alias: {uid, valid_until, session_id}}`)
 are read together at run time (§4.7). `uid` is rewritten on every renewal
 (Enable Banking scopes it to the session and it is only valid while that
 session is authorized), which is exactly why the alias, not the uid, is the
@@ -374,6 +374,20 @@ twice-yearly surprise:
   when any account's `valid_until` is ≤ **3 days** out it nudges the Slack
   `#workflows` channel with a link to the renewal form. The check repeats daily
   until renewed — a flaky bank day never silently lapses the consent.
+- **Liveness probe.** `valid_until` is Enable Banking's *session* expiry, the
+  value the request asked for — the API returns it unchanged and says the
+  session validity "will remain exactly as specified" regardless of the ASPSP
+  side. It therefore cannot see a bank that drops or errors the consent early,
+  which happened on 2026-09-24 (Openbank, a `beta` integration, returned
+  `ASPSP_ERROR` on `/accounts/{uid}/details` nine days in while the stored
+  expiry was still ~171 days out). The daily check therefore also reads the
+  stored `session_id` and calls `GET /sessions/{session_id}`; that reads Enable
+  Banking's own session state and never reaches the ASPSP, so it spends none of
+  the PSD2 per-endpoint data-call budget. A status other than `AUTHORIZED`
+  (`CANCELLED`/`CLOSED`/`EXPIRED`/`REVOKED`/`INVALID`), or the probe call itself
+  failing, joins the ≤3-day nudge. It is a gap-filler, not a guarantee: a drop
+  the ASPSP never reports to Enable Banking still surfaces only when the ingest
+  data call fails, which stays the backstop.
 - **Flow.** Form page ("renew <alias>") → **Form Ending: redirect** to the bank
   consent URL (generated live by the same execution) → the operator approves at
   the bank (the PSD2 step that cannot be automated) → the bank redirects to the
@@ -383,7 +397,7 @@ twice-yearly surprise:
   `POST /sessions {code}`, and **upserts** `finance-enablebanking-token`.
 - **Secret split.** `finance-enablebanking` keeps the stable half
   (`private_key`, `{alias: {iban, app_id, institution_id}}`); the session-scoped
-  half (`{alias: {uid, valid_until}}`) moves to `finance-enablebanking-token`,
+  half (`{alias: {uid, valid_until, session_id}}`) moves to `finance-enablebanking-token`,
   which is **not chart-rendered** — ArgoCD does not own it, so a dynamic patch
   cannot drift against Git, and the DAG reads both Secrets and fails loudly
   (goal 6) through the same `ACCESS_EXPIRED` path if the token is stale.
@@ -635,7 +649,7 @@ Secrets (k8s, `data` namespace, wired via the existing `SecretEnvVarRef`
 pattern): `finance-enablebanking` (anything stable: RSA `private_key`,
 `accounts.json` = alias -> `{iban, app_id, institution_id}` — **no session
 material**) and `finance-enablebanking-token` (`tokens.json` = alias ->
-`{uid, valid_until}`, maintained *dynamically* by the §4.2.1 renewal workflow,
+`{uid, valid_until, session_id}`, maintained *dynamically* by the §4.2.1 renewal workflow,
 never chart-rendered) plus `finance-actual` (`base_url`, `password`, `file`,
 `accounts.json` = alias -> Actual account name). Stable material is written
 into `datahub-local-secrets`; the token half is created by the renewal
@@ -643,11 +657,14 @@ workflow, not ArgoCD, exactly so a renewal cannot drift against Git. The
 onboarding CLI prints the rest for the operator to paste. `finance-actual` is
 rendered by `datahub-local-secrets` into the `data` namespace (spec 005
 INFRA-1); `base_url` is the in-cluster Service, and `password`/`accounts.json`
-ship as operator-owned values. `file` is pinned to the budget **name**
-(`Finance`), not its Sync ID: Actual mints the Sync ID UUID with no way to
-choose it, and `actualpy.set_file` matches the name, the file id or the sync
-id, so a fixed unique name is the only value that can be committed. The
-password must equal the one set once in Actual's UI.
+ship as operator-owned values. `file` is pinned to the budget **sync id**, not
+its name: a name is a display label, and Actual resets it to the budget's own
+metadata name on upload, which drifted the sync on 2026-09-24 (`UnknownFileId:
+'Finance'` after an `upload-user-file` reset the renamed budget), while the sync
+id survives renames and uploads. `actualpy.set_file` matches the file id, the
+sync id or the name, so the id is the value to commit; a sync reset mints a new
+one and the run then fails loudly naming the setting. The password must equal
+the one set once in Actual's UI.
 
 Bank transactions are personal data, so the lake's normal openness is
 deliberately narrowed:
@@ -870,7 +887,9 @@ deliberately expired session fails as `ACCESS_EXPIRED`.
       before `commit()`. The `finance-actual` secret's `file` (`Finance`) now
       matches the live budget (renamed by the operator; the four `WF8-Probe`
       throwaways are deleted). 67 transactions are live in the `Finance`
-      budget, all uncategorised — addressed by **WF-11**.
+      budget, all uncategorised — addressed by **WF-11**. **2026-09-24:** the
+      `file` pin moved from the name `Finance` to the budget's sync id after an
+      Actual UI upload reset the display name and broke the sync — see §4.7.
 - [x] **WF-11** Seed Actual's categories and rules from
       `silver.finance.merchant_categories` and backfill uncategorised rows
       (§4.6.1): deterministic-id rule upsert, catch-all inflow -> `Income`,
@@ -957,7 +976,7 @@ exists for this).
 | Each bank's observed history cap and `transaction_id` presence for CaixaBank, BBVA, ING, Openbank, Santander (gate 2/5 `[UNVERIFIED]`; Openbank known: no `transaction_id`) | WF-3: inspect the first real ingest per bank and record the values in the onboarding runbook |
 | ~~Is Openbank's unattended `transactions` limit really 1/day?~~ **Answered 2026-09-15: yes** — a fresh day allowed exactly one `transactions` call, every later one returned 429. The daily schedule fits; a manual backfill of the same window does not, so use `strategy=longest` on the first run rather than repeated re-fetches |
 | ~~Does the pinned actualpy speak to the pinned server, and do budget rules run over synced transactions (gate 7 `[UNVERIFIED]`)?~~ **Answered 2026-09-17: yes and no, respectively** — connectivity green (`actualpy 0.22.3` ↔ `actual-server 26.1.0`), rules only when `run_rules()` is invoked, so `sync.py` invokes it on the created rows. | WF-8 probe — done |
-| ~~Will the live sync find the budget?~~ **Answered 2026-09-18: yes** — the operator renamed the budget to `Finance`, matching `finance-actual.file`; the four `WF8-Probe` throwaways are deleted. The `Finance` budget holds 67 synced transactions (goals 5, 9). | Operator — done |
+| ~~Will the live sync find the budget?~~ **Answered 2026-09-18: yes** — the operator renamed the budget to `Finance`, matching `finance-actual.file`; the four `WF8-Probe` throwaways are deleted. The `Finance` budget holds 67 synced transactions (goals 5, 9). **Corrected 2026-09-24:** the name was the wrong key — an Actual UI `upload-user-file` reset the display name to `My Finances` and the run failed `UnknownFileId: 'Finance'`. `file` now pins the budget's **sync id**; see §4.7. | Operator — done |
 | ~~Does mcp-semantic accept more than one registry file, or does finance need the second-MCPServer fallback?~~ **Answered 2026-09-16: one registry only** (`settings.py`); the second-MCPServer fallback is wired, and the template needed a `configDir` decoupling the spec had assumed it already had (§4.10). | AI-1 — done except the post-sync `mcp-discover` count check |
 | ~~Exact Actual server version to pin~~ **Answered 2026-09-16: `26.1.0`** (actualpy 0.22.3's tested target), on core's `app-template` chart in `datahub-local-core` | INFRA-1 — done in the repo; live verification after sync |
 | One Actual account per bank account, or one per bank? (the account map in §4.6 depends on it) | Operator, in the budget-setup step before the first WF-8 sync — recorded in the `finance-actual` configmap |

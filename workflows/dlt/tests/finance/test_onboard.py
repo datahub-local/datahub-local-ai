@@ -143,7 +143,8 @@ class TestAccountFragments:
         fragment = fragments["acct_a"]
         assert fragment["uid"] == "00000000-0000-0000-0000-000000000001"
         assert fragment["valid_until"] == "2027-01-01T00:00:00Z"
-        assert set(fragment) == {"uid", "valid_until"}
+        assert fragment["session_id"] == "00000000-0000-0000-0000-0000000000dd"
+        assert set(fragment) == {"uid", "valid_until", "session_id"}
 
     def test_multiple_accounts_get_distinct_numbered_keys(self):
         accounts = SESSION_RESPONSE["accounts"] * 3
@@ -181,6 +182,7 @@ class TestSessionCommand:
         token = json.loads(token_json)
         assert token["acct_a"]["uid"] == "00000000-0000-0000-0000-000000000001"
         assert token["acct_a"]["valid_until"] == "2027-01-01T00:00:00Z"
+        assert token["acct_a"]["session_id"] == "00000000-0000-0000-0000-0000000000dd"
 
     def test_rate_limit_from_the_bank_surfaces_as_rate_limit_error(self, monkeypatch):
         client = _client({"/sessions": httpx.Response(

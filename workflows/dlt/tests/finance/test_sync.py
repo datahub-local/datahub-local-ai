@@ -374,3 +374,16 @@ class TestRun:
         self._silver(tmp_path, [])
         self._env(tmp_path, monkeypatch)
         assert sync.run("local") == {"read": 0, "added": 0, "skipped": 0, "committed": False}
+
+
+class TestBudgetResolution:
+    def test_unknown_file_raises_naming_the_setting(self, monkeypatch):
+        import actual
+        from actual.exceptions import UnknownFileId
+
+        def _unknown_file(**kwargs):
+            raise UnknownFileId("Could not find a file id or identifier 'Finance'")
+
+        monkeypatch.setattr(actual, "Actual", _unknown_file)
+        with pytest.raises(sync.ActualBudgetNotFound, match="sync id"), sync._actual_client(_SETTINGS):
+            pass

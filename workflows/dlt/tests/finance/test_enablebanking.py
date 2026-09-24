@@ -301,6 +301,17 @@ class TestErrors:
         with pytest.raises(ProviderError, match="unknown finance account"):
             provider.fetch_balances("nope")
 
+    def test_error_message_carries_the_provider_detail(self):
+        # detail is the ASPSP's own reason; losing it makes a revoked consent
+        # read the same as a transient bank fault
+        provider = self._failing(400, {
+            "error": "ASPSP_ERROR",
+            "message": "Error interacting with ASPSP",
+            "detail": {"reason": "consent revoked at the bank"},
+        })
+        with pytest.raises(AccessExpiredError, match="consent revoked at the bank"):
+            provider.fetch_balances(ACCOUNT.alias)
+
 
 class TestSplitSecrets:
     def test_account_alias_without_token_is_a_named_loud_failure(self):

@@ -80,7 +80,7 @@ def enablebanking_tokens() -> list[TokenConfig]:
 
     Shape — the ``tokens.json`` key of ``finance-enablebanking-token``::
 
-        {"alias": {"uid": ..., "valid_until": ...}}
+        {"alias": {"uid": ..., "valid_until": ..., "session_id": ...}}
 
     The Secret is maintained **dynamically** by the n8n renewal workflow (spec
     005 §4.2.1) and may legitimately be absent: a missing or empty value means
@@ -95,6 +95,7 @@ def enablebanking_tokens() -> list[TokenConfig]:
             alias=alias,
             uid=config["uid"],
             valid_until=_parse_valid_until(config.get("valid_until")),
+            session_id=config.get("session_id"),
         )
         for alias, config in json.loads(raw).items()
     ]
@@ -150,7 +151,13 @@ def actual_password() -> str:
 
 
 def actual_file() -> str:
-    """The budget to sync: its sync id or its unique name (spec 005 §4.6)."""
+    """The budget to sync, by its sync id (stable) or its unique display name.
+
+    The sync id is preferred: Actual resets a budget's display name to its own
+    metadata name on upload, so a name-pinned value drifts (it did on
+    2026-09-24). The sync id survives renames and uploads; only a sync reset
+    mints a new one, and the run then fails loudly naming the setting.
+    """
     return os.environ["FINANCE_ACTUAL_FILE"]
 
 

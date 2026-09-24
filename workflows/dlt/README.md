@@ -106,20 +106,27 @@ uv run python -m finance.onboard session --code <code> --alias <alias>   # 3. pa
 ```
 
 The browser lands on the redirect URL carrying `?code=...`; the page itself does
-not need to load. `session` prints an `accounts.json` fragment —
-`{alias: {iban, uid, app_id, valid_until, institution_id}}` — to paste into the
-`finance-enablebanking` secret (`datahub-local-secrets/release/values/default.yaml.gotmpl`,
-rendered and applied from that repo).
+not need to load. `session` prints two paste blocks keeping the same alias: a
+stable `accounts.json` fragment (`{alias: {iban, app_id, institution_id}}`) for
+the `finance-enablebanking` secret, and a session `tokens.json` fragment
+(`{alias: {uid, valid_until, session_id}}`) for `finance-enablebanking-token`.
+The session id lets the daily renewal check read the session status without a
+bank data call. Both secrets live in `datahub-local-secrets`
+(`release/values/default.yaml.gotmpl`), rendered and applied from that repo.
 
 ### When a run fails with `ACCESS_EXPIRED`
 
 1. Re-run the three commands above for the account the failure named.
-2. Paste the fresh `uid` / `valid_until` into the secret **keeping the same
-   alias**: the uid is session-scoped and changes every re-link, the alias is
-   the pipeline identity — re-keying it would duplicate history in bronze.
+2. Paste the fresh `uid` / `valid_until` / `session_id` into the token secret
+   **keeping the same alias**: the uid is session-scoped and changes every
+   re-link, the alias is the pipeline identity — re-keying it would duplicate
+   history in bronze.
 3. If the failure is a 429 instead, nothing is expired: the account hit its
    per-endpoint daily budget. Re-run after the bank's reset; the fetch never
    retries in a loop.
+4. If it is `ASPSP_ERROR` (or the message now carries a `detail` saying the
+   consent was dropped), the bank invalidated the consent early even though
+   `valid_until` is still in the future — re-link the same account.
 
 ## Actual Budget sync (`--pipeline sync`)
 
@@ -138,10 +145,13 @@ Operator setup, once, before the first sync:
    (`get_or_create_account`, matched by name); actualpy sets only the name and
    `offbudget`, so create it by hand first if it needs a specific type. Names
    must stay stable — a UI rename makes the next sync create a new account.
-3. Name the budget exactly as `finance-actual.file` (`Finance`). Actual mints
-   the Sync ID and offers no way to choose it, so `file` is pinned to the
-   budget **name**, which `actualpy` matches alongside the file id and the sync
-   id. Rename the budget only together with that secret key.
+3. Set `finance-actual.file` to the budget's **sync id** (the UUID in the
+   budget's settings in the Actual UI), not its display name. Actual resets a
+   budget's display name to its own metadata name on upload, so a name-pinned
+   value drifts and the run then fails with `ActualBudgetNotFound`; the sync id
+   survives renames and uploads. `actualpy` matches the file id, the sync id or
+   the unique name, but only the id is stable. A sync reset mints a new id, and
+   the run fails loudly until this line is updated.
 
 `local` is dry-run by default; `FINANCE_SYNC_DRY_RUN=true` makes a homelab run
 log what it would add without committing. A 60-day window re-reads silver, so

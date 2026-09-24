@@ -78,6 +78,10 @@ class ActualAccountMapError(Exception):
     """A transaction's account has no entry in the finance-actual map."""
 
 
+class ActualBudgetNotFound(Exception):
+    """``FINANCE_ACTUAL_FILE`` matches no budget on the Actual server."""
+
+
 @dataclass(frozen=True)
 class ActualSettings:
     base_url: str
@@ -418,12 +422,21 @@ class _ActualPaymentClient:
 @contextmanager
 def _actual_client(settings: ActualSettings) -> Iterator[_ActualPaymentClient]:
     from actual import Actual
+    from actual.exceptions import UnknownFileId
 
-    with Actual(
-        base_url=settings.base_url,
-        password=settings.password,
-        file=settings.file,
-    ) as actual:
+    try:
+        actual = Actual(
+            base_url=settings.base_url,
+            password=settings.password,
+            file=settings.file,
+        )
+    except UnknownFileId as exc:
+        raise ActualBudgetNotFound(
+            f"FINANCE_ACTUAL_FILE={settings.file!r} matches no budget on "
+            f"{settings.base_url}; pin the budget's sync id (read it in the "
+            "budget's settings), not its display name, which Actual resets on upload"
+        ) from exc
+    with actual:
         yield _ActualPaymentClient(actual)
 
 

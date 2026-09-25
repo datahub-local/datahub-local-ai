@@ -1,0 +1,1227 @@
+{
+  "active": false,
+  "activeVersion": null,
+  "activeVersionId": null,
+  "connections": {
+    "Daily Check": {
+      "main": [
+        [
+          {
+            "node": "Get Stable Secret",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Stable Secret": {
+      "main": [
+        [
+          {
+            "node": "Get Token Secret",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Token Secret": {
+      "main": [
+        [
+          {
+            "node": "Check Consent Expiry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Consent Expiry": {
+      "main": [
+        [
+          {
+            "node": "Check Session?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Renewal Due?": {
+      "main": [
+        [
+          {
+            "node": "Nudge to Slack",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Healthy, No Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Form: Start Renewal": {
+      "main": [
+        [
+          {
+            "node": "Get Stable Secret - Form",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Stable Secret - Form": {
+      "main": [
+        [
+          {
+            "node": "List Accounts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Accounts": {
+      "main": [
+        [
+          {
+            "node": "Form: Select Account",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Form: Select Account": {
+      "main": [
+        [
+          {
+            "node": "Build Consent Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Consent Request": {
+      "main": [
+        [
+          {
+            "node": "Post /auth",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post /auth": {
+      "main": [
+        [
+          {
+            "node": "Form: To Bank Consent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EnableBanking Redirect": {
+      "main": [
+        [
+          {
+            "node": "Code Present?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code Present?": {
+      "main": [
+        [
+          {
+            "node": "Get Stable Secret - Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond: Missing Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Stable Secret - Webhook": {
+      "main": [
+        [
+          {
+            "node": "Mint Exchange JWT",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Error Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mint Exchange JWT": {
+      "main": [
+        [
+          {
+            "node": "Post /sessions",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Error Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post /sessions": {
+      "main": [
+        [
+          {
+            "node": "Get Token Secret - Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Error Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Token Secret - Webhook": {
+      "main": [
+        [
+          {
+            "node": "Build Token Upsert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Token Upsert": {
+      "main": [
+        [
+          {
+            "node": "Upsert Branch",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Error Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upsert Branch": {
+      "main": [
+        [
+          {
+            "node": "Create Token Secret",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Replace Token Secret",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Token Secret": {
+      "main": [
+        [
+          {
+            "node": "Notify Renewed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Error Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Replace Token Secret": {
+      "main": [
+        [
+          {
+            "node": "Notify Renewed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Error Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Renewed": {
+      "main": [
+        [
+          {
+            "node": "Respond: Renewed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Error Page": {
+      "main": [
+        [
+          {
+            "node": "Notify Renewal Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Renewal Failed": {
+      "main": [
+        [
+          {
+            "node": "Respond: Renewal Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Session?": {
+      "main": [
+        [
+          {
+            "node": "Mint Session JWT",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Evaluate Consent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mint Session JWT": {
+      "main": [
+        [
+          {
+            "node": "Get Session Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Session Status": {
+      "main": [
+        [
+          {
+            "node": "Evaluate Consent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluate Consent": {
+      "main": [
+        [
+          {
+            "node": "Renewal Due?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2026-09-24T20:49:03.426Z",
+  "id": "Dx55xcxrtDC6bwum",
+  "isArchived": false,
+  "meta": null,
+  "name": "ZZ Daily Check Probe (temp)",
+  "nodeGroups": [],
+  "nodes": [
+    {
+      "id": "bb7d7ecf-f556-458d-b6de-36ac4734c686",
+      "name": "Sticky Overview",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        32,
+        -160
+      ],
+      "parameters": {
+        "content": "## Enable Banking Token Renewal (spec 005 section 4.2.1)\nCode nodes may use external modules (jsonwebtoken) but NOT node built-ins (fs/https/crypto) -\nevery network call is an HTTP Request node and JWTs are signed with jsonwebtoken.\nThe k8s calls authorize with the Header Auth credential holding the n8n ServiceAccount token\n(Role n8n-finance-secrets: get on both finance Secrets, create/patch the token one).\n\n- Daily: valid_until within 3 days (or token Secret missing) OR GET /sessions/{id} status != AUTHORIZED -> Slack #workflows nudge\n- Form page 1 -> account dropdown built from accounts.json -> POST /auth -> redirect to the bank\n- Bank redirect -> /webhook/enablebanking-consent?code=... -> POST /sessions -> upsert finance-enablebanking-token\nWhitelist https://automation-n8n.homelab.alvsanand.com/webhook/enablebanking-consent on the application.",
+        "height": 288,
+        "width": 896
+      }
+    },
+    {
+      "id": "77bd1b30-3e96-4121-a960-99401bb68a8e",
+      "name": "Daily Check",
+      "notes": "Before the 06:00 finance DAG so a renewal decided today is in place by ingest time.",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        80,
+        288
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "4688954a-6f1f-49d8-98f5-b489bf8e1fea",
+      "name": "Get Stable Secret",
+      "notes": "allowUnauthorizedCerts is scoped to the in-cluster kubernetes.default.svc endpoint",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        304,
+        288
+      ],
+      "parameters": {
+        "url": "https://kubernetes.default.svc/api/v1/namespaces/data/secrets/finance-enablebanking",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "allowUnauthorizedCerts": true,
+          "timeout": 15000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "aI9EjocHktFfP7yJ",
+          "name": "Kubernetes finance renewal (SA token)"
+        }
+      }
+    },
+    {
+      "id": "012b7dfd-30f5-456b-8bb7-a2748052e472",
+      "name": "Get Token Secret",
+      "notes": "allowUnauthorizedCerts is scoped to the in-cluster kubernetes.default.svc endpoint; 404 is the expected 'Secret not created yet' state",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        528,
+        288
+      ],
+      "parameters": {
+        "url": "https://kubernetes.default.svc/api/v1/namespaces/data/secrets/finance-enablebanking-token",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "allowUnauthorizedCerts": true,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "aI9EjocHktFfP7yJ",
+          "name": "Kubernetes finance renewal (SA token)"
+        }
+      }
+    },
+    {
+      "id": "d0f21897-dac9-44ab-a4d6-5fce72428cee",
+      "name": "Check Consent Expiry",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        752,
+        288
+      ],
+      "parameters": {
+        "jsCode": "// Daily consent check (spec 005 §4.2.1).\n// - \"Get Stable Secret\" is a plain HTTP node (credential-authorized): $json is the Secret body.\n// - \"Get Token Secret\" is fullResponse + neverError: 404 is the expected \"no tokens yet\" state.\n// This node only gathers the expiry signals; \"Evaluate Consent\" combines them\n// with the free session-status probe and decides. Only external modules and web\n// globals are used (the Code sandbox blocks node built-ins).\nconst stable = $('Get Stable Secret').first().json;\nconst accounts = JSON.parse(atob(stable.data['accounts.json']));\n\nconst tokenGet = $('Get Token Secret').first().json;\nlet tokensByAlias = {};\nif (tokenGet.statusCode === 404) {\n  tokensByAlias = {};\n} else if (tokenGet.statusCode === 200) {\n  const raw = (tokenGet.body.data || {})['tokens.json'];\n  tokensByAlias = raw ? JSON.parse(atob(raw)) : {};\n} else {\n  throw new Error(`finance-enablebanking-token GET returned HTTP ${tokenGet.statusCode}`);\n}\n\nconst expiryDue = [];\nlet sessionId = null;\nfor (const [alias, cfg] of Object.entries(accounts)) {\n  const entry = tokensByAlias[alias];\n  const until = entry ? entry.valid_until : null;\n  const days = until ? Math.floor((new Date(until) - Date.now()) / 86400000) : -1;\n  if (days <= 3) {\n    const when = until ? new Date(until).toISOString().slice(0, 10) : 'no token yet';\n    expiryDue.push(`- *${alias}* (${cfg.institution_id || alias}): expires on ${when}`);\n  }\n  // One session covers the fleet today; if a renewal ever splits aliases across\n  // sessions, check each id rather than the first.\n  if (!sessionId && entry && entry.session_id) {\n    sessionId = entry.session_id;\n  }\n}\nreturn [{ json: { session_id: sessionId, expiry_due: expiryDue } }];\n"
+      }
+    },
+    {
+      "id": "214f1f23-8efc-4633-8895-bc5e2c4da7da",
+      "name": "Renewal Due?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1872,
+        288
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f08ae1b8-712c-408e-adf0-96ccce387a68",
+              "leftValue": "={{ $json.needs_renewal }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "a4956b0b-ded6-49fc-a88d-3b41c5e3242e",
+      "name": "Nudge to Slack",
+      "webhookId": "e227396e-138c-4c54-80b1-3998d5976839",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        2096,
+        192
+      ],
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C08RQNXQV3P",
+          "mode": "list",
+          "cachedResultName": "workflows"
+        },
+        "text": "={{ $json.nudge_text }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "DszMmPE7WwOjHQjz",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "id": "6c8be7e1-9e54-42d4-96be-4e6184bf18ed",
+      "name": "Healthy, No Action",
+      "notes": "Fires on healthy days; keeps the false branch explicit.",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2096,
+        384
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "b769ee6b-02b9-495a-b0a4-4736feae1574",
+      "name": "Form: Start Renewal",
+      "webhookId": "0c19a176-7e58-419a-9a26-b5d1ca2f578f",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        80,
+        608
+      ],
+      "parameters": {
+        "formTitle": "Renew Enable Banking consent",
+        "formDescription": "Step 1 of 3 - continue to choose the account. Then you log in at your bank (the only manual step); the token Secret updates automatically afterwards.",
+        "formFields": {
+          "values": [
+            {
+              "fieldType": "html",
+              "html": "<p>The bank login on the next step is the one manual PSD2 step. When you approve, the tokens Secret is updated automatically.</p>"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "e60c423c-b528-40ce-8b0a-2901b181a14d",
+      "name": "Get Stable Secret - Form",
+      "notes": "allowUnauthorizedCerts is scoped to the in-cluster kubernetes.default.svc endpoint",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        304,
+        608
+      ],
+      "parameters": {
+        "url": "https://kubernetes.default.svc/api/v1/namespaces/data/secrets/finance-enablebanking",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "allowUnauthorizedCerts": true,
+          "timeout": 15000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "aI9EjocHktFfP7yJ",
+          "name": "Kubernetes finance renewal (SA token)"
+        }
+      }
+    },
+    {
+      "id": "f7e6dd8f-6cfb-4ebd-b4a2-b8ffe68dca1e",
+      "name": "List Accounts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        528,
+        608
+      ],
+      "parameters": {
+        "jsCode": "// Build the second form page: a dropdown of the configured aliases plus an\n// informational block. n8n dropdown options are {\"option\": \"<value>\"} only -\n// the option string is what gets submitted, so it is the raw alias (the\n// \"Account to renew\" fallback in Build Consent Request matches the field label).\nconst stable = $('Get Stable Secret - Form').first().json;\nconst accounts = JSON.parse(atob(stable.data['accounts.json']));\nconst aliases = Object.keys(accounts);\nif (aliases.length === 0) {\n  throw new Error('finance-enablebanking accounts.json has no accounts to renew');\n}\nconst listing = aliases\n  .map((alias) => {\n    const cfg = accounts[alias];\n    return `<li><code>${alias}</code> — ${cfg.institution_id || 'bank'} — …${cfg.iban.slice(-4)}</li>`;\n  })\n  .join('');\nconst form = [\n  { fieldType: 'html', html: `<p>Configured accounts:</p><ul>${listing}</ul>` },\n  {\n    fieldLabel: 'Account to renew',\n    fieldName: 'alias',\n    fieldType: 'dropdown',\n    fieldOptions: { values: aliases.map((alias) => ({ option: alias })) },\n    requiredField: true,\n  },\n];\nreturn [{ json: { form_json: JSON.stringify(form), accounts_json: JSON.stringify(accounts) } }];\n"
+      }
+    },
+    {
+      "id": "20e0023a-af41-4f93-b2bc-a20b9b22033b",
+      "name": "Form: Select Account",
+      "webhookId": "a3fd7ff8-166d-4d4a-a11d-4acc23626239",
+      "notes": "dropdown values are built from finance-enablebanking.accounts.json, so a new account needs only a Secret entry",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.3,
+      "position": [
+        752,
+        608
+      ],
+      "parameters": {
+        "defineForm": "json",
+        "jsonOutput": "={{ $json.form_json }}",
+        "options": {
+          "formTitle": "Renew Enable Banking consent",
+          "formDescription": "Step 2 of 3 - pick the account whose consent you are renewing, then Submit. The next screen is your bank's login and approval page."
+        }
+      }
+    },
+    {
+      "id": "13146158-b645-4015-a194-ec38624a9788",
+      "name": "Build Consent Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        976,
+        608
+      ],
+      "parameters": {
+        "jsCode": "// Mint the /auth JWT for the account chosen on the form dropdown and build the\n// request body. jsonwebtoken is an n8n-bundled external module (verified in the\n// Code sandbox 2026-09-15); node built-ins are not available, so base64 uses atob.\nconst jwt = require('jsonwebtoken');\n\nconst stable = $('Get Stable Secret - Form').first().json;\nconst accounts = JSON.parse(atob(stable.data['accounts.json']));\nconst alias = $json.alias || $json['Account to renew'];\nconst config = accounts[alias];\nif (!config) {\n  throw new Error(`unknown alias '${alias}'; configured: ${Object.keys(accounts).join(', ')}`);\n}\nif (!config.app_id) {\n  throw new Error(`alias '${alias}' is missing app_id in finance-enablebanking`);\n}\nconst pem = atob(stable.data['private_key']);\nconst token = jwt.sign(\n  { iss: 'enablebanking.com', aud: 'api.enablebanking.com' },\n  pem,\n  { algorithm: 'RS256', keyid: config.app_id, expiresIn: 3600 }\n);\nreturn [\n  {\n    json: {\n      jwt: token,\n      auth_body: JSON.stringify({\n        access: { valid_until: new Date(Date.now() + 180 * 86400000).toISOString() },\n        aspsp: { name: config.institution_id || alias, country: 'ES' },\n        state: $execution.id + '-' + alias,\n        redirect_url: 'https://automation-n8n.homelab.alvsanand.com/webhook/enablebanking-consent',\n        psu_type: 'personal',\n      }),\n    },\n  },\n];\n"
+      }
+    },
+    {
+      "id": "129cbec8-3875-4f3a-9b44-5e8dfb106a90",
+      "name": "Post /auth",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        608
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.enablebanking.com/auth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.jwt }}"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.auth_body }}",
+        "options": {
+          "timeout": 30000
+        }
+      }
+    },
+    {
+      "id": "2b8d0ec2-33b9-4639-a69a-4c5a543e8c3f",
+      "name": "Form: To Bank Consent",
+      "webhookId": "6923f174-7317-42f5-b34a-33e25f965387",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.3,
+      "position": [
+        1424,
+        608
+      ],
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "redirect",
+        "redirectUrl": "={{ $json.url }}",
+        "options": {
+          "formTitle": "Renew Enable Banking consent"
+        }
+      }
+    },
+    {
+      "id": "cecb6fe6-f083-46de-9e26-5bac442cd956",
+      "name": "EnableBanking Redirect",
+      "webhookId": "a38efadf-65f2-4749-842e-19c2210f36ea",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        80,
+        1312
+      ],
+      "parameters": {
+        "path": "enablebanking-consent",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "07ec4d65-ed4e-444b-ac0f-3143348a43a3",
+      "name": "Code Present?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        304,
+        1312
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "31b414b7-a4aa-47ee-8f7a-85638b6bb9f0",
+              "leftValue": "={{ $json.query.code }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "02bc9e23-1299-4f6f-b05a-0143542691a0",
+      "name": "Respond: Missing Code",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        528,
+        1408
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"error\": \"Enable Banking redirect did not carry ?code= - restart the renewal form\" } }}",
+        "options": {
+          "responseCode": 400
+        }
+      }
+    },
+    {
+      "id": "e2d08882-3f28-4f94-b27a-ed2bb56efbaa",
+      "name": "Get Stable Secret - Webhook",
+      "notes": "allowUnauthorizedCerts is scoped to the in-cluster kubernetes.default.svc endpoint",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "onError": "continueErrorOutput",
+      "position": [
+        528,
+        1216
+      ],
+      "parameters": {
+        "url": "https://kubernetes.default.svc/api/v1/namespaces/data/secrets/finance-enablebanking",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "allowUnauthorizedCerts": true,
+          "timeout": 15000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "aI9EjocHktFfP7yJ",
+          "name": "Kubernetes finance renewal (SA token)"
+        }
+      }
+    },
+    {
+      "id": "88506499-aae6-4970-a002-5dc15619d2ad",
+      "name": "Mint Exchange JWT",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "onError": "continueErrorOutput",
+      "position": [
+        752,
+        1152
+      ],
+      "parameters": {
+        "jsCode": "// Mint the exchange JWT and the POST /sessions body. The consent code comes\n// from the bank redirect (?code=). One application per fleet today, so the\n// first alias's app_id signs the exchange; a second application needs the\n// alias tracked through the consent state first.\nconst jwt = require('jsonwebtoken');\n\nconst code = $('EnableBanking Redirect').first().json.query.code;\nconst stable = $('Get Stable Secret - Webhook').first().json;\nconst accounts = JSON.parse(atob(stable.data['accounts.json']));\nconst firstAlias = Object.keys(accounts)[0];\nif (!firstAlias) {\n  throw new Error('finance-enablebanking accounts.json is empty');\n}\nconst pem = atob(stable.data['private_key']);\nconst token = jwt.sign(\n  { iss: 'enablebanking.com', aud: 'api.enablebanking.com' },\n  pem,\n  { algorithm: 'RS256', keyid: accounts[firstAlias].app_id, expiresIn: 3600 }\n);\nreturn [{ json: { jwt: token, session_body: JSON.stringify({ code }) } }];\n"
+      }
+    },
+    {
+      "id": "a678f709-1b84-4796-bdc7-4ae99409563f",
+      "name": "Post /sessions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "onError": "continueErrorOutput",
+      "position": [
+        976,
+        1072
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.enablebanking.com/sessions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.jwt }}"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.session_body }}",
+        "options": {
+          "timeout": 30000
+        }
+      }
+    },
+    {
+      "id": "f5b5f86d-ba1c-460a-b689-1757ac0e78b8",
+      "name": "Get Token Secret - Webhook",
+      "notes": "allowUnauthorizedCerts is scoped to the in-cluster kubernetes.default.svc endpoint; 404 is the expected 'Secret not created yet' state",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        1008
+      ],
+      "parameters": {
+        "url": "https://kubernetes.default.svc/api/v1/namespaces/data/secrets/finance-enablebanking-token",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "allowUnauthorizedCerts": true,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "aI9EjocHktFfP7yJ",
+          "name": "Kubernetes finance renewal (SA token)"
+        }
+      }
+    },
+    {
+      "id": "706b8b70-1bdb-442a-bdd9-3d855ba99f42",
+      "name": "Build Token Upsert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "onError": "continueErrorOutput",
+      "position": [
+        1424,
+        1008
+      ],
+      "parameters": {
+        "jsCode": "// Merge the fresh session material per alias and build the token Secret body,\n// plus the success page the browser lands on (styled like the n8n form pages).\n// The sessions response comes from $('Post /sessions') - this node's immediate\n// predecessor is the token-secret GET, so $json is NOT the session body.\nconst session = $('Post /sessions').first().json;\nconst validUntil = (session.access || {}).valid_until;\nif (!validUntil) {\n  throw new Error(`session response carried no access.valid_until: ${JSON.stringify(session).slice(0, 200)}`);\n}\n\nconst tokenGet = $('Get Token Secret - Webhook').first().json;\nlet tokens = {};\nlet tokenSecretExisted = false;\nif (tokenGet.statusCode === 404) {\n  tokenSecretExisted = false;\n} else if (tokenGet.statusCode === 200) {\n  const raw = (tokenGet.body.data || {})['tokens.json'];\n  tokens = raw ? JSON.parse(atob(raw)) : {};\n  tokenSecretExisted = true;\n} else {\n  throw new Error(`finance-enablebanking-token GET returned HTTP ${tokenGet.statusCode}`);\n}\n\nconst stable = $('Get Stable Secret - Webhook').first().json;\nconst accounts = JSON.parse(atob(stable.data['accounts.json']));\n\nconst renewals = [];\nfor (const resource of session.accounts || []) {\n  if (!resource.uid) continue;\n  const iban = (resource.account_id || {}).iban;\n  const matched = Object.entries(accounts).filter(([, cfg]) => cfg.iban === iban);\n  const alias = matched.length ? matched[0][0] : null;\n  if (!alias) {\n    throw new Error(\n      `session account ****${String(iban).slice(-4)} is not in finance-enablebanking accounts.json; add its alias first`\n    );\n  }\n  tokens[alias] = { uid: resource.uid, valid_until: validUntil, session_id: session.session_id };\n  renewals.push(alias);\n}\nif (renewals.length === 0) {\n  throw new Error('Enable Banking session authorized zero accounts; nothing to store');\n}\n\nconst untilDate = new Date(validUntil).toISOString().slice(0, 10);\nconst slackText =\n  `Enable Banking token renewed for ${renewals.join(', ')}: consent valid until ${untilDate}. ` +\n  'The daily pipeline picks it up on the next run.';\n\nconst escapeHtml = (text) =>\n  String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst rows = renewals\n  .map((alias) => `<li><code>${escapeHtml(alias)}</code> — ${escapeHtml(accounts[alias].institution_id || 'bank')}</li>`)\n  .join('');\nconst resultHtml = `<!DOCTYPE html>\n<html lang=\"en\"><head><meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Renew Enable Banking consent</title>\n<style>\n  body { margin: 0; background: #f7f7f8; color: #2d2e33;\n    font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif;\n    display: flex; justify-content: center; padding: 48px 16px; }\n  .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.08);\n    padding: 32px; max-width: 520px; width: 100%; }\n  h1 { font-size: 22px; font-weight: 600; text-align: center; margin: 0 0 20px; }\n  p { font-size: 14px; line-height: 1.5; margin: 0 0 12px; }\n  ul { font-size: 14px; line-height: 1.6; margin: 0 0 16px 20px; padding: 0; }\n  .ok { padding: 12px 14px; border-radius: 6px; background: #eef8f1; border: 1px solid #cfe8d8;\n    font-size: 14px; line-height: 1.5; }\n  footer { text-align: center; font-size: 12px; color: #7a7a7f; margin-top: 24px; }\n</style></head>\n<body><div class=\"card\">\n  <h1>Renew Enable Banking consent</h1>\n  <p>Step 3 of 3 — done. The bank consent was renewed and stored:</p>\n  <ul>${rows}</ul>\n  <div class=\"ok\">Valid until <strong>${untilDate}</strong>. The daily pipeline picks it up on the next run.</div>\n  <footer>Form automated with n8n</footer>\n</div></body></html>`;\n\nconst secretBody = {\n  apiVersion: 'v1',\n  kind: 'Secret',\n  metadata: { name: 'finance-enablebanking-token', namespace: 'data' },\n  data: { 'tokens.json': btoa(JSON.stringify(tokens)) },\n};\nreturn [\n  {\n    json: {\n      token_secret_missing: !tokenSecretExisted,\n      secret_body: JSON.stringify(secretBody),\n      slack_text: slackText,\n      result_html: resultHtml,\n    },\n  },\n];\n"
+      }
+    },
+    {
+      "id": "87a5de6b-d24e-45f9-88c4-c19313adf602",
+      "name": "Upsert Branch",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1648,
+        928
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "02e43420-9072-4ae9-ac9e-4a6668b4468b",
+              "leftValue": "={{ $json.token_secret_missing }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "2172a175-8654-4e50-a7f4-791292577c7b",
+      "name": "Create Token Secret",
+      "notes": "the renewal-owned token Secret was deleted or never created (Get returned 404)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "onError": "continueErrorOutput",
+      "position": [
+        1872,
+        832
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://kubernetes.default.svc/api/v1/namespaces/data/secrets",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.secret_body }}",
+        "options": {
+          "allowUnauthorizedCerts": true,
+          "timeout": 15000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "aI9EjocHktFfP7yJ",
+          "name": "Kubernetes finance renewal (SA token)"
+        }
+      }
+    },
+    {
+      "id": "b756abeb-a167-40e0-b9e1-c1b107eba15a",
+      "name": "Replace Token Secret",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "onError": "continueErrorOutput",
+      "position": [
+        1872,
+        1024
+      ],
+      "parameters": {
+        "method": "PUT",
+        "url": "https://kubernetes.default.svc/api/v1/namespaces/data/secrets/finance-enablebanking-token",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.secret_body }}",
+        "options": {
+          "allowUnauthorizedCerts": true,
+          "timeout": 15000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "aI9EjocHktFfP7yJ",
+          "name": "Kubernetes finance renewal (SA token)"
+        }
+      }
+    },
+    {
+      "id": "7b633bef-ef68-4e79-8d8e-600748557d5a",
+      "name": "Notify Renewed",
+      "webhookId": "cb0e0685-eb27-41f1-8cf8-07c180f40070",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        2096,
+        880
+      ],
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C08RQNXQV3P",
+          "mode": "list",
+          "cachedResultName": "workflows"
+        },
+        "text": "={{ $('Build Token Upsert').first().json.slack_text }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "DszMmPE7WwOjHQjz",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "id": "db61d03d-742f-420c-9051-cd17d8b95c92",
+      "name": "Respond: Renewed",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2320,
+        880
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $('Build Token Upsert').first().json.result_html }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "5936cc5f-aab7-4bb6-9a21-7da3d9334842",
+      "name": "Build Error Page",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2096,
+        1264
+      ],
+      "parameters": {
+        "jsCode": "// Build the failure page for the consent-exchange branch. Reached from the\n// error output of any node in the chain (onError: continueErrorOutput), so the\n// run stays loud (this branch also posts to Slack) instead of failing silently.\nconst item = $json;\nconst error = item.error || {};\nconst raw = error.message || error.description || JSON.stringify(item);\nconst message = typeof raw === 'string' ? raw : JSON.stringify(raw);\nconst slash = String(message).replace(/\\s+/g, ' ').slice(0, 400);\n\nconst escapeHtml = (text) =>\n  String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n\nconst slackText = `Enable Banking consent renewal FAILED: ${slash}. Nothing was stored - re-run the renewal form.`;\nconst resultHtml = `<!DOCTYPE html>\n<html lang=\"en\"><head><meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Renew Enable Banking consent</title>\n<style>\n  body { margin: 0; background: #f7f7f8; color: #2d2e33;\n    font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif;\n    display: flex; justify-content: center; padding: 48px 16px; }\n  .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.08);\n    padding: 32px; max-width: 520px; width: 100%; }\n  h1 { font-size: 22px; font-weight: 600; text-align: center; margin: 0 0 20px; }\n  p { font-size: 14px; line-height: 1.5; margin: 0 0 12px; }\n  .bad { padding: 12px 14px; border-radius: 6px; background: #fdeef1; border: 1px solid #f3c6d0;\n    font-size: 13px; line-height: 1.5; word-break: break-word; }\n  footer { text-align: center; font-size: 12px; color: #7a7a7f; margin-top: 24px; }\n</style></head>\n<body><div class=\"card\">\n  <h1>Renew Enable Banking consent</h1>\n  <p>Step 3 of 3 — <strong>not stored</strong>. Nothing changed, so it is safe to retry:</p>\n  <div class=\"bad\">${escapeHtml(slash)}</div>\n  <footer>Form automated with n8n</footer>\n</div></body></html>`;\n\nreturn [{ json: { slack_text: slackText, result_html: resultHtml } }];\n"
+      }
+    },
+    {
+      "id": "6d70f27c-f6cb-4f02-910b-8abaf13016cc",
+      "name": "Notify Renewal Failed",
+      "webhookId": "977c5501-7956-4f70-be94-82aee0463741",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        2320,
+        1264
+      ],
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C08RQNXQV3P",
+          "mode": "list",
+          "cachedResultName": "workflows"
+        },
+        "text": "={{ $json.slack_text }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "DszMmPE7WwOjHQjz",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "id": "01d08c5b-1497-457c-815c-67859a182609",
+      "name": "Respond: Renewal Failed",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2544,
+        1264
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $('Build Error Page').first().json.result_html }}",
+        "options": {
+          "responseCode": 500,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "49cfeca8-b847-445c-b107-1e9c4dc172d2",
+      "name": "Check Session?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        976,
+        288
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "79e6c008-0b62-45af-8cca-338ea5690c2e",
+              "leftValue": "={{ $json.session_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "9f4b0a6d-b086-4f1b-8571-568497e365c3",
+      "name": "Mint Session JWT",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        288
+      ],
+      "parameters": {
+        "jsCode": "// Mint a read-only JWT for the daily GET /sessions/{id} liveness probe. That\n// call reads Enable Banking's own session state and never reaches the ASPSP, so\n// it spends none of the PSD2 per-endpoint data-call budget. One application per\n// fleet today, so the first alias's app_id signs the request.\nconst jwt = require('jsonwebtoken');\n\nconst stable = $('Get Stable Secret').first().json;\nconst accounts = JSON.parse(atob(stable.data['accounts.json']));\nconst firstAlias = Object.keys(accounts)[0];\nif (!firstAlias) {\n  throw new Error('finance-enablebanking accounts.json is empty');\n}\nconst pem = atob(stable.data['private_key']);\nconst token = jwt.sign(\n  { iss: 'enablebanking.com', aud: 'api.enablebanking.com' },\n  pem,\n  { algorithm: 'RS256', keyid: accounts[firstAlias].app_id, expiresIn: 3600 }\n);\nreturn [{ json: { jwt: token, session_id: $('Check Consent Expiry').first().json.session_id } }];\n"
+      }
+    },
+    {
+      "id": "fa87309c-6a24-449e-8bb8-bdde2bd1cd01",
+      "name": "Get Session Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1424,
+        288
+      ],
+      "parameters": {
+        "url": "=https://api.enablebanking.com/sessions/{{ $json.session_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.jwt }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 30000
+        }
+      }
+    },
+    {
+      "id": "59d284b5-d3f4-4103-85d0-defd87c376d9",
+      "name": "Evaluate Consent",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1648,
+        288
+      ],
+      "parameters": {
+        "jsCode": "// Combine the stored-expiry signal with the free GET /sessions/{id} probe.\n// $json is the HTTP response when \"Get Session Status\" ran, or the\n// \"Check Consent Expiry\" item on the branch where no session id is stored yet.\n// Unlike valid_until, a session status other than AUTHORIZED means the consent\n// is gone even though its stored expiry is still in the future.\nconst expiry = $('Check Consent Expiry').first().json;\nconst lines = [...(expiry.expiry_due || [])];\n\nconst resp = $json;\nif (resp && resp.statusCode !== undefined) {\n  const status = (resp.body || {}).status;\n  if (!(resp.statusCode === 200 && status === 'AUTHORIZED')) {\n    lines.push(\n      `- session \\`${expiry.session_id}\\`: ${status || `HTTP ${resp.statusCode}`}, not AUTHORIZED - ` +\n        'the bank consent is no longer usable; re-link'\n    );\n  }\n}\n\nconst needsRenewal = lines.length > 0;\nreturn [\n  {\n    json: {\n      needs_renewal: needsRenewal,\n      nudge_text: needsRenewal\n        ? `Enable Banking consent needs attention:\\n${lines.join('\\n')}\\n\\nRenew now (the bank login is the one manual step): https://automation-n8n.homelab.alvsanand.com/form/7c1f51ab-5f61-4b21-9b31-01befd1d0d02`\n        : 'all consents healthy',\n    },\n  },\n];\n"
+      }
+    }
+  ],
+  "pinData": null,
+  "settings": {},
+  "shared": [
+    {
+      "role": "workflow:owner",
+      "workflowId": "Dx55xcxrtDC6bwum",
+      "projectId": "zcGU09G6dy4Oah3l",
+      "createdAt": "2026-09-24T20:49:03.426Z",
+      "updatedAt": "2026-09-24T20:49:03.426Z"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2026-09-24T20:49:03.426Z",
+  "versionId": "c6d7591a-4c3d-42a0-8926-e7172b13ad60"
+}

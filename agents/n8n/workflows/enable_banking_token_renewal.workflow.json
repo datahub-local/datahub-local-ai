@@ -1,12 +1,12 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "c648780b-c516-46a8-90c3-7bf6b974026c",
+    "versionId": "57cb43da-b889-4bba-86f0-ca28a2fc889d",
     "workflowId": "QhmjljMi0SQ1YZzk",
     "nodes": [
       {
         "parameters": {
-          "content": "## Enable Banking Token Renewal (spec 005 section 4.2.1)\nCode nodes may use external modules (jsonwebtoken) but NOT node built-ins (fs/https/crypto) -\nevery network call is an HTTP Request node and JWTs are signed with jsonwebtoken.\nThe k8s calls authorize with the Header Auth credential holding the n8n ServiceAccount token\n(Role n8n-finance-secrets: get on both finance Secrets, create/patch the token one).\n\n- Daily: valid_until within 3 days (or token Secret missing) OR GET /sessions/{id} status != AUTHORIZED -> Slack #workflows nudge\n- Form page 1 -> account dropdown built from accounts.json -> POST /auth -> redirect to the bank\n- Bank redirect -> /webhook/enablebanking-consent?code=... -> POST /sessions -> upsert finance-enablebanking-token\nWhitelist https://automation-n8n.homelab.alvsanand.com/webhook/enablebanking-consent on the application.",
+          "content": "## Enable Banking Token Renewal (spec 005 section 4.2.1)\nCode nodes may use external modules (jsonwebtoken) but NOT node built-ins (fs/https/crypto) -\nevery network call is an HTTP Request node and JWTs are signed with jsonwebtoken.\nThe k8s calls authorize with the Header Auth credential holding the n8n ServiceAccount token\n(Role n8n-finance-secrets: get on both finance Secrets, create/patch the token one).\n\n- Daily: valid_until within 3 days (or token Secret missing) -> Slack #workflows nudge\n- Form page 1 -> account dropdown built from accounts.json -> POST /auth -> redirect to the bank\n- Bank redirect -> /webhook/enablebanking-consent?code=... -> POST /sessions -> upsert finance-enablebanking-token\nWhitelist https://automation-n8n.homelab.alvsanand.com/webhook/enablebanking-consent on the application.",
           "height": 288,
           "width": 896
         },
@@ -650,18 +650,8 @@
       },
       {
         "parameters": {
-          "respondWith": "text",
-          "responseBody": "={{ $('Build Token Upsert').first().json.result_html }}",
-          "options": {
-            "responseHeaders": {
-              "entries": [
-                {
-                  "name": "Content-Type",
-                  "value": "text/html; charset=utf-8"
-                }
-              ]
-            }
-          }
+          "respondWith": "html",
+          "options": {}
         },
         "id": "db61d03d-742f-420c-9051-cd17d8b95c92",
         "name": "Respond: Renewed",
@@ -717,18 +707,9 @@
       },
       {
         "parameters": {
-          "respondWith": "text",
-          "responseBody": "={{ $('Build Error Page').first().json.result_html }}",
+          "respondWith": "html",
           "options": {
-            "responseCode": 500,
-            "responseHeaders": {
-              "entries": [
-                {
-                  "name": "Content-Type",
-                  "value": "text/html; charset=utf-8"
-                }
-              ]
-            }
+            "responseCode": 500
           }
         },
         "id": "01d08c5b-1497-457c-815c-67859a182609",
@@ -784,7 +765,7 @@
         "typeVersion": 2,
         "position": [
           1200,
-          288
+          224
         ]
       },
       {
@@ -815,7 +796,7 @@
         "typeVersion": 4.2,
         "position": [
           1424,
-          288
+          224
         ]
       },
       {
@@ -1214,13 +1195,13 @@
     },
     "nodeGroups": [],
     "authors": "no name",
-    "name": null,
-    "description": null,
+    "name": "Version 57cb43da",
+    "description": "",
     "autosaved": true,
-    "createdAt": "2026-09-16T17:47:12.646Z",
-    "updatedAt": "2026-09-16T17:47:12.646Z"
+    "createdAt": "2026-09-24T20:48:33.734Z",
+    "updatedAt": "2026-09-24T20:48:36.318Z"
   },
-  "activeVersionId": "c648780b-c516-46a8-90c3-7bf6b974026c",
+  "activeVersionId": "57cb43da-b889-4bba-86f0-ca28a2fc889d",
   "connections": {
     "Daily Check": {
       "main": [
@@ -1610,7 +1591,7 @@
   "nodes": [
     {
       "parameters": {
-        "content": "## Enable Banking Token Renewal (spec 005 section 4.2.1)\nCode nodes may use external modules (jsonwebtoken) but NOT node built-ins (fs/https/crypto) -\nevery network call is an HTTP Request node and JWTs are signed with jsonwebtoken.\nThe k8s calls authorize with the Header Auth credential holding the n8n ServiceAccount token\n(Role n8n-finance-secrets: get on both finance Secrets, create/patch the token one).\n\n- Daily: valid_until within 3 days (or token Secret missing) OR GET /sessions/{id} status != AUTHORIZED -> Slack #workflows nudge\n- Form page 1 -> account dropdown built from accounts.json -> POST /auth -> redirect to the bank\n- Bank redirect -> /webhook/enablebanking-consent?code=... -> POST /sessions -> upsert finance-enablebanking-token\nWhitelist https://automation-n8n.homelab.alvsanand.com/webhook/enablebanking-consent on the application.",
+        "content": "## Enable Banking Token Renewal (spec 005 section 4.2.1)\nCode nodes may use external modules (jsonwebtoken) but NOT node built-ins (fs/https/crypto) -\nevery network call is an HTTP Request node and JWTs are signed with jsonwebtoken.\nThe k8s calls authorize with the Header Auth credential holding the n8n ServiceAccount token\n(Role n8n-finance-secrets: get on both finance Secrets, create/patch the token one).\n\n- Daily: valid_until within 3 days (or token Secret missing) -> Slack #workflows nudge\n- Form page 1 -> account dropdown built from accounts.json -> POST /auth -> redirect to the bank\n- Bank redirect -> /webhook/enablebanking-consent?code=... -> POST /sessions -> upsert finance-enablebanking-token\nWhitelist https://automation-n8n.homelab.alvsanand.com/webhook/enablebanking-consent on the application.",
         "height": 288,
         "width": 896
       },
@@ -2254,18 +2235,8 @@
     },
     {
       "parameters": {
-        "respondWith": "text",
-        "responseBody": "={{ $('Build Token Upsert').first().json.result_html }}",
-        "options": {
-          "responseHeaders": {
-            "entries": [
-              {
-                "name": "Content-Type",
-                "value": "text/html; charset=utf-8"
-              }
-            ]
-          }
-        }
+        "respondWith": "html",
+        "options": {}
       },
       "id": "db61d03d-742f-420c-9051-cd17d8b95c92",
       "name": "Respond: Renewed",
@@ -2321,18 +2292,9 @@
     },
     {
       "parameters": {
-        "respondWith": "text",
-        "responseBody": "={{ $('Build Error Page').first().json.result_html }}",
+        "respondWith": "html",
         "options": {
-          "responseCode": 500,
-          "responseHeaders": {
-            "entries": [
-              {
-                "name": "Content-Type",
-                "value": "text/html; charset=utf-8"
-              }
-            ]
-          }
+          "responseCode": 500
         }
       },
       "id": "01d08c5b-1497-457c-815c-67859a182609",
@@ -2388,7 +2350,7 @@
       "typeVersion": 2,
       "position": [
         1200,
-        288
+        224
       ]
     },
     {
@@ -2419,7 +2381,7 @@
       "typeVersion": 4.2,
       "position": [
         1424,
-        288
+        224
       ]
     },
     {
@@ -2464,6 +2426,6 @@
   },
   "tags": [],
   "triggerCount": 3,
-  "updatedAt": "2026-09-16T17:47:12.657Z",
-  "versionId": "c648780b-c516-46a8-90c3-7bf6b974026c"
+  "updatedAt": "2026-09-24T20:48:33.730Z",
+  "versionId": "57cb43da-b889-4bba-86f0-ca28a2fc889d"
 }

@@ -11,7 +11,7 @@ changes leaves the working tree clean.
 Also refuses to build a dataset that reads bronze. Trino grants `superset` full
 access to every medallion catalog, so nothing else stops it, and bronze holds
 unexpanded JSON - a chart on `raw_invoices` would count invoices where it meant
-line items. See CLAUDE.md, "Bronze is not a consumer layer".
+line items. See AGENTS.md, "Bronze is not a consumer layer".
 """
 import pathlib
 import re

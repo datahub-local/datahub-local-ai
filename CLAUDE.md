@@ -1,4 +1,4 @@
-# CLAUDE.md
+# AGENTS.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -175,7 +175,7 @@ files under `.github/` keep them too — they are procedure, not config.
 
 ## Git commits
 
-Governed by the global rule in `~/.claude/CLAUDE.md`: **never commit unless asked
+Governed by the global rule in `~/.claude/AGENTS.md`: **never commit unless asked
 directly**, and suggest one short `type(scope): summary` line instead. Repeating
 it here would be a second copy that drifts; the global file is the one place it
 lives.
@@ -366,10 +366,10 @@ What stays this repository's concern:
   package and the server dies with `module 'semantic' has no attribute
   'register'`.
 
-| Server          | ConfigMap           | Source of the data                          |
-| --------------- | ------------------- | ------------------------------------------- |
-| `homelab-facts` | `mcp-homelab-facts` | `agents/sympozium/config/homelab_facts/`, rendered by `templates/mcp-configmaps.yaml` |
-| `semantic`      | `mcp-semantic`      | `config/semantic/registry.yaml`, a symlink to `workflows/dbt/semantic/bodega.yaml` |
+| Server             | ConfigMap              | Source of the data                                                                                                                                         |
+| ------------------ | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `homelab-facts`    | `mcp-homelab-facts`    | `agents/sympozium/config/homelab_facts/`, rendered by `templates/mcp-configmaps.yaml`                                                                      |
+| `semantic`         | `mcp-semantic`         | `config/semantic/registry.yaml`, a symlink to `workflows/dbt/semantic/bodega.yaml`                                                                         |
 | `semantic-finance` | `mcp-semantic-finance` | `config/semantic-finance/registry.yaml`, a symlink to `workflows/dbt/semantic/finance.yaml` (scopes `silver.finance,gold.finance`, `toolsPrefix: finance`) |
 
 The semantic ConfigMap carries **one** key: `registry.yaml`, the metric

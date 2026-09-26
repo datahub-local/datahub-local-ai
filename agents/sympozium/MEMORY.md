@@ -75,20 +75,20 @@ decodes `spec` strictly, so unknown keys, bad enums and type errors are rejected
 What is genuinely unguarded now — every one of these renders and deploys
 cleanly, and fails silently or not at all:
 
-| Lost check | What it costs |
-| --- | --- |
-| `send_channel_message` on a hook or reply persona's allowlist | Cost two answers on 2026-08-31. The cheapest to put back as a `fail` in `templates/ensembles.yaml` |
-| `toolsAllow` ↔ `toolPolicy.allow` drift | Prompt budget, silently. See *The tool schemas, not the report, are what fills the context* |
-| `BANNED_TOOLS`, and the two shell-teaching SkillPacks by name | An agent that gets a shell. See *A SkillPack overrode every tool decision in this repository* |
-| A values-only key set in `ensemble.yaml` | Values win the merge; the source line is dead and reads as live |
-| A CRD-defaulted field omitted | Permanent ArgoCD OutOfSync, which `kubectl diff` cannot see |
-| A memory seed containing `: ` | Webhook rejects the whole Ensemble. `--dry-run=server` is again the only thing that sees it |
-| An MCP `project:` naming a directory that does not exist | Pod crash-loops on `no such project` |
-| A wrong MCP server or tool name | The tool silently never appears. See *Tool names are not guessable* |
-| Non-ASCII inside an indented `prompts/delivery/` block | An empty `status.result`. `grep -nP '^\s+.*[^\x00-\x7F]'` |
-| `allowedSenders`/`allowedChats` unset on the inbound-bound persona | An open door on the one ensemble that takes inbound messages |
-| `provider` ↔ `baseURL` ↔ `authRefs` coherence | The three live in two files and the controller matches `provider` byte for byte with no case folding. A miss is a run with no credential, or a metered model pointed at Ollama's `.svc` port — not a startup error. This check was written and never committed |
-| A prompt file referenced by nobody | Dead file, harmless |
+| Lost check                                                         | What it costs                                                                                                                                                                                                                                                  |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `send_channel_message` on a hook or reply persona's allowlist      | Cost two answers on 2026-08-31. The cheapest to put back as a `fail` in `templates/ensembles.yaml`                                                                                                                                                             |
+| `toolsAllow` ↔ `toolPolicy.allow` drift                            | Prompt budget, silently. See *The tool schemas, not the report, are what fills the context*                                                                                                                                                                    |
+| `BANNED_TOOLS`, and the two shell-teaching SkillPacks by name      | An agent that gets a shell. See *A SkillPack overrode every tool decision in this repository*                                                                                                                                                                  |
+| A values-only key set in `ensemble.yaml`                           | Values win the merge; the source line is dead and reads as live                                                                                                                                                                                                |
+| A CRD-defaulted field omitted                                      | Permanent ArgoCD OutOfSync, which `kubectl diff` cannot see                                                                                                                                                                                                    |
+| A memory seed containing `: `                                      | Webhook rejects the whole Ensemble. `--dry-run=server` is again the only thing that sees it                                                                                                                                                                    |
+| An MCP `project:` naming a directory that does not exist           | Pod crash-loops on `no such project`                                                                                                                                                                                                                           |
+| A wrong MCP server or tool name                                    | The tool silently never appears. See *Tool names are not guessable*                                                                                                                                                                                            |
+| Non-ASCII inside an indented `prompts/delivery/` block             | An empty `status.result`. `grep -nP '^\s+.*[^\x00-\x7F]'`                                                                                                                                                                                                      |
+| `allowedSenders`/`allowedChats` unset on the inbound-bound persona | An open door on the one ensemble that takes inbound messages                                                                                                                                                                                                   |
+| `provider` ↔ `baseURL` ↔ `authRefs` coherence                      | The three live in two files and the controller matches `provider` byte for byte with no case folding. A miss is a run with no credential, or a metered model pointed at Ollama's `.svc` port — not a startup error. This check was written and never committed |
+| A prompt file referenced by nobody                                 | Dead file, harmless                                                                                                                                                                                                                                            |
 
 So the deploy checklist grew in exchange: render through `helmfile`, then
 `kubectl apply --dry-run=server` whenever a cluster is reachable, and read the
@@ -457,15 +457,15 @@ this table against the YAML in either direction**, and it has drifted in both:
 on 2026-08-29 `renovate-reviewer`'s row was stale while `service-janitor`'s YAML
 was wrong. A cron change is two edits.
 
-| Persona             | Schedule       | Why that cadence                                                                                                                                                                                                  |
-| ------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Persona             | Schedule       | Why that cadence                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `sre-sentinel`      | `0 7,19 * * *` | Not the detector — the digest. Alertmanager already routes every alert to Robusta, which posts to Slack; this adds new-vs-chronic, root cause and the volume fill check no alert rule covers. At 30m it was 48 messages a day restating Robusta. Moved off `heartbeat, 6h` to fixed 07:00/19:00 UTC on 2026-09-10, so the digest lands at the start and end of a working day rather than drifting with the last apply. |
-| `endpoint-warden`   | `30 4 * * *`   | 04:30 UTC = 06:30 Madrid summer.                                                                                                                                                                                  |
-| `service-janitor`   | `0 5 * * *`    | Daily, not weekly: certificates, tokens and backup freshness all move inside a day.                                                                                                                               |
-| `db-steward`        | `30 5 * * *`   | Half an hour after the warden so the two do not contend for the GPU.                                                                                                                                              |
-| `gitops-auditor`    | `0 7,19 * * *` | Nothing else watches ArgoCD sync state — Robusta forwards events and alerts, not drift. Was `4 */4 * * *`; at twice a day its "drift that survives two consecutive runs" rule now spans 24h rather than 8h, so drift is reported a day later and a fix that lands between two runs is never seen as drift at all. |
-| `renovate-reviewer` | `0 10 * * 0,6` | Weekends, off the weekday slot: a 4B model re-reviewing the same PR hourly is noise and would hold the GPU against the ops agents.                                                                                 |
-| `homelab-oracle`    | none           | Inbound only.                                                                                                                                                                                                     |
+| `endpoint-warden`   | `30 4 * * *`   | 04:30 UTC = 06:30 Madrid summer.                                                                                                                                                                                                                                                                                                                                                                                       |
+| `service-janitor`   | `0 5 * * *`    | Daily, not weekly: certificates, tokens and backup freshness all move inside a day.                                                                                                                                                                                                                                                                                                                                    |
+| `db-steward`        | `30 5 * * *`   | Half an hour after the warden so the two do not contend for the GPU.                                                                                                                                                                                                                                                                                                                                                   |
+| `gitops-auditor`    | `0 7,19 * * *` | Nothing else watches ArgoCD sync state — Robusta forwards events and alerts, not drift. Was `4 */4 * * *`; at twice a day its "drift that survives two consecutive runs" rule now spans 24h rather than 8h, so drift is reported a day later and a fix that lands between two runs is never seen as drift at all.                                                                                                      |
+| `renovate-reviewer` | `0 10 * * 0,6` | Weekends, off the weekday slot: a 4B model re-reviewing the same PR hourly is noise and would hold the GPU against the ops agents.                                                                                                                                                                                                                                                                                     |
+| `homelab-oracle`    | none           | Inbound only.                                                                                                                                                                                                                                                                                                                                                                                                          |
 
 `sre-sentinel` and `gitops-auditor` share both ticks exactly, which is the one
 thing every other row here avoids — `db-steward` sits half an hour off
@@ -522,11 +522,11 @@ webhook decodes strictly — an unknown key is rejected outright
 **Delivery channels are split by what a reader would do about the message**, not
 by which agent produced it, because a channel is really one notification setting:
 
-| Channel                 | Carries                                        | Notifications          |
-| ----------------------- | ---------------------------------------------- | ---------------------- |
+| Channel                 | Carries                                           | Notifications          |
+| ----------------------- | ------------------------------------------------- | ---------------------- |
 | `#monitoring-ai-health` | the daily personas — hardware, databases, cleanup | scan-later, can be off |
-| `#monitoring-ai-alerts` | `sre-sentinel`                                 | on                     |
-| `#monitoring-ai-drift`  | `gitops-auditor`                               | on                     |
+| `#monitoring-ai-alerts` | `sre-sentinel`                                    | on                     |
+| `#monitoring-ai-drift`  | `gitops-auditor`                                  | on                     |
 
 Keeping the frequent personas out of `-health` is what lets `-alerts` keep
 notifications on without the daily hardware report training you to mute it.
@@ -1714,14 +1714,14 @@ The oracle held two servers and so could not answer questions this homelab
 actually gets — "total size of each db" came back as node CPU load. It now holds
 all six, in a priority order its prompt states, and the order is the design:
 
-| #   | Server   | What it answers                           | Tools |
-| --- | -------- | ----------------------------------------- | ----- |
-| 1   | facts    | the standing readings, pre-computed       | 13    |
-| 2   | k8s      | what exists right now                     | 4     |
-| 3   | argocd   | what is deployed and what each app owns   | 3     |
-| 4   | trino    | what is *in* the databases                | 5     |
-| 5   | slack    | the thread that asked                     | 2     |
-| 6   | github   | what the source says                      | 3     |
+| #   | Server | What it answers                         | Tools |
+| --- | ------ | --------------------------------------- | ----- |
+| 1   | facts  | the standing readings, pre-computed     | 13    |
+| 2   | k8s    | what exists right now                   | 4     |
+| 3   | argocd | what is deployed and what each app owns | 3     |
+| 4   | trino  | what is *in* the databases              | 5     |
+| 5   | slack  | the thread that asked                   | 2     |
+| 6   | github | what the source says                    | 3     |
 
 Thirty allowed MCP tools plus `send_channel_message`. Measured by summing the
 `tools/list` entries the allowlists name, not estimated: 19,541 bytes of schema
@@ -2003,10 +2003,10 @@ amd64+arm64 — and the runner flag is `--server`, not `--project`.
 **The images are generic; this repository owns the data.** That split is the
 reason for the move: the servers are reusable, a chronic-alert list is not.
 
-| Server          | ConfigMap           | Built by                                        |
-| --------------- | ------------------- | ----------------------------------------------- |
+| Server          | ConfigMap           | Built by                                                     |
+| --------------- | ------------------- | ------------------------------------------------------------ |
 | `homelab-facts` | `mcp-homelab-facts` | `templates/mcp-configmaps.yaml` from `config/homelab_facts/` |
-| `semantic`      | `mcp-semantic`      | `config/semantic/registry.yaml` (symlink)       |
+| `semantic`      | `mcp-semantic`      | `config/semantic/registry.yaml` (symlink)                    |
 
 Why the two are built differently, which looks inconsistent and is not: Helm's
 `.Files` cannot read above the chart root, and the semantic definitions must
@@ -2119,10 +2119,10 @@ been starving these pods since 2026-08-20; what changed is how fast the hook
 runs.** The last delivered report and the first lost one are consecutive ticks of
 the same schedule, and the run objects say what differed:
 
-| run | hook | outcome |
-| --- | --- | --- |
-| `gitops-auditor-schedule-27`, 08:04:40Z | `curlimages/curl:8.11.1`, `/bin/sh -c`, one `curl --max-time 30`, no retry | delivered |
-| `gitops-auditor-schedule-28`, 12:05:07Z | `python:3.13-alpine`, `python3 -c`, 3 attempts with 2s/4s backoff | `Errno -3` |
+| run                                     | hook                                                                       | outcome    |
+| --------------------------------------- | -------------------------------------------------------------------------- | ---------- |
+| `gitops-auditor-schedule-27`, 08:04:40Z | `curlimages/curl:8.11.1`, `/bin/sh -c`, one `curl --max-time 30`, no retry | delivered  |
+| `gitops-auditor-schedule-28`, 12:05:07Z | `python:3.13-alpine`, `python3 -c`, 3 attempts with 2s/4s backoff          | `Errno -3` |
 
 87ef870 landed at 10:10 UTC that morning, between the two. One `curl` fires
 inside the window; CPython starting, importing and converting the report does
@@ -2932,10 +2932,10 @@ those: they are `.properties` keys in one ConfigMap behind one Deployment, one M
 server and one tool prefix, sharing one read-only role. **Reject the shape, not the
 idea.**
 
-| Question | Route |
-| --- | --- |
-| What tables exist, what columns, what types | Trino `information_schema` |
-| How big, and is it growing | CNPG `target_databases: ['*']` metrics |
+| Question                                    | Route                                  |
+| ------------------------------------------- | -------------------------------------- |
+| What tables exist, what columns, what types | Trino `information_schema`             |
+| How big, and is it growing                  | CNPG `target_databases: ['*']` metrics |
 
 Neither subsumes the other: `information_schema` has no size column and the JDBC
 connector surfaces none, while metrics carry history a catalog lookup never can.
@@ -3070,12 +3070,12 @@ as a denial.
 Two readings that look alike and are not, worth keeping apart when this breaks
 again:
 
-| Symptom | Cause |
-| --- | --- |
-| catalog missing from `list_catalogs` | access control denies it to `mcp` |
-| `Access Denied: Cannot access catalog X` | same, reached by exact name |
-| `FATAL: password authentication failed for user "viewer"` | the Postgres role |
-| `connection refused` on `/v1/statement` | coordinator not up yet |
+| Symptom                                                   | Cause                             |
+| --------------------------------------------------------- | --------------------------------- |
+| catalog missing from `list_catalogs`                      | access control denies it to `mcp` |
+| `Access Denied: Cannot access catalog X`                  | same, reached by exact name       |
+| `FATAL: password authentication failed for user "viewer"` | the Postgres role                 |
+| `connection refused` on `/v1/statement`                   | coordinator not up yet            |
 
 **Verified end to end after the restart**, which is the state the oracle's prompt
 now describes: `list_catalogs` returns all six `postgresql_*` catalogs beside the
@@ -3129,10 +3129,10 @@ The question is now settled rather than open, so nobody needs to rediscover it.
 Both readings were run as the `mcp` user against the live coordinator *after*
 core's rules change:
 
-| Route | Result |
-| --- | --- |
+| Route                                                           | Result                                    |
+| --------------------------------------------------------------- | ----------------------------------------- |
 | `pg_class.relpages * 8192` via `postgresql_superset.pg_catalog` | `SHOW TABLES` there returns **zero rows** |
-| `TABLE(postgresql_superset.system.query(query => ...))` | `Access Denied: Cannot execute function` |
+| `TABLE(postgresql_superset.system.query(query => ...))`         | `Access Denied: Cannot execute function`  |
 
 The first one matters most, because it is the only route that needed **no core
 change at all** and it looks available: `SHOW SCHEMAS` does list `pg_catalog`
@@ -3194,11 +3194,11 @@ upstream change, not a values change (filed below).
 
 What is left is the prompt, and the distinction the previous two attempts missed:
 
-| Ask | Kind of task | Holds? |
-| --- | --- | --- |
-| emit Slack mrkdwn | translate one notation to another | no — `deliver-slack.py` |
-| bold is one asterisk, not two | discriminate one character from two | no — twice |
-| use no asterisk at all | suppress one character | plausible |
+| Ask                           | Kind of task                        | Holds?                  |
+| ----------------------------- | ----------------------------------- | ----------------------- |
+| emit Slack mrkdwn             | translate one notation to another   | no — `deliver-slack.py` |
+| bold is one asterisk, not two | discriminate one character from two | no — twice              |
+| use no asterisk at all        | suppress one character              | plausible               |
 
 The old rule required the model to *count asterisks*, which is the same operation as
 counting its own table names, and it fails at both. So the rule no longer asks for
@@ -3613,7 +3613,7 @@ repaired.
 The durable fix is `scripts/reseed_memory.py`, which diffs seed text against
 every persona's YAML and rewrites what drifted — written because both of these
 were found by accident, and the next one would have been too. It is the one
-thing to run after any seed edit, and the root `CLAUDE.md` conventions list says
+thing to run after any seed edit, and the root `AGENTS.md` conventions list says
 so where a reader will meet it.
 
 ## The model supplied the structure, and every number was right (2026-09-05)
@@ -3933,7 +3933,7 @@ is the direction this whole rule is pushing everything: the server states what i
 there, the prompt states how to ask. The rendered chart contains exactly one
 occurrence of that name and it arrives from the registry, not from a prompt.
 
-The general form is now in the root `CLAUDE.md` beside the `toolsAllow` and
+The general form is now in the root `AGENTS.md` beside the `toolsAllow` and
 committed-manifest entries, because this is the same objection in a fourth
 medium and the pattern is what generalises.
 

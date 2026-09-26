@@ -148,6 +148,52 @@ class TestListAccounts:
         _provider(_details_handler(captured)).list_accounts()
         assert captured[0].url.path == f"/accounts/{TOKEN.uid}/details"
 
+    def test_details_failure_degrades_to_configured_metadata(self):
+        # one account's /details 400s (an ASPSP that refuses it); the account must
+        # still land from the secret so its transactions/balances are not lost
+        second = AccountConfig(
+            alias="shared_account",
+            iban="ES2222222222222222222222",
+            app_id=ACCOUNT.app_id,
+            institution_id="Sample Bank",
+        )
+        second_uid = "00000000-0000-0000-0000-000000000002"
+        second_token = TokenConfig(
+            alias="shared_account", uid=second_uid, valid_until=datetime(2027, 1, 1, tzinfo=UTC)
+        )
+
+        def handler(request):
+            if request.url.path == f"/accounts/{second_uid}/details":
+                return httpx.Response(400, json={
+                    "error_name": "HttpException",
+                    "message": "Internal server error",
+                    "error_data": {},
+                })
+            return httpx.Response(200, json={
+                "account_id": {"iban": ACCOUNT.iban, "other": None},
+                "name": "SAMPLE HOLDER",
+                "currency": "EUR",
+            })
+
+        client = httpx.Client(
+            base_url="https://api.enablebanking.com", transport=httpx.MockTransport(handler)
+        )
+        provider = EnableBankingProvider(
+            private_key=PRIVATE_KEY_PEM,
+            accounts=[ACCOUNT, second],
+            tokens=[TOKEN, second_token],
+            client=client,
+        )
+        accounts = provider.list_accounts()
+
+        assert [account.account_id for account in accounts] == ["sample_account", "shared_account"]
+        assert accounts[0].currency == "EUR"
+        assert accounts[0].owner_name == "SAMPLE HOLDER"
+        assert accounts[1].iban == second.iban
+        assert accounts[1].institution_id == "Sample Bank"
+        assert accounts[1].currency == ""
+        assert accounts[1].owner_name is None
+
 
 class TestFetchTransactions:
     def _handler_for(self, *pages, captured=None):

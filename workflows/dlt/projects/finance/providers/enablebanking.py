@@ -184,9 +184,29 @@ class EnableBankingProvider:
 
     # -- protocol -------------------------------------------------------------
     def list_accounts(self) -> list[Account]:
+        """One :class:`Account` per configured alias.
+
+        The metadata call is best-effort: a bank that refuses
+        ``/accounts/{uid}/details`` (an unsupported account, a transient ASPSP
+        fault, a details-endpoint 429) must not abort the whole run, because
+        the account's transactions and balances live on other endpoints. A
+        fallback built from the configured secret keeps the alias, IBAN and
+        institution; a genuinely unusable session still fails loudly on the
+        data call, which is the backstop.
+        """
         accounts = []
         for account, token in self._pair_for_every_alias():
-            details = self._get(account, token, f"/accounts/{token.uid}/details")
+            try:
+                details = self._get(account, token, f"/accounts/{token.uid}/details")
+            except (ProviderError, httpx.HTTPError) as error:
+                logger.warning(
+                    "%s: account details unavailable (%s); using the configured "
+                    "alias/IBAN and continuing so transactions and balances still load",
+                    account.alias,
+                    error,
+                )
+                accounts.append(_configured_account(account))
+                continue
             accounts.append(_normalise_account(account, details))
         return accounts
 
@@ -251,6 +271,21 @@ class EnableBankingProvider:
     @property
     def tokens(self) -> dict[str, TokenConfig]:
         return self._tokens
+
+
+def _configured_account(config: AccountConfig) -> Account:
+    """Fallback account row when ``/details`` cannot be read: the alias, IBAN and
+    institution are stable secret values, so the account still lands without its
+    optional currency/holder metadata."""
+    return Account(
+        account_id=config.alias,
+        institution_id=config.institution_id or config.alias,
+        iban=config.iban,
+        currency="",
+        owner_name=None,
+        status="AUTHORIZED",
+        payload_json="{}",
+    )
 
 
 def _normalise_account(config: AccountConfig, resource: dict) -> Account:

@@ -126,7 +126,11 @@ bank data call. Both secrets live in `datahub-local-secrets`
    retries in a loop.
 4. If it is `ASPSP_ERROR` (or the message now carries a `detail` saying the
    consent was dropped), the bank invalidated the consent early even though
-   `valid_until` is still in the future — re-link the same account.
+   `valid_until` is still in the future — re-link the same account. This applies
+   to the **data** calls: a failure on `/accounts/{uid}/details` alone is logged
+   as a warning and the account still ingests from the configured alias/IBAN,
+   with empty currency/holder metadata, so a bank that refuses that endpoint
+   does not abort the run.
 
 ## Actual Budget sync (`--pipeline sync`)
 

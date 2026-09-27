@@ -14,10 +14,10 @@ The article pipeline being planned in `add-content-writer-agent` produces exactl
   - `animated_svg` — a self-contained animated SVG committed as text.
   - `motion_clip` (WebM/MP4) — **declared but not producible in v1**: n8n has no `ffmpeg`, so a requested `motion_clip` is reported unavailable rather than silently skipped.
 - Author every infographic in **two stages**: the model emits a typed **content spec** (JSON: title, blocks, labels, values, accent, motion, duration) and deterministic code turns that spec into HTML/CSS or SVG. The model never writes the markup.
-- Render animation deterministically: a browser renders the markup, a Puppeteer **custom script** seeks the timeline (`document.getAnimations()` / `Animation.currentTime`) and captures frames, and GraphicsMagick assembles them into an animated image.
+- Render animation deterministically: a browser renders the markup, a Puppeteer **custom script** seeks the timeline (`document.getAnimations()` / `Animation.currentTime`) and captures frames, and libwebp's **`img2webp`** assembles them into an animated WebP (GraphicsMagick GIF as the fallback).
 - Add a child **`article_assets`** page to `content_planner` (one row per artifact: type, state, feedback, prompt/spec, path, format) so each asset is reviewed and retried on its own; `add-content-writer-agent`'s singular `IMAGE_*` columns no longer suffice for a set.
 - Review each asset in Slack as the existing flows do (double approval, retry-with-feedback), reusing the article pipeline's publish step so an approved set is committed with the article in one commit.
-- **No Sympozium, no MCP server, no cluster change, and no `ffmpeg`.** Everything is n8n, the existing browserless Chromium, GraphicsMagick, the LiteLLM image models, Google Sheets and the GitHub API.
+- **No Sympozium, no MCP server, and no `ffmpeg`.** Everything is n8n, the existing browserless Chromium, libwebp/GraphicsMagick for frame assembly, the LiteLLM image models, Google Sheets and the GitHub API. Two `datahub-local-core` prerequisites are required: enable `ExecuteCommand` (`NODES_EXCLUDE=[]`) and install the `webp-converter` extra module (`img2webp`).
 
 ## Capabilities
 
@@ -34,4 +34,4 @@ The article pipeline being planned in `add-content-writer-agent` produces exactl
 - **`content_planner` sheet**: new `article_assets` child page; the article pipeline's review and publish must read it.
 - **`add-content-writer-agent`** (this repository, related change): the Visual Studio workflow is meant to be called by that article pipeline; the two changes meet at the asset set, so they should land together or the studio first.
 - **`alvsanand`** (cross-repo): assets commit to `docs/img/` and are referenced from the post; the static hero remains the article's first static image (the blog emits no `og:image`, so platforms preview page images), never an animated asset.
-- **No change** to `datahub-local-core`, `datahub-local-ai-mcp`, or Sympozium. True video stays out of scope until `ffmpeg` is deliberately added.
+- **`datahub-local-core`** (cross-repo): two prerequisites — `NODES_EXCLUDE=[]` to re-enable the `ExecuteCommand` node n8n v2 disables by default, and `custom.extra_modules: webp-converter` so the libwebp CLIs (`img2webp`) are installed at boot. No MCP server or Sympozium change. True video stays out of scope until `ffmpeg` is deliberately added.

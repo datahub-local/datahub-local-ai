@@ -1,0 +1,629 @@
+{
+  "name": "Visual Studio",
+  "nodes": [
+    {
+      "id": "b58b1406-321a-4a41-84f1-8972241c33de",
+      "name": "main_trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "ENTRY_ID"
+            },
+            {
+              "name": "ARTICLE_TEXT"
+            },
+            {
+              "name": "ASSET_TYPES"
+            },
+            {
+              "name": "FEEDBACK"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "afb4ac58-7bf3-4dbf-a25e-6e0cc4800309",
+      "name": "normalize_input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const i = $input.first().json;\nconst str = (v) => String(v == null ? '' : v);\nconst types = str(i.ASSET_TYPES).trim();\nconst text = str(i.ARTICLE_TEXT).trim();\nif (!str(i.ENTRY_ID).trim()) throw new Error('ENTRY_ID is required');\nif (!text) throw new Error('ARTICLE_TEXT is required');\nreturn [{ json: {\n  ENTRY_ID: str(i.ENTRY_ID).trim(),\n  ARTICLE_TEXT: text,\n  ASSET_TYPES: types,\n  FEEDBACK: str(i.FEEDBACK).trim(),\n} }];"
+      }
+    },
+    {
+      "id": "3afd1400-f0ed-4678-abf4-54337512d69c",
+      "name": "download_registry",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "qUfjfWLGEjV96ljf",
+          "mode": "list",
+          "cachedResultName": "DownloadTemplate",
+          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "template_name": "datasets/visual_types.json",
+            "template_vars": "={{ {} }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "template_name",
+              "displayName": "template_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "template_vars",
+              "displayName": "template_vars",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "4732d100-d75a-491e-9b5a-32b46e23f28b",
+      "name": "parse_registry",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const cfg = JSON.parse($('download_registry').first().json.output || '{}');\nconst req = $('normalize_input').first().json;\nconst types = Array.isArray(cfg.types) ? cfg.types : [];\nconst byId = new Map(types.map((t) => [t.id, t]));\nconst budget = cfg.budget || {};\nconst cap = Number(cfg.max_types_per_article || 3);\nlet requested = req.ASSET_TYPES\n  ? req.ASSET_TYPES.split(',').map((s) => s.trim()).filter(Boolean)\n  : (cfg.default_types || []);\n// The static hero is always produced (spec requirement), and is first.\nif (!requested.includes('hero_static')) requested.unshift('hero_static');\n// Deduplicate, preserving order.\nrequested = [...new Set(requested)];\nconst notes = [];\nconst unknown = requested.filter((id) => !byId.has(id));\nunknown.forEach((id) => notes.push({ ASSET_TYPE: id, STATUS: 'UNKNOWN',\n  ERROR: 'unknown asset type: ' + id }));\nrequested = requested.filter((id) => byId.has(id));\n// Cap, hero first.\nconst capped = requested.slice(0, cap);\nrequested.slice(cap).forEach((id) => notes.push({ ASSET_TYPE: id, STATUS: 'SKIPPED',\n  ERROR: 'over the per-article cap of ' + cap }));\nconst out = [];\nfor (const id of capped) {\n  const t = byId.get(id);\n  const b = Object.assign({}, budget, t.budget || {});\n  out.push({ json: Object.assign({}, req, {\n    ASSET_TYPE: t.id,\n    NAME: t.name || t.id,\n    AUTHOR: t.author,\n    TEMPLATE: t.template || null,\n    SPEC_TEMPLATE: t.specTemplate || null,\n    RENDER_MODE: t.render,\n    FORMAT: t.format,\n    FALLBACK_FORMAT: t.fallbackFormat || null,\n    ASPECT: t.aspect || '4:5',\n    AVAILABLE: t.available !== false,\n    UNAVAILABLE_REASON: t.unavailableReason || '',\n    FPS: Number(b.fps || 12),\n    FRAMES: Number(b.frames || 36),\n    VIEWPORT: Number(b.viewport || 1200),\n    CAP: cap,\n  }) });\n}\nfor (const n of notes) out.push({ json: Object.assign({}, req, n, { AVAILABLE: false }) });\nreturn out;"
+      }
+    },
+    {
+      "id": "0a102121-f752-45f7-a5ab-3ea711d52044",
+      "name": "download_spec_prompt",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        880,
+        0
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "qUfjfWLGEjV96ljf",
+          "mode": "list",
+          "cachedResultName": "DownloadTemplate",
+          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "template_name": "prompts/visual_spec.md",
+            "template_vars": "={{ {\n \"ASSET_TYPE\": $('parse_registry').first().json.ASSET_TYPE,\n \"ARTICLE_TEXT\": $('normalize_input').first().json.ARTICLE_TEXT,\n \"FEEDBACK\": $('normalize_input').first().json.FEEDBACK\n} }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "template_name",
+              "displayName": "template_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "template_vars",
+              "displayName": "template_vars",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "30e181b5-cc13-4cce-9c3a-f8dcb019f35f",
+      "name": "author_spec",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.6,
+      "position": [
+        1100,
+        0
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('download_spec_prompt').item.json.output }}",
+        "needsFallback": true
+      }
+    },
+    {
+      "id": "94954a4f-258c-43d8-901b-39b1cd6580f6",
+      "name": "ai_model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1100,
+        200
+      ],
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "id",
+          "value": "opencode-go/deepseek-v4.1-flash"
+        },
+        "builtInTools": {},
+        "options": {
+          "maxRetries": 2
+        }
+      },
+      "credentials": {
+        "openAiApi": {
+          "id": "LitellmN8nAcct01",
+          "name": "LiteLLM account"
+        }
+      }
+    },
+    {
+      "id": "dfb1006d-75d5-4534-bf1a-ce988144390a",
+      "name": "ai_model_fallback",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1300,
+        200
+      ],
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "id",
+          "value": "opencode-go/glm-5.3-flash"
+        },
+        "builtInTools": {},
+        "options": {
+          "maxRetries": 2
+        }
+      },
+      "credentials": {
+        "openAiApi": {
+          "id": "LitellmN8nAcct01",
+          "name": "LiteLLM account"
+        }
+      }
+    },
+    {
+      "id": "29cf7a47-55f2-43ae-92ba-06c0c5701b1e",
+      "name": "parse_spec",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const raw0 = $('author_spec').first().json.text || '';\nlet raw = raw0.trim().replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```$/, '');\nconst m = raw.match(/\\{[\\s\\S]*\\}/);\nif (!m) throw new Error('content spec is not JSON');\nlet spec;\ntry { spec = JSON.parse(m[0]); } catch (e) { throw new Error('content spec is invalid JSON: ' + e.message); }\nconst fail = (msg) => { throw new Error('content spec invalid: ' + msg); };\nif (typeof spec.title !== 'string' || !spec.title.trim()) fail('missing field: title');\nif (!Array.isArray(spec.blocks) || spec.blocks.length < 3 || spec.blocks.length > 6)\n  fail('blocks must be an array of 3 to 6 entries');\nspec.blocks.forEach((b, i) => {\n  if (!b || typeof b.label !== 'string' || !b.label.trim()) fail('missing field: blocks[' + i + '].label');\n  if (b.value == null || String(b.value).trim() === '') fail('missing field: blocks[' + i + '].value');\n});\nif (typeof spec.accent !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(spec.accent))\n  fail('missing field: accent');\nif (!spec.motion || typeof spec.motion !== 'object') fail('missing field: motion');\nif (!['rise', 'fade', 'sweep', 'pulse'].includes(spec.motion.kind)) fail('missing field: motion.kind');\nconst d = Number(spec.motion.durationMs);\nif (!Number.isFinite(d) || d < 2000 || d > 4000) fail('missing field: motion.durationMs');\nif (typeof spec.alt !== 'string' || !spec.alt.trim()) fail('missing field: alt');\nreturn [{ json: { SPEC: spec, SPEC_JSON: JSON.stringify(spec) } }];"
+      }
+    },
+    {
+      "id": "c69008a3-6ed9-4868-84a7-e6189d661d78",
+      "name": "merge_assets",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const specItem = $('parse_spec').first();\nconst spec = specItem.json.SPEC;\nconst specJson = specItem.json.SPEC_JSON;\nconst base = (a) => ({\n  ENTRY_ID: a.ENTRY_ID, ASSET_ID: a.ENTRY_ID + ':' + a.ASSET_TYPE,\n  ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '',\n  FORMAT: a.FORMAT || '', ROUND: '0', FEEDBACK: a.FEEDBACK || '',\n  SPEC_JSON: '', PROMPT: '', DURATION_MS: '', FRAME_COUNT: '', WIDTH: '', HEIGHT: '',\n  ERROR: '', STATUS: 'PENDING', UPDATE_DATE: new Date().toISOString(),\n});\nconst out = [];\nfor (const item of $('parse_registry').all()) {\n  const a = item.json;\n  const row = base(a);\n  if (a.STATUS === 'UNKNOWN' || a.STATUS === 'SKIPPED') {\n    row.STATUS = a.STATUS; row.ERROR = a.ERROR || '';\n  } else if (a.AVAILABLE === false) {\n    row.STATUS = 'UNAVAILABLE';\n    row.ERROR = a.UNAVAILABLE_REASON || ('unavailable: ' + a.ASSET_TYPE);\n  } else {\n    row.SPEC_JSON = specJson;\n  }\n  out.push({ json: Object.assign({}, a, { SPEC: spec, SPEC_JSON: specJson, row } ) });\n}\nreturn out;"
+      }
+    },
+    {
+      "id": "dbcbc517-9b33-4b4e-bdad-018d9bb80228",
+      "name": "upsert_asset_rows",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        1760,
+        0
+      ],
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI",
+          "mode": "list",
+          "cachedResultName": "content_planner"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "article_assets",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "matchingColumns": [
+            "ASSET_ID"
+          ],
+          "value": {
+            "ENTRY_ID": "={{ $json.row.ENTRY_ID }}",
+            "ASSET_ID": "={{ $json.row.ASSET_ID }}",
+            "ASSET_TYPE": "={{ $json.row.ASSET_TYPE }}",
+            "RENDER_MODE": "={{ $json.row.RENDER_MODE }}",
+            "FORMAT": "={{ $json.row.FORMAT }}",
+            "STATUS": "={{ $json.row.STATUS }}",
+            "ROUND": "={{ $json.row.ROUND }}",
+            "FEEDBACK": "={{ $json.row.FEEDBACK }}",
+            "SPEC_JSON": "={{ $json.row.SPEC_JSON }}",
+            "PROMPT": "={{ $json.row.PROMPT }}",
+            "ERROR": "={{ $json.row.ERROR }}",
+            "UPDATE_DATE": "={{ $json.row.UPDATE_DATE }}"
+          },
+          "schema": [
+            {
+              "id": "ENTRY_ID",
+              "displayName": "ENTRY_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ASSET_ID",
+              "displayName": "ASSET_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ASSET_TYPE",
+              "displayName": "ASSET_TYPE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "RENDER_MODE",
+              "displayName": "RENDER_MODE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "FORMAT",
+              "displayName": "FORMAT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "STATUS",
+              "displayName": "STATUS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ROUND",
+              "displayName": "ROUND",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "FEEDBACK",
+              "displayName": "FEEDBACK",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "SPEC_JSON",
+              "displayName": "SPEC_JSON",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "PROMPT",
+              "displayName": "PROMPT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "PATH",
+              "displayName": "PATH",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "DURATION_MS",
+              "displayName": "DURATION_MS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "FRAME_COUNT",
+              "displayName": "FRAME_COUNT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "WIDTH",
+              "displayName": "WIDTH",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "HEIGHT",
+              "displayName": "HEIGHT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "URL",
+              "displayName": "URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "ERROR",
+              "displayName": "ERROR",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "UPDATE_DATE",
+              "displayName": "UPDATE_DATE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "pGARJmt50qz64xOo",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "6897f165-0da9-4464-890c-b9a89b1c3331",
+      "name": "set_result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1980,
+        0
+      ],
+      "parameters": {
+        "jsCode": "return $('merge_assets').all().map((i) => ({ json: i.json.row }));"
+      }
+    }
+  ],
+  "connections": {
+    "main_trigger": {
+      "main": [
+        [
+          {
+            "node": "normalize_input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "normalize_input": {
+      "main": [
+        [
+          {
+            "node": "download_registry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "download_registry": {
+      "main": [
+        [
+          {
+            "node": "parse_registry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "parse_registry": {
+      "main": [
+        [
+          {
+            "node": "download_spec_prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "download_spec_prompt": {
+      "main": [
+        [
+          {
+            "node": "author_spec",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "author_spec": {
+      "main": [
+        [
+          {
+            "node": "parse_spec",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "parse_spec": {
+      "main": [
+        [
+          {
+            "node": "merge_assets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "merge_assets": {
+      "main": [
+        [
+          {
+            "node": "upsert_asset_rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "upsert_asset_rows": {
+      "main": [
+        [
+          {
+            "node": "set_result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ai_model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "author_spec",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ai_model_fallback": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "author_spec",
+            "type": "ai_languageModel",
+            "index": 1
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  }
+}

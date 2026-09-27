@@ -38,11 +38,22 @@ Examples:
     #    "connections": {"src": [[{"node": "dst", "type": "main", "index": 0}]]}}
     --changes /tmp/changes.json
 
+    # create a workflow that does not exist yet (idempotent by name)
+    --create /tmp/visual_studio.workflow.json --dry-run
+
 Adding a node, removing one, or rewiring is file-only: a node object does not fit
 on a command line, and a graph edit is the kind that wants reviewing before it
 runs. All are idempotent -- an addNodes entry whose name already exists is skipped,
 a removeNodes entry already absent is skipped, and a connections entry already
 matching is skipped -- so a spec can be re-run.
+
+--create is the one documented exception to "never post a whole exported body",
+and it is scoped to creation only: it POSTs a body once, keyed by name, and is
+idempotent -- a body whose name already exists live is printed and left untouched,
+so a re-run after a partial apply changes nothing. It writes by default; pass
+--dry-run to print the plan only. Later edits to the created workflow still go
+through the field-level PUT path. The body is a single workflow object or a list
+of them; only name/nodes/connections/settings are read from it.
 """
 
 import argparse
@@ -175,6 +186,47 @@ def outgoing(connections, name):
         for branch in branches or []
         for o in (branch or [])
     ]
+
+
+def create_workflow(url, key, body, do_write):
+    """Create one workflow, idempotent by name. Never overwrites an existing one."""
+    name = body.get("name")
+    if not name:
+        sys.exit("a --create body needs a name")
+    if not body.get("nodes"):
+        sys.exit(f"create body {name!r} has no nodes")
+
+    listing = api(url, key, "/api/v1/workflows?limit=250").get("data", [])
+    existing = [w for w in listing if w.get("name") == name]
+    if existing:
+        print(f"\n=== {name!r} already exists ({existing[0]['id']}) -- left untouched")
+        return
+
+    print(f"\n=== create {name!r}  nodes={len(body['nodes'])}")
+    print("  plan: POST /api/v1/workflows")
+    if not do_write:
+        print("  dry run -- rerun without --dry-run to write")
+        return
+
+    created = api(
+        url,
+        key,
+        "/api/v1/workflows",
+        method="POST",
+        body={
+            "name": name,
+            "nodes": body["nodes"],
+            "connections": body.get("connections", {}),
+            "settings": body.get("settings", {}),
+        },
+    )
+    wid = created.get("id")
+    print(f"  created id={wid}")
+    after = api(url, key, f"/api/v1/workflows/{wid}")
+    print(
+        f"  verified: name={after.get('name')!r} "
+        f"nodes={len(after.get('nodes', []))} active={after.get('active')}"
+    )
 
 
 def process(url, key, spec, do_apply):
@@ -312,6 +364,12 @@ def main():
     ap.add_argument("--set-setting", action="append", default=[], metavar="FIELD=VALUE")
     ap.add_argument("--require-edge", action="append", default=[], metavar="SRC>DST")
     ap.add_argument("--changes", help="JSON file (or - for stdin) of change specs")
+    ap.add_argument(
+        "--create",
+        metavar="FILE",
+        help="create workflow(s) from a JSON body, idempotent by name (writes unless --dry-run)",
+    )
+    ap.add_argument("--dry-run", action="store_true", help="with --create, print the plan only")
     ap.add_argument("--apply", action="store_true", help="write; default is a dry run")
     ap.add_argument("--print-pod-overrides", action="store_true")
     args = ap.parse_args()
@@ -320,7 +378,19 @@ def main():
         print(pod_overrides())
         return
 
-    if args.changes:
+    if args.create and (args.workflow or args.changes or args.set or args.set_setting or args.require_edge):
+        ap.error("--create is exclusive: put nodes/settings in the body, not on the command line")
+
+    if args.create:
+        if args.create == "-":
+            raw_create = sys.stdin.read()
+        else:
+            with open(args.create) as fh:
+                raw_create = fh.read()
+        bodies = json.loads(raw_create)
+        if isinstance(bodies, dict):
+            bodies = [bodies]
+    elif args.changes:
         raw = sys.stdin.read() if args.changes == "-" else open(args.changes).read()
         specs = json.loads(raw)
         if isinstance(specs, dict):
@@ -341,12 +411,17 @@ def main():
             }
         ]
     else:
-        ap.error("pass --workflow or --changes")
+        ap.error("pass --workflow, --changes or --create")
 
     key = os.environ.get("N8N_API_KEY")
     if not key:
         sys.exit("N8N_API_KEY unset -- mount security/n8n-root into the pod")
     url = os.environ.get("N8N_URL", DEFAULT_URL)
+
+    if args.create:
+        for body in bodies:
+            create_workflow(url, key, body, not args.dry_run)
+        return
 
     for spec in specs:
         process(url, key, spec, args.apply)

@@ -1,0 +1,80 @@
+{
+  "_comment": "Artifact-type registry for the Visual Studio workflow. Downloaded through DownloadTemplate (template_name: datasets/visual_types.json) with an empty template_vars, so this file must contain no doubled-curly-brace placeholder anywhere, not even in a comment. It declares how each type is authored, rendered and formatted; the workflow routes on these fields and adding a type is a data change. Static-raster art direction is NOT here: it stays in datasets/image_motifs.json, and the raster prompt only receives the spec this registry's authoring stage produces.",
+  "_comment_author": "author is one of: raster (article -> image prompt -> image model), spec_raster (article -> content spec -> raster prompt -> image model), spec_markup (article -> content spec -> deterministic markup from template).",
+  "_comment_render": "render is one of: static (one raster file), animated (browser frame capture -> img2webp animated webp, gif fallback via GraphicsMagick), text (authored markup committed as-is, never rasterized).",
+  "_comment_markers": "Each requested type also emits a matching article marker whose syntax is owned by the article workflow; the studio only returns content, never a path or a reference.",
+  "_comment_budget": "budget.fps/frames/viewport are the animation ceiling. A type may override them lower; the renderer never exceeds the registry value. 12 fps, 36 frames (3 s), 1200 px viewport.",
+  "_comment_default": "Requested types come from the article entry's ASSET_TYPES (comma-separated). When it is blank, default_types is used. max_types_per_article caps the review loop.",
+  "budget": {
+    "fps": 12,
+    "frames": 36,
+    "viewport": 1200
+  },
+  "motion_kinds": ["rise", "fade", "sweep", "pulse"],
+  "max_types_per_article": 3,
+  "default_types": ["hero_static", "infographic_static"],
+  "types": [
+    {
+      "id": "hero_static",
+      "name": "Static hero",
+      "author": "raster",
+      "specTemplate": null,
+      "template": "prompts/visual_raster.md",
+      "render": "static",
+      "format": "png",
+      "aspect": "4:5",
+      "available": true
+    },
+    {
+      "id": "infographic_static",
+      "name": "Static infographic",
+      "author": "spec_raster",
+      "specTemplate": "prompts/visual_spec.md",
+      "template": "prompts/visual_raster.md",
+      "render": "static",
+      "format": "png",
+      "aspect": "4:5",
+      "available": true
+    },
+    {
+      "id": "diagram_animated",
+      "name": "Animated diagram",
+      "author": "spec_markup",
+      "specTemplate": "prompts/visual_spec.md",
+      "template": "templates/infographic.html",
+      "render": "animated",
+      "format": "webp",
+      "fallbackFormat": "gif",
+      "aspect": "4:5",
+      "available": true,
+      "budget": {
+        "fps": 12,
+        "frames": 36,
+        "viewport": 1200
+      }
+    },
+    {
+      "id": "animated_svg",
+      "name": "Animated SVG",
+      "author": "spec_markup",
+      "specTemplate": "prompts/visual_spec.md",
+      "template": "templates/infographic.svg",
+      "render": "text",
+      "format": "svg",
+      "aspect": "4:5",
+      "available": true
+    },
+    {
+      "id": "motion_clip",
+      "name": "Motion clip",
+      "author": "spec_markup",
+      "specTemplate": "prompts/visual_spec.md",
+      "template": null,
+      "render": "video",
+      "format": "webm",
+      "aspect": "16:9",
+      "available": false,
+      "unavailableReason": "unavailable: no video encoder in this environment"
+    }
+  ]
+}

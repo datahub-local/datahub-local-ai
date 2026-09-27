@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1500" width="%%VIEWPORT%%" height="1500" role="img" aria-label="%%ALT%%" data-duration-ms="%%DURATION_MS%%" data-fps="%%FPS%%" data-frames="%%FRAMES%%">
+  <title>%%TITLE%%</title>
+  <style>
+    .title {
+      fill: #f5f7fa;
+      font-family: "DejaVu Sans", Arial, Helvetica, sans-serif;
+      font-size: 64px;
+      font-weight: 700;
+      letter-spacing: -1px;
+      animation-name: title-in;
+      animation-timing-function: linear;
+      animation-fill-mode: both;
+      animation-duration: %%DURATION_MS%%ms;
+    }
+    .rule {
+      fill: %%ACCENT%%;
+      transform-box: fill-box;
+      transform-origin: left center;
+      animation-name: grow;
+      animation-timing-function: linear;
+      animation-fill-mode: both;
+      animation-duration: %%DURATION_MS%%ms;
+    }
+    .block {
+      animation-name: %%MOTION_ANIM%%;
+      animation-timing-function: linear;
+      animation-fill-mode: both;
+      animation-duration: %%DURATION_MS%%ms;
+    }
+    .label {
+      fill: rgba(245, 247, 250, 0.72);
+      font-family: "DejaVu Sans", Arial, Helvetica, sans-serif;
+      font-size: 34px;
+    }
+    .value {
+      fill: %%ACCENT%%;
+      font-family: "DejaVu Sans", Arial, Helvetica, sans-serif;
+      font-size: 52px;
+      font-weight: 700;
+    }
+    .sep {
+      stroke: rgba(245, 247, 250, 0.12);
+      stroke-width: 2;
+    }
+    @keyframes title-in {
+      from {
+        opacity: 0;
+        transform: translateY(24px);
+      }
+      to {
+        opacity: 1;
+        transform: none;
+      }
+    }
+    @keyframes grow {
+      from {
+        transform: scaleX(0);
+      }
+      to {
+        transform: scaleX(1);
+      }
+    }
+    @keyframes rise {
+      from {
+        opacity: 0;
+        transform: translateY(32px);
+      }
+      to {
+        opacity: 1;
+        transform: none;
+      }
+    }
+    @keyframes fade {
+      from {
+        opacity: 0;
+      }
+      to {
+        opacity: 1;
+      }
+    }
+    @keyframes sweep {
+      from {
+        opacity: 0;
+        transform: translateX(-48px);
+      }
+      to {
+        opacity: 1;
+        transform: none;
+      }
+    }
+    @keyframes pulse {
+      0% {
+        opacity: 0;
+        transform: scale(0.92);
+      }
+      60% {
+        opacity: 1;
+        transform: scale(1.03);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+  </style>
+  <rect width="1200" height="1500" fill="#0b0d10" />
+  <text class="title" x="64" y="168">%%TITLE%%</text>
+  <rect class="rule" x="64" y="208" width="1072" height="8" rx="4" />
+  %%BLOCKS%%
+</svg>

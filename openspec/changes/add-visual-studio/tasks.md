@@ -11,15 +11,15 @@
 ## 2. Asset data model
 
 - [x] 2.1 Add an `article_assets` page to the `content_planner` sheet with headers `ENTRY_ID, ASSET_ID, ASSET_TYPE, RENDER_MODE, FORMAT, STATUS, ROUND, FEEDBACK, SPEC_JSON, PROMPT, PATH, DURATION_MS, FRAME_COUNT, WIDTH, HEIGHT, URL, ERROR, UPDATE_DATE`; verify it reads with the existing `content_planner` credential
-- [ ] 2.2 Implement a helper that upserts one row per article+type matching on `ASSET_ID = <ENTRY_ID>:<ASSET_TYPE>` and reads back the asset set for an article; verify a re-run updates rather than duplicates a row, and that cancelling an entry cancels its non-terminal asset rows
-- [ ] 2.3 Implement the column split by writer: the studio writes asset state (`STATUS, ROUND, FEEDBACK, SPEC_JSON, PROMPT, FORMAT, ERROR, UPDATE_DATE`) and the article workflow writes only `PATH, URL`; verify no cell is written from both sides and each read-modify-write touches only its own columns
+- [x] 2.2 Implement a helper that upserts one row per article+type matching on `ASSET_ID = <ENTRY_ID>:<ASSET_TYPE>` and reads back the asset set for an article; verify a re-run updates rather than duplicates a row, and that cancelling an entry cancels its non-terminal asset rows
+- [x] 2.3 Implement the column split by writer: the studio writes asset state (`STATUS, ROUND, FEEDBACK, SPEC_JSON, PROMPT, FORMAT, ERROR, UPDATE_DATE`) and the article workflow writes only `PATH, URL`; verify no cell is written from both sides and each read-modify-write touches only its own columns
 
 ## 3. Authoring stage
 
-- [ ] 3.1 Implement spec generation: model call returning the typed content spec (`title`, `blocks[]`, `accent`, `motion{kind,durationMs}`, `alt`); verify a malformed spec is rejected with the missing field named
-- [ ] 3.2 Implement the deterministic markup step: a Code node fills `templates/infographic.html` and `templates/infographic.svg` from a valid spec; verify markup contains every spec label and value and no model-authored markup reaches the renderer
-- [ ] 3.3 Verify a static and an animated variant built from one spec share the same title, labels and values
-- [ ] 3.4 Verify the spec freezes once any variant is approved: approve the static variant, reject the animated one with feedback, and confirm the retried variant keeps the frozen title/labels/values and changes only styling or motion
+- [x] 3.1 Implement spec generation: model call returning the typed content spec (`title`, `blocks[]`, `accent`, `motion{kind,durationMs}`, `alt`); verify a malformed spec is rejected with the missing field named
+- [x] 3.2 Implement the deterministic markup step: a Code node fills `templates/infographic.html` and `templates/infographic.svg` from a valid spec; verify markup contains every spec label and value and no model-authored markup reaches the renderer
+- [x] 3.3 Verify a static and an animated variant built from one spec share the same title, labels and values
+- [x] 3.4 Verify the spec freezes once any variant is approved: approve the static variant, reject the animated one with feedback, and confirm the retried variant keeps the frozen title/labels/values and changes only styling or motion
 
 ## 4. Static raster render
 
@@ -40,7 +40,7 @@
 
 ## 7. Unavailable types
 
-- [ ] 7.1 Implement the `motion_clip` path to report `unavailable: no video encoder in this environment`; verify the run continues and the other requested assets are still produced
+- [x] 7.1 Implement the `motion_clip` path to report `unavailable: no video encoder in this environment`; verify the run continues and the other requested assets are still produced
 
 ## 8. Review
 

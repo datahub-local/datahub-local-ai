@@ -2,7 +2,7 @@
   "name": "Visual Studio",
   "nodes": [
     {
-      "id": "b58b1406-321a-4a41-84f1-8972241c33de",
+      "id": "ce0a3b9c-288c-4bf9-9530-e6b2e127d7b3",
       "name": "main_trigger",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
@@ -30,7 +30,7 @@
       }
     },
     {
-      "id": "afb4ac58-7bf3-4dbf-a25e-6e0cc4800309",
+      "id": "2c6d42cd-57c6-4dd0-94e6-f132427f4aee",
       "name": "normalize_input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -43,12 +43,51 @@
       }
     },
     {
-      "id": "3afd1400-f0ed-4678-abf4-54337512d69c",
+      "id": "4433c762-0cd1-403c-a51b-b3914afc6422",
+      "name": "read_assets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI",
+          "mode": "list",
+          "cachedResultName": "content_planner"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "article_assets",
+          "mode": "name"
+        },
+        "options": {
+          "dataLocationOnSheet": {
+            "values": {
+              "rangeDefinition": "detectAutomatically",
+              "readRowsUntil": "firstEmptyRow"
+            }
+          }
+        }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "pGARJmt50qz64xOo",
+          "name": "Google Sheets account"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "id": "2fbbbf3f-3ff3-44d9-b0e3-2c73205323ef",
       "name": "download_registry",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        440,
+        660,
         0
       ],
       "parameters": {
@@ -93,12 +132,12 @@
       }
     },
     {
-      "id": "4732d100-d75a-491e-9b5a-32b46e23f28b",
+      "id": "ee273689-ada8-4668-b0b5-e6b9c58f1182",
       "name": "parse_registry",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        660,
+        880,
         0
       ],
       "parameters": {
@@ -106,13 +145,73 @@
       }
     },
     {
-      "id": "0a102121-f752-45f7-a5ab-3ea711d52044",
+      "id": "eac6aba1-8260-4f63-83a4-2179c0ecbd75",
+      "name": "freeze_check",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const entry = $('normalize_input').first().json.ENTRY_ID;\nconst rows = $('read_assets').all().map((i) => i.json).filter((r) => r.ENTRY_ID === entry);\nconst approved = rows.find((r) => r.STATUS === 'APPROVED' && r.SPEC_JSON);\nif (approved) {\n  let spec = null;\n  try { spec = JSON.parse(approved.SPEC_JSON); } catch (e) { spec = null; }\n  if (spec) return [{ json: { FROZEN: true, SPEC: spec, SPEC_JSON: approved.SPEC_JSON, ASSET_STATUSES: rows.map((r) => [r.ASSET_TYPE, r.STATUS]) } }];\n}\nreturn [{ json: { FROZEN: false, ASSET_STATUSES: rows.map((r) => [r.ASSET_TYPE, r.STATUS]) } }];"
+      }
+    },
+    {
+      "id": "b2088f38-9671-4132-9ebe-bd426aa195d9",
+      "name": "if_frozen",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1320,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "f1",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.FROZEN }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "4d1e9369-6640-4f44-8662-e6805f4e5c50",
+      "name": "use_frozen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        -220
+      ],
+      "parameters": {
+        "jsCode": "const j = $input.first().json;\nreturn [{ json: { SPEC: j.SPEC, SPEC_JSON: j.SPEC_JSON } }];"
+      }
+    },
+    {
+      "id": "2b866c4a-85c2-466c-894e-d987fa351b32",
       "name": "download_spec_prompt",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        880,
-        0
+        1540,
+        220
       ],
       "parameters": {
         "workflowId": {
@@ -156,13 +255,13 @@
       }
     },
     {
-      "id": "30e181b5-cc13-4cce-9c3a-f8dcb019f35f",
+      "id": "7da54b09-df32-4dd3-8477-9d58593f66d7",
       "name": "author_spec",
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "typeVersion": 1.6,
       "position": [
-        1100,
-        0
+        1760,
+        220
       ],
       "parameters": {
         "promptType": "define",
@@ -171,13 +270,13 @@
       }
     },
     {
-      "id": "94954a4f-258c-43d8-901b-39b1cd6580f6",
+      "id": "6281c9a0-401e-436b-8179-dc253cee0db8",
       "name": "ai_model",
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.3,
       "position": [
-        1100,
-        200
+        1760,
+        420
       ],
       "parameters": {
         "model": {
@@ -198,13 +297,13 @@
       }
     },
     {
-      "id": "dfb1006d-75d5-4534-bf1a-ce988144390a",
+      "id": "246d3480-7679-4ccb-9673-1854c12ddaf0",
       "name": "ai_model_fallback",
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.3,
       "position": [
-        1300,
-        200
+        1960,
+        420
       ],
       "parameters": {
         "model": {
@@ -225,38 +324,151 @@
       }
     },
     {
-      "id": "29cf7a47-55f2-43ae-92ba-06c0c5701b1e",
+      "id": "6f100ab2-c8cd-459e-91e5-959cd0e2460b",
       "name": "parse_spec",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1320,
-        0
+        1980,
+        220
       ],
       "parameters": {
         "jsCode": "const raw0 = $('author_spec').first().json.text || '';\nlet raw = raw0.trim().replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```$/, '');\nconst m = raw.match(/\\{[\\s\\S]*\\}/);\nif (!m) throw new Error('content spec is not JSON');\nlet spec;\ntry { spec = JSON.parse(m[0]); } catch (e) { throw new Error('content spec is invalid JSON: ' + e.message); }\nconst fail = (msg) => { throw new Error('content spec invalid: ' + msg); };\nif (typeof spec.title !== 'string' || !spec.title.trim()) fail('missing field: title');\nif (!Array.isArray(spec.blocks) || spec.blocks.length < 3 || spec.blocks.length > 6)\n  fail('blocks must be an array of 3 to 6 entries');\nspec.blocks.forEach((b, i) => {\n  if (!b || typeof b.label !== 'string' || !b.label.trim()) fail('missing field: blocks[' + i + '].label');\n  if (b.value == null || String(b.value).trim() === '') fail('missing field: blocks[' + i + '].value');\n});\nif (typeof spec.accent !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(spec.accent))\n  fail('missing field: accent');\nif (!spec.motion || typeof spec.motion !== 'object') fail('missing field: motion');\nif (!['rise', 'fade', 'sweep', 'pulse'].includes(spec.motion.kind)) fail('missing field: motion.kind');\nconst d = Number(spec.motion.durationMs);\nif (!Number.isFinite(d) || d < 2000 || d > 4000) fail('missing field: motion.durationMs');\nif (typeof spec.alt !== 'string' || !spec.alt.trim()) fail('missing field: alt');\nreturn [{ json: { SPEC: spec, SPEC_JSON: JSON.stringify(spec) } }];"
       }
     },
     {
-      "id": "c69008a3-6ed9-4868-84a7-e6189d661d78",
+      "id": "8f249e6f-ffa1-4688-bac6-934466166c8f",
+      "name": "spec_ready",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2200,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const j = $input.first().json;\nreturn [{ json: { SPEC: j.SPEC, SPEC_JSON: j.SPEC_JSON } }];"
+      }
+    },
+    {
+      "id": "17aa9a5f-42a1-4803-bd6b-b72347047dd2",
+      "name": "download_html_template",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        2420,
+        0
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "qUfjfWLGEjV96ljf",
+          "mode": "list",
+          "cachedResultName": "DownloadTemplate",
+          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "template_name": "templates/infographic.html",
+            "template_vars": "={{ {} }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "template_name",
+              "displayName": "template_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "template_vars",
+              "displayName": "template_vars",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "d94faac2-4179-4361-a024-8e3dab4d098a",
+      "name": "download_svg_template",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        2640,
+        0
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "qUfjfWLGEjV96ljf",
+          "mode": "list",
+          "cachedResultName": "DownloadTemplate",
+          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "template_name": "templates/infographic.svg",
+            "template_vars": "={{ {} }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "template_name",
+              "displayName": "template_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "template_vars",
+              "displayName": "template_vars",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "86a95901-9012-4958-900f-f6c00fd34d84",
       "name": "merge_assets",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1540,
+        2860,
         0
       ],
       "parameters": {
-        "jsCode": "const specItem = $('parse_spec').first();\nconst spec = specItem.json.SPEC;\nconst specJson = specItem.json.SPEC_JSON;\nconst base = (a) => ({\n  ENTRY_ID: a.ENTRY_ID, ASSET_ID: a.ENTRY_ID + ':' + a.ASSET_TYPE,\n  ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '',\n  FORMAT: a.FORMAT || '', ROUND: '0', FEEDBACK: a.FEEDBACK || '',\n  SPEC_JSON: '', PROMPT: '', DURATION_MS: '', FRAME_COUNT: '', WIDTH: '', HEIGHT: '',\n  ERROR: '', STATUS: 'PENDING', UPDATE_DATE: new Date().toISOString(),\n});\nconst out = [];\nfor (const item of $('parse_registry').all()) {\n  const a = item.json;\n  const row = base(a);\n  if (a.STATUS === 'UNKNOWN' || a.STATUS === 'SKIPPED') {\n    row.STATUS = a.STATUS; row.ERROR = a.ERROR || '';\n  } else if (a.AVAILABLE === false) {\n    row.STATUS = 'UNAVAILABLE';\n    row.ERROR = a.UNAVAILABLE_REASON || ('unavailable: ' + a.ASSET_TYPE);\n  } else {\n    row.SPEC_JSON = specJson;\n  }\n  out.push({ json: Object.assign({}, a, { SPEC: spec, SPEC_JSON: specJson, row } ) });\n}\nreturn out;"
+        "jsCode": "const esc = (s) => String(s).replace(/&/g, \"&amp;\").replace(/</g, \"&lt;\").replace(/>/g, \"&gt;\");\nconst escAttr = (s) => esc(s).replace(/\"/g, \"&quot;\");\nfunction buildMarkup(tmpl, spec, fps, frames, viewport, isSvg) {\n  const accent = /^#[0-9a-fA-F]{6}$/.test(spec.accent || \"\") ? spec.accent : \"#22d3ee\";\n  const kind = [\"rise\", \"fade\", \"sweep\", \"pulse\"].includes(spec.motion && spec.motion.kind)\n    ? spec.motion.kind : \"rise\";\n  const duration = Math.max(1000, Math.min(4000, (spec.motion && spec.motion.durationMs) || 3000));\n  const blocks = (spec.blocks || []).slice(0, 6);\n  const step = Math.floor(duration / (blocks.length + 1));\n  let out;\n  if (isSvg) {\n    const top = 360, row = 150;\n    const svgBlocks = blocks.map((b, i) => {\n      const delay = i * step, d = Math.max(200, duration - delay), y = top + i * row;\n      return `<g class=\"block\" style=\"animation-delay:${delay}ms;animation-duration:${d}ms\">` +\n        `<text class=\"label\" x=\"64\" y=\"${y}\">${esc(b.label)}</text>` +\n        `<text class=\"value\" x=\"1136\" y=\"${y}\" text-anchor=\"end\">${esc(b.value)}</text>` +\n        `<line class=\"sep\" x1=\"64\" y1=\"${y + 28}\" x2=\"1136\" y2=\"${y + 28}\" /></g>`;\n    }).join(\"\\n  \");\n    out = tmpl.split(\"%%TITLE%%\").join(esc(spec.title || \"\"))\n      .split(\"%%BLOCKS%%\").join(svgBlocks).split(\"%%ACCENT%%\").join(accent)\n      .split(\"%%MOTION_ANIM%%\").join(kind).split(\"%%DURATION_MS%%\").join(String(duration))\n      .split(\"%%FPS%%\").join(String(fps)).split(\"%%FRAMES%%\").join(String(frames))\n      .split(\"%%VIEWPORT%%\").join(String(viewport)).split(\"%%ALT%%\").join(escAttr(spec.alt || \"\"));\n  } else {\n    const htmlBlocks = blocks.map((b, i) => {\n      const delay = i * step, d = Math.max(200, duration - delay);\n      return `<div class=\"block\" style=\"animation-delay:${delay}ms;animation-duration:${d}ms\">` +\n        `<span class=\"label\">${esc(b.label)}</span><span class=\"value\">${esc(b.value)}</span></div>`;\n    }).join(\"\\n      \");\n    out = tmpl.split(\"%%TITLE%%\").join(esc(spec.title || \"\"))\n      .split(\"%%BLOCKS%%\").join(htmlBlocks).split(\"%%ACCENT%%\").join(accent)\n      .split(\"%%MOTION_ANIM%%\").join(kind).split(\"%%DURATION_MS%%\").join(String(duration))\n      .split(\"%%FPS%%\").join(String(fps)).split(\"%%FRAMES%%\").join(String(frames))\n      .split(\"%%VIEWPORT%%\").join(String(viewport));\n  }\n  const left = out.match(/%%[A-Z_]+%%/g);\n  if (left) throw new Error(\"unresolved template token(s): \" + left.join(\", \"));\n  return out;\n}\nconst specItem = $('spec_ready').first();\nconst spec = specItem.json.SPEC;\nconst specJson = specItem.json.SPEC_JSON;\nconst htmlT = $('download_html_template').first().json.output;\nconst svgT = $('download_svg_template').first().json.output;\nconst base = (a) => ({\n  ENTRY_ID: a.ENTRY_ID, ASSET_ID: a.ENTRY_ID + ':' + a.ASSET_TYPE,\n  ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '',\n  FORMAT: a.FORMAT || '', ROUND: '0', FEEDBACK: a.FEEDBACK || '',\n  SPEC_JSON: '', PROMPT: '', DURATION_MS: '', FRAME_COUNT: '', WIDTH: '', HEIGHT: '',\n  ERROR: '', STATUS: 'PENDING', UPDATE_DATE: new Date().toISOString(),\n});\nconst out = [];\nfor (const item of $('parse_registry').all()) {\n  const a = item.json;\n  const row = base(a);\n  if (a.STATUS === 'UNKNOWN' || a.STATUS === 'SKIPPED') {\n    row.STATUS = a.STATUS; row.ERROR = a.ERROR || '';\n  } else if (a.AVAILABLE === false) {\n    row.STATUS = 'UNAVAILABLE';\n    row.ERROR = a.UNAVAILABLE_REASON || ('unavailable: ' + a.ASSET_TYPE);\n  } else {\n    row.SPEC_JSON = specJson;\n  }\n  let markup = '', markupKind = '';\n  const prior = $('read_assets').all().map((i) => i.json).find((r) => r.ASSET_ID === row.ASSET_ID);\n  if (prior && prior.STATUS === 'APPROVED') { row.STATUS = 'APPROVED'; row.ROUND = prior.ROUND || row.ROUND; }\n  if (a.AVAILABLE !== false && a.STATUS !== 'UNKNOWN' && a.STATUS !== 'SKIPPED' && a.AUTHOR === 'spec_markup') {\n    if (a.RENDER_MODE === 'animated') { markup = buildMarkup(htmlT, spec, a.FPS, a.FRAMES, a.VIEWPORT, false); markupKind = 'html'; }\n    else if (a.RENDER_MODE === 'text') { markup = buildMarkup(svgT, spec, a.FPS, a.FRAMES, a.VIEWPORT, true); markupKind = 'svg'; }\n  }\n  out.push({ json: Object.assign({}, a, { SPEC: spec, SPEC_JSON: specJson, MARKUP: markup, MARKUP_KIND: markupKind, row } ) });\n}\nreturn out;"
       }
     },
     {
-      "id": "dbcbc517-9b33-4b4e-bdad-018d9bb80228",
+      "id": "20030892-05a4-4b78-869c-180e41df47b8",
       "name": "upsert_asset_rows",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
       "position": [
-        1760,
+        3080,
         0
       ],
       "parameters": {
@@ -484,12 +696,12 @@
       }
     },
     {
-      "id": "6897f165-0da9-4464-890c-b9a89b1c3331",
+      "id": "099574a5-eb6e-40e4-a093-2a9fce28b413",
       "name": "set_result",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1980,
+        3300,
         0
       ],
       "parameters": {
@@ -510,6 +722,17 @@
       ]
     },
     "normalize_input": {
+      "main": [
+        [
+          {
+            "node": "read_assets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "read_assets": {
       "main": [
         [
           {
@@ -535,7 +758,47 @@
       "main": [
         [
           {
+            "node": "freeze_check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "freeze_check": {
+      "main": [
+        [
+          {
+            "node": "if_frozen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if_frozen": {
+      "main": [
+        [
+          {
+            "node": "use_frozen",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "download_spec_prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "use_frozen": {
+      "main": [
+        [
+          {
+            "node": "spec_ready",
             "type": "main",
             "index": 0
           }
@@ -565,6 +828,39 @@
       ]
     },
     "parse_spec": {
+      "main": [
+        [
+          {
+            "node": "spec_ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "spec_ready": {
+      "main": [
+        [
+          {
+            "node": "download_html_template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "download_html_template": {
+      "main": [
+        [
+          {
+            "node": "download_svg_template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "download_svg_template": {
       "main": [
         [
           {

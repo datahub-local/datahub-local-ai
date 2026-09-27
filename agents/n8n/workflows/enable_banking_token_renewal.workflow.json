@@ -650,8 +650,18 @@
       },
       {
         "parameters": {
-          "respondWith": "html",
-          "options": {}
+          "respondWith": "text",
+          "responseBody": "={{ $('Build Token Upsert').first().json.result_html }}",
+          "options": {
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Content-Type",
+                  "value": "text/html; charset=utf-8"
+                }
+              ]
+            }
+          }
         },
         "id": "db61d03d-742f-420c-9051-cd17d8b95c92",
         "name": "Respond: Renewed",
@@ -707,9 +717,18 @@
       },
       {
         "parameters": {
-          "respondWith": "html",
+          "respondWith": "text",
+          "responseBody": "={{ $('Build Error Page').first().json.result_html }}",
           "options": {
-            "responseCode": 500
+            "responseCode": 500,
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Content-Type",
+                  "value": "text/html; charset=utf-8"
+                }
+              ]
+            }
           }
         },
         "id": "01d08c5b-1497-457c-815c-67859a182609",
@@ -2235,8 +2254,18 @@
     },
     {
       "parameters": {
-        "respondWith": "html",
-        "options": {}
+        "respondWith": "text",
+        "responseBody": "={{ $('Build Token Upsert').first().json.result_html }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              }
+            ]
+          }
+        }
       },
       "id": "db61d03d-742f-420c-9051-cd17d8b95c92",
       "name": "Respond: Renewed",
@@ -2292,9 +2321,18 @@
     },
     {
       "parameters": {
-        "respondWith": "html",
+        "respondWith": "text",
+        "responseBody": "={{ $('Build Error Page').first().json.result_html }}",
         "options": {
-          "responseCode": 500
+          "responseCode": 500,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              }
+            ]
+          }
         }
       },
       "id": "01d08c5b-1497-457c-815c-67859a182609",

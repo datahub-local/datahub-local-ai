@@ -2,7 +2,7 @@
   "name": "Visual Studio",
   "nodes": [
     {
-      "id": "ce0a3b9c-288c-4bf9-9530-e6b2e127d7b3",
+      "id": "d7ddd6aa-17c3-49bd-b16b-ea27c14eb6c6",
       "name": "main_trigger",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
@@ -14,23 +14,79 @@
         "workflowInputs": {
           "values": [
             {
-              "name": "ENTRY_ID"
-            },
-            {
-              "name": "ARTICLE_TEXT"
+              "name": "CONTENT"
             },
             {
               "name": "ASSET_TYPES"
             },
             {
               "name": "FEEDBACK"
+            },
+            {
+              "name": "SPEC_JSON"
             }
           ]
         }
       }
     },
     {
-      "id": "2c6d42cd-57c6-4dd0-94e6-f132427f4aee",
+      "id": "c109b649-2966-4df4-ac43-85a10d8e37c0",
+      "name": "api_trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        -220
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "visual-studio",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "webhookId": "81be9340-7201-430c-ac9b-de571f12d16e"
+    },
+    {
+      "id": "f35e4677-baa5-45ef-876c-f2c8261e7d8e",
+      "name": "form_trigger",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        220
+      ],
+      "parameters": {
+        "path": "visual-studio-form",
+        "formTitle": "Visual Studio",
+        "formDescription": "Produce a set of visual assets from one source text.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "CONTENT",
+              "fieldType": "textarea",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "ASSET_TYPES",
+              "fieldType": "text"
+            },
+            {
+              "fieldLabel": "FEEDBACK",
+              "fieldType": "textarea"
+            },
+            {
+              "fieldLabel": "SPEC_JSON",
+              "fieldType": "textarea"
+            }
+          ]
+        },
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "webhookId": "41f293d3-d7ab-4f30-a2fa-0e1b3bca8f7d"
+    },
+    {
+      "id": "2c48cdb7-f915-44e5-9c51-4f0326e1a5c0",
       "name": "normalize_input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -39,55 +95,16 @@
         0
       ],
       "parameters": {
-        "jsCode": "const i = $input.first().json;\nconst str = (v) => String(v == null ? '' : v);\nconst types = str(i.ASSET_TYPES).trim();\nconst text = str(i.ARTICLE_TEXT).trim();\nif (!str(i.ENTRY_ID).trim()) throw new Error('ENTRY_ID is required');\nif (!text) throw new Error('ARTICLE_TEXT is required');\nreturn [{ json: {\n  ENTRY_ID: str(i.ENTRY_ID).trim(),\n  ARTICLE_TEXT: text,\n  ASSET_TYPES: types,\n  FEEDBACK: str(i.FEEDBACK).trim(),\n} }];"
+        "jsCode": "const raw = $input.first().json || {};\nconst src = Object.assign({}, raw.body || {}, raw.query || {}, raw);\nconst v = (k) => { const x = src[k]; return x == null ? '' : String(x).trim(); };\nconst content = v('CONTENT');\nif (!content) throw new Error('CONTENT is required');\nreturn [{ json: {\n  RUN_ID: String($execution.id),\n  CONTENT: content,\n  ASSET_TYPES: v('ASSET_TYPES'),\n  FEEDBACK: v('FEEDBACK'),\n  SPEC_JSON: v('SPEC_JSON'),\n} }];"
       }
     },
     {
-      "id": "4433c762-0cd1-403c-a51b-b3914afc6422",
-      "name": "read_assets",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.6,
-      "position": [
-        440,
-        0
-      ],
-      "parameters": {
-        "operation": "read",
-        "documentId": {
-          "__rl": true,
-          "value": "1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI",
-          "mode": "list",
-          "cachedResultName": "content_planner"
-        },
-        "sheetName": {
-          "__rl": true,
-          "value": "article_assets",
-          "mode": "name"
-        },
-        "options": {
-          "dataLocationOnSheet": {
-            "values": {
-              "rangeDefinition": "detectAutomatically",
-              "readRowsUntil": "firstEmptyRow"
-            }
-          }
-        }
-      },
-      "credentials": {
-        "googleSheetsOAuth2Api": {
-          "id": "pGARJmt50qz64xOo",
-          "name": "Google Sheets account"
-        }
-      },
-      "alwaysOutputData": true
-    },
-    {
-      "id": "2fbbbf3f-3ff3-44d9-b0e3-2c73205323ef",
+      "id": "72066440-ce61-45a2-888b-5d7c07187ac3",
       "name": "download_registry",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        660,
+        440,
         0
       ],
       "parameters": {
@@ -132,8 +149,21 @@
       }
     },
     {
-      "id": "ee273689-ada8-4668-b0b5-e6b9c58f1182",
+      "id": "f7e458e1-2a23-4d7c-9103-8fd9903df802",
       "name": "parse_registry",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const cfg = JSON.parse($('download_registry').first().json.output || '{}');\nconst req = $('normalize_input').first().json;\nconst types = Array.isArray(cfg.types) ? cfg.types : [];\nconst byId = new Map(types.map((t) => [t.id, t]));\nconst budget = cfg.budget || {};\nconst cap = Number(cfg.max_types_per_request || 3);\nlet requested = req.ASSET_TYPES\n  ? req.ASSET_TYPES.split(',').map((s) => s.trim()).filter(Boolean)\n  : (cfg.default_types || []);\nrequested = [...new Set(requested)];\nconst out = [];\nconst note = (id, status, error) => out.push({ json: Object.assign({}, req, {\n  ASSET_TYPE: id, NAME: id, AUTHOR: null, TEMPLATE: null, SPEC_TEMPLATE: null,\n  RENDER_MODE: '', FORMAT: '', FALLBACK_FORMAT: null, ASPECT: '', AVAILABLE: false,\n  UNAVAILABLE_REASON: '', FPS: 0, FRAMES: 0, VIEWPORT: 0, STATUS, ERROR: error }) });\nfor (const id of requested.slice(0, cap)) {\n  const t = byId.get(id);\n  if (!t) { note(id, 'UNKNOWN', 'unknown asset type: ' + id); continue; }\n  const b = Object.assign({}, budget, t.budget || {});\n  out.push({ json: Object.assign({}, req, {\n    ASSET_TYPE: t.id, NAME: t.name || t.id, AUTHOR: t.author, TEMPLATE: t.template || null,\n    SPEC_TEMPLATE: t.specTemplate || null, RENDER_MODE: t.render, FORMAT: t.format,\n    FALLBACK_FORMAT: t.fallbackFormat || null, ASPECT: t.aspect || '4:5',\n    AVAILABLE: t.available !== false, UNAVAILABLE_REASON: t.unavailableReason || '',\n    FPS: Number(b.fps || 12), FRAMES: Number(b.frames || 36), VIEWPORT: Number(b.viewport || 1200),\n  }) });\n}\nfor (const id of requested.slice(cap)) note(id, 'SKIPPED', 'over the per-request cap of ' + cap);\nreturn out;"
+      }
+    },
+    {
+      "id": "4e1dcf1e-c8eb-46b1-a2a6-6dc30500e74f",
+      "name": "pick_spec_type",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -141,29 +171,16 @@
         0
       ],
       "parameters": {
-        "jsCode": "const cfg = JSON.parse($('download_registry').first().json.output || '{}');\nconst req = $('normalize_input').first().json;\nconst types = Array.isArray(cfg.types) ? cfg.types : [];\nconst byId = new Map(types.map((t) => [t.id, t]));\nconst budget = cfg.budget || {};\nconst cap = Number(cfg.max_types_per_article || 3);\nlet requested = req.ASSET_TYPES\n  ? req.ASSET_TYPES.split(',').map((s) => s.trim()).filter(Boolean)\n  : (cfg.default_types || []);\n// The static hero is always produced (spec requirement), and is first.\nif (!requested.includes('hero_static')) requested.unshift('hero_static');\n// Deduplicate, preserving order.\nrequested = [...new Set(requested)];\nconst notes = [];\nconst unknown = requested.filter((id) => !byId.has(id));\nunknown.forEach((id) => notes.push({ ASSET_TYPE: id, STATUS: 'UNKNOWN',\n  ERROR: 'unknown asset type: ' + id }));\nrequested = requested.filter((id) => byId.has(id));\n// Cap, hero first.\nconst capped = requested.slice(0, cap);\nrequested.slice(cap).forEach((id) => notes.push({ ASSET_TYPE: id, STATUS: 'SKIPPED',\n  ERROR: 'over the per-article cap of ' + cap }));\nconst out = [];\nfor (const id of capped) {\n  const t = byId.get(id);\n  const b = Object.assign({}, budget, t.budget || {});\n  out.push({ json: Object.assign({}, req, {\n    ASSET_TYPE: t.id,\n    NAME: t.name || t.id,\n    AUTHOR: t.author,\n    TEMPLATE: t.template || null,\n    SPEC_TEMPLATE: t.specTemplate || null,\n    RENDER_MODE: t.render,\n    FORMAT: t.format,\n    FALLBACK_FORMAT: t.fallbackFormat || null,\n    ASPECT: t.aspect || '4:5',\n    AVAILABLE: t.available !== false,\n    UNAVAILABLE_REASON: t.unavailableReason || '',\n    FPS: Number(b.fps || 12),\n    FRAMES: Number(b.frames || 36),\n    VIEWPORT: Number(b.viewport || 1200),\n    CAP: cap,\n  }) });\n}\nfor (const n of notes) out.push({ json: Object.assign({}, req, n, { AVAILABLE: false }) });\nreturn out;"
+        "jsCode": "const req = $('normalize_input').first().json;\nconst wants = $('parse_registry').all().map((i) => i.json).filter((a) => a.SPEC_TEMPLATE);\nconst first = wants.length ? wants[0] : null;\nreturn [{ json: Object.assign({}, req, {\n  ASSET_TYPE: first ? first.ASSET_TYPE : '',\n  NEEDS_SPEC: !!first,\n}) }];"
       }
     },
     {
-      "id": "eac6aba1-8260-4f63-83a4-2179c0ecbd75",
-      "name": "freeze_check",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1100,
-        0
-      ],
-      "parameters": {
-        "jsCode": "const entry = $('normalize_input').first().json.ENTRY_ID;\nconst rows = $('read_assets').all().map((i) => i.json).filter((r) => r.ENTRY_ID === entry);\nconst approved = rows.find((r) => r.STATUS === 'APPROVED' && r.SPEC_JSON);\nif (approved) {\n  let spec = null;\n  try { spec = JSON.parse(approved.SPEC_JSON); } catch (e) { spec = null; }\n  if (spec) return [{ json: { FROZEN: true, SPEC: spec, SPEC_JSON: approved.SPEC_JSON, ASSET_STATUSES: rows.map((r) => [r.ASSET_TYPE, r.STATUS]) } }];\n}\nreturn [{ json: { FROZEN: false, ASSET_STATUSES: rows.map((r) => [r.ASSET_TYPE, r.STATUS]) } }];"
-      }
-    },
-    {
-      "id": "b2088f38-9671-4132-9ebe-bd426aa195d9",
-      "name": "if_frozen",
+      "id": "d0c3db83-3740-475f-8b78-ce8ed58937ce",
+      "name": "if_spec_given",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1320,
+        1100,
         0
       ],
       "parameters": {
@@ -177,13 +194,13 @@
           "combinator": "and",
           "conditions": [
             {
-              "id": "f1",
+              "id": "if_spec_given-c",
               "operator": {
                 "type": "boolean",
                 "operation": "true",
                 "singleValue": true
               },
-              "leftValue": "={{ $json.FROZEN }}",
+              "leftValue": "={{ !!$json.SPEC_JSON || !$json.NEEDS_SPEC }}",
               "rightValue": ""
             }
           ]
@@ -192,26 +209,26 @@
       }
     },
     {
-      "id": "4d1e9369-6640-4f44-8662-e6805f4e5c50",
-      "name": "use_frozen",
+      "id": "ba7f59c1-58d4-4b7c-aa45-3af7aa6fdcc3",
+      "name": "spec_from_param",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1540,
-        -220
+        1320,
+        -180
       ],
       "parameters": {
-        "jsCode": "const j = $input.first().json;\nreturn [{ json: { SPEC: j.SPEC, SPEC_JSON: j.SPEC_JSON } }];"
+        "jsCode": "\nconst raw = ($input.first().json.SPEC_JSON || '').trim();\nif (!raw) return [{ json: { SPEC: null, SPEC_JSON: '' } }];\nlet spec;\ntry { spec = JSON.parse(raw); } catch (e) { throw new Error('SPEC_JSON parameter is invalid JSON: ' + e.message); }\n\nconst fail = (msg) => { throw new Error('content spec invalid: ' + msg); };\nif (typeof spec.title !== 'string' || !spec.title.trim()) fail('missing field: title');\nif (!Array.isArray(spec.blocks) || spec.blocks.length < 3 || spec.blocks.length > 6)\n  fail('blocks must be an array of 3 to 6 entries');\nspec.blocks.forEach((b, i) => {\n  if (!b || typeof b.label !== 'string' || !b.label.trim()) fail('missing field: blocks[' + i + '].label');\n  if (b.value == null || String(b.value).trim() === '') fail('missing field: blocks[' + i + '].value');\n});\nif (typeof spec.accent !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(spec.accent))\n  fail('missing field: accent');\nif (!spec.motion || typeof spec.motion !== 'object') fail('missing field: motion');\nif (!['rise', 'fade', 'sweep', 'pulse'].includes(spec.motion.kind)) fail('missing field: motion.kind');\nconst d = Number(spec.motion.durationMs);\nif (!Number.isFinite(d) || d < 2000 || d > 4000) fail('missing field: motion.durationMs');\nif (typeof spec.alt !== 'string' || !spec.alt.trim()) fail('missing field: alt');\nreturn [{ json: { SPEC: spec, SPEC_JSON: JSON.stringify(spec) } }];"
       }
     },
     {
-      "id": "2b866c4a-85c2-466c-894e-d987fa351b32",
+      "id": "e5b6b819-63ed-4224-bcc7-f042953b7711",
       "name": "download_spec_prompt",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        1540,
-        220
+        1320,
+        180
       ],
       "parameters": {
         "workflowId": {
@@ -225,7 +242,7 @@
           "mappingMode": "defineBelow",
           "value": {
             "template_name": "prompts/visual_spec.md",
-            "template_vars": "={{ {\n \"ASSET_TYPE\": $('parse_registry').first().json.ASSET_TYPE,\n \"ARTICLE_TEXT\": $('normalize_input').first().json.ARTICLE_TEXT,\n \"FEEDBACK\": $('normalize_input').first().json.FEEDBACK\n} }}"
+            "template_vars": "={{ {\n \"ASSET_TYPE\": $('pick_spec_type').first().json.ASSET_TYPE,\n \"CONTENT\": $('normalize_input').first().json.CONTENT,\n \"FEEDBACK\": $('normalize_input').first().json.FEEDBACK\n} }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -255,13 +272,13 @@
       }
     },
     {
-      "id": "7da54b09-df32-4dd3-8477-9d58593f66d7",
+      "id": "60c01e7a-0782-4d18-abda-ead2f0084df6",
       "name": "author_spec",
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "typeVersion": 1.6,
       "position": [
-        1760,
-        220
+        1540,
+        180
       ],
       "parameters": {
         "promptType": "define",
@@ -270,19 +287,19 @@
       }
     },
     {
-      "id": "6281c9a0-401e-436b-8179-dc253cee0db8",
+      "id": "9fa8b9b6-76aa-42ed-9b74-8177b17433c2",
       "name": "ai_model",
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.3,
       "position": [
-        1760,
-        420
+        1540,
+        400
       ],
       "parameters": {
         "model": {
           "__rl": true,
-          "mode": "id",
-          "value": "opencode-go/deepseek-v4.1-flash"
+          "value": "opencode-go/deepseek-v4.1-flash",
+          "mode": "id"
         },
         "builtInTools": {},
         "options": {
@@ -297,19 +314,19 @@
       }
     },
     {
-      "id": "246d3480-7679-4ccb-9673-1854c12ddaf0",
+      "id": "d7d1ce15-e3b2-4e29-aa7d-20bd4fedbbbb",
       "name": "ai_model_fallback",
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.3,
       "position": [
         1960,
-        420
+        400
       ],
       "parameters": {
         "model": {
           "__rl": true,
-          "mode": "id",
-          "value": "opencode-go/glm-5.3-flash"
+          "value": "opencode-go/glm-5.3-flash",
+          "mode": "id"
         },
         "builtInTools": {},
         "options": {
@@ -324,25 +341,25 @@
       }
     },
     {
-      "id": "6f100ab2-c8cd-459e-91e5-959cd0e2460b",
+      "id": "1303e1ec-74e6-452d-814f-7d691644cdb6",
       "name": "parse_spec",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1980,
-        220
+        1760,
+        180
       ],
       "parameters": {
-        "jsCode": "const raw0 = $('author_spec').first().json.text || '';\nlet raw = raw0.trim().replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```$/, '');\nconst m = raw.match(/\\{[\\s\\S]*\\}/);\nif (!m) throw new Error('content spec is not JSON');\nlet spec;\ntry { spec = JSON.parse(m[0]); } catch (e) { throw new Error('content spec is invalid JSON: ' + e.message); }\nconst fail = (msg) => { throw new Error('content spec invalid: ' + msg); };\nif (typeof spec.title !== 'string' || !spec.title.trim()) fail('missing field: title');\nif (!Array.isArray(spec.blocks) || spec.blocks.length < 3 || spec.blocks.length > 6)\n  fail('blocks must be an array of 3 to 6 entries');\nspec.blocks.forEach((b, i) => {\n  if (!b || typeof b.label !== 'string' || !b.label.trim()) fail('missing field: blocks[' + i + '].label');\n  if (b.value == null || String(b.value).trim() === '') fail('missing field: blocks[' + i + '].value');\n});\nif (typeof spec.accent !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(spec.accent))\n  fail('missing field: accent');\nif (!spec.motion || typeof spec.motion !== 'object') fail('missing field: motion');\nif (!['rise', 'fade', 'sweep', 'pulse'].includes(spec.motion.kind)) fail('missing field: motion.kind');\nconst d = Number(spec.motion.durationMs);\nif (!Number.isFinite(d) || d < 2000 || d > 4000) fail('missing field: motion.durationMs');\nif (typeof spec.alt !== 'string' || !spec.alt.trim()) fail('missing field: alt');\nreturn [{ json: { SPEC: spec, SPEC_JSON: JSON.stringify(spec) } }];"
+        "jsCode": "\nconst raw0 = $('author_spec').first().json.text || '';\nlet raw = raw0.trim().replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```$/, '');\nconst m = raw.match(/\\{[\\s\\S]*\\}/);\nif (!m) throw new Error('content spec is not JSON');\nlet spec;\ntry { spec = JSON.parse(m[0]); } catch (e) { throw new Error('content spec is invalid JSON: ' + e.message); }\n\nconst fail = (msg) => { throw new Error('content spec invalid: ' + msg); };\nif (typeof spec.title !== 'string' || !spec.title.trim()) fail('missing field: title');\nif (!Array.isArray(spec.blocks) || spec.blocks.length < 3 || spec.blocks.length > 6)\n  fail('blocks must be an array of 3 to 6 entries');\nspec.blocks.forEach((b, i) => {\n  if (!b || typeof b.label !== 'string' || !b.label.trim()) fail('missing field: blocks[' + i + '].label');\n  if (b.value == null || String(b.value).trim() === '') fail('missing field: blocks[' + i + '].value');\n});\nif (typeof spec.accent !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(spec.accent))\n  fail('missing field: accent');\nif (!spec.motion || typeof spec.motion !== 'object') fail('missing field: motion');\nif (!['rise', 'fade', 'sweep', 'pulse'].includes(spec.motion.kind)) fail('missing field: motion.kind');\nconst d = Number(spec.motion.durationMs);\nif (!Number.isFinite(d) || d < 2000 || d > 4000) fail('missing field: motion.durationMs');\nif (typeof spec.alt !== 'string' || !spec.alt.trim()) fail('missing field: alt');\nreturn [{ json: { SPEC: spec, SPEC_JSON: JSON.stringify(spec) } }];"
       }
     },
     {
-      "id": "8f249e6f-ffa1-4688-bac6-934466166c8f",
+      "id": "cc6414f0-337f-4636-a9f9-1ed855cc2502",
       "name": "spec_ready",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2200,
+        1980,
         0
       ],
       "parameters": {
@@ -350,12 +367,12 @@
       }
     },
     {
-      "id": "17aa9a5f-42a1-4803-bd6b-b72347047dd2",
+      "id": "ecef27af-e60c-40bd-a52e-4af0a7fe2a47",
       "name": "download_html_template",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        2420,
+        1980,
         0
       ],
       "parameters": {
@@ -400,12 +417,12 @@
       }
     },
     {
-      "id": "d94faac2-4179-4361-a024-8e3dab4d098a",
+      "id": "abe19f85-d36a-4e4e-be44-b8f9734df895",
       "name": "download_svg_template",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        2640,
+        2200,
         0
       ],
       "parameters": {
@@ -450,262 +467,231 @@
       }
     },
     {
-      "id": "86a95901-9012-4958-900f-f6c00fd34d84",
+      "id": "a6f7251c-4557-48cb-b956-6ac4dceadc82",
       "name": "merge_assets",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2860,
+        2420,
         0
       ],
       "parameters": {
-        "jsCode": "const esc = (s) => String(s).replace(/&/g, \"&amp;\").replace(/</g, \"&lt;\").replace(/>/g, \"&gt;\");\nconst escAttr = (s) => esc(s).replace(/\"/g, \"&quot;\");\nfunction buildMarkup(tmpl, spec, fps, frames, viewport, isSvg) {\n  const accent = /^#[0-9a-fA-F]{6}$/.test(spec.accent || \"\") ? spec.accent : \"#22d3ee\";\n  const kind = [\"rise\", \"fade\", \"sweep\", \"pulse\"].includes(spec.motion && spec.motion.kind)\n    ? spec.motion.kind : \"rise\";\n  const duration = Math.max(1000, Math.min(4000, (spec.motion && spec.motion.durationMs) || 3000));\n  const blocks = (spec.blocks || []).slice(0, 6);\n  const step = Math.floor(duration / (blocks.length + 1));\n  let out;\n  if (isSvg) {\n    const top = 360, row = 150;\n    const svgBlocks = blocks.map((b, i) => {\n      const delay = i * step, d = Math.max(200, duration - delay), y = top + i * row;\n      return `<g class=\"block\" style=\"animation-delay:${delay}ms;animation-duration:${d}ms\">` +\n        `<text class=\"label\" x=\"64\" y=\"${y}\">${esc(b.label)}</text>` +\n        `<text class=\"value\" x=\"1136\" y=\"${y}\" text-anchor=\"end\">${esc(b.value)}</text>` +\n        `<line class=\"sep\" x1=\"64\" y1=\"${y + 28}\" x2=\"1136\" y2=\"${y + 28}\" /></g>`;\n    }).join(\"\\n  \");\n    out = tmpl.split(\"%%TITLE%%\").join(esc(spec.title || \"\"))\n      .split(\"%%BLOCKS%%\").join(svgBlocks).split(\"%%ACCENT%%\").join(accent)\n      .split(\"%%MOTION_ANIM%%\").join(kind).split(\"%%DURATION_MS%%\").join(String(duration))\n      .split(\"%%FPS%%\").join(String(fps)).split(\"%%FRAMES%%\").join(String(frames))\n      .split(\"%%VIEWPORT%%\").join(String(viewport)).split(\"%%ALT%%\").join(escAttr(spec.alt || \"\"));\n  } else {\n    const htmlBlocks = blocks.map((b, i) => {\n      const delay = i * step, d = Math.max(200, duration - delay);\n      return `<div class=\"block\" style=\"animation-delay:${delay}ms;animation-duration:${d}ms\">` +\n        `<span class=\"label\">${esc(b.label)}</span><span class=\"value\">${esc(b.value)}</span></div>`;\n    }).join(\"\\n      \");\n    out = tmpl.split(\"%%TITLE%%\").join(esc(spec.title || \"\"))\n      .split(\"%%BLOCKS%%\").join(htmlBlocks).split(\"%%ACCENT%%\").join(accent)\n      .split(\"%%MOTION_ANIM%%\").join(kind).split(\"%%DURATION_MS%%\").join(String(duration))\n      .split(\"%%FPS%%\").join(String(fps)).split(\"%%FRAMES%%\").join(String(frames))\n      .split(\"%%VIEWPORT%%\").join(String(viewport));\n  }\n  const left = out.match(/%%[A-Z_]+%%/g);\n  if (left) throw new Error(\"unresolved template token(s): \" + left.join(\", \"));\n  return out;\n}\nconst specItem = $('spec_ready').first();\nconst spec = specItem.json.SPEC;\nconst specJson = specItem.json.SPEC_JSON;\nconst htmlT = $('download_html_template').first().json.output;\nconst svgT = $('download_svg_template').first().json.output;\nconst base = (a) => ({\n  ENTRY_ID: a.ENTRY_ID, ASSET_ID: a.ENTRY_ID + ':' + a.ASSET_TYPE,\n  ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '',\n  FORMAT: a.FORMAT || '', ROUND: '0', FEEDBACK: a.FEEDBACK || '',\n  SPEC_JSON: '', PROMPT: '', DURATION_MS: '', FRAME_COUNT: '', WIDTH: '', HEIGHT: '',\n  ERROR: '', STATUS: 'PENDING', UPDATE_DATE: new Date().toISOString(),\n});\nconst out = [];\nfor (const item of $('parse_registry').all()) {\n  const a = item.json;\n  const row = base(a);\n  if (a.STATUS === 'UNKNOWN' || a.STATUS === 'SKIPPED') {\n    row.STATUS = a.STATUS; row.ERROR = a.ERROR || '';\n  } else if (a.AVAILABLE === false) {\n    row.STATUS = 'UNAVAILABLE';\n    row.ERROR = a.UNAVAILABLE_REASON || ('unavailable: ' + a.ASSET_TYPE);\n  } else {\n    row.SPEC_JSON = specJson;\n  }\n  let markup = '', markupKind = '';\n  const prior = $('read_assets').all().map((i) => i.json).find((r) => r.ASSET_ID === row.ASSET_ID);\n  if (prior && prior.STATUS === 'APPROVED') { row.STATUS = 'APPROVED'; row.ROUND = prior.ROUND || row.ROUND; }\n  if (a.AVAILABLE !== false && a.STATUS !== 'UNKNOWN' && a.STATUS !== 'SKIPPED' && a.AUTHOR === 'spec_markup') {\n    if (a.RENDER_MODE === 'animated') { markup = buildMarkup(htmlT, spec, a.FPS, a.FRAMES, a.VIEWPORT, false); markupKind = 'html'; }\n    else if (a.RENDER_MODE === 'text') { markup = buildMarkup(svgT, spec, a.FPS, a.FRAMES, a.VIEWPORT, true); markupKind = 'svg'; }\n  }\n  out.push({ json: Object.assign({}, a, { SPEC: spec, SPEC_JSON: specJson, MARKUP: markup, MARKUP_KIND: markupKind, row } ) });\n}\nreturn out;"
+        "jsCode": "const esc = (s) => String(s).replace(/&/g, \"&amp;\").replace(/</g, \"&lt;\").replace(/>/g, \"&gt;\");\nconst escAttr = (s) => esc(s).replace(/\"/g, \"&quot;\");\nfunction buildMarkup(tmpl, spec, fps, frames, viewport, isSvg) {\n  const accent = /^#[0-9a-fA-F]{6}$/.test(spec.accent || \"\") ? spec.accent : \"#22d3ee\";\n  const kind = [\"rise\", \"fade\", \"sweep\", \"pulse\"].includes(spec.motion && spec.motion.kind)\n    ? spec.motion.kind : \"rise\";\n  const duration = Math.max(1000, Math.min(4000, (spec.motion && spec.motion.durationMs) || 3000));\n  const blocks = (spec.blocks || []).slice(0, 6);\n  const step = Math.floor(duration / (blocks.length + 1));\n  let out;\n  if (isSvg) {\n    const top = 360, row = 150;\n    const svgBlocks = blocks.map((b, i) => {\n      const delay = i * step, d = Math.max(200, duration - delay), y = top + i * row;\n      return `<g class=\"block\" style=\"animation-delay:${delay}ms;animation-duration:${d}ms\">` +\n        `<text class=\"label\" x=\"64\" y=\"${y}\">${esc(b.label)}</text>` +\n        `<text class=\"value\" x=\"1136\" y=\"${y}\" text-anchor=\"end\">${esc(b.value)}</text>` +\n        `<line class=\"sep\" x1=\"64\" y1=\"${y + 28}\" x2=\"1136\" y2=\"${y + 28}\" /></g>`;\n    }).join(\"\\n  \");\n    out = tmpl.split(\"%%TITLE%%\").join(esc(spec.title || \"\"))\n      .split(\"%%BLOCKS%%\").join(svgBlocks).split(\"%%ACCENT%%\").join(accent)\n      .split(\"%%MOTION_ANIM%%\").join(kind).split(\"%%DURATION_MS%%\").join(String(duration))\n      .split(\"%%FPS%%\").join(String(fps)).split(\"%%FRAMES%%\").join(String(frames))\n      .split(\"%%VIEWPORT%%\").join(String(viewport)).split(\"%%ALT%%\").join(escAttr(spec.alt || \"\"));\n  } else {\n    const htmlBlocks = blocks.map((b, i) => {\n      const delay = i * step, d = Math.max(200, duration - delay);\n      return `<div class=\"block\" style=\"animation-delay:${delay}ms;animation-duration:${d}ms\">` +\n        `<span class=\"label\">${esc(b.label)}</span><span class=\"value\">${esc(b.value)}</span></div>`;\n    }).join(\"\\n      \");\n    out = tmpl.split(\"%%TITLE%%\").join(esc(spec.title || \"\"))\n      .split(\"%%BLOCKS%%\").join(htmlBlocks).split(\"%%ACCENT%%\").join(accent)\n      .split(\"%%MOTION_ANIM%%\").join(kind).split(\"%%DURATION_MS%%\").join(String(duration))\n      .split(\"%%FPS%%\").join(String(fps)).split(\"%%FRAMES%%\").join(String(frames))\n      .split(\"%%VIEWPORT%%\").join(String(viewport));\n  }\n  const left = out.match(/%%[A-Z_]+%%/g);\n  if (left) throw new Error(\"unresolved template token(s): \" + left.join(\", \"));\n  return out;\n}\nconst spec = $('spec_ready').first().json.SPEC;\nconst specJson = $('spec_ready').first().json.SPEC_JSON;\nconst htmlT = $('download_html_template').first().json.output;\nconst svgT = $('download_svg_template').first().json.output;\nconst asset = (a, status) => ({\n  ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS, SPEC_JSON: specJson, PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: '', FRAME_COUNT: '', WIDTH: '', HEIGHT: '',\n});\nconst out = [];\nfor (const item of $('parse_registry').all()) {\n  const a = item.json;\n  if (a.STATUS === 'UNKNOWN' || a.STATUS === 'SKIPPED') {\n    out.push({ json: asset(a, a.STATUS) });\n    out[out.length - 1].json.ERROR = a.ERROR || '';\n    continue;\n  }\n  if (a.AVAILABLE === false) {\n    const r = asset(a, 'UNAVAILABLE');\n    r.ERROR = a.UNAVAILABLE_REASON || ('unavailable: ' + a.ASSET_TYPE);\n    out.push({ json: r });\n    continue;\n  }\n  const r = asset(a, 'AUTHORED');\n  let markup = '', markupKind = '';\n  if (a.AUTHOR === 'spec_markup') {\n    if (a.RENDER_MODE === 'animated') { markup = buildMarkup(htmlT, spec, a.FPS, a.FRAMES, a.VIEWPORT, false); markupKind = 'text/html'; }\n    else if (a.RENDER_MODE === 'text') { markup = buildMarkup(svgT, spec, a.FPS, a.FRAMES, a.VIEWPORT, true); markupKind = 'image/svg+xml'; }\n  }\n  r.MARKUP = markup;\n  r.CONTENT_TYPE = markupKind;\n  out.push({ json: Object.assign({}, a, r) });\n}\nreturn out;"
       }
     },
     {
-      "id": "20030892-05a4-4b78-869c-180e41df47b8",
-      "name": "upsert_asset_rows",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.6,
+      "id": "c1133729-725f-4889-8945-9dcec4d18a22",
+      "name": "if_raster",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
       "position": [
-        3080,
+        2640,
         0
       ],
       "parameters": {
-        "operation": "appendOrUpdate",
-        "documentId": {
-          "__rl": true,
-          "value": "1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI",
-          "mode": "list",
-          "cachedResultName": "content_planner"
-        },
-        "sheetName": {
-          "__rl": true,
-          "value": "article_assets",
-          "mode": "name"
-        },
-        "columns": {
-          "mappingMode": "defineBelow",
-          "matchingColumns": [
-            "ASSET_ID"
-          ],
-          "value": {
-            "ENTRY_ID": "={{ $json.row.ENTRY_ID }}",
-            "ASSET_ID": "={{ $json.row.ASSET_ID }}",
-            "ASSET_TYPE": "={{ $json.row.ASSET_TYPE }}",
-            "RENDER_MODE": "={{ $json.row.RENDER_MODE }}",
-            "FORMAT": "={{ $json.row.FORMAT }}",
-            "STATUS": "={{ $json.row.STATUS }}",
-            "ROUND": "={{ $json.row.ROUND }}",
-            "FEEDBACK": "={{ $json.row.FEEDBACK }}",
-            "SPEC_JSON": "={{ $json.row.SPEC_JSON }}",
-            "PROMPT": "={{ $json.row.PROMPT }}",
-            "ERROR": "={{ $json.row.ERROR }}",
-            "UPDATE_DATE": "={{ $json.row.UPDATE_DATE }}"
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
           },
-          "schema": [
+          "combinator": "and",
+          "conditions": [
             {
-              "id": "ENTRY_ID",
-              "displayName": "ENTRY_ID",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "ASSET_ID",
-              "displayName": "ASSET_ID",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "ASSET_TYPE",
-              "displayName": "ASSET_TYPE",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "RENDER_MODE",
-              "displayName": "RENDER_MODE",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "FORMAT",
-              "displayName": "FORMAT",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "STATUS",
-              "displayName": "STATUS",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "ROUND",
-              "displayName": "ROUND",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "FEEDBACK",
-              "displayName": "FEEDBACK",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "SPEC_JSON",
-              "displayName": "SPEC_JSON",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "PROMPT",
-              "displayName": "PROMPT",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "PATH",
-              "displayName": "PATH",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": true
-            },
-            {
-              "id": "DURATION_MS",
-              "displayName": "DURATION_MS",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "FRAME_COUNT",
-              "displayName": "FRAME_COUNT",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "WIDTH",
-              "displayName": "WIDTH",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "HEIGHT",
-              "displayName": "HEIGHT",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "URL",
-              "displayName": "URL",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": true
-            },
-            {
-              "id": "ERROR",
-              "displayName": "ERROR",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "UPDATE_DATE",
-              "displayName": "UPDATE_DATE",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
+              "id": "if_raster-c",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ ['raster','spec_raster'].includes($json.AUTHOR) }}",
+              "rightValue": ""
             }
           ]
         },
         "options": {}
+      }
+    },
+    {
+      "id": "64f2c39f-bf42-42bf-a15a-a72e00da81c3",
+      "name": "download_raster_prompt",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        2860,
+        -200
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "qUfjfWLGEjV96ljf",
+          "mode": "list",
+          "cachedResultName": "DownloadTemplate",
+          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "template_name": "prompts/visual_raster.md",
+            "template_vars": "={{ {\n \"ASSET_TYPE\": $json.ASSET_TYPE,\n \"CONTENT\": $json.CONTENT,\n \"SPEC_JSON\": $json.SPEC_JSON,\n \"FEEDBACK\": $json.FEEDBACK\n} }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "template_name",
+              "displayName": "template_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "template_vars",
+              "displayName": "template_vars",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {},
+        "mode": "each"
+      }
+    },
+    {
+      "id": "bc426f2e-3371-4b8f-bca1-62d69069dd51",
+      "name": "raster_director",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.6,
+      "position": [
+        3080,
+        -200
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.output }}",
+        "needsFallback": true
+      }
+    },
+    {
+      "id": "c6631f7e-3ef0-4526-9503-b7dd1c3d5a1e",
+      "name": "generate_image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3300,
+        -200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://datahub-local-core-data-litellm.data.svc.cluster.local:4000/openrouter/images",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"google/gemini-3.1-flash-image\",\n  \"prompt\": {{ $json.text.toJsonString() }},\n  \"aspect_ratio\": \"4:5\",\n  \"resolution\": \"1K\"\n}",
+        "options": {}
       },
       "credentials": {
-        "googleSheetsOAuth2Api": {
-          "id": "pGARJmt50qz64xOo",
-          "name": "Google Sheets account"
+        "httpBearerAuth": {
+          "id": "LitellmN8nBera01",
+          "name": "LiteLLM account (bearer)"
         }
       }
     },
     {
-      "id": "099574a5-eb6e-40e4-a093-2a9fce28b413",
+      "id": "aa114d40-c4a8-4771-8d6d-a2ce72d80d12",
+      "name": "raster_result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3520,
+        -200
+      ],
+      "parameters": {
+        "jsCode": "const src = $('if_raster').all();\nconst dir = $('raster_director').all();\nreturn $input.all().map((it, i) => {\n  const a = src[i].json;\n  const resp = it.json || {};\n  const d0 = (resp.data && resp.data[0]) || {};\n  const b64 = d0.b64_json || '';\n  const media = d0.media_type || 'image/png';\n  const out = Object.assign({}, a, {\n    STATUS: b64 ? 'RENDERED' : 'ERROR',\n    PROMPT: (dir[i] && dir[i].json.text) || '',\n    IMAGE: b64 ? ('data:' + media + ';base64,' + b64) : '',\n    CONTENT_TYPE: b64 ? media : '',\n  });\n  if (!b64) out.ERROR = 'image model returned no image';\n  return { json: out };\n});"
+      }
+    },
+    {
+      "id": "5a60495e-f328-49ff-a074-d0785a51705d",
+      "name": "ready_pass",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2860,
+        200
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "8b8389e9-6ed5-4d90-af37-b24a9c819873",
+      "name": "merge_branches",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        3740,
+        0
+      ],
+      "parameters": {
+        "mode": "append",
+        "numberInputs": 2,
+        "options": {}
+      }
+    },
+    {
+      "id": "626e806d-0dfe-4a23-827b-54afb8f87591",
+      "name": "run_record",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3960,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const items = $input.all().map((i) => i.json);\nconst req = $('normalize_input').first().json;\nconst errors = items.filter((i) => i.ERROR).map((i) => i.ASSET_TYPE + ': ' + i.ERROR);\nconst payload = items.map((i) => Object.assign({}, i, {\n  SPEC: undefined, MARKUP: i.CONTENT_TYPE === 'image/svg+xml' ? i.MARKUP : undefined,\n}));\nreturn [{ json: {\n  RUN_ID: req.RUN_ID,\n  STATUS: errors.length === 0 ? 'COMPLETE' : (items.some((i) => !i.ERROR) ? 'PARTIAL' : 'FAILED'),\n  REQUEST: JSON.stringify({ ASSET_TYPES: req.ASSET_TYPES, FEEDBACK: req.FEEDBACK,\n                            SPEC_GIVEN: !!req.SPEC_JSON, CONTENT_LENGTH: req.CONTENT.length }),\n  RESULT: JSON.stringify(payload),\n  ASSET_COUNT: String(items.length),\n  ERROR: errors.join(' | ').slice(0, 2000),\n} }];"
+      }
+    },
+    {
+      "id": "cc698dda-6cc8-4a8b-9cff-e8f916236118",
+      "name": "record_run",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        4180,
+        0
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "insert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "visual_studio_table"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {}
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "9fd512bb-d9a5-4e73-b934-614b45a9a687",
       "name": "set_result",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3300,
+        4400,
         0
       ],
       "parameters": {
-        "jsCode": "return $('merge_assets').all().map((i) => ({ json: i.json.row }));"
+        "jsCode": "return $('merge_branches').all().map((i) => ({ json: i.json }));"
       }
     }
   ],
@@ -721,18 +707,29 @@
         ]
       ]
     },
-    "normalize_input": {
+    "api_trigger": {
       "main": [
         [
           {
-            "node": "read_assets",
+            "node": "normalize_input",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "read_assets": {
+    "form_trigger": {
+      "main": [
+        [
+          {
+            "node": "normalize_input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "normalize_input": {
       "main": [
         [
           {
@@ -758,29 +755,29 @@
       "main": [
         [
           {
-            "node": "freeze_check",
+            "node": "pick_spec_type",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "freeze_check": {
+    "pick_spec_type": {
       "main": [
         [
           {
-            "node": "if_frozen",
+            "node": "if_spec_given",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "if_frozen": {
+    "if_spec_given": {
       "main": [
         [
           {
-            "node": "use_frozen",
+            "node": "spec_from_param",
             "type": "main",
             "index": 0
           }
@@ -794,7 +791,7 @@
         ]
       ]
     },
-    "use_frozen": {
+    "spec_from_param": {
       "main": [
         [
           {
@@ -875,14 +872,109 @@
       "main": [
         [
           {
-            "node": "upsert_asset_rows",
+            "node": "if_raster",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "upsert_asset_rows": {
+    "if_raster": {
+      "main": [
+        [
+          {
+            "node": "download_raster_prompt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ready_pass",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "download_raster_prompt": {
+      "main": [
+        [
+          {
+            "node": "raster_director",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "raster_director": {
+      "main": [
+        [
+          {
+            "node": "generate_image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "generate_image": {
+      "main": [
+        [
+          {
+            "node": "raster_result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "raster_result": {
+      "main": [
+        [
+          {
+            "node": "merge_branches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ready_pass": {
+      "main": [
+        [
+          {
+            "node": "merge_branches",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "merge_branches": {
+      "main": [
+        [
+          {
+            "node": "run_record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "run_record": {
+      "main": [
+        [
+          {
+            "node": "record_run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "record_run": {
       "main": [
         [
           {
@@ -901,6 +993,13 @@
             "type": "ai_languageModel",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "raster_director",
+            "type": "ai_languageModel",
+            "index": 0
+          }
         ]
       ]
     },
@@ -909,6 +1008,13 @@
         [
           {
             "node": "author_spec",
+            "type": "ai_languageModel",
+            "index": 1
+          }
+        ],
+        [
+          {
+            "node": "raster_director",
             "type": "ai_languageModel",
             "index": 1
           }

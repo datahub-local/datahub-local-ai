@@ -384,23 +384,35 @@ twice-yearly surprise:
   value the request asked for — the API returns it unchanged and says the
   session validity "will remain exactly as specified" regardless of the ASPSP
   side. It therefore cannot see a bank that drops or errors the consent early,
-  which happened on 2026-09-24 (Openbank, a `beta` integration, returned
-  `ASPSP_ERROR` on `/accounts/{uid}/details` nine days in while the stored
-  expiry was still ~171 days out). The daily check therefore also reads the
-  stored `session_id` and calls `GET /sessions/{session_id}`; that reads Enable
-  Banking's own session state and never reaches the ASPSP, so it spends none of
-  the PSD2 per-endpoint data-call budget. A status other than `AUTHORIZED`
+  which has happened twice — 2026-09-24 and again 2026-09-26, both Openbank
+  (whose `beta` flag was actually removed in core `0.14.0`, 2024-02-22, so the
+  earlier "beta integration" note here was wrong) — returning
+  `ASPSP_ERROR`/`HttpException` while the stored expiry was still months out.
+  Each time the fix was a regenerated token, so the failure is a token-lifecycle
+  problem, not an API change. The daily check therefore reads **every distinct**
+  stored `session_id` — one per alias that has one, each signed with that alias's
+  `app_id`, because a separately linked account (2026-09-26's `cuenta_compartida`)
+  can sit on its own session and application — and calls
+  `GET /sessions/{session_id}` for each; that reads Enable Banking's own session
+  state and never reaches the ASPSP, so it spends none of the PSD2 per-endpoint
+  data-call budget. A status other than `AUTHORIZED`
   (`CANCELLED`/`CLOSED`/`EXPIRED`/`REVOKED`/`INVALID`), or the probe call itself
   failing, joins the ≤3-day nudge. It is a gap-filler, not a guarantee: a drop
   the ASPSP never reports to Enable Banking still surfaces only when the ingest
-  data call fails, which stays the backstop.
+  data call fails, which stays the backstop. The ingest preflight still trusts
+  `valid_until` only, so that data call remains the only check the pipeline
+  itself does.
 - **Flow.** Form page ("renew <alias>") → **Form Ending: redirect** to the bank
   consent URL (generated live by the same execution) → the operator approves at
   the bank (the PSD2 step that cannot be automated) → the bank redirects to the
   form's own URL (whitelisted on the application, public via the n8n webhook
-  route) carrying `?code=` → the workflow mints an RS256 JWT (n8n Code node,
-  `node:crypto`; verified available in the sandbox 2026-09-14), calls
-  `POST /sessions {code}`, and **upserts** `finance-enablebanking-token`.
+  route) carrying `?code=` and the OAuth `state` → the workflow recovers the
+  alias from `state` (set as `$execution.id + '-' + alias`) and mints the RS256
+  JWT for **that alias's** `app_id` (n8n Code node, `node:crypto`; verified
+  available in the sandbox 2026-09-14), calls `POST /sessions {code}`, and
+  **upserts** `finance-enablebanking-token`. Signing the exchange with any other
+  alias's `app_id` fails, because Enable Banking issues the code to the
+  application that requested it.
 - **Secret split.** `finance-enablebanking` keeps the stable half
   (`private_key`, `{alias: {iban, app_id, institution_id}}`); the session-scoped
   half (`{alias: {uid, valid_until, session_id}}`) moves to `finance-enablebanking-token`,

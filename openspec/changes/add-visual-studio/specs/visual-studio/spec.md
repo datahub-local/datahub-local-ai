@@ -2,16 +2,16 @@
 
 ## Purpose
 
-Turns one article's content into a set of static and animated visual assets — hero, infographic, animated diagram, animated SVG — through a declared type registry, two-stage authoring and browser-rendered animation, with each asset reviewed and retried on its own.
+Turns one source text into a set of static and animated visual assets — hero, infographic, animated diagram, animated SVG — through a declared type registry, two-stage authoring and browser-rendered animation. The workflow is generic and stateless between runs: parameters arrive on the trigger, the result is returned and recorded.
 
 ## ADDED Requirements
 
-### Requirement: Artifact types are declared in a registry
+### Requirement: Types are declared in a registry
 
 The system SHALL define its visual artifact types in a declarative registry, and each type MUST declare how it is authored, how it is rendered, and its output format. Adding or changing a type MUST be a registry change, not a change to the rendering logic. v1 SHALL declare `hero_static`, `infographic_static`, `diagram_animated` and `animated_svg`; `motion_clip` MAY be declared but is not producible in v1.
 
 #### Scenario: Registry drives the work
-- **WHEN** the workflow starts for an article
+- **WHEN** the workflow starts
 - **THEN** the set of artifacts to produce comes from the registry, not from hard-coded branches
 
 #### Scenario: Unknown type
@@ -19,28 +19,45 @@ The system SHALL define its visual artifact types in a declarative registry, and
 - **THEN** the request is rejected with a reason naming the unknown type
 - **AND** no asset is produced for it
 
-### Requirement: The requested set is declared on the article entry
+### Requirement: The requested set is a trigger parameter
 
-The set of asset types to produce SHALL be declared on the article's queue entry, and the article draft SHALL be given that set so it can emit one marker per requested type. When the declaration is blank, the system SHALL apply a documented default rather than producing nothing.
+The set of asset types to produce SHALL be declared by the caller in the `ASSET_TYPES` parameter, identically on every trigger. When the declaration is blank, the system SHALL apply the registry's documented default rather than producing nothing. A request MAY carry at most the registry's per-request cap of types; a set over the cap SHALL be reported, not silently truncated.
 
 #### Scenario: Declared set is used
-- **WHEN** an entry declares hero and animated diagram
-- **THEN** exactly those assets are produced and referenced
+- **WHEN** a request declares hero and animated diagram
+- **THEN** exactly those assets are produced
 
 #### Scenario: Blank declaration
-- **WHEN** an entry declares no asset types
-- **THEN** the documented default set is produced
+- **WHEN** a request declares no asset types
+- **THEN** the registry's default set is produced
+
+#### Scenario: Over the cap
+- **WHEN** a request declares more types than the cap
+- **THEN** the types within the cap are produced
+- **AND** each remaining type is reported as skipped with the cap as the reason
+
+### Requirement: Every trigger speaks one contract
+
+The workflow SHALL expose the same parameter contract on every trigger — a sub-workflow call, an HTTP API webhook and a form — taking `CONTENT` (the source text, required), `ASSET_TYPES`, `FEEDBACK` and `SPEC_JSON`. The workflow MUST NOT read caller state from a table or sheet to decide what to produce; everything it needs arrives on the trigger.
+
+#### Scenario: Same contract on every surface
+- **WHEN** the same parameters arrive via the API webhook, the form or a sub-workflow call
+- **THEN** the same asset set is produced
+
+#### Scenario: Missing content
+- **WHEN** a request arrives without `CONTENT`
+- **THEN** the request fails naming the missing parameter
 
 ### Requirement: One file per requested and supported type
 
-For a given article the system SHALL produce at most one asset per requested and supported type, with a deterministic file identity derived from the article and the type. It MUST NOT produce duplicate assets for the same article and type in one run.
+For a given request the system SHALL produce at most one asset per requested and supported type, with content derived only from the request. It MUST NOT produce duplicate assets for the same type in one run.
 
 #### Scenario: Asset set produced
-- **WHEN** an article requests hero, infographic and animated diagram
+- **WHEN** a request asks for a hero, an infographic and an animated diagram
 - **THEN** one file per requested supported type is produced
 
 #### Scenario: Duplicate request deduplicated
-- **WHEN** the same type is requested twice for one article
+- **WHEN** the same type is requested twice in one request
 - **THEN** exactly one asset is produced for that type
 
 ### Requirement: Authoring is two-stage
@@ -54,35 +71,29 @@ For every infographic-family type the system SHALL first produce a typed **conte
 
 #### Scenario: Invalid spec
 - **WHEN** the produced spec is missing a required field
-- **THEN** the asset is marked with an error state naming the missing field
+- **THEN** the run fails naming the missing field
 - **AND** no markup or image is produced for it
 
-### Requirement: Variants of one article share one content spec
+### Requirement: A frozen spec is applied, not re-authored
 
-Static and animated variants derived from the same content spec SHALL share the same title, labels and values, so the article never shows an infographic that disagrees with its animated counterpart. There SHALL be one content spec per article, and once any variant of that article is approved the spec MUST be frozen: a post-approval retry of a sibling MAY change styling or motion only, and MUST NOT change the spec's title, labels or values.
+The system SHALL accept an optional `SPEC_JSON` parameter carrying a content spec. When it is present the system MUST use it verbatim for every variant in the request and MUST NOT call the model to author a spec. Enforcing when a spec is frozen — for example once a variant has been approved — is the caller's responsibility; the studio only guarantees that a supplied spec is never silently re-authored.
 
-#### Scenario: Shared spec across variants
-- **WHEN** a static infographic and an animated diagram are both produced
-- **THEN** both derive from the same content spec
-- **AND** their titles, labels and values match
+#### Scenario: Supplied spec is used verbatim
+- **WHEN** a request supplies `SPEC_JSON`
+- **THEN** every variant in that run derives from that spec
+- **AND** no spec-authoring model call is made
 
-#### Scenario: Approved sibling protects the spec
-- **WHEN** a variant is approved and its sibling is rejected with feedback
-- **THEN** the sibling's retry keeps the frozen spec's title, labels and values
-- **AND** only styling or motion may differ
+#### Scenario: Supplied spec is malformed
+- **WHEN** the `SPEC_JSON` parameter is not a valid content spec
+- **THEN** the run fails naming the invalid field
 
-### Requirement: Asset identity and placement come from the article
+### Requirement: Asset content is returned; identity is the caller's
 
-The studio SHALL return each asset without a repository path or URL. An asset's filename SHALL bind to the article's slug, which is frozen at first draft, and the reference into the article SHALL be inserted by the article workflow at its marker contract. A title edit after approval MUST NOT rename a committed asset.
-
-#### Scenario: Title edit does not rename assets
-- **WHEN** an article's title changes after its assets are committed
-- **THEN** the asset filenames and paths are unchanged
+The system SHALL return each asset with its content (image data, markup or text) and its format. It MUST NOT return a repository path, a URL or a filename; deriving those and placing the asset is the caller's job.
 
 #### Scenario: Studio invents no path
 - **WHEN** the studio returns an asset
-- **THEN** it returns file content and type only
-- **AND** the article workflow owns the path, the reference and the alt text
+- **THEN** it returns content and type only
 
 ### Requirement: Animation is rendered from a browser timeline
 
@@ -95,57 +106,25 @@ For an animated type the system SHALL render the markup in a browser, capture a 
 
 #### Scenario: Frame capture fails
 - **WHEN** the browser render or the frame capture fails
-- **THEN** that asset is marked with an error state naming the failure
-- **AND** every other asset of the article is unaffected
+- **THEN** that asset carries the error
+- **AND** every other asset of the request is unaffected
 
 ### Requirement: Animated SVG is authored as text
 
-An `animated_svg` asset SHALL be produced as authored text and committed without rasterization. The article SHALL reference it as a normal image, never as embedded raw markup.
+An `animated_svg` asset SHALL be produced as authored text and never rasterized. A caller SHALL reference it as a normal image, never as embedded raw markup.
 
-#### Scenario: SVG committed as text
-- **WHEN** an animated SVG asset is approved
-- **THEN** the committed file is the SVG text itself
+#### Scenario: SVG stays text
+- **WHEN** an animated SVG asset is produced
+- **THEN** the returned content is the SVG text itself
 - **AND** no raster was produced for it
 
-#### Scenario: SVG referenced as an image
-- **WHEN** the article references the animated SVG
-- **THEN** the reference is the repository's normal image form
-- **AND** no inline markup embed of the SVG is written into the post
+### Requirement: A requested static hero is produced even when every other asset fails
 
-### Requirement: A static hero is always produced, and always first
+When the request includes the static hero, the system SHALL produce it even if every animated asset fails, so a caller that always requests the hero always gets one.
 
-The system SHALL always produce a static raster hero for an article, and the article MUST place it as its first static image. Because the blog emits no `og:image`, the hero is the image social platforms preview by scraping the page; an animated asset MUST NOT be placed ahead of it.
-
-#### Scenario: Hero produced regardless of animated outcomes
+#### Scenario: Hero survives animated failures
 - **WHEN** one or more animated assets fail
 - **THEN** the static hero is still produced
-
-#### Scenario: Hero leads the article
-- **WHEN** the article is published with animated assets
-- **THEN** the first image in the article body is the static hero
-
-### Requirement: A rendered markup asset commits with its source
-
-For a markup-rendered type, the system SHALL commit the HTML source beside the rendered asset as `<frozen-slug>-<type-id>.html`, so a re-render is possible and the source is diffable. For a text type such as `animated_svg`, the SVG file IS the source and no second file is committed.
-
-#### Scenario: Source committed beside rendered asset
-- **WHEN** an animated WebP/GIF asset is committed
-- **THEN** its HTML source is committed from the same commit
-- **AND** the source is diffable against a later re-render
-
-#### Scenario: Text asset carries its own source
-- **WHEN** an `animated_svg` asset is committed
-- **THEN** it is one file
-- **AND** no additional source file is written beside it
-
-### Requirement: Each asset is reviewed and retried on its own
-
-Every asset SHALL carry its own review state — awaiting review, approved, rejected — and its own feedback. A rejection SHALL regenerate only that asset, applying its feedback, and MUST preserve the recorded approvals of every other asset.
-
-#### Scenario: One asset rejected
-- **WHEN** one asset is rejected with feedback
-- **THEN** only that asset is regenerated
-- **AND** the other assets keep their approved state
 
 ### Requirement: A declared-but-unavailable type is reported, not skipped
 
@@ -156,44 +135,22 @@ WHEN a requested type is declared but not producible in the current environment,
 - **THEN** it is reported unavailable with a reason
 - **AND** the requested static and animated assets are still produced
 
-### Requirement: An approved set is committed with the article
+### Requirement: Every run is recorded for later retrieval
 
-When every requested supported asset is approved, the system SHALL commit the article and all of its assets to the blog repository's default branch in a single commit, placing each asset in the repository's image location and referencing it from the article, and SHALL record each asset's path and the commit reference. No commit MUST be made while any requested supported asset is unapproved.
+The system SHALL record one row per run in a `visual_studio_table` DataTable, keyed by an auto-generated `RUN_ID` (the execution id), carrying the request parameters and the full result — every asset with its status, content and any error — so a caller can fetch a run's outcome over HTTP after the fact. The run's response SHALL carry the same outcome.
 
-#### Scenario: Approved set committed
-- **WHEN** every requested supported asset is approved
-- **THEN** the article and all its assets are committed in one commit
-- **AND** each asset's path and the commit reference are recorded
+#### Scenario: Run recorded
+- **WHEN** a run finishes
+- **THEN** exactly one row is recorded with the run id, the request and every asset's outcome
+- **AND** the response carries the same asset set
 
-#### Scenario: Incomplete set
-- **WHEN** any requested supported asset is not approved
-- **THEN** nothing is committed
+#### Scenario: Result fetched later
+- **WHEN** a caller reads the run row by `RUN_ID`
+- **THEN** it can reconstruct every asset the run produced, including its content
 
-#### Scenario: Commit fails
-- **WHEN** the commit fails after the set is approved
-- **THEN** the article is not marked published
-- **AND** the recorded approvals remain intact for a retry
+### Requirement: Model output is data, not commands
 
-#### Scenario: Concurrent commit on the default branch
-- **WHEN** the commit is rejected because the default branch advanced during the run
-- **THEN** the system re-reads the branch and retries once without force-pushing
-- **AND** a second rejection is surfaced, not retried indefinitely
-
-### Requirement: One committed asset per article and type
-
-The system SHALL commit at most one file per article and type. A run against an article already published MUST commit nothing.
-
-#### Scenario: Re-run after publish
-- **WHEN** a run starts for an already-published article
-- **THEN** no asset or commit is produced or modified
-
-### Requirement: Writes are bounded and model output is data, not commands
-
-The system's writes SHALL be limited to the blog repository contents, the `article_assets` page and the Slack review messages; it MUST NOT require general GitHub write outside the blog repository. Model output SHALL be treated as data: no model-authored string may be executed as a command.
-
-#### Scenario: Undeclared write target
-- **WHEN** the workflow attempts a write outside the allowed targets
-- **THEN** that action is not performed
+The system's writes SHALL be limited to the `visual_studio_table` DataTable; it MUST NOT write to any repository. Model output SHALL be treated as data: no model-authored string may be executed as a command or written into the markup.
 
 #### Scenario: Model output is data
 - **WHEN** a content spec or prompt is handled

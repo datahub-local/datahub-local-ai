@@ -40,7 +40,7 @@ New entry-point workflow `Article Content Writer` plus an `Article Creator` sub-
 
 New page in `content_planner` with statuses `QUEUE`, `IN_PROGRESS`, `WAITING_APPROVAL`, `PUBLISHED`, `CANCELLED`, `ERROR` as the existing flow uses them, plus the article's own review state (`ARTICLE_STATUS` `DRAFT`/`APPROVED`/`REJECTED`, `ARTICLE_ROUND`, `ARTICLE_FEEDBACK`, `ARTICLE_TITLE`). The existing LinkedIn flow keeps both approvals in run state; persisting them makes a died execution resumable and makes the "preserve the other approval" requirement observable.
 
-Assets are **not** columns here: the hero is the first row of `add-visual-studio`'s `article_assets` page, and every asset (hero included) is reviewed and retried there. The singular `IMAGE_*` columns are dropped (A3): two descriptions of one image is how they drift.
+Assets are **not** columns here: per-asset state (type, status, round, feedback, spec, content) lives in this change's own `article_assets` DataTable keyed by `ENTRY_ID` + `ASSET_TYPE`, and every asset (hero included) is reviewed and retried from it. The singular `IMAGE_*` columns are dropped (A3): two descriptions of one image is how they drift. The Visual Studio workflow itself keeps no per-article state — it is generic and stateless — so the review state can only live here.
 
 The article draft is stored in an **n8n DataTable** (`article_drafts`) keyed by `ENTRY_ID`, not in a Sheets cell (C4); the sheet keeps only `ARTICLE_REF` pointing at it. A DataTable has no 50,000-character cell limit, which removes the draft-size risk entirely. The table is **instance state, not a repo artifact**: its creation is a documented setup step, a missing table is a loud error rather than an empty article, and whether the n8n public API can create it is [UNVERIFIED].
 
@@ -68,7 +68,7 @@ The publish step is an HTTP Request with a bearer GitHub credential — the **ex
 
 ### D6. Asset production and preview follow the LinkedIn path
 
-Assets are produced by `add-visual-studio`'s Visual Studio sub-workflow; the static hero reuses the `LinkedIn Image Creator` pattern (an LLM-built prompt, the LiteLLM image endpoint, the `omImage` base64 shape), and every asset is sent to Slack as a file for its own review, exactly as the LinkedIn flow previews its image. Aspect ratio/resolution come from `set_workflow_vars`, as in the LinkedIn flow. Until `add-visual-studio` lands, this change's single hero is the one-element asset set.
+Assets are produced by `add-visual-studio`'s generic Visual Studio workflow; the static hero reuses the `LinkedIn Image Creator` pattern (an LLM-built prompt, the LiteLLM image endpoint, the `omImage` base64 shape), and every asset is sent to Slack as a file for its own review, exactly as the LinkedIn flow previews its image. Aspect ratio/resolution come from `set_workflow_vars`, as in the LinkedIn flow. Until `add-visual-studio` lands, this change's single hero is the one-element asset set.
 
 *Alternatives considered:* generate assets before the article is approved — rejected; assets derive from the settled article, and approving the article first means the common path generates them once.
 
@@ -86,7 +86,7 @@ Assets are produced by `add-visual-studio`'s Visual Studio sub-workflow; the sta
 
 ### D9. The article workflow owns every review gate and the single commit
 
-`Article Content Writer` is the only owner of the Slack review gates and of the one commit. The Visual Studio sub-workflow defined in `add-visual-studio` is invoked with `(ENTRY_ID, ARTICLE_TEXT, ASSET_TYPES)` and returns the asset set and its per-asset outcomes; it performs no review and no commit itself. When `add-visual-studio` lands, this change's single-image step is expressed as a one-element asset set.
+`Article Content Writer` is the only owner of the Slack review gates and of the one commit. The Visual Studio workflow defined in `add-visual-studio` is generic and stateless: it is invoked as a sub-workflow with `(CONTENT, ASSET_TYPES, FEEDBACK, SPEC_JSON)` and returns one envelope with the asset set and per-asset outcomes; it performs no review and no commit itself. Re-presenting a rejected variant means calling it again with that type and the frozen spec passed back as `SPEC_JSON`, so an approved variant's spec can never drift. When `add-visual-studio` lands, this change's single-image step is expressed as a one-element asset set.
 
 *Alternatives considered:* letting the studio own its own review and commit — rejected; two workflows committing to one repository is how a half-published pair happens, and it splits the failure path across two error workflows.
 
@@ -136,7 +136,7 @@ The next action for an entry is read from an explicit predicate over `STATUS × 
 
 ### D16. Cancelling an entry cancels its pending asset rows
 
-Setting an entry to `CANCELLED` also marks that entry's non-terminal `article_assets` rows `CANCELLED`, in the same step, so no orphaned asset row can be re-presented or committed later (G31).
+Setting an entry to `CANCELLED` also marks that entry's non-terminal rows in this change's `article_assets` DataTable `CANCELLED`, in the same step, so no orphaned asset row can be re-presented or committed later (G31).
 
 *Alternatives considered:* leaving asset rows untouched — rejected; a cancelled article with a live asset row is one predicate bug away from publishing.
 
@@ -153,7 +153,7 @@ There is no automated test for an n8n workflow in this repository. Verification 
 - **The draft now lives in an n8n DataTable (C4).** → A DataTable is instance-managed state, backed up with the instance database; a missing row is an error, never an empty article.
 - **Human review is slow and a run can die while waiting.** → Per-artifact state is persisted and the D14 single-flight/resume rule resumes the next tick from that state; a stale claim is recoverable by the error workflow or by hand. `executionTimeout` no longer defines the review window.
 - **Fetched source content is untrusted and can carry prompt injection.** → The article prompt treats fetched content as reference material, not instructions, and the only write target is the blog commit; per repo policy, deterministic choices live in code and the model only writes prose.
-- **An article retry can leave an approved asset stale.** → The content spec is frozen once any variant is approved (`add-visual-studio` D11), the article is approved before its assets are generated, and a review message names each artifact's round. If mismatch recurs, revisit whether an article change invalidates asset approvals.
+- **An article retry can leave an approved asset stale.** → The frozen spec is passed back to the studio as `SPEC_JSON` (`add-visual-studio` D9), so a re-render cannot re-author it; the article is approved before its assets are generated, and a review message names each artifact's round. If mismatch recurs, revisit whether an article change invalidates asset approvals.
 - **The committed export can drift from the live instance.** → Apply with `scripts/apply_workflow_changes.py`, pairing changes with `--require-edge`, and re-read after the PUT to confirm fields landed; the export is a backup, not the source (repo rule).
 - **The create path is a new capability on the apply script.** → Scope `--create` to creation only, idempotent by name, print the new id, and prove it with a throwaway workflow created then edited through the existing `PUT` path; a same-named workflow must be left untouched.
 - **A requested asset marker can be missing from the draft, or a title edit can move the URL.** → The marker contract defaults a missing type to a fixed position rather than dropping it (D12), and the slug is frozen at first draft so a title edit cannot rename committed files (D11).

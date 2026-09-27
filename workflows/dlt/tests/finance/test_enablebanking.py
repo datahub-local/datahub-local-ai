@@ -194,6 +194,38 @@ class TestListAccounts:
         assert accounts[1].currency == ""
         assert accounts[1].owner_name is None
 
+    def test_details_failure_uses_persisted_one_time_metadata(self):
+        # the session-time fields captured at authorisation populate the account
+        # when the details endpoint faults, so /details is optional
+        token = TokenConfig(
+            alias=ACCOUNT.alias, uid=TOKEN.uid, valid_until=TOKEN.valid_until,
+            currency="EUR", owner_name="SAMPLE HOLDER",
+        )
+
+        def handler(request):
+            return httpx.Response(400, json={
+                "error_name": "HttpException", "message": "Internal server error", "error_data": {},
+            })
+
+        account = _provider(handler, tokens=(token,)).list_accounts()[0]
+        assert account.currency == "EUR"
+        assert account.owner_name == "SAMPLE HOLDER"
+        assert account.iban == ACCOUNT.iban
+
+    def test_details_xxx_currency_falls_back_to_persisted(self):
+        # XXX is the ASPSP's "currency unknown" code; the persisted value wins
+        token = TokenConfig(
+            alias=ACCOUNT.alias, uid=TOKEN.uid, valid_until=TOKEN.valid_until, currency="EUR",
+        )
+
+        def handler(request):
+            return httpx.Response(200, json={
+                "account_id": {"iban": ACCOUNT.iban, "other": None},
+                "name": "SAMPLE HOLDER", "currency": "XXX",
+            })
+
+        assert _provider(handler, tokens=(token,)).list_accounts()[0].currency == "EUR"
+
 
 class TestFetchTransactions:
     def _handler_for(self, *pages, captured=None):

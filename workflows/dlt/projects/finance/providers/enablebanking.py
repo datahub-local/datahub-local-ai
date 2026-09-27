@@ -62,6 +62,7 @@ class AccountConfig:
     iban: str
     app_id: str
     institution_id: str | None = None
+    identification_hash: str | None = None
 
 
 @dataclass(frozen=True)
@@ -72,13 +73,19 @@ class TokenConfig:
     session is authorized; expired tokens fail loudly before any data call.
     ``session_id`` is kept so the renewal workflow's daily check can read the
     session's own status — an Enable Banking call that never reaches the ASPSP,
-    so it spends no PSD2 data-call budget.
+    so it spends no PSD2 data-call budget. ``identification_hash``, ``currency``
+    and ``owner_name`` are the account fields ``POST /sessions`` returns once and
+    later calls do not, so they are captured here and make
+    ``/accounts/{uid}/details`` optional rather than load-bearing.
     """
 
     alias: str
     uid: str
     valid_until: datetime | None = None
     session_id: str | None = None
+    identification_hash: str | None = None
+    currency: str | None = None
+    owner_name: str | None = None
 
     def consent_expired(self, now: datetime | None = None) -> bool:
         if self.valid_until is None:
@@ -205,9 +212,9 @@ class EnableBankingProvider:
                     account.alias,
                     error,
                 )
-                accounts.append(_configured_account(account))
+                accounts.append(_configured_account(account, token))
                 continue
-            accounts.append(_normalise_account(account, details))
+            accounts.append(_normalise_account(account, token, details))
         return accounts
 
     def fetch_transactions(
@@ -273,28 +280,41 @@ class EnableBankingProvider:
         return self._tokens
 
 
-def _configured_account(config: AccountConfig) -> Account:
+def _configured_account(config: AccountConfig, token: TokenConfig | None = None) -> Account:
     """Fallback account row when ``/details`` cannot be read: the alias, IBAN and
-    institution are stable secret values, so the account still lands without its
-    optional currency/holder metadata."""
+    institution are stable secret values, and the session-time ``currency`` and
+    ``owner_name`` (captured at authorisation) are used in place of the details
+    response, so the account still lands populated."""
     return Account(
         account_id=config.alias,
         institution_id=config.institution_id or config.alias,
         iban=config.iban,
-        currency="",
-        owner_name=None,
+        currency=_currency(None, token),
+        owner_name=token.owner_name if token else None,
         status="AUTHORIZED",
         payload_json="{}",
     )
 
 
-def _normalise_account(config: AccountConfig, resource: dict) -> Account:
+def _currency(resource_value: Any, token: TokenConfig | None) -> str:
+    """Details currency, falling back to the session-time value.
+
+    ``XXX`` is the ISO code an ASPSP returns when it cannot state a currency, so
+    it is treated as absent rather than as a real reading.
+    """
+    value = (resource_value or "").strip()
+    if value and value.upper() != "XXX":
+        return value
+    return (token.currency if token else None) or ""
+
+
+def _normalise_account(config: AccountConfig, token: TokenConfig | None, resource: dict) -> Account:
     return Account(
         account_id=config.alias,
         institution_id=config.institution_id or config.alias,
         iban=_account_iban(resource.get("account_id")) or config.iban,
-        currency=resource.get("currency") or "",
-        owner_name=resource.get("name"),
+        currency=_currency(resource.get("currency"), token),
+        owner_name=resource.get("name") or (token.owner_name if token else None),
         status="AUTHORIZED",
         payload_json=json.dumps(resource, sort_keys=True, default=str),
     )

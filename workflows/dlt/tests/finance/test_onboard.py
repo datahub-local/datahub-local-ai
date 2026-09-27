@@ -48,6 +48,7 @@ SESSION_RESPONSE = {
             "currency": "EUR",
             "product": "CUENTA CORRIENTE",
             "name": "SAMPLE HOLDER",
+            "identification_hash": "HASH-0001",
         }
     ],
     "aspsp": {"name": "Sample Bank", "country": "ES"},
@@ -136,7 +137,8 @@ class TestAccountFragments:
         assert fragment["iban"] == "ES0000000000000000000000"
         assert fragment["app_id"] == APP_ID
         assert fragment["institution_id"] == "Sample Bank"
-        assert set(fragment) == {"iban", "app_id", "institution_id"}
+        assert fragment["identification_hash"] == "HASH-0001"
+        assert set(fragment) == {"iban", "app_id", "institution_id", "identification_hash"}
 
     def test_token_fragments_carry_the_session_scoped_material(self):
         fragments = onboard.token_fragments(SESSION_RESPONSE, alias="acct_a")
@@ -144,7 +146,12 @@ class TestAccountFragments:
         assert fragment["uid"] == "00000000-0000-0000-0000-000000000001"
         assert fragment["valid_until"] == "2027-01-01T00:00:00Z"
         assert fragment["session_id"] == "00000000-0000-0000-0000-0000000000dd"
-        assert set(fragment) == {"uid", "valid_until", "session_id"}
+        assert fragment["identification_hash"] == "HASH-0001"
+        assert fragment["currency"] == "EUR"
+        assert fragment["owner_name"] == "SAMPLE HOLDER"
+        assert set(fragment) == {
+            "uid", "valid_until", "session_id", "identification_hash", "currency", "owner_name"
+        }
 
     def test_multiple_accounts_get_distinct_numbered_keys(self):
         accounts = SESSION_RESPONSE["accounts"] * 3
@@ -183,6 +190,9 @@ class TestSessionCommand:
         assert token["acct_a"]["uid"] == "00000000-0000-0000-0000-000000000001"
         assert token["acct_a"]["valid_until"] == "2027-01-01T00:00:00Z"
         assert token["acct_a"]["session_id"] == "00000000-0000-0000-0000-0000000000dd"
+        assert token["acct_a"]["identification_hash"] == "HASH-0001"
+        assert token["acct_a"]["currency"] == "EUR"
+        assert token["acct_a"]["owner_name"] == "SAMPLE HOLDER"
 
     def test_rate_limit_from_the_bank_surfaces_as_rate_limit_error(self, monkeypatch):
         client = _client({"/sessions": httpx.Response(

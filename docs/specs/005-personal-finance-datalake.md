@@ -269,16 +269,17 @@ implementation owns:
   /sessions {code}` returns the authorised accounts with their `uid`,
   `account_id.iban`, currency and owner name. Onboarding records each account's
   alias, `iban` and session-scoped `uid`; the pipeline addresses the API by
-  `uid` and uses the alias as the stable identity, so a re-link only rewrites
   `uid` and never re-keys bronze. `list_accounts()` reads
   `/accounts/{uid}/details` per account for currency and holder name (one call
   per account on the details endpoint, which has its own budget). That metadata
-  call is **best-effort**: an ASPSP that refuses `/details` (2026-09-26,
-  `cuenta_compartida`: `400 HttpException: Internal server error`), a transient
-  fault or a details-endpoint 429 falls back to the configured alias/IBAN and
-  the account still loads, because its transactions and balances live on other
-  endpoints and one account's metadata must not abort the fleet. A genuinely
-  unusable session is still loud — the next data call raises.
+  call is an **override, not a dependency**: the flow persists the
+  `identification_hash`, `currency` and `owner_name` that `POST /sessions`
+  returns once, and when `/details` faults (2026-09-26, `cuenta_compartida`:
+  `400 HttpException: Internal server error`), returns `XXX`, or hits a
+  details-endpoint 429, the account still loads populated from the configured
+  alias/IBAN and those persisted fields, because its transactions and balances
+  live on other endpoints and one account's metadata must not abort the fleet.
+  A genuinely unusable session is still loud — the next data call raises.
 - **Window**: `GET /accounts/{uid}/transactions?date_from&date_to`, following
   `continuation_key` until it stops (batches are provider-sized and ordered
   newest-first; the sandbox doc warns size and order vary per ASPSP). Daily runs
@@ -357,8 +358,8 @@ Rules that fall out of the flow:
   (`datahub-local-secrets`).
 
 The secrets `finance-enablebanking` (shared RSA `private_key` and
-`accounts.json` — `{alias: {iban, app_id, institution_id}}`) and
-`finance-enablebanking-token` (`tokens.json` — `{alias: {uid, valid_until, session_id}}`)
+`accounts.json` — `{alias: {iban, app_id, institution_id, identification_hash}}`) and
+`finance-enablebanking-token` (`tokens.json` — `{alias: {uid, valid_until, session_id, identification_hash, currency, owner_name}}`)
 are read together at run time (§4.7). `uid` is rewritten on every renewal
 (Enable Banking scopes it to the session and it is only valid while that
 session is authorized), which is exactly why the alias, not the uid, is the
@@ -385,8 +386,9 @@ twice-yearly surprise:
   session validity "will remain exactly as specified" regardless of the ASPSP
   side. It therefore cannot see a bank that drops or errors the consent early,
   which has happened twice — 2026-09-24 and again 2026-09-26, both Openbank
-  (whose `beta` flag was actually removed in core `0.14.0`, 2024-02-22, so the
-  earlier "beta integration" note here was wrong) — returning
+  (live `GET /aspsps` reports `beta: true` for it; the core `0.14.0` changelog
+  said the flag was removed, but the API disagrees, and a beta integration has
+  less traffic behind it) — returning
   `ASPSP_ERROR`/`HttpException` while the stored expiry was still months out.
   Each time the fix was a regenerated token, so the failure is a token-lifecycle
   problem, not an API change. The daily check therefore reads **every distinct**
@@ -402,20 +404,37 @@ twice-yearly surprise:
   data call fails, which stays the backstop. The ingest preflight still trusts
   `valid_until` only, so that data call remains the only check the pipeline
   itself does.
-- **Flow.** Form page ("renew <alias>") → **Form Ending: redirect** to the bank
-  consent URL (generated live by the same execution) → the operator approves at
-  the bank (the PSD2 step that cannot be automated) → the bank redirects to the
-  form's own URL (whitelisted on the application, public via the n8n webhook
-  route) carrying `?code=` and the OAuth `state` → the workflow recovers the
-  alias from `state` (set as `$execution.id + '-' + alias`) and mints the RS256
-  JWT for **that alias's** `app_id` (n8n Code node, `node:crypto`; verified
-  available in the sandbox 2026-09-14), calls `POST /sessions {code}`, and
-  **upserts** `finance-enablebanking-token`. Signing the exchange with any other
-  alias's `app_id` fails, because Enable Banking issues the code to the
-  application that requested it.
+- **Flow.** Form page ("renew <alias>") → the workflow resolves the ASPSP
+  through `GET /aspsps` and caps the requested validity at its
+  `maximum_consent_validity` (a stored name the bank no longer returns stops
+  here, naming it, instead of failing at the bank) → **Form Ending: redirect**
+  to the bank consent URL (generated live by the same execution) → the operator
+  approves at the bank (the PSD2 step that cannot be automated) → the bank
+  redirects to the form's own URL (whitelisted on the application, public via
+  the n8n webhook route) carrying `?code=`/`?error=` and the OAuth `state` → the
+  workflow recovers the alias from `state` (set as `$execution.id + '-' + alias`)
+  and mints the RS256 JWT for **that alias's** `app_id` (n8n Code node,
+  `node:crypto`; verified available in the sandbox 2026-09-14), calls
+  `POST /sessions {code}`, **upserts** `finance-enablebanking-token` with the
+  session and the one-time account fields, then best-effort
+  `DELETE /sessions/{id}` for every old session no alias still references.
+  Signing the exchange with any other alias's `app_id` fails, because Enable
+  Banking issues the code to the application that requested it; a redirect
+  carrying `error` is reported with the bank's `error_description` rather than
+  as a missing code.
+- **Account metadata does not depend on `/details`.** The reference warns that
+  `POST /sessions` returns some account fields only once. The flow captures
+  `identification_hash`, `currency` and `owner_name` into the token Secret, and
+  the provider falls back to them when `GET /accounts/{uid}/details` faults or
+  returns `XXX`, so the account row stays populated and the account's
+  transactions and balances still load. Authorised accounts are matched to
+  aliases by `identification_hash` first, then IBAN.
 - **Secret split.** `finance-enablebanking` keeps the stable half
-  (`private_key`, `{alias: {iban, app_id, institution_id}}`); the session-scoped
-  half (`{alias: {uid, valid_until, session_id}}`) moves to `finance-enablebanking-token`,
+  (`private_key`,
+  `{alias: {iban, app_id, institution_id, identification_hash}}`); the
+  session-scoped half
+  (`{alias: {uid, valid_until, session_id, identification_hash, currency, owner_name}}`)
+  moves to `finance-enablebanking-token`,
   which is **not chart-rendered** — ArgoCD does not own it, so a dynamic patch
   cannot drift against Git, and the DAG reads both Secrets and fails loudly
   (goal 6) through the same `ACCESS_EXPIRED` path if the token is stale.

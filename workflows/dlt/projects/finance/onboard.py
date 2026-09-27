@@ -164,6 +164,7 @@ def account_fragments(
             "iban": (resource.get("account_id") or {}).get("iban"),
             "app_id": app_id,
             "institution_id": institution_id,
+            "identification_hash": resource.get("identification_hash"),
         }
     return fragments
 
@@ -172,10 +173,12 @@ def token_fragments(
     session: dict, *, alias: str
 ) -> dict[str, dict[str, str | None]]:
     """Build the session-scoped ``tokens.json`` entries for
-    ``finance-enablebanking-token`` — uid, ``access.valid_until`` and the session
-    id, keyed by the same alias the stable fragment used. The session id lets the
-    §4.2.1 daily check read the session's status without a data call (an Enable
-    Banking lookup, no ASPSP consultation)."""
+    ``finance-enablebanking-token`` — uid, ``access.valid_until``, the session id,
+    and the one-time account fields ``POST /sessions`` returns (identification
+    hash, currency, holder name), keyed by the same alias the stable fragment
+    used. The session id lets the §4.2.1 daily check read the session's status
+    without a data call (an Enable Banking lookup, no ASPSP consultation); the
+    one-time fields keep the account row populated when ``/details`` faults."""
     valid_until = (session.get("access") or {}).get("valid_until")
     session_id = session.get("session_id")
     fragments: dict[str, dict[str, str | None]] = {}
@@ -185,6 +188,9 @@ def token_fragments(
             "uid": resource.get("uid"),
             "valid_until": valid_until,
             "session_id": session_id,
+            "identification_hash": resource.get("identification_hash"),
+            "currency": resource.get("currency"),
+            "owner_name": resource.get("name"),
         }
     return fragments
 

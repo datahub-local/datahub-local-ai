@@ -272,7 +272,7 @@
       },
       {
         "parameters": {
-          "jsCode": "// Mint the /auth JWT for the account chosen on the form dropdown and build the\n// request body. jsonwebtoken is an n8n-bundled external module (verified in the\n// Code sandbox 2026-09-15); node built-ins are not available, so base64 uses atob.\nconst jwt = require('jsonwebtoken');\n\nconst stable = $('Get Stable Secret - Form').first().json;\nconst accounts = JSON.parse(atob(stable.data['accounts.json']));\nconst alias = $json.alias || $json['Account to renew'];\nconst config = accounts[alias];\nif (!config) {\n  throw new Error(`unknown alias '${alias}'; configured: ${Object.keys(accounts).join(', ')}`);\n}\nif (!config.app_id) {\n  throw new Error(`alias '${alias}' is missing app_id in finance-enablebanking`);\n}\nconst pem = atob(stable.data['private_key']);\nconst token = jwt.sign(\n  { iss: 'enablebanking.com', aud: 'api.enablebanking.com' },\n  pem,\n  { algorithm: 'RS256', keyid: config.app_id, expiresIn: 3600 }\n);\nreturn [\n  {\n    json: {\n      jwt: token,\n      auth_body: JSON.stringify({\n        access: { valid_until: new Date(Date.now() + 180 * 86400000).toISOString() },\n        aspsp: { name: config.institution_id || alias, country: 'ES' },\n        state: $execution.id + '-' + alias,\n        redirect_url: 'https://automation-n8n.homelab.alvsanand.com/webhook/enablebanking-consent',\n        psu_type: 'personal',\n      }),\n    },\n  },\n];\n"
+          "jsCode": "// Mint the /auth JWT for the account chosen on the form dropdown and hand the\n// resolution inputs to \"Build Auth Body\", which calls GET /aspsps, caps the\n// validity and builds the request body. jsonwebtoken is an n8n-bundled external\n// module (verified in the Code sandbox 2026-09-15); node built-ins are not\n// available, so base64 uses atob.\nconst jwt = require('jsonwebtoken');\n\nconst stable = $('Get Stable Secret - Form').first().json;\nconst accounts = JSON.parse(atob(stable.data['accounts.json']));\nconst alias = $json.alias || $json['Account to renew'];\nconst config = accounts[alias];\nif (!config) {\n  throw new Error(`unknown alias '${alias}'; configured: ${Object.keys(accounts).join(', ')}`);\n}\nif (!config.app_id) {\n  throw new Error(`alias '${alias}' is missing app_id in finance-enablebanking`);\n}\nconst pem = atob(stable.data['private_key']);\nconst token = jwt.sign(\n  { iss: 'enablebanking.com', aud: 'api.enablebanking.com' },\n  pem,\n  { algorithm: 'RS256', keyid: config.app_id, expiresIn: 3600 }\n);\nreturn [\n  {\n    json: {\n      jwt: token,\n      alias,\n      app_id: config.app_id,\n      country: 'ES',\n      aspsp_name: config.institution_id || alias,\n      psu_type: 'personal',\n      days: 180,\n      state: $execution.id + '-' + alias,\n      redirect_url: 'https://automation-n8n.homelab.alvsanand.com/webhook/enablebanking-consent',\n    },\n  },\n];\n"
         },
         "id": "13146158-b645-4015-a194-ec38624a9788",
         "name": "Build Consent Request",
@@ -388,7 +388,7 @@
       {
         "parameters": {
           "respondWith": "json",
-          "responseBody": "={{ { \"error\": \"Enable Banking redirect did not carry ?code= - restart the renewal form\" } }}",
+          "responseBody": "={{ { \"error\": \"consent \" + ($json.query.error || \"missing code\") + \": \" + ($json.query.error_description || \"restart the renewal form\") } }}",
           "options": {
             "responseCode": 400
           }
@@ -511,7 +511,7 @@
       },
       {
         "parameters": {
-          "jsCode": "// Merge the fresh session material per alias and build the token Secret body,\n// plus the success page the browser lands on (styled like the n8n form pages).\n// The sessions response comes from $('Post /sessions') - this node's immediate\n// predecessor is the token-secret GET, so $json is NOT the session body.\nconst session = $('Post /sessions').first().json;\nconst validUntil = (session.access || {}).valid_until;\nif (!validUntil) {\n  throw new Error(`session response carried no access.valid_until: ${JSON.stringify(session).slice(0, 200)}`);\n}\n\nconst tokenGet = $('Get Token Secret - Webhook').first().json;\nlet tokens = {};\nlet tokenSecretExisted = false;\nif (tokenGet.statusCode === 404) {\n  tokenSecretExisted = false;\n} else if (tokenGet.statusCode === 200) {\n  const raw = (tokenGet.body.data || {})['tokens.json'];\n  tokens = raw ? JSON.parse(atob(raw)) : {};\n  tokenSecretExisted = true;\n} else {\n  throw new Error(`finance-enablebanking-token GET returned HTTP ${tokenGet.statusCode}`);\n}\n\nconst stable = $('Get Stable Secret - Webhook').first().json;\nconst accounts = JSON.parse(atob(stable.data['accounts.json']));\n\nconst renewals = [];\nfor (const resource of session.accounts || []) {\n  if (!resource.uid) continue;\n  const iban = (resource.account_id || {}).iban;\n  const matched = Object.entries(accounts).filter(([, cfg]) => cfg.iban === iban);\n  const alias = matched.length ? matched[0][0] : null;\n  if (!alias) {\n    throw new Error(\n      `session account ****${String(iban).slice(-4)} is not in finance-enablebanking accounts.json; add its alias first`\n    );\n  }\n  tokens[alias] = { uid: resource.uid, valid_until: validUntil, session_id: session.session_id };\n  renewals.push(alias);\n}\nif (renewals.length === 0) {\n  throw new Error('Enable Banking session authorized zero accounts; nothing to store');\n}\n\nconst untilDate = new Date(validUntil).toISOString().slice(0, 10);\nconst slackText =\n  `Enable Banking token renewed for ${renewals.join(', ')}: consent valid until ${untilDate}. ` +\n  'The daily pipeline picks it up on the next run.';\n\nconst escapeHtml = (text) =>\n  String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst rows = renewals\n  .map((alias) => `<li><code>${escapeHtml(alias)}</code> — ${escapeHtml(accounts[alias].institution_id || 'bank')}</li>`)\n  .join('');\nconst resultHtml = `<!DOCTYPE html>\n<html lang=\"en\"><head><meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Renew Enable Banking consent</title>\n<style>\n  body { margin: 0; background: #f7f7f8; color: #2d2e33;\n    font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif;\n    display: flex; justify-content: center; padding: 48px 16px; }\n  .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.08);\n    padding: 32px; max-width: 520px; width: 100%; }\n  h1 { font-size: 22px; font-weight: 600; text-align: center; margin: 0 0 20px; }\n  p { font-size: 14px; line-height: 1.5; margin: 0 0 12px; }\n  ul { font-size: 14px; line-height: 1.6; margin: 0 0 16px 20px; padding: 0; }\n  .ok { padding: 12px 14px; border-radius: 6px; background: #eef8f1; border: 1px solid #cfe8d8;\n    font-size: 14px; line-height: 1.5; }\n  footer { text-align: center; font-size: 12px; color: #7a7a7f; margin-top: 24px; }\n</style></head>\n<body><div class=\"card\">\n  <h1>Renew Enable Banking consent</h1>\n  <p>Step 3 of 3 — done. The bank consent was renewed and stored:</p>\n  <ul>${rows}</ul>\n  <div class=\"ok\">Valid until <strong>${untilDate}</strong>. The daily pipeline picks it up on the next run.</div>\n  <footer>Form automated with n8n</footer>\n</div></body></html>`;\n\nconst secretBody = {\n  apiVersion: 'v1',\n  kind: 'Secret',\n  metadata: { name: 'finance-enablebanking-token', namespace: 'data' },\n  data: { 'tokens.json': btoa(JSON.stringify(tokens)) },\n};\nreturn [\n  {\n    json: {\n      token_secret_missing: !tokenSecretExisted,\n      secret_body: JSON.stringify(secretBody),\n      slack_text: slackText,\n      result_html: resultHtml,\n    },\n  },\n];\n"
+          "jsCode": "// Merge the fresh session material per alias and build the token Secret body,\n// plus the success page the browser lands on (styled like the n8n form pages).\n// The sessions response comes from $('Post /sessions') - this node's immediate\n// predecessor is the token-secret GET, so $json is NOT the session body.\nconst jwt = require('jsonwebtoken');\n\nconst session = $('Post /sessions').first().json;\nconst validUntil = (session.access || {}).valid_until;\nif (!validUntil) {\n  throw new Error(`session response carried no access.valid_until: ${JSON.stringify(session).slice(0, 200)}`);\n}\n\nconst tokenGet = $('Get Token Secret - Webhook').first().json;\nlet tokens = {};\nlet tokenSecretExisted = false;\nif (tokenGet.statusCode === 404) {\n  tokenSecretExisted = false;\n} else if (tokenGet.statusCode === 200) {\n  const raw = (tokenGet.body.data || {})['tokens.json'];\n  tokens = raw ? JSON.parse(atob(raw)) : {};\n  tokenSecretExisted = true;\n} else {\n  throw new Error(`finance-enablebanking-token GET returned HTTP ${tokenGet.statusCode}`);\n}\n\nconst stable = $('Get Stable Secret - Webhook').first().json;\nconst accounts = JSON.parse(atob(stable.data['accounts.json']));\nconst firstAlias = Object.keys(accounts)[0];\nif (!firstAlias) {\n  throw new Error('finance-enablebanking accounts.json is empty');\n}\n// Sessions the new consent replaces, captured before the overwrite. One\n// application per fleet, so its app_id signs the DELETE calls.\nconst priorSessions = [...new Set(Object.values(tokens).map((t) => t && t.session_id).filter(Boolean))];\nconst deleteJwt = jwt.sign(\n  { iss: 'enablebanking.com', aud: 'api.enablebanking.com' },\n  atob(stable.data['private_key']),\n  { algorithm: 'RS256', keyid: accounts[firstAlias].app_id, expiresIn: 3600 }\n);\n\nconst renewals = [];\nfor (const resource of session.accounts || []) {\n  if (!resource.uid) continue;\n  const iban = (resource.account_id || {}).iban;\n  const hash = resource.identification_hash;\n  // Prefer the bank's stable identification hash (the FAQ's cross-session\n  // matcher); fall back to IBAN for secrets written before it was captured.\n  const matched = Object.entries(accounts).filter(([, cfg]) =>\n    (cfg.identification_hash && hash && cfg.identification_hash === hash) ||\n    (cfg.iban && iban && cfg.iban === iban)\n  );\n  const alias = matched.length ? matched[0][0] : null;\n  if (!alias) {\n    throw new Error(\n      `session account ****${String(iban).slice(-4)} is not in finance-enablebanking accounts.json; add its alias first`\n    );\n  }\n  tokens[alias] = {\n    uid: resource.uid,\n    valid_until: validUntil,\n    session_id: session.session_id,\n    identification_hash: hash,\n    currency: resource.currency,\n    owner_name: resource.name,\n  };\n  renewals.push(alias);\n}\nif (renewals.length === 0) {\n  throw new Error('Enable Banking session authorized zero accounts; nothing to store');\n}\n\n// Delete only sessions no alias still references, so a session shared with an\n// account this renewal did not touch is left alone. The new session is kept.\nconst referenced = new Set(Object.values(tokens).map((t) => t && t.session_id).filter(Boolean));\nconst superseded = priorSessions\n  .filter((id) => !referenced.has(id))\n  .map((id) => ({ session_id: id, jwt: deleteJwt }));\n\nconst untilDate = new Date(validUntil).toISOString().slice(0, 10);\nconst slackText =\n  `Enable Banking token renewed for ${renewals.join(', ')}: consent valid until ${untilDate}. ` +\n  'The daily pipeline picks it up on the next run.';\n\nconst escapeHtml = (text) =>\n  String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst rows = renewals\n  .map((alias) => `<li><code>${escapeHtml(alias)}</code> — ${escapeHtml(accounts[alias].institution_id || 'bank')}</li>`)\n  .join('');\nconst resultHtml = `<!DOCTYPE html>\n<html lang=\"en\"><head><meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Renew Enable Banking consent</title>\n<style>\n  body { margin: 0; background: #f7f7f8; color: #2d2e33;\n    font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif;\n    display: flex; justify-content: center; padding: 48px 16px; }\n  .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.08);\n    padding: 32px; max-width: 520px; width: 100%; }\n  h1 { font-size: 22px; font-weight: 600; text-align: center; margin: 0 0 20px; }\n  p { font-size: 14px; line-height: 1.5; margin: 0 0 12px; }\n  ul { font-size: 14px; line-height: 1.6; margin: 0 0 16px 20px; padding: 0; }\n  .ok { padding: 12px 14px; border-radius: 6px; background: #eef8f1; border: 1px solid #cfe8d8;\n    font-size: 14px; line-height: 1.5; }\n  footer { text-align: center; font-size: 12px; color: #7a7a7f; margin-top: 24px; }\n</style></head>\n<body><div class=\"card\">\n  <h1>Renew Enable Banking consent</h1>\n  <p>Step 3 of 3 — done. The bank consent was renewed and stored:</p>\n  <ul>${rows}</ul>\n  <div class=\"ok\">Valid until <strong>${untilDate}</strong>. The daily pipeline picks it up on the next run.</div>\n  <footer>Form automated with n8n</footer>\n</div></body></html>`;\n\nconst secretBody = {\n  apiVersion: 'v1',\n  kind: 'Secret',\n  metadata: { name: 'finance-enablebanking-token', namespace: 'data' },\n  data: { 'tokens.json': btoa(JSON.stringify(tokens)) },\n};\nreturn [\n  {\n    json: {\n      token_secret_missing: !tokenSecretExisted,\n      secret_body: JSON.stringify(secretBody),\n      slack_text: slackText,\n      result_html: resultHtml,\n      has_superseded: superseded.length > 0,\n      superseded,\n    },\n  },\n];\n"
         },
         "id": "706b8b70-1bdb-442a-bdd9-3d855ba99f42",
         "name": "Build Token Upsert",
@@ -646,7 +646,8 @@
             "id": "DszMmPE7WwOjHQjz",
             "name": "Slack account"
           }
-        }
+        },
+        "executeOnce": true
       },
       {
         "parameters": {
@@ -670,7 +671,8 @@
         "position": [
           2320,
           880
-        ]
+        ],
+        "executeOnce": true
       },
       {
         "parameters": {
@@ -830,6 +832,131 @@
           1648,
           288
         ]
+      },
+      {
+        "parameters": {
+          "url": "https://api.enablebanking.com/aspsps",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "country",
+                "value": "={{ $json.country }}"
+              }
+            ]
+          },
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "=Bearer {{ $json.jwt }}"
+              }
+            ]
+          },
+          "options": {
+            "timeout": 30000
+          }
+        },
+        "id": "26b1c687-b6af-45d4-ba7d-1b70298bcb03",
+        "name": "Get Aspsps",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1152,
+          608
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "// The mandated first flow step: resolve the ASPSP through GET /aspsps, cap the\n// requested validity at its maximum_consent_validity, assert the PSU type is\n// supported, and build the POST /auth body. A stored name the bank no longer\n// returns stops here, naming it, instead of failing at the bank (a rebrand).\nconst base = $('Build Consent Request').first().json;\nconst aspsps = $json.aspsps || [];\nconst bank = aspsps.find((a) => a.name === base.aspsp_name && a.country === base.country);\nif (!bank) {\n  const known = aspsps.map((a) => a.name).slice(0, 20).join(', ');\n  throw new Error(\n    `ASPSP '${base.aspsp_name}' (${base.country}) is not in GET /aspsps; ` +\n      `update institution_id in finance-enablebanking (known: ${known})`\n  );\n}\nconst maxDays = bank.maximum_consent_validity\n  ? Math.floor(bank.maximum_consent_validity / 86400)\n  : base.days;\nconst days = Math.min(base.days, maxDays);\nif (Array.isArray(bank.psu_types) && bank.psu_types.length && !bank.psu_types.includes(base.psu_type)) {\n  throw new Error(\n    `ASPSP '${bank.name}' does not support psu_type '${base.psu_type}' (supports ${bank.psu_types.join(', ')})`\n  );\n}\nreturn [\n  {\n    json: {\n      jwt: base.jwt,\n      beta: bank.beta === true,\n      validity_days: days,\n      auth_body: JSON.stringify({\n        access: { valid_until: new Date(Date.now() + days * 86400000).toISOString() },\n        aspsp: { name: bank.name, country: bank.country },\n        state: base.state,\n        redirect_url: base.redirect_url,\n        psu_type: base.psu_type,\n      }),\n    },\n  },\n];\n"
+        },
+        "id": "ae2315fd-db56-4a31-9dc5-f5e7ceb02600",
+        "name": "Build Auth Body",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1344,
+          608
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "3524502a-efe4-4a41-a463-6fc3bc6c4de0",
+                "leftValue": "={{ $('Build Token Upsert').first().json.has_superseded }}",
+                "rightValue": true,
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "7f44bcb1-712a-482c-b727-8c907add1848",
+        "name": "Has Superseded?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          1952,
+          928
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "// Fan out one item per superseded session so \"Delete Session\" runs once each.\n// Reached only when has_superseded is true.\nreturn ($('Build Token Upsert').first().json.superseded || []).map((s) => ({ json: s }));\n"
+        },
+        "id": "dca2b81a-f1c4-4c1d-a189-ea9e9b748df0",
+        "name": "Build Deletions",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2160,
+          928
+        ]
+      },
+      {
+        "parameters": {
+          "method": "DELETE",
+          "url": "=https://api.enablebanking.com/sessions/{{ $json.session_id }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "=Bearer {{ $json.jwt }}"
+              }
+            ]
+          },
+          "options": {
+            "timeout": 30000,
+            "response": {
+              "response": {
+                "neverError": true
+              }
+            }
+          }
+        },
+        "id": "65421e04-906d-45f7-8eb6-31f2fcd12424",
+        "name": "Delete Session",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          2368,
+          928
+        ]
       }
     ],
     "connections": {
@@ -943,7 +1070,7 @@
         "main": [
           [
             {
-              "node": "Post /auth",
+              "node": "Get Aspsps",
               "type": "main",
               "index": 0
             }
@@ -1095,7 +1222,7 @@
         "main": [
           [
             {
-              "node": "Notify Renewed",
+              "node": "Has Superseded?",
               "type": "main",
               "index": 0
             }
@@ -1113,7 +1240,7 @@
         "main": [
           [
             {
-              "node": "Notify Renewed",
+              "node": "Has Superseded?",
               "type": "main",
               "index": 0
             }
@@ -1205,6 +1332,68 @@
           [
             {
               "node": "Renewal Due?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Get Aspsps": {
+        "main": [
+          [
+            {
+              "node": "Build Auth Body",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build Auth Body": {
+        "main": [
+          [
+            {
+              "node": "Post /auth",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Has Superseded?": {
+        "main": [
+          [
+            {
+              "node": "Build Deletions",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Notify Renewed",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Build Deletions": {
+        "main": [
+          [
+            {
+              "node": "Delete Session",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Delete Session": {
+        "main": [
+          [
+            {
+              "node": "Notify Renewed",
               "type": "main",
               "index": 0
             }
@@ -1332,7 +1521,7 @@
       "main": [
         [
           {
-            "node": "Post /auth",
+            "node": "Get Aspsps",
             "type": "main",
             "index": 0
           }
@@ -1484,7 +1673,7 @@
       "main": [
         [
           {
-            "node": "Notify Renewed",
+            "node": "Has Superseded?",
             "type": "main",
             "index": 0
           }
@@ -1502,7 +1691,7 @@
       "main": [
         [
           {
-            "node": "Notify Renewed",
+            "node": "Has Superseded?",
             "type": "main",
             "index": 0
           }
@@ -1594,6 +1783,68 @@
         [
           {
             "node": "Renewal Due?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Aspsps": {
+      "main": [
+        [
+          {
+            "node": "Build Auth Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Auth Body": {
+      "main": [
+        [
+          {
+            "node": "Post /auth",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Superseded?": {
+      "main": [
+        [
+          {
+            "node": "Build Deletions",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify Renewed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Deletions": {
+      "main": [
+        [
+          {
+            "node": "Delete Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Session": {
+      "main": [
+        [
+          {
+            "node": "Notify Renewed",
             "type": "main",
             "index": 0
           }
@@ -1876,7 +2127,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Mint the /auth JWT for the account chosen on the form dropdown and build the\n// request body. jsonwebtoken is an n8n-bundled external module (verified in the\n// Code sandbox 2026-09-15); node built-ins are not available, so base64 uses atob.\nconst jwt = require('jsonwebtoken');\n\nconst stable = $('Get Stable Secret - Form').first().json;\nconst accounts = JSON.parse(atob(stable.data['accounts.json']));\nconst alias = $json.alias || $json['Account to renew'];\nconst config = accounts[alias];\nif (!config) {\n  throw new Error(`unknown alias '${alias}'; configured: ${Object.keys(accounts).join(', ')}`);\n}\nif (!config.app_id) {\n  throw new Error(`alias '${alias}' is missing app_id in finance-enablebanking`);\n}\nconst pem = atob(stable.data['private_key']);\nconst token = jwt.sign(\n  { iss: 'enablebanking.com', aud: 'api.enablebanking.com' },\n  pem,\n  { algorithm: 'RS256', keyid: config.app_id, expiresIn: 3600 }\n);\nreturn [\n  {\n    json: {\n      jwt: token,\n      auth_body: JSON.stringify({\n        access: { valid_until: new Date(Date.now() + 180 * 86400000).toISOString() },\n        aspsp: { name: config.institution_id || alias, country: 'ES' },\n        state: $execution.id + '-' + alias,\n        redirect_url: 'https://automation-n8n.homelab.alvsanand.com/webhook/enablebanking-consent',\n        psu_type: 'personal',\n      }),\n    },\n  },\n];\n"
+        "jsCode": "// Mint the /auth JWT for the account chosen on the form dropdown and hand the\n// resolution inputs to \"Build Auth Body\", which calls GET /aspsps, caps the\n// validity and builds the request body. jsonwebtoken is an n8n-bundled external\n// module (verified in the Code sandbox 2026-09-15); node built-ins are not\n// available, so base64 uses atob.\nconst jwt = require('jsonwebtoken');\n\nconst stable = $('Get Stable Secret - Form').first().json;\nconst accounts = JSON.parse(atob(stable.data['accounts.json']));\nconst alias = $json.alias || $json['Account to renew'];\nconst config = accounts[alias];\nif (!config) {\n  throw new Error(`unknown alias '${alias}'; configured: ${Object.keys(accounts).join(', ')}`);\n}\nif (!config.app_id) {\n  throw new Error(`alias '${alias}' is missing app_id in finance-enablebanking`);\n}\nconst pem = atob(stable.data['private_key']);\nconst token = jwt.sign(\n  { iss: 'enablebanking.com', aud: 'api.enablebanking.com' },\n  pem,\n  { algorithm: 'RS256', keyid: config.app_id, expiresIn: 3600 }\n);\nreturn [\n  {\n    json: {\n      jwt: token,\n      alias,\n      app_id: config.app_id,\n      country: 'ES',\n      aspsp_name: config.institution_id || alias,\n      psu_type: 'personal',\n      days: 180,\n      state: $execution.id + '-' + alias,\n      redirect_url: 'https://automation-n8n.homelab.alvsanand.com/webhook/enablebanking-consent',\n    },\n  },\n];\n"
       },
       "id": "13146158-b645-4015-a194-ec38624a9788",
       "name": "Build Consent Request",
@@ -1992,7 +2243,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ { \"error\": \"Enable Banking redirect did not carry ?code= - restart the renewal form\" } }}",
+        "responseBody": "={{ { \"error\": \"consent \" + ($json.query.error || \"missing code\") + \": \" + ($json.query.error_description || \"restart the renewal form\") } }}",
         "options": {
           "responseCode": 400
         }
@@ -2115,7 +2366,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Merge the fresh session material per alias and build the token Secret body,\n// plus the success page the browser lands on (styled like the n8n form pages).\n// The sessions response comes from $('Post /sessions') - this node's immediate\n// predecessor is the token-secret GET, so $json is NOT the session body.\nconst session = $('Post /sessions').first().json;\nconst validUntil = (session.access || {}).valid_until;\nif (!validUntil) {\n  throw new Error(`session response carried no access.valid_until: ${JSON.stringify(session).slice(0, 200)}`);\n}\n\nconst tokenGet = $('Get Token Secret - Webhook').first().json;\nlet tokens = {};\nlet tokenSecretExisted = false;\nif (tokenGet.statusCode === 404) {\n  tokenSecretExisted = false;\n} else if (tokenGet.statusCode === 200) {\n  const raw = (tokenGet.body.data || {})['tokens.json'];\n  tokens = raw ? JSON.parse(atob(raw)) : {};\n  tokenSecretExisted = true;\n} else {\n  throw new Error(`finance-enablebanking-token GET returned HTTP ${tokenGet.statusCode}`);\n}\n\nconst stable = $('Get Stable Secret - Webhook').first().json;\nconst accounts = JSON.parse(atob(stable.data['accounts.json']));\n\nconst renewals = [];\nfor (const resource of session.accounts || []) {\n  if (!resource.uid) continue;\n  const iban = (resource.account_id || {}).iban;\n  const matched = Object.entries(accounts).filter(([, cfg]) => cfg.iban === iban);\n  const alias = matched.length ? matched[0][0] : null;\n  if (!alias) {\n    throw new Error(\n      `session account ****${String(iban).slice(-4)} is not in finance-enablebanking accounts.json; add its alias first`\n    );\n  }\n  tokens[alias] = { uid: resource.uid, valid_until: validUntil, session_id: session.session_id };\n  renewals.push(alias);\n}\nif (renewals.length === 0) {\n  throw new Error('Enable Banking session authorized zero accounts; nothing to store');\n}\n\nconst untilDate = new Date(validUntil).toISOString().slice(0, 10);\nconst slackText =\n  `Enable Banking token renewed for ${renewals.join(', ')}: consent valid until ${untilDate}. ` +\n  'The daily pipeline picks it up on the next run.';\n\nconst escapeHtml = (text) =>\n  String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst rows = renewals\n  .map((alias) => `<li><code>${escapeHtml(alias)}</code> — ${escapeHtml(accounts[alias].institution_id || 'bank')}</li>`)\n  .join('');\nconst resultHtml = `<!DOCTYPE html>\n<html lang=\"en\"><head><meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Renew Enable Banking consent</title>\n<style>\n  body { margin: 0; background: #f7f7f8; color: #2d2e33;\n    font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif;\n    display: flex; justify-content: center; padding: 48px 16px; }\n  .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.08);\n    padding: 32px; max-width: 520px; width: 100%; }\n  h1 { font-size: 22px; font-weight: 600; text-align: center; margin: 0 0 20px; }\n  p { font-size: 14px; line-height: 1.5; margin: 0 0 12px; }\n  ul { font-size: 14px; line-height: 1.6; margin: 0 0 16px 20px; padding: 0; }\n  .ok { padding: 12px 14px; border-radius: 6px; background: #eef8f1; border: 1px solid #cfe8d8;\n    font-size: 14px; line-height: 1.5; }\n  footer { text-align: center; font-size: 12px; color: #7a7a7f; margin-top: 24px; }\n</style></head>\n<body><div class=\"card\">\n  <h1>Renew Enable Banking consent</h1>\n  <p>Step 3 of 3 — done. The bank consent was renewed and stored:</p>\n  <ul>${rows}</ul>\n  <div class=\"ok\">Valid until <strong>${untilDate}</strong>. The daily pipeline picks it up on the next run.</div>\n  <footer>Form automated with n8n</footer>\n</div></body></html>`;\n\nconst secretBody = {\n  apiVersion: 'v1',\n  kind: 'Secret',\n  metadata: { name: 'finance-enablebanking-token', namespace: 'data' },\n  data: { 'tokens.json': btoa(JSON.stringify(tokens)) },\n};\nreturn [\n  {\n    json: {\n      token_secret_missing: !tokenSecretExisted,\n      secret_body: JSON.stringify(secretBody),\n      slack_text: slackText,\n      result_html: resultHtml,\n    },\n  },\n];\n"
+        "jsCode": "// Merge the fresh session material per alias and build the token Secret body,\n// plus the success page the browser lands on (styled like the n8n form pages).\n// The sessions response comes from $('Post /sessions') - this node's immediate\n// predecessor is the token-secret GET, so $json is NOT the session body.\nconst jwt = require('jsonwebtoken');\n\nconst session = $('Post /sessions').first().json;\nconst validUntil = (session.access || {}).valid_until;\nif (!validUntil) {\n  throw new Error(`session response carried no access.valid_until: ${JSON.stringify(session).slice(0, 200)}`);\n}\n\nconst tokenGet = $('Get Token Secret - Webhook').first().json;\nlet tokens = {};\nlet tokenSecretExisted = false;\nif (tokenGet.statusCode === 404) {\n  tokenSecretExisted = false;\n} else if (tokenGet.statusCode === 200) {\n  const raw = (tokenGet.body.data || {})['tokens.json'];\n  tokens = raw ? JSON.parse(atob(raw)) : {};\n  tokenSecretExisted = true;\n} else {\n  throw new Error(`finance-enablebanking-token GET returned HTTP ${tokenGet.statusCode}`);\n}\n\nconst stable = $('Get Stable Secret - Webhook').first().json;\nconst accounts = JSON.parse(atob(stable.data['accounts.json']));\nconst firstAlias = Object.keys(accounts)[0];\nif (!firstAlias) {\n  throw new Error('finance-enablebanking accounts.json is empty');\n}\n// Sessions the new consent replaces, captured before the overwrite. One\n// application per fleet, so its app_id signs the DELETE calls.\nconst priorSessions = [...new Set(Object.values(tokens).map((t) => t && t.session_id).filter(Boolean))];\nconst deleteJwt = jwt.sign(\n  { iss: 'enablebanking.com', aud: 'api.enablebanking.com' },\n  atob(stable.data['private_key']),\n  { algorithm: 'RS256', keyid: accounts[firstAlias].app_id, expiresIn: 3600 }\n);\n\nconst renewals = [];\nfor (const resource of session.accounts || []) {\n  if (!resource.uid) continue;\n  const iban = (resource.account_id || {}).iban;\n  const hash = resource.identification_hash;\n  // Prefer the bank's stable identification hash (the FAQ's cross-session\n  // matcher); fall back to IBAN for secrets written before it was captured.\n  const matched = Object.entries(accounts).filter(([, cfg]) =>\n    (cfg.identification_hash && hash && cfg.identification_hash === hash) ||\n    (cfg.iban && iban && cfg.iban === iban)\n  );\n  const alias = matched.length ? matched[0][0] : null;\n  if (!alias) {\n    throw new Error(\n      `session account ****${String(iban).slice(-4)} is not in finance-enablebanking accounts.json; add its alias first`\n    );\n  }\n  tokens[alias] = {\n    uid: resource.uid,\n    valid_until: validUntil,\n    session_id: session.session_id,\n    identification_hash: hash,\n    currency: resource.currency,\n    owner_name: resource.name,\n  };\n  renewals.push(alias);\n}\nif (renewals.length === 0) {\n  throw new Error('Enable Banking session authorized zero accounts; nothing to store');\n}\n\n// Delete only sessions no alias still references, so a session shared with an\n// account this renewal did not touch is left alone. The new session is kept.\nconst referenced = new Set(Object.values(tokens).map((t) => t && t.session_id).filter(Boolean));\nconst superseded = priorSessions\n  .filter((id) => !referenced.has(id))\n  .map((id) => ({ session_id: id, jwt: deleteJwt }));\n\nconst untilDate = new Date(validUntil).toISOString().slice(0, 10);\nconst slackText =\n  `Enable Banking token renewed for ${renewals.join(', ')}: consent valid until ${untilDate}. ` +\n  'The daily pipeline picks it up on the next run.';\n\nconst escapeHtml = (text) =>\n  String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst rows = renewals\n  .map((alias) => `<li><code>${escapeHtml(alias)}</code> — ${escapeHtml(accounts[alias].institution_id || 'bank')}</li>`)\n  .join('');\nconst resultHtml = `<!DOCTYPE html>\n<html lang=\"en\"><head><meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Renew Enable Banking consent</title>\n<style>\n  body { margin: 0; background: #f7f7f8; color: #2d2e33;\n    font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif;\n    display: flex; justify-content: center; padding: 48px 16px; }\n  .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.08);\n    padding: 32px; max-width: 520px; width: 100%; }\n  h1 { font-size: 22px; font-weight: 600; text-align: center; margin: 0 0 20px; }\n  p { font-size: 14px; line-height: 1.5; margin: 0 0 12px; }\n  ul { font-size: 14px; line-height: 1.6; margin: 0 0 16px 20px; padding: 0; }\n  .ok { padding: 12px 14px; border-radius: 6px; background: #eef8f1; border: 1px solid #cfe8d8;\n    font-size: 14px; line-height: 1.5; }\n  footer { text-align: center; font-size: 12px; color: #7a7a7f; margin-top: 24px; }\n</style></head>\n<body><div class=\"card\">\n  <h1>Renew Enable Banking consent</h1>\n  <p>Step 3 of 3 — done. The bank consent was renewed and stored:</p>\n  <ul>${rows}</ul>\n  <div class=\"ok\">Valid until <strong>${untilDate}</strong>. The daily pipeline picks it up on the next run.</div>\n  <footer>Form automated with n8n</footer>\n</div></body></html>`;\n\nconst secretBody = {\n  apiVersion: 'v1',\n  kind: 'Secret',\n  metadata: { name: 'finance-enablebanking-token', namespace: 'data' },\n  data: { 'tokens.json': btoa(JSON.stringify(tokens)) },\n};\nreturn [\n  {\n    json: {\n      token_secret_missing: !tokenSecretExisted,\n      secret_body: JSON.stringify(secretBody),\n      slack_text: slackText,\n      result_html: resultHtml,\n      has_superseded: superseded.length > 0,\n      superseded,\n    },\n  },\n];\n"
       },
       "id": "706b8b70-1bdb-442a-bdd9-3d855ba99f42",
       "name": "Build Token Upsert",
@@ -2250,7 +2501,8 @@
           "id": "DszMmPE7WwOjHQjz",
           "name": "Slack account"
         }
-      }
+      },
+      "executeOnce": true
     },
     {
       "parameters": {
@@ -2274,7 +2526,8 @@
       "position": [
         2320,
         880
-      ]
+      ],
+      "executeOnce": true
     },
     {
       "parameters": {
@@ -2433,6 +2686,131 @@
       "position": [
         1648,
         288
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.enablebanking.com/aspsps",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "country",
+              "value": "={{ $json.country }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.jwt }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "26b1c687-b6af-45d4-ba7d-1b70298bcb03",
+      "name": "Get Aspsps",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1152,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// The mandated first flow step: resolve the ASPSP through GET /aspsps, cap the\n// requested validity at its maximum_consent_validity, assert the PSU type is\n// supported, and build the POST /auth body. A stored name the bank no longer\n// returns stops here, naming it, instead of failing at the bank (a rebrand).\nconst base = $('Build Consent Request').first().json;\nconst aspsps = $json.aspsps || [];\nconst bank = aspsps.find((a) => a.name === base.aspsp_name && a.country === base.country);\nif (!bank) {\n  const known = aspsps.map((a) => a.name).slice(0, 20).join(', ');\n  throw new Error(\n    `ASPSP '${base.aspsp_name}' (${base.country}) is not in GET /aspsps; ` +\n      `update institution_id in finance-enablebanking (known: ${known})`\n  );\n}\nconst maxDays = bank.maximum_consent_validity\n  ? Math.floor(bank.maximum_consent_validity / 86400)\n  : base.days;\nconst days = Math.min(base.days, maxDays);\nif (Array.isArray(bank.psu_types) && bank.psu_types.length && !bank.psu_types.includes(base.psu_type)) {\n  throw new Error(\n    `ASPSP '${bank.name}' does not support psu_type '${base.psu_type}' (supports ${bank.psu_types.join(', ')})`\n  );\n}\nreturn [\n  {\n    json: {\n      jwt: base.jwt,\n      beta: bank.beta === true,\n      validity_days: days,\n      auth_body: JSON.stringify({\n        access: { valid_until: new Date(Date.now() + days * 86400000).toISOString() },\n        aspsp: { name: bank.name, country: bank.country },\n        state: base.state,\n        redirect_url: base.redirect_url,\n        psu_type: base.psu_type,\n      }),\n    },\n  },\n];\n"
+      },
+      "id": "ae2315fd-db56-4a31-9dc5-f5e7ceb02600",
+      "name": "Build Auth Body",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "3524502a-efe4-4a41-a463-6fc3bc6c4de0",
+              "leftValue": "={{ $('Build Token Upsert').first().json.has_superseded }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7f44bcb1-712a-482c-b727-8c907add1848",
+      "name": "Has Superseded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1952,
+        928
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fan out one item per superseded session so \"Delete Session\" runs once each.\n// Reached only when has_superseded is true.\nreturn ($('Build Token Upsert').first().json.superseded || []).map((s) => ({ json: s }));\n"
+      },
+      "id": "dca2b81a-f1c4-4c1d-a189-ea9e9b748df0",
+      "name": "Build Deletions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        928
+      ]
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "=https://api.enablebanking.com/sessions/{{ $json.session_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.jwt }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "65421e04-906d-45f7-8eb6-31f2fcd12424",
+      "name": "Delete Session",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2368,
+        928
       ]
     }
   ],

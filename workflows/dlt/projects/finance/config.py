@@ -60,9 +60,10 @@ def enablebanking_private_key() -> str:
 def enablebanking_accounts() -> list[AccountConfig]:
     """Stable bindings from ``ENABLEBANKING_ACCOUNTS`` (JSON).
 
-    Shape — the ``accounts.json`` key of the ``finance-enablebanking`` secret::
+        Shape — the ``accounts.json`` key of the ``finance-enablebanking`` secret::
 
-        {"alias": {"iban": ..., "app_id": ..., "institution_id": ...}}
+            {"alias": {"iban": ..., "app_id": ..., "institution_id": ...,
+                       "identification_hash": ...}}
     """
     return [
         AccountConfig(
@@ -70,6 +71,7 @@ def enablebanking_accounts() -> list[AccountConfig]:
             iban=config["iban"],
             app_id=config["app_id"],
             institution_id=config.get("institution_id"),
+            identification_hash=config.get("identification_hash"),
         )
         for alias, config in json.loads(os.environ["ENABLEBANKING_ACCOUNTS"]).items()
     ]
@@ -78,9 +80,10 @@ def enablebanking_accounts() -> list[AccountConfig]:
 def enablebanking_tokens() -> list[TokenConfig]:
     """Session tokens from ``ENABLEBANKING_TOKENS`` (JSON, optional).
 
-    Shape — the ``tokens.json`` key of ``finance-enablebanking-token``::
+        Shape — the ``tokens.json`` key of ``finance-enablebanking-token``::
 
-        {"alias": {"uid": ..., "valid_until": ..., "session_id": ...}}
+            {"alias": {"uid": ..., "valid_until": ..., "session_id": ...,
+                       "identification_hash": ..., "currency": ..., "owner_name": ...}}
 
     The Secret is maintained **dynamically** by the n8n renewal workflow (spec
     005 §4.2.1) and may legitimately be absent: a missing or empty value means
@@ -96,6 +99,9 @@ def enablebanking_tokens() -> list[TokenConfig]:
             uid=config["uid"],
             valid_until=_parse_valid_until(config.get("valid_until")),
             session_id=config.get("session_id"),
+            identification_hash=config.get("identification_hash"),
+            currency=config.get("currency"),
+            owner_name=config.get("owner_name"),
         )
         for alias, config in json.loads(raw).items()
     ]

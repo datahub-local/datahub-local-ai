@@ -107,12 +107,16 @@ uv run python -m finance.onboard session --code <code> --alias <alias>   # 3. pa
 
 The browser lands on the redirect URL carrying `?code=...`; the page itself does
 not need to load. `session` prints two paste blocks keeping the same alias: a
-stable `accounts.json` fragment (`{alias: {iban, app_id, institution_id}}`) for
-the `finance-enablebanking` secret, and a session `tokens.json` fragment
-(`{alias: {uid, valid_until, session_id}}`) for `finance-enablebanking-token`.
-The session id lets the daily renewal check read the session status without a
-bank data call. Both secrets live in `datahub-local-secrets`
-(`release/values/default.yaml.gotmpl`), rendered and applied from that repo.
+stable `accounts.json` fragment
+(`{alias: {iban, app_id, institution_id, identification_hash}}`) for the
+`finance-enablebanking` secret, and a session `tokens.json` fragment
+(`{alias: {uid, valid_until, session_id, identification_hash, currency, owner_name}}`)
+for `finance-enablebanking-token`. The session id lets the daily renewal check
+read the session status without a bank data call; the one-time fields
+(`POST /sessions` returns them only at authorisation) keep the account row
+populated when `/accounts/{uid}/details` faults. Both secrets live in
+`datahub-local-secrets` (`release/values/default.yaml.gotmpl`), rendered and
+applied from that repo.
 
 ### When a run fails with `ACCESS_EXPIRED`
 
@@ -128,9 +132,16 @@ bank data call. Both secrets live in `datahub-local-secrets`
    consent was dropped), the bank invalidated the consent early even though
    `valid_until` is still in the future — re-link the same account. This applies
    to the **data** calls: a failure on `/accounts/{uid}/details` alone is logged
-   as a warning and the account still ingests from the configured alias/IBAN,
-   with empty currency/holder metadata, so a bank that refuses that endpoint
-   does not abort the run.
+   as a warning and the account still ingests from the configured alias/IBAN and
+   the one-time fields persisted at authorisation, so a bank that refuses that
+   endpoint does not abort the run.
+
+The renewal form (`EnableBanking Token Renewal`) resolves the ASPSP through
+`GET /aspsps` before starting consent, caps the requested validity at the bank's
+`maximum_consent_validity`, stores the one-time account fields alongside the new
+session, and then deletes the old session if no alias still references it. A
+stored ASPSP name the bank no longer returns stops the form naming it, rather
+than failing at the bank.
 
 ## Actual Budget sync (`--pipeline sync`)
 

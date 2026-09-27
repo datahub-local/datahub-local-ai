@@ -1,7 +1,7 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "abbe3156-8839-48a0-a50e-2b3b2401ca54",
+    "versionId": "88a1085d-37a0-404b-9751-b28321841193",
     "workflowId": "yOLSrRQsp4rv1Wjv",
     "nodes": [
       {
@@ -15,10 +15,10 @@
           },
           "sheetName": {
             "__rl": true,
-            "value": "gid=0",
+            "value": 1485981901,
             "mode": "list",
-            "cachedResultName": "articles_2_linkedin",
-            "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit#gid=0"
+            "cachedResultName": "content_queue",
+            "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit#gid=1485981901"
           },
           "options": {
             "dataLocationOnSheet": {
@@ -80,10 +80,10 @@
           },
           "sheetName": {
             "__rl": true,
-            "value": "gid=0",
+            "value": 1485981901,
             "mode": "list",
-            "cachedResultName": "articles_2_linkedin",
-            "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit#gid=0"
+            "cachedResultName": "content_queue",
+            "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit#gid=1485981901"
           },
           "columns": {
             "mappingMode": "defineBelow",
@@ -409,13 +409,13 @@
     },
     "nodeGroups": [],
     "authors": "no name",
-    "name": "Version abbe3156",
+    "name": "Version 88a1085d",
     "description": "",
     "autosaved": true,
-    "createdAt": "2026-07-25T15:27:08.027Z",
-    "updatedAt": "2026-07-25T15:27:10.056Z"
+    "createdAt": "2026-09-26T15:40:44.779Z",
+    "updatedAt": "2026-09-26T15:40:46.121Z"
   },
-  "activeVersionId": "abbe3156-8839-48a0-a50e-2b3b2401ca54",
+  "activeVersionId": "88a1085d-37a0-404b-9751-b28321841193",
   "connections": {
     "read_articles_sheet_error": {
       "main": [
@@ -513,10 +513,10 @@
         },
         "sheetName": {
           "__rl": true,
-          "value": "gid=0",
+          "value": 1485981901,
           "mode": "list",
-          "cachedResultName": "articles_2_linkedin",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit#gid=0"
+          "cachedResultName": "content_queue",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit#gid=1485981901"
         },
         "options": {
           "dataLocationOnSheet": {
@@ -578,10 +578,10 @@
         },
         "sheetName": {
           "__rl": true,
-          "value": "gid=0",
+          "value": 1485981901,
           "mode": "list",
-          "cachedResultName": "articles_2_linkedin",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit#gid=0"
+          "cachedResultName": "content_queue",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit#gid=1485981901"
         },
         "columns": {
           "mappingMode": "defineBelow",
@@ -844,6 +844,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 0,
-  "updatedAt": "2026-07-25T15:27:07.266Z",
-  "versionId": "abbe3156-8839-48a0-a50e-2b3b2401ca54"
+  "updatedAt": "2026-09-26T15:40:44.762Z",
+  "versionId": "88a1085d-37a0-404b-9751-b28321841193"
 }

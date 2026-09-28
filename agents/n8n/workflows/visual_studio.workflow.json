@@ -1,698 +1,1318 @@
 {
-  "name": "Visual Studio",
-  "nodes": [
-    {
-      "id": "7cae92bd-497a-4c0a-97a2-8027b6e8c98f",
-      "name": "main_trigger",
-      "type": "n8n-nodes-base.executeWorkflowTrigger",
-      "typeVersion": 1.1,
-      "position": [
-        0,
-        0
-      ],
-      "parameters": {
-        "workflowInputs": {
-          "values": [
-            {
-              "name": "CONTENT"
-            },
-            {
-              "name": "ASSET_TYPES"
-            },
-            {
-              "name": "FEEDBACK"
-            },
-            {
-              "name": "SPEC_JSON"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "id": "6bc445a7-6d22-4d9c-80dd-3b7eea06520e",
-      "name": "api_trigger",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2,
-      "position": [
-        0,
-        -220
-      ],
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "visual-studio",
-        "responseMode": "lastNode",
-        "options": {}
-      },
-      "webhookId": "29f4c520-f7d8-44e1-a4ea-03c8027909a8"
-    },
-    {
-      "id": "8d389943-187d-4a35-9c0f-1d9e46fd2617",
-      "name": "form_trigger",
-      "type": "n8n-nodes-base.formTrigger",
-      "typeVersion": 2.2,
-      "position": [
-        0,
-        220
-      ],
-      "parameters": {
-        "formTitle": "Visual Studio",
-        "formDescription": "Produce a set of visual assets from one source text.",
-        "formFields": {
-          "values": [
-            {
-              "fieldLabel": "CONTENT",
-              "fieldType": "textarea",
-              "requiredField": true
-            },
-            {
-              "fieldLabel": "ASSET_TYPES",
-              "fieldType": "text"
-            },
-            {
-              "fieldLabel": "FEEDBACK",
-              "fieldType": "textarea"
-            },
-            {
-              "fieldLabel": "SPEC_JSON",
-              "fieldType": "textarea"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "webhookId": "a7c1f5d2-93b4-4c6e-8d20-51f0b7e9a314"
-    },
-    {
-      "id": "ba7855cf-ba87-4597-9937-cc2cf764a849",
-      "name": "normalize_input",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        220,
-        0
-      ],
-      "parameters": {
-        "jsCode": "const raw = $input.first().json || {};\nconst src = Object.assign({}, raw.body || {}, raw.query || {}, raw);\nconst v = (k) => { const x = src[k]; return x == null ? '' : String(x).trim(); };\nconst content = v('CONTENT');\nif (!content) throw new Error('CONTENT is required');\nreturn [{ json: {\n  RUN_ID: String($execution.id),\n  CONTENT: content,\n  ASSET_TYPES: v('ASSET_TYPES'),\n  FEEDBACK: v('FEEDBACK'),\n  SPEC_JSON: v('SPEC_JSON'),\n} }];"
-      }
-    },
-    {
-      "id": "7efb6c59-c706-4c9f-87a1-3fe042fee600",
-      "name": "download_registry",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        440,
-        0
-      ],
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "qUfjfWLGEjV96ljf",
-          "mode": "list",
-          "cachedResultName": "DownloadTemplate",
-          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "template_name": "datasets/visual_types.json",
-            "template_vars": "={{ {} }}"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "template_name",
-              "displayName": "template_name",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string"
-            },
-            {
-              "id": "template_vars",
-              "displayName": "template_vars",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "object"
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "6e9b25a7-acc3-4561-8291-ebfc534eacd0",
-      "name": "parse_registry",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        660,
-        0
-      ],
-      "parameters": {
-        "jsCode": "const cfg = JSON.parse($('download_registry').first().json.output || '{}');\nconst req = $('normalize_input').first().json;\nconst types = Array.isArray(cfg.types) ? cfg.types : [];\nconst byId = new Map(types.map((t) => [t.id, t]));\nconst budget = cfg.budget || {};\nconst cap = Number(cfg.max_types_per_request || 3);\nlet requested = req.ASSET_TYPES\n  ? req.ASSET_TYPES.split(',').map((s) => s.trim()).filter(Boolean)\n  : (cfg.default_types || []);\nrequested = [...new Set(requested)];\nconst out = [];\nconst note = (id, status, error) => out.push({ json: Object.assign({}, req, {\n  ASSET_TYPE: id, NAME: id, AUTHOR: null, TEMPLATE: null, SPEC_TEMPLATE: null,\n  RENDER_MODE: '', FORMAT: '', FALLBACK_FORMAT: null, ASPECT: '', AVAILABLE: false,\n  UNAVAILABLE_REASON: '', FPS: 0, FRAMES: 0, VIEWPORT: 0, STATUS, ERROR: error }) });\nfor (const id of requested.slice(0, cap)) {\n  const t = byId.get(id);\n  if (!t) { note(id, 'UNKNOWN', 'unknown asset type: ' + id); continue; }\n  const b = Object.assign({}, budget, t.budget || {});\n  out.push({ json: Object.assign({}, req, {\n    ASSET_TYPE: t.id, NAME: t.name || t.id, AUTHOR: t.author, TEMPLATE: t.template || null,\n    SPEC_TEMPLATE: t.specTemplate || null, RENDER_MODE: t.render, FORMAT: t.format,\n    FALLBACK_FORMAT: t.fallbackFormat || null, ASPECT: t.aspect || '4:5',\n    AVAILABLE: t.available !== false, UNAVAILABLE_REASON: t.unavailableReason || '',\n    FPS: Number(b.fps || 12), FRAMES: Number(b.frames || 36), VIEWPORT: Number(b.viewport || 1200),\n  }) });\n}\nfor (const id of requested.slice(cap)) note(id, 'SKIPPED', 'over the per-request cap of ' + cap);\nreturn out;"
-      }
-    },
-    {
-      "id": "9db82fc1-795a-4199-b49d-256ee4d0709c",
-      "name": "pick_spec_type",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        880,
-        0
-      ],
-      "parameters": {
-        "jsCode": "const req = $('normalize_input').first().json;\nconst wants = $('parse_registry').all().map((i) => i.json).filter((a) => a.SPEC_TEMPLATE);\nconst first = wants.length ? wants[0] : null;\nreturn [{ json: Object.assign({}, req, {\n  ASSET_TYPE: first ? first.ASSET_TYPE : '',\n  NEEDS_SPEC: !!first,\n}) }];"
-      }
-    },
-    {
-      "id": "a2fae492-3c6c-4d1b-a7ec-7e3d6393564b",
-      "name": "if_spec_given",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        1100,
-        0
-      ],
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 2
-          },
-          "combinator": "and",
-          "conditions": [
-            {
-              "id": "if_spec_given-c",
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
+  "active": true,
+  "activeVersion": {
+    "versionId": "f21b5a45-d742-4798-b798-7f6187fc2a1b",
+    "workflowId": "2pSrRNmYR2jkX1JG",
+    "nodes": [
+      {
+        "id": "7cae92bd-497a-4c0a-97a2-8027b6e8c98f",
+        "name": "main_trigger",
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          0,
+          -32
+        ],
+        "parameters": {
+          "workflowInputs": {
+            "values": [
+              {
+                "name": "CONTENT"
               },
-              "leftValue": "={{ !!$json.SPEC_JSON || !$json.NEEDS_SPEC }}",
-              "rightValue": ""
-            }
-          ]
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "e08e8108-bb62-482a-8f09-e3da7f0248ee",
-      "name": "spec_from_param",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1320,
-        -180
-      ],
-      "parameters": {
-        "jsCode": "\nconst raw = ($input.first().json.SPEC_JSON || '').trim();\nif (!raw) return [{ json: { SPEC: null, SPEC_JSON: '' } }];\nlet spec;\ntry { spec = JSON.parse(raw); } catch (e) { throw new Error('SPEC_JSON parameter is invalid JSON: ' + e.message); }\n\nconst fail = (msg) => { throw new Error('content spec invalid: ' + msg); };\nif (typeof spec.title !== 'string' || !spec.title.trim()) fail('missing field: title');\nif (!Array.isArray(spec.blocks) || spec.blocks.length < 3 || spec.blocks.length > 6)\n  fail('blocks must be an array of 3 to 6 entries');\nspec.blocks.forEach((b, i) => {\n  if (!b || typeof b.label !== 'string' || !b.label.trim()) fail('missing field: blocks[' + i + '].label');\n  if (b.value == null || String(b.value).trim() === '') fail('missing field: blocks[' + i + '].value');\n});\nif (typeof spec.accent !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(spec.accent))\n  fail('missing field: accent');\nif (!spec.motion || typeof spec.motion !== 'object') fail('missing field: motion');\nif (!['rise', 'fade', 'sweep', 'pulse'].includes(spec.motion.kind)) fail('missing field: motion.kind');\nconst d = Number(spec.motion.durationMs);\nif (!Number.isFinite(d) || d < 2000 || d > 4000) fail('missing field: motion.durationMs');\nif (typeof spec.alt !== 'string' || !spec.alt.trim()) fail('missing field: alt');\nreturn [{ json: { SPEC: spec, SPEC_JSON: JSON.stringify(spec) } }];"
-      }
-    },
-    {
-      "id": "c83ca7e1-abf0-4665-b1e1-eb77de155f5c",
-      "name": "download_spec_prompt",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        1320,
-        180
-      ],
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "qUfjfWLGEjV96ljf",
-          "mode": "list",
-          "cachedResultName": "DownloadTemplate",
-          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "template_name": "prompts/visual_spec.md",
-            "template_vars": "={{ {\n \"ASSET_TYPE\": $('pick_spec_type').first().json.ASSET_TYPE,\n \"CONTENT\": $('normalize_input').first().json.CONTENT,\n \"FEEDBACK\": $('normalize_input').first().json.FEEDBACK\n} }}"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "template_name",
-              "displayName": "template_name",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string"
-            },
-            {
-              "id": "template_vars",
-              "displayName": "template_vars",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "object"
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "2dee4efd-d8af-4d51-b233-0af74a3c5046",
-      "name": "author_spec",
-      "type": "@n8n/n8n-nodes-langchain.chainLlm",
-      "typeVersion": 1.6,
-      "position": [
-        1540,
-        180
-      ],
-      "parameters": {
-        "promptType": "define",
-        "text": "={{ $('download_spec_prompt').item.json.output }}",
-        "needsFallback": true
-      }
-    },
-    {
-      "id": "f509c99a-ffe1-4061-8d1d-c2b748bcbfc8",
-      "name": "ai_model",
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-      "typeVersion": 1.3,
-      "position": [
-        1540,
-        400
-      ],
-      "parameters": {
-        "model": {
-          "__rl": true,
-          "value": "opencode-go/deepseek-v4.1-flash",
-          "mode": "id"
-        },
-        "builtInTools": {},
-        "options": {
-          "maxRetries": 2
-        }
-      },
-      "credentials": {
-        "openAiApi": {
-          "id": "LitellmN8nAcct01",
-          "name": "LiteLLM account"
-        }
-      }
-    },
-    {
-      "id": "ce5284fe-f18e-43df-8107-02cfe1511c59",
-      "name": "ai_model_fallback",
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-      "typeVersion": 1.3,
-      "position": [
-        1960,
-        400
-      ],
-      "parameters": {
-        "model": {
-          "__rl": true,
-          "value": "opencode-go/glm-5.3-flash",
-          "mode": "id"
-        },
-        "builtInTools": {},
-        "options": {
-          "maxRetries": 2
-        }
-      },
-      "credentials": {
-        "openAiApi": {
-          "id": "LitellmN8nAcct01",
-          "name": "LiteLLM account"
-        }
-      }
-    },
-    {
-      "id": "f88cf49b-0f7e-4ca9-b245-f95821fc7102",
-      "name": "parse_spec",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1760,
-        180
-      ],
-      "parameters": {
-        "jsCode": "\nconst raw0 = $('author_spec').first().json.text || '';\nlet raw = raw0.trim().replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```$/, '');\nconst m = raw.match(/\\{[\\s\\S]*\\}/);\nif (!m) throw new Error('content spec is not JSON');\nlet spec;\ntry { spec = JSON.parse(m[0]); } catch (e) { throw new Error('content spec is invalid JSON: ' + e.message); }\n\nconst fail = (msg) => { throw new Error('content spec invalid: ' + msg); };\nif (typeof spec.title !== 'string' || !spec.title.trim()) fail('missing field: title');\nif (!Array.isArray(spec.blocks) || spec.blocks.length < 3 || spec.blocks.length > 6)\n  fail('blocks must be an array of 3 to 6 entries');\nspec.blocks.forEach((b, i) => {\n  if (!b || typeof b.label !== 'string' || !b.label.trim()) fail('missing field: blocks[' + i + '].label');\n  if (b.value == null || String(b.value).trim() === '') fail('missing field: blocks[' + i + '].value');\n});\nif (typeof spec.accent !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(spec.accent))\n  fail('missing field: accent');\nif (!spec.motion || typeof spec.motion !== 'object') fail('missing field: motion');\nif (!['rise', 'fade', 'sweep', 'pulse'].includes(spec.motion.kind)) fail('missing field: motion.kind');\nconst d = Number(spec.motion.durationMs);\nif (!Number.isFinite(d) || d < 2000 || d > 4000) fail('missing field: motion.durationMs');\nif (typeof spec.alt !== 'string' || !spec.alt.trim()) fail('missing field: alt');\nreturn [{ json: { SPEC: spec, SPEC_JSON: JSON.stringify(spec) } }];"
-      }
-    },
-    {
-      "id": "239cc47b-dc9b-47fc-bc61-2263f7f6ab6e",
-      "name": "spec_ready",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1980,
-        0
-      ],
-      "parameters": {
-        "jsCode": "const j = $input.first().json;\nreturn [{ json: { SPEC: j.SPEC, SPEC_JSON: j.SPEC_JSON } }];"
-      }
-    },
-    {
-      "id": "0769f54c-55f1-4425-94d8-330e040b3ccd",
-      "name": "download_html_template",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        1980,
-        0
-      ],
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "qUfjfWLGEjV96ljf",
-          "mode": "list",
-          "cachedResultName": "DownloadTemplate",
-          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "template_name": "templates/infographic.html",
-            "template_vars": "={{ {} }}"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "template_name",
-              "displayName": "template_name",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string"
-            },
-            {
-              "id": "template_vars",
-              "displayName": "template_vars",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "object"
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "73328cd8-01f0-4449-9339-2a0d8c083e4a",
-      "name": "download_svg_template",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        2200,
-        0
-      ],
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "qUfjfWLGEjV96ljf",
-          "mode": "list",
-          "cachedResultName": "DownloadTemplate",
-          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "template_name": "templates/infographic.svg",
-            "template_vars": "={{ {} }}"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "template_name",
-              "displayName": "template_name",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string"
-            },
-            {
-              "id": "template_vars",
-              "displayName": "template_vars",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "object"
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "37b83457-d820-4a6f-b69a-a829a52ffb8f",
-      "name": "merge_assets",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        2420,
-        0
-      ],
-      "parameters": {
-        "jsCode": "const esc = (s) => String(s).replace(/&/g, \"&amp;\").replace(/</g, \"&lt;\").replace(/>/g, \"&gt;\");\nconst escAttr = (s) => esc(s).replace(/\"/g, \"&quot;\");\nfunction buildMarkup(tmpl, spec, fps, frames, viewport, isSvg) {\n  const accent = /^#[0-9a-fA-F]{6}$/.test(spec.accent || \"\") ? spec.accent : \"#22d3ee\";\n  const kind = [\"rise\", \"fade\", \"sweep\", \"pulse\"].includes(spec.motion && spec.motion.kind)\n    ? spec.motion.kind : \"rise\";\n  const duration = Math.max(1000, Math.min(4000, (spec.motion && spec.motion.durationMs) || 3000));\n  const blocks = (spec.blocks || []).slice(0, 6);\n  const step = Math.floor(duration / (blocks.length + 1));\n  let out;\n  if (isSvg) {\n    const top = 360, row = 150;\n    const svgBlocks = blocks.map((b, i) => {\n      const delay = i * step, d = Math.max(200, duration - delay), y = top + i * row;\n      return `<g class=\"block\" style=\"animation-delay:${delay}ms;animation-duration:${d}ms\">` +\n        `<text class=\"label\" x=\"64\" y=\"${y}\">${esc(b.label)}</text>` +\n        `<text class=\"value\" x=\"1136\" y=\"${y}\" text-anchor=\"end\">${esc(b.value)}</text>` +\n        `<line class=\"sep\" x1=\"64\" y1=\"${y + 28}\" x2=\"1136\" y2=\"${y + 28}\" /></g>`;\n    }).join(\"\\n  \");\n    out = tmpl.split(\"%%TITLE%%\").join(esc(spec.title || \"\"))\n      .split(\"%%BLOCKS%%\").join(svgBlocks).split(\"%%ACCENT%%\").join(accent)\n      .split(\"%%MOTION_ANIM%%\").join(kind).split(\"%%DURATION_MS%%\").join(String(duration))\n      .split(\"%%FPS%%\").join(String(fps)).split(\"%%FRAMES%%\").join(String(frames))\n      .split(\"%%VIEWPORT%%\").join(String(viewport)).split(\"%%ALT%%\").join(escAttr(spec.alt || \"\"));\n  } else {\n    const htmlBlocks = blocks.map((b, i) => {\n      const delay = i * step, d = Math.max(200, duration - delay);\n      return `<div class=\"block\" style=\"animation-delay:${delay}ms;animation-duration:${d}ms\">` +\n        `<span class=\"label\">${esc(b.label)}</span><span class=\"value\">${esc(b.value)}</span></div>`;\n    }).join(\"\\n      \");\n    out = tmpl.split(\"%%TITLE%%\").join(esc(spec.title || \"\"))\n      .split(\"%%BLOCKS%%\").join(htmlBlocks).split(\"%%ACCENT%%\").join(accent)\n      .split(\"%%MOTION_ANIM%%\").join(kind).split(\"%%DURATION_MS%%\").join(String(duration))\n      .split(\"%%FPS%%\").join(String(fps)).split(\"%%FRAMES%%\").join(String(frames))\n      .split(\"%%VIEWPORT%%\").join(String(viewport));\n  }\n  const left = out.match(/%%[A-Z_]+%%/g);\n  if (left) throw new Error(\"unresolved template token(s): \" + left.join(\", \"));\n  return out;\n}\nconst spec = $('spec_ready').first().json.SPEC;\nconst specJson = $('spec_ready').first().json.SPEC_JSON;\nconst htmlT = $('download_html_template').first().json.output;\nconst svgT = $('download_svg_template').first().json.output;\nconst asset = (a, status) => ({\n  ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: status, SPEC_JSON: specJson, PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: '', FRAME_COUNT: '', WIDTH: '', HEIGHT: '',\n});\nconst out = [];\nfor (const item of $('parse_registry').all()) {\n  const a = item.json;\n  if (a.STATUS === 'UNKNOWN' || a.STATUS === 'SKIPPED') {\n    out.push({ json: asset(a, a.STATUS) });\n    out[out.length - 1].json.ERROR = a.ERROR || '';\n    continue;\n  }\n  if (a.AVAILABLE === false) {\n    const r = asset(a, 'UNAVAILABLE');\n    r.ERROR = a.UNAVAILABLE_REASON || ('unavailable: ' + a.ASSET_TYPE);\n    out.push({ json: r });\n    continue;\n  }\n  const r = asset(a, 'AUTHORED');\n  let markup = '', markupKind = '';\n  if (a.AUTHOR === 'spec_markup') {\n    if (a.RENDER_MODE === 'animated') { markup = buildMarkup(htmlT, spec, a.FPS, a.FRAMES, a.VIEWPORT, false); markupKind = 'text/html'; }\n    else if (a.RENDER_MODE === 'text') { markup = buildMarkup(svgT, spec, a.FPS, a.FRAMES, a.VIEWPORT, true); markupKind = 'image/svg+xml'; }\n  }\n  r.MARKUP = markup;\n  r.CONTENT_TYPE = markupKind;\n  out.push({ json: Object.assign({}, a, r) });\n}\nreturn out;"
-      }
-    },
-    {
-      "id": "135dc3bb-bf36-48e5-a833-889670a83b0e",
-      "name": "if_raster",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        2640,
-        0
-      ],
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 2
-          },
-          "combinator": "and",
-          "conditions": [
-            {
-              "id": "if_raster-c",
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
+              {
+                "name": "ASSET_TYPES"
               },
-              "leftValue": "={{ ['raster','spec_raster'].includes($json.AUTHOR) }}",
-              "rightValue": ""
-            }
-          ]
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "905b3160-d051-4a9e-a002-9c126db41d0f",
-      "name": "download_raster_prompt",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        2860,
-        -200
-      ],
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "qUfjfWLGEjV96ljf",
-          "mode": "list",
-          "cachedResultName": "DownloadTemplate",
-          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "template_name": "prompts/visual_raster.md",
-            "template_vars": "={{ {\n \"ASSET_TYPE\": $json.ASSET_TYPE,\n \"CONTENT\": $json.CONTENT,\n \"SPEC_JSON\": $json.SPEC_JSON,\n \"FEEDBACK\": $json.FEEDBACK\n} }}"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "template_name",
-              "displayName": "template_name",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string"
-            },
-            {
-              "id": "template_vars",
-              "displayName": "template_vars",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "object"
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        },
-        "options": {},
-        "mode": "each"
-      }
-    },
-    {
-      "id": "e766ecf3-5903-49e0-b934-43d40b43ce31",
-      "name": "raster_director",
-      "type": "@n8n/n8n-nodes-langchain.chainLlm",
-      "typeVersion": 1.6,
-      "position": [
-        3080,
-        -200
-      ],
-      "parameters": {
-        "promptType": "define",
-        "text": "={{ $json.output }}",
-        "needsFallback": true
-      }
-    },
-    {
-      "id": "f0241d3f-52ae-40e9-a5ce-d914c1bd5df6",
-      "name": "generate_image",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        3300,
-        -200
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "http://datahub-local-core-data-litellm.data.svc.cluster.local:4000/openrouter/images",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpBearerAuth",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"model\": \"google/gemini-3.1-flash-image\",\n  \"prompt\": {{ $json.text.toJsonString() }},\n  \"aspect_ratio\": \"4:5\",\n  \"resolution\": \"1K\"\n}",
-        "options": {}
+              {
+                "name": "FEEDBACK"
+              },
+              {
+                "name": "SPEC_JSON"
+              }
+            ]
+          }
+        }
       },
-      "credentials": {
-        "httpBearerAuth": {
-          "id": "LitellmN8nBera01",
-          "name": "LiteLLM account (bearer)"
+      {
+        "id": "6bc445a7-6d22-4d9c-80dd-3b7eea06520e",
+        "name": "api_trigger",
+        "webhookId": "29f4c520-f7d8-44e1-a4ea-03c8027909a8",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          0,
+          -224
+        ],
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "visual-studio",
+          "responseMode": "lastNode",
+          "options": {}
+        }
+      },
+      {
+        "id": "8d389943-187d-4a35-9c0f-1d9e46fd2617",
+        "name": "form_trigger",
+        "webhookId": "a7c1f5d2-93b4-4c6e-8d20-51f0b7e9a314",
+        "type": "n8n-nodes-base.formTrigger",
+        "typeVersion": 2.2,
+        "position": [
+          0,
+          160
+        ],
+        "parameters": {
+          "formTitle": "Visual Studio",
+          "formDescription": "Produce a set of visual assets from one source text.",
+          "formFields": {
+            "values": [
+              {
+                "fieldLabel": "CONTENT",
+                "fieldType": "textarea",
+                "requiredField": true
+              },
+              {
+                "fieldLabel": "ASSET_TYPES"
+              },
+              {
+                "fieldLabel": "FEEDBACK",
+                "fieldType": "textarea"
+              },
+              {
+                "fieldLabel": "SPEC_JSON",
+                "fieldType": "textarea"
+              }
+            ]
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "ba7855cf-ba87-4597-9937-cc2cf764a849",
+        "name": "normalize_input",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          224,
+          -32
+        ],
+        "parameters": {
+          "jsCode": "const raw = $input.first().json || {};\nconst src = Object.assign({}, raw.body || {}, raw.query || {}, raw);\nconst v = (k) => { const x = src[k]; return x == null ? '' : String(x).trim(); };\nconst content = v('CONTENT');\nif (!content) throw new Error('CONTENT is required');\nreturn [{ json: {\n  RUN_ID: String($execution.id),\n  CONTENT: content,\n  ASSET_TYPES: v('ASSET_TYPES'),\n  FEEDBACK: v('FEEDBACK'),\n  SPEC_JSON: v('SPEC_JSON'),\n} }];"
+        }
+      },
+      {
+        "id": "7efb6c59-c706-4c9f-87a1-3fe042fee600",
+        "name": "download_registry",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          448,
+          -32
+        ],
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "qUfjfWLGEjV96ljf",
+            "mode": "list",
+            "cachedResultName": "DownloadTemplate",
+            "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "template_name": "datasets/visual_types.json",
+              "template_vars": "={{ {} }}"
+            },
+            "matchingColumns": [],
+            "schema": [
+              {
+                "id": "template_name",
+                "displayName": "template_name",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string"
+              },
+              {
+                "id": "template_vars",
+                "displayName": "template_vars",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "object"
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "6e9b25a7-acc3-4561-8291-ebfc534eacd0",
+        "name": "parse_registry",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          672,
+          -32
+        ],
+        "parameters": {
+          "jsCode": "const cfg = JSON.parse($('download_registry').first().json.output || '{}');\nconst req = $('normalize_input').first().json;\nconst types = Array.isArray(cfg.types) ? cfg.types : [];\nconst byId = new Map(types.map((t) => [t.id, t]));\nconst budget = cfg.budget || {};\nconst cap = Number(cfg.max_types_per_request || 3);\nlet requested = req.ASSET_TYPES\n  ? req.ASSET_TYPES.split(',').map((s) => s.trim()).filter(Boolean)\n  : (cfg.default_types || []);\nrequested = [...new Set(requested)];\nconst out = [];\nconst note = (id, status, error) => out.push({ json: Object.assign({}, req, {\n  ASSET_TYPE: id, NAME: id, AUTHOR: null, TEMPLATE: null, SPEC_TEMPLATE: null,\n  RENDER_MODE: '', FORMAT: '', FALLBACK_FORMAT: null, ASPECT: '', AVAILABLE: false,\n  UNAVAILABLE_REASON: '', FPS: 0, FRAMES: 0, VIEWPORT: 0, STATUS, ERROR: error }) });\nfor (const id of requested.slice(0, cap)) {\n  const t = byId.get(id);\n  if (!t) { note(id, 'UNKNOWN', 'unknown asset type: ' + id); continue; }\n  const b = Object.assign({}, budget, t.budget || {});\n  out.push({ json: Object.assign({}, req, {\n    ASSET_TYPE: t.id, NAME: t.name || t.id, AUTHOR: t.author, TEMPLATE: t.template || null,\n    SPEC_TEMPLATE: t.specTemplate || null, RENDER_MODE: t.render, FORMAT: t.format,\n    FALLBACK_FORMAT: t.fallbackFormat || null, ASPECT: t.aspect || '4:5',\n    AVAILABLE: t.available !== false, UNAVAILABLE_REASON: t.unavailableReason || '',\n    FPS: Number(b.fps || 12), FRAMES: Number(b.frames || 36), VIEWPORT: Number(b.viewport || 1200),\n  }) });\n}\nfor (const id of requested.slice(cap)) note(id, 'SKIPPED', 'over the per-request cap of ' + cap);\nreturn out;"
+        }
+      },
+      {
+        "id": "9db82fc1-795a-4199-b49d-256ee4d0709c",
+        "name": "pick_spec_type",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          896,
+          -32
+        ],
+        "parameters": {
+          "jsCode": "const req = $('normalize_input').first().json;\nconst wants = $('parse_registry').all().map((i) => i.json).filter((a) => a.SPEC_TEMPLATE);\nconst first = wants.length ? wants[0] : null;\nreturn [{ json: Object.assign({}, req, {\n  ASSET_TYPE: first ? first.ASSET_TYPE : '',\n  NEEDS_SPEC: !!first,\n}) }];"
+        }
+      },
+      {
+        "id": "a2fae492-3c6c-4d1b-a7ec-7e3d6393564b",
+        "name": "if_spec_given",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          1120,
+          -32
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "combinator": "and",
+            "conditions": [
+              {
+                "id": "if_spec_given-c",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                },
+                "leftValue": "={{ !!$json.SPEC_JSON || !$json.NEEDS_SPEC }}",
+                "rightValue": ""
+              }
+            ]
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "e08e8108-bb62-482a-8f09-e3da7f0248ee",
+        "name": "spec_from_param",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1920,
+          -128
+        ],
+        "parameters": {
+          "jsCode": "\nconst raw = ($input.first().json.SPEC_JSON || '').trim();\nif (!raw) return [{ json: { SPEC: null, SPEC_JSON: '' } }];\nlet spec;\ntry { spec = JSON.parse(raw); } catch (e) { throw new Error('SPEC_JSON parameter is invalid JSON: ' + e.message); }\n\nconst fail = (msg) => { throw new Error('content spec invalid: ' + msg); };\nif (typeof spec.title !== 'string' || !spec.title.trim()) fail('missing field: title');\nif (!Array.isArray(spec.blocks) || spec.blocks.length < 3 || spec.blocks.length > 6)\n  fail('blocks must be an array of 3 to 6 entries');\nspec.blocks.forEach((b, i) => {\n  if (!b || typeof b.label !== 'string' || !b.label.trim()) fail('missing field: blocks[' + i + '].label');\n  if (b.value == null || String(b.value).trim() === '') fail('missing field: blocks[' + i + '].value');\n});\nif (typeof spec.accent !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(spec.accent))\n  fail('missing field: accent');\nif (!spec.motion || typeof spec.motion !== 'object') fail('missing field: motion');\nif (!['rise', 'fade', 'sweep', 'pulse'].includes(spec.motion.kind)) fail('missing field: motion.kind');\nconst d = Number(spec.motion.durationMs);\nif (!Number.isFinite(d) || d < 2000 || d > 4000) fail('missing field: motion.durationMs');\nif (typeof spec.alt !== 'string' || !spec.alt.trim()) fail('missing field: alt');\nreturn [{ json: { SPEC: spec, SPEC_JSON: JSON.stringify(spec) } }];"
+        }
+      },
+      {
+        "id": "c83ca7e1-abf0-4665-b1e1-eb77de155f5c",
+        "name": "download_spec_prompt",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          1344,
+          64
+        ],
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "qUfjfWLGEjV96ljf",
+            "mode": "list",
+            "cachedResultName": "DownloadTemplate",
+            "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "template_name": "prompts/visual_spec.md",
+              "template_vars": "={{ {\n \"ASSET_TYPE\": $('pick_spec_type').first().json.ASSET_TYPE,\n \"CONTENT\": $('normalize_input').first().json.CONTENT,\n \"FEEDBACK\": $('normalize_input').first().json.FEEDBACK\n} }}"
+            },
+            "matchingColumns": [],
+            "schema": [
+              {
+                "id": "template_name",
+                "displayName": "template_name",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string"
+              },
+              {
+                "id": "template_vars",
+                "displayName": "template_vars",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "object"
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "2dee4efd-d8af-4d51-b233-0af74a3c5046",
+        "name": "author_spec",
+        "type": "@n8n/n8n-nodes-langchain.chainLlm",
+        "typeVersion": 1.6,
+        "position": [
+          1568,
+          64
+        ],
+        "parameters": {
+          "promptType": "define",
+          "text": "={{ $('download_spec_prompt').item.json.output }}",
+          "needsFallback": true
+        }
+      },
+      {
+        "id": "f509c99a-ffe1-4061-8d1d-c2b748bcbfc8",
+        "name": "ai_model",
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.3,
+        "position": [
+          3496,
+          72
+        ],
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "value": "opencode-go/deepseek-v4.1-flash",
+            "mode": "id"
+          },
+          "builtInTools": {},
+          "options": {
+            "maxRetries": 2
+          }
+        },
+        "credentials": {
+          "openAiApi": {
+            "id": "LitellmN8nAcct01",
+            "name": "LiteLLM account"
+          }
+        }
+      },
+      {
+        "id": "ce5284fe-f18e-43df-8107-02cfe1511c59",
+        "name": "ai_model_fallback",
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.3,
+        "position": [
+          3624,
+          72
+        ],
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "value": "opencode-go/glm-5.3-flash",
+            "mode": "id"
+          },
+          "builtInTools": {},
+          "options": {
+            "maxRetries": 2
+          }
+        },
+        "credentials": {
+          "openAiApi": {
+            "id": "LitellmN8nAcct01",
+            "name": "LiteLLM account"
+          }
+        }
+      },
+      {
+        "id": "f88cf49b-0f7e-4ca9-b245-f95821fc7102",
+        "name": "parse_spec",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1920,
+          64
+        ],
+        "parameters": {
+          "jsCode": "\nconst raw0 = $('author_spec').first().json.text || '';\nlet raw = raw0.trim().replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```$/, '');\nconst m = raw.match(/\\{[\\s\\S]*\\}/);\nif (!m) throw new Error('content spec is not JSON');\nlet spec;\ntry { spec = JSON.parse(m[0]); } catch (e) { throw new Error('content spec is invalid JSON: ' + e.message); }\n\nconst fail = (msg) => { throw new Error('content spec invalid: ' + msg); };\nif (typeof spec.title !== 'string' || !spec.title.trim()) fail('missing field: title');\nif (!Array.isArray(spec.blocks) || spec.blocks.length < 3 || spec.blocks.length > 6)\n  fail('blocks must be an array of 3 to 6 entries');\nspec.blocks.forEach((b, i) => {\n  if (!b || typeof b.label !== 'string' || !b.label.trim()) fail('missing field: blocks[' + i + '].label');\n  if (b.value == null || String(b.value).trim() === '') fail('missing field: blocks[' + i + '].value');\n});\nif (typeof spec.accent !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(spec.accent))\n  fail('missing field: accent');\nif (!spec.motion || typeof spec.motion !== 'object') fail('missing field: motion');\nif (!['rise', 'fade', 'sweep', 'pulse'].includes(spec.motion.kind)) fail('missing field: motion.kind');\nconst d = Number(spec.motion.durationMs);\nif (!Number.isFinite(d) || d < 2000 || d > 4000) fail('missing field: motion.durationMs');\nif (typeof spec.alt !== 'string' || !spec.alt.trim()) fail('missing field: alt');\nreturn [{ json: { SPEC: spec, SPEC_JSON: JSON.stringify(spec) } }];"
+        }
+      },
+      {
+        "id": "239cc47b-dc9b-47fc-bc61-2263f7f6ab6e",
+        "name": "spec_ready",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2144,
+          -32
+        ],
+        "parameters": {
+          "jsCode": "const j = $input.first().json;\nreturn [{ json: { SPEC: j.SPEC, SPEC_JSON: j.SPEC_JSON } }];"
+        }
+      },
+      {
+        "id": "0769f54c-55f1-4425-94d8-330e040b3ccd",
+        "name": "download_html_template",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          2368,
+          -32
+        ],
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "qUfjfWLGEjV96ljf",
+            "mode": "list",
+            "cachedResultName": "DownloadTemplate",
+            "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "template_name": "templates/infographic.html",
+              "template_vars": "={{ {} }}"
+            },
+            "matchingColumns": [],
+            "schema": [
+              {
+                "id": "template_name",
+                "displayName": "template_name",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string"
+              },
+              {
+                "id": "template_vars",
+                "displayName": "template_vars",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "object"
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "73328cd8-01f0-4449-9339-2a0d8c083e4a",
+        "name": "download_svg_template",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          2592,
+          -32
+        ],
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "qUfjfWLGEjV96ljf",
+            "mode": "list",
+            "cachedResultName": "DownloadTemplate",
+            "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "template_name": "templates/infographic.svg",
+              "template_vars": "={{ {} }}"
+            },
+            "matchingColumns": [],
+            "schema": [
+              {
+                "id": "template_name",
+                "displayName": "template_name",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string"
+              },
+              {
+                "id": "template_vars",
+                "displayName": "template_vars",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "object"
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "37b83457-d820-4a6f-b69a-a829a52ffb8f",
+        "name": "merge_assets",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2816,
+          -32
+        ],
+        "parameters": {
+          "jsCode": "const esc = (s) => String(s).replace(/&/g, \"&amp;\").replace(/</g, \"&lt;\").replace(/>/g, \"&gt;\");\nconst escAttr = (s) => esc(s).replace(/\"/g, \"&quot;\");\nfunction buildMarkup(tmpl, spec, fps, frames, viewport, isSvg) {\n  const accent = /^#[0-9a-fA-F]{6}$/.test(spec.accent || \"\") ? spec.accent : \"#22d3ee\";\n  const kind = [\"rise\", \"fade\", \"sweep\", \"pulse\"].includes(spec.motion && spec.motion.kind)\n    ? spec.motion.kind : \"rise\";\n  const duration = Math.max(1000, Math.min(4000, (spec.motion && spec.motion.durationMs) || 3000));\n  const blocks = (spec.blocks || []).slice(0, 6);\n  const step = Math.floor(duration / (blocks.length + 1));\n  let out;\n  if (isSvg) {\n    const top = 360, row = 150;\n    const svgBlocks = blocks.map((b, i) => {\n      const delay = i * step, d = Math.max(200, duration - delay), y = top + i * row;\n      return `<g class=\"block\" style=\"animation-delay:${delay}ms;animation-duration:${d}ms\">` +\n        `<text class=\"label\" x=\"64\" y=\"${y}\">${esc(b.label)}</text>` +\n        `<text class=\"value\" x=\"1136\" y=\"${y}\" text-anchor=\"end\">${esc(b.value)}</text>` +\n        `<line class=\"sep\" x1=\"64\" y1=\"${y + 28}\" x2=\"1136\" y2=\"${y + 28}\" /></g>`;\n    }).join(\"\\n  \");\n    out = tmpl.split(\"%%TITLE%%\").join(esc(spec.title || \"\"))\n      .split(\"%%BLOCKS%%\").join(svgBlocks).split(\"%%ACCENT%%\").join(accent)\n      .split(\"%%MOTION_ANIM%%\").join(kind).split(\"%%DURATION_MS%%\").join(String(duration))\n      .split(\"%%FPS%%\").join(String(fps)).split(\"%%FRAMES%%\").join(String(frames))\n      .split(\"%%VIEWPORT%%\").join(String(viewport)).split(\"%%ALT%%\").join(escAttr(spec.alt || \"\"));\n  } else {\n    const htmlBlocks = blocks.map((b, i) => {\n      const delay = i * step, d = Math.max(200, duration - delay);\n      return `<div class=\"block\" style=\"animation-delay:${delay}ms;animation-duration:${d}ms\">` +\n        `<span class=\"label\">${esc(b.label)}</span><span class=\"value\">${esc(b.value)}</span></div>`;\n    }).join(\"\\n      \");\n    out = tmpl.split(\"%%TITLE%%\").join(esc(spec.title || \"\"))\n      .split(\"%%BLOCKS%%\").join(htmlBlocks).split(\"%%ACCENT%%\").join(accent)\n      .split(\"%%MOTION_ANIM%%\").join(kind).split(\"%%DURATION_MS%%\").join(String(duration))\n      .split(\"%%FPS%%\").join(String(fps)).split(\"%%FRAMES%%\").join(String(frames))\n      .split(\"%%VIEWPORT%%\").join(String(viewport));\n  }\n  const left = out.match(/%%[A-Z_]+%%/g);\n  if (left) throw new Error(\"unresolved template token(s): \" + left.join(\", \"));\n  return out;\n}\nconst spec = $('spec_ready').first().json.SPEC;\nconst specJson = $('spec_ready').first().json.SPEC_JSON;\nconst specDuration = Math.max(1000, Math.min(4000, (spec.motion && spec.motion.durationMs) || 3000));\nconst htmlT = $('download_html_template').first().json.output;\nconst svgT = $('download_svg_template').first().json.output;\nconst asset = (a, status) => ({\n  ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: status, SPEC_JSON: specJson, PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: '', FRAME_COUNT: '', WIDTH: '', HEIGHT: '',\n});\nconst out = [];\nfor (const item of $('parse_registry').all()) {\n  const a = item.json;\n  if (a.STATUS === 'UNKNOWN' || a.STATUS === 'SKIPPED') {\n    out.push({ json: asset(a, a.STATUS) });\n    out[out.length - 1].json.ERROR = a.ERROR || '';\n    continue;\n  }\n  if (a.AVAILABLE === false) {\n    const r = asset(a, 'UNAVAILABLE');\n    r.ERROR = a.UNAVAILABLE_REASON || ('unavailable: ' + a.ASSET_TYPE);\n    out.push({ json: r });\n    continue;\n  }\n  const r = asset(a, 'AUTHORED');\n  let markup = '', markupKind = '';\n  if (a.AUTHOR === 'spec_markup') {\n    if (a.RENDER_MODE === 'animated') { markup = buildMarkup(htmlT, spec, a.FPS, a.FRAMES, a.VIEWPORT, false); markupKind = 'text/html'; }\n    else if (a.RENDER_MODE === 'text') { markup = buildMarkup(svgT, spec, a.FPS, a.FRAMES, a.VIEWPORT, true); markupKind = 'image/svg+xml'; }\n  }\n  r.MARKUP = markup;\n  r.CONTENT_TYPE = markupKind;\n  if (a.RENDER_MODE === 'animated') {\n    const fpsCap = Math.max(1, Math.min(12, Number(a.FPS) || 12));\n    const frameCap = Math.max(1, Math.min(36, Number(a.FRAMES) || 36));\n    r.VIEWPORT = String(Math.max(1, Math.min(1200, Number(a.VIEWPORT) || 1200)));\n    r.DURATION_MS = String(specDuration);\n    r.FRAME_COUNT = String(Math.max(1, Math.min(frameCap, Math.floor(specDuration * fpsCap / 1000))));\n  }\n  out.push({ json: Object.assign({}, a, r) });\n}\nreturn out;"
+        }
+      },
+      {
+        "id": "135dc3bb-bf36-48e5-a833-889670a83b0e",
+        "name": "if_raster",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          3040,
+          -32
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "combinator": "and",
+            "conditions": [
+              {
+                "id": "if_raster-c",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                },
+                "leftValue": "={{ ['raster','spec_raster'].includes($json.AUTHOR) }}",
+                "rightValue": ""
+              }
+            ]
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "905b3160-d051-4a9e-a002-9c126db41d0f",
+        "name": "download_raster_prompt",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          3264,
+          -160
+        ],
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "qUfjfWLGEjV96ljf",
+            "mode": "list",
+            "cachedResultName": "DownloadTemplate",
+            "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "template_name": "prompts/visual_raster.md",
+              "template_vars": "={{ {\n \"ASSET_TYPE\": $json.ASSET_TYPE,\n \"CONTENT\": $json.CONTENT,\n \"SPEC_JSON\": $json.SPEC_JSON,\n \"FEEDBACK\": $json.FEEDBACK\n} }}"
+            },
+            "matchingColumns": [],
+            "schema": [
+              {
+                "id": "template_name",
+                "displayName": "template_name",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string"
+              },
+              {
+                "id": "template_vars",
+                "displayName": "template_vars",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "object"
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true
+          },
+          "mode": "each",
+          "options": {}
+        }
+      },
+      {
+        "id": "e766ecf3-5903-49e0-b934-43d40b43ce31",
+        "name": "raster_director",
+        "type": "@n8n/n8n-nodes-langchain.chainLlm",
+        "typeVersion": 1.6,
+        "position": [
+          3488,
+          -160
+        ],
+        "parameters": {
+          "promptType": "define",
+          "text": "={{ $json.output }}",
+          "needsFallback": true
+        }
+      },
+      {
+        "id": "f0241d3f-52ae-40e9-a5ce-d914c1bd5df6",
+        "name": "generate_image",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          3840,
+          -160
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "http://datahub-local-core-data-litellm.data.svc.cluster.local:4000/openrouter/images",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpBearerAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\n  \"model\": \"google/gemini-3.1-flash-image\",\n  \"prompt\": {{ $json.text.toJsonString() }},\n  \"aspect_ratio\": \"4:5\",\n  \"resolution\": \"1K\"\n}",
+          "options": {}
+        },
+        "credentials": {
+          "httpBearerAuth": {
+            "id": "LitellmN8nBera01",
+            "name": "LiteLLM account (bearer)"
+          }
+        }
+      },
+      {
+        "id": "c6d2dd55-598d-4dc7-9730-6b9a179f5aae",
+        "name": "raster_result",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          4064,
+          -160
+        ],
+        "parameters": {
+          "jsCode": "const src = $('if_raster').all();\nconst dir = $('raster_director').all();\nreturn $input.all().map((it, i) => {\n  const a = src[i].json;\n  const resp = it.json || {};\n  const d0 = (resp.data && resp.data[0]) || {};\n  const b64 = d0.b64_json || '';\n  const media = d0.media_type || 'image/png';\n  const out = Object.assign({}, a, {\n    STATUS: b64 ? 'RENDERED' : 'ERROR',\n    PROMPT: (dir[i] && dir[i].json.text) || '',\n    IMAGE: b64 ? ('data:' + media + ';base64,' + b64) : '',\n    CONTENT_TYPE: b64 ? media : '',\n  });\n  if (!b64) out.ERROR = 'image model returned no image';\n  return { json: out };\n});"
+        }
+      },
+      {
+        "id": "8fea4c5d-f2a8-4226-9421-a4653c92163e",
+        "name": "ready_pass",
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          4064,
+          96
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "615cdff5-2ae8-49b2-ad11-978fc3141653",
+        "name": "merge_branches",
+        "type": "n8n-nodes-base.merge",
+        "typeVersion": 3,
+        "position": [
+          4288,
+          -32
+        ],
+        "parameters": {
+          "mode": "append",
+          "numberInputs": 3,
+          "options": {}
+        }
+      },
+      {
+        "id": "5c3e5e8d-ae80-41b4-9a70-0ed23273c131",
+        "name": "run_record",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          4512,
+          -32
+        ],
+        "parameters": {
+          "jsCode": "const items = $('merge_branches').all().map((i) => i.json);\nconst req = $('normalize_input').first().json;\nconst errors = items.filter((i) => i.ERROR).map((i) => i.ASSET_TYPE + ': ' + i.ERROR);\nconst payload = items.map((i) => Object.assign({}, i, {\n  SPEC: undefined, MARKUP: i.CONTENT_TYPE === 'image/svg+xml' ? i.MARKUP : undefined,\n}));\nreturn [{ json: {\n  RUN_ID: req.RUN_ID,\n  STATUS: errors.length === 0 ? 'COMPLETE' : (items.some((i) => !i.ERROR) ? 'PARTIAL' : 'FAILED'),\n  REQUEST: JSON.stringify({ ASSET_TYPES: req.ASSET_TYPES, FEEDBACK: req.FEEDBACK,\n                            SPEC_GIVEN: !!req.SPEC_JSON, CONTENT_LENGTH: req.CONTENT.length }),\n  RESULT: JSON.stringify(payload),\n  ASSET_COUNT: String(items.length),\n  ERROR: errors.join(' | ').slice(0, 2000),\n} }];"
+        }
+      },
+      {
+        "id": "a5360d2c-01bd-41d5-8cdc-0e30b830f9a9",
+        "name": "record_run",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "position": [
+          4736,
+          -32
+        ],
+        "parameters": {
+          "dataTableId": {
+            "__rl": true,
+            "mode": "name",
+            "value": "visual_studio_table"
+          },
+          "columns": {
+            "mappingMode": "autoMapInputData",
+            "value": {}
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "6407cf3b-1d85-49d3-983c-21f2d02f9ef0",
+        "name": "set_result",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          4960,
+          -32
+        ],
+        "parameters": {
+          "jsCode": "const items = $('merge_branches').all().map((i) => i.json);\nconst req = $('normalize_input').first().json;\nreturn [{ json: {\n  RUN_ID: req.RUN_ID,\n  STATUS: items.some((i) => i.ERROR) ? (items.every((i) => i.ERROR) ? 'FAILED' : 'PARTIAL') : 'COMPLETE',\n  ASSETS: items,\n} }];"
+        }
+      },
+      {
+        "id": "e749e1b8-ce22-4bac-a5a5-40a3a6011823",
+        "name": "animated_result",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          4180,
+          300
+        ],
+        "parameters": {
+          "jsCode": "const a = $('capture_frames').first().json;\nconst out = $input.first().json || {};\nconst base = {\n  ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: '', SPEC_JSON: a.SPEC_JSON || '', PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: a.DURATION_MS || '', FRAME_COUNT: a.FRAME_COUNT || '',\n  WIDTH: a.WIDTH || '', HEIGHT: a.HEIGHT || '', MARKUP: '', IMAGE: '',\n};\nconst img = String(out.stdout || '').trim();\nif (out.error || !/^data:image\\/[a-z+.-]+;base64,/.test(img)) {\n  const reason = String(out.error || out.stderr || 'animation assembly failed').slice(0, 500);\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: reason }) }];\n}\nreturn [{ json: Object.assign({}, base, {\n  STATUS: 'RENDERED', IMAGE: img, CONTENT_TYPE: img.slice(5, img.indexOf(';')),\n}) }];"
+        }
+      },
+      {
+        "id": "f074f7c2-a093-4c4e-9c8b-acccca9ae591",
+        "name": "assemble_animation",
+        "type": "n8n-nodes-base.executeCommand",
+        "typeVersion": 1,
+        "onError": "continueRegularOutput",
+        "position": [
+          3960,
+          300
+        ],
+        "parameters": {
+          "executeOnce": true,
+          "command": "={{ $json.CMD }}"
+        }
+      },
+      {
+        "id": "98a7c88d-a5da-4bc0-b609-6e2702783341",
+        "name": "build_assemble",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          3740,
+          300
+        ],
+        "parameters": {
+          "jsCode": "const a = $('capture_frames').first().json;\nconst frames = Math.max(1, Math.min(36, Number(a.FRAME_COUNT) || 36));\nconst duration = Math.max(1000, Math.min(4000, Number(a.DURATION_MS) || 3000));\nconst run = String(a.RUN_ID);\nconst asset = String(a.ASSET_TYPE);\nif (!/^[A-Za-z0-9_-]+$/.test(run)) throw new Error('unsafe RUN_ID');\nif (!/^[a-z0-9_]+$/.test(asset)) throw new Error('unsafe ASSET_TYPE');\nconst dir = '/home/node/.n8n-files/' + run + '/' + asset;\nconst img2webp = '/usr/local/lib/node_modules/webp-converter/bin/libwebp_linux/bin/img2webp';\nconst base = Math.floor(duration / frames);\nconst rem = duration - base * frames;\nconst args = [];\nfor (let i = 0; i < frames; i++) {\n  const n = String(i).padStart(3, '0');\n  const d = base + (i >= frames - rem ? 1 : 0);\n  args.push('-d', String(d), 'f_' + n + '.jpg');\n}\nconst gifDelay = Math.max(1, Math.round(duration / frames / 10));\nconst cmd = [\n  'set -e',\n  \"cd '\" + dir + \"'\",\n  \"if [ -x '\" + img2webp + \"' ] && '\" + img2webp + \"' -loop 0 \" + args.join(' ') + \" -o out.webp >/dev/null 2>&1; then F=out.webp; MIME=image/webp; else gm convert -delay \" + gifDelay + \" -loop 0 f_*.jpg out.gif || exit 1; F=out.gif; MIME=image/gif; fi\",\n  \"printf 'data:%s;base64,' \\\"$MIME\\\"\",\n  'base64 -w0 \"$F\"',\n  \"rm -rf '\" + dir + \"'\",\n  \"rmdir '/home/node/.n8n-files/\" + run + \"' 2>/dev/null || true\",\n].join('\\n');\nreturn [{ json: { CMD: cmd, RUN_ID: run, ASSET_TYPE: asset } }];"
+        }
+      },
+      {
+        "id": "46d4db3e-91de-4c45-bc13-f277ebfe14d0",
+        "name": "capture_failed",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          3740,
+          520
+        ],
+        "parameters": {
+          "jsCode": "const a = $('if_animated').first().json;\nconst err = $input.first().json || {};\nreturn [{ json: Object.assign({}, a, {\n  STATUS: 'ERROR',\n  ERROR: String(err.error || 'frame capture failed').slice(0, 500),\n  MARKUP: '', IMAGE: '', CONTENT_TYPE: '',\n  DURATION_MS: '', FRAME_COUNT: '', WIDTH: '', HEIGHT: '',\n}) }];"
+        }
+      },
+      {
+        "id": "31e72edd-126b-49ea-86f9-83cf252d2f75",
+        "name": "capture_frames",
+        "type": "CUSTOM.puppeteer",
+        "typeVersion": 1,
+        "onError": "continueRegularOutput",
+        "position": [
+          3300,
+          400
+        ],
+        "parameters": {
+          "operation": "runCustomScript",
+          "scriptCode": "const a = $('if_animated').first().json;\nconst markup = a.MARKUP || '';\nif (!markup) throw new Error('no markup to capture for ' + (a.ASSET_TYPE || 'asset'));\nconst duration = Math.max(1000, Math.min(4000, Number(a.DURATION_MS) || 3000));\nconst frames = Math.max(1, Math.min(36, Number(a.FRAME_COUNT) || 36));\nconst viewport = Math.max(1, Math.min(1200, Number(a.VIEWPORT) || 1200));\nconst aspect = String(a.ASPECT || '4:5').split(':');\nconst rw = Number(aspect[0]) || 4;\nconst rh = Number(aspect[1]) || 5;\nconst width = Math.round(viewport);\nconst height = Math.round((viewport * rh) / rw);\nif (!/^[A-Za-z0-9_-]+$/.test(String(a.RUN_ID))) throw new Error('unsafe RUN_ID');\nif (!/^[a-z0-9_]+$/.test(String(a.ASSET_TYPE))) throw new Error('unsafe ASSET_TYPE');\nconst dir = '/home/node/.n8n-files/' + a.RUN_ID + '/' + a.ASSET_TYPE;\nawait $page.setViewport({ width, height, deviceScaleFactor: 1 });\nawait $page.goto('data:text/html;charset=utf-8,' + encodeURIComponent(markup), { waitUntil: 'load', timeout: 60000 });\nawait $page.evaluate(() => document.fonts.ready);\nawait $page.evaluate(() => { document.getAnimations().forEach((an) => { an.pause(); an.currentTime = 0; }); });\nfor (let i = 0; i < frames; i++) {\n  const t = (i * duration) / frames;\n  await $page.evaluate((at) => { document.getAnimations().forEach((an) => { an.currentTime = at; }); }, t);\n  await $page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));\n  await $page.screenshot({ type: 'jpeg', quality: 85, path: dir + '/f_' + String(i).padStart(3, '0') + '.jpg' });\n}\nreturn [{ json: Object.assign({}, a, { WIDTH: String(width), HEIGHT: String(height), FRAME_COUNT: String(frames), DURATION_MS: String(duration) }) }];",
+          "options": {
+            "browserWSEndpoint": "ws://datahub-local-core-automation-n8n-chromium:3000?token=TOKEN-1234567890",
+            "protocolTimeout": 120000
+          }
+        }
+      },
+      {
+        "id": "5e18f66b-62af-452e-8240-904b90ff3220",
+        "name": "cleanup_frames",
+        "type": "n8n-nodes-base.executeCommand",
+        "typeVersion": 1,
+        "onError": "continueRegularOutput",
+        "position": [
+          3960,
+          0
+        ],
+        "parameters": {
+          "executeOnce": true,
+          "command": "={{ String($json.RUN_ID).replace(/[^A-Za-z0-9_-]/g,'') ? 'rm -rf /home/node/.n8n-files/' + String($json.RUN_ID).replace(/[^A-Za-z0-9_-]/g,'') : 'true' }}"
+        }
+      },
+      {
+        "id": "fe0b3a61-8c9e-4e6f-bb42-334aaa7823be",
+        "name": "if_animated",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          2860,
+          400
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "combinator": "and",
+            "conditions": [
+              {
+                "id": "if_animated-c",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                },
+                "leftValue": "={{ $json.RENDER_MODE === 'animated' }}",
+                "rightValue": ""
+              }
+            ]
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "887bd8bb-f806-456a-bb89-6e3a023c5542",
+        "name": "if_capture_ok",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          3520,
+          400
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "combinator": "and",
+            "conditions": [
+              {
+                "id": "if_capture_ok-c",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                },
+                "leftValue": "={{ !($json.error) }}",
+                "rightValue": ""
+              }
+            ]
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "1183dd80-b03a-4acd-9704-edfe70b0907c",
+        "name": "mkdir_frames",
+        "type": "n8n-nodes-base.executeCommand",
+        "typeVersion": 1,
+        "onError": "continueRegularOutput",
+        "position": [
+          3080,
+          400
+        ],
+        "parameters": {
+          "executeOnce": true,
+          "command": "=mkdir -p /home/node/.n8n-files/{{ $json.RUN_ID }}/{{ $json.ASSET_TYPE }}"
         }
       }
-    },
-    {
-      "id": "c6d2dd55-598d-4dc7-9730-6b9a179f5aae",
-      "name": "raster_result",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        3520,
-        -200
-      ],
-      "parameters": {
-        "jsCode": "const src = $('if_raster').all();\nconst dir = $('raster_director').all();\nreturn $input.all().map((it, i) => {\n  const a = src[i].json;\n  const resp = it.json || {};\n  const d0 = (resp.data && resp.data[0]) || {};\n  const b64 = d0.b64_json || '';\n  const media = d0.media_type || 'image/png';\n  const out = Object.assign({}, a, {\n    STATUS: b64 ? 'RENDERED' : 'ERROR',\n    PROMPT: (dir[i] && dir[i].json.text) || '',\n    IMAGE: b64 ? ('data:' + media + ';base64,' + b64) : '',\n    CONTENT_TYPE: b64 ? media : '',\n  });\n  if (!b64) out.ERROR = 'image model returned no image';\n  return { json: out };\n});"
+    ],
+    "connections": {
+      "main_trigger": {
+        "main": [
+          [
+            {
+              "node": "normalize_input",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "api_trigger": {
+        "main": [
+          [
+            {
+              "node": "normalize_input",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "form_trigger": {
+        "main": [
+          [
+            {
+              "node": "normalize_input",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "normalize_input": {
+        "main": [
+          [
+            {
+              "node": "download_registry",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "download_registry": {
+        "main": [
+          [
+            {
+              "node": "parse_registry",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "parse_registry": {
+        "main": [
+          [
+            {
+              "node": "pick_spec_type",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "pick_spec_type": {
+        "main": [
+          [
+            {
+              "node": "if_spec_given",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "if_spec_given": {
+        "main": [
+          [
+            {
+              "node": "spec_from_param",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "download_spec_prompt",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "spec_from_param": {
+        "main": [
+          [
+            {
+              "node": "spec_ready",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "download_spec_prompt": {
+        "main": [
+          [
+            {
+              "node": "author_spec",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "author_spec": {
+        "main": [
+          [
+            {
+              "node": "parse_spec",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "parse_spec": {
+        "main": [
+          [
+            {
+              "node": "spec_ready",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "spec_ready": {
+        "main": [
+          [
+            {
+              "node": "download_html_template",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "download_html_template": {
+        "main": [
+          [
+            {
+              "node": "download_svg_template",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "download_svg_template": {
+        "main": [
+          [
+            {
+              "node": "merge_assets",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "merge_assets": {
+        "main": [
+          [
+            {
+              "node": "if_raster",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "if_raster": {
+        "main": [
+          [
+            {
+              "node": "download_raster_prompt",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "if_animated",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "download_raster_prompt": {
+        "main": [
+          [
+            {
+              "node": "raster_director",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "raster_director": {
+        "main": [
+          [
+            {
+              "node": "generate_image",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "generate_image": {
+        "main": [
+          [
+            {
+              "node": "raster_result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "raster_result": {
+        "main": [
+          [
+            {
+              "node": "merge_branches",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "ready_pass": {
+        "main": [
+          [
+            {
+              "node": "merge_branches",
+              "type": "main",
+              "index": 2
+            }
+          ]
+        ]
+      },
+      "merge_branches": {
+        "main": [
+          [
+            {
+              "node": "cleanup_frames",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "run_record": {
+        "main": [
+          [
+            {
+              "node": "record_run",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "record_run": {
+        "main": [
+          [
+            {
+              "node": "set_result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "ai_model": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "author_spec",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "raster_director",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "ai_model_fallback": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "author_spec",
+              "type": "ai_languageModel",
+              "index": 1
+            }
+          ],
+          [
+            {
+              "node": "raster_director",
+              "type": "ai_languageModel",
+              "index": 1
+            }
+          ]
+        ]
+      },
+      "animated_result": {
+        "main": [
+          [
+            {
+              "node": "merge_branches",
+              "type": "main",
+              "index": 1
+            }
+          ]
+        ]
+      },
+      "assemble_animation": {
+        "main": [
+          [
+            {
+              "node": "animated_result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "build_assemble": {
+        "main": [
+          [
+            {
+              "node": "assemble_animation",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "capture_failed": {
+        "main": [
+          [
+            {
+              "node": "merge_branches",
+              "type": "main",
+              "index": 1
+            }
+          ]
+        ]
+      },
+      "capture_frames": {
+        "main": [
+          [
+            {
+              "node": "if_capture_ok",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "cleanup_frames": {
+        "main": [
+          [
+            {
+              "node": "run_record",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "if_animated": {
+        "main": [
+          [
+            {
+              "node": "mkdir_frames",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "ready_pass",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "if_capture_ok": {
+        "main": [
+          [
+            {
+              "node": "build_assemble",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "capture_failed",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "mkdir_frames": {
+        "main": [
+          [
+            {
+              "node": "capture_frames",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
       }
     },
-    {
-      "id": "8fea4c5d-f2a8-4226-9421-a4653c92163e",
-      "name": "ready_pass",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
-      "position": [
-        2860,
-        200
-      ],
-      "parameters": {}
-    },
-    {
-      "id": "615cdff5-2ae8-49b2-ad11-978fc3141653",
-      "name": "merge_branches",
-      "type": "n8n-nodes-base.merge",
-      "typeVersion": 3,
-      "position": [
-        3740,
-        0
-      ],
-      "parameters": {
-        "mode": "append",
-        "numberInputs": 2,
-        "options": {}
-      }
-    },
-    {
-      "id": "5c3e5e8d-ae80-41b4-9a70-0ed23273c131",
-      "name": "run_record",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        3960,
-        0
-      ],
-      "parameters": {
-        "jsCode": "const items = $input.all().map((i) => i.json);\nconst req = $('normalize_input').first().json;\nconst errors = items.filter((i) => i.ERROR).map((i) => i.ASSET_TYPE + ': ' + i.ERROR);\nconst payload = items.map((i) => Object.assign({}, i, {\n  SPEC: undefined, MARKUP: i.CONTENT_TYPE === 'image/svg+xml' ? i.MARKUP : undefined,\n}));\nreturn [{ json: {\n  RUN_ID: req.RUN_ID,\n  STATUS: errors.length === 0 ? 'COMPLETE' : (items.some((i) => !i.ERROR) ? 'PARTIAL' : 'FAILED'),\n  REQUEST: JSON.stringify({ ASSET_TYPES: req.ASSET_TYPES, FEEDBACK: req.FEEDBACK,\n                            SPEC_GIVEN: !!req.SPEC_JSON, CONTENT_LENGTH: req.CONTENT.length }),\n  RESULT: JSON.stringify(payload),\n  ASSET_COUNT: String(items.length),\n  ERROR: errors.join(' | ').slice(0, 2000),\n} }];"
-      }
-    },
-    {
-      "id": "a5360d2c-01bd-41d5-8cdc-0e30b830f9a9",
-      "name": "record_run",
-      "type": "n8n-nodes-base.dataTable",
-      "typeVersion": 1.1,
-      "position": [
-        4180,
-        0
-      ],
-      "parameters": {
-        "resource": "row",
-        "operation": "insert",
-        "dataTableId": {
-          "__rl": true,
-          "mode": "name",
-          "value": "visual_studio_table"
-        },
-        "columns": {
-          "mappingMode": "autoMapInputData",
-          "value": {}
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "6407cf3b-1d85-49d3-983c-21f2d02f9ef0",
-      "name": "set_result",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        4400,
-        0
-      ],
-      "parameters": {
-        "jsCode": "const items = $('merge_branches').all().map((i) => i.json);\nconst req = $('normalize_input').first().json;\nreturn [{ json: {\n  RUN_ID: req.RUN_ID,\n  STATUS: items.some((i) => i.ERROR) ? (items.every((i) => i.ERROR) ? 'FAILED' : 'PARTIAL') : 'COMPLETE',\n  ASSETS: items,\n} }];"
-      }
-    }
-  ],
+    "nodeGroups": [],
+    "authors": "no name",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "createdAt": "2026-09-27T21:04:24.466Z",
+    "updatedAt": "2026-09-27T21:04:24.466Z"
+  },
+  "activeVersionId": "f21b5a45-d742-4798-b798-7f6187fc2a1b",
   "connections": {
     "main_trigger": {
       "main": [
@@ -888,7 +1508,7 @@
         ],
         [
           {
-            "node": "ready_pass",
+            "node": "if_animated",
             "type": "main",
             "index": 0
           }
@@ -945,7 +1565,7 @@
           {
             "node": "merge_branches",
             "type": "main",
-            "index": 1
+            "index": 2
           }
         ]
       ]
@@ -954,7 +1574,7 @@
       "main": [
         [
           {
-            "node": "run_record",
+            "node": "cleanup_frames",
             "type": "main",
             "index": 0
           }
@@ -1018,12 +1638,1008 @@
           }
         ]
       ]
+    },
+    "animated_result": {
+      "main": [
+        [
+          {
+            "node": "merge_branches",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "assemble_animation": {
+      "main": [
+        [
+          {
+            "node": "animated_result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "build_assemble": {
+      "main": [
+        [
+          {
+            "node": "assemble_animation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "capture_failed": {
+      "main": [
+        [
+          {
+            "node": "merge_branches",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "capture_frames": {
+      "main": [
+        [
+          {
+            "node": "if_capture_ok",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "cleanup_frames": {
+      "main": [
+        [
+          {
+            "node": "run_record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if_animated": {
+      "main": [
+        [
+          {
+            "node": "mkdir_frames",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "ready_pass",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if_capture_ok": {
+      "main": [
+        [
+          {
+            "node": "build_assemble",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "capture_failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "mkdir_frames": {
+      "main": [
+        [
+          {
+            "node": "capture_frames",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
+  "createdAt": "2026-09-27T15:39:17.669Z",
+  "id": "2pSrRNmYR2jkX1JG",
+  "isArchived": false,
+  "meta": null,
+  "name": "Visual Studio",
+  "nodeGroups": [],
+  "nodes": [
+    {
+      "id": "7cae92bd-497a-4c0a-97a2-8027b6e8c98f",
+      "name": "main_trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        -32
+      ],
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "CONTENT"
+            },
+            {
+              "name": "ASSET_TYPES"
+            },
+            {
+              "name": "FEEDBACK"
+            },
+            {
+              "name": "SPEC_JSON"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "6bc445a7-6d22-4d9c-80dd-3b7eea06520e",
+      "name": "api_trigger",
+      "webhookId": "29f4c520-f7d8-44e1-a4ea-03c8027909a8",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        -224
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "visual-studio",
+        "responseMode": "lastNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "8d389943-187d-4a35-9c0f-1d9e46fd2617",
+      "name": "form_trigger",
+      "webhookId": "a7c1f5d2-93b4-4c6e-8d20-51f0b7e9a314",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        160
+      ],
+      "parameters": {
+        "formTitle": "Visual Studio",
+        "formDescription": "Produce a set of visual assets from one source text.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "CONTENT",
+              "fieldType": "textarea",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "ASSET_TYPES"
+            },
+            {
+              "fieldLabel": "FEEDBACK",
+              "fieldType": "textarea"
+            },
+            {
+              "fieldLabel": "SPEC_JSON",
+              "fieldType": "textarea"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "ba7855cf-ba87-4597-9937-cc2cf764a849",
+      "name": "normalize_input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        -32
+      ],
+      "parameters": {
+        "jsCode": "const raw = $input.first().json || {};\nconst src = Object.assign({}, raw.body || {}, raw.query || {}, raw);\nconst v = (k) => { const x = src[k]; return x == null ? '' : String(x).trim(); };\nconst content = v('CONTENT');\nif (!content) throw new Error('CONTENT is required');\nreturn [{ json: {\n  RUN_ID: String($execution.id),\n  CONTENT: content,\n  ASSET_TYPES: v('ASSET_TYPES'),\n  FEEDBACK: v('FEEDBACK'),\n  SPEC_JSON: v('SPEC_JSON'),\n} }];"
+      }
+    },
+    {
+      "id": "7efb6c59-c706-4c9f-87a1-3fe042fee600",
+      "name": "download_registry",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        448,
+        -32
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "qUfjfWLGEjV96ljf",
+          "mode": "list",
+          "cachedResultName": "DownloadTemplate",
+          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "template_name": "datasets/visual_types.json",
+            "template_vars": "={{ {} }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "template_name",
+              "displayName": "template_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "template_vars",
+              "displayName": "template_vars",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "6e9b25a7-acc3-4561-8291-ebfc534eacd0",
+      "name": "parse_registry",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        -32
+      ],
+      "parameters": {
+        "jsCode": "const cfg = JSON.parse($('download_registry').first().json.output || '{}');\nconst req = $('normalize_input').first().json;\nconst types = Array.isArray(cfg.types) ? cfg.types : [];\nconst byId = new Map(types.map((t) => [t.id, t]));\nconst budget = cfg.budget || {};\nconst cap = Number(cfg.max_types_per_request || 3);\nlet requested = req.ASSET_TYPES\n  ? req.ASSET_TYPES.split(',').map((s) => s.trim()).filter(Boolean)\n  : (cfg.default_types || []);\nrequested = [...new Set(requested)];\nconst out = [];\nconst note = (id, status, error) => out.push({ json: Object.assign({}, req, {\n  ASSET_TYPE: id, NAME: id, AUTHOR: null, TEMPLATE: null, SPEC_TEMPLATE: null,\n  RENDER_MODE: '', FORMAT: '', FALLBACK_FORMAT: null, ASPECT: '', AVAILABLE: false,\n  UNAVAILABLE_REASON: '', FPS: 0, FRAMES: 0, VIEWPORT: 0, STATUS, ERROR: error }) });\nfor (const id of requested.slice(0, cap)) {\n  const t = byId.get(id);\n  if (!t) { note(id, 'UNKNOWN', 'unknown asset type: ' + id); continue; }\n  const b = Object.assign({}, budget, t.budget || {});\n  out.push({ json: Object.assign({}, req, {\n    ASSET_TYPE: t.id, NAME: t.name || t.id, AUTHOR: t.author, TEMPLATE: t.template || null,\n    SPEC_TEMPLATE: t.specTemplate || null, RENDER_MODE: t.render, FORMAT: t.format,\n    FALLBACK_FORMAT: t.fallbackFormat || null, ASPECT: t.aspect || '4:5',\n    AVAILABLE: t.available !== false, UNAVAILABLE_REASON: t.unavailableReason || '',\n    FPS: Number(b.fps || 12), FRAMES: Number(b.frames || 36), VIEWPORT: Number(b.viewport || 1200),\n  }) });\n}\nfor (const id of requested.slice(cap)) note(id, 'SKIPPED', 'over the per-request cap of ' + cap);\nreturn out;"
+      }
+    },
+    {
+      "id": "9db82fc1-795a-4199-b49d-256ee4d0709c",
+      "name": "pick_spec_type",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        -32
+      ],
+      "parameters": {
+        "jsCode": "const req = $('normalize_input').first().json;\nconst wants = $('parse_registry').all().map((i) => i.json).filter((a) => a.SPEC_TEMPLATE);\nconst first = wants.length ? wants[0] : null;\nreturn [{ json: Object.assign({}, req, {\n  ASSET_TYPE: first ? first.ASSET_TYPE : '',\n  NEEDS_SPEC: !!first,\n}) }];"
+      }
+    },
+    {
+      "id": "a2fae492-3c6c-4d1b-a7ec-7e3d6393564b",
+      "name": "if_spec_given",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1120,
+        -32
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "if_spec_given-c",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ !!$json.SPEC_JSON || !$json.NEEDS_SPEC }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "e08e8108-bb62-482a-8f09-e3da7f0248ee",
+      "name": "spec_from_param",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        -128
+      ],
+      "parameters": {
+        "jsCode": "\nconst raw = ($input.first().json.SPEC_JSON || '').trim();\nif (!raw) return [{ json: { SPEC: null, SPEC_JSON: '' } }];\nlet spec;\ntry { spec = JSON.parse(raw); } catch (e) { throw new Error('SPEC_JSON parameter is invalid JSON: ' + e.message); }\n\nconst fail = (msg) => { throw new Error('content spec invalid: ' + msg); };\nif (typeof spec.title !== 'string' || !spec.title.trim()) fail('missing field: title');\nif (!Array.isArray(spec.blocks) || spec.blocks.length < 3 || spec.blocks.length > 6)\n  fail('blocks must be an array of 3 to 6 entries');\nspec.blocks.forEach((b, i) => {\n  if (!b || typeof b.label !== 'string' || !b.label.trim()) fail('missing field: blocks[' + i + '].label');\n  if (b.value == null || String(b.value).trim() === '') fail('missing field: blocks[' + i + '].value');\n});\nif (typeof spec.accent !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(spec.accent))\n  fail('missing field: accent');\nif (!spec.motion || typeof spec.motion !== 'object') fail('missing field: motion');\nif (!['rise', 'fade', 'sweep', 'pulse'].includes(spec.motion.kind)) fail('missing field: motion.kind');\nconst d = Number(spec.motion.durationMs);\nif (!Number.isFinite(d) || d < 2000 || d > 4000) fail('missing field: motion.durationMs');\nif (typeof spec.alt !== 'string' || !spec.alt.trim()) fail('missing field: alt');\nreturn [{ json: { SPEC: spec, SPEC_JSON: JSON.stringify(spec) } }];"
+      }
+    },
+    {
+      "id": "c83ca7e1-abf0-4665-b1e1-eb77de155f5c",
+      "name": "download_spec_prompt",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1344,
+        64
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "qUfjfWLGEjV96ljf",
+          "mode": "list",
+          "cachedResultName": "DownloadTemplate",
+          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "template_name": "prompts/visual_spec.md",
+            "template_vars": "={{ {\n \"ASSET_TYPE\": $('pick_spec_type').first().json.ASSET_TYPE,\n \"CONTENT\": $('normalize_input').first().json.CONTENT,\n \"FEEDBACK\": $('normalize_input').first().json.FEEDBACK\n} }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "template_name",
+              "displayName": "template_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "template_vars",
+              "displayName": "template_vars",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "2dee4efd-d8af-4d51-b233-0af74a3c5046",
+      "name": "author_spec",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.6,
+      "position": [
+        1568,
+        64
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('download_spec_prompt').item.json.output }}",
+        "needsFallback": true
+      }
+    },
+    {
+      "id": "f509c99a-ffe1-4061-8d1d-c2b748bcbfc8",
+      "name": "ai_model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        3496,
+        72
+      ],
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "opencode-go/deepseek-v4.1-flash",
+          "mode": "id"
+        },
+        "builtInTools": {},
+        "options": {
+          "maxRetries": 2
+        }
+      },
+      "credentials": {
+        "openAiApi": {
+          "id": "LitellmN8nAcct01",
+          "name": "LiteLLM account"
+        }
+      }
+    },
+    {
+      "id": "ce5284fe-f18e-43df-8107-02cfe1511c59",
+      "name": "ai_model_fallback",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        3624,
+        72
+      ],
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "opencode-go/glm-5.3-flash",
+          "mode": "id"
+        },
+        "builtInTools": {},
+        "options": {
+          "maxRetries": 2
+        }
+      },
+      "credentials": {
+        "openAiApi": {
+          "id": "LitellmN8nAcct01",
+          "name": "LiteLLM account"
+        }
+      }
+    },
+    {
+      "id": "f88cf49b-0f7e-4ca9-b245-f95821fc7102",
+      "name": "parse_spec",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        64
+      ],
+      "parameters": {
+        "jsCode": "\nconst raw0 = $('author_spec').first().json.text || '';\nlet raw = raw0.trim().replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```$/, '');\nconst m = raw.match(/\\{[\\s\\S]*\\}/);\nif (!m) throw new Error('content spec is not JSON');\nlet spec;\ntry { spec = JSON.parse(m[0]); } catch (e) { throw new Error('content spec is invalid JSON: ' + e.message); }\n\nconst fail = (msg) => { throw new Error('content spec invalid: ' + msg); };\nif (typeof spec.title !== 'string' || !spec.title.trim()) fail('missing field: title');\nif (!Array.isArray(spec.blocks) || spec.blocks.length < 3 || spec.blocks.length > 6)\n  fail('blocks must be an array of 3 to 6 entries');\nspec.blocks.forEach((b, i) => {\n  if (!b || typeof b.label !== 'string' || !b.label.trim()) fail('missing field: blocks[' + i + '].label');\n  if (b.value == null || String(b.value).trim() === '') fail('missing field: blocks[' + i + '].value');\n});\nif (typeof spec.accent !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(spec.accent))\n  fail('missing field: accent');\nif (!spec.motion || typeof spec.motion !== 'object') fail('missing field: motion');\nif (!['rise', 'fade', 'sweep', 'pulse'].includes(spec.motion.kind)) fail('missing field: motion.kind');\nconst d = Number(spec.motion.durationMs);\nif (!Number.isFinite(d) || d < 2000 || d > 4000) fail('missing field: motion.durationMs');\nif (typeof spec.alt !== 'string' || !spec.alt.trim()) fail('missing field: alt');\nreturn [{ json: { SPEC: spec, SPEC_JSON: JSON.stringify(spec) } }];"
+      }
+    },
+    {
+      "id": "239cc47b-dc9b-47fc-bc61-2263f7f6ab6e",
+      "name": "spec_ready",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2144,
+        -32
+      ],
+      "parameters": {
+        "jsCode": "const j = $input.first().json;\nreturn [{ json: { SPEC: j.SPEC, SPEC_JSON: j.SPEC_JSON } }];"
+      }
+    },
+    {
+      "id": "0769f54c-55f1-4425-94d8-330e040b3ccd",
+      "name": "download_html_template",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        2368,
+        -32
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "qUfjfWLGEjV96ljf",
+          "mode": "list",
+          "cachedResultName": "DownloadTemplate",
+          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "template_name": "templates/infographic.html",
+            "template_vars": "={{ {} }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "template_name",
+              "displayName": "template_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "template_vars",
+              "displayName": "template_vars",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "73328cd8-01f0-4449-9339-2a0d8c083e4a",
+      "name": "download_svg_template",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        2592,
+        -32
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "qUfjfWLGEjV96ljf",
+          "mode": "list",
+          "cachedResultName": "DownloadTemplate",
+          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "template_name": "templates/infographic.svg",
+            "template_vars": "={{ {} }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "template_name",
+              "displayName": "template_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "template_vars",
+              "displayName": "template_vars",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "37b83457-d820-4a6f-b69a-a829a52ffb8f",
+      "name": "merge_assets",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2816,
+        -32
+      ],
+      "parameters": {
+        "jsCode": "const esc = (s) => String(s).replace(/&/g, \"&amp;\").replace(/</g, \"&lt;\").replace(/>/g, \"&gt;\");\nconst escAttr = (s) => esc(s).replace(/\"/g, \"&quot;\");\nfunction buildMarkup(tmpl, spec, fps, frames, viewport, isSvg) {\n  const accent = /^#[0-9a-fA-F]{6}$/.test(spec.accent || \"\") ? spec.accent : \"#22d3ee\";\n  const kind = [\"rise\", \"fade\", \"sweep\", \"pulse\"].includes(spec.motion && spec.motion.kind)\n    ? spec.motion.kind : \"rise\";\n  const duration = Math.max(1000, Math.min(4000, (spec.motion && spec.motion.durationMs) || 3000));\n  const blocks = (spec.blocks || []).slice(0, 6);\n  const step = Math.floor(duration / (blocks.length + 1));\n  let out;\n  if (isSvg) {\n    const top = 360, row = 150;\n    const svgBlocks = blocks.map((b, i) => {\n      const delay = i * step, d = Math.max(200, duration - delay), y = top + i * row;\n      return `<g class=\"block\" style=\"animation-delay:${delay}ms;animation-duration:${d}ms\">` +\n        `<text class=\"label\" x=\"64\" y=\"${y}\">${esc(b.label)}</text>` +\n        `<text class=\"value\" x=\"1136\" y=\"${y}\" text-anchor=\"end\">${esc(b.value)}</text>` +\n        `<line class=\"sep\" x1=\"64\" y1=\"${y + 28}\" x2=\"1136\" y2=\"${y + 28}\" /></g>`;\n    }).join(\"\\n  \");\n    out = tmpl.split(\"%%TITLE%%\").join(esc(spec.title || \"\"))\n      .split(\"%%BLOCKS%%\").join(svgBlocks).split(\"%%ACCENT%%\").join(accent)\n      .split(\"%%MOTION_ANIM%%\").join(kind).split(\"%%DURATION_MS%%\").join(String(duration))\n      .split(\"%%FPS%%\").join(String(fps)).split(\"%%FRAMES%%\").join(String(frames))\n      .split(\"%%VIEWPORT%%\").join(String(viewport)).split(\"%%ALT%%\").join(escAttr(spec.alt || \"\"));\n  } else {\n    const htmlBlocks = blocks.map((b, i) => {\n      const delay = i * step, d = Math.max(200, duration - delay);\n      return `<div class=\"block\" style=\"animation-delay:${delay}ms;animation-duration:${d}ms\">` +\n        `<span class=\"label\">${esc(b.label)}</span><span class=\"value\">${esc(b.value)}</span></div>`;\n    }).join(\"\\n      \");\n    out = tmpl.split(\"%%TITLE%%\").join(esc(spec.title || \"\"))\n      .split(\"%%BLOCKS%%\").join(htmlBlocks).split(\"%%ACCENT%%\").join(accent)\n      .split(\"%%MOTION_ANIM%%\").join(kind).split(\"%%DURATION_MS%%\").join(String(duration))\n      .split(\"%%FPS%%\").join(String(fps)).split(\"%%FRAMES%%\").join(String(frames))\n      .split(\"%%VIEWPORT%%\").join(String(viewport));\n  }\n  const left = out.match(/%%[A-Z_]+%%/g);\n  if (left) throw new Error(\"unresolved template token(s): \" + left.join(\", \"));\n  return out;\n}\nconst spec = $('spec_ready').first().json.SPEC;\nconst specJson = $('spec_ready').first().json.SPEC_JSON;\nconst specDuration = Math.max(1000, Math.min(4000, (spec.motion && spec.motion.durationMs) || 3000));\nconst htmlT = $('download_html_template').first().json.output;\nconst svgT = $('download_svg_template').first().json.output;\nconst asset = (a, status) => ({\n  ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: status, SPEC_JSON: specJson, PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: '', FRAME_COUNT: '', WIDTH: '', HEIGHT: '',\n});\nconst out = [];\nfor (const item of $('parse_registry').all()) {\n  const a = item.json;\n  if (a.STATUS === 'UNKNOWN' || a.STATUS === 'SKIPPED') {\n    out.push({ json: asset(a, a.STATUS) });\n    out[out.length - 1].json.ERROR = a.ERROR || '';\n    continue;\n  }\n  if (a.AVAILABLE === false) {\n    const r = asset(a, 'UNAVAILABLE');\n    r.ERROR = a.UNAVAILABLE_REASON || ('unavailable: ' + a.ASSET_TYPE);\n    out.push({ json: r });\n    continue;\n  }\n  const r = asset(a, 'AUTHORED');\n  let markup = '', markupKind = '';\n  if (a.AUTHOR === 'spec_markup') {\n    if (a.RENDER_MODE === 'animated') { markup = buildMarkup(htmlT, spec, a.FPS, a.FRAMES, a.VIEWPORT, false); markupKind = 'text/html'; }\n    else if (a.RENDER_MODE === 'text') { markup = buildMarkup(svgT, spec, a.FPS, a.FRAMES, a.VIEWPORT, true); markupKind = 'image/svg+xml'; }\n  }\n  r.MARKUP = markup;\n  r.CONTENT_TYPE = markupKind;\n  if (a.RENDER_MODE === 'animated') {\n    const fpsCap = Math.max(1, Math.min(12, Number(a.FPS) || 12));\n    const frameCap = Math.max(1, Math.min(36, Number(a.FRAMES) || 36));\n    r.VIEWPORT = String(Math.max(1, Math.min(1200, Number(a.VIEWPORT) || 1200)));\n    r.DURATION_MS = String(specDuration);\n    r.FRAME_COUNT = String(Math.max(1, Math.min(frameCap, Math.floor(specDuration * fpsCap / 1000))));\n  }\n  out.push({ json: Object.assign({}, a, r) });\n}\nreturn out;"
+      }
+    },
+    {
+      "id": "135dc3bb-bf36-48e5-a833-889670a83b0e",
+      "name": "if_raster",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3040,
+        -32
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "if_raster-c",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ ['raster','spec_raster'].includes($json.AUTHOR) }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "905b3160-d051-4a9e-a002-9c126db41d0f",
+      "name": "download_raster_prompt",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        3264,
+        -160
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "qUfjfWLGEjV96ljf",
+          "mode": "list",
+          "cachedResultName": "DownloadTemplate",
+          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "template_name": "prompts/visual_raster.md",
+            "template_vars": "={{ {\n \"ASSET_TYPE\": $json.ASSET_TYPE,\n \"CONTENT\": $json.CONTENT,\n \"SPEC_JSON\": $json.SPEC_JSON,\n \"FEEDBACK\": $json.FEEDBACK\n} }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "template_name",
+              "displayName": "template_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "template_vars",
+              "displayName": "template_vars",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "mode": "each",
+        "options": {}
+      }
+    },
+    {
+      "id": "e766ecf3-5903-49e0-b934-43d40b43ce31",
+      "name": "raster_director",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.6,
+      "position": [
+        3488,
+        -160
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.output }}",
+        "needsFallback": true
+      }
+    },
+    {
+      "id": "f0241d3f-52ae-40e9-a5ce-d914c1bd5df6",
+      "name": "generate_image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3840,
+        -160
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://datahub-local-core-data-litellm.data.svc.cluster.local:4000/openrouter/images",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"google/gemini-3.1-flash-image\",\n  \"prompt\": {{ $json.text.toJsonString() }},\n  \"aspect_ratio\": \"4:5\",\n  \"resolution\": \"1K\"\n}",
+        "options": {}
+      },
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "LitellmN8nBera01",
+          "name": "LiteLLM account (bearer)"
+        }
+      }
+    },
+    {
+      "id": "c6d2dd55-598d-4dc7-9730-6b9a179f5aae",
+      "name": "raster_result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4064,
+        -160
+      ],
+      "parameters": {
+        "jsCode": "const src = $('if_raster').all();\nconst dir = $('raster_director').all();\nreturn $input.all().map((it, i) => {\n  const a = src[i].json;\n  const resp = it.json || {};\n  const d0 = (resp.data && resp.data[0]) || {};\n  const b64 = d0.b64_json || '';\n  const media = d0.media_type || 'image/png';\n  const out = Object.assign({}, a, {\n    STATUS: b64 ? 'RENDERED' : 'ERROR',\n    PROMPT: (dir[i] && dir[i].json.text) || '',\n    IMAGE: b64 ? ('data:' + media + ';base64,' + b64) : '',\n    CONTENT_TYPE: b64 ? media : '',\n  });\n  if (!b64) out.ERROR = 'image model returned no image';\n  return { json: out };\n});"
+      }
+    },
+    {
+      "id": "8fea4c5d-f2a8-4226-9421-a4653c92163e",
+      "name": "ready_pass",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        4064,
+        96
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "615cdff5-2ae8-49b2-ad11-978fc3141653",
+      "name": "merge_branches",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        4288,
+        -32
+      ],
+      "parameters": {
+        "mode": "append",
+        "numberInputs": 3,
+        "options": {}
+      }
+    },
+    {
+      "id": "5c3e5e8d-ae80-41b4-9a70-0ed23273c131",
+      "name": "run_record",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4512,
+        -32
+      ],
+      "parameters": {
+        "jsCode": "const items = $('merge_branches').all().map((i) => i.json);\nconst req = $('normalize_input').first().json;\nconst errors = items.filter((i) => i.ERROR).map((i) => i.ASSET_TYPE + ': ' + i.ERROR);\nconst payload = items.map((i) => Object.assign({}, i, {\n  SPEC: undefined, MARKUP: i.CONTENT_TYPE === 'image/svg+xml' ? i.MARKUP : undefined,\n}));\nreturn [{ json: {\n  RUN_ID: req.RUN_ID,\n  STATUS: errors.length === 0 ? 'COMPLETE' : (items.some((i) => !i.ERROR) ? 'PARTIAL' : 'FAILED'),\n  REQUEST: JSON.stringify({ ASSET_TYPES: req.ASSET_TYPES, FEEDBACK: req.FEEDBACK,\n                            SPEC_GIVEN: !!req.SPEC_JSON, CONTENT_LENGTH: req.CONTENT.length }),\n  RESULT: JSON.stringify(payload),\n  ASSET_COUNT: String(items.length),\n  ERROR: errors.join(' | ').slice(0, 2000),\n} }];"
+      }
+    },
+    {
+      "id": "a5360d2c-01bd-41d5-8cdc-0e30b830f9a9",
+      "name": "record_run",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        4736,
+        -32
+      ],
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "visual_studio_table"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {}
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "6407cf3b-1d85-49d3-983c-21f2d02f9ef0",
+      "name": "set_result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4960,
+        -32
+      ],
+      "parameters": {
+        "jsCode": "const items = $('merge_branches').all().map((i) => i.json);\nconst req = $('normalize_input').first().json;\nreturn [{ json: {\n  RUN_ID: req.RUN_ID,\n  STATUS: items.some((i) => i.ERROR) ? (items.every((i) => i.ERROR) ? 'FAILED' : 'PARTIAL') : 'COMPLETE',\n  ASSETS: items,\n} }];"
+      }
+    },
+    {
+      "id": "e749e1b8-ce22-4bac-a5a5-40a3a6011823",
+      "name": "animated_result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4180,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const a = $('capture_frames').first().json;\nconst out = $input.first().json || {};\nconst base = {\n  ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: '', SPEC_JSON: a.SPEC_JSON || '', PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: a.DURATION_MS || '', FRAME_COUNT: a.FRAME_COUNT || '',\n  WIDTH: a.WIDTH || '', HEIGHT: a.HEIGHT || '', MARKUP: '', IMAGE: '',\n};\nconst img = String(out.stdout || '').trim();\nif (out.error || !/^data:image\\/[a-z+.-]+;base64,/.test(img)) {\n  const reason = String(out.error || out.stderr || 'animation assembly failed').slice(0, 500);\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: reason }) }];\n}\nreturn [{ json: Object.assign({}, base, {\n  STATUS: 'RENDERED', IMAGE: img, CONTENT_TYPE: img.slice(5, img.indexOf(';')),\n}) }];"
+      }
+    },
+    {
+      "id": "f074f7c2-a093-4c4e-9c8b-acccca9ae591",
+      "name": "assemble_animation",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "onError": "continueRegularOutput",
+      "position": [
+        3960,
+        300
+      ],
+      "parameters": {
+        "executeOnce": true,
+        "command": "={{ $json.CMD }}"
+      }
+    },
+    {
+      "id": "98a7c88d-a5da-4bc0-b609-6e2702783341",
+      "name": "build_assemble",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3740,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const a = $('capture_frames').first().json;\nconst frames = Math.max(1, Math.min(36, Number(a.FRAME_COUNT) || 36));\nconst duration = Math.max(1000, Math.min(4000, Number(a.DURATION_MS) || 3000));\nconst run = String(a.RUN_ID);\nconst asset = String(a.ASSET_TYPE);\nif (!/^[A-Za-z0-9_-]+$/.test(run)) throw new Error('unsafe RUN_ID');\nif (!/^[a-z0-9_]+$/.test(asset)) throw new Error('unsafe ASSET_TYPE');\nconst dir = '/home/node/.n8n-files/' + run + '/' + asset;\nconst img2webp = '/usr/local/lib/node_modules/webp-converter/bin/libwebp_linux/bin/img2webp';\nconst base = Math.floor(duration / frames);\nconst rem = duration - base * frames;\nconst args = [];\nfor (let i = 0; i < frames; i++) {\n  const n = String(i).padStart(3, '0');\n  const d = base + (i >= frames - rem ? 1 : 0);\n  args.push('-d', String(d), 'f_' + n + '.jpg');\n}\nconst gifDelay = Math.max(1, Math.round(duration / frames / 10));\nconst cmd = [\n  'set -e',\n  \"cd '\" + dir + \"'\",\n  \"if [ -x '\" + img2webp + \"' ] && '\" + img2webp + \"' -loop 0 \" + args.join(' ') + \" -o out.webp >/dev/null 2>&1; then F=out.webp; MIME=image/webp; else gm convert -delay \" + gifDelay + \" -loop 0 f_*.jpg out.gif || exit 1; F=out.gif; MIME=image/gif; fi\",\n  \"printf 'data:%s;base64,' \\\"$MIME\\\"\",\n  'base64 -w0 \"$F\"',\n  \"rm -rf '\" + dir + \"'\",\n  \"rmdir '/home/node/.n8n-files/\" + run + \"' 2>/dev/null || true\",\n].join('\\n');\nreturn [{ json: { CMD: cmd, RUN_ID: run, ASSET_TYPE: asset } }];"
+      }
+    },
+    {
+      "id": "46d4db3e-91de-4c45-bc13-f277ebfe14d0",
+      "name": "capture_failed",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3740,
+        520
+      ],
+      "parameters": {
+        "jsCode": "const a = $('if_animated').first().json;\nconst err = $input.first().json || {};\nreturn [{ json: Object.assign({}, a, {\n  STATUS: 'ERROR',\n  ERROR: String(err.error || 'frame capture failed').slice(0, 500),\n  MARKUP: '', IMAGE: '', CONTENT_TYPE: '',\n  DURATION_MS: '', FRAME_COUNT: '', WIDTH: '', HEIGHT: '',\n}) }];"
+      }
+    },
+    {
+      "id": "31e72edd-126b-49ea-86f9-83cf252d2f75",
+      "name": "capture_frames",
+      "type": "CUSTOM.puppeteer",
+      "typeVersion": 1,
+      "onError": "continueRegularOutput",
+      "position": [
+        3300,
+        400
+      ],
+      "parameters": {
+        "operation": "runCustomScript",
+        "scriptCode": "const a = $('if_animated').first().json;\nconst markup = a.MARKUP || '';\nif (!markup) throw new Error('no markup to capture for ' + (a.ASSET_TYPE || 'asset'));\nconst duration = Math.max(1000, Math.min(4000, Number(a.DURATION_MS) || 3000));\nconst frames = Math.max(1, Math.min(36, Number(a.FRAME_COUNT) || 36));\nconst viewport = Math.max(1, Math.min(1200, Number(a.VIEWPORT) || 1200));\nconst aspect = String(a.ASPECT || '4:5').split(':');\nconst rw = Number(aspect[0]) || 4;\nconst rh = Number(aspect[1]) || 5;\nconst width = Math.round(viewport);\nconst height = Math.round((viewport * rh) / rw);\nif (!/^[A-Za-z0-9_-]+$/.test(String(a.RUN_ID))) throw new Error('unsafe RUN_ID');\nif (!/^[a-z0-9_]+$/.test(String(a.ASSET_TYPE))) throw new Error('unsafe ASSET_TYPE');\nconst dir = '/home/node/.n8n-files/' + a.RUN_ID + '/' + a.ASSET_TYPE;\nawait $page.setViewport({ width, height, deviceScaleFactor: 1 });\nawait $page.goto('data:text/html;charset=utf-8,' + encodeURIComponent(markup), { waitUntil: 'load', timeout: 60000 });\nawait $page.evaluate(() => document.fonts.ready);\nawait $page.evaluate(() => { document.getAnimations().forEach((an) => { an.pause(); an.currentTime = 0; }); });\nfor (let i = 0; i < frames; i++) {\n  const t = (i * duration) / frames;\n  await $page.evaluate((at) => { document.getAnimations().forEach((an) => { an.currentTime = at; }); }, t);\n  await $page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));\n  await $page.screenshot({ type: 'jpeg', quality: 85, path: dir + '/f_' + String(i).padStart(3, '0') + '.jpg' });\n}\nreturn [{ json: Object.assign({}, a, { WIDTH: String(width), HEIGHT: String(height), FRAME_COUNT: String(frames), DURATION_MS: String(duration) }) }];",
+        "options": {
+          "browserWSEndpoint": "ws://datahub-local-core-automation-n8n-chromium:3000?token=TOKEN-1234567890",
+          "protocolTimeout": 120000
+        }
+      }
+    },
+    {
+      "id": "5e18f66b-62af-452e-8240-904b90ff3220",
+      "name": "cleanup_frames",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "onError": "continueRegularOutput",
+      "position": [
+        3960,
+        0
+      ],
+      "parameters": {
+        "executeOnce": true,
+        "command": "={{ String($json.RUN_ID).replace(/[^A-Za-z0-9_-]/g,'') ? 'rm -rf /home/node/.n8n-files/' + String($json.RUN_ID).replace(/[^A-Za-z0-9_-]/g,'') : 'true' }}"
+      }
+    },
+    {
+      "id": "fe0b3a61-8c9e-4e6f-bb42-334aaa7823be",
+      "name": "if_animated",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2860,
+        400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "if_animated-c",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.RENDER_MODE === 'animated' }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "887bd8bb-f806-456a-bb89-6e3a023c5542",
+      "name": "if_capture_ok",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3520,
+        400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "if_capture_ok-c",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ !($json.error) }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "1183dd80-b03a-4acd-9704-edfe70b0907c",
+      "name": "mkdir_frames",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "onError": "continueRegularOutput",
+      "position": [
+        3080,
+        400
+      ],
+      "parameters": {
+        "executeOnce": true,
+        "command": "=mkdir -p /home/node/.n8n-files/{{ $json.RUN_ID }}/{{ $json.ASSET_TYPE }}"
+      }
+    }
+  ],
+  "pinData": {},
   "settings": {
     "executionOrder": "v1",
     "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
     "binaryMode": "separate",
-    "availableInMCP": false
-  }
+    "errorWorkflow": "EMS2Q6tKrho3dTi8"
+  },
+  "shared": [
+    {
+      "role": "workflow:owner",
+      "workflowId": "2pSrRNmYR2jkX1JG",
+      "projectId": "zcGU09G6dy4Oah3l",
+      "createdAt": "2026-09-27T15:39:17.669Z",
+      "updatedAt": "2026-09-27T15:39:17.669Z"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 2,
+  "updatedAt": "2026-09-27T21:04:24.462Z",
+  "versionId": "f21b5a45-d742-4798-b798-7f6187fc2a1b"
 }

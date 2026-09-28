@@ -1,0 +1,178 @@
+{
+  "active": true,
+  "activeVersion": {
+    "versionId": "bbc36afd-f669-4358-b924-48254d44c30f",
+    "workflowId": "qktMbzjLCMOk3tSJ",
+    "nodes": [
+      {
+        "id": "6d2f8b41-9a73-4c58-b0e6-1f4a7d92c3b5",
+        "name": "schedule_trigger",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "cronExpression",
+                "expression": "0 0 4 * * *"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "a91c5e77-3f06-4b2d-8c15-7e6b2d04f9a8",
+        "name": "delete_expired",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "position": [
+          240,
+          0
+        ],
+        "parameters": {
+          "resource": "row",
+          "operation": "deleteRows",
+          "dataTableId": {
+            "__rl": true,
+            "mode": "name",
+            "value": "visual_studio_table"
+          },
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "createdAt",
+                "condition": "lt",
+                "keyValue": "={{ new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString() }}"
+              }
+            ]
+          },
+          "options": {}
+        }
+      }
+    ],
+    "connections": {
+      "schedule_trigger": {
+        "main": [
+          [
+            {
+              "node": "delete_expired",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "nodeGroups": [],
+    "authors": "no name",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "createdAt": "2026-09-27T21:10:00.652Z",
+    "updatedAt": "2026-09-27T21:10:00.652Z"
+  },
+  "activeVersionId": "bbc36afd-f669-4358-b924-48254d44c30f",
+  "connections": {
+    "schedule_trigger": {
+      "main": [
+        [
+          {
+            "node": "delete_expired",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2026-09-27T21:04:37.547Z",
+  "id": "qktMbzjLCMOk3tSJ",
+  "isArchived": false,
+  "meta": null,
+  "name": "Visual Studio Prune",
+  "nodeGroups": [],
+  "nodes": [
+    {
+      "id": "6d2f8b41-9a73-4c58-b0e6-1f4a7d92c3b5",
+      "name": "schedule_trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 0 4 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "a91c5e77-3f06-4b2d-8c15-7e6b2d04f9a8",
+      "name": "delete_expired",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "visual_studio_table"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "createdAt",
+              "condition": "lt",
+              "keyValue": "={{ new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString() }}"
+            }
+          ]
+        },
+        "options": {}
+      }
+    }
+  ],
+  "pinData": null,
+  "settings": {
+    "errorWorkflow": "fejq5nN6LP3F820w",
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "shared": [
+    {
+      "role": "workflow:owner",
+      "workflowId": "qktMbzjLCMOk3tSJ",
+      "projectId": "zcGU09G6dy4Oah3l",
+      "createdAt": "2026-09-27T21:04:37.547Z",
+      "updatedAt": "2026-09-27T21:04:37.547Z"
+    }
+  ],
+  "staticData": {
+    "node:schedule_trigger": {
+      "recurrenceRules": [
+        null
+      ],
+      "recurrenceRuleSignatures": [
+        null
+      ]
+    }
+  },
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2026-09-27T21:10:00.649Z",
+  "versionId": "bbc36afd-f669-4358-b924-48254d44c30f"
+}

@@ -10,7 +10,7 @@ resolution-markers = [
 
 [[package]]
 name = "actualpy"
-version = "0.22.3"
+version = "0.22.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cryptography" },
@@ -22,9 +22,9 @@ dependencies = [
     { name = "sqlalchemy" },
     { name = "sqlmodel" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c9/27/528f7f2d8ceab9302f5255a2262b87ef3ea69d28e287eeac4481eef2e6a7/actualpy-0.22.3.tar.gz", hash = "sha256:6f667e9888dda6cdf79d82d43ea8e24b40619667d13c0f9e500b234a968a26bb", size = 115998, upload-time = "2026-06-28T11:26:43.284Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/fb/68/86ad9f82ef908b5b54b39f96a83724bbe4a22a8164efcac665c4cac78120/actualpy-0.22.4.tar.gz", hash = "sha256:8d1ee1480b48a663512f2b5f90c537e59d6cafe12d37b32e102fb7409c84860d", size = 118495, upload-time = "2026-09-28T17:29:48.001Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/64/53/75dc2782addeddff235cdec77dbbbf3004d38239ed1ddfb3034ad68295cf/actualpy-0.22.3-py3-none-any.whl", hash = "sha256:eb9fa377a71cd22a79275d038034e90da38b459385ab857512d85c95de6fa983", size = 94573, upload-time = "2026-06-28T11:26:41.771Z" },
+    { url = "https://files.pythonhosted.org/packages/c0/ca/d02da5a8aea45233b660d9ec2c597596af054496f2adff2da42c1b15ba02/actualpy-0.22.4-py3-none-any.whl", hash = "sha256:9159f1e7aa987c2aa4ccf34ecd46bbf5c94c78a2036c3473671080721d87b415", size = 94895, upload-time = "2026-09-28T17:29:46.182Z" },
 ]
 
 [[package]]
@@ -520,7 +520,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "actualpy", specifier = "==0.22.3" },
+    { name = "actualpy", specifier = "==0.22.4" },
     { name = "confluent-kafka", marker = "extra == 'bodega'", specifier = ">=2.5" },
     { name = "confluent-kafka", marker = "extra == 'dev'", specifier = ">=2.5" },
     { name = "cryptography", specifier = ">=43" },

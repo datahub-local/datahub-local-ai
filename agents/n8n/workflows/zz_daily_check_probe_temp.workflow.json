@@ -384,7 +384,7 @@
   },
   "createdAt": "2026-09-24T20:49:03.426Z",
   "id": "Dx55xcxrtDC6bwum",
-  "isArchived": false,
+  "isArchived": true,
   "meta": null,
   "name": "ZZ Daily Check Probe (temp)",
   "nodeGroups": [],
@@ -1222,6 +1222,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 0,
-  "updatedAt": "2026-09-24T20:49:03.426Z",
-  "versionId": "c6d7591a-4c3d-42a0-8926-e7172b13ad60"
+  "updatedAt": "2026-09-27T12:00:26.354Z",
+  "versionId": "4db1e2d5-2f0c-4bce-981b-403fa461df8d"
 }

@@ -1,0 +1,163 @@
+{
+  "active": false,
+  "activeVersion": null,
+  "activeVersionId": null,
+  "connections": {
+    "hook": {
+      "main": [
+        [
+          {
+            "node": "clear_assets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "clear_assets": {
+      "main": [
+        [
+          {
+            "node": "make_header",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "make_header": {
+      "main": [
+        [
+          {
+            "node": "append_header",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2026-09-27T11:16:09.140Z",
+  "id": "WgBfXWCMdDg73JFc",
+  "isArchived": true,
+  "meta": null,
+  "name": "zz_probe_assets_dbg",
+  "nodeGroups": [],
+  "nodes": [
+    {
+      "id": "w1",
+      "name": "hook",
+      "webhookId": "visual-probe-assets-dbg",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "visual-probe-assets-dbg",
+        "responseMode": "lastNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "g0",
+      "name": "clear_assets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        200,
+        0
+      ],
+      "parameters": {
+        "operation": "clear",
+        "documentId": {
+          "__rl": true,
+          "value": "1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI",
+          "mode": "list",
+          "cachedResultName": "content_planner"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "article_assets",
+          "mode": "name"
+        },
+        "clear": "wholeSheet",
+        "keepFirstRow": false
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "pGARJmt50qz64xOo",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "c1",
+      "name": "make_header",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const h = [\"ENTRY_ID\", \"ASSET_ID\", \"ASSET_TYPE\", \"RENDER_MODE\", \"FORMAT\", \"STATUS\", \"ROUND\", \"FEEDBACK\", \"SPEC_JSON\", \"PROMPT\", \"PATH\", \"DURATION_MS\", \"FRAME_COUNT\", \"WIDTH\", \"HEIGHT\", \"URL\", \"ERROR\", \"UPDATE_DATE\"];\nreturn [{ json: Object.fromEntries(h.map((k) => [k, ''])) }];"
+      }
+    },
+    {
+      "id": "g2",
+      "name": "append_header",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        600,
+        0
+      ],
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI",
+          "mode": "list",
+          "cachedResultName": "content_planner"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "article_assets",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {}
+        },
+        "options": {
+          "useAppend": true
+        }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "pGARJmt50qz64xOo",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "pinData": null,
+  "settings": {},
+  "shared": [
+    {
+      "role": "workflow:owner",
+      "workflowId": "WgBfXWCMdDg73JFc",
+      "projectId": "zcGU09G6dy4Oah3l",
+      "createdAt": "2026-09-27T11:16:09.140Z",
+      "updatedAt": "2026-09-27T11:16:09.140Z"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2026-09-27T12:00:28.522Z",
+  "versionId": "98ecf292-0560-480a-9730-d9d6e07e2cb7"
+}

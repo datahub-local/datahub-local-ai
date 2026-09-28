@@ -8,6 +8,7 @@ See `proposal.md` - Why. The relevant current state:
 - `workflows/dlt/projects/finance/providers/enablebanking.py` reads the session `uid` from the token secret and calls `/details`, `/transactions`, `/balances`. `/details` was just made best-effort, so a failure there no longer aborts the run, but the fallback account has empty `currency`/`owner_name`.
 - The two secrets are `finance-enablebanking` (operator-pasted: `private_key`, `accounts.json`) and `finance-enablebanking-token` (n8n-written: `tokens.json`). Only the token secret is writable by n8n.
 - Live `GET /aspsps` for Openbank: `beta: true`, `maximum_consent_validity: 15552000` (180 d), `psu_types: [business, personal]`, `required_psu_headers: null`, unnamed `REDIRECT` auth methods.
+- The daily check's only liveness signal is `GET /sessions/{id}`. On 2026-09-28 that read `AUTHORIZED` while every data call failed (`EXPIRED_SESSION`/ASPSP auth failure), and the check reported `Healthy, No Action` before the 06:00 ingest failed. Enable Banking's FAQ documents this gap explicitly.
 
 ## Goals / Non-Goals
 
@@ -46,6 +47,16 @@ See `proposal.md` - Why. The relevant current state:
 
 **6. Session scoping of the token write.** `Build Token Upsert` keeps the whole `tokens` object and updates one alias at a time, so closing an old session cannot touch a session still in use by another alias.
 
+**7. Data-plane liveness probe.** The daily check adds `GET /accounts/{uid}/balances` per stored account and decides on that result; `GET /sessions/{id}` is kept as a free secondary signal. Rationale: Enable Banking documents the session-status endpoint as inconclusive, and this is the failure observed. The probe spends one PSD2 data call per account, so it runs once a day, not on the hourly watch.
+
+*Alternative:* keep trusting `/sessions/{id}` — rejected, it produced a false "healthy" on 09-28. *Alternative:* probe balances hourly — rejected, it exceeds the typical 4/day background limit and would return `429`, not a better answer.
+
+**8. Hourly watch on the budget-free signal.** A separate `EnableBanking Consent Watch` workflow runs hourly, probes `GET /sessions/{id}` (no PSD2 budget), and posts to Slack only when a session's state differs from the previous run, persisted in `$getWorkflowStaticData('global')`. It duplicates the secret read and JWT mint because n8n has no shared-code unit; the duplication is bounded to those two nodes.
+
+*Alternative:* fold the watch into the renewal workflow — rejected, two triggers feeding the same nodes makes the branches inseparable. *Alternative:* store state in a ConfigMap — rejected, the n8n ServiceAccount has no ConfigMap write and the static data is enough.
+
+**9. The nudge link.** The form id is a literal in `Evaluate Consent`; it is corrected to the current id and a scenario asserts it matches the form node, so the next rename fails a test instead of silently dead-ending the operator.
+
 ## Risks / Trade-offs
 
 - **Deleting a session still in use** → only delete ids present in the token secret before the overwrite and never the new id; treat deletion as best-effort.
@@ -53,6 +64,9 @@ See `proposal.md` - Why. The relevant current state:
 - **`GET /aspsps` adds a failure point to the renewal** → it is the same endpoint the reference mandates first; a failure names the ASPSP and stops before the bank login, which is preferable to an authorisation that cannot succeed.
 - **Existing token secret has no one-time fields** → fields are optional; the provider falls back to the current behaviour for one renewal cycle, and the next renewal backfills them.
 - **The n8n export alone changes nothing** → the change is applied live with `apply_workflow_changes.py` and verified with a dry run, per the repo rule.
+- **The data probe adds a PSD2 call** → one per account per day, alongside the ingest's own balances call; still inside the typical 4/day background limit.
+- **The watch only sees the session-status signal, which lags** → accepted; it timestamps the flip, while the daily data probe is authoritative. The root cause — Openbank (a `beta` integration) invalidating the consent, plausibly the single-session-per-PSU case its FAQ names — is ASPSP-side and not fixed here; the watch exists to record it.
+- **The nudge link is a literal that can go stale again** → a test asserts it matches the form node's id.
 
 ## Migration Plan
 

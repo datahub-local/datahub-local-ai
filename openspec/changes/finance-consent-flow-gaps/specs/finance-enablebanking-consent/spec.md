@@ -82,6 +82,11 @@ After a renewal authorises and stores a new session, the flow SHALL delete each 
 - **WHEN** deleting a superseded session fails
 - **THEN** the renewal still reports success with the new session stored
 
+#### Scenario: The superseded session was already dead
+
+- **WHEN** the superseded session has already expired at Enable Banking
+- **THEN** the delete reports `EXPIRED_SESSION` instead of `CLOSED`, so that session stays `EXPIRED`, and the renewal still succeeds
+
 ### Requirement: A failed consent is reported with the bank's reason
 
 The redirect handler SHALL read the `error` and `error_description` query parameters, and a redirect carrying `error` SHALL be reported with that reason rather than as a missing authorisation code.
@@ -96,16 +101,49 @@ The redirect handler SHALL read the `error` and `error_description` query parame
 - **WHEN** the redirect carries neither `code` nor `error`
 - **THEN** the failure reports a missing authorisation code
 
-### Requirement: Every stored session is probed for liveness
+### Requirement: A dead consent is detected on the data plane
 
-The scheduled consent check SHALL probe `GET /sessions/{session_id}` for every distinct session id stored across accounts, signing each probe with the application id that owns that session, and SHALL report any session not in `AUTHORIZED` state together with its alias and superseded-expiry signal. A session that the ASPSP invalidates without Enable Banking reporting it is surfaced only by the ingest data call, which SHALL remain the backstop.
+The scheduled consent check SHALL probe a live data endpoint — `GET /accounts/{uid}/balances` — for every stored account, because Enable Banking documents that `GET /sessions/{id}` may report a session valid when a data fetch would fail. The check SHALL treat an authentication failure on that probe (`EXPIRED_SESSION`, an ASPSP auth error) as needing renewal and SHALL report the alias and the probe's error. It SHALL distinguish a rate-limit response (`429`/`RATE_LIMIT`) from a dead consent and SHALL NOT treat it as one. `GET /sessions/{id}` SHALL remain a secondary, budget-free signal reported alongside. Because the data probe spends one PSD2 data call per account, it SHALL run at most once per day.
 
-#### Scenario: One dead session among several
+#### Scenario: The data probe succeeds
 
-- **WHEN** two accounts are stored under two sessions and one is not `AUTHORIZED`
-- **THEN** the check reports the failing session and its alias
-
-#### Scenario: All sessions healthy
-
-- **WHEN** every stored session reports `AUTHORIZED`
+- **WHEN** `GET /accounts/{uid}/balances` returns success for every stored account
 - **THEN** the check reports no consent needing attention
+
+#### Scenario: The data probe reports a dead session
+
+- **WHEN** `GET /accounts/{uid}/balances` reports an expired session or an ASPSP auth failure for a stored account
+- **THEN** the check reports that account as needing renewal, with the probe's error
+
+#### Scenario: A session-status mismatch is not a false alarm
+
+- **WHEN** `GET /sessions/{id}` is not `AUTHORIZED` but the data probe succeeds
+- **THEN** the check does not demand a renewal and reports the session state only as context
+
+#### Scenario: A rate limit is not a dead consent
+
+- **WHEN** the data probe reports a rate limit rather than an authentication failure
+- **THEN** the check does not mark the account as needing renewal
+
+### Requirement: An hourly watch records consent-state transitions
+
+A scheduled hourly check SHALL read each stored session's state from `GET /sessions/{id}` and SHALL post a Slack notice only when a session's observed state differs from the state recorded on the previous run, so that a change is timestamped once and an unchanged state stays silent. It SHALL persist the last observed state between runs.
+
+#### Scenario: A state change is reported once
+
+- **WHEN** a session's state changes from `AUTHORIZED` to any other value
+- **THEN** the watch posts one Slack notice naming the session, account and new state
+
+#### Scenario: An unchanged state is silent
+
+- **WHEN** every session's state equals the state recorded on the previous run
+- **THEN** the watch posts nothing
+
+### Requirement: The renewal nudge links to the live form
+
+The renewal link carried by the nudge SHALL reference the workflow's current form id, so that following it opens the renewal form.
+
+#### Scenario: The nudge link resolves
+
+- **WHEN** the check builds a nudge
+- **THEN** the link's form id equals the renewal form trigger's id in the same workflow

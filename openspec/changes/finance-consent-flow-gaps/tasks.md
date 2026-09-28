@@ -30,4 +30,17 @@
 ## 5. End-to-end verification
 
 - [x] 5.1 Run the full `workflows/dlt` suite (`uv run pytest`), `uv run ruff check` on the changed files, and `uv run pytest agents/n8n/scripts/` for the export tests; confirm all green
-- [ ] 5.2 Trigger one manual renewal against the live workflow with approval and confirm the token secret gains the one-time fields, the superseded session is deleted, and the browser lands on the success page (operator: the bank login is the one manual PSD2 step)
+- [x] 5.2 Trigger one manual renewal against the live workflow with approval and confirm the token secret gains the one-time fields, the superseded session is deleted, and the browser lands on the success page (operator: the bank login is the one manual PSD2 step)
+
+## 6. Detect a dead consent (n8n)
+
+- [x] 6.1 Fix the stale form id in `Evaluate Consent`'s nudge link to the live form id, and add an export test asserting the link's form id equals the `Form: Start Renewal` node id
+- [x] 6.2 Make the daily check probe `GET /accounts/{uid}/balances` per stored account (add `Mint Probe JWT`/`Probe Account Data`, rework `Evaluate Consent`): classify `EXPIRED_SESSION`/ASPSP auth failure as needing renewal, treat `429`/`RATE_LIMIT` as non-renewal, and keep `GET /sessions/{id}` as a secondary signal
+- [x] 6.3 Add `agents/n8n/workflows/enable_banking_consent_watch.workflow.json`: hourly schedule, secret read, `GET /sessions/{id}` per stored session, `$getWorkflowStaticData` transition detection, Slack only on change, `settings.errorWorkflow` set
+- [x] 6.4 Run `uv run --project workflows/dlt pytest agents/n8n/scripts/` and confirm the export tests pass
+- [x] 6.5 Dry-run then apply the renewal changes live (with approval), re-run to confirm `nothing to change`, and create the watch workflow live with `--create` (with approval)
+
+## 7. Documentation
+
+- [x] 7.1 Update `docs/specs/005-personal-finance-datalake.md` §4.2.1: replace the session-status-only probe with the data-plane probe, the `429` distinction, and the hourly watch; record the 2026-09-28 incident and the ASPSP-side root cause
+- [x] 7.2 Update `workflows/dlt/README.md` with the data-plane detection and the watch

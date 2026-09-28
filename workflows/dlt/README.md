@@ -143,6 +143,15 @@ session, and then deletes the old session if no alias still references it. A
 stored ASPSP name the bank no longer returns stops the form naming it, rather
 than failing at the bank.
 
+The daily check in that workflow decides health from the **data plane**: it
+calls `GET /accounts/{uid}/balances` for every stored account and nudges
+`#workflows` when that fails with `EXPIRED_SESSION` or an ASPSP auth failure. It
+does **not** trust `GET /sessions/{id}` alone — Enable Banking documents that
+endpoint as inconclusive, and on 2026-09-28 it read `AUTHORIZED` while every data
+call was dead. A second workflow, `EnableBanking Consent Watch`, reads
+`GET /sessions/{id}` hourly (no PSD2 budget) and posts to Slack only when a
+session's state changes, so the flip is timestamped without a daily repeat.
+
 ## Actual Budget sync (`--pipeline sync`)
 
 Pushes `silver.finance.transactions` into Actual Budget, deduped on

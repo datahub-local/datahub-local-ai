@@ -2499,7 +2499,7 @@
         520
       ],
       "parameters": {
-        "jsCode": "const a = $('if_animated').first().json;\nconst err = $input.first().json || {};\nreturn [{ json: Object.assign({}, a, {\n  STATUS: 'ERROR',\n  ERROR: String(err.error || 'frame capture failed').slice(0, 500),\n  MARKUP: '', IMAGE: '', CONTENT_TYPE: '',\n  DURATION_MS: '', FRAME_COUNT: '', WIDTH: '', HEIGHT: '',\n}) }];"
+        "jsCode": "const a = $('if_animated').first().json;\nconst err = $input.first().json || {};\nconst reason = err.CAPTURE_ERROR || err.error || 'frame capture failed';\nreturn [{ json: Object.assign({}, a, {\n  STATUS: 'ERROR',\n  ERROR: String(reason).slice(0, 500),\n  MARKUP: '', IMAGE: '', CONTENT_TYPE: '',\n  DURATION_MS: '', FRAME_COUNT: '', WIDTH: '', HEIGHT: '',\n}) }];"
       }
     },
     {
@@ -2514,7 +2514,7 @@
       ],
       "parameters": {
         "operation": "runCustomScript",
-        "scriptCode": "const a = $('if_animated').first().json;\nconst markup = a.MARKUP || '';\nif (!markup) throw new Error('no markup to capture for ' + (a.ASSET_TYPE || 'asset'));\nconst duration = Math.max(1000, Math.min(4000, Number(a.DURATION_MS) || 3000));\nconst frames = Math.max(1, Math.min(36, Number(a.FRAME_COUNT) || 36));\nconst viewport = Math.max(1, Math.min(1200, Number(a.VIEWPORT) || 1200));\nconst aspect = String(a.ASPECT || '4:5').split(':');\nconst rw = Number(aspect[0]) || 4;\nconst rh = Number(aspect[1]) || 5;\nconst width = Math.round(viewport);\nconst height = Math.round((viewport * rh) / rw);\nif (!/^[A-Za-z0-9_-]+$/.test(String(a.RUN_ID))) throw new Error('unsafe RUN_ID');\nif (!/^[a-z0-9_]+$/.test(String(a.ASSET_TYPE))) throw new Error('unsafe ASSET_TYPE');\nconst dir = '/home/node/.n8n-files/' + a.RUN_ID + '/' + a.ASSET_TYPE;\nawait $page.setViewport({ width, height, deviceScaleFactor: 1 });\nawait $page.goto('data:text/html;charset=utf-8,' + encodeURIComponent(markup), { waitUntil: 'load', timeout: 60000 });\nawait $page.evaluate(() => document.fonts.ready);\nawait $page.evaluate(() => { document.getAnimations().forEach((an) => { an.pause(); an.currentTime = 0; }); });\nfor (let i = 0; i < frames; i++) {\n  const t = (i * duration) / frames;\n  await $page.evaluate((at) => { document.getAnimations().forEach((an) => { an.currentTime = at; }); }, t);\n  await $page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));\n  await $page.screenshot({ type: 'jpeg', quality: 85, path: dir + '/f_' + String(i).padStart(3, '0') + '.jpg' });\n}\nreturn [{ json: Object.assign({}, a, { WIDTH: String(width), HEIGHT: String(height), FRAME_COUNT: String(frames), DURATION_MS: String(duration) }) }];",
+        "scriptCode": "const a = $('if_animated').first().json;\nconst bail = (msg) => [{ json: Object.assign({}, a, {\n  CAPTURE_ERROR: String(msg).slice(0, 500), WIDTH: '', FRAME_COUNT: '', HEIGHT: '',\n}) }];\ntry {\n  const markup = a.MARKUP || '';\n  if (!markup) throw new Error('no markup to capture for ' + (a.ASSET_TYPE || 'asset'));\n  const duration = Math.max(1000, Math.min(4000, Number(a.DURATION_MS) || 3000));\n  const frames = Math.max(1, Math.min(36, Number(a.FRAME_COUNT) || 36));\n  const viewport = Math.max(1, Math.min(1200, Number(a.VIEWPORT) || 1200));\n  const aspect = String(a.ASPECT || '4:5').split(':');\n  const rw = Number(aspect[0]) || 4;\n  const rh = Number(aspect[1]) || 5;\n  const width = Math.round(viewport);\n  const height = Math.round((viewport * rh) / rw);\n  if (!/^[A-Za-z0-9_-]+$/.test(String(a.RUN_ID))) throw new Error('unsafe RUN_ID');\n  if (!/^[a-z0-9_]+$/.test(String(a.ASSET_TYPE))) throw new Error('unsafe ASSET_TYPE');\n  const dir = '/home/node/.n8n-files/' + a.RUN_ID + '/' + a.ASSET_TYPE;\n  await $page.setViewport({ width, height, deviceScaleFactor: 1 });\n  await $page.goto('data:text/html;charset=utf-8,' + encodeURIComponent(markup), { waitUntil: 'load', timeout: 60000 });\n  await $page.evaluate(() => document.fonts.ready);\n  await $page.evaluate(() => { document.getAnimations().forEach((an) => { an.pause(); an.currentTime = 0; }); });\n  for (let i = 0; i < frames; i++) {\n    const t = (i * duration) / frames;\n    await $page.evaluate((at) => { document.getAnimations().forEach((an) => { an.currentTime = at; }); }, t);\n    await $page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));\n    await $page.screenshot({ type: 'jpeg', quality: 85, path: dir + '/f_' + String(i).padStart(3, '0') + '.jpg' });\n  }\n  return [{ json: Object.assign({}, a, { WIDTH: String(width), HEIGHT: String(height), FRAME_COUNT: String(frames), DURATION_MS: String(duration) }) }];\n} catch (e) {\n  return bail(e && e.message ? e.message : e);\n}\n",
         "options": {
           "browserWSEndpoint": "ws://datahub-local-core-automation-n8n-chromium:3000?token=TOKEN-1234567890",
           "protocolTimeout": 120000
@@ -2596,7 +2596,7 @@
                 "operation": "true",
                 "singleValue": true
               },
-              "leftValue": "={{ !($json.error) }}",
+              "leftValue": "={{ !!$json.FRAME_COUNT && !$json.CAPTURE_ERROR }}",
               "rightValue": ""
             }
           ]
@@ -2626,7 +2626,10 @@
     "callerPolicy": "workflowsFromSameOwner",
     "availableInMCP": false,
     "binaryMode": "separate",
-    "errorWorkflow": "EMS2Q6tKrho3dTi8"
+    "errorWorkflow": "EMS2Q6tKrho3dTi8",
+    "saveExecutionProgress": false,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
   },
   "shared": [
     {

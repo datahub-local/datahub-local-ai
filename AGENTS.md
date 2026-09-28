@@ -292,6 +292,18 @@ an id or an exact name. It re-reads after the PUT to confirm each field landed,
 and re-activates the workflow if `active` flipped, since the PUT carries no
 `active` field.
 
+`--create file.json` is the one documented exception to "never post a whole
+exported body": a workflow that does not exist yet cannot be edited, and an
+export edit with no create behind it is a revert waiting for the next backup. It
+POSTs the body once, keyed by name, writes by default (`--dry-run` prints the
+plan), prints the new id, and leaves an existing same-named workflow untouched so
+a re-run after a partial apply is safe. Only `name`/`nodes`/`connections`/
+`settings` are read from the body. Everything after creation goes back through
+the field-level path. Two mechanical notes for running it: the pod has no copy of
+the script or the export, so `kubectl cp` them in (an `exec -i` stdin stream
+drops past ~8 KB, which silently truncates a `--changes` file), and the pod dies
+on `sleep` — recreate it rather than trusting an existing `n8n-apply`.
+
 Pair every change with `--require-edge 'src>dst'`. A change is argued from the
 graph — "these two nodes sit downstream of a per-item stream" — and the graph
 is exactly what may have moved since; a mismatch aborts before writing. This is
@@ -309,7 +321,11 @@ Five structural things worth knowing before editing an export:
   `activeVersion`. Edit both or the file is self-inconsistent.
 - **`settings.errorWorkflow` is per workflow and there is no instance-wide
   default** — verified against `@n8n/config` in the running image, no such env
-  var exists. A workflow without it fails silently.
+  var exists. A workflow without it fails silently. The target must also be
+  **active**: n8n logs `Calling Error Workflow for "<wf>". Workflow "<id>" is not
+  active and cannot be executed` and the failure goes unreported (hit 2026-09-28,
+  Visual Studio's error path, which looked wired and did nothing until the handler
+  was activated).
 - **Entry points notify, sub-workflows raise.** A workflow a schedule, webhook
   or form starts sets `errorWorkflow`, because nothing upstream could report for
   it. A workflow only ever called by a parent leaves it unset, so the error
@@ -322,6 +338,14 @@ Five structural things worth knowing before editing an export:
   path** — the execution reports success, no error workflow fires, and the
   Prometheus histogram records `status="success"`. Use it only where a downstream
   node actually handles the empty result, and say where in a node `notes`.
+  Worse for anyone branching on it: for a non-AI node n8n does **not** add
+  `json.error` — it forwards the node's *input* unchanged
+  (`workflow-execute.js`, `handleNodeExecutionError`, `nodeSuccessData =
+  [executionData.data.main[0]]`), so an `IF` on `!($json.error)` takes the
+  success branch on failure. Branch on a marker only the success path sets, or
+  have the node report the failure as data (`ExecuteCommand` and the Puppeteer
+  node handle `continueOnFail` themselves and *do* set `json.error`; the puppeteer
+  script's own `catch` is the reliable place). Hit 2026-09-28.
 - **A node past `typeVersion` 4.1 re-runs its operation once per input item**,
   so a read node's cost is the size of the stream reaching it, not one call.
   (Sheets is explicit about it: `read.operation.ts` does `let length = 1; if
@@ -337,6 +361,97 @@ Five structural things worth knowing before editing an export:
   input cardinality, so it is read off the connection graph or not at all. A
   node `notes` claiming otherwise is the same second-copy-of-a-decision problem
   as a comment beside a value, and drifted the same way.
+
+#### Visual Studio
+
+One workflow turns a source text into a set of visual assets — hero, static
+infographic, animated diagram, animated SVG — driven by the type registry
+`agents/n8n/datasets/visual_types.json`. Adding a type is a change to that file,
+not a branch in the graph; the registry governs structure, render mode and format
+only, and raster art direction stays in `image_motifs.json`.
+
+**Three triggers, one contract.** An `executeWorkflowTrigger` (sub-workflow
+call), `POST /webhook/visual-studio`, and a form all take `CONTENT` (required),
+`ASSET_TYPES` (comma-separated; blank means the registry's `default_types`;
+over `max_types_per_request` is reported as skipped, never silently dropped),
+`FEEDBACK`, and an optional frozen `SPEC_JSON`. The studio reads no caller state:
+everything it needs arrives on the trigger, and it writes only to the
+`visual_studio_table` DataTable.
+
+**Creating it on a fresh instance**, in order:
+
+    # 1. the run table, idempotent by table name
+    export N8N_URL=http://datahub-local-core-automation-n8n.automation.svc.cluster.local
+    export N8N_API_KEY=...          # mount security/n8n-root; do not read it into a shell
+    python3 scripts/setup_data_tables.py --apply
+
+    # 2. the workflow itself (--create prints the new id)
+    OV=$(python3 scripts/apply_workflow_changes.py --print-pod-overrides)
+    kubectl -n security run n8n-apply --restart=Never --image=python:3.12-alpine \
+      --override-type=strategic --overrides="$OV" --command -- sleep 7200
+    kubectl -n security cp scripts/apply_workflow_changes.py n8n-apply:/tmp/s.py
+    kubectl -n security cp workflows/visual_studio.workflow.json n8n-apply:/tmp/vs.json
+    kubectl -n security exec n8n-apply -- python3 /tmp/s.py --create /tmp/vs.json
+
+    # 3. every later edit is field-level and guarded by the graph
+    kubectl -n security exec n8n-apply -- python3 /tmp/s.py --workflow 'Visual Studio' \
+      --require-edge 'merge_assets>if_raster' --set 'some_node:field=value' --apply
+
+    # 4. and the handler it points at, which must be active to fire
+    kubectl -n security exec n8n-apply -- python3 /tmp/s.py --create /tmp/vse.json
+    curl -X POST -H "X-N8N-API-KEY: $N8N_API_KEY" "$N8N_URL/api/v1/workflows/<id>/activate"
+
+**Frozen spec.** `SPEC_JSON` is a typed content spec — `title`, `blocks[]` of
+label/value, `accent`, `motion{kind,durationMs}`, `alt`. Present, it is used
+verbatim for every variant in the request and **no authoring model call is
+made**, which is what keeps a static infographic and its animated counterpart
+from ever disagreeing: the caller passes an approved spec back to re-render one
+rejected asset. It is validated by the same validator the model's output passes,
+so a malformed spec fails loudly with the missing field named. Enforcing *when*
+a spec is frozen is the caller's job; the studio only guarantees a supplied spec
+is never silently re-authored.
+
+**Browser-render pipeline.** Animated types go markup → frames → assembled file,
+deterministically — frame count, frame rate and duration come from the spec and
+the registry, never from wall-clock recording:
+
+1. `capture_frames` (Puppeteer `Run Custom Script`, `CUSTOM.puppeteer`) opens the
+   markup from a `data:` URL against browserless at a fixed viewport, waits for
+   `document.fonts.ready`, pauses every animation and seeks `currentTime` across
+   the timeline, screenshotting one JPEG per frame **directly to disk** at
+   `~/.n8n-files/<execution>/<asset>/f_NNN.jpg`.
+2. `assemble_animation` (`ExecuteCommand`) runs
+   `img2webp -loop 0 -d <ms> f_*.jpg -o out.webp` over that directory with the
+   duration remainder distributed across frames so the total equals the spec
+   (3000 ms over 36 frames is 24×83 + 12×84), and falls back to
+   `gm convert -delay <cs> -loop 0` when `img2webp` is absent or fails — `gm`
+   writes an animated GIF only, never a WebP. The file comes back as a data URL
+   on stdout.
+
+The Files node may only touch paths under `~/.n8n-files`
+(`N8N_RESTRICT_FILE_ACCESS_TO` defaults to it), so `/tmp` is out of reach without
+disabling a security default instance-wide — hence the directory above. Frames
+are removed as soon as the run finishes: `assemble_animation` deletes its own
+directory, `cleanup_frames` removes `~/.n8n-files/<execution>` on the way to the
+run record, and `Visual Studio Error` removes it again when the run fails
+outright. Nothing else in the graph touches the filesystem.
+
+**Failure and retention.** `settings.errorWorkflow` points at `Visual Studio
+Error`, which upserts a `STATUS=FAILED` row keyed by `RUN_ID` with the reason and
+posts to the `workflows` Slack channel; the studio's own graph has no Slack, no
+schedule, no GitHub node and one terminal node, so the boundary still holds with
+the render branch in place. `Visual Studio Prune` runs daily at 04:00 UTC and
+deletes rows whose system `createdAt` is older than 7 days, whatever their
+status, so the multi-MB `RESULT` payloads do not accumulate.
+
+**Verification is manual — there is no CI coverage for n8n.** The claims above
+were checked by POSTing to the live webhook and by `--require-edge` graph checks;
+node parameters that are not obvious (`CUSTOM.puppeteer`, the DataTable
+`deleteRows` filter, the `Files` node path rules) were read out of the running
+image rather than guessed, e.g.
+`kubectl exec … -- node -e "require('n8n-nodes-base/dist/nodes/ExecuteCommand/ExecuteCommand.node.js')"`.
+Read the live workflow back after every apply and diff it against the export
+before believing a change landed.
 
 ### MCP servers
 

@@ -32,10 +32,10 @@
 ## 5. Animated render
 
 - [x] 5.1 (blocked by `datahub-local-core`: `NODES_EXCLUDE=[]` and `custom.extra_modules: webp-converter`) Enable `ExecuteCommand` and install the libwebp CLIs; verify through a probe workflow with `gm version` and the installed `img2webp -version`
-- [ ] 5.2 Implement frame capture with Puppeteer `Run Custom Script`: render the markup from a `data:` URL at a fixed viewport, wait for `document.fonts.ready`, seek each animation's `currentTime` for the registry's frame count (default 36 at 12 fps), and return frames as base64 JSON (the one-binary-per-item path is unproven; splitting in a Code node/Convert to File is the reliable transport); capture as JPEG; verify a manual run yields exactly the expected number of frames
-- [ ] 5.3 Write frames under `~/.n8n-files/<execution>/<asset>/` (the Files node cannot write `/tmp` without disabling `N8N_BLOCK_FILE_ACCESS_TO_N8N_FILES`) and implement assembly with `img2webp -loop 0 -d <ms> <frames> -o <out.webp>` against the same directory, distributing the duration remainder so the total matches the spec, with `gm convert -delay <100/fps> -loop 0 <frames> <out.gif>` as the fallback when `img2webp` is absent or fails, writing each frame through promptly; verify the output is a playable animated WebP (and the GIF fallback animates)
-- [ ] 5.4 Verify the produced animation's duration matches the spec and that frame count (≤36), fps (≤12) and viewport (≤1200px) are bounded by the registry budget
-- [ ] 5.5 Verify a frame-capture failure marks only that asset's result with an error and leaves the other assets untouched
+- [x] 5.2 Implement frame capture with Puppeteer `Run Custom Script`: render the markup from a `data:` URL at a fixed viewport, wait for `document.fonts.ready`, seek each animation's `currentTime` for the registry's frame count (default 36 at 12 fps), and return frames as base64 JSON (the one-binary-per-item path is unproven; splitting in a Code node/Convert to File is the reliable transport); capture as JPEG; verify a manual run yields exactly the expected number of frames
+- [x] 5.3 Write frames under `~/.n8n-files/<execution>/<asset>/` (the Files node cannot write `/tmp` without disabling `N8N_BLOCK_FILE_ACCESS_TO_N8N_FILES`) and implement assembly with `img2webp -loop 0 -d <ms> <frames> -o <out.webp>` against the same directory, distributing the duration remainder so the total matches the spec, with `gm convert -delay <100/fps> -loop 0 <frames> <out.gif>` as the fallback when `img2webp` is absent or fails, writing each frame through promptly; verify the output is a playable animated WebP (and the GIF fallback animates)
+- [x] 5.4 Verify the produced animation's duration matches the spec and that frame count (≤36), fps (≤12) and viewport (≤1200px) are bounded by the registry budget (WebP matches exactly — 36 frames, 24×83+12×84 = 3000 ms; the GIF fallback is centisecond-quantised, so a 3200 ms spec yields 36×90 ms = 3240 ms, which is what design D4 accepts)
+- [x] 5.5 Verify a frame-capture failure marks only that asset's result with an error and leaves the other assets untouched
 
 ## 6. Animated SVG
 
@@ -55,11 +55,18 @@ Review gates, the retry-with-feedback loop, per-asset review state and the singl
 
 ## 9. Error handling and apply
 
-- [ ] 9.1 Give the Visual Studio workflow a failure path that marks the run record `FAILED` with the reason and notifies Slack, and wire `settings.errorWorkflow` at the entry point; verify a forced failure is reported
+- [x] 9.1 Give the Visual Studio workflow a failure path that marks the run record `FAILED` with the reason and notifies Slack, and wire `settings.errorWorkflow` at the entry point; verify a forced failure is reported; the handler must be **active**, n8n otherwise logs `Workflow "<id>" is not active and cannot be executed` and nothing is reported (hit 2026-09-28)
 - [x] 9.2 Extend `scripts/apply_workflow_changes.py` with an idempotent `--create` (POST a workflow body once, keyed by name, print the new id); verify by creating a throwaway workflow, editing it through the existing `PUT` path, then deleting it, and confirm a same-named workflow is left untouched
 - [x] 9.3 Create the workflow live with `scripts/apply_workflow_changes.py --create` and re-read to confirm each field landed; pair subsequent edits with `--require-edge`
 - [x] 9.4 Confirm the operational boundary by graph inspection: the studio has no schedule, no Slack nodes, no GitHub nodes and no queue access — it is started by its three triggers, writes only to `visual_studio_table`, returns content only, and owns no review gate or commit
 
 ## 10. Documentation
 
-- [ ] 10.1 Update the n8n operational docs (`CLAUDE.md` n8n section) with the `--create` path, the DataTable setup step (`setup_data_tables.py`), the three trigger surfaces and their parameter contract, the frozen-spec mechanism, and the browser-render pipeline (including the `~/.n8n-files` constraint); state explicitly that verification is manual-trigger plus `--require-edge` graph checks, since there is no CI coverage for n8n; verify a reader can follow creation through apply from the docs alone
+- [x] 10.1 Update the n8n operational docs (`AGENTS.md` n8n section) with the `--create` path, the DataTable setup step (`setup_data_tables.py`), the three trigger surfaces and their parameter contract, the frozen-spec mechanism, and the browser-render pipeline (including the `~/.n8n-files` constraint); state explicitly that verification is manual-trigger plus `--require-edge` graph checks, since there is no CI coverage for n8n; verify a reader can follow creation through apply from the docs alone
+
+## 11. Temporal data
+
+Frame files and run records are both throwaway, so both are reaped.
+
+- [x] 11.1 Remove the frame directory on **every** exit path, not just success: `assemble_animation` runs `rm -rf` on its own directory after `base64`, `cleanup_frames` sits between `merge_branches` and `run_record` and removes `~/.n8n-files/<execution>` whatever went wrong on the way, and `Visual Studio Error` removes it when the run fails outright (`run_record` reads `$('merge_branches')` because `ExecuteCommand` does not forward its input); verify `~/.n8n-files` is empty after a successful run and after a forced capture failure.
+- [x] 11.2 Add `Visual Studio Prune`: a schedule trigger (daily 04:00 UTC) running one `deleteRows` against `visual_studio_table` with `createdAt lt now-7d`, whatever the row's status, and `settings.errorWorkflow` = `Catch Errors` (not `Visual Studio Error`, which would write a FAILED row about the pruner into the table it is pruning). The DataTable has a system column `createdAt` of type `date` with `lt`/`lte` operators, so no schema change was needed; verify the filter server-side before trusting the node, then confirm the node's first scheduled execution succeeds and deletes nothing it should not.

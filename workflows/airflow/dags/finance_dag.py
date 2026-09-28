@@ -63,7 +63,10 @@ with DAG(
     dag_id="finance_daily",
     default_args=default_args,
     description="finance pipeline: Enable Banking → dlt ingest → dbt silver → dlt enrich → dbt gold → Actual sync",
-    schedule="0 6 * * *",
+    # 13:00 UTC, not 06:00: Openbank drops the consent 9-19h after each renewal
+    # (spec 005 §4.2.1), so the run sits next to a morning re-link instead of
+    # always landing after it.
+    schedule="0 13 * * *",
     start_date=datetime(2025, 1, 1),
     catchup=False,
     tags=["dlt"],

@@ -28,7 +28,9 @@ def test_dag_importable():
 
 
 def test_dag_schedule():
-    assert _dag().schedule == "0 6 * * *"
+    # 13:00 UTC so the run sits next to a morning re-link, not after an overnight
+    # consent drop (Openbank kills the consent 9-19h after renewal; spec 005 4.2.1).
+    assert _dag().schedule == "0 13 * * *"
 
 
 def test_dag_params_default_to_none():

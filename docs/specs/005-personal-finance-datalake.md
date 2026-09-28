@@ -384,26 +384,36 @@ twice-yearly surprise:
 - **Liveness probe.** `valid_until` is Enable Banking's *session* expiry, the
   value the request asked for — the API returns it unchanged and says the
   session validity "will remain exactly as specified" regardless of the ASPSP
-  side. It therefore cannot see a bank that drops or errors the consent early,
-  which has happened twice — 2026-09-24 and again 2026-09-26, both Openbank
-  (live `GET /aspsps` reports `beta: true` for it; the core `0.14.0` changelog
-  said the flag was removed, but the API disagrees, and a beta integration has
-  less traffic behind it) — returning
-  `ASPSP_ERROR`/`HttpException` while the stored expiry was still months out.
-  Each time the fix was a regenerated token, so the failure is a token-lifecycle
-  problem, not an API change. The daily check therefore reads **every distinct**
-  stored `session_id` — one per alias that has one, each signed with that alias's
-  `app_id`, because a separately linked account (2026-09-26's `cuenta_compartida`)
-  can sit on its own session and application — and calls
-  `GET /sessions/{session_id}` for each; that reads Enable Banking's own session
-  state and never reaches the ASPSP, so it spends none of the PSD2 per-endpoint
-  data-call budget. A status other than `AUTHORIZED`
-  (`CANCELLED`/`CLOSED`/`EXPIRED`/`REVOKED`/`INVALID`), or the probe call itself
-  failing, joins the ≤3-day nudge. It is a gap-filler, not a guarantee: a drop
-  the ASPSP never reports to Enable Banking still surfaces only when the ingest
-  data call fails, which stays the backstop. The ingest preflight still trusts
-  `valid_until` only, so that data call remains the only check the pipeline
-  itself does.
+  side. It cannot see a bank that drops or errors the consent early, which has
+  now happened four times — 2026-09-24, 09-26 and 09-28, all Openbank (live
+  `GET /aspsps` reports `beta: true` for it; the core `0.14.0` changelog said the
+  flag was removed, but the API disagrees, and a beta integration has less
+  traffic behind it). Each time the fix was a regenerated token, so the failure
+  is a consent-lifecycle problem at the bank, not an API change. Two signals
+  watch for it, and only one of them is authoritative:
+  - The daily check (04:00) probes the **data plane**: for every stored account
+    it calls `GET /accounts/{uid}/balances` and treats an `EXPIRED_SESSION` or
+    ASPSP auth failure as needing renewal, reporting the account and the probe's
+    error; a `429`/`ASPSP_RATE_LIMIT_EXCEEDED` is a rate limit, not a dead
+    consent. This spends one PSD2 data call per account, so it runs once a day,
+    and it is the signal that decides.
+  - The same run also reads `GET /sessions/{id}` for each stored account, signed
+    with that alias's `app_id` — a call that never reaches the ASPSP and so
+    spends no PSD2 budget. It is context, never proof: on 2026-09-28 it read
+    `AUTHORIZED` while `/balances` and `/transactions` returned `EXPIRED_SESSION`
+    and `/details` returned an ASPSP auth failure, and the check reported
+    "Healthy, No Action" hours before the 06:00 ingest failed. Enable Banking's
+    FAQ states the session status can be contradicted by a data fetch, which is
+    why the data probe, not this, is authoritative.
+- **Hourly watch.** `EnableBanking Consent Watch` runs hourly, reads
+  `GET /sessions/{id}` (budget-free) for each stored session, and posts to Slack
+  only when a state differs from the previous run's — kept in workflow static
+  data — so the moment Enable Banking flips the session state is timestamped
+  once. It cannot probe the data plane hourly because four background data
+  fetches a day is the usual ASPSP limit, which is why the daily check owns that
+  call. Neither signal is a guarantee: a drop the ASPSP never reports still
+  surfaces only when the ingest data call fails, which stays the backstop. The
+  ingest preflight still trusts `valid_until` only.
 - **Flow.** Form page ("renew <alias>") → the workflow resolves the ASPSP
   through `GET /aspsps` and caps the requested validity at its
   `maximum_consent_validity` (a stored name the bank no longer returns stops
@@ -733,9 +743,16 @@ can run without a provider fetch (which would spend the PSD2 daily budget).
 `trigger_rule: none_failed_min_one_success`, since one of them is always
 skipped.
 
-Schedule `0 6 * * *` UTC (bodega runs 08:00 — staggered; the PSD2 budget is
-per account per endpoint so there is no contention, the stagger is for cluster
-load). Params `from_date`/`to_date` default to a 4-week lookback (§4.3);
+Schedule `0 13 * * *` UTC — moved from `0 6 * * *` on 2026-09-28, because every
+observed failure was the 06:00 run: Openbank drops the consent 9-19 h after each
+renewal (§4.2.1) and the renewals are manual at arbitrary times (07:08, 11:09,
+15:12, 20:16 UTC). 13:00 sits next to a morning re-link rather than always
+landing after an overnight one; it is still staggered from bodega's 08:00, and
+the PSD2 budget is per account per endpoint so there is no contention — the
+stagger is for cluster load. A single fixed time cannot cover an evening
+renewal, so this narrows the window rather than closing it; the ingest failure
+path stays the backstop. Params `from_date`/`to_date` default to a 4-week
+lookback (§4.3);
 `skip_ingest` defaults to false. Secret
 wiring per task: ingest needs ICEBERG + enablebanking; enrich needs ICEBERG +
 LITELLM; sync needs finance-actual. `retries: 1` like every DAG

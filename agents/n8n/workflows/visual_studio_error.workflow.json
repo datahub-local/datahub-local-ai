@@ -1,7 +1,210 @@
 {
-  "active": false,
-  "activeVersion": null,
-  "activeVersionId": null,
+  "active": true,
+  "activeVersion": {
+    "versionId": "963dcdbc-560a-44bf-b034-9c6f2244488d",
+    "workflowId": "EMS2Q6tKrho3dTi8",
+    "nodes": [
+      {
+        "id": "3f0a9e1c-6b52-4d7a-9c31-5a2e7b8d4f60",
+        "name": "error_trigger",
+        "type": "n8n-nodes-base.errorTrigger",
+        "typeVersion": 1,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "8c1d4b7a-2e95-4f36-a0d8-7b1c6e93a215",
+        "name": "record_failed",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "onError": "continueRegularOutput",
+        "position": [
+          240,
+          0
+        ],
+        "parameters": {
+          "resource": "row",
+          "operation": "upsert",
+          "dataTableId": {
+            "__rl": true,
+            "mode": "name",
+            "value": "visual_studio_table"
+          },
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "RUN_ID",
+                "condition": "eq",
+                "keyValue": "={{ String($json.execution.id) }}"
+              }
+            ]
+          },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "RUN_ID": "={{ String($json.execution.id) }}",
+              "STATUS": "FAILED",
+              "REQUEST": "",
+              "RESULT": "[]",
+              "ASSET_COUNT": "0",
+              "ERROR": "={{ String($json.execution.error.message).slice(0, 2000) }}"
+            },
+            "matchingColumns": [
+              "RUN_ID"
+            ],
+            "schema": [
+              {
+                "id": "RUN_ID",
+                "displayName": "RUN_ID",
+                "required": false,
+                "defaultMatch": true,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "STATUS",
+                "displayName": "STATUS",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "REQUEST",
+                "displayName": "REQUEST",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "RESULT",
+                "displayName": "RESULT",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "ASSET_COUNT",
+                "displayName": "ASSET_COUNT",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              },
+              {
+                "id": "ERROR",
+                "displayName": "ERROR",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true
+              }
+            ]
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "b5e7f2a9-1c48-4d63-8e02-9f6a3c5b7d14",
+        "name": "notify_failed",
+        "webhookId": "802476a3-753d-4b33-a798-13cbfb247e22",
+        "type": "n8n-nodes-base.slack",
+        "typeVersion": 2.2,
+        "position": [
+          480,
+          0
+        ],
+        "parameters": {
+          "select": "channel",
+          "channelId": {
+            "__rl": true,
+            "value": "C08RQNXQV3P",
+            "mode": "list",
+            "cachedResultName": "workflows"
+          },
+          "text": "=:x: *{{ $('error_trigger').first().json.workflow.name }}* failed (`{{ $('error_trigger').first().json.workflow.id }}`)\nRun: {{ $('error_trigger').first().json.execution.id }}\nNode: {{ $('error_trigger').first().json.execution.lastNodeExecuted }}\nError: {{ $('error_trigger').first().json.execution.error.message }}\n{{ $('error_trigger').first().json.execution.url }}",
+          "otherOptions": {
+            "includeLinkToWorkflow": false
+          }
+        },
+        "credentials": {
+          "slackApi": {
+            "id": "DszMmPE7WwOjHQjz",
+            "name": "Slack account"
+          }
+        }
+      },
+      {
+        "id": "e4d20fd1-27b4-4d30-9325-68d0c8a90f32",
+        "name": "cleanup_run",
+        "type": "n8n-nodes-base.executeCommand",
+        "typeVersion": 1,
+        "onError": "continueRegularOutput",
+        "position": [
+          360,
+          0
+        ],
+        "parameters": {
+          "executeOnce": true,
+          "command": "={{ String($('error_trigger').first().json.execution.id).replace(/[^A-Za-z0-9_-]/g,'') ? 'rm -rf /home/node/.n8n-files/' + String($('error_trigger').first().json.execution.id).replace(/[^A-Za-z0-9_-]/g,'') : 'true' }}"
+        }
+      }
+    ],
+    "connections": {
+      "error_trigger": {
+        "main": [
+          [
+            {
+              "node": "record_failed",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "record_failed": {
+        "main": [
+          [
+            {
+              "node": "cleanup_run",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "cleanup_run": {
+        "main": [
+          [
+            {
+              "node": "notify_failed",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "nodeGroups": [],
+    "authors": "no name",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "createdAt": "2026-09-27T21:04:36.185Z",
+    "updatedAt": "2026-09-27T21:04:36.185Z"
+  },
+  "activeVersionId": "963dcdbc-560a-44bf-b034-9c6f2244488d",
   "connections": {
     "error_trigger": {
       "main": [

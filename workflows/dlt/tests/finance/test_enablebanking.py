@@ -148,6 +148,26 @@ class TestListAccounts:
         _provider(_details_handler(captured)).list_accounts()
         assert captured[0].url.path == f"/accounts/{TOKEN.uid}/details"
 
+    def test_skips_details_when_the_one_time_fields_are_stored(self):
+        # currency and owner_name were captured at authorisation and cannot
+        # change mid-session, so re-reading them would spend one of the ASPSP's
+        # ~4 background data fetches a day for values already in the secret.
+        enriched = TokenConfig(
+            alias="sample_account",
+            uid=TOKEN.uid,
+            valid_until=TOKEN.valid_until,
+            currency="EUR",
+            owner_name="SAMPLE HOLDER",
+        )
+        captured = []
+        accounts = _provider(_details_handler(captured), tokens=(enriched,)).list_accounts()
+        assert captured == []
+        account = accounts[0]
+        assert account.currency == "EUR"
+        assert account.owner_name == "SAMPLE HOLDER"
+        assert account.iban == ACCOUNT.iban
+        assert account.payload_json == "{}"
+
     def test_details_failure_degrades_to_configured_metadata(self):
         # one account's /details 400s (an ASPSP that refuses it); the account must
         # still land from the secret so its transactions/balances are not lost

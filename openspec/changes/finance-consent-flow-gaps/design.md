@@ -47,15 +47,71 @@ See `proposal.md` - Why. The relevant current state:
 
 **6. Session scoping of the token write.** `Build Token Upsert` keeps the whole `tokens` object and updates one alias at a time, so closing an old session cannot touch a session still in use by another alias.
 
-**7. Data-plane liveness probe.** The daily check adds `GET /accounts/{uid}/balances` per stored account and decides on that result; `GET /sessions/{id}` is kept as a free secondary signal. Rationale: Enable Banking documents the session-status endpoint as inconclusive, and this is the failure observed. The probe spends one PSD2 data call per account, so it runs once a day, not on the hourly watch.
+**7. The daily check nudges; the watch decides liveness.** The daily check spends
+no data-plane call: it nudges when a stored `valid_until` is ≤ 3 days out or
+when the budget-free `GET /sessions/{id}` read is not `AUTHORIZED` (or fails).
+It carried a `GET /accounts/{uid}/balances` probe from 2026-09-28, when the
+session-status read proved inconclusive (it said `AUTHORIZED` while every data
+call was dead), and gave it up on 2026-09-29 to the watch, because the probe was
+one of the ~8 data fetches a day the fleet was spending against Openbank's ~4
+background limit. A non-`AUTHORIZED` session read still earns a nudge — it is
+never proof of life, but it is never *good* news either — and the wording says
+the 12 h watch confirms on the data plane.
 
-*Alternative:* keep trusting `/sessions/{id}` — rejected, it produced a false "healthy" on 09-28. *Alternative:* probe balances hourly — rejected, it exceeds the typical 4/day background limit and would return `429`, not a better answer.
+*Alternatives:* keep trusting `/sessions/{id}` alone — rejected, it produced a
+false "healthy" on 09-28. *Keep the daily balances probe alongside the watch* —
+rejected on 09-29, it is a duplicate of the watch's signal at a cost the budget
+does not have. *Probe balances hourly* — rejected, it exceeds the limit and
+returns `429`, not a better answer.
 
-**8. Hourly watch on the budget-free signal.** A separate `EnableBanking Consent Watch` workflow runs hourly, probes `GET /sessions/{id}` (no PSD2 budget), and posts to Slack only when a session's state differs from the previous run, persisted in `$getWorkflowStaticData('global')`. It duplicates the secret read and JWT mint because n8n has no shared-code unit; the duplication is bounded to those two nodes.
+**8. The watch probes the data plane every 12 hours, not the session status
+hourly.** `EnableBanking Consent Watch` calls `GET /accounts/{uid}/balances`
+twice a day, posting to Slack when an account's state differs from the previous
+run's, persisted in `$getWorkflowStaticData('global')` under a `consent_states`
+key. Two reasons the probe is a data fetch: (a) Enable Banking performs the
+ASPSP token renewal **during data fetches**, so a session-status read does
+nothing to keep the connection alive; (b) the session-status read is not a
+reliable signal anyway. The cadence is 12 h, not the 6 h the watch shipped with,
+because the fleet's data-fetch budget is ~4/day per account on Openbank and the
+honest count was ~8 (watch 4 + daily check 1 + ingest 3); at 12 h the fleet
+lands at 4 (watch 2 + ingest 2, once `/details` is skipped per decision 10).
+Consent drops have happened since the integration started — 2026-09-24, 09-26,
+09-28 and 09-29 — under no watch, an hourly session-status watch and a 6-hourly
+data-plane watch alike, so the cadence buys **detection, not prevention**, and
+12 h is the detection window the budget allows. The `consent_states` key
+deliberately does not read the earlier `session_states`, because the
+vocabularies differ (`AUTHORIZED` vs `OK`) and comparing them would post a
+spurious transition on the first tick. Two additions on 2026-09-29 close the
+silence holes the 09-29 drop exposed: a non-OK state observed for the **first**
+time (fresh static data, a new alias, or a consent already dead at deploy —
+exactly what happened) is posted, because a transitions-only rule would silence
+it forever; and `Build Probes` throws when accounts are configured but no
+session uid is probeable, because a missing token Secret otherwise makes the
+watch probe nothing and report "unchanged" forever. It duplicates the secret
+read and JWT mint because n8n has no shared-code unit; the duplication is
+bounded to those two nodes.
 
-*Alternative:* fold the watch into the renewal workflow — rejected, two triggers feeding the same nodes makes the branches inseparable. *Alternative:* store state in a ConfigMap — rejected, the n8n ServiceAccount has no ConfigMap write and the static data is enough.
+*Alternatives:* hourly — rejected, it blows the 4/day limit and returns `429`.
+*6 h* — rejected on 09-29, it put the fleet at 6 fetches/day against a ~4 limit
+for a detection window no drop has ever respected. *Fold the watch into the
+renewal workflow* — rejected, two triggers feeding the same nodes makes the
+branches inseparable. *Store state in a ConfigMap* — rejected, the n8n
+ServiceAccount has no ConfigMap write and static data is enough.
 
 **9. The nudge link.** The form id is a literal in `Evaluate Consent`; it is corrected to the current id and a scenario asserts it matches the form node, so the next rename fails a test instead of silently dead-ending the operator.
+
+**10. `/details` is spent only until its answers are stored.** `list_accounts()`
+skips `GET /accounts/{uid}/details` when the token secret already carries
+`currency` and `owner_name` — the two account-row fields the call would add —
+because they cannot change mid-session and every call spends one of the
+ASPSP's ~4 background data fetches a day. A secret written before those fields
+were captured still pays the call until the next renewal backfills them, and a
+details fault keeps degrading to the configured fallback as before. The skipped
+call leaves the account row's `payload_json` empty; nothing downstream reads it
+(bronze is not a consumer layer).
+
+*Alternative:* keep the call as a pure override — rejected on 09-29, it is a
+daily data fetch for two values that are already stored.
 
 ## Risks / Trade-offs
 
@@ -64,8 +120,31 @@ See `proposal.md` - Why. The relevant current state:
 - **`GET /aspsps` adds a failure point to the renewal** → it is the same endpoint the reference mandates first; a failure names the ASPSP and stops before the bank login, which is preferable to an authorisation that cannot succeed.
 - **Existing token secret has no one-time fields** → fields are optional; the provider falls back to the current behaviour for one renewal cycle, and the next renewal backfills them.
 - **The n8n export alone changes nothing** → the change is applied live with `apply_workflow_changes.py` and verified with a dry run, per the repo rule.
-- **The data probe adds a PSD2 call** → one per account per day, alongside the ingest's own balances call; still inside the typical 4/day background limit.
-- **The watch only sees the session-status signal, which lags** → accepted; it timestamps the flip, while the daily data probe is authoritative. The root cause — Openbank (a `beta` integration) invalidating the consent, plausibly the single-session-per-PSU case its FAQ names — is ASPSP-side and not fixed here; the watch exists to record it.
+- **The data-fetch budget was miscounted, and is now designed.** The honest
+  count on 2026-09-29 was ~8 fetches/day per account against Openbank's ~4
+  background limit: watch 4 (6-hourly) + daily-check probe 1 + ingest 3
+  (`/details` + `/transactions` + `/balances`); the design's earlier "6" counted
+  only balances calls. Overshooting a limit that never answered with a `429`
+  while sessions kept dying is one open explanation for the drops, so the
+  package lands at 4: watch 2 (12-hourly) + ingest 2 (`/details` skipped per
+  decision 10), daily check 0. If a `429` ever appears it is classified as a
+  rate limit and never as a dead consent, so overshoot degrades to a missed
+  alert rather than a false re-link.
+- **Consent drops predate every mechanism built for them.** Measured drops on
+  2026-09-24, 09-26, 09-28 and 09-29 happened with no watch, an hourly
+  session-status watch and a 6-hourly data-plane watch alike, so no cadence
+  prevents them and the keep-alive hypothesis has not earned its keep; the
+  cause is ASPSP-side (Openbank is `beta: true` on Enable Banking; the FAQ lists
+  single-session-per-PSU and pending KYC). The watch's value is detection, and
+  its window is now 12 h — the price of the budget. A drop the ASPSP never
+  reports still surfaces only when the ingest data call fails, which stays the
+  backstop.
+- **A transitions-only watch silences a consent that dies before its first
+  tick.** Hit on 2026-09-29: the consent was already `EXPIRED_SESSION` on the
+  watch's first run, so no transition ever existed to post and the drop was
+  found by hand. Fixed by posting the first observation of a non-OK state; the
+  residual risk is a one-post-per-reseed cost when static data is cleared,
+  which is acceptable — a dead consent worth one Slack line.
 - **The nudge link is a literal that can go stale again** → a test asserts it matches the form node's id.
 
 ## Migration Plan

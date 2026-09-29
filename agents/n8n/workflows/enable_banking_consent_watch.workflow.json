@@ -5,27 +5,6 @@
     "workflowId": "aLkMPugqXplEW4BL",
     "nodes": [
       {
-        "id": "1d64b4a8-17a6-4261-b06c-b7568901a540",
-        "name": "Hourly Watch",
-        "notes": "Hourly and budget-free: reads only GET /sessions/{id}, which never reaches the ASPSP.",
-        "type": "n8n-nodes-base.scheduleTrigger",
-        "typeVersion": 1.2,
-        "position": [
-          80,
-          288
-        ],
-        "parameters": {
-          "rule": {
-            "interval": [
-              {
-                "field": "cronExpression",
-                "expression": "0 * * * *"
-              }
-            ]
-          }
-        }
-      },
-      {
         "id": "6a9c8ce0-4a04-45b5-ab91-8419ab39432f",
         "name": "Get Stable Secret",
         "notes": "allowUnauthorizedCerts is scoped to the in-cluster kubernetes.default.svc endpoint",
@@ -93,38 +72,7 @@
           288
         ],
         "parameters": {
-          "jsCode": "// Hourly consent watch (spec 005 section 4.2.1). Reads both secrets and mints\n// one JWT per stored session. It uses GET /sessions/{id}, which never reaches the\n// ASPSP and so spends no PSD2 data-call budget - the daily check owns the single\n// data-plane probe. Only external modules and web globals are used.\nconst jwt = require('jsonwebtoken');\n\nconst stable = $('Get Stable Secret').first().json;\nconst accounts = JSON.parse(atob(stable.data['accounts.json']));\nconst pem = atob(stable.data['private_key']);\n\nconst tokenGet = $('Get Token Secret').first().json;\nlet tokensByAlias = {};\nif (tokenGet.statusCode === 200) {\n  const raw = (tokenGet.body.data || {})['tokens.json'];\n  tokensByAlias = raw ? JSON.parse(atob(raw)) : {};\n}\n\nconst probes = [];\nfor (const [alias, cfg] of Object.entries(accounts)) {\n  const entry = tokensByAlias[alias];\n  if (!entry || !entry.session_id) {\n    continue;\n  }\n  probes.push({\n    alias,\n    session_id: entry.session_id,\n    jwt: jwt.sign(\n      { iss: 'enablebanking.com', aud: 'api.enablebanking.com' },\n      pem,\n      { algorithm: 'RS256', keyid: cfg.app_id, expiresIn: 3600 }\n    ),\n  });\n}\nreturn probes.map((probe) => ({ json: probe }));"
-        }
-      },
-      {
-        "id": "2fabe89c-1f98-4cb7-9ae9-111b4e8fabf9",
-        "name": "Get Session Status",
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.2,
-        "position": [
-          976,
-          288
-        ],
-        "parameters": {
-          "url": "=https://api.enablebanking.com/sessions/{{ $json.session_id }}",
-          "sendHeaders": true,
-          "headerParameters": {
-            "parameters": [
-              {
-                "name": "Authorization",
-                "value": "=Bearer {{ $json.jwt }}"
-              }
-            ]
-          },
-          "options": {
-            "response": {
-              "response": {
-                "fullResponse": true,
-                "neverError": true
-              }
-            },
-            "timeout": 30000
-          }
+          "jsCode": "// Twelve-hourly consent watch (spec 005 section 4.2.1). Mints one JWT per stored\n// account for GET /accounts/{uid}/balances. That is a real data fetch, which is\n// what makes Enable Banking renew the ASPSP token internally (FAQ: \"token\n// renewal is handled automatically during data fetch requests whenever\n// required\"), and it is also the authoritative liveness signal. 12h, not 6h:\n// the fleet was spending ~8 ASPSP data fetches a day per account against a\n// ~4/day background limit, and consent drops have happened since the\n// integration started whatever the cadence - so the watch buys detection, not\n// prevention, at the cadence the budget allows. Only external modules and web\n// globals are used.\nconst jwt = require('jsonwebtoken');\n\nconst stable = $('Get Stable Secret').first().json;\nconst accounts = JSON.parse(atob(stable.data['accounts.json']));\nconst pem = atob(stable.data['private_key']);\n\nconst tokenGet = $('Get Token Secret').first().json;\nlet tokensByAlias = {};\nif (tokenGet.statusCode === 200) {\n  const raw = (tokenGet.body.data || {})['tokens.json'];\n  tokensByAlias = raw ? JSON.parse(atob(raw)) : {};\n}\n\nconst probes = [];\nfor (const [alias, cfg] of Object.entries(accounts)) {\n  const entry = tokensByAlias[alias];\n  if (!entry || !entry.uid) {\n    continue;\n  }\n  probes.push({\n    alias,\n    uid: entry.uid,\n    jwt: jwt.sign(\n      { iss: 'enablebanking.com', aud: 'api.enablebanking.com' },\n      pem,\n      { algorithm: 'RS256', keyid: cfg.app_id, expiresIn: 3600 }\n    ),\n  });\n}\nif (Object.keys(accounts).length > 0 && probes.length === 0) {\n  // Configured accounts with no probeable session mean the token Secret is\n  // missing or empty: the watch would probe nothing, report \"unchanged\" and\n  // stay silent forever. Fail so the error workflow says so - the daily\n  // check's Mint Session JWT throws in the same case.\n  throw new Error('no session uid to probe: finance-enablebanking-token is missing or empty');\n}\nreturn probes.map((probe) => ({ json: probe }));"
         }
       },
       {
@@ -137,7 +85,7 @@
           288
         ],
         "parameters": {
-          "jsCode": "// Report only when a stored session's state differs from the previous hour's,\n// persisted in workflow static data so an unchanged hour posts nothing.\nconst probes = $('Build Probes').all().map((item) => item.json);\nconst responses = $input.all().map((item) => item.json);\nconst staticData = $getWorkflowStaticData('global');\nconst previous = staticData.session_states || {};\n\nconst next = {};\nconst changes = [];\nprobes.forEach((probe, index) => {\n  const resp = responses[index] || {};\n  const state = resp.statusCode === 200 ? ((resp.body || {}).status || 'UNKNOWN') : `HTTP ${resp.statusCode}`;\n  next[probe.session_id] = state;\n  if (previous[probe.session_id] && previous[probe.session_id] !== state) {\n    changes.push(`- *${probe.alias}*: ${previous[probe.session_id]} -> ${state}`);\n  }\n});\nstaticData.session_states = next;\n\nconst changed = changes.length > 0;\nreturn [\n  {\n    json: {\n      changed,\n      text: changed\n        ? `Enable Banking consent state changed:\\n${changes.join('\\n')}`\n        : 'consent state unchanged',\n    },\n  },\n];"
+          "jsCode": "// Report when a stored account's data-plane state differs from the previous\n// run's, persisted in workflow static data so an unchanged run posts nothing.\n// The state comes from GET /accounts/{uid}/balances, so a dead consent reads\n// EXPIRED_SESSION here even while GET /sessions/{id} still says AUTHORIZED. A\n// rate limit is recorded but never posted - it is not a consent problem. A\n// non-OK state seen for the first time (fresh static data, a new alias, or a\n// consent already dead when the watch was deployed) is posted too: consent\n// drops have happened since the integration started, and a transitions-only\n// rule would silence the very first observation of one forever.\nconst probes = $('Build Probes').all().map((item) => item.json);\nconst responses = $input.all().map((item) => item.json);\nconst staticData = $getWorkflowStaticData('global');\nconst previous = staticData.consent_states || {};\n\nconst next = {};\nconst changes = [];\nprobes.forEach((probe, index) => {\n  const resp = responses[index] || {};\n  const body = resp.body || {};\n  const errorName = body.error || body.code || '';\n  const rateLimited =\n    resp.statusCode === 429 || errorName === 'ASPSP_RATE_LIMIT_EXCEEDED';\n  const state = resp.statusCode === 200 ? 'OK' : errorName || `HTTP ${resp.statusCode}`;\n  const seen = previous[probe.alias] !== undefined;\n  next[probe.alias] = state;\n  if (rateLimited) {\n    return;\n  }\n  if (seen && previous[probe.alias] !== state) {\n    changes.push(`- *${probe.alias}*: ${previous[probe.alias]} -> ${state}`);\n  } else if (!seen && state !== 'OK') {\n    changes.push(`- *${probe.alias}*: first observation, already ${state}`);\n  }\n});\nstaticData.consent_states = next;\n\nconst changed = changes.length > 0;\nreturn [\n  {\n    json: {\n      changed,\n      text: changed\n        ? `Enable Banking consent state changed:\\n${changes.join('\\n')}\\n\\nRenew if it is not OK (the bank login is the one manual step): https://automation-n8n.homelab.alvsanand.com/form/0c19a176-7e58-419a-9a26-b5d1ca2f578f`\n        : 'consent state unchanged',\n    },\n  },\n];"
         }
       },
       {
@@ -215,20 +163,62 @@
           384
         ],
         "parameters": {}
+      },
+      {
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "cronExpression",
+                "expression": "0 */12 * * *"
+              }
+            ]
+          }
+        },
+        "id": "0e5c7196-55b3-4f12-85b5-7ec721b767cb",
+        "name": "Twelve-Hourly Watch",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [
+          80,
+          288
+        ],
+        "notes": "Every 12h: two watch fetches a day, which with the ingest's two stays inside the ASPSP's ~4/day background limit. Each run is a real data fetch, which is what makes Enable Banking renew the ASPSP token internally."
+      },
+      {
+        "parameters": {
+          "url": "=https://api.enablebanking.com/accounts/{{ $json.uid }}/balances",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "=Bearer {{ $json.jwt }}"
+              }
+            ]
+          },
+          "options": {
+            "response": {
+              "response": {
+                "fullResponse": true,
+                "neverError": true
+              }
+            },
+            "timeout": 30000
+          }
+        },
+        "id": "5dcf969d-fd28-40ce-afe3-e0e03ed2b3fc",
+        "name": "Probe Balances",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          976,
+          288
+        ],
+        "notes": "The keep-alive and the liveness signal in one call: Enable Banking refreshes the ASPSP token during data fetches."
       }
     ],
     "connections": {
-      "Hourly Watch": {
-        "main": [
-          [
-            {
-              "node": "Get Stable Secret",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
       "Get Stable Secret": {
         "main": [
           [
@@ -255,18 +245,7 @@
         "main": [
           [
             {
-              "node": "Get Session Status",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Get Session Status": {
-        "main": [
-          [
-            {
-              "node": "Watch Transitions",
+              "node": "Probe Balances",
               "type": "main",
               "index": 0
             }
@@ -301,6 +280,28 @@
             }
           ]
         ]
+      },
+      "Twelve-Hourly Watch": {
+        "main": [
+          [
+            {
+              "node": "Get Stable Secret",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Probe Balances": {
+        "main": [
+          [
+            {
+              "node": "Watch Transitions",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
       }
     },
     "nodeGroups": [],
@@ -313,17 +314,6 @@
   },
   "activeVersionId": "55696661-5bc5-42d6-a49c-9c2101b8f314",
   "connections": {
-    "Hourly Watch": {
-      "main": [
-        [
-          {
-            "node": "Get Stable Secret",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Get Stable Secret": {
       "main": [
         [
@@ -350,18 +340,7 @@
       "main": [
         [
           {
-            "node": "Get Session Status",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Get Session Status": {
-      "main": [
-        [
-          {
-            "node": "Watch Transitions",
+            "node": "Probe Balances",
             "type": "main",
             "index": 0
           }
@@ -396,6 +375,28 @@
           }
         ]
       ]
+    },
+    "Twelve-Hourly Watch": {
+      "main": [
+        [
+          {
+            "node": "Get Stable Secret",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Probe Balances": {
+      "main": [
+        [
+          {
+            "node": "Watch Transitions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "createdAt": "2026-09-28T20:34:21.548Z",
@@ -405,27 +406,6 @@
   "name": "EnableBanking Consent Watch",
   "nodeGroups": [],
   "nodes": [
-    {
-      "id": "1d64b4a8-17a6-4261-b06c-b7568901a540",
-      "name": "Hourly Watch",
-      "notes": "Hourly and budget-free: reads only GET /sessions/{id}, which never reaches the ASPSP.",
-      "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1.2,
-      "position": [
-        80,
-        288
-      ],
-      "parameters": {
-        "rule": {
-          "interval": [
-            {
-              "field": "cronExpression",
-              "expression": "0 * * * *"
-            }
-          ]
-        }
-      }
-    },
     {
       "id": "6a9c8ce0-4a04-45b5-ab91-8419ab39432f",
       "name": "Get Stable Secret",
@@ -494,38 +474,7 @@
         288
       ],
       "parameters": {
-        "jsCode": "// Hourly consent watch (spec 005 section 4.2.1). Reads both secrets and mints\n// one JWT per stored session. It uses GET /sessions/{id}, which never reaches the\n// ASPSP and so spends no PSD2 data-call budget - the daily check owns the single\n// data-plane probe. Only external modules and web globals are used.\nconst jwt = require('jsonwebtoken');\n\nconst stable = $('Get Stable Secret').first().json;\nconst accounts = JSON.parse(atob(stable.data['accounts.json']));\nconst pem = atob(stable.data['private_key']);\n\nconst tokenGet = $('Get Token Secret').first().json;\nlet tokensByAlias = {};\nif (tokenGet.statusCode === 200) {\n  const raw = (tokenGet.body.data || {})['tokens.json'];\n  tokensByAlias = raw ? JSON.parse(atob(raw)) : {};\n}\n\nconst probes = [];\nfor (const [alias, cfg] of Object.entries(accounts)) {\n  const entry = tokensByAlias[alias];\n  if (!entry || !entry.session_id) {\n    continue;\n  }\n  probes.push({\n    alias,\n    session_id: entry.session_id,\n    jwt: jwt.sign(\n      { iss: 'enablebanking.com', aud: 'api.enablebanking.com' },\n      pem,\n      { algorithm: 'RS256', keyid: cfg.app_id, expiresIn: 3600 }\n    ),\n  });\n}\nreturn probes.map((probe) => ({ json: probe }));"
-      }
-    },
-    {
-      "id": "2fabe89c-1f98-4cb7-9ae9-111b4e8fabf9",
-      "name": "Get Session Status",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        976,
-        288
-      ],
-      "parameters": {
-        "url": "=https://api.enablebanking.com/sessions/{{ $json.session_id }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Bearer {{ $json.jwt }}"
-            }
-          ]
-        },
-        "options": {
-          "response": {
-            "response": {
-              "fullResponse": true,
-              "neverError": true
-            }
-          },
-          "timeout": 30000
-        }
+        "jsCode": "// Twelve-hourly consent watch (spec 005 section 4.2.1). Mints one JWT per stored\n// account for GET /accounts/{uid}/balances. That is a real data fetch, which is\n// what makes Enable Banking renew the ASPSP token internally (FAQ: \"token\n// renewal is handled automatically during data fetch requests whenever\n// required\"), and it is also the authoritative liveness signal. 12h, not 6h:\n// the fleet was spending ~8 ASPSP data fetches a day per account against a\n// ~4/day background limit, and consent drops have happened since the\n// integration started whatever the cadence - so the watch buys detection, not\n// prevention, at the cadence the budget allows. Only external modules and web\n// globals are used.\nconst jwt = require('jsonwebtoken');\n\nconst stable = $('Get Stable Secret').first().json;\nconst accounts = JSON.parse(atob(stable.data['accounts.json']));\nconst pem = atob(stable.data['private_key']);\n\nconst tokenGet = $('Get Token Secret').first().json;\nlet tokensByAlias = {};\nif (tokenGet.statusCode === 200) {\n  const raw = (tokenGet.body.data || {})['tokens.json'];\n  tokensByAlias = raw ? JSON.parse(atob(raw)) : {};\n}\n\nconst probes = [];\nfor (const [alias, cfg] of Object.entries(accounts)) {\n  const entry = tokensByAlias[alias];\n  if (!entry || !entry.uid) {\n    continue;\n  }\n  probes.push({\n    alias,\n    uid: entry.uid,\n    jwt: jwt.sign(\n      { iss: 'enablebanking.com', aud: 'api.enablebanking.com' },\n      pem,\n      { algorithm: 'RS256', keyid: cfg.app_id, expiresIn: 3600 }\n    ),\n  });\n}\nif (Object.keys(accounts).length > 0 && probes.length === 0) {\n  // Configured accounts with no probeable session mean the token Secret is\n  // missing or empty: the watch would probe nothing, report \"unchanged\" and\n  // stay silent forever. Fail so the error workflow says so - the daily\n  // check's Mint Session JWT throws in the same case.\n  throw new Error('no session uid to probe: finance-enablebanking-token is missing or empty');\n}\nreturn probes.map((probe) => ({ json: probe }));"
       }
     },
     {
@@ -538,7 +487,7 @@
         288
       ],
       "parameters": {
-        "jsCode": "// Report only when a stored session's state differs from the previous hour's,\n// persisted in workflow static data so an unchanged hour posts nothing.\nconst probes = $('Build Probes').all().map((item) => item.json);\nconst responses = $input.all().map((item) => item.json);\nconst staticData = $getWorkflowStaticData('global');\nconst previous = staticData.session_states || {};\n\nconst next = {};\nconst changes = [];\nprobes.forEach((probe, index) => {\n  const resp = responses[index] || {};\n  const state = resp.statusCode === 200 ? ((resp.body || {}).status || 'UNKNOWN') : `HTTP ${resp.statusCode}`;\n  next[probe.session_id] = state;\n  if (previous[probe.session_id] && previous[probe.session_id] !== state) {\n    changes.push(`- *${probe.alias}*: ${previous[probe.session_id]} -> ${state}`);\n  }\n});\nstaticData.session_states = next;\n\nconst changed = changes.length > 0;\nreturn [\n  {\n    json: {\n      changed,\n      text: changed\n        ? `Enable Banking consent state changed:\\n${changes.join('\\n')}`\n        : 'consent state unchanged',\n    },\n  },\n];"
+        "jsCode": "// Report when a stored account's data-plane state differs from the previous\n// run's, persisted in workflow static data so an unchanged run posts nothing.\n// The state comes from GET /accounts/{uid}/balances, so a dead consent reads\n// EXPIRED_SESSION here even while GET /sessions/{id} still says AUTHORIZED. A\n// rate limit is recorded but never posted - it is not a consent problem. A\n// non-OK state seen for the first time (fresh static data, a new alias, or a\n// consent already dead when the watch was deployed) is posted too: consent\n// drops have happened since the integration started, and a transitions-only\n// rule would silence the very first observation of one forever.\nconst probes = $('Build Probes').all().map((item) => item.json);\nconst responses = $input.all().map((item) => item.json);\nconst staticData = $getWorkflowStaticData('global');\nconst previous = staticData.consent_states || {};\n\nconst next = {};\nconst changes = [];\nprobes.forEach((probe, index) => {\n  const resp = responses[index] || {};\n  const body = resp.body || {};\n  const errorName = body.error || body.code || '';\n  const rateLimited =\n    resp.statusCode === 429 || errorName === 'ASPSP_RATE_LIMIT_EXCEEDED';\n  const state = resp.statusCode === 200 ? 'OK' : errorName || `HTTP ${resp.statusCode}`;\n  const seen = previous[probe.alias] !== undefined;\n  next[probe.alias] = state;\n  if (rateLimited) {\n    return;\n  }\n  if (seen && previous[probe.alias] !== state) {\n    changes.push(`- *${probe.alias}*: ${previous[probe.alias]} -> ${state}`);\n  } else if (!seen && state !== 'OK') {\n    changes.push(`- *${probe.alias}*: first observation, already ${state}`);\n  }\n});\nstaticData.consent_states = next;\n\nconst changed = changes.length > 0;\nreturn [\n  {\n    json: {\n      changed,\n      text: changed\n        ? `Enable Banking consent state changed:\\n${changes.join('\\n')}\\n\\nRenew if it is not OK (the bank login is the one manual step): https://automation-n8n.homelab.alvsanand.com/form/0c19a176-7e58-419a-9a26-b5d1ca2f578f`\n        : 'consent state unchanged',\n    },\n  },\n];"
       }
     },
     {
@@ -616,6 +565,59 @@
         384
       ],
       "parameters": {}
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 */12 * * *"
+            }
+          ]
+        }
+      },
+      "id": "0e5c7196-55b3-4f12-85b5-7ec721b767cb",
+      "name": "Twelve-Hourly Watch",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        80,
+        288
+      ],
+      "notes": "Every 12h: two watch fetches a day, which with the ingest's two stays inside the ASPSP's ~4/day background limit. Each run is a real data fetch, which is what makes Enable Banking renew the ASPSP token internally."
+    },
+    {
+      "parameters": {
+        "url": "=https://api.enablebanking.com/accounts/{{ $json.uid }}/balances",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.jwt }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "5dcf969d-fd28-40ce-afe3-e0e03ed2b3fc",
+      "name": "Probe Balances",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        976,
+        288
+      ],
+      "notes": "The keep-alive and the liveness signal in one call: Enable Banking refreshes the ASPSP token during data fetches."
     }
   ],
   "pinData": null,

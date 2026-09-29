@@ -134,7 +134,11 @@ applied from that repo.
    to the **data** calls: a failure on `/accounts/{uid}/details` alone is logged
    as a warning and the account still ingests from the configured alias/IBAN and
    the one-time fields persisted at authorisation, so a bank that refuses that
-   endpoint does not abort the run.
+   endpoint does not abort the run. Once `currency` and `owner_name` are stored
+   in the token secret the provider skips `/details` entirely — it would spend
+   one of the ASPSP's ~4 background data fetches a day re-reading values that
+   cannot change mid-session — so that warning only appears for secrets written
+   before those fields were captured.
 
 The renewal form (`EnableBanking Token Renewal`) resolves the ASPSP through
 `GET /aspsps` before starting consent, caps the requested validity at the bank's
@@ -143,14 +147,24 @@ session, and then deletes the old session if no alias still references it. A
 stored ASPSP name the bank no longer returns stops the form naming it, rather
 than failing at the bank.
 
-The daily check in that workflow decides health from the **data plane**: it
-calls `GET /accounts/{uid}/balances` for every stored account and nudges
-`#workflows` when that fails with `EXPIRED_SESSION` or an ASPSP auth failure. It
-does **not** trust `GET /sessions/{id}` alone — Enable Banking documents that
-endpoint as inconclusive, and on 2026-09-28 it read `AUTHORIZED` while every data
-call was dead. A second workflow, `EnableBanking Consent Watch`, reads
-`GET /sessions/{id}` hourly (no PSD2 budget) and posts to Slack only when a
-session's state changes, so the flip is timestamped without a daily repeat.
+The daily check in that workflow spends **no** data-plane call: it nudges
+`#workflows` when a stored `valid_until` is within 3 days, or when the
+budget-free `GET /sessions/{id}` read is not `AUTHORIZED` (or fails). It does
+**not** trust that read as proof of life — Enable Banking documents it as
+inconclusive, and on 2026-09-28 it said `AUTHORIZED` while every data call was
+dead — so the liveness signal is the second workflow, `EnableBanking Consent
+Watch`, which reads `GET /accounts/{uid}/balances` every 12 hours: a real data
+fetch, which is what makes Enable Banking renew the ASPSP access token
+internally (their FAQ) and the only reliable liveness signal, so it doubles as
+a keep-alive. Twelve hours is what the ASPSP's ~4/day background limit allows
+once the ingest's own two fetches are counted (the fleet was at ~8/day before
+2026-09-29: 6-hourly watch 4 + daily-check probe 1 + ingest 3). Consent drops
+have happened since the integration started, at every cadence tried, so the
+watch buys detection rather than prevention: it posts to Slack when an
+account's state changes **and** on the first observation of a non-OK state —
+the 2026-09-29 drop was already dead on the watch's first tick, and a
+transitions-only rule silenced it forever — while an unchanged state and a
+rate limit stay silent.
 
 ## Actual Budget sync (`--pipeline sync`)
 

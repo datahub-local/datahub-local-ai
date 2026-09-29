@@ -44,3 +44,20 @@
 
 - [x] 7.1 Update `docs/specs/005-personal-finance-datalake.md` §4.2.1: replace the session-status-only probe with the data-plane probe, the `429` distinction, and the hourly watch; record the 2026-09-28 incident and the ASPSP-side root cause
 - [x] 7.2 Update `workflows/dlt/README.md` with the data-plane detection and the watch
+
+## 8. Keep-alive data fetch (n8n)
+
+- [x] 8.1 Change `EnableBanking Consent Watch` from hourly `GET /sessions/{id}` to every 6 h `GET /accounts/{uid}/balances`, renaming `Hourly Watch` → `Six-Hourly Watch` and `Get Session Status` → `Probe Balances`, with state keyed on a new `consent_states` key (the old `session_states` vocabulary differs and would post a spurious transition)
+- [x] 8.2 Update the export test: cron `0 */6 * * *`, `/balances` probe present, no session-status node, static-data transition detection still asserted
+- [x] 8.3 Update the spec delta (requirement, design decision 8, risks), `docs/specs/005` §4.2.1 and `workflows/dlt/README.md`
+- [x] 8.4 Dry-run then apply the rename and re-wire live (with approval), re-run to confirm `nothing to change`
+
+## 9. Data-fetch budget and the watch's silence holes (dlt + n8n)
+
+- [x] 9.1 Skip `GET /accounts/{uid}/details` in `providers/enablebanking.py` when the token secret carries `currency` and `owner_name`; test asserts no request is made and the row comes from the stored values
+- [x] 9.2 Remove `Probe Account Data` from `enable_banking_token_renewal.workflow.json`, wire `Get Session Status` straight into `Evaluate Consent`, and nudge on a non-`AUTHORIZED` session read instead of a balances probe; update the node comments
+- [x] 9.3 Change `EnableBanking Consent Watch` from `0 */6 * * *` to `0 */12 * * *` (rename `Six-Hourly Watch` → `Twelve-Hourly Watch`), post the first observation of a non-OK state, and throw when accounts are configured but no uid is probeable
+- [x] 9.4 Invert and extend the export tests: the daily check spends zero data-plane calls; the watch is 12-hourly and carries both silence-hole guards
+- [x] 9.5 Update `docs/specs/005` §4.2.1, `workflows/dlt/README.md`, and this change's design (decisions 7, 8, 10 and risks) and spec delta; record that consent drops have happened since the integration started, at every cadence tried
+- [x] 9.6 Run the `workflows/dlt` finance suite, the export tests and ruff on the changed files
+- [ ] 9.7 Dry-run then apply both workflow changes live with `apply_workflow_changes.py --changes` (with approval), re-run to confirm `nothing to change`

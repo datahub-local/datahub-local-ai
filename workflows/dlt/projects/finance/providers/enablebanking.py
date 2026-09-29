@@ -193,7 +193,16 @@ class EnableBankingProvider:
     def list_accounts(self) -> list[Account]:
         """One :class:`Account` per configured alias.
 
-        The metadata call is best-effort: a bank that refuses
+        ``/accounts/{uid}/details`` is skipped once the session-time fields it
+        would add (``currency``, ``owner_name``) are stored in the token secret:
+        they cannot change mid-session, and every call spends one of the
+        ASPSP's ~4 background data fetches per day (spec 005 §4.2.1), which on
+        Openbank is the scarce resource. The skipped call leaves the account
+        row's ``payload_json`` empty; nothing downstream reads it. A secret
+        written before those fields were captured still pays the call until
+        the next renewal backfills them.
+
+        When the call does happen it is best-effort: a bank that refuses
         ``/accounts/{uid}/details`` (an unsupported account, a transient ASPSP
         fault, a details-endpoint 429) must not abort the whole run, because
         the account's transactions and balances live on other endpoints. A
@@ -203,6 +212,9 @@ class EnableBankingProvider:
         """
         accounts = []
         for account, token in self._pair_for_every_alias():
+            if token is not None and token.currency and token.owner_name:
+                accounts.append(_configured_account(account, token))
+                continue
             try:
                 details = self._get(account, token, f"/accounts/{token.uid}/details")
             except (ProviderError, httpx.HTTPError) as error:

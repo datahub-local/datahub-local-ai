@@ -270,9 +270,13 @@ implementation owns:
   `account_id.iban`, currency and owner name. Onboarding records each account's
   alias, `iban` and session-scoped `uid`; the pipeline addresses the API by
   `uid` and never re-keys bronze. `list_accounts()` reads
-  `/accounts/{uid}/details` per account for currency and holder name (one call
-  per account on the details endpoint, which has its own budget). That metadata
-  call is an **override, not a dependency**: the flow persists the
+  `/accounts/{uid}/details` per account for currency and holder name **only
+  until the token Secret carries them** (one call per account on the details
+  endpoint, which has its own budget, and the budget is the scarce resource —
+  §4.2.1); a secret written before `currency`/`owner_name` were captured still
+  pays the call until the next renewal backfills them, and the skipped call
+  leaves the account row's `payload_json` empty, which nothing reads. That
+  metadata call is an **override, not a dependency**: the flow persists the
   `identification_hash`, `currency` and `owner_name` that `POST /sessions`
   returns once, and when `/details` faults (2026-09-26, `cuenta_compartida`:
   `400 HttpException: Internal server error`), returns `XXX`, or hits a
@@ -385,35 +389,50 @@ twice-yearly surprise:
   value the request asked for — the API returns it unchanged and says the
   session validity "will remain exactly as specified" regardless of the ASPSP
   side. It cannot see a bank that drops or errors the consent early, which has
-  now happened four times — 2026-09-24, 09-26 and 09-28, all Openbank (live
-  `GET /aspsps` reports `beta: true` for it; the core `0.14.0` changelog said the
-  flag was removed, but the API disagrees, and a beta integration has less
-  traffic behind it). Each time the fix was a regenerated token, so the failure
-  is a consent-lifecycle problem at the bank, not an API change. Two signals
-  watch for it, and only one of them is authoritative:
-  - The daily check (04:00) probes the **data plane**: for every stored account
-    it calls `GET /accounts/{uid}/balances` and treats an `EXPIRED_SESSION` or
-    ASPSP auth failure as needing renewal, reporting the account and the probe's
-    error; a `429`/`ASPSP_RATE_LIMIT_EXCEEDED` is a rate limit, not a dead
-    consent. This spends one PSD2 data call per account, so it runs once a day,
-    and it is the signal that decides.
-  - The same run also reads `GET /sessions/{id}` for each stored account, signed
-    with that alias's `app_id` — a call that never reaches the ASPSP and so
-    spends no PSD2 budget. It is context, never proof: on 2026-09-28 it read
-    `AUTHORIZED` while `/balances` and `/transactions` returned `EXPIRED_SESSION`
-    and `/details` returned an ASPSP auth failure, and the check reported
-    "Healthy, No Action" hours before the 06:00 ingest failed. Enable Banking's
-    FAQ states the session status can be contradicted by a data fetch, which is
-    why the data probe, not this, is authoritative.
-- **Hourly watch.** `EnableBanking Consent Watch` runs hourly, reads
-  `GET /sessions/{id}` (budget-free) for each stored session, and posts to Slack
-  only when a state differs from the previous run's — kept in workflow static
-  data — so the moment Enable Banking flips the session state is timestamped
-  once. It cannot probe the data plane hourly because four background data
-  fetches a day is the usual ASPSP limit, which is why the daily check owns that
-  call. Neither signal is a guarantee: a drop the ASPSP never reports still
-  surfaces only when the ingest data call fails, which stays the backstop. The
-  ingest preflight still trusts `valid_until` only.
+  now happened five times — 2026-09-24, 09-26, 09-28 and 09-29, all Openbank
+  (live `GET /aspsps` reports `beta: true` for it; the core `0.14.0` changelog
+  said the flag was removed, but the API disagrees, and a beta integration has
+  less traffic behind it). Each time the fix was a regenerated token, so the
+  failure is a consent-lifecycle problem at the bank, not an API change. The
+  drops predate every detection mechanism built for them — they happened with
+  no watch at all, with an hourly session-status watch, and with a 6-hourly
+  data-plane watch — so no cadence prevents them; what the fleet buys is
+  detection, at the cadence the ASPSP budget allows. Two signals watch for a
+  drop, and only one of them is authoritative:
+  - The daily check (04:00) spends **no** data-plane call: it nudges `#workflows`
+    when a stored `valid_until` is ≤ 3 days out, or when the budget-free
+    `GET /sessions/{id}` read for a stored account is not `AUTHORIZED` (or the
+    read itself fails). It is context, never proof: on 2026-09-28 that read said
+    `AUTHORIZED` while `/balances` and `/transactions` returned
+    `EXPIRED_SESSION` and `/details` returned an ASPSP auth failure, and the
+    check reported "Healthy, No Action" hours before the 06:00 ingest failed.
+    Enable Banking's FAQ states the session status can be contradicted by a
+    data fetch, which is why this read nudges but never certifies.
+  - The **twelve-hourly watch** (`EnableBanking Consent Watch`) probes the data
+    plane: `GET /accounts/{uid}/balances` per stored account, twice a day. That
+    call does two jobs at once: Enable Banking performs the ASPSP token renewal
+    **during data fetches** (its FAQ), so it is the keep-alive, and it is the
+    only reliable liveness signal — an `EXPIRED_SESSION` here is a dead consent
+    even while `GET /sessions/{id}` still says `AUTHORIZED`. It posts to Slack
+    when an account's state differs from the previous run's — kept in workflow
+    static data — **and** on the first observation of a non-OK state, because a
+    transitions-only rule silenced the 2026-09-29 drop forever: the consent was
+    already dead on the watch's first tick, so no transition ever existed to
+    post. A `429`/`ASPSP_RATE_LIMIT_EXCEEDED` is recorded but never posted — it
+    is not a consent problem.
+- **The data-fetch budget.** Openbank's background limit is about 4 data fetches
+  a day per account, and until 2026-09-29 the fleet spent roughly **8**: the
+  6-hourly watch (4), the daily check's balances probe (1), and the ingest's
+  `/details` + `/transactions` + `/balances` (3). Overshooting a limit that
+  never answered with a `429` while sessions kept dying is one of the open
+  explanations for the drops, so the budget is now designed, not discovered:
+  watch 2 + ingest 2 (`/details` is skipped once the session-time
+  `currency`/`owner_name` are stored; `/transactions` + `/balances` remain) =
+  4, and the daily check spends none. Detection window is 12 h, the price of
+  staying inside the limit.
+  Neither signal is a guarantee: a drop the ASPSP never reports still surfaces
+  only when the ingest data call fails, which stays the backstop. The ingest
+  preflight still trusts `valid_until` only.
 - **Flow.** Form page ("renew <alias>") → the workflow resolves the ASPSP
   through `GET /aspsps` and caps the requested validity at its
   `maximum_consent_validity` (a stored name the bank no longer returns stops
@@ -437,8 +456,11 @@ twice-yearly surprise:
   `identification_hash`, `currency` and `owner_name` into the token Secret, and
   the provider falls back to them when `GET /accounts/{uid}/details` faults or
   returns `XXX`, so the account row stays populated and the account's
-  transactions and balances still load. Authorised accounts are matched to
-  aliases by `identification_hash` first, then IBAN.
+  transactions and balances still load. Once `currency` and `owner_name` are
+  stored the provider skips `/details` outright — re-reading values that cannot
+  change mid-session would spend an ASPSP background data fetch for nothing
+  (§4.2.1). Authorised accounts are matched to aliases by `identification_hash`
+  first, then IBAN.
 - **Secret split.** `finance-enablebanking` keeps the stable half
   (`private_key`,
   `{alias: {iban, app_id, institution_id, identification_hash}}`); the

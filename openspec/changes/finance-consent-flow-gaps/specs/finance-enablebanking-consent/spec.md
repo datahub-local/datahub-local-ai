@@ -101,43 +101,84 @@ The redirect handler SHALL read the `error` and `error_description` query parame
 - **WHEN** the redirect carries neither `code` nor `error`
 - **THEN** the failure reports a missing authorisation code
 
+### Requirement: The daily check nudges without spending a data-plane call
+
+The scheduled consent check SHALL NOT call a live data endpoint. It SHALL nudge
+when a stored `valid_until` is within 3 days, and when the budget-free
+`GET /sessions/{id}` read for a stored account is not `AUTHORIZED` or fails
+outright, reporting the alias and the read's result. A session read that is not
+`AUTHORIZED` SHALL be reported as needing confirmation on the data plane, never
+as proof of a dead consent by itself, because Enable Banking documents that
+`GET /sessions/{id}` may report a session valid while a data fetch fails. The
+data-plane liveness probe belongs to the consent watch, not to this check.
+
+#### Scenario: Expiry close nudges
+
+- **WHEN** a stored account's `valid_until` is within 3 days
+- **THEN** the check nudges naming the account and the expiry date
+
+#### Scenario: A session read that is not AUTHORIZED nudges
+
+- **WHEN** `GET /sessions/{id}` for a stored account returns a status other than `AUTHORIZED`, or the read fails
+- **THEN** the check nudges naming the account and the read's result, and says the watch confirms on the data plane
+
+#### Scenario: An AUTHORIZED session read is silent
+
+- **WHEN** every stored account's session read returns `AUTHORIZED` and no expiry is close
+- **THEN** the check reports no consent needing attention and spends no data-plane call
+
 ### Requirement: A dead consent is detected on the data plane
 
-The scheduled consent check SHALL probe a live data endpoint — `GET /accounts/{uid}/balances` — for every stored account, because Enable Banking documents that `GET /sessions/{id}` may report a session valid when a data fetch would fail. The check SHALL treat an authentication failure on that probe (`EXPIRED_SESSION`, an ASPSP auth error) as needing renewal and SHALL report the alias and the probe's error. It SHALL distinguish a rate-limit response (`429`/`RATE_LIMIT`) from a dead consent and SHALL NOT treat it as one. `GET /sessions/{id}` SHALL remain a secondary, budget-free signal reported alongside. Because the data probe spends one PSD2 data call per account, it SHALL run at most once per day.
+The consent watch SHALL probe a live data endpoint — `GET /accounts/{uid}/balances` — for every stored account, because Enable Banking documents that `GET /sessions/{id}` may report a session valid when a data fetch would fail. The watch SHALL treat an authentication failure on that probe (`EXPIRED_SESSION`, an ASPSP auth error) as a dead consent and SHALL report the alias and the probe's error. It SHALL distinguish a rate-limit response (`429`/`RATE_LIMIT`) from a dead consent and SHALL NOT treat it as one. Because each probe spends one ASPSP background data fetch, the watch SHALL run no more often than every 12 hours, keeping the fleet (watch plus ingest) inside the ASPSP's ~4/day background limit.
 
 #### Scenario: The data probe succeeds
 
 - **WHEN** `GET /accounts/{uid}/balances` returns success for every stored account
-- **THEN** the check reports no consent needing attention
+- **THEN** the watch records the state and reports no consent needing attention
 
 #### Scenario: The data probe reports a dead session
 
 - **WHEN** `GET /accounts/{uid}/balances` reports an expired session or an ASPSP auth failure for a stored account
-- **THEN** the check reports that account as needing renewal, with the probe's error
-
-#### Scenario: A session-status mismatch is not a false alarm
-
-- **WHEN** `GET /sessions/{id}` is not `AUTHORIZED` but the data probe succeeds
-- **THEN** the check does not demand a renewal and reports the session state only as context
+- **THEN** the watch records that account as dead and reports it per the state-reporting rule below
 
 #### Scenario: A rate limit is not a dead consent
 
 - **WHEN** the data probe reports a rate limit rather than an authentication failure
-- **THEN** the check does not mark the account as needing renewal
+- **THEN** the watch records the rate limit and does not report a consent change
 
-### Requirement: An hourly watch records consent-state transitions
+### Requirement: A scheduled data fetch renews the token and records consent state
 
-A scheduled hourly check SHALL read each stored session's state from `GET /sessions/{id}` and SHALL post a Slack notice only when a session's observed state differs from the state recorded on the previous run, so that a change is timestamped once and an unchanged state stays silent. It SHALL persist the last observed state between runs.
+A scheduled check SHALL run every 12 hours and SHALL read a live data endpoint — `GET /accounts/{uid}/balances` — for every stored account, because a data fetch is what causes Enable Banking to renew the ASPSP access token internally, and because the data plane is the only reliable liveness signal. Twelve hours is the cadence because the ASPSP background limit is about 4 data fetches a day per account and the fleet's ingest spends two of them; consent drops have occurred since the integration started at every cadence tried, so the watch buys detection, not prevention. The check SHALL post a Slack notice when an account's observed state differs from the state recorded on the previous run, and also when a non-OK state is observed for an account with no recorded state, so that a consent already dead at the watch's first observation is reported instead of silenced forever. It SHALL persist the last observed state between runs, and it SHALL NOT post for a rate-limit response alone. It SHALL fail loudly when accounts are configured but no session is probeable, rather than report an unchanged state.
+
+#### Scenario: Each tick is a data fetch
+
+- **WHEN** the schedule ticks
+- **THEN** one balances call is made per stored account, twice a day
 
 #### Scenario: A state change is reported once
 
-- **WHEN** a session's state changes from `AUTHORIZED` to any other value
-- **THEN** the watch posts one Slack notice naming the session, account and new state
+- **WHEN** an account's data call moves from `OK` to `EXPIRED_SESSION`
+- **THEN** the watch posts one Slack notice naming the account and both states
+
+#### Scenario: A first observation of a dead consent is reported
+
+- **WHEN** an account has no recorded state and its data call reports anything other than success
+- **THEN** the watch posts one Slack notice naming the account and the observed state
 
 #### Scenario: An unchanged state is silent
 
-- **WHEN** every session's state equals the state recorded on the previous run
+- **WHEN** every account's state equals the state recorded on the previous run
 - **THEN** the watch posts nothing
+
+#### Scenario: A rate limit is not a consent change
+
+- **WHEN** the data call reports a rate limit rather than an authentication failure
+- **THEN** the watch does not post
+
+#### Scenario: Nothing probeable fails loudly
+
+- **WHEN** accounts are configured but no stored session uid exists to probe
+- **THEN** the watch execution fails naming the missing token material instead of reporting an unchanged state
 
 ### Requirement: The renewal nudge links to the live form
 

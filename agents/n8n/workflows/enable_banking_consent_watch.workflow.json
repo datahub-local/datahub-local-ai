@@ -1,318 +1,19 @@
 {
-  "name": "EnableBanking Consent Watch",
-  "nodes": [
-    {
-      "parameters": {
-        "rule": {
-          "interval": [
-            {
-              "field": "cronExpression",
-              "expression": "0 * * * *"
-            }
-          ]
-        }
-      },
-      "id": "1d64b4a8-17a6-4261-b06c-b7568901a540",
-      "name": "Hourly Watch",
-      "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1.2,
-      "position": [
-        80,
-        288
-      ],
-      "notes": "Hourly and budget-free: reads only GET /sessions/{id}, which never reaches the ASPSP."
-    },
-    {
-      "parameters": {
-        "url": "https://kubernetes.default.svc/api/v1/namespaces/data/secrets/finance-enablebanking",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "options": {
-          "allowUnauthorizedCerts": true,
-          "timeout": 15000
-        }
-      },
-      "id": "6a9c8ce0-4a04-45b5-ab91-8419ab39432f",
-      "name": "Get Stable Secret",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        304,
-        288
-      ],
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "aI9EjocHktFfP7yJ",
-          "name": "Kubernetes finance renewal (SA token)"
-        }
-      },
-      "notes": "allowUnauthorizedCerts is scoped to the in-cluster kubernetes.default.svc endpoint"
-    },
-    {
-      "parameters": {
-        "url": "https://kubernetes.default.svc/api/v1/namespaces/data/secrets/finance-enablebanking-token",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "options": {
-          "allowUnauthorizedCerts": true,
-          "response": {
-            "response": {
-              "fullResponse": true,
-              "neverError": true
-            }
-          },
-          "timeout": 15000
-        }
-      },
-      "id": "c010ecb0-8688-4e33-809a-898e467c2b01",
-      "name": "Get Token Secret",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        528,
-        288
-      ],
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "aI9EjocHktFfP7yJ",
-          "name": "Kubernetes finance renewal (SA token)"
-        }
-      },
-      "notes": "404 is the expected 'Secret not created yet' state"
-    },
-    {
-      "parameters": {
-        "jsCode": "// Hourly consent watch (spec 005 section 4.2.1). Reads both secrets and mints\n// one JWT per stored session. It uses GET /sessions/{id}, which never reaches the\n// ASPSP and so spends no PSD2 data-call budget - the daily check owns the single\n// data-plane probe. Only external modules and web globals are used.\nconst jwt = require('jsonwebtoken');\n\nconst stable = $('Get Stable Secret').first().json;\nconst accounts = JSON.parse(atob(stable.data['accounts.json']));\nconst pem = atob(stable.data['private_key']);\n\nconst tokenGet = $('Get Token Secret').first().json;\nlet tokensByAlias = {};\nif (tokenGet.statusCode === 200) {\n  const raw = (tokenGet.body.data || {})['tokens.json'];\n  tokensByAlias = raw ? JSON.parse(atob(raw)) : {};\n}\n\nconst probes = [];\nfor (const [alias, cfg] of Object.entries(accounts)) {\n  const entry = tokensByAlias[alias];\n  if (!entry || !entry.session_id) {\n    continue;\n  }\n  probes.push({\n    alias,\n    session_id: entry.session_id,\n    jwt: jwt.sign(\n      { iss: 'enablebanking.com', aud: 'api.enablebanking.com' },\n      pem,\n      { algorithm: 'RS256', keyid: cfg.app_id, expiresIn: 3600 }\n    ),\n  });\n}\nreturn probes.map((probe) => ({ json: probe }));"
-      },
-      "id": "bbcdd636-0530-445c-acaf-ff1e2ca79319",
-      "name": "Build Probes",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        752,
-        288
-      ]
-    },
-    {
-      "parameters": {
-        "url": "=https://api.enablebanking.com/sessions/{{ $json.session_id }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "=Bearer {{ $json.jwt }}"
-            }
-          ]
-        },
-        "options": {
-          "response": {
-            "response": {
-              "fullResponse": true,
-              "neverError": true
-            }
-          },
-          "timeout": 30000
-        }
-      },
-      "id": "2fabe89c-1f98-4cb7-9ae9-111b4e8fabf9",
-      "name": "Get Session Status",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        976,
-        288
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "// Report only when a stored session's state differs from the previous hour's,\n// persisted in workflow static data so an unchanged hour posts nothing.\nconst probes = $('Build Probes').all().map((item) => item.json);\nconst responses = $input.all().map((item) => item.json);\nconst staticData = $getWorkflowStaticData('global');\nconst previous = staticData.session_states || {};\n\nconst next = {};\nconst changes = [];\nprobes.forEach((probe, index) => {\n  const resp = responses[index] || {};\n  const state = resp.statusCode === 200 ? ((resp.body || {}).status || 'UNKNOWN') : `HTTP ${resp.statusCode}`;\n  next[probe.session_id] = state;\n  if (previous[probe.session_id] && previous[probe.session_id] !== state) {\n    changes.push(`- *${probe.alias}*: ${previous[probe.session_id]} -> ${state}`);\n  }\n});\nstaticData.session_states = next;\n\nconst changed = changes.length > 0;\nreturn [\n  {\n    json: {\n      changed,\n      text: changed\n        ? `Enable Banking consent state changed:\\n${changes.join('\\n')}`\n        : 'consent state unchanged',\n    },\n  },\n];"
-      },
-      "id": "78b8bfd9-da66-46ad-90ab-48b7cdab4ca4",
-      "name": "Watch Transitions",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1200,
-        288
-      ]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 2
-          },
-          "conditions": [
-            {
-              "id": "11c6b388-5492-4563-b81b-a9b9955d3a92",
-              "leftValue": "={{ $json.changed }}",
-              "rightValue": true,
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "625c6ab1-0b34-476a-8dfd-8ca16315986a",
-      "name": "Changed?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        1424,
-        288
-      ]
-    },
-    {
-      "parameters": {
-        "select": "channel",
-        "channelId": {
-          "__rl": true,
-          "value": "C08RQNXQV3P",
-          "mode": "list",
-          "cachedResultName": "workflows"
-        },
-        "text": "={{ $json.text }}",
-        "otherOptions": {
-          "includeLinkToWorkflow": false
-        }
-      },
-      "id": "4344aaa9-5707-4b3e-a599-8f777487054e",
-      "name": "Post Watch",
-      "type": "n8n-nodes-base.slack",
-      "typeVersion": 2.3,
-      "position": [
-        1664,
-        192
-      ],
-      "credentials": {
-        "slackApi": {
-          "id": "DszMmPE7WwOjHQjz",
-          "name": "Slack account"
-        }
-      }
-    },
-    {
-      "parameters": {},
-      "id": "57b45284-5b19-4943-ad07-56fbc9d699f7",
-      "name": "No Change",
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
-      "position": [
-        1664,
-        384
-      ],
-      "notes": "Fires on an unchanged hour; keeps the false branch explicit."
-    }
-  ],
-  "connections": {
-    "Hourly Watch": {
-      "main": [
-        [
-          {
-            "node": "Get Stable Secret",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Get Stable Secret": {
-      "main": [
-        [
-          {
-            "node": "Get Token Secret",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Get Token Secret": {
-      "main": [
-        [
-          {
-            "node": "Build Probes",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Build Probes": {
-      "main": [
-        [
-          {
-            "node": "Get Session Status",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Get Session Status": {
-      "main": [
-        [
-          {
-            "node": "Watch Transitions",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Watch Transitions": {
-      "main": [
-        [
-          {
-            "node": "Changed?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Changed?": {
-      "main": [
-        [
-          {
-            "node": "Post Watch",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "No Change",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    }
-  },
-  "settings": {
-    "errorWorkflow": "fejq5nN6LP3F820w",
-    "executionOrder": "v1"
-  },
-  "active": false,
-  "pinData": {},
-  "meta": {},
-  "tags": [],
-  "nodeGroups": [],
-  "triggerCount": 1,
+  "active": true,
   "activeVersion": {
-    "name": "EnableBanking Consent Watch",
+    "versionId": "55696661-5bc5-42d6-a49c-9c2101b8f314",
+    "workflowId": "aLkMPugqXplEW4BL",
     "nodes": [
       {
+        "id": "1d64b4a8-17a6-4261-b06c-b7568901a540",
+        "name": "Hourly Watch",
+        "notes": "Hourly and budget-free: reads only GET /sessions/{id}, which never reaches the ASPSP.",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [
+          80,
+          288
+        ],
         "parameters": {
           "rule": {
             "interval": [
@@ -322,18 +23,18 @@
               }
             ]
           }
-        },
-        "id": "1d64b4a8-17a6-4261-b06c-b7568901a540",
-        "name": "Hourly Watch",
-        "type": "n8n-nodes-base.scheduleTrigger",
-        "typeVersion": 1.2,
-        "position": [
-          80,
-          288
-        ],
-        "notes": "Hourly and budget-free: reads only GET /sessions/{id}, which never reaches the ASPSP."
+        }
       },
       {
+        "id": "6a9c8ce0-4a04-45b5-ab91-8419ab39432f",
+        "name": "Get Stable Secret",
+        "notes": "allowUnauthorizedCerts is scoped to the in-cluster kubernetes.default.svc endpoint",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          304,
+          288
+        ],
         "parameters": {
           "url": "https://kubernetes.default.svc/api/v1/namespaces/data/secrets/finance-enablebanking",
           "authentication": "genericCredentialType",
@@ -343,23 +44,23 @@
             "timeout": 15000
           }
         },
-        "id": "6a9c8ce0-4a04-45b5-ab91-8419ab39432f",
-        "name": "Get Stable Secret",
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.2,
-        "position": [
-          304,
-          288
-        ],
         "credentials": {
           "httpHeaderAuth": {
             "id": "aI9EjocHktFfP7yJ",
             "name": "Kubernetes finance renewal (SA token)"
           }
-        },
-        "notes": "allowUnauthorizedCerts is scoped to the in-cluster kubernetes.default.svc endpoint"
+        }
       },
       {
+        "id": "c010ecb0-8688-4e33-809a-898e467c2b01",
+        "name": "Get Token Secret",
+        "notes": "404 is the expected 'Secret not created yet' state",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          528,
+          288
+        ],
         "parameters": {
           "url": "https://kubernetes.default.svc/api/v1/namespaces/data/secrets/finance-enablebanking-token",
           "authentication": "genericCredentialType",
@@ -375,26 +76,14 @@
             "timeout": 15000
           }
         },
-        "id": "c010ecb0-8688-4e33-809a-898e467c2b01",
-        "name": "Get Token Secret",
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.2,
-        "position": [
-          528,
-          288
-        ],
         "credentials": {
           "httpHeaderAuth": {
             "id": "aI9EjocHktFfP7yJ",
             "name": "Kubernetes finance renewal (SA token)"
           }
-        },
-        "notes": "404 is the expected 'Secret not created yet' state"
+        }
       },
       {
-        "parameters": {
-          "jsCode": "// Hourly consent watch (spec 005 section 4.2.1). Reads both secrets and mints\n// one JWT per stored session. It uses GET /sessions/{id}, which never reaches the\n// ASPSP and so spends no PSD2 data-call budget - the daily check owns the single\n// data-plane probe. Only external modules and web globals are used.\nconst jwt = require('jsonwebtoken');\n\nconst stable = $('Get Stable Secret').first().json;\nconst accounts = JSON.parse(atob(stable.data['accounts.json']));\nconst pem = atob(stable.data['private_key']);\n\nconst tokenGet = $('Get Token Secret').first().json;\nlet tokensByAlias = {};\nif (tokenGet.statusCode === 200) {\n  const raw = (tokenGet.body.data || {})['tokens.json'];\n  tokensByAlias = raw ? JSON.parse(atob(raw)) : {};\n}\n\nconst probes = [];\nfor (const [alias, cfg] of Object.entries(accounts)) {\n  const entry = tokensByAlias[alias];\n  if (!entry || !entry.session_id) {\n    continue;\n  }\n  probes.push({\n    alias,\n    session_id: entry.session_id,\n    jwt: jwt.sign(\n      { iss: 'enablebanking.com', aud: 'api.enablebanking.com' },\n      pem,\n      { algorithm: 'RS256', keyid: cfg.app_id, expiresIn: 3600 }\n    ),\n  });\n}\nreturn probes.map((probe) => ({ json: probe }));"
-        },
         "id": "bbcdd636-0530-445c-acaf-ff1e2ca79319",
         "name": "Build Probes",
         "type": "n8n-nodes-base.code",
@@ -402,9 +91,20 @@
         "position": [
           752,
           288
-        ]
+        ],
+        "parameters": {
+          "jsCode": "// Hourly consent watch (spec 005 section 4.2.1). Reads both secrets and mints\n// one JWT per stored session. It uses GET /sessions/{id}, which never reaches the\n// ASPSP and so spends no PSD2 data-call budget - the daily check owns the single\n// data-plane probe. Only external modules and web globals are used.\nconst jwt = require('jsonwebtoken');\n\nconst stable = $('Get Stable Secret').first().json;\nconst accounts = JSON.parse(atob(stable.data['accounts.json']));\nconst pem = atob(stable.data['private_key']);\n\nconst tokenGet = $('Get Token Secret').first().json;\nlet tokensByAlias = {};\nif (tokenGet.statusCode === 200) {\n  const raw = (tokenGet.body.data || {})['tokens.json'];\n  tokensByAlias = raw ? JSON.parse(atob(raw)) : {};\n}\n\nconst probes = [];\nfor (const [alias, cfg] of Object.entries(accounts)) {\n  const entry = tokensByAlias[alias];\n  if (!entry || !entry.session_id) {\n    continue;\n  }\n  probes.push({\n    alias,\n    session_id: entry.session_id,\n    jwt: jwt.sign(\n      { iss: 'enablebanking.com', aud: 'api.enablebanking.com' },\n      pem,\n      { algorithm: 'RS256', keyid: cfg.app_id, expiresIn: 3600 }\n    ),\n  });\n}\nreturn probes.map((probe) => ({ json: probe }));"
+        }
       },
       {
+        "id": "2fabe89c-1f98-4cb7-9ae9-111b4e8fabf9",
+        "name": "Get Session Status",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          976,
+          288
+        ],
         "parameters": {
           "url": "=https://api.enablebanking.com/sessions/{{ $json.session_id }}",
           "sendHeaders": true,
@@ -425,20 +125,9 @@
             },
             "timeout": 30000
           }
-        },
-        "id": "2fabe89c-1f98-4cb7-9ae9-111b4e8fabf9",
-        "name": "Get Session Status",
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.2,
-        "position": [
-          976,
-          288
-        ]
+        }
       },
       {
-        "parameters": {
-          "jsCode": "// Report only when a stored session's state differs from the previous hour's,\n// persisted in workflow static data so an unchanged hour posts nothing.\nconst probes = $('Build Probes').all().map((item) => item.json);\nconst responses = $input.all().map((item) => item.json);\nconst staticData = $getWorkflowStaticData('global');\nconst previous = staticData.session_states || {};\n\nconst next = {};\nconst changes = [];\nprobes.forEach((probe, index) => {\n  const resp = responses[index] || {};\n  const state = resp.statusCode === 200 ? ((resp.body || {}).status || 'UNKNOWN') : `HTTP ${resp.statusCode}`;\n  next[probe.session_id] = state;\n  if (previous[probe.session_id] && previous[probe.session_id] !== state) {\n    changes.push(`- *${probe.alias}*: ${previous[probe.session_id]} -> ${state}`);\n  }\n});\nstaticData.session_states = next;\n\nconst changed = changes.length > 0;\nreturn [\n  {\n    json: {\n      changed,\n      text: changed\n        ? `Enable Banking consent state changed:\\n${changes.join('\\n')}`\n        : 'consent state unchanged',\n    },\n  },\n];"
-        },
         "id": "78b8bfd9-da66-46ad-90ab-48b7cdab4ca4",
         "name": "Watch Transitions",
         "type": "n8n-nodes-base.code",
@@ -446,9 +135,20 @@
         "position": [
           1200,
           288
-        ]
+        ],
+        "parameters": {
+          "jsCode": "// Report only when a stored session's state differs from the previous hour's,\n// persisted in workflow static data so an unchanged hour posts nothing.\nconst probes = $('Build Probes').all().map((item) => item.json);\nconst responses = $input.all().map((item) => item.json);\nconst staticData = $getWorkflowStaticData('global');\nconst previous = staticData.session_states || {};\n\nconst next = {};\nconst changes = [];\nprobes.forEach((probe, index) => {\n  const resp = responses[index] || {};\n  const state = resp.statusCode === 200 ? ((resp.body || {}).status || 'UNKNOWN') : `HTTP ${resp.statusCode}`;\n  next[probe.session_id] = state;\n  if (previous[probe.session_id] && previous[probe.session_id] !== state) {\n    changes.push(`- *${probe.alias}*: ${previous[probe.session_id]} -> ${state}`);\n  }\n});\nstaticData.session_states = next;\n\nconst changed = changes.length > 0;\nreturn [\n  {\n    json: {\n      changed,\n      text: changed\n        ? `Enable Banking consent state changed:\\n${changes.join('\\n')}`\n        : 'consent state unchanged',\n    },\n  },\n];"
+        }
       },
       {
+        "id": "625c6ab1-0b34-476a-8dfd-8ca16315986a",
+        "name": "Changed?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          1424,
+          288
+        ],
         "parameters": {
           "conditions": {
             "options": {
@@ -472,17 +172,17 @@
             "combinator": "and"
           },
           "options": {}
-        },
-        "id": "625c6ab1-0b34-476a-8dfd-8ca16315986a",
-        "name": "Changed?",
-        "type": "n8n-nodes-base.if",
-        "typeVersion": 2.2,
-        "position": [
-          1424,
-          288
-        ]
+        }
       },
       {
+        "id": "4344aaa9-5707-4b3e-a599-8f777487054e",
+        "name": "Post Watch",
+        "type": "n8n-nodes-base.slack",
+        "typeVersion": 2.3,
+        "position": [
+          1664,
+          192
+        ],
         "parameters": {
           "select": "channel",
           "channelId": {
@@ -496,32 +196,25 @@
             "includeLinkToWorkflow": false
           }
         },
-        "id": "4344aaa9-5707-4b3e-a599-8f777487054e",
-        "name": "Post Watch",
-        "type": "n8n-nodes-base.slack",
-        "typeVersion": 2.3,
-        "position": [
-          1664,
-          192
-        ],
         "credentials": {
           "slackApi": {
             "id": "DszMmPE7WwOjHQjz",
             "name": "Slack account"
           }
-        }
+        },
+        "webhookId": "bdea73e9-c675-4336-8c9e-1d1cc8ce0a9d"
       },
       {
-        "parameters": {},
         "id": "57b45284-5b19-4943-ad07-56fbc9d699f7",
         "name": "No Change",
+        "notes": "Fires on an unchanged hour; keeps the false branch explicit.",
         "type": "n8n-nodes-base.noOp",
         "typeVersion": 1,
         "position": [
           1664,
           384
         ],
-        "notes": "Fires on an unchanged hour; keeps the false branch explicit."
+        "parameters": {}
       }
     ],
     "connections": {
@@ -609,6 +302,345 @@
           ]
         ]
       }
+    },
+    "nodeGroups": [],
+    "authors": "no name",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "createdAt": "2026-09-28T20:34:21.548Z",
+    "updatedAt": "2026-09-28T20:34:21.548Z"
+  },
+  "activeVersionId": "55696661-5bc5-42d6-a49c-9c2101b8f314",
+  "connections": {
+    "Hourly Watch": {
+      "main": [
+        [
+          {
+            "node": "Get Stable Secret",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Stable Secret": {
+      "main": [
+        [
+          {
+            "node": "Get Token Secret",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Token Secret": {
+      "main": [
+        [
+          {
+            "node": "Build Probes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Probes": {
+      "main": [
+        [
+          {
+            "node": "Get Session Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Session Status": {
+      "main": [
+        [
+          {
+            "node": "Watch Transitions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Watch Transitions": {
+      "main": [
+        [
+          {
+            "node": "Changed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Changed?": {
+      "main": [
+        [
+          {
+            "node": "Post Watch",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Change",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
-  }
+  },
+  "createdAt": "2026-09-28T20:34:21.548Z",
+  "id": "aLkMPugqXplEW4BL",
+  "isArchived": false,
+  "meta": null,
+  "name": "EnableBanking Consent Watch",
+  "nodeGroups": [],
+  "nodes": [
+    {
+      "id": "1d64b4a8-17a6-4261-b06c-b7568901a540",
+      "name": "Hourly Watch",
+      "notes": "Hourly and budget-free: reads only GET /sessions/{id}, which never reaches the ASPSP.",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        80,
+        288
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 * * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "6a9c8ce0-4a04-45b5-ab91-8419ab39432f",
+      "name": "Get Stable Secret",
+      "notes": "allowUnauthorizedCerts is scoped to the in-cluster kubernetes.default.svc endpoint",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        304,
+        288
+      ],
+      "parameters": {
+        "url": "https://kubernetes.default.svc/api/v1/namespaces/data/secrets/finance-enablebanking",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "allowUnauthorizedCerts": true,
+          "timeout": 15000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "aI9EjocHktFfP7yJ",
+          "name": "Kubernetes finance renewal (SA token)"
+        }
+      }
+    },
+    {
+      "id": "c010ecb0-8688-4e33-809a-898e467c2b01",
+      "name": "Get Token Secret",
+      "notes": "404 is the expected 'Secret not created yet' state",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        528,
+        288
+      ],
+      "parameters": {
+        "url": "https://kubernetes.default.svc/api/v1/namespaces/data/secrets/finance-enablebanking-token",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "allowUnauthorizedCerts": true,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "aI9EjocHktFfP7yJ",
+          "name": "Kubernetes finance renewal (SA token)"
+        }
+      }
+    },
+    {
+      "id": "bbcdd636-0530-445c-acaf-ff1e2ca79319",
+      "name": "Build Probes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        752,
+        288
+      ],
+      "parameters": {
+        "jsCode": "// Hourly consent watch (spec 005 section 4.2.1). Reads both secrets and mints\n// one JWT per stored session. It uses GET /sessions/{id}, which never reaches the\n// ASPSP and so spends no PSD2 data-call budget - the daily check owns the single\n// data-plane probe. Only external modules and web globals are used.\nconst jwt = require('jsonwebtoken');\n\nconst stable = $('Get Stable Secret').first().json;\nconst accounts = JSON.parse(atob(stable.data['accounts.json']));\nconst pem = atob(stable.data['private_key']);\n\nconst tokenGet = $('Get Token Secret').first().json;\nlet tokensByAlias = {};\nif (tokenGet.statusCode === 200) {\n  const raw = (tokenGet.body.data || {})['tokens.json'];\n  tokensByAlias = raw ? JSON.parse(atob(raw)) : {};\n}\n\nconst probes = [];\nfor (const [alias, cfg] of Object.entries(accounts)) {\n  const entry = tokensByAlias[alias];\n  if (!entry || !entry.session_id) {\n    continue;\n  }\n  probes.push({\n    alias,\n    session_id: entry.session_id,\n    jwt: jwt.sign(\n      { iss: 'enablebanking.com', aud: 'api.enablebanking.com' },\n      pem,\n      { algorithm: 'RS256', keyid: cfg.app_id, expiresIn: 3600 }\n    ),\n  });\n}\nreturn probes.map((probe) => ({ json: probe }));"
+      }
+    },
+    {
+      "id": "2fabe89c-1f98-4cb7-9ae9-111b4e8fabf9",
+      "name": "Get Session Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        976,
+        288
+      ],
+      "parameters": {
+        "url": "=https://api.enablebanking.com/sessions/{{ $json.session_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.jwt }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 30000
+        }
+      }
+    },
+    {
+      "id": "78b8bfd9-da66-46ad-90ab-48b7cdab4ca4",
+      "name": "Watch Transitions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        288
+      ],
+      "parameters": {
+        "jsCode": "// Report only when a stored session's state differs from the previous hour's,\n// persisted in workflow static data so an unchanged hour posts nothing.\nconst probes = $('Build Probes').all().map((item) => item.json);\nconst responses = $input.all().map((item) => item.json);\nconst staticData = $getWorkflowStaticData('global');\nconst previous = staticData.session_states || {};\n\nconst next = {};\nconst changes = [];\nprobes.forEach((probe, index) => {\n  const resp = responses[index] || {};\n  const state = resp.statusCode === 200 ? ((resp.body || {}).status || 'UNKNOWN') : `HTTP ${resp.statusCode}`;\n  next[probe.session_id] = state;\n  if (previous[probe.session_id] && previous[probe.session_id] !== state) {\n    changes.push(`- *${probe.alias}*: ${previous[probe.session_id]} -> ${state}`);\n  }\n});\nstaticData.session_states = next;\n\nconst changed = changes.length > 0;\nreturn [\n  {\n    json: {\n      changed,\n      text: changed\n        ? `Enable Banking consent state changed:\\n${changes.join('\\n')}`\n        : 'consent state unchanged',\n    },\n  },\n];"
+      }
+    },
+    {
+      "id": "625c6ab1-0b34-476a-8dfd-8ca16315986a",
+      "name": "Changed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1424,
+        288
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "11c6b388-5492-4563-b81b-a9b9955d3a92",
+              "leftValue": "={{ $json.changed }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "4344aaa9-5707-4b3e-a599-8f777487054e",
+      "name": "Post Watch",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        1664,
+        192
+      ],
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C08RQNXQV3P",
+          "mode": "list",
+          "cachedResultName": "workflows"
+        },
+        "text": "={{ $json.text }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "DszMmPE7WwOjHQjz",
+          "name": "Slack account"
+        }
+      },
+      "webhookId": "bdea73e9-c675-4336-8c9e-1d1cc8ce0a9d"
+    },
+    {
+      "id": "57b45284-5b19-4943-ad07-56fbc9d699f7",
+      "name": "No Change",
+      "notes": "Fires on an unchanged hour; keeps the false branch explicit.",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1664,
+        384
+      ],
+      "parameters": {}
+    }
+  ],
+  "pinData": null,
+  "settings": {
+    "errorWorkflow": "fejq5nN6LP3F820w",
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "role": "workflow:owner",
+      "workflowId": "aLkMPugqXplEW4BL",
+      "projectId": "zcGU09G6dy4Oah3l",
+      "createdAt": "2026-09-28T20:34:21.548Z",
+      "updatedAt": "2026-09-28T20:34:21.548Z"
+    }
+  ],
+  "staticData": {
+    "global": {
+      "session_states": {
+        "1a46310c-4690-40a0-a75d-7dbee983beb3": "AUTHORIZED"
+      }
+    }
+  },
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2026-09-28T20:34:21.548Z",
+  "versionId": "55696661-5bc5-42d6-a49c-9c2101b8f314"
 }

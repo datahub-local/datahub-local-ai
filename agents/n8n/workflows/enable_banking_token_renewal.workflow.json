@@ -108,7 +108,7 @@
           288
         ],
         "parameters": {
-          "jsCode": "// Daily consent check (spec 005 §4.2.1).\n// - \"Get Stable Secret\" is a plain HTTP node (credential-authorized): $json is the Secret body.\n// - \"Get Token Secret\" is fullResponse + neverError: 404 is the expected \"no tokens yet\" state.\n// This node gathers the expiry signals and one probe per stored account; \"Mint\n// Session JWT\" signs, \"Get Session Status\" probes the session state, and\n// \"Evaluate Consent\" decides. The data-plane probe is the 12h watch's job now. Only external modules and web globals are used\n// (the Code sandbox blocks node built-ins).\nconst stable = $('Get Stable Secret').first().json;\nconst accounts = JSON.parse(atob(stable.data['accounts.json']));\n\nconst tokenGet = $('Get Token Secret').first().json;\nlet tokensByAlias = {};\nif (tokenGet.statusCode === 404) {\n  tokensByAlias = {};\n} else if (tokenGet.statusCode === 200) {\n  const raw = (tokenGet.body.data || {})['tokens.json'];\n  tokensByAlias = raw ? JSON.parse(atob(raw)) : {};\n} else {\n  throw new Error(`finance-enablebanking-token GET returned HTTP ${tokenGet.statusCode}`);\n}\n\nconst expiryDue = [];\nconst probes = [];\nfor (const [alias, cfg] of Object.entries(accounts)) {\n  const entry = tokensByAlias[alias];\n  const until = entry ? entry.valid_until : null;\n  const days = until ? Math.floor((new Date(until) - Date.now()) / 86400000) : -1;\n  if (days <= 3) {\n    const when = until ? new Date(until).toISOString().slice(0, 10) : 'no token yet';\n    expiryDue.push(`- *${alias}* (${cfg.institution_id || alias}): expires on ${when}`);\n  }\n  // One probe per stored account: the session-status read is budget-free but\n  // inconclusive - it can say AUTHORIZED while a data fetch fails (Enable\n  // Banking FAQ) - so it nudges only when it disagrees, and the 12h watch's\n  // balances probe is the liveness signal.\n  if (entry && entry.uid && entry.session_id) {\n    probes.push({ alias, app_id: cfg.app_id, uid: entry.uid, session_id: entry.session_id });\n  }\n}\nreturn [{ json: { has_sessions: probes.length > 0, probes, expiry_due: expiryDue } }];"
+          "jsCode": "// Daily consent check (spec 005 §4.2.1).\n// - \"Get Stable Secret\" is a plain HTTP node (credential-authorized): $json is the Secret body.\n// - \"Get Token Secret\" is fullResponse + neverError: 404 is the expected \"no tokens yet\" state.\n// This node gathers the expiry signals and one probe per stored account; \"Mint\n// Session JWT\" signs, \"Get Session Status\" and \"Probe Account Data\" probe, and\n// \"Evaluate Consent\" decides. Only external modules and web globals are used\n// (the Code sandbox blocks node built-ins).\nconst stable = $('Get Stable Secret').first().json;\nconst accounts = JSON.parse(atob(stable.data['accounts.json']));\n\nconst tokenGet = $('Get Token Secret').first().json;\nlet tokensByAlias = {};\nif (tokenGet.statusCode === 404) {\n  tokensByAlias = {};\n} else if (tokenGet.statusCode === 200) {\n  const raw = (tokenGet.body.data || {})['tokens.json'];\n  tokensByAlias = raw ? JSON.parse(atob(raw)) : {};\n} else {\n  throw new Error(`finance-enablebanking-token GET returned HTTP ${tokenGet.statusCode}`);\n}\n\nconst expiryDue = [];\nconst probes = [];\nfor (const [alias, cfg] of Object.entries(accounts)) {\n  const entry = tokensByAlias[alias];\n  const until = entry ? entry.valid_until : null;\n  const days = until ? Math.floor((new Date(until) - Date.now()) / 86400000) : -1;\n  if (days <= 3) {\n    const when = until ? new Date(until).toISOString().slice(0, 10) : 'no token yet';\n    expiryDue.push(`- *${alias}* (${cfg.institution_id || alias}): expires on ${when}`);\n  }\n  // One probe per stored account: the session-status read is budget-free, the\n  // balance read is the authoritative data-plane check - the session-status read\n  // can say AUTHORIZED while a data fetch fails (Enable Banking FAQ).\n  if (entry && entry.uid && entry.session_id) {\n    probes.push({ alias, app_id: cfg.app_id, uid: entry.uid, session_id: entry.session_id });\n  }\n}\nreturn [{ json: { has_sessions: probes.length > 0, probes, expiry_due: expiryDue } }];"
         }
       },
       {
@@ -786,7 +786,7 @@
           224
         ],
         "parameters": {
-          "jsCode": "// Mint a JWT per stored account for the daily session-status probe, signing\n// each with the app_id that owns that account. \"Get Session Status\" reads Enable\n// Banking's own session state and never reaches the ASPSP, so it spends none of\n// the PSD2 per-endpoint data-call budget; the authoritative data-plane probe is\n// the 12h watch's. Emits one item per account so the probe node answers in\n// order.\nconst jwt = require('jsonwebtoken');\n\nconst stable = $('Get Stable Secret').first().json;\nconst pem = atob(stable.data['private_key']);\nconst probes = $('Check Consent Expiry').first().json.probes || [];\nif (probes.length === 0) {\n  throw new Error('Mint Session JWT reached with no accounts to probe');\n}\nreturn probes.map((probe) => ({\n  json: {\n    alias: probe.alias,\n    uid: probe.uid,\n    session_id: probe.session_id,\n    jwt: jwt.sign(\n      { iss: 'enablebanking.com', aud: 'api.enablebanking.com' },\n      pem,\n      { algorithm: 'RS256', keyid: probe.app_id, expiresIn: 3600 }\n    ),\n  },\n}));"
+          "jsCode": "// Mint a JWT per stored account for the two daily probes, signing each with the\n// app_id that owns that account. \"Get Session Status\" reads Enable Banking's own\n// session state and never reaches the ASPSP, so it spends none of the PSD2\n// per-endpoint data-call budget; \"Probe Account Data\" reads one balance and is\n// the authoritative signal. Emits one item per account so both probe nodes\n// answer each in order.\nconst jwt = require('jsonwebtoken');\n\nconst stable = $('Get Stable Secret').first().json;\nconst pem = atob(stable.data['private_key']);\nconst probes = $('Check Consent Expiry').first().json.probes || [];\nif (probes.length === 0) {\n  throw new Error('Mint Session JWT reached with no accounts to probe');\n}\nreturn probes.map((probe) => ({\n  json: {\n    alias: probe.alias,\n    uid: probe.uid,\n    session_id: probe.session_id,\n    jwt: jwt.sign(\n      { iss: 'enablebanking.com', aud: 'api.enablebanking.com' },\n      pem,\n      { algorithm: 'RS256', keyid: probe.app_id, expiresIn: 3600 }\n    ),\n  },\n}));"
         }
       },
       {
@@ -830,7 +830,7 @@
           288
         ],
         "parameters": {
-          "jsCode": "// Combine the stored-expiry signal with the budget-free GET /sessions/{id}\n// probes. The data-plane probe moved to the 12h Consent Watch (spec 005\n// section 4.2.1): the fleet was spending ~8 ASPSP data fetches a day per\n// account against a ~4/day background limit and this check's balances call\n// was one of them. Session status alone is inconclusive - it read AUTHORIZED\n// while every data call was dead on 2026-09-28 - so an AUTHORIZED read here\n// proves nothing (the watch's balances probe is the liveness signal), but a\n// status that is not AUTHORIZED, or a status read that fails, still earns a\n// nudge. \"Mint Session JWT\" emits one item per account and \"Get Session\n// Status\" answers each in order, so the two lists pair by index.\nconst expiry = $('Check Consent Expiry').first().json;\nconst lines = [...(expiry.expiry_due || [])];\n\nif (expiry.has_sessions) {\n  const meta = $('Mint Session JWT').all().map((item) => item.json);\n  const sessionResponses = $('Get Session Status').all().map((item) => item.json);\n  meta.forEach((probe, index) => {\n    const session = sessionResponses[index] || {};\n    const status = (session.body || {}).status;\n    const sessionState = status || `HTTP ${session.statusCode}`;\n    if (session.statusCode === 200 && status === 'AUTHORIZED') {\n      return; // inconclusive but not alarming; the watch decides liveness\n    }\n    lines.push(\n      `- *${probe.alias}*: session ${sessionState}, not AUTHORIZED; ` +\n        'the 12h watch confirms on the data plane - re-link if it agrees'\n    );\n  });\n}\n\nconst needsRenewal = lines.length > 0;\nreturn [\n  {\n    json: {\n      needs_renewal: needsRenewal,\n      nudge_text: needsRenewal\n        ? `Enable Banking consent needs attention:\\n${lines.join('\\n')}\\n\\nRenew now (the bank login is the one manual step): https://automation-n8n.homelab.alvsanand.com/form/0c19a176-7e58-419a-9a26-b5d1ca2f578f`\n        : 'all consents healthy',\n    },\n  },\n];"
+          "jsCode": "// Combine the stored-expiry signal, the budget-free GET /sessions/{id} probes and\n// the authoritative GET /accounts/{uid}/balances data probes. Enable Banking\n// documents that the session-status read may say AUTHORIZED while a data fetch\n// fails, so the balance probe decides and the session state is reported as\n// context. \"Mint Session JWT\" emits one item per account and the probe nodes\n// answer each in order, so the three lists pair by index.\nconst expiry = $('Check Consent Expiry').first().json;\nconst lines = [...(expiry.expiry_due || [])];\n\nif (expiry.has_sessions) {\n  const meta = $('Mint Session JWT').all().map((item) => item.json);\n  const sessionResponses = $('Get Session Status').all().map((item) => item.json);\n  const dataResponses = $('Probe Account Data').all().map((item) => item.json);\n  meta.forEach((probe, index) => {\n    const session = sessionResponses[index] || {};\n    const data = dataResponses[index] || {};\n    const sessionState = (session.body || {}).status || `HTTP ${session.statusCode}`;\n    const error = data.body || {};\n    const errorName = error.error || error.code || '';\n    const message = error.message || '';\n    if (data.statusCode === 200) {\n      return; // data plane healthy; a stale session status is context only\n    }\n    if (data.statusCode === 429 || errorName === 'ASPSP_RATE_LIMIT_EXCEEDED' || /rate limit/i.test(message)) {\n      return; // rate limit, not a dead consent (spec 005 section 4.2.1)\n    }\n    if (data.statusCode === 401 || errorName === 'EXPIRED_SESSION' || /expired|revoked/i.test(message)) {\n      lines.push(`- *${probe.alias}*: consent expired (session ${sessionState}); re-link`);\n      return;\n    }\n    lines.push(\n      `- *${probe.alias}*: data probe failed (HTTP ${data.statusCode} ${errorName || message}); ` +\n        `session ${sessionState} - re-link if it persists`\n    );\n  });\n}\n\nconst needsRenewal = lines.length > 0;\nreturn [\n  {\n    json: {\n      needs_renewal: needsRenewal,\n      nudge_text: needsRenewal\n        ? `Enable Banking consent needs attention:\\n${lines.join('\\n')}\\n\\nRenew now (the bank login is the one manual step): https://automation-n8n.homelab.alvsanand.com/form/0c19a176-7e58-419a-9a26-b5d1ca2f578f`\n        : 'all consents healthy',\n    },\n  },\n];"
         }
       },
       {
@@ -951,6 +951,38 @@
           "options": {
             "response": {
               "response": {
+                "neverError": true
+              }
+            },
+            "timeout": 30000
+          }
+        }
+      },
+      {
+        "id": "9ad5f61a-12ad-4bd7-b5ce-a88bdad8708d",
+        "name": "Probe Account Data",
+        "notes": "Data-plane liveness probe: one balance per account. The authoritative signal, because GET /sessions/{id} can read AUTHORIZED while a data call fails.",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          1648,
+          160
+        ],
+        "parameters": {
+          "url": "=https://api.enablebanking.com/accounts/{{ $('Mint Session JWT').item.json.uid }}/balances",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "=Bearer {{ $('Mint Session JWT').item.json.jwt }}"
+              }
+            ]
+          },
+          "options": {
+            "response": {
+              "response": {
+                "fullResponse": true,
                 "neverError": true
               }
             },
@@ -1320,7 +1352,7 @@
         "main": [
           [
             {
-              "node": "Evaluate Consent",
+              "node": "Probe Account Data",
               "type": "main",
               "index": 0
             }
@@ -1394,6 +1426,17 @@
           [
             {
               "node": "Notify Renewed",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Probe Account Data": {
+        "main": [
+          [
+            {
+              "node": "Evaluate Consent",
               "type": "main",
               "index": 0
             }
@@ -1771,7 +1814,7 @@
       "main": [
         [
           {
-            "node": "Evaluate Consent",
+            "node": "Probe Account Data",
             "type": "main",
             "index": 0
           }
@@ -1845,6 +1888,17 @@
         [
           {
             "node": "Notify Renewed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Probe Account Data": {
+      "main": [
+        [
+          {
+            "node": "Evaluate Consent",
             "type": "main",
             "index": 0
           }
@@ -1963,7 +2017,7 @@
         288
       ],
       "parameters": {
-        "jsCode": "// Daily consent check (spec 005 §4.2.1).\n// - \"Get Stable Secret\" is a plain HTTP node (credential-authorized): $json is the Secret body.\n// - \"Get Token Secret\" is fullResponse + neverError: 404 is the expected \"no tokens yet\" state.\n// This node gathers the expiry signals and one probe per stored account; \"Mint\n// Session JWT\" signs, \"Get Session Status\" probes the session state, and\n// \"Evaluate Consent\" decides. The data-plane probe is the 12h watch's job now. Only external modules and web globals are used\n// (the Code sandbox blocks node built-ins).\nconst stable = $('Get Stable Secret').first().json;\nconst accounts = JSON.parse(atob(stable.data['accounts.json']));\n\nconst tokenGet = $('Get Token Secret').first().json;\nlet tokensByAlias = {};\nif (tokenGet.statusCode === 404) {\n  tokensByAlias = {};\n} else if (tokenGet.statusCode === 200) {\n  const raw = (tokenGet.body.data || {})['tokens.json'];\n  tokensByAlias = raw ? JSON.parse(atob(raw)) : {};\n} else {\n  throw new Error(`finance-enablebanking-token GET returned HTTP ${tokenGet.statusCode}`);\n}\n\nconst expiryDue = [];\nconst probes = [];\nfor (const [alias, cfg] of Object.entries(accounts)) {\n  const entry = tokensByAlias[alias];\n  const until = entry ? entry.valid_until : null;\n  const days = until ? Math.floor((new Date(until) - Date.now()) / 86400000) : -1;\n  if (days <= 3) {\n    const when = until ? new Date(until).toISOString().slice(0, 10) : 'no token yet';\n    expiryDue.push(`- *${alias}* (${cfg.institution_id || alias}): expires on ${when}`);\n  }\n  // One probe per stored account: the session-status read is budget-free but\n  // inconclusive - it can say AUTHORIZED while a data fetch fails (Enable\n  // Banking FAQ) - so it nudges only when it disagrees, and the 12h watch's\n  // balances probe is the liveness signal.\n  if (entry && entry.uid && entry.session_id) {\n    probes.push({ alias, app_id: cfg.app_id, uid: entry.uid, session_id: entry.session_id });\n  }\n}\nreturn [{ json: { has_sessions: probes.length > 0, probes, expiry_due: expiryDue } }];"
+        "jsCode": "// Daily consent check (spec 005 §4.2.1).\n// - \"Get Stable Secret\" is a plain HTTP node (credential-authorized): $json is the Secret body.\n// - \"Get Token Secret\" is fullResponse + neverError: 404 is the expected \"no tokens yet\" state.\n// This node gathers the expiry signals and one probe per stored account; \"Mint\n// Session JWT\" signs, \"Get Session Status\" and \"Probe Account Data\" probe, and\n// \"Evaluate Consent\" decides. Only external modules and web globals are used\n// (the Code sandbox blocks node built-ins).\nconst stable = $('Get Stable Secret').first().json;\nconst accounts = JSON.parse(atob(stable.data['accounts.json']));\n\nconst tokenGet = $('Get Token Secret').first().json;\nlet tokensByAlias = {};\nif (tokenGet.statusCode === 404) {\n  tokensByAlias = {};\n} else if (tokenGet.statusCode === 200) {\n  const raw = (tokenGet.body.data || {})['tokens.json'];\n  tokensByAlias = raw ? JSON.parse(atob(raw)) : {};\n} else {\n  throw new Error(`finance-enablebanking-token GET returned HTTP ${tokenGet.statusCode}`);\n}\n\nconst expiryDue = [];\nconst probes = [];\nfor (const [alias, cfg] of Object.entries(accounts)) {\n  const entry = tokensByAlias[alias];\n  const until = entry ? entry.valid_until : null;\n  const days = until ? Math.floor((new Date(until) - Date.now()) / 86400000) : -1;\n  if (days <= 3) {\n    const when = until ? new Date(until).toISOString().slice(0, 10) : 'no token yet';\n    expiryDue.push(`- *${alias}* (${cfg.institution_id || alias}): expires on ${when}`);\n  }\n  // One probe per stored account: the session-status read is budget-free, the\n  // balance read is the authoritative data-plane check - the session-status read\n  // can say AUTHORIZED while a data fetch fails (Enable Banking FAQ).\n  if (entry && entry.uid && entry.session_id) {\n    probes.push({ alias, app_id: cfg.app_id, uid: entry.uid, session_id: entry.session_id });\n  }\n}\nreturn [{ json: { has_sessions: probes.length > 0, probes, expiry_due: expiryDue } }];"
       }
     },
     {
@@ -2641,7 +2695,7 @@
         224
       ],
       "parameters": {
-        "jsCode": "// Mint a JWT per stored account for the daily session-status probe, signing\n// each with the app_id that owns that account. \"Get Session Status\" reads Enable\n// Banking's own session state and never reaches the ASPSP, so it spends none of\n// the PSD2 per-endpoint data-call budget; the authoritative data-plane probe is\n// the 12h watch's. Emits one item per account so the probe node answers in\n// order.\nconst jwt = require('jsonwebtoken');\n\nconst stable = $('Get Stable Secret').first().json;\nconst pem = atob(stable.data['private_key']);\nconst probes = $('Check Consent Expiry').first().json.probes || [];\nif (probes.length === 0) {\n  throw new Error('Mint Session JWT reached with no accounts to probe');\n}\nreturn probes.map((probe) => ({\n  json: {\n    alias: probe.alias,\n    uid: probe.uid,\n    session_id: probe.session_id,\n    jwt: jwt.sign(\n      { iss: 'enablebanking.com', aud: 'api.enablebanking.com' },\n      pem,\n      { algorithm: 'RS256', keyid: probe.app_id, expiresIn: 3600 }\n    ),\n  },\n}));"
+        "jsCode": "// Mint a JWT per stored account for the two daily probes, signing each with the\n// app_id that owns that account. \"Get Session Status\" reads Enable Banking's own\n// session state and never reaches the ASPSP, so it spends none of the PSD2\n// per-endpoint data-call budget; \"Probe Account Data\" reads one balance and is\n// the authoritative signal. Emits one item per account so both probe nodes\n// answer each in order.\nconst jwt = require('jsonwebtoken');\n\nconst stable = $('Get Stable Secret').first().json;\nconst pem = atob(stable.data['private_key']);\nconst probes = $('Check Consent Expiry').first().json.probes || [];\nif (probes.length === 0) {\n  throw new Error('Mint Session JWT reached with no accounts to probe');\n}\nreturn probes.map((probe) => ({\n  json: {\n    alias: probe.alias,\n    uid: probe.uid,\n    session_id: probe.session_id,\n    jwt: jwt.sign(\n      { iss: 'enablebanking.com', aud: 'api.enablebanking.com' },\n      pem,\n      { algorithm: 'RS256', keyid: probe.app_id, expiresIn: 3600 }\n    ),\n  },\n}));"
       }
     },
     {
@@ -2685,7 +2739,7 @@
         288
       ],
       "parameters": {
-        "jsCode": "// Combine the stored-expiry signal with the budget-free GET /sessions/{id}\n// probes. The data-plane probe moved to the 12h Consent Watch (spec 005\n// section 4.2.1): the fleet was spending ~8 ASPSP data fetches a day per\n// account against a ~4/day background limit and this check's balances call\n// was one of them. Session status alone is inconclusive - it read AUTHORIZED\n// while every data call was dead on 2026-09-28 - so an AUTHORIZED read here\n// proves nothing (the watch's balances probe is the liveness signal), but a\n// status that is not AUTHORIZED, or a status read that fails, still earns a\n// nudge. \"Mint Session JWT\" emits one item per account and \"Get Session\n// Status\" answers each in order, so the two lists pair by index.\nconst expiry = $('Check Consent Expiry').first().json;\nconst lines = [...(expiry.expiry_due || [])];\n\nif (expiry.has_sessions) {\n  const meta = $('Mint Session JWT').all().map((item) => item.json);\n  const sessionResponses = $('Get Session Status').all().map((item) => item.json);\n  meta.forEach((probe, index) => {\n    const session = sessionResponses[index] || {};\n    const status = (session.body || {}).status;\n    const sessionState = status || `HTTP ${session.statusCode}`;\n    if (session.statusCode === 200 && status === 'AUTHORIZED') {\n      return; // inconclusive but not alarming; the watch decides liveness\n    }\n    lines.push(\n      `- *${probe.alias}*: session ${sessionState}, not AUTHORIZED; ` +\n        'the 12h watch confirms on the data plane - re-link if it agrees'\n    );\n  });\n}\n\nconst needsRenewal = lines.length > 0;\nreturn [\n  {\n    json: {\n      needs_renewal: needsRenewal,\n      nudge_text: needsRenewal\n        ? `Enable Banking consent needs attention:\\n${lines.join('\\n')}\\n\\nRenew now (the bank login is the one manual step): https://automation-n8n.homelab.alvsanand.com/form/0c19a176-7e58-419a-9a26-b5d1ca2f578f`\n        : 'all consents healthy',\n    },\n  },\n];"
+        "jsCode": "// Combine the stored-expiry signal, the budget-free GET /sessions/{id} probes and\n// the authoritative GET /accounts/{uid}/balances data probes. Enable Banking\n// documents that the session-status read may say AUTHORIZED while a data fetch\n// fails, so the balance probe decides and the session state is reported as\n// context. \"Mint Session JWT\" emits one item per account and the probe nodes\n// answer each in order, so the three lists pair by index.\nconst expiry = $('Check Consent Expiry').first().json;\nconst lines = [...(expiry.expiry_due || [])];\n\nif (expiry.has_sessions) {\n  const meta = $('Mint Session JWT').all().map((item) => item.json);\n  const sessionResponses = $('Get Session Status').all().map((item) => item.json);\n  const dataResponses = $('Probe Account Data').all().map((item) => item.json);\n  meta.forEach((probe, index) => {\n    const session = sessionResponses[index] || {};\n    const data = dataResponses[index] || {};\n    const sessionState = (session.body || {}).status || `HTTP ${session.statusCode}`;\n    const error = data.body || {};\n    const errorName = error.error || error.code || '';\n    const message = error.message || '';\n    if (data.statusCode === 200) {\n      return; // data plane healthy; a stale session status is context only\n    }\n    if (data.statusCode === 429 || errorName === 'ASPSP_RATE_LIMIT_EXCEEDED' || /rate limit/i.test(message)) {\n      return; // rate limit, not a dead consent (spec 005 section 4.2.1)\n    }\n    if (data.statusCode === 401 || errorName === 'EXPIRED_SESSION' || /expired|revoked/i.test(message)) {\n      lines.push(`- *${probe.alias}*: consent expired (session ${sessionState}); re-link`);\n      return;\n    }\n    lines.push(\n      `- *${probe.alias}*: data probe failed (HTTP ${data.statusCode} ${errorName || message}); ` +\n        `session ${sessionState} - re-link if it persists`\n    );\n  });\n}\n\nconst needsRenewal = lines.length > 0;\nreturn [\n  {\n    json: {\n      needs_renewal: needsRenewal,\n      nudge_text: needsRenewal\n        ? `Enable Banking consent needs attention:\\n${lines.join('\\n')}\\n\\nRenew now (the bank login is the one manual step): https://automation-n8n.homelab.alvsanand.com/form/0c19a176-7e58-419a-9a26-b5d1ca2f578f`\n        : 'all consents healthy',\n    },\n  },\n];"
       }
     },
     {
@@ -2806,6 +2860,38 @@
         "options": {
           "response": {
             "response": {
+              "neverError": true
+            }
+          },
+          "timeout": 30000
+        }
+      }
+    },
+    {
+      "id": "9ad5f61a-12ad-4bd7-b5ce-a88bdad8708d",
+      "name": "Probe Account Data",
+      "notes": "Data-plane liveness probe: one balance per account. The authoritative signal, because GET /sessions/{id} can read AUTHORIZED while a data call fails.",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1648,
+        160
+      ],
+      "parameters": {
+        "url": "=https://api.enablebanking.com/accounts/{{ $('Mint Session JWT').item.json.uid }}/balances",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Mint Session JWT').item.json.jwt }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
               "neverError": true
             }
           },

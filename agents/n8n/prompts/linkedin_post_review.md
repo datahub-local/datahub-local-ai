@@ -9,7 +9,7 @@ Always follow it with `<explanation>your reasoning here</explanation>`, kept sho
 ## Checks
 
 - Professional yet authentic — not motivational, not polished sales copy.
-- No banned AI-speak (delve, leverage, harness, tapestry, ...).
+- No banned AI-speak (delve, leverage, harness, tapestry, ...) used as filler. A listed word that names the subject of the post is not a violation: an article about a harness may say "the Standard harness".
 - Hook, format, length and closing match the assigned variety directives. A bulleted post when PURE PROSE was assigned, or a closing question when HOT TAKE was assigned, is a failure.
 - The product, technology or company the post is about is named in the opening sentences, not left as an abstraction. A post that never names its subject is a failure.
 - Word count of the body is within the range the Validation Criteria state. Count the words; below the minimum is a failure even if the post reads well.

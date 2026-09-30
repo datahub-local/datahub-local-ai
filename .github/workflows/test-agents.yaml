@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/test-agents.yaml"
+      - "agents/n8n/**"
       - "agents/sympozium/**"
       - "pyproject.toml"
   push:
@@ -11,6 +12,7 @@ on:
       - main
     paths:
       - ".github/workflows/test-agents.yaml"
+      - "agents/n8n/**"
       - "agents/sympozium/**"
       - "pyproject.toml"
 
@@ -22,6 +24,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  n8n:
+    name: n8n exports and scripts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install Python with uv
+        run: uv python install 3.13
+
+      - name: Sync dependencies
+        run: uv sync --extra dev
+
+      # Offline: these read the committed workflow exports, so no cluster, no
+      # credential and no network. Nothing else ran agents/n8n/ -- the export
+      # guards existed but no job invoked them, so a broken export shipped.
+      - name: Test n8n exports and scripts
+        run: uv run -- pytest agents/n8n/scripts/ -q
+
   sympozium:
     name: Sympozium ensembles
     runs-on: ubuntu-latest

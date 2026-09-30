@@ -93,7 +93,7 @@
                   "conditions": [
                     {
                       "id": "1f7bef35-3f55-4abe-87a7-c30b8961ae2e",
-                      "leftValue": "={{ $runIndex }}",
+                      "leftValue": "={{ $runIndex + 1 }}",
                       "rightValue": "={{ $('set_workflow_vars').item.json.MAX_TRIES }}",
                       "operator": {
                         "type": "number",
@@ -126,7 +126,7 @@
               {
                 "id": "6a77a0ee-e904-467b-9f9f-e04aa3ddf203",
                 "name": "ERROR",
-                "value": "MAX_RETRIES_EXCEEDED",
+                "value": "={{ \"MAX_RETRIES_EXCEEDED: \" + ($json.explanation || \"no reason returned by the reviewer\").slice(0, 300) }}",
                 "type": "string"
               }
             ]
@@ -262,7 +262,7 @@
           "workflowInputs": {
             "mappingMode": "defineBelow",
             "value": {
-              "template_vars": "={{ {\n\"RULES\": $('set_workflow_vars').item.json.RULES,\n\"EXTRA_PROMPT\": $('main_trigger').item.json.EXTRA_PROMPT,\n\"CONTENT\": $('main_trigger').item.json.CONTENT,\n\"VARIETY_DIRECTIVES\": $('set_variety_directives').item.json.VARIETY_DIRECTIVES,\n\"FEEDBACK\": $('main_trigger').item.json.FEEDBACK || \"\",\n} }}",
+              "template_vars": "={{ {\n\"RULES\": $('set_workflow_vars').first().json.RULES,\n\"EXTRA_PROMPT\": $('main_trigger').first().json.EXTRA_PROMPT,\n\"CONTENT\": $('main_trigger').first().json.CONTENT,\n\"VARIETY_DIRECTIVES\": $('set_variety_directives').first().json.VARIETY_DIRECTIVES,\n\"FEEDBACK\": ($('main_trigger').first().json.FEEDBACK || \"\") + ($json.explanation ? \"\\nInternal review rejected the previous draft with: \" + $json.explanation : \"\"),\n} }}",
               "template_name": "prompts/linkedin_post.md"
             },
             "matchingColumns": [],
@@ -362,7 +362,7 @@
           "workflowInputs": {
             "mappingMode": "defineBelow",
             "value": {
-              "template_vars": "={{ {\n\"RULES\": $('set_workflow_vars').item.json.RULES,\n\"EXTRA_PROMPT\": $('main_trigger').item.json.EXTRA_PROMPT,\n\"URL\": $('main_trigger').item.json.URL,\n\"TEXT\": $json.text,\n\"VARIETY_DIRECTIVES\": $('set_variety_directives').item.json.VARIETY_DIRECTIVES,\n\"FEEDBACK\": $('main_trigger').item.json.FEEDBACK || \"\",\n} }}",
+              "template_vars": "={{ {\n\"RULES\": $('set_workflow_vars').first().json.RULES,\n\"EXTRA_PROMPT\": $('main_trigger').first().json.EXTRA_PROMPT,\n\"URL\": $('main_trigger').first().json.URL,\n\"TEXT\": $json.text,\n\"VARIETY_DIRECTIVES\": $('set_variety_directives').first().json.VARIETY_DIRECTIVES,\n\"FEEDBACK\": $('main_trigger').first().json.FEEDBACK || \"\",\n} }}",
               "template_name": "prompts/linkedin_post_review.md"
             },
             "matchingColumns": [],
@@ -490,7 +490,7 @@
           -912
         ],
         "parameters": {
-          "jsCode": "for (const item of $input.all()) {\n  const { text } = item.json;\n\n  const output = text.includes('<output>') && text.includes('</output>')\n    ? text.split('<output>')[1].split('</output>')[0]\n    : 'false';\n  \n  item.json.output = output;\n}\n\nreturn $input.all();"
+          "jsCode": "for (const item of $input.all()) {\n  const { text } = item.json;\n\n  const output = text.includes('<output>') && text.includes('</output>')\n    ? text.split('<output>')[1].split('</output>')[0]\n    : 'false';\n\n  // The gate's reason for rejecting this draft. download_post_prompt puts it in\n  // the next attempt's Reviewer Feedback block, and set_error_max_tries reports\n  // it, so it is flattened to one line for both the prompt and the sheet cell.\n  const explanation = text.includes('<explanation>') && text.includes('</explanation>')\n    ? text.split('<explanation>')[1].split('</explanation>')[0].replace(/\\s+/g, ' ').trim()\n    : '';\n\n  item.json.output = output;\n  item.json.explanation = explanation;\n}\n\nreturn $input.all();"
         }
       },
       {
@@ -703,7 +703,7 @@
           ],
           [
             {
-              "node": "create_post_ai",
+              "node": "download_post_prompt",
               "type": "main",
               "index": 0
             }
@@ -942,7 +942,7 @@
         ],
         [
           {
-            "node": "create_post_ai",
+            "node": "download_post_prompt",
             "type": "main",
             "index": 0
           }
@@ -1229,7 +1229,7 @@
                 "conditions": [
                   {
                     "id": "1f7bef35-3f55-4abe-87a7-c30b8961ae2e",
-                    "leftValue": "={{ $runIndex }}",
+                    "leftValue": "={{ $runIndex + 1 }}",
                     "rightValue": "={{ $('set_workflow_vars').item.json.MAX_TRIES }}",
                     "operator": {
                       "type": "number",
@@ -1262,7 +1262,7 @@
             {
               "id": "6a77a0ee-e904-467b-9f9f-e04aa3ddf203",
               "name": "ERROR",
-              "value": "MAX_RETRIES_EXCEEDED",
+              "value": "={{ \"MAX_RETRIES_EXCEEDED: \" + ($json.explanation || \"no reason returned by the reviewer\").slice(0, 300) }}",
               "type": "string"
             }
           ]
@@ -1398,7 +1398,7 @@
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "template_vars": "={{ {\n\"RULES\": $('set_workflow_vars').item.json.RULES,\n\"EXTRA_PROMPT\": $('main_trigger').item.json.EXTRA_PROMPT,\n\"CONTENT\": $('main_trigger').item.json.CONTENT,\n\"VARIETY_DIRECTIVES\": $('set_variety_directives').item.json.VARIETY_DIRECTIVES,\n\"FEEDBACK\": $('main_trigger').item.json.FEEDBACK || \"\",\n} }}",
+            "template_vars": "={{ {\n\"RULES\": $('set_workflow_vars').first().json.RULES,\n\"EXTRA_PROMPT\": $('main_trigger').first().json.EXTRA_PROMPT,\n\"CONTENT\": $('main_trigger').first().json.CONTENT,\n\"VARIETY_DIRECTIVES\": $('set_variety_directives').first().json.VARIETY_DIRECTIVES,\n\"FEEDBACK\": ($('main_trigger').first().json.FEEDBACK || \"\") + ($json.explanation ? \"\\nInternal review rejected the previous draft with: \" + $json.explanation : \"\"),\n} }}",
             "template_name": "prompts/linkedin_post.md"
           },
           "matchingColumns": [],
@@ -1498,7 +1498,7 @@
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "template_vars": "={{ {\n\"RULES\": $('set_workflow_vars').item.json.RULES,\n\"EXTRA_PROMPT\": $('main_trigger').item.json.EXTRA_PROMPT,\n\"URL\": $('main_trigger').item.json.URL,\n\"TEXT\": $json.text,\n\"VARIETY_DIRECTIVES\": $('set_variety_directives').item.json.VARIETY_DIRECTIVES,\n\"FEEDBACK\": $('main_trigger').item.json.FEEDBACK || \"\",\n} }}",
+            "template_vars": "={{ {\n\"RULES\": $('set_workflow_vars').first().json.RULES,\n\"EXTRA_PROMPT\": $('main_trigger').first().json.EXTRA_PROMPT,\n\"URL\": $('main_trigger').first().json.URL,\n\"TEXT\": $json.text,\n\"VARIETY_DIRECTIVES\": $('set_variety_directives').first().json.VARIETY_DIRECTIVES,\n\"FEEDBACK\": $('main_trigger').first().json.FEEDBACK || \"\",\n} }}",
             "template_name": "prompts/linkedin_post_review.md"
           },
           "matchingColumns": [],
@@ -1626,7 +1626,7 @@
         -912
       ],
       "parameters": {
-        "jsCode": "for (const item of $input.all()) {\n  const { text } = item.json;\n\n  const output = text.includes('<output>') && text.includes('</output>')\n    ? text.split('<output>')[1].split('</output>')[0]\n    : 'false';\n  \n  item.json.output = output;\n}\n\nreturn $input.all();"
+        "jsCode": "for (const item of $input.all()) {\n  const { text } = item.json;\n\n  const output = text.includes('<output>') && text.includes('</output>')\n    ? text.split('<output>')[1].split('</output>')[0]\n    : 'false';\n\n  // The gate's reason for rejecting this draft. download_post_prompt puts it in\n  // the next attempt's Reviewer Feedback block, and set_error_max_tries reports\n  // it, so it is flattened to one line for both the prompt and the sheet cell.\n  const explanation = text.includes('<explanation>') && text.includes('</explanation>')\n    ? text.split('<explanation>')[1].split('</explanation>')[0].replace(/\\s+/g, ' ').trim()\n    : '';\n\n  item.json.output = output;\n  item.json.explanation = explanation;\n}\n\nreturn $input.all();"
       }
     },
     {

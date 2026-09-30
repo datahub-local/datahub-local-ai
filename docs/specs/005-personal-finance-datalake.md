@@ -299,7 +299,12 @@ implementation owns:
   message plus the account is all there is); an expired or revoked session
   fails as `ACCESS_EXPIRED` naming the account (gate 4, goal 6); a rejected
   JWT or an unwhitelisted `redirect_url` (401 / `REDIRECT_URI_NOT_ALLOWED`)
-  fails naming the credential to fix.
+  fails naming the credential to fix. A bare `ASPSP_ERROR` ("Error interacting
+  with ASPSP") or a 5xx from Enable Banking is **not** a consent verdict: on
+  2026-09-30 both appeared while `GET /sessions/{id}` answered `AUTHORIZED`
+  with `valid_until` in 2027, so it fails as a provider fault whose answer is a
+  retry — then an Enable Banking ticket quoting the response's `x-request-id` —
+  and not a re-link.
 
 *Alternative rejected:* dlt's built-in `rest_api` source. It handles
 pagination and auth declaratively, but the per-account fan-out, the
@@ -388,8 +393,9 @@ twice-yearly surprise:
 - **Liveness probe.** `valid_until` is Enable Banking's *session* expiry, the
   value the request asked for — the API returns it unchanged and says the
   session validity "will remain exactly as specified" regardless of the ASPSP
-  side. It cannot see a bank that drops or errors the consent early, which has
-  now happened five times — 2026-09-24, 09-26, 09-28 and 09-29, all Openbank
+  side. It cannot see a bank that drops or errors the consent early — which has
+  happened since the integration started, measured on 2026-09-24, 09-26, 09-28
+  and 09-29, all Openbank
   (live `GET /aspsps` reports `beta: true` for it; the core `0.14.0` changelog
   said the flag was removed, but the API disagrees, and a beta integration has
   less traffic behind it). Each time the fix was a regenerated token, so the
@@ -419,7 +425,16 @@ twice-yearly surprise:
     transitions-only rule silenced the 2026-09-29 drop forever: the consent was
     already dead on the watch's first tick, so no transition ever existed to
     post. A `429`/`ASPSP_RATE_LIMIT_EXCEEDED` is recorded but never posted — it
-    is not a consent problem.
+    is not a consent problem. States are classified the way the provider
+    classifies them, so the post carries the right advice: `EXPIRED_SESSION`
+    /revoked reports a dead consent and the renewal link, a rejected credential
+    points at the application, and `ASPSP_ERROR`/other 4xx/5xx reports Enable
+    Banking or the bank faulting — **retry**, never a re-link. That distinction
+    was bought on 2026-09-30, when `GET /accounts/{uid}/balances` answered
+    `500 Internal server error` (and earlier `400 ASPSP_ERROR`) while
+    `GET /sessions/{id}` answered `AUTHORIZED` with `valid_until` in 2027: the
+    blanket "renew" advice was sending the operator to a bank login that could
+    not have helped.
 - **The data-fetch budget.** Openbank's background limit is about 4 data fetches
   a day per account, and until 2026-09-29 the fleet spent roughly **8**: the
   6-hourly watch (4), the daily check's balances probe (1), and the ingest's
@@ -429,7 +444,11 @@ twice-yearly surprise:
   watch 2 + ingest 2 (`/details` is skipped once the session-time
   `currency`/`owner_name` are stored; `/transactions` + `/balances` remain) =
   4, and the daily check spends none. Detection window is 12 h, the price of
-  staying inside the limit.
+  staying inside the limit. The ingest window is **not** a lever on that count:
+  Openbank's unattended `/transactions` budget is a measured **1 call/day**
+  (gate 3), so the daily 28-day window already fits a single call — a shorter
+  window would still be one call, and would only drop transactions the bank
+  posts late, which is why the window is 28 days.
   Neither signal is a guarantee: a drop the ASPSP never reports still surfaces
   only when the ingest data call fails, which stays the backstop. The ingest
   preflight still trusts `valid_until` only.

@@ -61,3 +61,12 @@
 - [x] 9.5 Update `docs/specs/005` §4.2.1, `workflows/dlt/README.md`, and this change's design (decisions 7, 8, 10 and risks) and spec delta; record that consent drops have happened since the integration started, at every cadence tried
 - [x] 9.6 Run the `workflows/dlt` finance suite, the export tests and ruff on the changed files
 - [x] 9.7 Dry-run then apply both workflow changes live with `apply_workflow_changes.py --changes` (with approval), re-run to confirm `nothing to change` (applied 2026-09-30 06:45 CEST; live read-back matches the exports: watch 9 nodes / 12-hourly, renewal 40 nodes without `Probe Account Data`; both `active: true`)
+
+## 10. The watch's advice distinguishes a dead consent from an EB fault (n8n)
+
+- [x] 10.1 Record the 2026-09-30 finding: `GET /accounts/{uid}/balances` answered `500 Internal server error` (and at 12:00 `400 ASPSP_ERROR`) while `GET /sessions/{id}` answered `AUTHORIZED` with `valid_until` in 2027 and the renewal at 12:02 had succeeded
+- [x] 10.2 Classify the watch's states as the provider does (`EXPIRED`/`AUTH`/`BANK_FAULT`/`RATE_LIMIT`), post advice per state, attach the renewal link only for `EXPIRED`, and bucket transient faults so `ASPSP_ERROR` ↔ `500` churn posts once
+- [x] 10.3 Extend the export test: a bank fault must not be reported as a reason to re-link
+- [x] 10.4 Update `docs/specs/005` §4.1/§4.2.1, `workflows/dlt/README.md` (runbook step 4) and this change's design decision 11 and spec delta
+- [x] 10.5 Dry-run then apply the watch export live and read it back against the export (applied 2026-09-30 17:0x CEST; live `Watch Transitions` jsCode equals the export, 9 nodes, `active: true`, `triggerCount: 1`; re-run prints `nothing to change`)
+- [x] 10.6 Diagnose the day's pipeline failure as EB-side, not consent: the 13:00 UTC `job-dlt-ingest-finance-*` died with `ProviderError: Enable Banking returned 500 (Internal server error)` on `fetch_transactions`, `/details` already skipped, while `GET /sessions/{id}` answered `AUTHORIZED`; EB ticket to raise with the `x-request-id`s

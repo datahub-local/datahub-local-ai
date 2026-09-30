@@ -148,7 +148,7 @@ The consent watch SHALL probe a live data endpoint — `GET /accounts/{uid}/bala
 
 ### Requirement: A scheduled data fetch renews the token and records consent state
 
-A scheduled check SHALL run every 12 hours and SHALL read a live data endpoint — `GET /accounts/{uid}/balances` — for every stored account, because a data fetch is what causes Enable Banking to renew the ASPSP access token internally, and because the data plane is the only reliable liveness signal. Twelve hours is the cadence because the ASPSP background limit is about 4 data fetches a day per account and the fleet's ingest spends two of them; consent drops have occurred since the integration started at every cadence tried, so the watch buys detection, not prevention. The check SHALL post a Slack notice when an account's observed state differs from the state recorded on the previous run, and also when a non-OK state is observed for an account with no recorded state, so that a consent already dead at the watch's first observation is reported instead of silenced forever. It SHALL persist the last observed state between runs, and it SHALL NOT post for a rate-limit response alone. It SHALL fail loudly when accounts are configured but no session is probeable, rather than report an unchanged state.
+A scheduled check SHALL run every 12 hours and SHALL read a live data endpoint — `GET /accounts/{uid}/balances` — for every stored account, because a data fetch is what causes Enable Banking to renew the ASPSP access token internally, and because the data plane is the only reliable liveness signal. Twelve hours is the cadence because the ASPSP background limit is about 4 data fetches a day per account and the fleet's ingest spends two of them; consent drops have occurred since the integration started at every cadence tried, so the watch buys detection, not prevention. The check SHALL post a Slack notice when an account's observed state differs from the state recorded on the previous run, and also when a non-OK state is observed for an account with no recorded state, so that a consent already dead at the watch's first observation is reported instead of silenced forever. It SHALL persist the last observed state between runs, and it SHALL NOT post for a rate-limit response alone. It SHALL fail loudly when accounts are configured but no session is probeable, rather than report an unchanged state. It SHALL classify the observed state the way the provider classifies the same response, so that only an expired or revoked consent is reported as needing a renewal — with the renewal link — and an `ASPSP_ERROR` or a 5xx is reported as Enable Banking or the bank faulting, to retry.
 
 #### Scenario: Each tick is a data fetch
 
@@ -174,6 +174,16 @@ A scheduled check SHALL run every 12 hours and SHALL read a live data endpoint �
 
 - **WHEN** the data call reports a rate limit rather than an authentication failure
 - **THEN** the watch does not post
+
+#### Scenario: A bank-side fault is reported as a retry, not a re-link
+
+- **WHEN** a data probe fails with an `ASPSP_ERROR` or a 5xx while the session read is `AUTHORIZED`
+- **THEN** the watch reports Enable Banking or the bank as faulting and says to retry, and does not offer the renewal link
+
+#### Scenario: Two flavours of the same fault post once
+
+- **WHEN** a `400 ASPSP_ERROR` becomes a `500` with no successful call in between
+- **THEN** the watch records the change without posting a second notice, because both are the same bank-fault state
 
 #### Scenario: Nothing probeable fails loudly
 

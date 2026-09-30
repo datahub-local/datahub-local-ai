@@ -128,10 +128,15 @@ applied from that repo.
 3. If the failure is a 429 instead, nothing is expired: the account hit its
    per-endpoint daily budget. Re-run after the bank's reset; the fetch never
    retries in a loop.
-4. If it is `ASPSP_ERROR` (or the message now carries a `detail` saying the
-   consent was dropped), the bank invalidated the consent early even though
-   `valid_until` is still in the future — re-link the same account. This applies
-   to the **data** calls: a failure on `/accounts/{uid}/details` alone is logged
+4. If the message carries a `detail` saying the consent was dropped, or a **data**
+   call fails with `EXPIRED_SESSION`, the bank invalidated the consent early
+   even though `valid_until` is still in the future — re-link the same account.
+   A bare `ASPSP_ERROR` ("Error interacting with ASPSP") or a 5xx from Enable
+   Banking is a different thing: on 2026-09-30 both appeared while
+   `GET /sessions/{id}` answered `AUTHORIZED` with `valid_until` in 2027, so
+   re-check the session, retry the run, and open an Enable Banking ticket
+   quoting the response's `x-request-id` before treating the consent as dead.
+   A failure on `/accounts/{uid}/details` alone is logged
    as a warning and the account still ingests from the configured alias/IBAN and
    the one-time fields persisted at authorisation, so a bank that refuses that
    endpoint does not abort the run. Once `currency` and `owner_name` are stored
@@ -164,7 +169,12 @@ watch buys detection rather than prevention: it posts to Slack when an
 account's state changes **and** on the first observation of a non-OK state —
 the 2026-09-29 drop was already dead on the watch's first tick, and a
 transitions-only rule silenced it forever — while an unchanged state and a
-rate limit stay silent.
+rate limit stay silent. The post carries advice per state: `EXPIRED_SESSION`
+/revoked → re-link (the form link is attached); a rejected credential → check
+the application; `ASPSP_ERROR`/other 4xx/5xx → Enable Banking or the bank is
+faulting, retry — because on 2026-09-30 a `500 Internal server error` was read
+as a dead consent while `GET /sessions/{id}` said `AUTHORIZED`, and the fix was
+a retry and an EB ticket, not a bank login.
 
 ## Actual Budget sync (`--pipeline sync`)
 

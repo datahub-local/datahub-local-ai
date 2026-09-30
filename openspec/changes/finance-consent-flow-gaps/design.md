@@ -113,6 +113,23 @@ call leaves the account row's `payload_json` empty; nothing downstream reads it
 *Alternative:* keep the call as a pure override — rejected on 09-29, it is a
 daily data fetch for two values that are already stored.
 
+**11. The watch's advice distinguishes a dead consent from an Enable Banking
+fault.** The watch classifies each probe result the way the provider does:
+`EXPIRED_SESSION`/revoked is the operator's to fix (re-link, form link
+attached), a rejected credential points at the application, and
+`ASPSP_ERROR`/other 4xx/5xx means Enable Banking or the bank is faulting —
+retry. Transient faults share one bucket, so `ASPSP_ERROR` ↔ `500` churn posts
+once rather than on every tick. Reason: on 2026-09-30 the balances call answered
+`500 Internal server error` (and at 12:00 `400 ASPSP_ERROR`) while
+`GET /sessions/{id}` answered `AUTHORIZED` with `valid_until` in 2027 — the
+blanket "renew" advice was sending the operator to a bank login that could not
+have helped, and because the stored state was the raw error name, two flavours
+of the same upstream fault posted as two different states.
+
+*Alternative:* keep one "not OK → renew" message — rejected, it spends a manual
+SCA on an upstream fault, which is precisely the "renew every time we use it"
+loop the operator reported.
+
 ## Risks / Trade-offs
 
 - **Deleting a session still in use** → only delete ids present in the token secret before the overwrite and never the new id; treat deletion as best-effort.

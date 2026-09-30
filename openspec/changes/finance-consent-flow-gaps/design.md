@@ -114,21 +114,27 @@ call leaves the account row's `payload_json` empty; nothing downstream reads it
 daily data fetch for two values that are already stored.
 
 **11. The watch's advice distinguishes a dead consent from an Enable Banking
-fault.** The watch classifies each probe result the way the provider does:
-`EXPIRED_SESSION`/revoked is the operator's to fix (re-link, form link
-attached), a rejected credential points at the application, and
-`ASPSP_ERROR`/other 4xx/5xx means Enable Banking or the bank is faulting —
-retry. Transient faults share one bucket, so `ASPSP_ERROR` ↔ `500` churn posts
-once rather than on every tick. Reason: on 2026-09-30 the balances call answered
-`500 Internal server error` (and at 12:00 `400 ASPSP_ERROR`) while
-`GET /sessions/{id}` answered `AUTHORIZED` with `valid_until` in 2027 — the
-blanket "renew" advice was sending the operator to a bank login that could not
-have helped, and because the stored state was the raw error name, two flavours
-of the same upstream fault posted as two different states.
+fault — and treats a persistent fault as a re-link.** The watch classifies each
+probe result the way the provider does: `EXPIRED_SESSION`/revoked is a dead
+consent (re-link, form link attached), a rejected credential points at the
+application, and `ASPSP_ERROR`/other 4xx/5xx reads "retry, and re-link if it
+persists". Transient faults share one bucket, so `ASPSP_ERROR` ↔ `500` churn
+posts once rather than on every tick. The reason a bank fault still carries the
+renewal link is measured, not defensive: on 2026-09-30 the session created at
+12:02 answered `500` to `balances`, `transactions` **and** `DELETE` for 5 h 40 min
+while `GET /sessions/{id}` answered `AUTHORIZED` with `valid_until` in 2027;
+after a new consent at 17:42 the ingest loaded 111 transactions at 17:44 while
+the old session's `DELETE` still `500`ed. Same client, same minute, two
+sessions — so the fault was session-scoped, `AUTHORIZED` did not mean usable,
+and the re-link was the fix. (First version of this decision said "retry, never
+a re-link", from the 16:35 probe alone; the 17:42–17:44 pair falsified it within
+the hour, which is why the evidence and not the principle is stated here.)
 
-*Alternative:* keep one "not OK → renew" message — rejected, it spends a manual
-SCA on an upstream fault, which is precisely the "renew every time we use it"
-loop the operator reported.
+*Alternative:* keep one "not OK → renew" message — rejected, it cannot express
+"retry once" for the case where Enable Banking really is down, and the 429 case
+must stay silent either way. *Alternative:* treat every bank fault as a dead
+consent — rejected, a genuine EB outage would then cost a manual SCA for
+nothing; the retry-first wording keeps that cost off a transient fault.
 
 ## Risks / Trade-offs
 

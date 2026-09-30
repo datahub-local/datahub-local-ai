@@ -112,9 +112,10 @@ def test_watch_advice_distinguishes_a_dead_consent_from_a_bank_fault():
     data = json.loads(WATCH.read_text())
     code = _node(data["nodes"], "Watch Transitions")["parameters"]["jsCode"]
     assert "BANK_FAULT" in code, "a bank-side fault must be classified as one"
-    assert "this is not a dead consent" in code, (
-        "a 500/ASPSP_ERROR must not be reported as a reason to re-link: on 2026-09-30 a "
-        "500 was read as a dead consent while GET /sessions/{id} said AUTHORIZED"
+    assert "retry, and if it persists re-link" in code, (
+        "a bank fault must say retry-then-re-link: on 2026-09-30 a session answered 500 "
+        "to every data call and to DELETE for 5h40m while GET /sessions/{id} said "
+        "AUTHORIZED, and only a new consent cleared it"
     )
     assert "'EXPIRED'" in code and "re-link" in code, "a dead consent must still say re-link"
 

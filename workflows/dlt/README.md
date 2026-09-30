@@ -132,10 +132,13 @@ applied from that repo.
    call fails with `EXPIRED_SESSION`, the bank invalidated the consent early
    even though `valid_until` is still in the future — re-link the same account.
    A bare `ASPSP_ERROR` ("Error interacting with ASPSP") or a 5xx from Enable
-   Banking is a different thing: on 2026-09-30 both appeared while
-   `GET /sessions/{id}` answered `AUTHORIZED` with `valid_until` in 2027, so
-   re-check the session, retry the run, and open an Enable Banking ticket
-   quoting the response's `x-request-id` before treating the consent as dead.
+   Banking is the same answer more often than not, even though it looks like an
+   upstream fault: on 2026-09-30 a session answered `500` to every data call and
+   to `DELETE` for 5 h 40 min while `GET /sessions/{id}` answered `AUTHORIZED`
+   with `valid_until` in 2027, and a new consent cleared it — the next ingest
+   loaded 111 transactions two minutes later. So retry once, then re-link; keep
+   an Enable Banking ticket in reserve, quoting the response's `x-request-id`,
+   for the case where a fresh consent does not clear it.
    A failure on `/accounts/{uid}/details` alone is logged
    as a warning and the account still ingests from the configured alias/IBAN and
    the one-time fields persisted at authorisation, so a bank that refuses that
@@ -171,10 +174,10 @@ the 2026-09-29 drop was already dead on the watch's first tick, and a
 transitions-only rule silenced it forever — while an unchanged state and a
 rate limit stay silent. The post carries advice per state: `EXPIRED_SESSION`
 /revoked → re-link (the form link is attached); a rejected credential → check
-the application; `ASPSP_ERROR`/other 4xx/5xx → Enable Banking or the bank is
-faulting, retry — because on 2026-09-30 a `500 Internal server error` was read
-as a dead consent while `GET /sessions/{id}` said `AUTHORIZED`, and the fix was
-a retry and an EB ticket, not a bank login.
+the application; `ASPSP_ERROR`/other 4xx/5xx → retry, and re-link if it
+persists — because a session can fail every call while `GET /sessions/{id}`
+reports `AUTHORIZED` (2026-09-30: one session `500`ed on every data call and on
+`DELETE` for 5 h 40 min, and only a new consent cleared it).
 
 ## Actual Budget sync (`--pipeline sync`)
 

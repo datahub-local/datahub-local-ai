@@ -300,11 +300,14 @@ implementation owns:
   fails as `ACCESS_EXPIRED` naming the account (gate 4, goal 6); a rejected
   JWT or an unwhitelisted `redirect_url` (401 / `REDIRECT_URI_NOT_ALLOWED`)
   fails naming the credential to fix. A bare `ASPSP_ERROR` ("Error interacting
-  with ASPSP") or a 5xx from Enable Banking is **not** a consent verdict: on
-  2026-09-30 both appeared while `GET /sessions/{id}` answered `AUTHORIZED`
-  with `valid_until` in 2027, so it fails as a provider fault whose answer is a
-  retry — then an Enable Banking ticket quoting the response's `x-request-id` —
-  and not a re-link.
+  with ASPSP") or a 5xx from Enable Banking is not a consent verdict on its own,
+  but it is not harmless either: on 2026-09-30 a session answered `500` to every
+  data call and to `DELETE` for 5 h 40 min while `GET /sessions/{id}` answered
+  `AUTHORIZED` with `valid_until` in 2027, and only a new consent cleared it (the
+  17:44 ingest then loaded 111 transactions). So it fails as a provider fault,
+  the operator retries, and a fault that survives the retry is answered with a
+  re-link — the renewal form — with an Enable Banking ticket quoting the
+  response's `x-request-id` if a fresh consent does not clear it.
 
 *Alternative rejected:* dlt's built-in `rest_api` source. It handles
 pagination and auth declaratively, but the per-account fan-out, the
@@ -426,15 +429,18 @@ twice-yearly surprise:
     already dead on the watch's first tick, so no transition ever existed to
     post. A `429`/`ASPSP_RATE_LIMIT_EXCEEDED` is recorded but never posted — it
     is not a consent problem. States are classified the way the provider
-    classifies them, so the post carries the right advice: `EXPIRED_SESSION`
-    /revoked reports a dead consent and the renewal link, a rejected credential
-    points at the application, and `ASPSP_ERROR`/other 4xx/5xx reports Enable
-    Banking or the bank faulting — **retry**, never a re-link. That distinction
-    was bought on 2026-09-30, when `GET /accounts/{uid}/balances` answered
-    `500 Internal server error` (and earlier `400 ASPSP_ERROR`) while
-    `GET /sessions/{id}` answered `AUTHORIZED` with `valid_until` in 2027: the
-    blanket "renew" advice was sending the operator to a bank login that could
-    not have helped.
+    classifies them: `EXPIRED_SESSION`/revoked is a dead consent, a rejected
+    credential points at the application, and `ASPSP_ERROR`/other 4xx/5xx is a
+    bank fault that reads **retry, and re-link if it persists**. That last
+    verdict is a caution, not a dismissal: on 2026-09-30 a session created at
+    12:02 answered `500` to `balances`, `transactions` and `DELETE` for 5 h 40 min
+    while `GET /sessions/{id}` answered `AUTHORIZED` with `valid_until` in 2027,
+    and a new consent at 17:42 cleared it — the 17:44 ingest loaded 111
+    transactions while the old session's `DELETE` still `500`ed at 17:42. A
+    session's data path can be dead behind a healthy-looking session read, and a
+    fresh consent is what has fixed it every time here; the retry is only listed
+    first because a genuinely transient Enable Banking fault looks identical from
+    outside.
 - **The data-fetch budget.** Openbank's background limit is about 4 data fetches
   a day per account, and until 2026-09-29 the fleet spent roughly **8**: the
   6-hourly watch (4), the daily check's balances probe (1), and the ingest's

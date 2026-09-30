@@ -60,4 +60,4 @@
 - [x] 9.4 Invert and extend the export tests: the daily check spends zero data-plane calls; the watch is 12-hourly and carries both silence-hole guards
 - [x] 9.5 Update `docs/specs/005` §4.2.1, `workflows/dlt/README.md`, and this change's design (decisions 7, 8, 10 and risks) and spec delta; record that consent drops have happened since the integration started, at every cadence tried
 - [x] 9.6 Run the `workflows/dlt` finance suite, the export tests and ruff on the changed files
-- [ ] 9.7 Dry-run then apply both workflow changes live with `apply_workflow_changes.py --changes` (with approval), re-run to confirm `nothing to change`
+- [x] 9.7 Dry-run then apply both workflow changes live with `apply_workflow_changes.py --changes` (with approval), re-run to confirm `nothing to change` (applied 2026-09-30 06:45 CEST; live read-back matches the exports: watch 9 nodes / 12-hourly, renewal 40 nodes without `Probe Account Data`; both `active: true`)

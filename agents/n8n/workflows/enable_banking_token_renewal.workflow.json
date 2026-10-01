@@ -2826,17 +2826,6 @@
       "role": "workflow:owner",
       "workflowId": "QhmjljMi0SQ1YZzk",
       "projectId": "zcGU09G6dy4Oah3l",
-      "project": {
-        "id": "zcGU09G6dy4Oah3l",
-        "name": "no name <admin@example.com>",
-        "type": "personal",
-        "icon": null,
-        "description": null,
-        "customTelemetryTags": [],
-        "creatorId": "83289481-80d9-4bba-906f-8b49aff6b65d",
-        "createdAt": "2025-05-10T07:47:06.870Z",
-        "updatedAt": "2025-05-10T07:47:20.397Z"
-      },
       "createdAt": "2026-09-14T20:45:44.857Z",
       "updatedAt": "2026-09-14T20:45:44.857Z"
     }

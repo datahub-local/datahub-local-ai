@@ -16,7 +16,7 @@ dependencies = [
   "httpx>=0.27",
   "pyjwt>=2.8",
   "cryptography>=43",
-  "actualpy==0.22.3",
+  "actualpy==0.22.4",
 ]
 
 [project.optional-dependencies]

@@ -53,6 +53,23 @@
       }
     },
     {
+      "id": "diagram_animated_linkedin",
+      "name": "Animated diagram (LinkedIn)",
+      "author": "spec_markup",
+      "specTemplate": "prompts/visual_spec.md",
+      "template": "templates/infographic.html",
+      "render": "animated",
+      "format": "gif",
+      "fallbackFormat": "webp",
+      "aspect": "4:5",
+      "available": true,
+      "budget": {
+        "fps": 8,
+        "frames": 24,
+        "viewport": 1080
+      }
+    },
+    {
       "id": "animated_svg",
       "name": "Animated SVG",
       "author": "spec_markup",

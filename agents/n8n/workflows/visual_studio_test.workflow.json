@@ -1,0 +1,641 @@
+{
+  "active": true,
+  "activeVersion": {
+    "versionId": "a884cc05-f53f-46ed-b6e0-e4ded6fb37cd",
+    "workflowId": "xaiqRD4hIkV8LySj",
+    "nodes": [
+      {
+        "id": "a1000000-0000-4000-8000-000000000001",
+        "name": "manual_trigger",
+        "type": "n8n-nodes-base.manualTrigger",
+        "typeVersion": 1,
+        "position": [
+          -416,
+          0
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000002",
+        "name": "webhook_trigger",
+        "webhookId": "b7d3e1a0-4c62-4a0e-9f1d-2c5b8e6a7d10",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          -416,
+          192
+        ],
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "visual-studio-test",
+          "responseMode": "lastNode",
+          "options": {}
+        }
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000003",
+        "name": "params",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -176,
+          96
+        ],
+        "parameters": {
+          "jsCode": "// Parameters for the studio call. With the manual trigger these defaults are used;\n// a POST to /webhook/visual-studio-test with any of CONTENT / ASSET_TYPES /\n// FEEDBACK / SPEC_JSON overrides them.\nconst body = ($input.first().json || {}).body || {};\n\n// Try others here, e.g. 'hero_static,infographic_static,diagram_animated' or\n// 'animated_svg,motion_clip' (declared but unavailable, to see the unavailable path).\nconst DEFAULT_TYPES = 'diagram_animated';\n\n// A frozen spec keeps a manual run deterministic and makes no authoring model call.\n// Send SPEC_JSON: \"\" over the webhook to let the model author the spec instead.\nconst DEFAULT_SPEC = JSON.stringify({\n  title: 'Homelab data flow',\n  blocks: [\n    { label: 'Ingest', value: 'bronze' },\n    { label: 'Build', value: 'silver + gold' },\n    { label: 'Serve', value: 'Trino' }\n  ],\n  accent: '#22d3ee',\n  motion: { kind: 'rise', durationMs: 3000 },\n  alt: 'Animated diagram of the homelab data flow: ingest, build, serve'\n});\n\nconst asString = (v) => (typeof v === 'string' ? v : JSON.stringify(v));\n\nreturn [{\n  json: {\n    CONTENT: body.CONTENT ?? 'The homelab runs a small data platform across four machines. Ingest lands raw files in bronze, dbt builds the silver and gold tables in Iceberg, and Trino serves the dashboards that sit on top of them.',\n    ASSET_TYPES: body.ASSET_TYPES ?? DEFAULT_TYPES,\n    FEEDBACK: body.FEEDBACK ?? '',\n    SPEC_JSON: body.SPEC_JSON !== undefined ? asString(body.SPEC_JSON) : DEFAULT_SPEC\n  }\n}];"
+        }
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000004",
+        "name": "call_studio",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.3,
+        "position": [
+          64,
+          96
+        ],
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "2pSrRNmYR2jkX1JG",
+            "mode": "list",
+            "cachedResultUrl": "/workflow/2pSrRNmYR2jkX1JG",
+            "cachedResultName": "Visual Studio"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "CONTENT": "={{ $json.CONTENT }}",
+              "ASSET_TYPES": "={{ $json.ASSET_TYPES }}",
+              "FEEDBACK": "={{ $json.FEEDBACK }}",
+              "SPEC_JSON": "={{ $json.SPEC_JSON }}"
+            },
+            "matchingColumns": [],
+            "schema": [
+              {
+                "id": "CONTENT",
+                "displayName": "CONTENT",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "ASSET_TYPES",
+                "displayName": "ASSET_TYPES",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "FEEDBACK",
+                "displayName": "FEEDBACK",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "SPEC_JSON",
+                "displayName": "SPEC_JSON",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true
+          },
+          "options": {
+            "waitForSubWorkflow": true
+          }
+        }
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000005",
+        "name": "unpack_assets",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          304,
+          96
+        ],
+        "parameters": {
+          "jsCode": "// One output item per asset: the summary, the asset itself as binary (preview in the\n// execution view), and what the File Webhook needs to serve it as a download.\nconst r = $input.first().json;\nconst assets = r.ASSETS || [];\nconst ext = (ct) => (ct === 'image/gif' ? 'gif' : ct === 'image/webp' ? 'webp' : ct === 'image/svg+xml' ? 'svg' : 'png');\n\nif (!assets.length) {\n  return [{ json: { RUN_ID: r.RUN_ID, RUN_STATUS: r.STATUS, NOTE: 'the studio returned no assets' } }];\n}\n\nreturn assets.map((a) => {\n  const frames = Number(a.FRAME_COUNT) || 1;\n  const pixels = a.WIDTH && a.HEIGHT ? Number(a.WIDTH) * Number(a.HEIGHT) * frames : 0;\n  const isText = a.CONTENT_TYPE === 'image/svg+xml';\n  const dataUrl = String(a.IMAGE || '');\n  const base64 = dataUrl.startsWith('data:')\n    ? dataUrl.slice(dataUrl.indexOf(',') + 1)\n    : (a.MARKUP ? Buffer.from(String(a.MARKUP), 'utf8').toString('base64') : '');\n\n  const json = {\n    RUN_ID: r.RUN_ID,\n    RUN_STATUS: r.STATUS,\n    ASSET_TYPE: a.ASSET_TYPE,\n    STATUS: a.STATUS,\n    FORMAT: a.FORMAT,\n    CONTENT_TYPE: a.CONTENT_TYPE || '',\n    DURATION_MS: a.DURATION_MS || '',\n    FRAME_COUNT: a.FRAME_COUNT || '',\n    WIDTH: a.WIDTH || '',\n    HEIGHT: a.HEIGHT || '',\n    TOTAL_PIXELS: pixels || '',\n    LINKEDIN_GIF_CAP_OK: a.CONTENT_TYPE === 'image/gif' ? (frames <= 500 && pixels <= 36152320) : undefined,\n    IMAGE_BYTES: a.IMAGE ? Math.floor((String(a.IMAGE).length - String(a.IMAGE).indexOf(',') - 1) * 3 / 4) : 0,\n    ERROR: a.ERROR || '',\n    MARKUP: isText ? a.MARKUP : undefined,\n    FILE_ID: a.ASSET_TYPE + '_' + r.RUN_ID,\n    FILE_EXT: ext(a.CONTENT_TYPE),\n    DATA_BASE64: base64\n  };\n\n  const item = { json };\n  if (dataUrl.startsWith('data:')) {\n    item.binary = {\n      data: {\n        data: Buffer.from(base64, 'base64'),\n        mimeType: a.CONTENT_TYPE,\n        fileName: a.ASSET_TYPE + '.' + ext(a.CONTENT_TYPE),\n        fileExtension: ext(a.CONTENT_TYPE)\n      }\n    };\n  }\n  return item;\n});\n"
+        }
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000006",
+        "name": "save_file",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "position": [
+          520,
+          96
+        ],
+        "parameters": {
+          "dataTableId": {
+            "__rl": true,
+            "value": "8WkLZu3WalqCWK6n",
+            "mode": "list",
+            "cachedResultName": "TemporalFiles",
+            "cachedResultUrl": "/projects/zcGU09G6dy4Oah3l/datatables/8WkLZu3WalqCWK6n"
+          },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "fileId": "={{ $json.FILE_ID }}",
+              "dataBase64": "={{ $json.DATA_BASE64 }}",
+              "contentType": "={{ $json.CONTENT_TYPE }}"
+            },
+            "matchingColumns": [],
+            "schema": [
+              {
+                "id": "fileId",
+                "displayName": "fileId",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "dataBase64",
+                "displayName": "dataBase64",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              },
+              {
+                "id": "contentType",
+                "displayName": "contentType",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "readOnly": false,
+                "removed": false
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": false
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000007",
+        "name": "download_url",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          760,
+          96
+        ],
+        "parameters": {
+          "jsCode": "// Turn each asset into a clickable download URL. The bytes live in the TemporalFiles\n// DataTable and are served by the File Webhook, which deletes rows older than 1 hour.\n// The served shape is /webhook/<webhookId>/<path-with-param>, verified 2026-10-01\n// (a one-segment URL, /webhook/<webhookId>/<fileId>, returns 404).\nconst BASE = 'https://automation-n8n.homelab.alvsanand.com/webhook/76a3521f-8ce6-41e5-9741-a1a0d22736ff/76a3521f-8ce6-41e5-9741-a1a0d22736ff/';\nconst items = $('unpack_assets').all();\n\nreturn items.map((it) => {\n  const json = Object.assign({}, it.json);\n  delete json.DATA_BASE64;\n  json.FILE_NAME = json.ASSET_TYPE + '.' + json.FILE_EXT;\n  json.DOWNLOAD_URL = BASE + encodeURIComponent(json.FILE_ID);\n  json.DOWNLOAD_NOTE = 'link expires about an hour after the run';\n  return { json, binary: it.binary };\n});\n"
+        }
+      },
+      {
+        "id": "a1000000-0000-4000-8000-000000000008",
+        "name": "summary",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1000,
+          96
+        ],
+        "parameters": {
+          "jsCode": "// One item for the HTTP response, so every asset's link arrives together: responseMode\n// lastNode answers with the first item only, which hid all but the first asset.\nconst items = $('download_url').all();\nconst first = items[0].json;\nreturn [{\n  json: {\n    RUN_ID: first.RUN_ID,\n    RUN_STATUS: first.RUN_STATUS,\n    ASSET_COUNT: items.length,\n    ASSETS: items.map((i) => i.json)\n  }\n}];\n"
+        }
+      }
+    ],
+    "connections": {
+      "manual_trigger": {
+        "main": [
+          [
+            {
+              "node": "params",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "webhook_trigger": {
+        "main": [
+          [
+            {
+              "node": "params",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "params": {
+        "main": [
+          [
+            {
+              "node": "call_studio",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "call_studio": {
+        "main": [
+          [
+            {
+              "node": "unpack_assets",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "unpack_assets": {
+        "main": [
+          [
+            {
+              "node": "save_file",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "save_file": {
+        "main": [
+          [
+            {
+              "node": "download_url",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "download_url": {
+        "main": [
+          [
+            {
+              "node": "summary",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "nodeGroups": [],
+    "authors": "no name",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "createdAt": "2026-10-01T18:52:12.147Z",
+    "updatedAt": "2026-10-01T18:52:12.147Z"
+  },
+  "activeVersionId": "a884cc05-f53f-46ed-b6e0-e4ded6fb37cd",
+  "connections": {
+    "manual_trigger": {
+      "main": [
+        [
+          {
+            "node": "params",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "webhook_trigger": {
+      "main": [
+        [
+          {
+            "node": "params",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "params": {
+      "main": [
+        [
+          {
+            "node": "call_studio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "call_studio": {
+      "main": [
+        [
+          {
+            "node": "unpack_assets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "unpack_assets": {
+      "main": [
+        [
+          {
+            "node": "save_file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "save_file": {
+      "main": [
+        [
+          {
+            "node": "download_url",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "download_url": {
+      "main": [
+        [
+          {
+            "node": "summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2026-10-01T18:26:35.120Z",
+  "id": "xaiqRD4hIkV8LySj",
+  "isArchived": false,
+  "meta": null,
+  "name": "Visual Studio Test",
+  "nodeGroups": [],
+  "nodes": [
+    {
+      "id": "a1000000-0000-4000-8000-000000000001",
+      "name": "manual_trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -416,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "a1000000-0000-4000-8000-000000000002",
+      "name": "webhook_trigger",
+      "webhookId": "b7d3e1a0-4c62-4a0e-9f1d-2c5b8e6a7d10",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -416,
+        192
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "visual-studio-test",
+        "responseMode": "lastNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "a1000000-0000-4000-8000-000000000003",
+      "name": "params",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -176,
+        96
+      ],
+      "parameters": {
+        "jsCode": "// Parameters for the studio call. With the manual trigger these defaults are used;\n// a POST to /webhook/visual-studio-test with any of CONTENT / ASSET_TYPES /\n// FEEDBACK / SPEC_JSON overrides them.\nconst body = ($input.first().json || {}).body || {};\n\n// Try others here, e.g. 'hero_static,infographic_static,diagram_animated' or\n// 'animated_svg,motion_clip' (declared but unavailable, to see the unavailable path).\nconst DEFAULT_TYPES = 'diagram_animated';\n\n// A frozen spec keeps a manual run deterministic and makes no authoring model call.\n// Send SPEC_JSON: \"\" over the webhook to let the model author the spec instead.\nconst DEFAULT_SPEC = JSON.stringify({\n  title: 'Homelab data flow',\n  blocks: [\n    { label: 'Ingest', value: 'bronze' },\n    { label: 'Build', value: 'silver + gold' },\n    { label: 'Serve', value: 'Trino' }\n  ],\n  accent: '#22d3ee',\n  motion: { kind: 'rise', durationMs: 3000 },\n  alt: 'Animated diagram of the homelab data flow: ingest, build, serve'\n});\n\nconst asString = (v) => (typeof v === 'string' ? v : JSON.stringify(v));\n\nreturn [{\n  json: {\n    CONTENT: body.CONTENT ?? 'The homelab runs a small data platform across four machines. Ingest lands raw files in bronze, dbt builds the silver and gold tables in Iceberg, and Trino serves the dashboards that sit on top of them.',\n    ASSET_TYPES: body.ASSET_TYPES ?? DEFAULT_TYPES,\n    FEEDBACK: body.FEEDBACK ?? '',\n    SPEC_JSON: body.SPEC_JSON !== undefined ? asString(body.SPEC_JSON) : DEFAULT_SPEC\n  }\n}];"
+      }
+    },
+    {
+      "id": "a1000000-0000-4000-8000-000000000004",
+      "name": "call_studio",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        64,
+        96
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "2pSrRNmYR2jkX1JG",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/2pSrRNmYR2jkX1JG",
+          "cachedResultName": "Visual Studio"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "CONTENT": "={{ $json.CONTENT }}",
+            "ASSET_TYPES": "={{ $json.ASSET_TYPES }}",
+            "FEEDBACK": "={{ $json.FEEDBACK }}",
+            "SPEC_JSON": "={{ $json.SPEC_JSON }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "CONTENT",
+              "displayName": "CONTENT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "ASSET_TYPES",
+              "displayName": "ASSET_TYPES",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "FEEDBACK",
+              "displayName": "FEEDBACK",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "SPEC_JSON",
+              "displayName": "SPEC_JSON",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "a1000000-0000-4000-8000-000000000005",
+      "name": "unpack_assets",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        304,
+        96
+      ],
+      "parameters": {
+        "jsCode": "// One output item per asset: the summary, the asset itself as binary (preview in the\n// execution view), and what the File Webhook needs to serve it as a download.\nconst r = $input.first().json;\nconst assets = r.ASSETS || [];\nconst ext = (ct) => (ct === 'image/gif' ? 'gif' : ct === 'image/webp' ? 'webp' : ct === 'image/svg+xml' ? 'svg' : 'png');\n\nif (!assets.length) {\n  return [{ json: { RUN_ID: r.RUN_ID, RUN_STATUS: r.STATUS, NOTE: 'the studio returned no assets' } }];\n}\n\nreturn assets.map((a) => {\n  const frames = Number(a.FRAME_COUNT) || 1;\n  const pixels = a.WIDTH && a.HEIGHT ? Number(a.WIDTH) * Number(a.HEIGHT) * frames : 0;\n  const isText = a.CONTENT_TYPE === 'image/svg+xml';\n  const dataUrl = String(a.IMAGE || '');\n  const base64 = dataUrl.startsWith('data:')\n    ? dataUrl.slice(dataUrl.indexOf(',') + 1)\n    : (a.MARKUP ? Buffer.from(String(a.MARKUP), 'utf8').toString('base64') : '');\n\n  const json = {\n    RUN_ID: r.RUN_ID,\n    RUN_STATUS: r.STATUS,\n    ASSET_TYPE: a.ASSET_TYPE,\n    STATUS: a.STATUS,\n    FORMAT: a.FORMAT,\n    CONTENT_TYPE: a.CONTENT_TYPE || '',\n    DURATION_MS: a.DURATION_MS || '',\n    FRAME_COUNT: a.FRAME_COUNT || '',\n    WIDTH: a.WIDTH || '',\n    HEIGHT: a.HEIGHT || '',\n    TOTAL_PIXELS: pixels || '',\n    LINKEDIN_GIF_CAP_OK: a.CONTENT_TYPE === 'image/gif' ? (frames <= 500 && pixels <= 36152320) : undefined,\n    IMAGE_BYTES: a.IMAGE ? Math.floor((String(a.IMAGE).length - String(a.IMAGE).indexOf(',') - 1) * 3 / 4) : 0,\n    ERROR: a.ERROR || '',\n    MARKUP: isText ? a.MARKUP : undefined,\n    FILE_ID: a.ASSET_TYPE + '_' + r.RUN_ID,\n    FILE_EXT: ext(a.CONTENT_TYPE),\n    DATA_BASE64: base64\n  };\n\n  const item = { json };\n  if (dataUrl.startsWith('data:')) {\n    item.binary = {\n      data: {\n        data: Buffer.from(base64, 'base64'),\n        mimeType: a.CONTENT_TYPE,\n        fileName: a.ASSET_TYPE + '.' + ext(a.CONTENT_TYPE),\n        fileExtension: ext(a.CONTENT_TYPE)\n      }\n    };\n  }\n  return item;\n});\n"
+      }
+    },
+    {
+      "id": "a1000000-0000-4000-8000-000000000006",
+      "name": "save_file",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        520,
+        96
+      ],
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "value": "8WkLZu3WalqCWK6n",
+          "mode": "list",
+          "cachedResultName": "TemporalFiles",
+          "cachedResultUrl": "/projects/zcGU09G6dy4Oah3l/datatables/8WkLZu3WalqCWK6n"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "fileId": "={{ $json.FILE_ID }}",
+            "dataBase64": "={{ $json.DATA_BASE64 }}",
+            "contentType": "={{ $json.CONTENT_TYPE }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "fileId",
+              "displayName": "fileId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "dataBase64",
+              "displayName": "dataBase64",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "contentType",
+              "displayName": "contentType",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "a1000000-0000-4000-8000-000000000007",
+      "name": "download_url",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        760,
+        96
+      ],
+      "parameters": {
+        "jsCode": "// Turn each asset into a clickable download URL. The bytes live in the TemporalFiles\n// DataTable and are served by the File Webhook, which deletes rows older than 1 hour.\n// The served shape is /webhook/<webhookId>/<path-with-param>, verified 2026-10-01\n// (a one-segment URL, /webhook/<webhookId>/<fileId>, returns 404).\nconst BASE = 'https://automation-n8n.homelab.alvsanand.com/webhook/76a3521f-8ce6-41e5-9741-a1a0d22736ff/76a3521f-8ce6-41e5-9741-a1a0d22736ff/';\nconst items = $('unpack_assets').all();\n\nreturn items.map((it) => {\n  const json = Object.assign({}, it.json);\n  delete json.DATA_BASE64;\n  json.FILE_NAME = json.ASSET_TYPE + '.' + json.FILE_EXT;\n  json.DOWNLOAD_URL = BASE + encodeURIComponent(json.FILE_ID);\n  json.DOWNLOAD_NOTE = 'link expires about an hour after the run';\n  return { json, binary: it.binary };\n});\n"
+      }
+    },
+    {
+      "id": "a1000000-0000-4000-8000-000000000008",
+      "name": "summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        96
+      ],
+      "parameters": {
+        "jsCode": "// One item for the HTTP response, so every asset's link arrives together: responseMode\n// lastNode answers with the first item only, which hid all but the first asset.\nconst items = $('download_url').all();\nconst first = items[0].json;\nreturn [{\n  json: {\n    RUN_ID: first.RUN_ID,\n    RUN_STATUS: first.RUN_STATUS,\n    ASSET_COUNT: items.length,\n    ASSETS: items.map((i) => i.json)\n  }\n}];\n"
+      }
+    }
+  ],
+  "pinData": {},
+  "settings": {
+    "errorWorkflow": "fejq5nN6LP3F820w",
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "shared": [
+    {
+      "role": "workflow:owner",
+      "workflowId": "xaiqRD4hIkV8LySj",
+      "projectId": "zcGU09G6dy4Oah3l",
+      "createdAt": "2026-10-01T18:26:35.120Z",
+      "updatedAt": "2026-10-01T18:26:35.120Z"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2026-10-01T18:52:12.127Z",
+  "versionId": "a884cc05-f53f-46ed-b6e0-e4ded6fb37cd"
+}

@@ -397,8 +397,8 @@ twice-yearly surprise:
   value the request asked for — the API returns it unchanged and says the
   session validity "will remain exactly as specified" regardless of the ASPSP
   side. It cannot see a bank that drops or errors the consent early — which has
-  happened since the integration started, measured on 2026-09-24, 09-26, 09-28
-  and 09-29, all Openbank
+  happened since the integration started, measured on 2026-09-24, 09-26, 09-28,
+  09-29, 09-30 and 10-01, all Openbank
   (live `GET /aspsps` reports `beta: true` for it; the core `0.14.0` changelog
   said the flag was removed, but the API disagrees, and a beta integration has
   less traffic behind it). Each time the fix was a regenerated token, so the
@@ -440,7 +440,12 @@ twice-yearly surprise:
     session's data path can be dead behind a healthy-looking session read, and a
     fresh consent is what has fixed it every time here; the retry is only listed
     first because a genuinely transient Enable Banking fault looks identical from
-    outside.
+    outside. The same signature recurred the next day: the 09-30 17:42 session
+    (`794d3f48-…`, `valid_until` 2027-03-29), which had loaded those 111
+    transactions, answered `400 ASPSP_ERROR` to the watch's 2026-10-01 00:00
+    balances probe (x-request-id `f78103f8-…`) and `500 Internal server error` to
+    a hand-run balances probe at 04:33 (x-request-id `87a678b9-…`) while
+    `GET /sessions/{id}` answered `AUTHORIZED` at 04:30.
 - **The data-fetch budget.** Openbank's background limit is about 4 data fetches
   a day per account, and until 2026-09-29 the fleet spent roughly **8**: the
   6-hourly watch (4), the daily check's balances probe (1), and the ingest's

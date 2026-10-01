@@ -1,7 +1,7 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "499b74ff-ec8b-4cce-bbe3-0033dff25f35",
+    "versionId": "53aa3576-2e35-4895-a619-b90c8f817b49",
     "workflowId": "2pSrRNmYR2jkX1JG",
     "nodes": [
       {
@@ -11,7 +11,7 @@
         "typeVersion": 1.1,
         "position": [
           0,
-          -32
+          96
         ],
         "parameters": {
           "workflowInputs": {
@@ -40,7 +40,7 @@
         "typeVersion": 2,
         "position": [
           0,
-          -224
+          -96
         ],
         "parameters": {
           "httpMethod": "POST",
@@ -57,7 +57,7 @@
         "typeVersion": 2.2,
         "position": [
           0,
-          160
+          288
         ],
         "parameters": {
           "formTitle": "Visual Studio",
@@ -92,7 +92,7 @@
         "typeVersion": 2,
         "position": [
           224,
-          -32
+          96
         ],
         "parameters": {
           "jsCode": "const raw = $input.first().json || {};\nconst src = Object.assign({}, raw.body || {}, raw.query || {}, raw);\nconst v = (k) => { const x = src[k]; return x == null ? '' : String(x).trim(); };\nconst content = v('CONTENT');\nif (!content) throw new Error('CONTENT is required');\nreturn [{ json: {\n  RUN_ID: String($execution.id),\n  CONTENT: content,\n  ASSET_TYPES: v('ASSET_TYPES'),\n  FEEDBACK: v('FEEDBACK'),\n  SPEC_JSON: v('SPEC_JSON'),\n} }];"
@@ -105,7 +105,7 @@
         "typeVersion": 1.2,
         "position": [
           448,
-          -32
+          96
         ],
         "parameters": {
           "workflowId": {
@@ -155,7 +155,7 @@
         "typeVersion": 2,
         "position": [
           672,
-          -32
+          96
         ],
         "parameters": {
           "jsCode": "const cfg = JSON.parse($('download_registry').first().json.output || '{}');\nconst req = $('normalize_input').first().json;\nconst types = Array.isArray(cfg.types) ? cfg.types : [];\nconst byId = new Map(types.map((t) => [t.id, t]));\nconst budget = cfg.budget || {};\nconst cap = Number(cfg.max_types_per_request || 3);\nlet requested = req.ASSET_TYPES\n  ? req.ASSET_TYPES.split(',').map((s) => s.trim()).filter(Boolean)\n  : (cfg.default_types || []);\nrequested = [...new Set(requested)];\nconst out = [];\nconst note = (id, status, error) => out.push({ json: Object.assign({}, req, {\n  ASSET_TYPE: id, NAME: id, AUTHOR: null, TEMPLATE: null, SPEC_TEMPLATE: null,\n  RENDER_MODE: '', FORMAT: '', FALLBACK_FORMAT: null, ASPECT: '', AVAILABLE: false,\n  UNAVAILABLE_REASON: '', FPS: 0, FRAMES: 0, VIEWPORT: 0, STATUS, ERROR: error }) });\nfor (const id of requested.slice(0, cap)) {\n  const t = byId.get(id);\n  if (!t) { note(id, 'UNKNOWN', 'unknown asset type: ' + id); continue; }\n  const b = Object.assign({}, budget, t.budget || {});\n  out.push({ json: Object.assign({}, req, {\n    ASSET_TYPE: t.id, NAME: t.name || t.id, AUTHOR: t.author, TEMPLATE: t.template || null,\n    SPEC_TEMPLATE: t.specTemplate || null, RENDER_MODE: t.render, FORMAT: t.format,\n    FALLBACK_FORMAT: t.fallbackFormat || null, ASPECT: t.aspect || '4:5',\n    AVAILABLE: t.available !== false, UNAVAILABLE_REASON: t.unavailableReason || '',\n    FPS: Number(b.fps || 12), FRAMES: Number(b.frames || 36), VIEWPORT: Number(b.viewport || 1200),\n  }) });\n}\nfor (const id of requested.slice(cap)) note(id, 'SKIPPED', 'over the per-request cap of ' + cap);\nreturn out;"
@@ -168,7 +168,7 @@
         "typeVersion": 2,
         "position": [
           896,
-          -32
+          96
         ],
         "parameters": {
           "jsCode": "const req = $('normalize_input').first().json;\nconst wants = $('parse_registry').all().map((i) => i.json).filter((a) => a.SPEC_TEMPLATE);\nconst first = wants.length ? wants[0] : null;\nreturn [{ json: Object.assign({}, req, {\n  ASSET_TYPE: first ? first.ASSET_TYPE : '',\n  NEEDS_SPEC: !!first,\n}) }];"
@@ -181,7 +181,7 @@
         "typeVersion": 2.2,
         "position": [
           1120,
-          -32
+          96
         ],
         "parameters": {
           "conditions": {
@@ -215,7 +215,7 @@
         "typeVersion": 2,
         "position": [
           1920,
-          -128
+          0
         ],
         "parameters": {
           "jsCode": "\nconst raw = ($input.first().json.SPEC_JSON || '').trim();\nif (!raw) return [{ json: { SPEC: null, SPEC_JSON: '' } }];\nlet spec;\ntry { spec = JSON.parse(raw); } catch (e) { throw new Error('SPEC_JSON parameter is invalid JSON: ' + e.message); }\n\nconst fail = (msg) => { throw new Error('content spec invalid: ' + msg); };\nif (typeof spec.title !== 'string' || !spec.title.trim()) fail('missing field: title');\nif (!Array.isArray(spec.blocks) || spec.blocks.length < 3 || spec.blocks.length > 6)\n  fail('blocks must be an array of 3 to 6 entries');\nspec.blocks.forEach((b, i) => {\n  if (!b || typeof b.label !== 'string' || !b.label.trim()) fail('missing field: blocks[' + i + '].label');\n  if (b.value == null || String(b.value).trim() === '') fail('missing field: blocks[' + i + '].value');\n});\nif (typeof spec.accent !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(spec.accent))\n  fail('missing field: accent');\nif (!spec.motion || typeof spec.motion !== 'object') fail('missing field: motion');\nif (!['rise', 'fade', 'sweep', 'pulse'].includes(spec.motion.kind)) fail('missing field: motion.kind');\nconst d = Number(spec.motion.durationMs);\nif (!Number.isFinite(d) || d < 2000 || d > 4000) fail('missing field: motion.durationMs');\nif (typeof spec.alt !== 'string' || !spec.alt.trim()) fail('missing field: alt');\nreturn [{ json: { SPEC: spec, SPEC_JSON: JSON.stringify(spec) } }];"
@@ -228,7 +228,7 @@
         "typeVersion": 1.2,
         "position": [
           1344,
-          64
+          192
         ],
         "parameters": {
           "workflowId": {
@@ -278,7 +278,7 @@
         "typeVersion": 1.6,
         "position": [
           1568,
-          64
+          192
         ],
         "parameters": {
           "promptType": "define",
@@ -292,8 +292,8 @@
         "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
         "typeVersion": 1.3,
         "position": [
-          3496,
-          72
+          4168,
+          8
         ],
         "parameters": {
           "model": {
@@ -319,8 +319,8 @@
         "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
         "typeVersion": 1.3,
         "position": [
-          3624,
-          72
+          4296,
+          8
         ],
         "parameters": {
           "model": {
@@ -347,7 +347,7 @@
         "typeVersion": 2,
         "position": [
           1920,
-          64
+          192
         ],
         "parameters": {
           "jsCode": "\nconst raw0 = $('author_spec').first().json.text || '';\nlet raw = raw0.trim().replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```$/, '');\nconst m = raw.match(/\\{[\\s\\S]*\\}/);\nif (!m) throw new Error('content spec is not JSON');\nlet spec;\ntry { spec = JSON.parse(m[0]); } catch (e) { throw new Error('content spec is invalid JSON: ' + e.message); }\n\nconst fail = (msg) => { throw new Error('content spec invalid: ' + msg); };\nif (typeof spec.title !== 'string' || !spec.title.trim()) fail('missing field: title');\nif (!Array.isArray(spec.blocks) || spec.blocks.length < 3 || spec.blocks.length > 6)\n  fail('blocks must be an array of 3 to 6 entries');\nspec.blocks.forEach((b, i) => {\n  if (!b || typeof b.label !== 'string' || !b.label.trim()) fail('missing field: blocks[' + i + '].label');\n  if (b.value == null || String(b.value).trim() === '') fail('missing field: blocks[' + i + '].value');\n});\nif (typeof spec.accent !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(spec.accent))\n  fail('missing field: accent');\nif (!spec.motion || typeof spec.motion !== 'object') fail('missing field: motion');\nif (!['rise', 'fade', 'sweep', 'pulse'].includes(spec.motion.kind)) fail('missing field: motion.kind');\nconst d = Number(spec.motion.durationMs);\nif (!Number.isFinite(d) || d < 2000 || d > 4000) fail('missing field: motion.durationMs');\nif (typeof spec.alt !== 'string' || !spec.alt.trim()) fail('missing field: alt');\nreturn [{ json: { SPEC: spec, SPEC_JSON: JSON.stringify(spec) } }];"
@@ -360,7 +360,7 @@
         "typeVersion": 2,
         "position": [
           2144,
-          -32
+          96
         ],
         "parameters": {
           "jsCode": "const j = $input.first().json;\nreturn [{ json: { SPEC: j.SPEC, SPEC_JSON: j.SPEC_JSON } }];"
@@ -373,7 +373,7 @@
         "typeVersion": 1.2,
         "position": [
           2368,
-          -32
+          96
         ],
         "parameters": {
           "workflowId": {
@@ -423,7 +423,7 @@
         "typeVersion": 1.2,
         "position": [
           2592,
-          -32
+          96
         ],
         "parameters": {
           "workflowId": {
@@ -473,7 +473,7 @@
         "typeVersion": 2,
         "position": [
           2816,
-          -32
+          96
         ],
         "parameters": {
           "jsCode": "const esc = (s) => String(s).replace(/&/g, \"&amp;\").replace(/</g, \"&lt;\").replace(/>/g, \"&gt;\");\nconst escAttr = (s) => esc(s).replace(/\"/g, \"&quot;\");\nfunction buildMarkup(tmpl, spec, fps, frames, viewport, isSvg) {\n  const accent = /^#[0-9a-fA-F]{6}$/.test(spec.accent || \"\") ? spec.accent : \"#22d3ee\";\n  const kind = [\"rise\", \"fade\", \"sweep\", \"pulse\"].includes(spec.motion && spec.motion.kind)\n    ? spec.motion.kind : \"rise\";\n  const duration = Math.max(1000, Math.min(4000, (spec.motion && spec.motion.durationMs) || 3000));\n  const blocks = (spec.blocks || []).slice(0, 6);\n  const step = Math.floor(duration / (blocks.length + 1));\n  let out;\n  if (isSvg) {\n    const top = 360, row = 150;\n    const svgBlocks = blocks.map((b, i) => {\n      const delay = i * step, d = Math.max(200, duration - delay), y = top + i * row;\n      return `<g class=\"block\" style=\"animation-delay:${delay}ms;animation-duration:${d}ms\">` +\n        `<text class=\"label\" x=\"64\" y=\"${y}\">${esc(b.label)}</text>` +\n        `<text class=\"value\" x=\"1136\" y=\"${y}\" text-anchor=\"end\">${esc(b.value)}</text>` +\n        `<line class=\"sep\" x1=\"64\" y1=\"${y + 28}\" x2=\"1136\" y2=\"${y + 28}\" /></g>`;\n    }).join(\"\\n  \");\n    out = tmpl.split(\"%%TITLE%%\").join(esc(spec.title || \"\"))\n      .split(\"%%BLOCKS%%\").join(svgBlocks).split(\"%%ACCENT%%\").join(accent)\n      .split(\"%%MOTION_ANIM%%\").join(kind).split(\"%%DURATION_MS%%\").join(String(duration))\n      .split(\"%%FPS%%\").join(String(fps)).split(\"%%FRAMES%%\").join(String(frames))\n      .split(\"%%VIEWPORT%%\").join(String(viewport)).split(\"%%ALT%%\").join(escAttr(spec.alt || \"\"));\n  } else {\n    const htmlBlocks = blocks.map((b, i) => {\n      const delay = i * step, d = Math.max(200, duration - delay);\n      return `<div class=\"block\" style=\"animation-delay:${delay}ms;animation-duration:${d}ms\">` +\n        `<span class=\"label\">${esc(b.label)}</span><span class=\"value\">${esc(b.value)}</span></div>`;\n    }).join(\"\\n      \");\n    out = tmpl.split(\"%%TITLE%%\").join(esc(spec.title || \"\"))\n      .split(\"%%BLOCKS%%\").join(htmlBlocks).split(\"%%ACCENT%%\").join(accent)\n      .split(\"%%MOTION_ANIM%%\").join(kind).split(\"%%DURATION_MS%%\").join(String(duration))\n      .split(\"%%FPS%%\").join(String(fps)).split(\"%%FRAMES%%\").join(String(frames))\n      .split(\"%%VIEWPORT%%\").join(String(viewport));\n  }\n  const left = out.match(/%%[A-Z_]+%%/g);\n  if (left) throw new Error(\"unresolved template token(s): \" + left.join(\", \"));\n  return out;\n}\nconst spec = $('spec_ready').first().json.SPEC;\nconst specJson = $('spec_ready').first().json.SPEC_JSON;\nconst specDuration = Math.max(1000, Math.min(4000, (spec.motion && spec.motion.durationMs) || 3000));\nconst htmlT = $('download_html_template').first().json.output;\nconst svgT = $('download_svg_template').first().json.output;\nconst asset = (a, status) => ({\n  ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: status, SPEC_JSON: specJson, PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: '', FRAME_COUNT: '', WIDTH: '', HEIGHT: '',\n});\nconst out = [];\nfor (const item of $('parse_registry').all()) {\n  const a = item.json;\n  if (a.STATUS === 'UNKNOWN' || a.STATUS === 'SKIPPED') {\n    out.push({ json: asset(a, a.STATUS) });\n    out[out.length - 1].json.ERROR = a.ERROR || '';\n    continue;\n  }\n  if (a.AVAILABLE === false) {\n    const r = asset(a, 'UNAVAILABLE');\n    r.ERROR = a.UNAVAILABLE_REASON || ('unavailable: ' + a.ASSET_TYPE);\n    out.push({ json: r });\n    continue;\n  }\n  const r = asset(a, 'AUTHORED');\n  let markup = '', markupKind = '';\n  if (a.AUTHOR === 'spec_markup') {\n    if (a.RENDER_MODE === 'animated') { markup = buildMarkup(htmlT, spec, a.FPS, a.FRAMES, a.VIEWPORT, false); markupKind = 'text/html'; }\n    else if (a.RENDER_MODE === 'text') { markup = buildMarkup(svgT, spec, a.FPS, a.FRAMES, a.VIEWPORT, true); markupKind = 'image/svg+xml'; }\n  }\n  r.MARKUP = markup;\n  r.CONTENT_TYPE = markupKind;\n  if (a.RENDER_MODE === 'animated') {\n    const fpsCap = Math.max(1, Math.min(12, Number(a.FPS) || 12));\n    const frameCap = Math.max(1, Math.min(36, Number(a.FRAMES) || 36));\n    r.VIEWPORT = String(Math.max(1, Math.min(1200, Number(a.VIEWPORT) || 1200)));\n    r.DURATION_MS = String(specDuration);\n    r.FRAME_COUNT = String(Math.max(1, Math.min(frameCap, Math.floor(specDuration * fpsCap / 1000))));\n  }\n  out.push({ json: Object.assign({}, a, r) });\n}\nreturn out;"
@@ -486,7 +486,7 @@
         "typeVersion": 2.2,
         "position": [
           3040,
-          -32
+          96
         ],
         "parameters": {
           "conditions": {
@@ -519,8 +519,8 @@
         "type": "n8n-nodes-base.executeWorkflow",
         "typeVersion": 1.2,
         "position": [
-          3264,
-          -160
+          3936,
+          -224
         ],
         "parameters": {
           "workflowId": {
@@ -570,8 +570,8 @@
         "type": "@n8n/n8n-nodes-langchain.chainLlm",
         "typeVersion": 1.6,
         "position": [
-          3488,
-          -160
+          4160,
+          -224
         ],
         "parameters": {
           "promptType": "define",
@@ -585,8 +585,8 @@
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
         "position": [
-          3840,
-          -160
+          4512,
+          -224
         ],
         "parameters": {
           "method": "POST",
@@ -611,8 +611,8 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          4064,
-          -160
+          4736,
+          -224
         ],
         "parameters": {
           "jsCode": "const src = $('if_raster').all();\nconst dir = $('raster_director').all();\nreturn $input.all().map((it, i) => {\n  const a = src[i].json;\n  const resp = it.json || {};\n  const d0 = (resp.data && resp.data[0]) || {};\n  const b64 = d0.b64_json || '';\n  const media = d0.media_type || 'image/png';\n  const out = Object.assign({}, a, {\n    STATUS: b64 ? 'RENDERED' : 'ERROR',\n    PROMPT: (dir[i] && dir[i].json.text) || '',\n    IMAGE: b64 ? ('data:' + media + ';base64,' + b64) : '',\n    CONTENT_TYPE: b64 ? media : '',\n  });\n  if (!b64) out.ERROR = 'image model returned no image';\n  return { json: out };\n});"
@@ -624,8 +624,8 @@
         "type": "n8n-nodes-base.noOp",
         "typeVersion": 1,
         "position": [
-          4064,
-          96
+          4736,
+          32
         ],
         "parameters": {}
       },
@@ -635,13 +635,11 @@
         "type": "n8n-nodes-base.merge",
         "typeVersion": 3,
         "position": [
-          4288,
-          -32
+          4960,
+          112
         ],
         "parameters": {
-          "mode": "append",
-          "numberInputs": 3,
-          "options": {}
+          "numberInputs": 3
         }
       },
       {
@@ -650,8 +648,8 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          4512,
-          -32
+          5408,
+          128
         ],
         "parameters": {
           "jsCode": "const items = $('merge_branches').all().map((i) => i.json);\nconst req = $('normalize_input').first().json;\nconst errors = items.filter((i) => i.ERROR).map((i) => i.ASSET_TYPE + ': ' + i.ERROR);\nconst payload = items.map((i) => Object.assign({}, i, {\n  SPEC: undefined, MARKUP: i.CONTENT_TYPE === 'image/svg+xml' ? i.MARKUP : undefined,\n}));\nreturn [{ json: {\n  RUN_ID: req.RUN_ID,\n  STATUS: errors.length === 0 ? 'COMPLETE' : (items.some((i) => !i.ERROR) ? 'PARTIAL' : 'FAILED'),\n  REQUEST: JSON.stringify({ ASSET_TYPES: req.ASSET_TYPES, FEEDBACK: req.FEEDBACK,\n                            SPEC_GIVEN: !!req.SPEC_JSON, CONTENT_LENGTH: req.CONTENT.length }),\n  RESULT: JSON.stringify(payload),\n  ASSET_COUNT: String(items.length),\n  ERROR: errors.join(' | ').slice(0, 2000),\n} }];"
@@ -663,8 +661,8 @@
         "type": "n8n-nodes-base.dataTable",
         "typeVersion": 1.1,
         "position": [
-          4736,
-          -32
+          5632,
+          128
         ],
         "parameters": {
           "dataTableId": {
@@ -685,8 +683,8 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          4960,
-          -32
+          5856,
+          128
         ],
         "parameters": {
           "jsCode": "const items = $('merge_branches').all().map((i) => i.json);\nconst req = $('normalize_input').first().json;\nreturn [{ json: {\n  RUN_ID: req.RUN_ID,\n  STATUS: items.some((i) => i.ERROR) ? (items.every((i) => i.ERROR) ? 'FAILED' : 'PARTIAL') : 'COMPLETE',\n  ASSETS: items,\n} }];"
@@ -698,8 +696,8 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          4180,
-          300
+          4736,
+          224
         ],
         "parameters": {
           "jsCode": "const a = $('capture_frames').first().json;\nconst out = $input.first().json || {};\nconst base = {\n  ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: '', SPEC_JSON: a.SPEC_JSON || '', PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: a.DURATION_MS || '', FRAME_COUNT: a.FRAME_COUNT || '',\n  WIDTH: a.WIDTH || '', HEIGHT: a.HEIGHT || '', MARKUP: '', IMAGE: '',\n};\nconst img = String(out.stdout || '').trim();\nif (out.error || !/^data:image\\/[a-z+.-]+;base64,/.test(img)) {\n  const reason = String(out.error || out.stderr || 'animation assembly failed').slice(0, 500);\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: reason }) }];\n}\nreturn [{ json: Object.assign({}, base, {\n  STATUS: 'RENDERED', IMAGE: img, CONTENT_TYPE: img.slice(5, img.indexOf(';')),\n}) }];"
@@ -712,11 +710,10 @@
         "typeVersion": 1,
         "onError": "continueRegularOutput",
         "position": [
-          3960,
-          300
+          4512,
+          224
         ],
         "parameters": {
-          "executeOnce": true,
           "command": "={{ $json.CMD }}"
         }
       },
@@ -726,11 +723,11 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          3740,
-          300
+          4224,
+          224
         ],
         "parameters": {
-          "jsCode": "const a = $('capture_frames').first().json;\nconst frames = Math.max(1, Math.min(36, Number(a.FRAME_COUNT) || 36));\nconst duration = Math.max(1000, Math.min(4000, Number(a.DURATION_MS) || 3000));\nconst run = String(a.RUN_ID);\nconst asset = String(a.ASSET_TYPE);\nif (!/^[A-Za-z0-9_-]+$/.test(run)) throw new Error('unsafe RUN_ID');\nif (!/^[a-z0-9_]+$/.test(asset)) throw new Error('unsafe ASSET_TYPE');\nconst dir = '/home/node/.n8n-files/' + run + '/' + asset;\nconst img2webp = '/usr/local/lib/node_modules/webp-converter/bin/libwebp_linux/bin/img2webp';\nconst base = Math.floor(duration / frames);\nconst rem = duration - base * frames;\nconst args = [];\nfor (let i = 0; i < frames; i++) {\n  const n = String(i).padStart(3, '0');\n  const d = base + (i >= frames - rem ? 1 : 0);\n  args.push('-d', String(d), 'f_' + n + '.jpg');\n}\nconst gifDelay = Math.max(1, Math.round(duration / frames / 10));\nconst cmd = [\n  'set -e',\n  \"cd '\" + dir + \"'\",\n  \"if [ -x '\" + img2webp + \"' ] && '\" + img2webp + \"' -loop 0 \" + args.join(' ') + \" -o out.webp >/dev/null 2>&1; then F=out.webp; MIME=image/webp; else gm convert -delay \" + gifDelay + \" -loop 0 f_*.jpg out.gif || exit 1; F=out.gif; MIME=image/gif; fi\",\n  \"printf 'data:%s;base64,' \\\"$MIME\\\"\",\n  'base64 -w0 \"$F\"',\n  \"rm -rf '\" + dir + \"'\",\n  \"rmdir '/home/node/.n8n-files/\" + run + \"' 2>/dev/null || true\",\n].join('\\n');\nreturn [{ json: { CMD: cmd, RUN_ID: run, ASSET_TYPE: asset } }];"
+          "jsCode": "const a = $('capture_frames').first().json;\nconst frames = Math.max(1, Math.min(36, Number(a.FRAME_COUNT) || 36));\nconst duration = Math.max(1000, Math.min(4000, Number(a.DURATION_MS) || 3000));\nconst run = String(a.RUN_ID);\nconst asset = String(a.ASSET_TYPE);\nif (!/^[A-Za-z0-9_-]+$/.test(run)) throw new Error('unsafe RUN_ID');\nif (!/^[a-z0-9_]+$/.test(asset)) throw new Error('unsafe ASSET_TYPE');\nconst dir = '/home/node/.n8n-files/' + run + '/' + asset;\nconst img2webp = '/usr/local/lib/node_modules/webp-converter/bin/libwebp_linux/bin/img2webp';\nconst name = (i) => 'f_' + String(i).padStart(3, '0') + '.jpg';\n// Both encoders get the whole duration: WebP in milliseconds, GIF in centiseconds,\n// spreading the remainder over the last frames so the total is exact rather than\n// rounded per frame (3000 ms over 24 frames is 12x12cs + 12x13cs, not 24x13cs).\nconst webpArgs = [];\nconst wBase = Math.floor(duration / frames);\nconst wRem = duration - wBase * frames;\nconst gifArgs = [];\nconst totalCs = Math.max(frames, Math.round(duration / 10));\nconst gBase = Math.floor(totalCs / frames);\nconst gRem = totalCs - gBase * frames;\nfor (let i = 0; i < frames; i++) {\n  webpArgs.push('-d', String(wBase + (i >= frames - wRem ? 1 : 0)), name(i));\n  gifArgs.push('-delay', String(gBase + (i >= frames - gRem ? 1 : 0)), name(i));\n}\n// The type's declared format picks the encoder and the other one is the fallback, so a\n// gif type is assembled as GIF rather than falling back to it. A missing FORMAT keeps\n// the original webp-then-gif order.\nconst webpCmd = \"'\" + img2webp + \"' -loop 0 \" + webpArgs.join(' ') + \" -o out.webp\";\nconst gifCmd = 'gm convert ' + gifArgs.join(' ') + ' out.gif';\nconst encoders = {\n  gif: { want: gifCmd, F: 'out.gif', MIME: 'image/gif', other: webpCmd, oF: 'out.webp', oMIME: 'image/webp' },\n  webp: { want: webpCmd, F: 'out.webp', MIME: 'image/webp', other: gifCmd, oF: 'out.gif', oMIME: 'image/gif' },\n};\nconst pick = encoders[String(a.FORMAT || '').toLowerCase()] || encoders.webp;\nconst encoderCmd = [\n  'if ' + pick.want + ' >/dev/null 2>&1; then F=' + pick.F + '; MIME=' + pick.MIME + ';',\n  'elif ' + pick.other + ' >/dev/null 2>&1; then F=' + pick.oF + '; MIME=' + pick.oMIME + ';',\n  'else exit 1; fi',\n].join(' ');\nconst cmd = [\n  'set -e',\n  \"cd '\" + dir + \"'\",\n  encoderCmd,\n  \"printf 'data:%s;base64,' \\\"$MIME\\\"\",\n  'base64 -w0 \"$F\"',\n  \"rm -rf '\" + dir + \"'\",\n  \"rmdir '/home/node/.n8n-files/\" + run + \"' 2>/dev/null || true\",\n].join('\\n');\nreturn [{ json: { CMD: cmd, RUN_ID: run, ASSET_TYPE: asset } }];"
         }
       },
       {
@@ -739,8 +736,8 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          3740,
-          520
+          4736,
+          416
         ],
         "parameters": {
           "jsCode": "const a = $('if_animated').first().json;\nconst err = $input.first().json || {};\nconst reason = err.CAPTURE_ERROR || err.error || 'frame capture failed';\nreturn [{ json: Object.assign({}, a, {\n  STATUS: 'ERROR',\n  ERROR: String(reason).slice(0, 500),\n  MARKUP: '', IMAGE: '', CONTENT_TYPE: '',\n  DURATION_MS: '', FRAME_COUNT: '', WIDTH: '', HEIGHT: '',\n}) }];"
@@ -753,8 +750,8 @@
         "typeVersion": 1,
         "onError": "continueRegularOutput",
         "position": [
-          3300,
-          400
+          3712,
+          320
         ],
         "parameters": {
           "operation": "runCustomScript",
@@ -772,11 +769,10 @@
         "typeVersion": 1,
         "onError": "continueRegularOutput",
         "position": [
-          3960,
-          0
+          5184,
+          128
         ],
         "parameters": {
-          "executeOnce": true,
           "command": "={{ String($json.RUN_ID).replace(/[^A-Za-z0-9_-]/g,'') ? 'rm -rf /home/node/.n8n-files/' + String($json.RUN_ID).replace(/[^A-Za-z0-9_-]/g,'') : 'true' }}"
         }
       },
@@ -786,8 +782,8 @@
         "type": "n8n-nodes-base.if",
         "typeVersion": 2.2,
         "position": [
-          2860,
-          400
+          3264,
+          224
         ],
         "parameters": {
           "conditions": {
@@ -820,8 +816,8 @@
         "type": "n8n-nodes-base.if",
         "typeVersion": 2.2,
         "position": [
-          3520,
-          400
+          3936,
+          320
         ],
         "parameters": {
           "conditions": {
@@ -855,11 +851,10 @@
         "typeVersion": 1,
         "onError": "continueRegularOutput",
         "position": [
-          3080,
-          400
+          3488,
+          320
         ],
         "parameters": {
-          "executeOnce": true,
           "command": "=mkdir -p /home/node/.n8n-files/{{ $json.RUN_ID }}/{{ $json.ASSET_TYPE }}"
         }
       }
@@ -1309,10 +1304,10 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-09-28T20:09:55.981Z",
-    "updatedAt": "2026-09-28T20:09:55.981Z"
+    "createdAt": "2026-10-01T19:19:34.623Z",
+    "updatedAt": "2026-10-01T19:19:34.623Z"
   },
-  "activeVersionId": "499b74ff-ec8b-4cce-bbe3-0033dff25f35",
+  "activeVersionId": "53aa3576-2e35-4895-a619-b90c8f817b49",
   "connections": {
     "main_trigger": {
       "main": [
@@ -1767,7 +1762,7 @@
       "typeVersion": 1.1,
       "position": [
         0,
-        -32
+        96
       ],
       "parameters": {
         "workflowInputs": {
@@ -1796,7 +1791,7 @@
       "typeVersion": 2,
       "position": [
         0,
-        -224
+        -96
       ],
       "parameters": {
         "httpMethod": "POST",
@@ -1813,7 +1808,7 @@
       "typeVersion": 2.2,
       "position": [
         0,
-        160
+        288
       ],
       "parameters": {
         "formTitle": "Visual Studio",
@@ -1848,7 +1843,7 @@
       "typeVersion": 2,
       "position": [
         224,
-        -32
+        96
       ],
       "parameters": {
         "jsCode": "const raw = $input.first().json || {};\nconst src = Object.assign({}, raw.body || {}, raw.query || {}, raw);\nconst v = (k) => { const x = src[k]; return x == null ? '' : String(x).trim(); };\nconst content = v('CONTENT');\nif (!content) throw new Error('CONTENT is required');\nreturn [{ json: {\n  RUN_ID: String($execution.id),\n  CONTENT: content,\n  ASSET_TYPES: v('ASSET_TYPES'),\n  FEEDBACK: v('FEEDBACK'),\n  SPEC_JSON: v('SPEC_JSON'),\n} }];"
@@ -1861,7 +1856,7 @@
       "typeVersion": 1.2,
       "position": [
         448,
-        -32
+        96
       ],
       "parameters": {
         "workflowId": {
@@ -1911,7 +1906,7 @@
       "typeVersion": 2,
       "position": [
         672,
-        -32
+        96
       ],
       "parameters": {
         "jsCode": "const cfg = JSON.parse($('download_registry').first().json.output || '{}');\nconst req = $('normalize_input').first().json;\nconst types = Array.isArray(cfg.types) ? cfg.types : [];\nconst byId = new Map(types.map((t) => [t.id, t]));\nconst budget = cfg.budget || {};\nconst cap = Number(cfg.max_types_per_request || 3);\nlet requested = req.ASSET_TYPES\n  ? req.ASSET_TYPES.split(',').map((s) => s.trim()).filter(Boolean)\n  : (cfg.default_types || []);\nrequested = [...new Set(requested)];\nconst out = [];\nconst note = (id, status, error) => out.push({ json: Object.assign({}, req, {\n  ASSET_TYPE: id, NAME: id, AUTHOR: null, TEMPLATE: null, SPEC_TEMPLATE: null,\n  RENDER_MODE: '', FORMAT: '', FALLBACK_FORMAT: null, ASPECT: '', AVAILABLE: false,\n  UNAVAILABLE_REASON: '', FPS: 0, FRAMES: 0, VIEWPORT: 0, STATUS, ERROR: error }) });\nfor (const id of requested.slice(0, cap)) {\n  const t = byId.get(id);\n  if (!t) { note(id, 'UNKNOWN', 'unknown asset type: ' + id); continue; }\n  const b = Object.assign({}, budget, t.budget || {});\n  out.push({ json: Object.assign({}, req, {\n    ASSET_TYPE: t.id, NAME: t.name || t.id, AUTHOR: t.author, TEMPLATE: t.template || null,\n    SPEC_TEMPLATE: t.specTemplate || null, RENDER_MODE: t.render, FORMAT: t.format,\n    FALLBACK_FORMAT: t.fallbackFormat || null, ASPECT: t.aspect || '4:5',\n    AVAILABLE: t.available !== false, UNAVAILABLE_REASON: t.unavailableReason || '',\n    FPS: Number(b.fps || 12), FRAMES: Number(b.frames || 36), VIEWPORT: Number(b.viewport || 1200),\n  }) });\n}\nfor (const id of requested.slice(cap)) note(id, 'SKIPPED', 'over the per-request cap of ' + cap);\nreturn out;"
@@ -1924,7 +1919,7 @@
       "typeVersion": 2,
       "position": [
         896,
-        -32
+        96
       ],
       "parameters": {
         "jsCode": "const req = $('normalize_input').first().json;\nconst wants = $('parse_registry').all().map((i) => i.json).filter((a) => a.SPEC_TEMPLATE);\nconst first = wants.length ? wants[0] : null;\nreturn [{ json: Object.assign({}, req, {\n  ASSET_TYPE: first ? first.ASSET_TYPE : '',\n  NEEDS_SPEC: !!first,\n}) }];"
@@ -1937,7 +1932,7 @@
       "typeVersion": 2.2,
       "position": [
         1120,
-        -32
+        96
       ],
       "parameters": {
         "conditions": {
@@ -1971,7 +1966,7 @@
       "typeVersion": 2,
       "position": [
         1920,
-        -128
+        0
       ],
       "parameters": {
         "jsCode": "\nconst raw = ($input.first().json.SPEC_JSON || '').trim();\nif (!raw) return [{ json: { SPEC: null, SPEC_JSON: '' } }];\nlet spec;\ntry { spec = JSON.parse(raw); } catch (e) { throw new Error('SPEC_JSON parameter is invalid JSON: ' + e.message); }\n\nconst fail = (msg) => { throw new Error('content spec invalid: ' + msg); };\nif (typeof spec.title !== 'string' || !spec.title.trim()) fail('missing field: title');\nif (!Array.isArray(spec.blocks) || spec.blocks.length < 3 || spec.blocks.length > 6)\n  fail('blocks must be an array of 3 to 6 entries');\nspec.blocks.forEach((b, i) => {\n  if (!b || typeof b.label !== 'string' || !b.label.trim()) fail('missing field: blocks[' + i + '].label');\n  if (b.value == null || String(b.value).trim() === '') fail('missing field: blocks[' + i + '].value');\n});\nif (typeof spec.accent !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(spec.accent))\n  fail('missing field: accent');\nif (!spec.motion || typeof spec.motion !== 'object') fail('missing field: motion');\nif (!['rise', 'fade', 'sweep', 'pulse'].includes(spec.motion.kind)) fail('missing field: motion.kind');\nconst d = Number(spec.motion.durationMs);\nif (!Number.isFinite(d) || d < 2000 || d > 4000) fail('missing field: motion.durationMs');\nif (typeof spec.alt !== 'string' || !spec.alt.trim()) fail('missing field: alt');\nreturn [{ json: { SPEC: spec, SPEC_JSON: JSON.stringify(spec) } }];"
@@ -1984,7 +1979,7 @@
       "typeVersion": 1.2,
       "position": [
         1344,
-        64
+        192
       ],
       "parameters": {
         "workflowId": {
@@ -2034,7 +2029,7 @@
       "typeVersion": 1.6,
       "position": [
         1568,
-        64
+        192
       ],
       "parameters": {
         "promptType": "define",
@@ -2048,8 +2043,8 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.3,
       "position": [
-        3496,
-        72
+        4168,
+        8
       ],
       "parameters": {
         "model": {
@@ -2075,8 +2070,8 @@
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.3,
       "position": [
-        3624,
-        72
+        4296,
+        8
       ],
       "parameters": {
         "model": {
@@ -2103,7 +2098,7 @@
       "typeVersion": 2,
       "position": [
         1920,
-        64
+        192
       ],
       "parameters": {
         "jsCode": "\nconst raw0 = $('author_spec').first().json.text || '';\nlet raw = raw0.trim().replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```$/, '');\nconst m = raw.match(/\\{[\\s\\S]*\\}/);\nif (!m) throw new Error('content spec is not JSON');\nlet spec;\ntry { spec = JSON.parse(m[0]); } catch (e) { throw new Error('content spec is invalid JSON: ' + e.message); }\n\nconst fail = (msg) => { throw new Error('content spec invalid: ' + msg); };\nif (typeof spec.title !== 'string' || !spec.title.trim()) fail('missing field: title');\nif (!Array.isArray(spec.blocks) || spec.blocks.length < 3 || spec.blocks.length > 6)\n  fail('blocks must be an array of 3 to 6 entries');\nspec.blocks.forEach((b, i) => {\n  if (!b || typeof b.label !== 'string' || !b.label.trim()) fail('missing field: blocks[' + i + '].label');\n  if (b.value == null || String(b.value).trim() === '') fail('missing field: blocks[' + i + '].value');\n});\nif (typeof spec.accent !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(spec.accent))\n  fail('missing field: accent');\nif (!spec.motion || typeof spec.motion !== 'object') fail('missing field: motion');\nif (!['rise', 'fade', 'sweep', 'pulse'].includes(spec.motion.kind)) fail('missing field: motion.kind');\nconst d = Number(spec.motion.durationMs);\nif (!Number.isFinite(d) || d < 2000 || d > 4000) fail('missing field: motion.durationMs');\nif (typeof spec.alt !== 'string' || !spec.alt.trim()) fail('missing field: alt');\nreturn [{ json: { SPEC: spec, SPEC_JSON: JSON.stringify(spec) } }];"
@@ -2116,7 +2111,7 @@
       "typeVersion": 2,
       "position": [
         2144,
-        -32
+        96
       ],
       "parameters": {
         "jsCode": "const j = $input.first().json;\nreturn [{ json: { SPEC: j.SPEC, SPEC_JSON: j.SPEC_JSON } }];"
@@ -2129,7 +2124,7 @@
       "typeVersion": 1.2,
       "position": [
         2368,
-        -32
+        96
       ],
       "parameters": {
         "workflowId": {
@@ -2179,7 +2174,7 @@
       "typeVersion": 1.2,
       "position": [
         2592,
-        -32
+        96
       ],
       "parameters": {
         "workflowId": {
@@ -2229,7 +2224,7 @@
       "typeVersion": 2,
       "position": [
         2816,
-        -32
+        96
       ],
       "parameters": {
         "jsCode": "const esc = (s) => String(s).replace(/&/g, \"&amp;\").replace(/</g, \"&lt;\").replace(/>/g, \"&gt;\");\nconst escAttr = (s) => esc(s).replace(/\"/g, \"&quot;\");\nfunction buildMarkup(tmpl, spec, fps, frames, viewport, isSvg) {\n  const accent = /^#[0-9a-fA-F]{6}$/.test(spec.accent || \"\") ? spec.accent : \"#22d3ee\";\n  const kind = [\"rise\", \"fade\", \"sweep\", \"pulse\"].includes(spec.motion && spec.motion.kind)\n    ? spec.motion.kind : \"rise\";\n  const duration = Math.max(1000, Math.min(4000, (spec.motion && spec.motion.durationMs) || 3000));\n  const blocks = (spec.blocks || []).slice(0, 6);\n  const step = Math.floor(duration / (blocks.length + 1));\n  let out;\n  if (isSvg) {\n    const top = 360, row = 150;\n    const svgBlocks = blocks.map((b, i) => {\n      const delay = i * step, d = Math.max(200, duration - delay), y = top + i * row;\n      return `<g class=\"block\" style=\"animation-delay:${delay}ms;animation-duration:${d}ms\">` +\n        `<text class=\"label\" x=\"64\" y=\"${y}\">${esc(b.label)}</text>` +\n        `<text class=\"value\" x=\"1136\" y=\"${y}\" text-anchor=\"end\">${esc(b.value)}</text>` +\n        `<line class=\"sep\" x1=\"64\" y1=\"${y + 28}\" x2=\"1136\" y2=\"${y + 28}\" /></g>`;\n    }).join(\"\\n  \");\n    out = tmpl.split(\"%%TITLE%%\").join(esc(spec.title || \"\"))\n      .split(\"%%BLOCKS%%\").join(svgBlocks).split(\"%%ACCENT%%\").join(accent)\n      .split(\"%%MOTION_ANIM%%\").join(kind).split(\"%%DURATION_MS%%\").join(String(duration))\n      .split(\"%%FPS%%\").join(String(fps)).split(\"%%FRAMES%%\").join(String(frames))\n      .split(\"%%VIEWPORT%%\").join(String(viewport)).split(\"%%ALT%%\").join(escAttr(spec.alt || \"\"));\n  } else {\n    const htmlBlocks = blocks.map((b, i) => {\n      const delay = i * step, d = Math.max(200, duration - delay);\n      return `<div class=\"block\" style=\"animation-delay:${delay}ms;animation-duration:${d}ms\">` +\n        `<span class=\"label\">${esc(b.label)}</span><span class=\"value\">${esc(b.value)}</span></div>`;\n    }).join(\"\\n      \");\n    out = tmpl.split(\"%%TITLE%%\").join(esc(spec.title || \"\"))\n      .split(\"%%BLOCKS%%\").join(htmlBlocks).split(\"%%ACCENT%%\").join(accent)\n      .split(\"%%MOTION_ANIM%%\").join(kind).split(\"%%DURATION_MS%%\").join(String(duration))\n      .split(\"%%FPS%%\").join(String(fps)).split(\"%%FRAMES%%\").join(String(frames))\n      .split(\"%%VIEWPORT%%\").join(String(viewport));\n  }\n  const left = out.match(/%%[A-Z_]+%%/g);\n  if (left) throw new Error(\"unresolved template token(s): \" + left.join(\", \"));\n  return out;\n}\nconst spec = $('spec_ready').first().json.SPEC;\nconst specJson = $('spec_ready').first().json.SPEC_JSON;\nconst specDuration = Math.max(1000, Math.min(4000, (spec.motion && spec.motion.durationMs) || 3000));\nconst htmlT = $('download_html_template').first().json.output;\nconst svgT = $('download_svg_template').first().json.output;\nconst asset = (a, status) => ({\n  ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: status, SPEC_JSON: specJson, PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: '', FRAME_COUNT: '', WIDTH: '', HEIGHT: '',\n});\nconst out = [];\nfor (const item of $('parse_registry').all()) {\n  const a = item.json;\n  if (a.STATUS === 'UNKNOWN' || a.STATUS === 'SKIPPED') {\n    out.push({ json: asset(a, a.STATUS) });\n    out[out.length - 1].json.ERROR = a.ERROR || '';\n    continue;\n  }\n  if (a.AVAILABLE === false) {\n    const r = asset(a, 'UNAVAILABLE');\n    r.ERROR = a.UNAVAILABLE_REASON || ('unavailable: ' + a.ASSET_TYPE);\n    out.push({ json: r });\n    continue;\n  }\n  const r = asset(a, 'AUTHORED');\n  let markup = '', markupKind = '';\n  if (a.AUTHOR === 'spec_markup') {\n    if (a.RENDER_MODE === 'animated') { markup = buildMarkup(htmlT, spec, a.FPS, a.FRAMES, a.VIEWPORT, false); markupKind = 'text/html'; }\n    else if (a.RENDER_MODE === 'text') { markup = buildMarkup(svgT, spec, a.FPS, a.FRAMES, a.VIEWPORT, true); markupKind = 'image/svg+xml'; }\n  }\n  r.MARKUP = markup;\n  r.CONTENT_TYPE = markupKind;\n  if (a.RENDER_MODE === 'animated') {\n    const fpsCap = Math.max(1, Math.min(12, Number(a.FPS) || 12));\n    const frameCap = Math.max(1, Math.min(36, Number(a.FRAMES) || 36));\n    r.VIEWPORT = String(Math.max(1, Math.min(1200, Number(a.VIEWPORT) || 1200)));\n    r.DURATION_MS = String(specDuration);\n    r.FRAME_COUNT = String(Math.max(1, Math.min(frameCap, Math.floor(specDuration * fpsCap / 1000))));\n  }\n  out.push({ json: Object.assign({}, a, r) });\n}\nreturn out;"
@@ -2242,7 +2237,7 @@
       "typeVersion": 2.2,
       "position": [
         3040,
-        -32
+        96
       ],
       "parameters": {
         "conditions": {
@@ -2275,8 +2270,8 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        3264,
-        -160
+        3936,
+        -224
       ],
       "parameters": {
         "workflowId": {
@@ -2326,8 +2321,8 @@
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "typeVersion": 1.6,
       "position": [
-        3488,
-        -160
+        4160,
+        -224
       ],
       "parameters": {
         "promptType": "define",
@@ -2341,8 +2336,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        3840,
-        -160
+        4512,
+        -224
       ],
       "parameters": {
         "method": "POST",
@@ -2367,8 +2362,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4064,
-        -160
+        4736,
+        -224
       ],
       "parameters": {
         "jsCode": "const src = $('if_raster').all();\nconst dir = $('raster_director').all();\nreturn $input.all().map((it, i) => {\n  const a = src[i].json;\n  const resp = it.json || {};\n  const d0 = (resp.data && resp.data[0]) || {};\n  const b64 = d0.b64_json || '';\n  const media = d0.media_type || 'image/png';\n  const out = Object.assign({}, a, {\n    STATUS: b64 ? 'RENDERED' : 'ERROR',\n    PROMPT: (dir[i] && dir[i].json.text) || '',\n    IMAGE: b64 ? ('data:' + media + ';base64,' + b64) : '',\n    CONTENT_TYPE: b64 ? media : '',\n  });\n  if (!b64) out.ERROR = 'image model returned no image';\n  return { json: out };\n});"
@@ -2380,8 +2375,8 @@
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
       "position": [
-        4064,
-        96
+        4736,
+        32
       ],
       "parameters": {}
     },
@@ -2391,13 +2386,11 @@
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
       "position": [
-        4288,
-        -32
+        4960,
+        112
       ],
       "parameters": {
-        "mode": "append",
-        "numberInputs": 3,
-        "options": {}
+        "numberInputs": 3
       }
     },
     {
@@ -2406,8 +2399,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4512,
-        -32
+        5408,
+        128
       ],
       "parameters": {
         "jsCode": "const items = $('merge_branches').all().map((i) => i.json);\nconst req = $('normalize_input').first().json;\nconst errors = items.filter((i) => i.ERROR).map((i) => i.ASSET_TYPE + ': ' + i.ERROR);\nconst payload = items.map((i) => Object.assign({}, i, {\n  SPEC: undefined, MARKUP: i.CONTENT_TYPE === 'image/svg+xml' ? i.MARKUP : undefined,\n}));\nreturn [{ json: {\n  RUN_ID: req.RUN_ID,\n  STATUS: errors.length === 0 ? 'COMPLETE' : (items.some((i) => !i.ERROR) ? 'PARTIAL' : 'FAILED'),\n  REQUEST: JSON.stringify({ ASSET_TYPES: req.ASSET_TYPES, FEEDBACK: req.FEEDBACK,\n                            SPEC_GIVEN: !!req.SPEC_JSON, CONTENT_LENGTH: req.CONTENT.length }),\n  RESULT: JSON.stringify(payload),\n  ASSET_COUNT: String(items.length),\n  ERROR: errors.join(' | ').slice(0, 2000),\n} }];"
@@ -2419,8 +2412,8 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
       "position": [
-        4736,
-        -32
+        5632,
+        128
       ],
       "parameters": {
         "dataTableId": {
@@ -2441,8 +2434,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4960,
-        -32
+        5856,
+        128
       ],
       "parameters": {
         "jsCode": "const items = $('merge_branches').all().map((i) => i.json);\nconst req = $('normalize_input').first().json;\nreturn [{ json: {\n  RUN_ID: req.RUN_ID,\n  STATUS: items.some((i) => i.ERROR) ? (items.every((i) => i.ERROR) ? 'FAILED' : 'PARTIAL') : 'COMPLETE',\n  ASSETS: items,\n} }];"
@@ -2454,8 +2447,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4180,
-        300
+        4736,
+        224
       ],
       "parameters": {
         "jsCode": "const a = $('capture_frames').first().json;\nconst out = $input.first().json || {};\nconst base = {\n  ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: '', SPEC_JSON: a.SPEC_JSON || '', PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: a.DURATION_MS || '', FRAME_COUNT: a.FRAME_COUNT || '',\n  WIDTH: a.WIDTH || '', HEIGHT: a.HEIGHT || '', MARKUP: '', IMAGE: '',\n};\nconst img = String(out.stdout || '').trim();\nif (out.error || !/^data:image\\/[a-z+.-]+;base64,/.test(img)) {\n  const reason = String(out.error || out.stderr || 'animation assembly failed').slice(0, 500);\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: reason }) }];\n}\nreturn [{ json: Object.assign({}, base, {\n  STATUS: 'RENDERED', IMAGE: img, CONTENT_TYPE: img.slice(5, img.indexOf(';')),\n}) }];"
@@ -2468,11 +2461,10 @@
       "typeVersion": 1,
       "onError": "continueRegularOutput",
       "position": [
-        3960,
-        300
+        4512,
+        224
       ],
       "parameters": {
-        "executeOnce": true,
         "command": "={{ $json.CMD }}"
       }
     },
@@ -2482,11 +2474,11 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3740,
-        300
+        4224,
+        224
       ],
       "parameters": {
-        "jsCode": "const a = $('capture_frames').first().json;\nconst frames = Math.max(1, Math.min(36, Number(a.FRAME_COUNT) || 36));\nconst duration = Math.max(1000, Math.min(4000, Number(a.DURATION_MS) || 3000));\nconst run = String(a.RUN_ID);\nconst asset = String(a.ASSET_TYPE);\nif (!/^[A-Za-z0-9_-]+$/.test(run)) throw new Error('unsafe RUN_ID');\nif (!/^[a-z0-9_]+$/.test(asset)) throw new Error('unsafe ASSET_TYPE');\nconst dir = '/home/node/.n8n-files/' + run + '/' + asset;\nconst img2webp = '/usr/local/lib/node_modules/webp-converter/bin/libwebp_linux/bin/img2webp';\nconst base = Math.floor(duration / frames);\nconst rem = duration - base * frames;\nconst args = [];\nfor (let i = 0; i < frames; i++) {\n  const n = String(i).padStart(3, '0');\n  const d = base + (i >= frames - rem ? 1 : 0);\n  args.push('-d', String(d), 'f_' + n + '.jpg');\n}\nconst gifDelay = Math.max(1, Math.round(duration / frames / 10));\nconst cmd = [\n  'set -e',\n  \"cd '\" + dir + \"'\",\n  \"if [ -x '\" + img2webp + \"' ] && '\" + img2webp + \"' -loop 0 \" + args.join(' ') + \" -o out.webp >/dev/null 2>&1; then F=out.webp; MIME=image/webp; else gm convert -delay \" + gifDelay + \" -loop 0 f_*.jpg out.gif || exit 1; F=out.gif; MIME=image/gif; fi\",\n  \"printf 'data:%s;base64,' \\\"$MIME\\\"\",\n  'base64 -w0 \"$F\"',\n  \"rm -rf '\" + dir + \"'\",\n  \"rmdir '/home/node/.n8n-files/\" + run + \"' 2>/dev/null || true\",\n].join('\\n');\nreturn [{ json: { CMD: cmd, RUN_ID: run, ASSET_TYPE: asset } }];"
+        "jsCode": "const a = $('capture_frames').first().json;\nconst frames = Math.max(1, Math.min(36, Number(a.FRAME_COUNT) || 36));\nconst duration = Math.max(1000, Math.min(4000, Number(a.DURATION_MS) || 3000));\nconst run = String(a.RUN_ID);\nconst asset = String(a.ASSET_TYPE);\nif (!/^[A-Za-z0-9_-]+$/.test(run)) throw new Error('unsafe RUN_ID');\nif (!/^[a-z0-9_]+$/.test(asset)) throw new Error('unsafe ASSET_TYPE');\nconst dir = '/home/node/.n8n-files/' + run + '/' + asset;\nconst img2webp = '/usr/local/lib/node_modules/webp-converter/bin/libwebp_linux/bin/img2webp';\nconst name = (i) => 'f_' + String(i).padStart(3, '0') + '.jpg';\n// Both encoders get the whole duration: WebP in milliseconds, GIF in centiseconds,\n// spreading the remainder over the last frames so the total is exact rather than\n// rounded per frame (3000 ms over 24 frames is 12x12cs + 12x13cs, not 24x13cs).\nconst webpArgs = [];\nconst wBase = Math.floor(duration / frames);\nconst wRem = duration - wBase * frames;\nconst gifArgs = [];\nconst totalCs = Math.max(frames, Math.round(duration / 10));\nconst gBase = Math.floor(totalCs / frames);\nconst gRem = totalCs - gBase * frames;\nfor (let i = 0; i < frames; i++) {\n  webpArgs.push('-d', String(wBase + (i >= frames - wRem ? 1 : 0)), name(i));\n  gifArgs.push('-delay', String(gBase + (i >= frames - gRem ? 1 : 0)), name(i));\n}\n// The type's declared format picks the encoder and the other one is the fallback, so a\n// gif type is assembled as GIF rather than falling back to it. A missing FORMAT keeps\n// the original webp-then-gif order.\nconst webpCmd = \"'\" + img2webp + \"' -loop 0 \" + webpArgs.join(' ') + \" -o out.webp\";\nconst gifCmd = 'gm convert ' + gifArgs.join(' ') + ' out.gif';\nconst encoders = {\n  gif: { want: gifCmd, F: 'out.gif', MIME: 'image/gif', other: webpCmd, oF: 'out.webp', oMIME: 'image/webp' },\n  webp: { want: webpCmd, F: 'out.webp', MIME: 'image/webp', other: gifCmd, oF: 'out.gif', oMIME: 'image/gif' },\n};\nconst pick = encoders[String(a.FORMAT || '').toLowerCase()] || encoders.webp;\nconst encoderCmd = [\n  'if ' + pick.want + ' >/dev/null 2>&1; then F=' + pick.F + '; MIME=' + pick.MIME + ';',\n  'elif ' + pick.other + ' >/dev/null 2>&1; then F=' + pick.oF + '; MIME=' + pick.oMIME + ';',\n  'else exit 1; fi',\n].join(' ');\nconst cmd = [\n  'set -e',\n  \"cd '\" + dir + \"'\",\n  encoderCmd,\n  \"printf 'data:%s;base64,' \\\"$MIME\\\"\",\n  'base64 -w0 \"$F\"',\n  \"rm -rf '\" + dir + \"'\",\n  \"rmdir '/home/node/.n8n-files/\" + run + \"' 2>/dev/null || true\",\n].join('\\n');\nreturn [{ json: { CMD: cmd, RUN_ID: run, ASSET_TYPE: asset } }];"
       }
     },
     {
@@ -2495,8 +2487,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3740,
-        520
+        4736,
+        416
       ],
       "parameters": {
         "jsCode": "const a = $('if_animated').first().json;\nconst err = $input.first().json || {};\nconst reason = err.CAPTURE_ERROR || err.error || 'frame capture failed';\nreturn [{ json: Object.assign({}, a, {\n  STATUS: 'ERROR',\n  ERROR: String(reason).slice(0, 500),\n  MARKUP: '', IMAGE: '', CONTENT_TYPE: '',\n  DURATION_MS: '', FRAME_COUNT: '', WIDTH: '', HEIGHT: '',\n}) }];"
@@ -2509,8 +2501,8 @@
       "typeVersion": 1,
       "onError": "continueRegularOutput",
       "position": [
-        3300,
-        400
+        3712,
+        320
       ],
       "parameters": {
         "operation": "runCustomScript",
@@ -2528,11 +2520,10 @@
       "typeVersion": 1,
       "onError": "continueRegularOutput",
       "position": [
-        3960,
-        0
+        5184,
+        128
       ],
       "parameters": {
-        "executeOnce": true,
         "command": "={{ String($json.RUN_ID).replace(/[^A-Za-z0-9_-]/g,'') ? 'rm -rf /home/node/.n8n-files/' + String($json.RUN_ID).replace(/[^A-Za-z0-9_-]/g,'') : 'true' }}"
       }
     },
@@ -2542,8 +2533,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        2860,
-        400
+        3264,
+        224
       ],
       "parameters": {
         "conditions": {
@@ -2576,8 +2567,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        3520,
-        400
+        3936,
+        320
       ],
       "parameters": {
         "conditions": {
@@ -2611,11 +2602,10 @@
       "typeVersion": 1,
       "onError": "continueRegularOutput",
       "position": [
-        3080,
-        400
+        3488,
+        320
       ],
       "parameters": {
-        "executeOnce": true,
         "command": "=mkdir -p /home/node/.n8n-files/{{ $json.RUN_ID }}/{{ $json.ASSET_TYPE }}"
       }
     }
@@ -2643,6 +2633,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 2,
-  "updatedAt": "2026-09-28T20:11:40.104Z",
-  "versionId": "499b74ff-ec8b-4cce-bbe3-0033dff25f35"
+  "updatedAt": "2026-10-01T19:19:34.547Z",
+  "versionId": "53aa3576-2e35-4895-a619-b90c8f817b49"
 }

@@ -139,4 +139,4 @@ The static hero is an ordinary requested type — the *caller* decides to reques
 
 ## Open Questions
 
-- The animated frame-capture path (D3/D4) is designed and its pieces verified in-cluster (`img2webp`, browserless, Files-node root) but not yet wired into the workflow; it is the remaining implementation work, tracked in tasks 5.x.
+- The animated frame-capture path (D3/D4) was designed with its pieces verified in-cluster (`img2webp`, browserless, Files-node root) before it was wired in; it has since landed and was verified end to end — 36 frames, `24x83 + 12x84 = 3000 ms` under the WebP path with the GIF fallback accepted as centisecond-quantised (tasks 5.2–5.4). No open question remains.

@@ -72,3 +72,9 @@
 - [x] 10.6 Diagnose the day's pipeline failure as EB-side, not consent: the 13:00 UTC `job-dlt-ingest-finance-*` died with `ProviderError: Enable Banking returned 500 (Internal server error)` on `fetch_transactions`, `/details` already skipped, while `GET /sessions/{id}` answered `AUTHORIZED`; EB ticket to raise with the `x-request-id`s
 - [x] 10.7 Correct 10.2 on the 17:42–17:44 evidence: the 12:02 session answered `500` to every data call **and** to `DELETE` for 5 h 40 min while `GET /sessions/{id}` reported `AUTHORIZED`, and a new consent at 17:42 cleared it (the 17:44 ingest loaded 111 transactions while the old session's `DELETE` still `500`ed) — so a bank fault reads "retry, and re-link if it persists", with the renewal link attached, not "retry, never re-link"
 - [x] 10.8 Dry-run then apply the corrected advice live and read it back (applied 2026-09-30 17:48 UTC, `versionId 217dbef5-9c9c-4d64-aea7-014bba1bd40f`; live jsCode equals the export and carries "retry, and if it persists re-link")
+
+## 11. The 2026-10-01 recurrence (docs + operator)
+
+- [x] 11.1 Record the 2026-10-01 recurrence in `docs/specs/005` §4.2.1 and design decision 11: the watch's 00:00 UTC balances probe returned `400 ASPSP_ERROR` (`x-request-id f78103f8-…`) and a hand-run probe at 04:33 returned `500` (`x-request-id 87a678b9-…`) while `GET /sessions/{id}` answered `AUTHORIZED` (`valid_until` 2027-03-29) — the same session-scoped fault as 09-30, on the session the 09-30 re-link had created
+- [x] 11.2 Draft the Enable Banking ticket to `support.api@enablebanking.com` quoting the app id, the `Openbank` ASPSP, the session id and the `x-request-id`s (10.6 left this open)
+- [ ] 11.3 Re-link `cuenta_compartida` from the renewal form, then confirm the data plane recovers (a balances probe returns `200`) and record the new session id

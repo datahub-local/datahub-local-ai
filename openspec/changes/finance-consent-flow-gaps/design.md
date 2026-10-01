@@ -129,6 +129,13 @@ sessions — so the fault was session-scoped, `AUTHORIZED` did not mean usable,
 and the re-link was the fix. (First version of this decision said "retry, never
 a re-link", from the 16:35 probe alone; the 17:42–17:44 pair falsified it within
 the hour, which is why the evidence and not the principle is stated here.)
+**2026-10-01 confirmation:** the 09-30 17:42 session failed the same way within
+12 h — the 00:00 watch probe returned `400 ASPSP_ERROR`
+(`x-request-id f78103f8-…`) and a hand-run balances probe at 04:33 returned
+`500 Internal server error` (`x-request-id 87a678b9-…`), while
+`GET /sessions/{id}` answered `AUTHORIZED` with `valid_until` 2027-03-29. Same
+contradiction, same session-scoped fault; the response for an Enable Banking
+ticket, not a change to the advice.
 
 *Alternative:* keep one "not OK → renew" message — rejected, it cannot express
 "retry once" for the case where Enable Banking really is down, and the 429 case

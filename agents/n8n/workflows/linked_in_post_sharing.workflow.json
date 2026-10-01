@@ -354,7 +354,7 @@
             "mode": "list",
             "cachedResultName": "workflows"
           },
-          "text": "=Error Publishing Post ({{ $('select_article_to_post').item.json.URL }}) in LinkedIn: {{ $json.ERROR }} (exec {{ $execution.id }})",
+          "text": "=Error Publishing Post ({{ $execution.url }}) in LinkedIn: {{ $json.ERROR }}",
           "otherOptions": {
             "includeLinkToWorkflow": true
           }
@@ -1530,6 +1530,29 @@
         }
       },
       {
+        "id": "586cb1f4-eed0-4a12-aa2a-9cc895b6d335",
+        "name": "set_error_error",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          10144,
+          -1632
+        ],
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "6a77a0ee-e904-467b-9f9f-e04aa3ddf203",
+                "name": "ERROR",
+                "value": "ERROR",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        }
+      },
+      {
         "id": "7331acf8-870a-42eb-8579-dcd40443bc14",
         "name": "send_2_linkedin_omImage",
         "type": "n8n-nodes-base.linkedIn",
@@ -2398,6 +2421,17 @@
         "main": [
           [
             {
+              "node": "set_error_error",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "set_error_error": {
+        "main": [
+          [
+            {
               "node": "send_error_notification",
               "type": "main",
               "index": 0
@@ -2734,6 +2768,17 @@
       ]
     },
     "update_status_error": {
+      "main": [
+        [
+          {
+            "node": "set_error_error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "set_error_error": {
       "main": [
         [
           {
@@ -3235,7 +3280,7 @@
           "mode": "list",
           "cachedResultName": "workflows"
         },
-        "text": "=Error Publishing Post ({{ $('select_article_to_post').item.json.URL }}) in LinkedIn: {{ $json.ERROR }} (exec {{ $execution.id }})",
+        "text": "=Error Publishing Post ({{ $execution.url }}) in LinkedIn: {{ $json.ERROR }}",
         "otherOptions": {
           "includeLinkToWorkflow": true
         }
@@ -4408,6 +4453,29 @@
           "id": "pGARJmt50qz64xOo",
           "name": "Google Sheets account"
         }
+      }
+    },
+    {
+      "id": "586cb1f4-eed0-4a12-aa2a-9cc895b6d335",
+      "name": "set_error_error",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        10144,
+        -1632
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6a77a0ee-e904-467b-9f9f-e04aa3ddf203",
+              "name": "ERROR",
+              "value": "ERROR",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
       }
     },
     {

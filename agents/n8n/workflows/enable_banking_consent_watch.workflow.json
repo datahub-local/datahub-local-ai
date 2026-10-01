@@ -1,7 +1,7 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "d06802c6-a293-4c10-9db9-40690c17eec5",
+    "versionId": "217dbef5-9c9c-4d64-aea7-014bba1bd40f",
     "workflowId": "aLkMPugqXplEW4BL",
     "nodes": [
       {
@@ -309,10 +309,10 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-09-30T04:45:11.475Z",
-    "updatedAt": "2026-09-30T04:45:11.475Z"
+    "createdAt": "2026-09-30T17:48:18.174Z",
+    "updatedAt": "2026-09-30T17:48:18.174Z"
   },
-  "activeVersionId": "d06802c6-a293-4c10-9db9-40690c17eec5",
+  "activeVersionId": "217dbef5-9c9c-4d64-aea7-014bba1bd40f",
   "connections": {
     "Get Stable Secret": {
       "main": [
@@ -630,17 +630,6 @@
       "role": "workflow:owner",
       "workflowId": "aLkMPugqXplEW4BL",
       "projectId": "zcGU09G6dy4Oah3l",
-      "project": {
-        "id": "zcGU09G6dy4Oah3l",
-        "name": "no name <admin@example.com>",
-        "type": "personal",
-        "icon": null,
-        "description": null,
-        "customTelemetryTags": [],
-        "creatorId": "83289481-80d9-4bba-906f-8b49aff6b65d",
-        "createdAt": "2025-05-10T07:47:06.870Z",
-        "updatedAt": "2025-05-10T07:47:20.397Z"
-      },
       "createdAt": "2026-09-28T20:34:21.548Z",
       "updatedAt": "2026-09-28T20:34:21.548Z"
     }
@@ -648,20 +637,16 @@
   "staticData": {
     "global": {
       "consent_states": {
-        "cuenta_compartida": "EXPIRED_SESSION"
+        "cuenta_compartida": {
+          "state": "BANK_FAULT",
+          "detail": "ASPSP_ERROR: Error interacting with ASPSP",
+          "status": 400
+        }
       }
-    },
-    "node:Twelve-Hourly Watch": {
-      "recurrenceRules": [
-        null
-      ],
-      "recurrenceRuleSignatures": [
-        null
-      ]
     }
   },
   "tags": [],
   "triggerCount": 1,
-  "updatedAt": "2026-09-30T04:45:11.457Z",
-  "versionId": "d06802c6-a293-4c10-9db9-40690c17eec5"
+  "updatedAt": "2026-09-30T17:48:18.151Z",
+  "versionId": "217dbef5-9c9c-4d64-aea7-014bba1bd40f"
 }

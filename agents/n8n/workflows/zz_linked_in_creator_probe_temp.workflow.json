@@ -1,0 +1,369 @@
+{
+  "active": true,
+  "activeVersion": {
+    "versionId": "583c5f8a-62cf-4ae2-b8d6-d045e21c9ad6",
+    "workflowId": "VNrYvQjaRipHN6d6",
+    "nodes": [
+      {
+        "id": "c1000000-0000-4000-8000-000000000001",
+        "name": "probe_trigger",
+        "webhookId": "cc11dd22-ee33-4f44-9a55-bb66cc77dd88",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          -200,
+          0
+        ],
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "linkedin-creator-probe",
+          "responseMode": "lastNode",
+          "options": {}
+        }
+      },
+      {
+        "id": "c1000000-0000-4000-8000-000000000002",
+        "name": "call_creator",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.3,
+        "position": [
+          40,
+          0
+        ],
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "PaeHFdCsdoVbQx11",
+            "mode": "list",
+            "cachedResultUrl": "/workflow/PaeHFdCsdoVbQx11",
+            "cachedResultName": "LinkedIn Post Creator"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "EXTRA_PROMPT": "={{ $json.body.EXTRA_PROMPT || '' }}",
+              "CONTENT": "={{ $json.body.CONTENT || '' }}",
+              "URL": "={{ $json.body.URL || '' }}",
+              "MIN_WORDS": "={{ $json.body.MIN_WORDS !== undefined ? $json.body.MIN_WORDS : null }}",
+              "MAX_WORDS": "={{ $json.body.MAX_WORDS || 300 }}",
+              "ENABLE_CHECK": "={{ $json.body.ENABLE_CHECK || 'true' }}",
+              "FEEDBACK": "={{ $json.body.FEEDBACK || '' }}"
+            },
+            "matchingColumns": [],
+            "schema": [
+              {
+                "id": "EXTRA_PROMPT",
+                "displayName": "EXTRA_PROMPT",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": false,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "CONTENT",
+                "displayName": "CONTENT",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": false,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "URL",
+                "displayName": "URL",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": false,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "MIN_WORDS",
+                "displayName": "MIN_WORDS",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": false,
+                "type": "number",
+                "removed": false
+              },
+              {
+                "id": "MAX_WORDS",
+                "displayName": "MAX_WORDS",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": false,
+                "type": "number",
+                "removed": false
+              },
+              {
+                "id": "ENABLE_CHECK",
+                "displayName": "ENABLE_CHECK",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": false,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "FEEDBACK",
+                "displayName": "FEEDBACK",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": false,
+                "type": "string",
+                "removed": false
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true
+          },
+          "options": {
+            "waitForSubWorkflow": true
+          }
+        }
+      },
+      {
+        "id": "c1000000-0000-4000-8000-000000000003",
+        "name": "summarize",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          280,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const r = $input.first().json || {};\nconst text = String(r.text || '');\nreturn [{ json: {\n  TEXT_CHARS: text.length,\n  TEXT_HEAD: text.slice(0, 160),\n  ERROR: r.ERROR || '',\n  OMIMAGE_CHARS: String(r['omImage '] || r.omImage || '').length,\n} }];"
+        }
+      }
+    ],
+    "connections": {
+      "probe_trigger": {
+        "main": [
+          [
+            {
+              "node": "call_creator",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "call_creator": {
+        "main": [
+          [
+            {
+              "node": "summarize",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "nodeGroups": [],
+    "authors": "no name",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "createdAt": "2026-10-01T20:34:47.243Z",
+    "updatedAt": "2026-10-01T20:34:47.243Z"
+  },
+  "activeVersionId": "583c5f8a-62cf-4ae2-b8d6-d045e21c9ad6",
+  "connections": {
+    "probe_trigger": {
+      "main": [
+        [
+          {
+            "node": "call_creator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "call_creator": {
+      "main": [
+        [
+          {
+            "node": "summarize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2026-10-01T20:34:47.243Z",
+  "id": "VNrYvQjaRipHN6d6",
+  "isArchived": false,
+  "meta": null,
+  "name": "ZZ LinkedIn Creator Probe (temp)",
+  "nodeGroups": [],
+  "nodes": [
+    {
+      "id": "c1000000-0000-4000-8000-000000000001",
+      "name": "probe_trigger",
+      "webhookId": "cc11dd22-ee33-4f44-9a55-bb66cc77dd88",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -200,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "linkedin-creator-probe",
+        "responseMode": "lastNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "c1000000-0000-4000-8000-000000000002",
+      "name": "call_creator",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        40,
+        0
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "PaeHFdCsdoVbQx11",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/PaeHFdCsdoVbQx11",
+          "cachedResultName": "LinkedIn Post Creator"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "EXTRA_PROMPT": "={{ $json.body.EXTRA_PROMPT || '' }}",
+            "CONTENT": "={{ $json.body.CONTENT || '' }}",
+            "URL": "={{ $json.body.URL || '' }}",
+            "MIN_WORDS": "={{ $json.body.MIN_WORDS !== undefined ? $json.body.MIN_WORDS : null }}",
+            "MAX_WORDS": "={{ $json.body.MAX_WORDS || 300 }}",
+            "ENABLE_CHECK": "={{ $json.body.ENABLE_CHECK || 'true' }}",
+            "FEEDBACK": "={{ $json.body.FEEDBACK || '' }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "EXTRA_PROMPT",
+              "displayName": "EXTRA_PROMPT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": false,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "CONTENT",
+              "displayName": "CONTENT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": false,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "URL",
+              "displayName": "URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": false,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "MIN_WORDS",
+              "displayName": "MIN_WORDS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": false,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "MAX_WORDS",
+              "displayName": "MAX_WORDS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": false,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "ENABLE_CHECK",
+              "displayName": "ENABLE_CHECK",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": false,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "FEEDBACK",
+              "displayName": "FEEDBACK",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": false,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    },
+    {
+      "id": "c1000000-0000-4000-8000-000000000003",
+      "name": "summarize",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        280,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const r = $input.first().json || {};\nconst text = String(r.text || '');\nreturn [{ json: {\n  TEXT_CHARS: text.length,\n  TEXT_HEAD: text.slice(0, 160),\n  ERROR: r.ERROR || '',\n  OMIMAGE_CHARS: String(r['omImage '] || r.omImage || '').length,\n} }];"
+      }
+    }
+  ],
+  "pinData": null,
+  "settings": {
+    "errorWorkflow": "fejq5nN6LP3F820w"
+  },
+  "shared": [
+    {
+      "role": "workflow:owner",
+      "workflowId": "VNrYvQjaRipHN6d6",
+      "projectId": "zcGU09G6dy4Oah3l",
+      "createdAt": "2026-10-01T20:34:47.243Z",
+      "updatedAt": "2026-10-01T20:34:47.243Z"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2026-10-01T20:34:47.243Z",
+  "versionId": "583c5f8a-62cf-4ae2-b8d6-d045e21c9ad6"
+}

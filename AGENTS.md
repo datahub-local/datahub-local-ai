@@ -315,7 +315,7 @@ oauth2-proxy, which an API key does not satisfy. The key is
 `security/n8n-root` → `N8N_API_KEY`; mount it into a pod rather than reading it
 into a shell.
 
-Five structural things worth knowing before editing an export:
+Seven structural things worth knowing before editing an export:
 
 - **Every export carries its nodes twice**, at the top level and inside
   `activeVersion`. Edit both or the file is self-inconsistent.
@@ -361,6 +361,39 @@ Five structural things worth knowing before editing an export:
   input cardinality, so it is read off the connection graph or not at all. A
   node `notes` claiming otherwise is the same second-copy-of-a-decision problem
   as a comment beside a value, and drifted the same way.
+- **A rule the gate enforces must be satisfiable by the rules the drafter
+  follows.** `LinkedIn Post Creator` drafts text and then reviews it in the same
+  execution against `linkedin_post_rules.md` *plus* the row's `EXTRA_PROMPT`,
+  retrying a rejection from scratch. On 2026-09-30 that made one article
+  unpublishable: row 58 is about an agent *harness*, `harness` was on the banned
+  AI-speak list, and the drafting rules at the same time require naming the
+  technology from the source — so no draft could satisfy both, and five drafts
+  ended in `MAX_RETRIES_EXCEEDED` (execution 11728, via 11726). The same word had
+  been accepted days earlier with 7 and 8 uses (executions 11311, 11317), so the
+  gate's verdict on a legitimate technical term was a coin flip. A banned-word
+  list must ban a word in its *hype* usage and allow it where it names the
+  subject; that rule lives in **two** files that have to change together —
+  `prompts/linkedin_post_rules.md` for the drafter,
+  `prompts/linkedin_post_review.md` for the gate — and a retry carries the gate's
+  own `<explanation>` into the next prompt so a rejection for the same reason
+  cannot repeat. Both are prompt files, read from GitHub `main` by
+  `DownloadTemplate`, so this class of fix is live on push; a node change is not,
+  which is how the export half of that fix was reverted by the nightly backup
+  before it had been applied.
+- **A `PUT` edits the draft; only publishing changes what runs, and publishing
+  validates every node.** Adding the animated-media branch left live's top-level
+  graph at 40 nodes while `activeVersion` still held 29 — the schedule would have
+  kept running the old graph, and the backup would have committed that asymmetry,
+  which the "nodes twice" rule above and the tests that read both copies then
+  fail on. Publishing a draft takes a deactivate/activate cycle (`POST /activate`
+  on an already-active workflow is a 400), and activation re-validates the graph:
+  with four new Slack nodes missing `credentials.slackApi` it answered `Cannot
+  publish workflow: 4 nodes have configuration issues`, and the workflow was left
+  **deactivated** — so an activation attempt on a live workflow is an outage until
+  it succeeds. Hit 2026-10-02: cloning a node's parameters is not cloning the
+  node, and the tests caught that only after the fix was written. So after any
+  apply that adds or removes nodes: re-read `activeVersion`, re-activate, confirm
+  `active`, and diff the export against live afterwards.
 
 #### Visual Studio
 
@@ -452,6 +485,29 @@ image rather than guessed, e.g.
 `kubectl exec … -- node -e "require('n8n-nodes-base/dist/nodes/ExecuteCommand/ExecuteCommand.node.js')"`.
 Read the live workflow back after every apply and diff it against the export
 before believing a change landed.
+
+**The studio can be exercised without touching a pipeline.** `Visual Studio
+Test` holds its parameters in a Code node and ends in one item per asset — the
+summary plus the asset itself as binary — so it runs from the editor's *Execute
+workflow*, or by POSTing `/webhook/visual-studio-test` with any of `CONTENT`,
+`ASSET_TYPES`, `FEEDBACK` or `SPEC_JSON`. Its defaults are deliberately the cheap
+deterministic case (one `diagram_animated` from a frozen spec, so no image-model
+call); send `SPEC_JSON: ""` to make the authoring model write one, and set
+`ASSET_TYPES` to try the others. It computes `TOTAL_PIXELS` and
+`LINKEDIN_GIF_CAP_OK` for an animated asset, which is how the platform's pixel
+cap can be checked by eye rather than by memory.
+
+**A webhook whose path declares a parameter is served under its `webhookId`, and
+that URL is not the obvious one.** `File Webhook`'s path is
+`76a3521f-…/:fileId`, and the address that works is
+`/webhook/76a3521f-…/76a3521f-…/<fileId>` — the id, then the declared path with
+the parameter substituted. `/webhook/76a3521f-…/<fileId>` answers 404 "not
+registered", which is presumably why `Image Content Generator` already publishes
+the doubled-id form; the shape was verified by fetching a real asset on
+2026-10-01. `Visual Studio Test` uses it to hand back the assets it produced:
+each is written to `TemporalFiles` and returned as a `DOWNLOAD_URL`, and the
+links stop working about an hour later because `File Webhook` deletes rows whose
+`updatedAt` is older than that on every request.
 
 ### MCP servers
 

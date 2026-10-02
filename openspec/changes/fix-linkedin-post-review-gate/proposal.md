@@ -10,7 +10,7 @@ On 2026-09-30 the `LinkedIn Post Sharing` run for row 58 (`https://arcprize.org/
 - **Make retries converge.** The reviewer's `<explanation>` is carried into the next attempt's prompt through the existing `Reviewer Feedback` slot, instead of the current blind resampling of the unchanged prompt. A rejection for the same reason therefore cannot repeat.
 - **Fix the attempt bound.** `switch_check_rules_llm` currently gives `MAX_TRIES + 2` drafts under a constant named `MAX_TRIES` (5 drafts for `MAX_TRIES = 3`, 10 model calls, 3m44s); it will produce exactly `MAX_TRIES` drafts.
 - **Make the failure report carry its reason and its article.** The gate's last explanation becomes part of the `ERROR` value, `set_error_error` (which overwrites the real reason with the literal string `"ERROR"`) is removed, and the Slack notice names the article and the execution instead of the empty `$execution.url`.
-- The failed row 58 is returned to `QUEUE` so the corrected pipeline retries it.
+- The failed row 58 was re-queued so the corrected pipeline would retry it. **That did not need doing**: the article was published by a later run (11756, 2026-09-30 20:47) once the prompts were fixed, so row 58 is left `PUBLISHED` rather than re-queued — setting it back to `QUEUE` would have published the same article twice. Its stale `ERROR` was cleared, which is what the instruction was actually right about. See tasks 7.1 for the full finding.
 - **No change** to the sheet structure, the queue/publish logic, the image branch, the content curator, the blog (`content-writer`) flow, or the model in use.
 
 ## Capabilities

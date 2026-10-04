@@ -38,6 +38,15 @@ function run(cmd, args, { cwd, timeoutMs = 30000 } = {}) {
   });
 }
 
+// One line per render, so an operator can see the service working without the log
+// being a stream of browser chatter. Deliberately not the child's raw output: this
+// service answers concurrent requests over HTTP, and dumping every render's stderr
+// would bury the one line that matters. The child's output is still captured and
+// still surfaced in full when a render fails, which is when it is worth reading.
+function logRender(stage, detail) {
+  process.stdout.write(`render ${stage}: ${detail}\n`);
+}
+
 async function probe(file) {
   const { out } = await run(FFPROBE, [
     "-v", "error",
@@ -63,6 +72,7 @@ async function probe(file) {
 
 export async function renderVideo(html, opt) {
   const dir = await mkdtemp(join(tmpdir(), "hf-render-"));
+  const started = Date.now();
   try {
     await writeFile(join(dir, "index.html"), html);
     await mkdir(join(dir, "vendor"), { recursive: true });
@@ -72,6 +82,7 @@ export async function renderVideo(html, opt) {
     // makes the rewritten GSAP path in a full block resolve.
     await cp(join(PKG, "vendor", "blocks"), join(dir, "blocks"), { recursive: true });
     const out = join(dir, "out.mp4");
+    logRender("start", `${opt.width}x${opt.height} ${opt.fps}fps ${opt.durationMs}ms`);
     await run(
       HYPERFRAMES,
       ["render", "-o", out, "-f", String(opt.fps), "-q", "looks", "--quiet"],
@@ -79,7 +90,16 @@ export async function renderVideo(html, opt) {
     );
     const buffer = await readFile(out);
     const meta = await probe(out);
+    logRender(
+      "done",
+      `${meta.frames} frames ${meta.width}x${meta.height} ${meta.codec} ${buffer.length}B in ${Date.now() - started}ms`
+    );
     return { buffer, ...meta };
+  } catch (e) {
+    // The failure line carries what the success line cannot: how long it burned
+    // before giving up, which is what tells a timeout from an immediate error.
+    logRender("failed", `after ${Date.now() - started}ms: ${e.message}`);
+    throw e;
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

@@ -11,17 +11,30 @@
 - [x] 2.2 Check the three capabilities the work needs — write a composition file, run the engine's validation and render commands, and reach the toolchain (Node, Chrome, FFmpeg, vendored GSAP) — and record each as pass or fail with the evidence; verify the finding is written down even when a check fails (**answered 2026-10-04: file write PASS, shell PASS, toolchain FAIL.** After the `OPENAI_API_KEY` fix the session reached `Ready` (`1/1`, zero restarts, listening on 8080) and the checks ran: `echo ok > probe.txt` round-tripped, `sh` is present, **node v22.19.0 present but chromium/ffmpeg/ffprobe absent**, no python3, no hyperframes package. The decisive finding is not the missing binaries but the harness contract: both adapter paths spawn Pi with `--no-tools --no-skills`, so it has **no file write, no shell and no edit** even though the pod has a shell, and cannot read the authoring skills. Pi is a text-in/text-out completion endpoint)
 - [x] 2.3 Decide from the evidence: if the probe passes, add the persona per 3.1; if it fails, record why and whether the harness image needs the toolchain or the path stays out-of-fleet; verify the decision and its reason are recorded either way (**decided: the path stays OUT-OF-FLEET.** Pi cannot author a composition — `--no-tools` excludes the very operations the work needs, so a harness image with Chrome and FFmpeg baked in would still be unable to invoke them. Authoring runs where tool use and the toolchain already exist: the render image, as proven by `agents/render-samples/agent-flow/`. 3.1-3.3 are dropped rather than blocked, since no credential, image or config change reaches this. Pi remains fit for text work. The credential fix stayed — it unblocked the gate and is correct for any v1alpha2 harness — and the full evidence is in `pi-harness-findings.md`)
 
-## 3. The in-fleet path (DROPPED — Pi cannot author)
+## 3. The in-fleet path (SUPERSEDED — our own adapter runs Pi with tools)
 
-The probe found that the Pi harness passes `--no-tools --no-skills` to the coding
-agent, so it has no file write, no shell and no edit, and cannot read the authoring
-skills. No credential, image or configuration change reaches that, so there is no
-in-fleet authoring path to build. These tasks are **dropped, not blocked**:
-[see `pi-harness-findings.md`](pi-harness-findings.md).
+The "dropped" conclusion below was right about the **maintained** Pi/Hermes adapters
+and wrong as a general claim: tool use is the adapter image's business, so a
+purpose-built adapter can enable it. `agents/adapters/pi-render/` is that adapter —
+our render image plus `pi`, with `--no-tools` and `--no-skills` dropped — and a run
+against it reached `Running` with Pi executing in-cluster.
 
-- [x] 3.1 ~~Add a persona with `runtimeRef` pinned to the probed runtime~~ — **dropped**: a persona on Pi would be a text-completion persona, not an authoring one
-- [x] 3.2 ~~Run the persona by hand-applied `AgentRun`~~ — **dropped**: Pi is session-only and `--no-tools`; there is no authoring run to exercise
-- [x] 3.3 ~~Confirm the runtime's digest and reproducibility~~ — **dropped** for authoring; the digest is recorded in the findings for reference
+- [x] 3.1 ~~Add a persona with `runtimeRef` pinned to the probed runtime~~ — built as `agents/adapters/pi-render/` plus a spike `AgentRuntime`, since the maintained runtimes are session-only
+- [ ] 3.2 Run it by hand-applied `AgentRun` and verify it authors, lints, corrects and renders; record the outcome (**in progress 2026-10-04, and the central question is answered.** The run was admitted; pod `spike-pi-render-1-sms7d` reached `2/2` Running with the `agent` and `ipc-bridge` containers and **zero restarts**. Observed live, in order: Pi wrote `/workspace/index.html` (10,153 bytes) — a titled composition with a real palette and three role accents, correctly referencing the **local** `./gsap.min.js` rather than a CDN; it then **edited** it (11,241 bytes) and created a `snapshots/` directory, i.e. it rendered frames to look at its own output; and it was then caught running `npx hyperframes check --json --samples 15` with the JSON piped through `python3`. **That is the self-correction loop working**: a coding agent applying its normal read/edit/run habits to a composition, invoking the engine's own gate and reading the structured result. The final render outcome is recorded below when the run ends)
+- [x] 3.3 Confirm the runtime's digest is recorded — `status.resolvedImageDigest` is `sha256:0dfd4e99…`, the amd64 digest of the published multi-arch image
+
+**Admission finding, which cost several attempts and is worth recording.** A harness
+run whose `spec.toolPolicy` is **absent** is rejected with
+`task.mode "harness" does not support [toolFilter] … (mode supports: [persona])`,
+even though the Agent and its `SympoziumPolicy` both leave `toolGating` unset and the
+CRD defaults nothing. Something before the webhook materialises a non-nil
+`toolPolicy`, and `RequestedCapabilities` (`internal/controller/taskmodes/capabilities.go`)
+then reads `len(tp.Allow) > 0 || len(tp.Deny) > 0` as a request for `toolFilter`.
+Passing an **explicit empty** `toolPolicy: {allow: [], deny: []}` makes it pass. So
+the adapter declares `persona` only — it maps `SYSTEM_PROMPT` onto Pi's system prompt,
+and does **not** translate `TOOL_POLICY_*` onto Pi's own tool selection, which is
+exactly the honest claim.
+
 
 ## 4. Scope reconciliation
 

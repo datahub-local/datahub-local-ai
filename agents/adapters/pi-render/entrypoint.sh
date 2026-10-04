@@ -68,6 +68,20 @@ jq -n \
   '{providers:{sympozium:{baseUrl:$base_url,api:"openai-completions",apiKey:"$OPENAI_API_KEY",compat:{supportsDeveloperRole:false,supportsReasoningEffort:false},models:[{id:$model,reasoning:false,input:["text"],contextWindow:65536,maxTokens:8192}]}}}' \
   > "$HOME/.pi/agent/models.json"
 
+# A run takes minutes and its only other output is Pi's own, so each stage says
+# where it is. Without this a reader of `kubectl logs` sees one blob and cannot
+# tell a slow model call from a stuck render. Every line is cheap and goes to
+# stderr-free stdout, which is what the platform collects.
+echo "--- adapter starting ---"
+echo "contract:  ${SYMPOZIUM_HARNESS_CONTRACT_VERSION}"
+echo "model:     ${MODEL_NAME} @ ${MODEL_BASE_URL}"
+echo "workspace: $PWD"
+echo "browser:   $CHROME_BIN"
+echo "engine:    $(command -v hyperframes || echo MISSING) ($(hyperframes --version 2>/dev/null | head -1 || echo '?'))"
+echo "pi:        $(command -v pi || echo MISSING) ($(pi --version 2>/dev/null | head -1 || echo '?'))"
+echo "prompt:    $prompt_path ($(wc -c < "$prompt_path") bytes)"
+echo "task:      $(printf '%s' "$TASK" | head -c 200)"
+
 # The caller's task is the brief; the file supplies the method. They are joined
 # here rather than in the prompt file so the file stays a reusable constant and the
 # brief arrives unmodified from the platform.
@@ -86,14 +100,44 @@ set +e
 # --no-skills and --no-tools are deliberately NOT passed: reading the skills and
 # running the engine is the entire job. --no-session and --no-prompt-templates
 # stay, as upstream, because neither applies to a one-shot authoring run.
-pi --print --no-session --no-prompt-templates \
-  --provider sympozium --model "$MODEL_NAME" "$PROMPT" >"$work_path" 2>&1
-rc=$?
+#
+# Output goes to stdout AND the capture file. Upstream writes it to a file only,
+# which makes a long run unobservable: `kubectl logs` stays empty until the process
+# exits, so a run that hangs, loops or dies at minute 12 is indistinguishable from
+# one that is working. `tee` costs nothing and is the difference between watching a
+# run and guessing at it. The file is still what the result payload is built from,
+# so the bounded-output behaviour is unchanged.
+#
+# The exit code has to survive the pipe, and neither `PIPESTATUS` nor `pipefail` is
+# POSIX - this runs under /bin/sh, which is dash on Debian, where `${PIPESTATUS[0]}`
+# is a "Bad substitution" that kills the run outright. So the status is written to a
+# file by a wrapper subshell, which works in every shell.
+rc_file="${TMPDIR:-/tmp}/pi-exit-code"
+set +e
+( pi --print --no-session --no-prompt-templates \
+    --provider sympozium --model "$MODEL_NAME" "$PROMPT" 2>&1; \
+  echo "$?" > "$rc_file" ) | tee "$work_path"
 set -e
+rc="$(cat "$rc_file" 2>/dev/null || echo 1)"
 if [ "$rc" -ne 0 ]; then
   fail "Pi exited ${rc}: $(tail -c 2000 "$work_path")"
 fi
 response="$(cat "$work_path")"
 [ -n "$response" ] || fail "Pi returned an empty response"
+
+# Evidence the run did what it claims, written to the log where a reader looks.
+# `ls` on the workspace answers "did it write" and "did it render" without a shell
+# into a pod that no longer exists by the time anyone reads it.
+echo "--- workspace after the run ---"
+ls -la "$PWD" 2>&1 || true
+if [ -f "$PWD/out.mp4" ]; then
+  echo "--- out.mp4 ---"
+  ffprobe -v error -select_streams v:0 \
+    -show_entries stream=width,height,nb_frames,codec_name \
+    -show_entries format=duration,size \
+    -of default=noprint_wrappers=1 "$PWD/out.mp4" 2>&1 || true
+else
+  echo "no out.mp4 was produced"
+fi
 
 emit success "$response"

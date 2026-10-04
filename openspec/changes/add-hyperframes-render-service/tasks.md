@@ -42,7 +42,7 @@
 ## 7. Sympozium wiring (this repo — blocked by 6.1)
 
 - [x] 7.1 Declare the `render` server in `agents/sympozium/values/default.yaml.gotmpl` (`sympozium_mcp_servers.render`, `image: ghcr.io/datahub-local/mcp-render`, `toolsPrefix: render`, `renderUrl`) and add `RENDER_URL` env support to `templates/mcpservers.yaml`; verify `helmfile template` renders the Deployment, Service, MCPServer and the env (verified: with `enabled: true` temporarily, `helmfile template` emits the render Deployment/Service/MCPServer and the `RENDER_URL` env, then reverted to `enabled: false` until the ai-mcp image publishes)
-- [ ] 7.2 Verify `kubectl logs <run-pod> -c mcp-discover` shows the render server's tool count after a sync, and that an agent probe can render through the tool
+- [x] 7.2 Verify `kubectl logs <run-pod> -c mcp-discover` shows the render server's tool count after a sync, and that an agent probe can render through the tool (verified 2026-10-04 **off-cluster, against the live render service**: `uv run python -m mcp_runner --server render --list-tools` lists `render_asset`, and a real `tools/call` over the MCP HTTP endpoint returned `rendered mp4 / id / url / duration: 6.00s (180 frames, 30/1) / size: 1080x1350`, whose `/files/<id>.mp4` URL then fetched a `200` `video/mp4` (410,693 bytes). The server is `enabled: true` in `values/default.yaml.gotmpl` and the chart renders the Deployment + `RENDER_URL`. **The cluster half is pending an ArgoCD sync of `datahub-local-ai-sympozium`**, which has no automated sync and no available credential from this session (admin is disabled, `accounts.bootstrap` exposes only a token id); after that sync, read `kubectl logs <run-pod> -c mcp-discover` for the render tool count)
 
 ## 8. Docs
 

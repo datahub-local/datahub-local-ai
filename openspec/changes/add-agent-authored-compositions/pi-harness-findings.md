@@ -175,7 +175,7 @@ marker. The official docs give [a minimal adapter](https://deploy.sympozium.ai/d
 (~30 lines of bash) and the full contract, including that it must be digest-pinned,
 must declare its `capabilities` honestly, and must fit the pod security context.
 
-### Built: `agents/sympozium/pi-render-adapter/`
+### Built: `agents/adapters/pi-render/`
 
 The extended-Pi route was taken (the user's choice), and the image is built and
 verified on 2026-10-04. It is the upstream Pi adapter's base image —

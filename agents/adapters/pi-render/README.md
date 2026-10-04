@@ -108,10 +108,9 @@ Worth reporting upstream.
 **The working fix is the render's own flag, and it is in the prompt.** HyperFrames
 offers `--low-memory-mode`, which *"pins to 1 worker, uses screenshot capture, and
 skips auto-worker calibration to avoid memory thrash on constrained machines"*.
-`prompts/authoring.md` now requires it, and requires the agent to treat
+`prompts/authoring.md` now requires it, and tells the agent to treat
 `hyperframes check --samples` as optional rather than routine — that command launches
-its own Chrome and is the most memory-hungry one available, which is what every run
-actually died inside.
+its own Chrome and is the most memory-hungry one available.
 
 **Measured, not assumed.** The known-good sample rendered to completion under a hard
 `--memory 1g --memory-swap 1g` cap with that flag:
@@ -122,10 +121,36 @@ screenshot capture · software gpu · capture 11.6s
 out.mp4: 1080x1350, 270 frames, 9.000000 s
 ```
 
-So 1Gi is enough for this adapter once the render is told to work within it. The
-earlier version of this section said to raise memory on the `AgentRuntime` and showed
-a YAML block; that field is accepted and **ignored**, which is the trap — kept here
-rather than deleted.
+**But that flag has not yet rescued a real run — and six runs have now died without
+producing a video.**
+
+| Run | Prompt | Brief | Lived | Wrote `index.html`? |
+| --- | ------ | ----- | ----- | ------------------- |
+| 1 | original | long | ~8 min | yes, 4 revisions |
+| 2 | original | long | ~2.5 min | yes |
+| 3, 4 | original | long | ~5 min | yes |
+| 5 | **low-memory** | **one sentence** | **70 s** | **no** |
+| 6 | **low-memory** | long | ~4 min | yes (t+150 s) |
+
+So this section's earlier conclusion — "the render is what exhausts the memory" — is
+**not supported**, and neither is "low-memory mode fixes it". No run ever invoked
+`hyperframes render`: no `screenshot capture` line appears in any log, and no
+`ffmpeg` process was ever seen. The OOM lands between model startup and a render.
+
+**Brief length shifts *when*, not *whether*.** Run 6 was run 5 with only the brief
+changed: it survived past 70 s and got a composition on disk, where the one-sentence
+brief died before writing anything. A longer brief keeps the model working long
+enough to produce output; it does not make the run fit.
+
+**What is established:** the limit is 1Gi, it cannot be raised from any object this
+repository controls, and **six attempts produced no `out.mp4`**. The one proven render
+of the sample came from *outside* the harness contract, under our own `--memory 1g`
+cap — which is where `agents/render-samples/` was produced, and remains the reliable
+way to author a composition today.
+
+The earlier version of this section said to raise memory on the `AgentRuntime` and
+showed a YAML block; that field is accepted and **ignored**, which is the trap — kept
+here rather than deleted.
 
 ## Watching a run
 

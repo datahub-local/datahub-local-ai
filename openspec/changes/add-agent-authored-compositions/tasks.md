@@ -30,7 +30,13 @@ against it reached `Running` with Pi executing in-cluster.
   - `AgentRun.spec.sandbox.resources` — accepted, but creates a **third container** (`sandbox: 512Mi`); the `agent` container stays 1Gi.
   - The Sympozium harness docs' operating note says *"raise it on the Agent if one is OOM-killed"*, which is a **documentation/implementation mismatch** — the Agent has no such field in v0.10.87. Worth reporting upstream.
 
-  Renders also warn in advance: *"5 capture workers may exceed this process's V8 heap (limit 4144MB supports ~4)"*. **Not verified:** whether it would reach a render with adequate memory; it has never had any.)
+  Renders also warn in advance: *"5 capture workers may exceed this process's V8 heap (limit 4144MB supports ~4)"*. **Not verified:** whether it would reach a render with adequate memory; it has never had any.
+
+  **Run 5, on the corrected prompt, died EARLIER and invalidated part of this.** With `--low-memory-mode` required in the prompt, the run was OOMKilled after **70 seconds** having written nothing — no `index.html`, and no `hyperframes` process ever launched. Runs 1 and 2 lived 8 and 2.5 minutes and wrote the composition four times. So the render is **not** the only thing that exhausts the memory, and the low-memory flag removes one cause, not all: an OOM can land during model startup before any composition exists.
+
+  **Brief length is a real variable — controlled test, run 6.** Same image and prompt as run 5, with run 1's longer brief restored: it survived past 70 s, wrote `index.html` at **t+150 s**, and was OOMKilled at **~4 minutes**. So a longer brief keeps the model busy long enough to get a composition on disk, where a one-sentence brief died before writing anything — but it still OOMs. Low-memory mode was never reached in either run: `hyperframes render` was never invoked, and no `screenshot capture` line appears in any log.
+
+  **Established:** the limit is 1Gi; it cannot be raised from any object this repository controls; and a run OOMs somewhere between model startup and a render, with brief length shifting *when* rather than *whether*. **Not established:** that this adapter can complete a run on v0.10.87 at all — six attempts, no `out.mp4`. The one proven render of the sample came from **outside** the harness contract, under our own `--memory 1g` cap, which is where `agents/render-samples/` was produced.)
 - [x] 3.3 Confirm the runtime's digest is recorded — `status.resolvedImageDigest` is `sha256:0dfd4e99…`, the amd64 digest of the published multi-arch image
 
 **Admission finding, which cost several attempts and is worth recording.** A harness

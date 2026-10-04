@@ -1,16 +1,24 @@
 # Visual render service.
 #
 # Node 22 is HyperFrames' floor. FFmpeg/FFprobe are what the n8n image does not
-# have (the reason a video type could not exist before); Chrome headless shell is
-# baked in at build time so the running container needs no network. The animation
-# runtime (GSAP) is a vendored local file, never a CDN, for the same reason.
+# have (the reason a video type could not exist before); the browser is baked in
+# at build time so the running container needs no network. The animation runtime
+# (GSAP) is a vendored local file, never a CDN, for the same reason.
 #
 # Multi-arch like every published image here: agents render on amd64, but a
 # caller on an arm64 node must be able to pull it too.
 
 FROM node:22-bookworm-slim
 
+# chromium is not optional and not amd64-only work. Google publishes no
+# chrome-headless-shell build for linux/arm64 (HyperFrames' platform map has no
+# entry for it and `browser ensure` refuses outright), so the browser comes from
+# Debian here. On amd64 that also matches what HyperFrames downloads itself —
+# it ships the same Chrome for Testing build — so one path serves both
+# architectures and what CI builds is what runs. Chromium is set as the default
+# browser at the end of this file.
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    chromium \
     ffmpeg \
     ca-certificates \
     fonts-dejavu-core \
@@ -41,9 +49,11 @@ RUN npm ci --omit=dev
 COPY vendor ./vendor
 COPY src ./src
 
-# Bake the headless browser into the image so a render never downloads one.
-RUN ./node_modules/.bin/hyperframes browser ensure \
-    && chown -R node:node /home/node/.cache
+# The browser is already in the image via apt; point HyperFrames at it rather
+# than letting it attempt a download. HYPERFRAMES_BROWSER_PATH is its first
+# choice at render time (findFromEnv), so this is the documented override, and
+# `/usr/bin/chromium` is present in the system layout both architectures ship.
+ENV HYPERFRAMES_BROWSER_PATH=/usr/bin/chromium
 
 USER node
 

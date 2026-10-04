@@ -12,6 +12,6 @@
     "test": "node --test test/"
   },
   "dependencies": {
-    "hyperframes": "0.8.114"
+    "hyperframes": "0.8.123"
   }
 }

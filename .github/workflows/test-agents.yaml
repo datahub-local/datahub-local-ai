@@ -64,8 +64,12 @@ jobs:
       # structure, so they need no Chrome, no FFmpeg and no cluster. No npm
       # install is required - the tests import only node builtins and local files;
       # the render itself is exercised by the container smoke test (see tasks 3.2).
+      #
+      # The glob is quoted so Node expands it, not the shell: on Node 22 a bare
+      # directory is resolved as a module and fails with MODULE_NOT_FOUND, which
+      # Node 26 does not do. Explicit patterns work on both.
       - name: Test composition builder
-        run: node --test agents/n8n/render/test/
+        run: node --test 'agents/n8n/render/test/*.test.mjs'
 
   sympozium:
     name: Sympozium ensembles

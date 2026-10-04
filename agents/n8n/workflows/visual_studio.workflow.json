@@ -158,7 +158,7 @@
           96
         ],
         "parameters": {
-          "jsCode": "const cfg = JSON.parse($('download_registry').first().json.output || '{}');\nconst req = $('normalize_input').first().json;\nconst types = Array.isArray(cfg.types) ? cfg.types : [];\nconst byId = new Map(types.map((t) => [t.id, t]));\nconst budget = cfg.budget || {};\nconst cap = Number(cfg.max_types_per_request || 3);\nlet requested = req.ASSET_TYPES\n  ? req.ASSET_TYPES.split(',').map((s) => s.trim()).filter(Boolean)\n  : (cfg.default_types || []);\nrequested = [...new Set(requested)];\nconst out = [];\nconst note = (id, status, error) => out.push({ json: Object.assign({}, req, {\n  ASSET_TYPE: id, NAME: id, AUTHOR: null, TEMPLATE: null, SPEC_TEMPLATE: null,\n  RENDER_MODE: '', FORMAT: '', FALLBACK_FORMAT: null, ASPECT: '', AVAILABLE: false,\n  UNAVAILABLE_REASON: '', FPS: 0, FRAMES: 0, VIEWPORT: 0, STATUS, ERROR: error }) });\nfor (const id of requested.slice(0, cap)) {\n  const t = byId.get(id);\n  if (!t) { note(id, 'UNKNOWN', 'unknown asset type: ' + id); continue; }\n  const b = Object.assign({}, budget, t.budget || {});\n  out.push({ json: Object.assign({}, req, {\n    ASSET_TYPE: t.id, NAME: t.name || t.id, AUTHOR: t.author, TEMPLATE: t.template || null,\n    SPEC_TEMPLATE: t.specTemplate || null, RENDER_MODE: t.render, FORMAT: t.format,\n    FALLBACK_FORMAT: t.fallbackFormat || null, ASPECT: t.aspect || '4:5',\n    AVAILABLE: t.available !== false, UNAVAILABLE_REASON: t.unavailableReason || '',\n    FPS: Number(b.fps || 12), FRAMES: Number(b.frames || 36), VIEWPORT: Number(b.viewport || 1200),\n  }) });\n}\nfor (const id of requested.slice(cap)) note(id, 'SKIPPED', 'over the per-request cap of ' + cap);\nreturn out;"
+          "jsCode": "const cfg = JSON.parse($('download_registry').first().json.output || '{}');\nconst req = $('normalize_input').first().json;\nconst types = Array.isArray(cfg.types) ? cfg.types : [];\nconst byId = new Map(types.map((t) => [t.id, t]));\nconst budget = cfg.budget || {};\nconst cap = Number(cfg.max_types_per_request || 3);\nlet requested = req.ASSET_TYPES\n  ? req.ASSET_TYPES.split(',').map((s) => s.trim()).filter(Boolean)\n  : (cfg.default_types || []);\nrequested = [...new Set(requested)];\nconst out = [];\nconst note = (id, status, error) => out.push({ json: Object.assign({}, req, {\n  ASSET_TYPE: id, NAME: id, AUTHOR: null, TEMPLATE: null, SPEC_TEMPLATE: null,\n  RENDER_MODE: '', FORMAT: '', FALLBACK_FORMAT: null, ASPECT: '', AVAILABLE: false,\n  UNAVAILABLE_REASON: '', FPS: 0, FRAMES: 0, VIEWPORT: 0, STATUS: status, ERROR: error }) });\nfor (const id of requested.slice(0, cap)) {\n  const t = byId.get(id);\n  if (!t) { note(id, 'UNKNOWN', 'unknown asset type: ' + id); continue; }\n  const b = Object.assign({}, budget, t.budget || {});\n  out.push({ json: Object.assign({}, req, {\n    ASSET_TYPE: t.id, NAME: t.name || t.id, AUTHOR: t.author, TEMPLATE: t.template || null,\n    SPEC_TEMPLATE: t.specTemplate || null, RENDER_MODE: t.render, FORMAT: t.format,\n    FALLBACK_FORMAT: t.fallbackFormat || null, ASPECT: t.aspect || '4:5',\n    AVAILABLE: t.available !== false, UNAVAILABLE_REASON: t.unavailableReason || '',\n    FPS: Number(b.fps || 12), FRAMES: Number(b.frames || 36), VIEWPORT: Number(b.viewport || 1200),\n  }) });\n}\nfor (const id of requested.slice(cap)) note(id, 'SKIPPED', 'over the per-request cap of ' + cap);\nreturn out;"
         }
       },
       {
@@ -857,6 +857,95 @@
         "parameters": {
           "command": "=mkdir -p /home/node/.n8n-files/{{ $json.RUN_ID }}/{{ $json.ASSET_TYPE }}"
         }
+      },
+      {
+        "id": "1a428090-3752-475d-b92e-081c517d560f",
+        "name": "if_video",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          2816,
+          336
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "combinator": "and",
+            "conditions": [
+              {
+                "id": "if_video-c",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                },
+                "leftValue": "={{ $json.RENDER_MODE === 'video' }}",
+                "rightValue": ""
+              }
+            ]
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "b0c4c32b-58d4-4631-a709-ee5c034241c1",
+        "name": "build_video",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          3040,
+          336
+        ],
+        "parameters": {
+          "jsCode": "// Shape the render-service request from the asset: the spec travels as JSON and\n// nothing executable crosses the boundary. Compute the frame metadata here because\n// the service returns the file, not the numbers the run record wants.\nconst a = $input.first().json;\nconst [aw, ah] = String(a.ASPECT || '4:5').split(':').map(Number);\nconst width = Math.max(1, Number(a.VIEWPORT) || 1080);\nconst height = Math.round(width * (ah || 5) / (aw || 4));\nlet spec = null;\ntry { spec = a.SPEC_JSON ? JSON.parse(a.SPEC_JSON) : null; } catch (e) { spec = null; }\nconst fps = Math.max(1, Number(a.FPS) || 30);\nconst durationMs = Math.max(1000, Math.min(20000, (spec && spec.motion && Number(spec.motion.durationMs)) || 3000));\nconst url = ($env.RENDER_URL || '').replace(/\\/+$/, '');\nreturn [{ json: Object.assign({}, a, {\n  RENDER_URL: url ? url + '/render' : '',\n  RENDER_BODY: JSON.stringify({ spec: spec, options: { width: width, height: height, fps: fps } }),\n  DURATION_MS: String(durationMs),\n  FRAME_COUNT: String(Math.round(fps * durationMs / 1000)),\n  WIDTH: String(width),\n  HEIGHT: String(height),\n}) }];\n"
+        }
+      },
+      {
+        "id": "8bc1fed3-38ce-4d8c-a0e9-1c82f97a5f8d",
+        "name": "render_video",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          3264,
+          336
+        ],
+        "onError": "continueRegularOutput",
+        "notes": "A failed render must not block the other assets, so the error is continued and video_result turns the missing binary into that asset's ERROR. See video_result.notes and the 'continueRegularOutput makes a failure invisible' rule in AGENTS.md.",
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $json.RENDER_URL }}",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ $json.RENDER_BODY }}",
+          "options": {
+            "response": {
+              "response": {
+                "responseFormat": "file",
+                "outputPropertyName": "data"
+              }
+            },
+            "timeout": 300000
+          }
+        }
+      },
+      {
+        "id": "e17c3f88-fa58-445e-a6f2-e98dadb870ea",
+        "name": "video_result",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          4736,
+          448
+        ],
+        "notes": "Handles render_video's continued error: no binary means that asset carries ERROR and the run continues, which is what makes the failure visible instead of silent.",
+        "parameters": {
+          "jsCode": "const a = $('build_video').first().json;\nconst out = $input.first().json || {};\nconst bin = ($input.first().binary && $input.first().binary.data) || null;\nconst base = { ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: '', SPEC_JSON: a.SPEC_JSON || '', PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: a.DURATION_MS || '', FRAME_COUNT: a.FRAME_COUNT || '',\n  WIDTH: a.WIDTH || '', HEIGHT: a.HEIGHT || '', MARKUP: '', IMAGE: '' };\nif (!bin || !bin.data) {\n  const fallback = a.RENDER_URL ? 'render service returned no video' : 'RENDER_URL is not configured';\n  const reason = String(out.error || out.message || fallback).slice(0, 500);\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: reason }) }];\n}\nconst mime = bin.mimeType || 'video/mp4';\nreturn [{ json: Object.assign({}, base, { STATUS: 'RENDERED', CONTENT_TYPE: mime,\n  IMAGE: 'data:' + mime + ';base64,' + bin.data }) }];\n"
+        }
       }
     ],
     "connections": {
@@ -1036,7 +1125,7 @@
         "main": [
           [
             {
-              "node": "if_raster",
+              "node": "if_video",
               "type": "main",
               "index": 0
             }
@@ -1297,6 +1386,57 @@
             }
           ]
         ]
+      },
+      "if_video": {
+        "main": [
+          [
+            {
+              "node": "build_video",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "if_raster",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "build_video": {
+        "main": [
+          [
+            {
+              "node": "render_video",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "render_video": {
+        "main": [
+          [
+            {
+              "node": "video_result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "video_result": {
+        "main": [
+          [
+            {
+              "node": "merge_branches",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
       }
     },
     "nodeGroups": [],
@@ -1485,7 +1625,7 @@
       "main": [
         [
           {
-            "node": "if_raster",
+            "node": "if_video",
             "type": "main",
             "index": 0
           }
@@ -1746,6 +1886,57 @@
           }
         ]
       ]
+    },
+    "if_video": {
+      "main": [
+        [
+          {
+            "node": "build_video",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "if_raster",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "build_video": {
+      "main": [
+        [
+          {
+            "node": "render_video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "render_video": {
+      "main": [
+        [
+          {
+            "node": "video_result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "video_result": {
+      "main": [
+        [
+          {
+            "node": "merge_branches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "createdAt": "2026-09-27T15:39:17.669Z",
@@ -1909,7 +2100,7 @@
         96
       ],
       "parameters": {
-        "jsCode": "const cfg = JSON.parse($('download_registry').first().json.output || '{}');\nconst req = $('normalize_input').first().json;\nconst types = Array.isArray(cfg.types) ? cfg.types : [];\nconst byId = new Map(types.map((t) => [t.id, t]));\nconst budget = cfg.budget || {};\nconst cap = Number(cfg.max_types_per_request || 3);\nlet requested = req.ASSET_TYPES\n  ? req.ASSET_TYPES.split(',').map((s) => s.trim()).filter(Boolean)\n  : (cfg.default_types || []);\nrequested = [...new Set(requested)];\nconst out = [];\nconst note = (id, status, error) => out.push({ json: Object.assign({}, req, {\n  ASSET_TYPE: id, NAME: id, AUTHOR: null, TEMPLATE: null, SPEC_TEMPLATE: null,\n  RENDER_MODE: '', FORMAT: '', FALLBACK_FORMAT: null, ASPECT: '', AVAILABLE: false,\n  UNAVAILABLE_REASON: '', FPS: 0, FRAMES: 0, VIEWPORT: 0, STATUS, ERROR: error }) });\nfor (const id of requested.slice(0, cap)) {\n  const t = byId.get(id);\n  if (!t) { note(id, 'UNKNOWN', 'unknown asset type: ' + id); continue; }\n  const b = Object.assign({}, budget, t.budget || {});\n  out.push({ json: Object.assign({}, req, {\n    ASSET_TYPE: t.id, NAME: t.name || t.id, AUTHOR: t.author, TEMPLATE: t.template || null,\n    SPEC_TEMPLATE: t.specTemplate || null, RENDER_MODE: t.render, FORMAT: t.format,\n    FALLBACK_FORMAT: t.fallbackFormat || null, ASPECT: t.aspect || '4:5',\n    AVAILABLE: t.available !== false, UNAVAILABLE_REASON: t.unavailableReason || '',\n    FPS: Number(b.fps || 12), FRAMES: Number(b.frames || 36), VIEWPORT: Number(b.viewport || 1200),\n  }) });\n}\nfor (const id of requested.slice(cap)) note(id, 'SKIPPED', 'over the per-request cap of ' + cap);\nreturn out;"
+        "jsCode": "const cfg = JSON.parse($('download_registry').first().json.output || '{}');\nconst req = $('normalize_input').first().json;\nconst types = Array.isArray(cfg.types) ? cfg.types : [];\nconst byId = new Map(types.map((t) => [t.id, t]));\nconst budget = cfg.budget || {};\nconst cap = Number(cfg.max_types_per_request || 3);\nlet requested = req.ASSET_TYPES\n  ? req.ASSET_TYPES.split(',').map((s) => s.trim()).filter(Boolean)\n  : (cfg.default_types || []);\nrequested = [...new Set(requested)];\nconst out = [];\nconst note = (id, status, error) => out.push({ json: Object.assign({}, req, {\n  ASSET_TYPE: id, NAME: id, AUTHOR: null, TEMPLATE: null, SPEC_TEMPLATE: null,\n  RENDER_MODE: '', FORMAT: '', FALLBACK_FORMAT: null, ASPECT: '', AVAILABLE: false,\n  UNAVAILABLE_REASON: '', FPS: 0, FRAMES: 0, VIEWPORT: 0, STATUS: status, ERROR: error }) });\nfor (const id of requested.slice(0, cap)) {\n  const t = byId.get(id);\n  if (!t) { note(id, 'UNKNOWN', 'unknown asset type: ' + id); continue; }\n  const b = Object.assign({}, budget, t.budget || {});\n  out.push({ json: Object.assign({}, req, {\n    ASSET_TYPE: t.id, NAME: t.name || t.id, AUTHOR: t.author, TEMPLATE: t.template || null,\n    SPEC_TEMPLATE: t.specTemplate || null, RENDER_MODE: t.render, FORMAT: t.format,\n    FALLBACK_FORMAT: t.fallbackFormat || null, ASPECT: t.aspect || '4:5',\n    AVAILABLE: t.available !== false, UNAVAILABLE_REASON: t.unavailableReason || '',\n    FPS: Number(b.fps || 12), FRAMES: Number(b.frames || 36), VIEWPORT: Number(b.viewport || 1200),\n  }) });\n}\nfor (const id of requested.slice(cap)) note(id, 'SKIPPED', 'over the per-request cap of ' + cap);\nreturn out;"
       }
     },
     {
@@ -2607,6 +2798,95 @@
       ],
       "parameters": {
         "command": "=mkdir -p /home/node/.n8n-files/{{ $json.RUN_ID }}/{{ $json.ASSET_TYPE }}"
+      }
+    },
+    {
+      "id": "a62fb762-f33d-4820-a9e1-1e7d56e77c87",
+      "name": "if_video",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2816,
+        336
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "if_video-c",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.RENDER_MODE === 'video' }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "0230330a-be9a-4f2d-884d-d9f8a06800e3",
+      "name": "build_video",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3040,
+        336
+      ],
+      "parameters": {
+        "jsCode": "// Shape the render-service request from the asset: the spec travels as JSON and\n// nothing executable crosses the boundary. Compute the frame metadata here because\n// the service returns the file, not the numbers the run record wants.\nconst a = $input.first().json;\nconst [aw, ah] = String(a.ASPECT || '4:5').split(':').map(Number);\nconst width = Math.max(1, Number(a.VIEWPORT) || 1080);\nconst height = Math.round(width * (ah || 5) / (aw || 4));\nlet spec = null;\ntry { spec = a.SPEC_JSON ? JSON.parse(a.SPEC_JSON) : null; } catch (e) { spec = null; }\nconst fps = Math.max(1, Number(a.FPS) || 30);\nconst durationMs = Math.max(1000, Math.min(20000, (spec && spec.motion && Number(spec.motion.durationMs)) || 3000));\nconst url = ($env.RENDER_URL || '').replace(/\\/+$/, '');\nreturn [{ json: Object.assign({}, a, {\n  RENDER_URL: url ? url + '/render' : '',\n  RENDER_BODY: JSON.stringify({ spec: spec, options: { width: width, height: height, fps: fps } }),\n  DURATION_MS: String(durationMs),\n  FRAME_COUNT: String(Math.round(fps * durationMs / 1000)),\n  WIDTH: String(width),\n  HEIGHT: String(height),\n}) }];\n"
+      }
+    },
+    {
+      "id": "aa926fee-3148-43d7-b014-4f715f672d6a",
+      "name": "render_video",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3264,
+        336
+      ],
+      "onError": "continueRegularOutput",
+      "notes": "A failed render must not block the other assets, so the error is continued and video_result turns the missing binary into that asset's ERROR. See video_result.notes and the 'continueRegularOutput makes a failure invisible' rule in AGENTS.md.",
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.RENDER_URL }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.RENDER_BODY }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          },
+          "timeout": 300000
+        }
+      }
+    },
+    {
+      "id": "8fc8a8ec-b1d3-48a2-a410-5ba3bb535b61",
+      "name": "video_result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4736,
+        448
+      ],
+      "notes": "Handles render_video's continued error: no binary means that asset carries ERROR and the run continues, which is what makes the failure visible instead of silent.",
+      "parameters": {
+        "jsCode": "const a = $('build_video').first().json;\nconst out = $input.first().json || {};\nconst bin = ($input.first().binary && $input.first().binary.data) || null;\nconst base = { ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: '', SPEC_JSON: a.SPEC_JSON || '', PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: a.DURATION_MS || '', FRAME_COUNT: a.FRAME_COUNT || '',\n  WIDTH: a.WIDTH || '', HEIGHT: a.HEIGHT || '', MARKUP: '', IMAGE: '' };\nif (!bin || !bin.data) {\n  const fallback = a.RENDER_URL ? 'render service returned no video' : 'RENDER_URL is not configured';\n  const reason = String(out.error || out.message || fallback).slice(0, 500);\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: reason }) }];\n}\nconst mime = bin.mimeType || 'video/mp4';\nreturn [{ json: Object.assign({}, base, { STATUS: 'RENDERED', CONTENT_TYPE: mime,\n  IMAGE: 'data:' + mime + ';base64,' + bin.data }) }];\n"
       }
     }
   ],

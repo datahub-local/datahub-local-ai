@@ -509,6 +509,60 @@ each is written to `TemporalFiles` and returned as a `DOWNLOAD_URL`, and the
 links stop working about an hour later because `File Webhook` deletes rows whose
 `updatedAt` is older than that on every request.
 
+#### LinkedIn post media
+
+`LinkedIn Post Sharing` carries one media item per post, and which one is the
+**row's** decision: `content_queue.POST_MEDIA` = `ANIMATED` asks `Visual Studio`
+for `diagram_animated_linkedin` and attaches the approved animation, while a
+blank or `STATIC` value takes the `LinkedIn Image Creator` path exactly as
+before. The switch sits on the text approval's output, so both media kinds pass
+through the same publish node, which picks whichever conversion actually ran
+(`$('convert_animation').isExecuted ? … : $('convert_image')…`) — never a second
+publish node, and never a path that guesses.
+
+Four things about the animated branch are deliberate:
+
+- **It branches on the asset, not the run.** The studio reports its run
+  `STATUS: PARTIAL` whenever a requested type is unavailable, so
+  `check_animation_result` tests the asset's own `STATUS`/`ERROR`.
+- **A failed animation never blocks the post.** The failure output lands on a
+  Slack notice naming the article and the reason, then continues into the image
+  branch *before* the image's own approval gate — so the substitute is reviewed
+  as an image instead of silently replacing the animation.
+- **No frozen spec.** A post has one media asset, so nothing needs keeping in
+  step, and a rejection has to be free to re-author; the retry form's feedback is
+  passed straight back to the studio as `FEEDBACK`.
+- **The reviewer sees the motion**: the asset is uploaded to Slack before the
+  double approval, and the approval names the studio run, the frame count and the
+  content type.
+
+The type's budget (8 fps, 24 frames, 1080 px = 34,992,000 pixels) is what keeps a
+GIF inside LinkedIn's documented cap of 500 frames or 36,152,320 pixels; both the
+budget and the branch's wiring are asserted offline in
+`agents/n8n/scripts/test_linkedin_animated_media.py`, which also fails if a node
+that needs a credential has none or if the export has no published version.
+
+#### Visual render service
+
+Video is produced **outside** the n8n pod, because the n8n image has no FFmpeg —
+the same reason `motion_clip` was declared unavailable. `agents/n8n/render/` is a
+small Node service that takes a **typed content spec** and returns an MP4. It
+authors the composition itself from versioned templates, so it never executes
+model-authored HTML, and it renders with **no network**: Chrome, the fonts and a
+vendored GSAP are baked into the image. The image publishes as
+`ghcr.io/datahub-local/datahub-local-ai-render:main` (see
+`.github/workflows/publish-render-image.yaml`) and is deployed by core's
+`automation` release through the `app-template` chart beside n8n, which owns the
+NetworkPolicy (declared through the chart's own `networkpolicies:` key, not a
+standalone template).
+
+The registry's `spec_service` author and the `render: video` type are the studio
+side; the existing animated WebP/GIF path and its `merge_assets` builders are
+unchanged. Sympozium agents reach the same engine through the `render` MCP proxy
+in `datahub-local-ai-mcp`, declared under `sympozium_mcp_servers.render` (disabled
+until that image publishes). Rationale, alternatives and the cross-repo plan are
+in `openspec/changes/add-hyperframes-render-service/`.
+
 ### MCP servers
 
 The servers live in

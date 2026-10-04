@@ -1,0 +1,17 @@
+{
+  "name": "datahub-local-ai-render",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Visual render service: a typed content spec in, an MP4 motion graphic out.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node --test test/"
+  },
+  "dependencies": {
+    "hyperframes": "0.8.114"
+  }
+}

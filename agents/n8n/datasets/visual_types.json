@@ -1,7 +1,7 @@
 {
   "_comment": "Artifact-type registry for the Visual Studio workflow. Downloaded through DownloadTemplate (template_name: datasets/visual_types.json) with an empty template_vars, so this file must contain no doubled-curly-brace placeholder anywhere, not even in a comment. It declares how each type is authored, rendered and formatted; the workflow routes on these fields and adding a type is a data change. Raster art direction is NOT here: it stays in datasets/image_motifs.json, and the raster prompt only receives the spec this registry's authoring stage produces.",
-  "_comment_author": "author is one of: raster (content -> image prompt -> image model), spec_raster (content -> content spec -> raster prompt -> image model), spec_markup (content -> content spec -> deterministic markup from template).",
-  "_comment_render": "render is one of: static (one raster file), animated (browser frame capture -> img2webp animated webp, gif fallback via GraphicsMagick), text (authored markup committed as-is, never rasterized).",
+  "_comment_author": "author is one of: raster (content -> image prompt -> image model), spec_raster (content -> content spec -> raster prompt -> image model), spec_markup (content -> content spec -> deterministic markup from template), spec_service (content spec -> render service -> mp4).",
+  "_comment_render": "render is one of: static (one raster file), animated (browser frame capture -> img2webp animated webp, gif fallback via GraphicsMagick), text (authored markup committed as-is, never rasterized), video (the render service composes and encodes an mp4).",
   "_comment_budget": "budget.fps/frames/viewport are the animation ceiling. A type may override them lower; the renderer never exceeds the registry value. 12 fps, 36 frames (3 s), 1200 px viewport.",
   "_comment_default": "Requested types come from the caller's ASSET_TYPES parameter (comma-separated). When it is blank, default_types is used. max_types_per_request caps one request.",
   "budget": {
@@ -9,7 +9,7 @@
     "frames": 36,
     "viewport": 1200
   },
-  "motion_kinds": ["rise", "fade", "sweep", "pulse"],
+  "motion_kinds": ["rise", "fade", "sweep", "pulse", "draw", "travel", "spin"],
   "max_types_per_request": 3,
   "default_types": ["hero_static", "infographic_static"],
   "types": [
@@ -91,6 +91,22 @@
       "aspect": "16:9",
       "available": false,
       "unavailableReason": "unavailable: no video encoder in this environment"
+    },
+    {
+      "id": "diagram_video",
+      "name": "Video diagram",
+      "author": "spec_service",
+      "specTemplate": "prompts/visual_spec.md",
+      "template": null,
+      "render": "video",
+      "format": "mp4",
+      "aspect": "4:5",
+      "available": true,
+      "budget": {
+        "fps": 30,
+        "frames": 300,
+        "viewport": 1080
+      }
     }
   ]
 }

@@ -42,6 +42,15 @@ sympozium_mcp_servers:
     warehouseScopes: silver.finance,gold.finance
     cacheTTLSeconds: 3600
 
+  render:
+    enabled: false
+    image: ghcr.io/datahub-local/mcp-render
+    tag: main
+    toolsPrefix: render
+    observabilityEnv: false
+    kubernetesReader: false
+    renderUrl: http://datahub-local-core-automation-render.automation.svc.cluster.local:8080
+
 sympozium_delivery_hook:
   image: python:3.13-alpine
   secret: mcp-slack-token

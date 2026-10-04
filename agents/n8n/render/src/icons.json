@@ -1,0 +1,20 @@
+{
+  "_comment": "Offline icon registry for the render service. Every glyph is one or more stroke paths in a 24x24 viewBox, inlined into the composition; nothing is fetched. `motion` is an optional hint the layout builder honours - currently only `spin`, which rotates the glyph over the asset duration. Adding an icon is a data change here, not a code change.",
+  "icons": {
+    "download": { "paths": ["M12 3v12", "m8 11 4 4 4-4", "M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"] },
+    "database": { "paths": ["M12 3c3.9 0 7 1.3 7 3s-3.1 3-7 3-7-1.3-7-3 3.1-3 7-3Z", "M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6", "M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3"] },
+    "server": { "paths": ["M4 4h16v6H4z", "M4 14h16v6H4z", "M8 7h.01", "M8 17h.01"] },
+    "cloud": { "paths": ["M7 18a4 4 0 0 1 0-8 5 5 0 0 1 9.6-1.4A3.5 3.5 0 0 1 17 18Z"] },
+    "gear": { "paths": ["M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z", "M12 2.5v2.4M12 19.1v2.4M4.2 4.2l1.7 1.7M18.1 18.1l1.7 1.7M2.5 12h2.4M19.1 12h2.4M4.2 19.8l1.7-1.7M18.1 5.9l1.7-1.7"], "motion": "spin" },
+    "chart": { "paths": ["M4 20V4", "M4 20h16", "M8 16v-4", "M12 16V8", "M16 16v-6"] },
+    "clock": { "paths": ["M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z", "M12 7v5l3 2"] },
+    "check": { "paths": ["M20 6 9 17l-5-5"] },
+    "warning": { "paths": ["M12 3 2 20h20Z", "M12 9v5", "M12 17h.01"] },
+    "cpu": { "paths": ["M6 6h12v12H6z", "M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"] },
+    "link": { "paths": ["M9 15 15 9", "M10 6l1-1a4 4 0 0 1 6 6l-1 1", "M14 18l-1 1a4 4 0 0 1-6-6l1-1"] },
+    "bolt": { "paths": ["M13 2 4 14h6l-1 8 9-12h-6Z"] },
+    "arrow": { "paths": ["M4 12h15", "m13 6 6 6-6 6"] },
+    "box": { "paths": ["m12 2 9 5v10l-9 5-9-5V7Z", "m3 7 9 5 9-5", "M12 12v10"] },
+    "user": { "paths": ["M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z", "M4 21a8 8 0 0 1 16 0"] }
+  }
+}

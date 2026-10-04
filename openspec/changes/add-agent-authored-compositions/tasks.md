@@ -20,7 +20,17 @@ our render image plus `pi`, with `--no-tools` and `--no-skills` dropped — and 
 against it reached `Running` with Pi executing in-cluster.
 
 - [x] 3.1 ~~Add a persona with `runtimeRef` pinned to the probed runtime~~ — built as `agents/adapters/pi-render/` plus a spike `AgentRuntime`, since the maintained runtimes are session-only
-- [ ] 3.2 Run it by hand-applied `AgentRun` and verify it authors, lints, corrects and renders; record the outcome (**in progress 2026-10-04, and the central question is answered.** The run was admitted; pod `spike-pi-render-1-sms7d` reached `2/2` Running with the `agent` and `ipc-bridge` containers and **zero restarts**. Observed live, in order: Pi wrote `/workspace/index.html` (10,153 bytes) — a titled composition with a real palette and three role accents, correctly referencing the **local** `./gsap.min.js` rather than a CDN; it then **edited** it (11,241 bytes) and created a `snapshots/` directory, i.e. it rendered frames to look at its own output; and it was then caught running `npx hyperframes check --json --samples 15` with the JSON piped through `python3`. **That is the self-correction loop working**: a coding agent applying its normal read/edit/run habits to a composition, invoking the engine's own gate and reading the structured result. The final render outcome is recorded below when the run ends)
+- [ ] 3.2 Run it by hand-applied `AgentRun` and verify it authors, lints, corrects and renders; record the outcome (**the authoring loop is PROVEN; the render is blocked by a resource limit that cannot be raised.** Four runs on 2026-10-04:
+
+  **What works, observed live.** Pi wrote `/workspace/index.html`, and **revised it four times** (10,390 → 11,537 bytes) while running `hyperframes lint` and `hyperframes check` with real headless Chromium, reading the structured findings and correcting against them — including `check --samples 15 --at-transitions`, `check --json` parsing the JSON, and filtering output by section (`/Layout/,/Contrast/`, `/Motion/`). It produced `snapshots/` with real rendered frame PNGs and an `index.motion.json`. This is the thesis confirmed: a coding agent's read/edit/run loop fits composition authoring, and it uses the engine's own gate without being told to beyond the method file.
+
+  **What blocks it.** Every run was **OOMKilled** before reaching `hyperframes render` — `agent` container, exit 137, at 4–10 minutes, always mid-`check`. The container's limit is **1Gi**, and raising it is not possible from any object this repository controls:
+  - `AgentRuntime.spec.resources` — accepted, `Ready`, and **has no effect on the pod** (verified: the runtime says 6Gi while the pod still says 1Gi).
+  - `Agent.spec.agents.default.resources` — **rejected**, `unknown field`.
+  - `AgentRun.spec.sandbox.resources` — accepted, but creates a **third container** (`sandbox: 512Mi`); the `agent` container stays 1Gi.
+  - The Sympozium harness docs' operating note says *"raise it on the Agent if one is OOM-killed"*, which is a **documentation/implementation mismatch** — the Agent has no such field in v0.10.87. Worth reporting upstream.
+
+  Renders also warn in advance: *"5 capture workers may exceed this process's V8 heap (limit 4144MB supports ~4)"*. **Not verified:** whether it would reach a render with adequate memory; it has never had any.)
 - [x] 3.3 Confirm the runtime's digest is recorded — `status.resolvedImageDigest` is `sha256:0dfd4e99…`, the amd64 digest of the published multi-arch image
 
 **Admission finding, which cost several attempts and is worth recording.** A harness

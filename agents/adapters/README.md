@@ -84,7 +84,33 @@ stingy — a rejection is a message an operator can act on.
 4. Write `README.md` stating: upstream revision, what you enabled or added and why,
    what is **verified** and what is **not**, and the honest cost (who tracks the
    harness's release cadence).
-5. Add a publish workflow, digest-pinned, multi-arch like the other images here.
+5. Add a publish workflow, digest-pinned, multi-arch like the other images here, and
+   add the image to the rebuild/prune matrix in
+   `.github/workflows/rebuild-and-prune-images.yaml` so it gets base-image security
+   rebuilds weekly and stays within the retention rule.
+
+## Published images, rebuilds and retention
+
+One workflow owns this for every image in the repository:
+[`rebuild-and-prune-images.yaml`](../../.github/workflows/rebuild-and-prune-images.yaml).
+
+- **Weekly rebuild, staggered one image per weekday.** An image built only on a
+  source change ages anyway — its base image is a moving target, and CVE fixes
+  arrive in `node`/`debian`/`python` without a commit here. The rebuild is what
+  carries them in. One image per day keeps a failure attributable and stops the
+  heavy multi-arch builds competing.
+- **Retention: five versions per package.** Enough to roll back through a bad week
+  of rebuilds, small enough that the registry does not grow because nobody decided
+  it should. `main` is never deleted.
+- **Why the crons are day-of-week, not `*/14`.** A `*/14` step in the
+  day-of-month field matches the 1st, 15th and 29th — steps count from the field's
+  minimum — so the gap from the 29th into the next month is three days. It is not
+  an every-14-days rule. Day-of-week is uniform.
+
+Two retention modes exist because the repositories tag differently: a package that
+only ever pushes `:main` leaves **untagged** orphans behind and needs
+`delete-only-untagged-versions`, while one that also pushes `:<sha>` accumulates
+**tagged** versions and needs `min-versions-to-keep`.
 
 ## Deploying one
 

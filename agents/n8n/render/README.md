@@ -67,6 +67,23 @@ It asserts the file's real duration and frame count (read back with the image's
 own ffprobe) against literals kept in step with `test/fixture.json`; CI runs it
 in `render-image`, gated on a change under `agents/n8n/render/`.
 
+## What this service is not
+
+It answers **one shape of demand**: a typed spec in, a deterministic video out. It
+is the right thing for a scheduled workflow producing a repeatable asset type,
+because the same spec always yields the same composition and a caller cannot inject
+markup.
+
+It is the **wrong** thing for a bespoke, one-off visual: "show how a team of AI
+agents collaborates to build a project" has no layout and no catalog block. That is
+a different path — an agent authors a whole HyperFrames composition from the brief,
+with HyperFrames' own skills as the contract and this image's toolchain as the
+engine. See `agents/render-samples/` and
+`openspec/changes/add-agent-authored-compositions/`.
+
+Do not reach for this service for the second case, and do not let it accept markup to
+cover it.
+
 ## Where it is wired
 
 - `agents/n8n/workflows/visual_studio.workflow.json` calls it for the video type.

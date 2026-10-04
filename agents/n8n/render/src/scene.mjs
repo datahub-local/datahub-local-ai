@@ -70,22 +70,28 @@ export function shellCss(pal, opt) {
       font-family: Inter, "DejaVu Sans", ui-sans-serif, system-ui, sans-serif;
       -webkit-font-smoothing: antialiased; }
     #root { position: relative; width: 100%; height: 100%; padding: calc(72px * var(--u)) calc(72px * var(--u));
+      display: flex; flex-direction: column;
       background:
         linear-gradient(rgba(255,255,255,0.028) 1px, transparent 1px) 0 0 / 100% calc(60px * var(--u)),
         linear-gradient(90deg, rgba(255,255,255,0.028) 1px, transparent 1px) 0 0 / calc(60px * var(--u)) 100%,
         radial-gradient(120% 80% at 82% -10%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 60%); }
+    /* The header is ordinary flow content, deliberately NOT a .clip: HyperFrames
+       takes .clip elements out of normal flow, which made the canvas believe it
+       had the whole height and overlap the title. As flow, the header's real
+       height (one title line or three) decides where the canvas starts. */
+    .head { flex: none; }
     .kicker { font-size: calc(26px * var(--u)); letter-spacing: 0.42em; text-transform: uppercase;
       color: var(--accent); font-weight: 600; }
     h1 { margin-top: calc(20px * var(--u)); font-size: calc(94px * var(--u)); line-height: 0.98;
       letter-spacing: -0.035em; font-weight: 700; max-width: calc(820px * var(--u)); }
     .rule { margin-top: calc(32px * var(--u)); height: calc(6px * var(--u)); width: 100%;
-      border-radius: 3px; transform-origin: left center;
+      border-radius: 3px; transform-origin: left center; flex: none;
       background: linear-gradient(90deg, var(--accent), rgba(245,247,250,0.05)); }
-    .canvas { position: absolute; left: calc(72px * var(--u)); right: calc(72px * var(--u));
-      top: calc(336px * var(--u)); bottom: calc(104px * var(--u)); }
+    .canvas { flex: 1 1 auto; min-height: 0; margin-top: calc(40px * var(--u));
+      margin-bottom: calc(56px * var(--u)); position: relative; }
     .glyph { width: calc(72px * var(--u)); height: calc(72px * var(--u)); flex: none; color: var(--accent); }
     .spin { transform-origin: 50% 50%; }
-    .foot { position: absolute; left: calc(72px * var(--u)); bottom: calc(58px * var(--u));
+    .foot { position: absolute; left: calc(72px * var(--u)); bottom: calc(48px * var(--u));
       font-size: calc(26px * var(--u)); color: var(--muted); }
     .foot b { color: var(--ink); }
   `;

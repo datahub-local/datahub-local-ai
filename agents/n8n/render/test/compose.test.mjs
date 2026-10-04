@@ -67,6 +67,28 @@ test("the composition duration comes from the spec", () => {
   assert.doesNotMatch(html, /NaN/);
 });
 
+test("the canvas flows below the header instead of sitting at a fixed top", () => {
+  // The overlap this guards: .canvas used to be absolutely positioned at a
+  // fixed `top`, so a two-line title ran straight into the first row. The canvas
+  // must be a flex child of #root with no fixed top, so the header's own height
+  // decides where content starts.
+  const html = composeSpec();
+  assert.match(html, /#root \{[^}]*display:\s*flex/, "#root must lay out its children in flow");
+  const canvas = html.match(/\.canvas \{[^}]*\}/)?.[0] || "";
+  assert.match(canvas, /flex:\s*1/, ".canvas must flex to fill the height the header leaves");
+  assert.doesNotMatch(canvas, /(^|\s)top:/, ".canvas must not pin an absolute top");
+});
+
+test("every layout's first row is pushed clear of a long title", () => {
+  // A long title is the case that broke; the shell must reserve its real height
+  // rather than a constant, whatever the layout.
+  const long = { title: "A considerably longer title that wraps onto a second line here" };
+  for (const layout of ["stats", "flow", "timeline", "comparison", "bars"]) {
+    const html = composeSpec({ ...long, layout });
+    assert.match(html, new RegExp(`class="${layout}"`), `${layout} must render`);
+  }
+});
+
 test("an unknown layout fails loudly", () => {
   assert.throws(() => parseSpec({ ...base, layout: "pie" }), /unknown layout: pie/);
 });

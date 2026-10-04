@@ -59,9 +59,11 @@ ${layout.css}
   </head>
   <body>
     <div id="root" data-composition-id="main" data-start="0" data-duration="${durationSec}" data-fps="${opt.fps}" data-width="${opt.width}" data-height="${opt.height}">
-      <div class="kicker clip" data-start="0" data-duration="${durationSec}" data-track-index="0" id="kicker">Data</div>
-      <h1 class="clip" data-start="0.12" data-duration="${(opt.durationMs / 1000 - 0.12).toFixed(3)}" data-track-index="0" id="title">${esc(spec.title)}</h1>
-      <div class="rule clip" data-start="0.45" data-duration="${(opt.durationMs / 1000 - 0.45).toFixed(3)}" data-track-index="0" id="rule"></div>
+      <header class="head">
+        <div class="kicker" id="kicker">Data</div>
+        <h1 id="title">${esc(spec.title)}</h1>
+        <div class="rule" id="rule"></div>
+      </header>
       <div class="canvas" id="canvas">${layout.body}</div>
       ${foot}
     </div>

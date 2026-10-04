@@ -1,3 +1,4 @@
 node_modules/
 renders/
 *.mp4
+!demo/*.mp4

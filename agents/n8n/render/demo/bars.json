@@ -1,0 +1,17 @@
+{
+  "spec": {
+    "title": "Medallion build time",
+    "layout": "bars",
+    "blocks": [
+      { "label": "bronze load", "value": "12s", "icon": "download" },
+      { "label": "silver models", "value": "34s", "icon": "database" },
+      { "label": "gold marts", "value": "21s", "icon": "chart" },
+      { "label": "semantic export", "value": "6s", "icon": "bolt" }
+    ],
+    "accent": "#34d399",
+    "accent2": "#22d3ee",
+    "motion": { "kind": "rise", "durationMs": 5000 },
+    "alt": "bronze 12s, silver 34s, gold 21s, semantic 6s"
+  },
+  "options": { "width": 1080, "height": 1350, "fps": 30 }
+}

@@ -1,0 +1,218 @@
+name: Publish and rebuild images
+
+# One workflow owns every image this repository publishes. It used to be four
+# publish-*.yaml files plus a rebuild workflow, all doing the same buildx for the
+# same images and differing only in trigger — five copies of one build. The build
+# lives here once, and the trigger decides which images it runs for.
+#
+# Three triggers, one build:
+#
+#   workflow_run  a source change has passed its tests -> publish at merge. Both
+#                 upstream test workflows are listed, and the changed paths decide
+#                 which images rebuild. Listing more than one is supported: the
+#                 event fires when either completes.
+#   schedule      an image ages even when nothing here changes, because its base
+#                 image is a moving target - node, debian and python all publish
+#                 CVE fixes without a commit. One image per weekday carries those
+#                 in, staggered so a failure is attributable to one image and the
+#                 heavy multi-arch builds do not compete.
+#   dispatch      rebuild or prune on demand.
+#
+# The day-of-week field is used rather than a `*/14` day-of-month step: the latter
+# matches the 1st, 15th and 29th (steps count from the field's minimum), so the gap
+# from the 29th into the next month is three days. It is not an every-14-days rule.
+on:
+  workflow_run:
+    workflows: [Test Workflows, Test Agents]
+    types: [completed]
+    branches: [main]
+  schedule:
+    - cron: "17 3 * * 1" # dbt
+    - cron: "17 3 * * 2" # dlt
+    - cron: "17 3 * * 3" # render
+    - cron: "17 3 * * 4" # pi-render-adapter
+    - cron: "17 3 * * 5" # prune
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Which image to build, or prune"
+        type: choice
+        options: [dbt, dlt, render, pi-render-adapter, all, prune]
+        default: all
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: publish-images
+  cancel-in-progress: false
+
+jobs:
+  # One place decides which images this run builds. Everything downstream is a
+  # matrix over its output, so adding an image is one entry here and one `case`
+  # arm in the build step - not a new workflow file.
+  select:
+    runs-on: ubuntu-latest
+    outputs:
+      targets: ${{ steps.pick.outputs.targets }}
+      prune: ${{ steps.pick.outputs.prune }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Decide the targets
+        id: pick
+        env:
+          EVENT: ${{ github.event_name }}
+          SCHEDULE: ${{ github.event.schedule }}
+          DISPATCH: ${{ inputs.target }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          echo "prune=false" >> "$GITHUB_OUTPUT"
+
+          # A push-to-main run only publishes if its tests passed.
+          if [ "$EVENT" = "workflow_run" ] && [ "$CONCLUSION" != "success" ]; then
+            echo "tests did not succeed; nothing to publish"
+            echo 'targets=[]' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "$EVENT" = "schedule" ]; then
+            case "$SCHEDULE" in
+              "17 3 * * 1") echo 'targets=["dbt"]' >> "$GITHUB_OUTPUT" ;;
+              "17 3 * * 2") echo 'targets=["dlt"]' >> "$GITHUB_OUTPUT" ;;
+              "17 3 * * 3") echo 'targets=["render"]' >> "$GITHUB_OUTPUT" ;;
+              "17 3 * * 4") echo 'targets=["pi-render-adapter"]' >> "$GITHUB_OUTPUT" ;;
+              "17 3 * * 5")
+                echo 'targets=[]' >> "$GITHUB_OUTPUT"
+                echo "prune=true" >> "$GITHUB_OUTPUT"
+                ;;
+            esac
+            exit 0
+          fi
+
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            if [ "$DISPATCH" = "prune" ]; then
+              echo 'targets=[]' >> "$GITHUB_OUTPUT"
+              echo "prune=true" >> "$GITHUB_OUTPUT"
+            elif [ "$DISPATCH" = "all" ]; then
+              echo 'targets=["dbt","dlt","render","pi-render-adapter"]' >> "$GITHUB_OUTPUT"
+            else
+              echo "targets=[\"$DISPATCH\"]" >> "$GITHUB_OUTPUT"
+            fi
+            exit 0
+          fi
+
+          # workflow_run: the changed paths decide. `^` anchors matter - a bare
+          # `workflows/dbt` would also match workflows/dbt-old/.
+          files=$(git diff --name-only "${HEAD_SHA}^" "$HEAD_SHA" || true)
+          echo "changed files:"; echo "$files"
+
+          targets="[]"
+          # NOTE: test-agents.yaml does not watch agents/adapters/**, so an
+          # adapter-only change does not reach here at all. That is fixed in that
+          # workflow's paths, not here; this filter assumes it is listed.
+          if echo "$files" | grep -qE '^(workflows/dbt/|workflows/dbt$)'; then
+            targets=$(echo "$targets" | jq -c '. + ["dbt"]')
+          fi
+          if echo "$files" | grep -qE '^(workflows/dlt/|workflows/dlt$)'; then
+            targets=$(echo "$targets" | jq -c '. + ["dlt"]')
+          fi
+          # The adapter derives from the render image, so a render change is a
+          # change to the adapter too.
+          if echo "$files" | grep -qE '^(agents/n8n/render/|agents/n8n/render$)'; then
+            targets=$(echo "$targets" | jq -c '. + ["render","pi-render-adapter"] | unique')
+          fi
+          if echo "$files" | grep -qE '^(agents/adapters/|agents/adapters$)'; then
+            targets=$(echo "$targets" | jq -c '. + ["pi-render-adapter"] | unique')
+          fi
+          echo "targets=$targets" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: select
+    if: needs.select.outputs.targets != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.select.outputs.targets) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # The whole image list, in one place. Every image is multi-arch: agents run
+      # on the arm64 nodes, and an amd64-only image is unschedulable there.
+      - name: Build and push ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          case "${{ matrix.target }}" in
+            dbt)               context=workflows/dbt;                 image=ghcr.io/datahub-local/datahub-local-ai-dbt ;;
+            dlt)               context=workflows/dlt;                 image=ghcr.io/datahub-local/datahub-local-ai-dlt ;;
+            render)            context=agents/n8n/render;             image=ghcr.io/datahub-local/datahub-local-ai-render ;;
+            pi-render-adapter) context=agents/adapters/pi-render;     image=ghcr.io/datahub-local/datahub-local-ai-pi-render-adapter ;;
+            *) echo "unknown target: ${{ matrix.target }}" >&2; exit 1 ;;
+          esac
+          echo "building $image from $context"
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            --push \
+            --cache-from type=gha \
+            --cache-to type=gha,mode=max \
+            --tag "$image:main" \
+            --tag "$image:${{ github.event.workflow_run.head_sha || github.sha }}" \
+            "$context"
+
+  # RETENTION - both modes, because the two tagging habits differ. A package that
+  # only ever pushes `:main` leaves untagged orphans behind and needs
+  # delete-only-untagged-versions; one that also pushes a sha accumulates tagged
+  # versions and needs min-versions-to-keep. `main` is never deleted: it is the tag
+  # every consumer points at.
+  #
+  # Five versions is enough to roll back through a bad week of rebuilds and small
+  # enough that the registry does not grow because nobody decided it should.
+  prune:
+    needs: select
+    if: needs.select.outputs.prune == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - datahub-local-ai-dbt
+          - datahub-local-ai-dlt
+          - datahub-local-ai-render
+          - datahub-local-ai-pi-render-adapter
+    steps:
+      - name: Prune untagged versions of ${{ matrix.package }} (keep 5)
+        uses: actions/delete-package-versions@v5
+        continue-on-error: true
+        with:
+          package-name: ${{ matrix.package }}
+          package-type: container
+          min-versions-to-keep: 5
+          delete-only-untagged-versions: "true"
+
+      - name: Prune old tagged versions of ${{ matrix.package }} (keep 5, never main)
+        uses: actions/delete-package-versions@v5
+        continue-on-error: true
+        with:
+          package-name: ${{ matrix.package }}
+          package-type: container
+          min-versions-to-keep: 5
+          ignore-versions: "^main$"

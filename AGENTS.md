@@ -551,7 +551,7 @@ authors the composition itself from versioned templates, so it never executes
 model-authored HTML, and it renders with **no network**: Chrome, the fonts and a
 vendored GSAP are baked into the image. The image publishes as
 `ghcr.io/datahub-local/datahub-local-ai-render:main` (see
-`.github/workflows/publish-render-image.yaml`) and is deployed by core's
+`.github/workflows/publish-images.yaml`) and is deployed by core's
 `automation` release through the `app-template` chart beside n8n, which owns the
 NetworkPolicy (declared through the chart's own `networkpolicies:` key, not a
 standalone template).

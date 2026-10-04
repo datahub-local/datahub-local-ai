@@ -84,13 +84,15 @@ image knows nothing about this adapter.
 
 ## Publishing
 
-`.github/workflows/publish-pi-render-adapter-image.yaml` publishes it, digest-pinned
-and multi-arch, from `agents/adapters/pi-render`. It also rebuilds when the render
-image's sources change, because the base moving is a change to this image.
+`.github/workflows/publish-images.yaml` owns every image in this repository — this
+one, the render image, dbt and dlt — because they share one build. Adding an image
+is one entry in the workflow, not a new file.
 
-It is in the rebuild/prune matrix in `.github/workflows/rebuild-and-prune-images.yaml`,
-so it receives a weekly base-image rebuild and is held to the five-version retention
-rule along with every other image.
+- **On a source change**, after that image's tests pass: publish at merge.
+- **Weekly, one image per weekday**: rebuild so base-image CVE fixes land without a
+  commit here. This image also rebuilds when the render image's sources change,
+  because its base moving is a change to it.
+- **Retention: five versions per package**, with `main` never deleted.
 
 ## Deploying it
 

@@ -3,7 +3,7 @@
 // service reports what it produced rather than what it asked for).
 
 import { spawn } from "node:child_process";
-import { mkdtemp, mkdir, writeFile, copyFile, readFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, copyFile, cp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -67,6 +67,10 @@ export async function renderVideo(html, opt) {
     await writeFile(join(dir, "index.html"), html);
     await mkdir(join(dir, "vendor"), { recursive: true });
     await copyFile(join(PKG, "vendor", "gsap.min.js"), join(dir, "vendor", "gsap.min.js"));
+    // A referenced block resolves its own relative assets against its location, so
+    // the vendored blocks are copied in whole: a block beside ./vendor/ is what
+    // makes the rewritten GSAP path in a full block resolve.
+    await cp(join(PKG, "vendor", "blocks"), join(dir, "blocks"), { recursive: true });
     const out = join(dir, "out.mp4");
     await run(
       HYPERFRAMES,

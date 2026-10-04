@@ -1,0 +1,15 @@
+{
+  "spec": {
+    "title": "Block smoke",
+    "layout": "bar-chart-race",
+    "blocks": [
+      { "label": "silver models", "value": "34s" },
+      { "label": "gold marts", "value": "21s" },
+      { "label": "bronze load", "value": "12s" }
+    ],
+    "accent": "#34d399",
+    "motion": { "kind": "rise", "durationMs": 2000 },
+    "alt": "Medallion build times"
+  },
+  "options": { "width": 540, "height": 675, "fps": 30 }
+}

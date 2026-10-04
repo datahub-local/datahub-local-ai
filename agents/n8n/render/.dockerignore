@@ -1,0 +1,6 @@
+node_modules
+.hyperframes-scratch
+renders
+test
+demo
+*.mp4

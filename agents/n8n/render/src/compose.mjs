@@ -12,6 +12,8 @@
 import { parseSpec, parseOptions } from "./spec.mjs";
 import { esc, escAttr, icon, palette, shellCss } from "./scene.mjs";
 import { build as buildLayout } from "./layouts/index.mjs";
+import { buildBlock } from "./blocks/adapter.mjs";
+import { blockFor, isBlock } from "./blocks/registry.mjs";
 
 const ENTRANCE = {
   rise: { from: { opacity: 0, y: 40 }, to: { opacity: 1, y: 0 } },
@@ -31,7 +33,10 @@ export function compose(specInput, optionInput) {
   const pal = palette(spec);
   const u = (opt.width / 1080).toFixed(4);
   const ctx = { spec, opt, pal, esc, escAttr, icon, u, dur: opt.durationMs / 1000 };
-  const layout = buildLayout(spec.layout, ctx);
+  // A layout name is either backed by a catalog block (the migration) or by a
+  // hand-written builder still in src/layouts/. Both return the same
+  // {css, body, anim} contract, so the shell below is unaware of which.
+  const layout = isBlock(spec.layout) ? buildBlock(blockFor(spec.layout), ctx) : buildLayout(spec.layout, ctx);
 
   const durationSec = (opt.durationMs / 1000).toFixed(3);
   const entrance = ENTRANCE[spec.motion.kind] || ENTRANCE.rise;

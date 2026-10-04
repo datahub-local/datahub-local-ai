@@ -11,7 +11,7 @@
 // decoration: an unknown layout fails (the whole composition depends on it), an
 // unknown icon is dropped later (it is only a glyph).
 
-export const LAYOUTS = ["stats", "flow", "timeline", "comparison", "bars"];
+export const LAYOUTS = ["stats", "flow", "timeline", "comparison", "bars", "bar-chart-race"];
 export const MOTIONS = ["rise", "fade", "sweep", "pulse", "draw", "travel", "spin"];
 
 export const CAPS = {

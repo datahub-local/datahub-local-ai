@@ -39,7 +39,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && fc-cache -fv
 
 ENV NODE_ENV=production
-ENV HOME=/home/node
+
+# HOME must be writable. The deployment runs with readOnlyRootFilesystem, and
+# Chrome puts its user data directory under $HOME while HyperFrames caches under
+# ~/.cache/hyperframes; with HOME=/home/node on a read-only root Chrome fails
+# with "Failed to create headless user data directory container". /tmp is the
+# emptyDir the deployment mounts, so a writable HOME is one env change and no
+# cluster-side exception.
+ENV HOME=/tmp
 
 WORKDIR /app
 

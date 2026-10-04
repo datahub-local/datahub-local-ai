@@ -71,6 +71,84 @@ jobs:
       - name: Test composition builder
         run: node --test 'agents/n8n/render/test/*.test.mjs'
 
+  render-changes:
+    name: render changes
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.filter.outputs.image }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Building the image (Chromium + FFmpeg) only proves something when the
+      # render source changed, and most Test Agents runs are n8n workflow
+      # backups. Diffing here keeps the smoke job from rebuilding for a JSON-only
+      # change; the same raw-git-diff filter the publish workflow uses.
+      - name: Did agents/n8n/render change?
+        id: filter
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [ "$EVENT" = "pull_request" ]; then
+            git fetch --no-tags --quiet origin "$BASE_REF" 2>/dev/null || true
+            base="origin/$BASE_REF"
+          elif [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
+            base="$BEFORE"
+          else
+            base="HEAD^"
+          fi
+          files=$(git diff --name-only "$base"...HEAD || git diff --name-only HEAD^ HEAD)
+          echo "changed files:"
+          echo "$files"
+          if echo "$files" | grep -q '^agents/n8n/render/'; then
+            echo "image=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "image=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  render-image:
+    name: render service image smoke test
+    needs: render-changes
+    if: needs.render-changes.outputs.image == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build the image
+        run: docker build -t datahub-local-ai-render:ci agents/n8n/render
+
+      # Same security context the core deployment runs with (read-only root,
+      # all capabilities dropped, /tmp an emptyDir) so a read-only-filesystem
+      # regression fails here rather than only in the cluster: the first
+      # deployed image 502'd because Chrome could not write its user data
+      # directory under a read-only /home/node. --shm-size stands in for the
+      # dshm emptyDir.
+      - name: Start the container
+        run: |
+          docker run -d --name render \
+            --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --shm-size=1g --tmpfs /tmp \
+            -p 18080:8080 datahub-local-ai-render:ci
+          for _ in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:18080/healthz >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          echo "service did not become healthy" >&2
+          docker logs render >&2
+          exit 1
+
+      - name: Smoke test the rendered MP4
+        run: RENDER_URL=http://127.0.0.1:18080 RENDER_CONTAINER=render node agents/n8n/render/test/smoke.mjs
+
+      - name: Container logs
+        if: always()
+        run: docker logs render
+
   sympozium:
     name: Sympozium ensembles
     runs-on: ubuntu-latest

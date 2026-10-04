@@ -37,11 +37,35 @@ from `src/icons.json`, and the theme is `accent` plus an optional `accent2` and
 ```
 npm install
 PATH=<ffmpeg bin>:$PATH node src/server.mjs
-node --test test/          # offline composition tests, no Chrome needed
+node --test 'test/*.test.mjs'   # offline composition tests, no Chrome needed
 ```
 
-The render itself needs FFmpeg, FFprobe and a Chrome headless shell; in the
-image those are baked in (`hyperframes browser ensure` runs at build time).
+The render itself needs FFmpeg, FFprobe and a browser; the image apt-installs
+Debian's `chromium` and points HyperFrames at it with
+`HYPERFRAMES_BROWSER_PATH`, so both architectures use one path and no browser is
+downloaded at runtime.
+
+The container smoke test is separate because it needs a live service. Build and
+run the image, then run it against the fixture:
+
+```
+docker build -t datahub-local-ai-render:local .
+docker run -d --name render \
+  --read-only --cap-drop ALL --security-opt no-new-privileges \
+  --shm-size=1g --tmpfs /tmp \
+  -p 18080:8080 datahub-local-ai-render:local
+RENDER_URL=http://127.0.0.1:18080 RENDER_CONTAINER=render node test/smoke.mjs
+docker rm -f render
+```
+
+The `docker run` flags mirror the core deployment's security context
+(read-only root, capabilities dropped, `/tmp` an emptyDir): the image's `HOME`
+is `/tmp` so Chrome can create its user data directory under that read-only
+root. Running it here without those flags would hide that requirement.
+
+It asserts the file's real duration and frame count (read back with the image's
+own ffprobe) against literals kept in step with `test/fixture.json`; CI runs it
+in `render-image`, gated on a change under `agents/n8n/render/`.
 
 ## Where it is wired
 

@@ -1,7 +1,7 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "4c3e0507-5d1d-4022-8a3f-8a2c22daa072",
+    "versionId": "06f8c99d-e2a7-4c6d-85d0-5a223eb5a380",
     "workflowId": "2pSrRNmYR2jkX1JG",
     "nodes": [
       {
@@ -991,7 +991,7 @@
           -320
         ],
         "parameters": {
-          "jsCode": "// Turn the request into the agent's brief and the session request. The brief is the\n// caller's CONTENT plus the type's declared frame: duration, size and format. The\n// session gets a run-scoped id so a later run cannot overwrite this artifact before\n// its caller fetches it. Everything here is data-driven, so a type is retuned from\n// the registry (longer, slower, another format) without touching the adapter image.\nconst a = $input.first().json;\nconst req = $('normalize_input').first().json;\nconst safe = (s) => String(s || '').replace(/[^A-Za-z0-9._-]/g, '').slice(0, 40);\nconst sessionId = (safe(a.ASSET_TYPE) + '-' + safe(req.RUN_ID)) || 'default';\nconst base = ($env.PI_RENDER_URL || '').replace(/\\/+$/, '');\nconst format = ['mp4', 'gif', 'webp', 'png'].includes(a.FORMAT) ? a.FORMAT : 'mp4';\nconst [aw, ah] = String(a.ASPECT || '4:5').split(':').map(Number);\nconst width = Math.max(1, Number(a.VIEWPORT) || 1080);\nconst height = Math.round(width * (ah || 5) / (aw || 4));\nconst frames = Math.max(1, Number(a.FRAMES) || 24);\nconst seconds = Math.max(1, Number(a.DURATION_SECONDS) || Math.round(frames / Math.max(1, Number(a.FPS) || 8)));\n// The effective rate for the final GIF: the type budget (frames) spread over the\n// declared duration, so a slow 18s clip is 24 samples, not 24 samples per second.\nconst rate = Math.max(0.1, frames / seconds);\nconst brief = [\n  req.CONTENT,\n  '',\n  'Render a ' + width + 'x' + height + ' (' + (a.ASPECT || '4:5') + ') composition that runs about ' + seconds + ' seconds.',\n  'Animate slowly and deliberately: reveal a few elements in sequence, each held long enough to read, rather than many quick changes. The clip is sampled into a low-frame-rate GIF, so fast or busy motion is lost.',\n].join('\\n');\nreturn [{ json: Object.assign({}, a, {\n  FORMAT: format,\n  FPS: rate, WIDTH: width, HEIGHT: height, FRAMES: frames, DURATION_SECONDS: seconds, RATE: rate,\n  SESSION_ID: sessionId,\n  AUTHOR_URL: base ? base + '/v1/chat/completions' : '',\n  ARTIFACT_URL: base ? base + '/artifacts/' + sessionId + '/out.' + format : '',\n  AUTHOR_BODY: JSON.stringify({ messages: [{ role: 'user', content: brief }], session_id: sessionId, format: format, fps: rate, width: width, frames: frames, durationSeconds: seconds }),\n}) }];\n"
+          "jsCode": "// Turn the request into the agent's brief and the session request. The brief is the\n// caller's CONTENT plus the type's declared frame: duration, size and format. The\n// session gets a run-scoped id so a later run cannot overwrite this artifact before\n// its caller fetches it. Everything here is data-driven, so a type is retuned from\n// the registry (longer, slower, another format) without touching the adapter image.\nconst a = $input.first().json;\nconst req = $('normalize_input').first().json;\nconst safe = (s) => String(s || '').replace(/[^A-Za-z0-9._-]/g, '').slice(0, 40);\nconst sessionId = (safe(a.ASSET_TYPE) + '-' + safe(req.RUN_ID)) || 'default';\nconst base = ($env.PI_RENDER_URL || '').replace(/\\/+$/, '');\nconst format = ['mp4', 'gif', 'webp', 'png'].includes(a.FORMAT) ? a.FORMAT : 'mp4';\nconst [aw, ah] = String(a.ASPECT || '4:5').split(':').map(Number);\nconst width = Math.max(1, Number(a.VIEWPORT) || 1080);\nconst height = Math.round(width * (ah || 5) / (aw || 4));\nconst frames = Math.max(1, Number(a.FRAMES) || 24);\nconst seconds = Math.max(1, Number(a.DURATION_SECONDS) || Math.round(frames / Math.max(1, Number(a.FPS) || 8)));\n// The effective rate for the final GIF: the type budget (frames) spread over the\n// declared duration, so a slow 18s clip is 24 samples, not 24 samples per second.\nconst rate = Math.max(0.1, frames / seconds);\nconst brief = [\n  req.CONTENT,\n  '',\n  'Render a ' + width + 'x' + height + ' (' + (a.ASPECT || '4:5') + ') composition that runs about ' + seconds + ' seconds.',\n  'Animate slowly and deliberately: reveal a few elements in sequence, each held long enough to read, rather than many quick changes. The clip is sampled into a low-frame-rate GIF, so fast or busy motion is lost.',\n  'You cannot see images: do not take screenshots and do not write scripts to inspect the layout - rely on `hyperframes lint`.',\n  'Run `hyperframes render` in the foreground and let it finish; never background it, because the render aborts the moment its parent shell exits.',\n].join('\\n');\nreturn [{ json: Object.assign({}, a, {\n  FORMAT: format,\n  FPS: rate, WIDTH: width, HEIGHT: height, FRAMES: frames, DURATION_SECONDS: seconds, RATE: rate,\n  SESSION_ID: sessionId,\n  AUTHOR_URL: base ? base + '/v1/chat/completions' : '',\n  ARTIFACT_URL: base ? base + '/artifacts/' + sessionId + '/out.' + format : '',\n  AUTHOR_BODY: JSON.stringify({ messages: [{ role: 'user', content: brief }], session_id: sessionId, format: format, fps: rate, width: width, frames: frames, durationSeconds: seconds }),\n}) }];\n"
         }
       },
       {
@@ -1616,36 +1616,36 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-10-05T19:22:42.619Z",
-    "updatedAt": "2026-10-05T19:22:42.619Z",
+    "createdAt": "2026-10-05T20:39:22.668Z",
+    "updatedAt": "2026-10-05T20:39:22.668Z",
     "workflowPublishHistory": [
       {
-        "id": 746,
+        "id": 750,
         "workflowId": "2pSrRNmYR2jkX1JG",
-        "versionId": "4c3e0507-5d1d-4022-8a3f-8a2c22daa072",
+        "versionId": "06f8c99d-e2a7-4c6d-85d0-5a223eb5a380",
         "event": "activated",
         "userId": "83289481-80d9-4bba-906f-8b49aff6b65d",
-        "createdAt": "2026-10-05T19:22:43.124Z"
+        "createdAt": "2026-10-05T20:39:22.837Z"
       },
       {
-        "id": 747,
+        "id": 751,
         "workflowId": "2pSrRNmYR2jkX1JG",
-        "versionId": "4c3e0507-5d1d-4022-8a3f-8a2c22daa072",
+        "versionId": "06f8c99d-e2a7-4c6d-85d0-5a223eb5a380",
         "event": "deactivated",
         "userId": "83289481-80d9-4bba-906f-8b49aff6b65d",
-        "createdAt": "2026-10-05T19:22:50.605Z"
+        "createdAt": "2026-10-05T20:39:31.313Z"
       },
       {
-        "id": 748,
+        "id": 752,
         "workflowId": "2pSrRNmYR2jkX1JG",
-        "versionId": "4c3e0507-5d1d-4022-8a3f-8a2c22daa072",
+        "versionId": "06f8c99d-e2a7-4c6d-85d0-5a223eb5a380",
         "event": "activated",
         "userId": "83289481-80d9-4bba-906f-8b49aff6b65d",
-        "createdAt": "2026-10-05T19:22:50.846Z"
+        "createdAt": "2026-10-05T20:39:31.528Z"
       }
     ]
   },
-  "activeVersionId": "4c3e0507-5d1d-4022-8a3f-8a2c22daa072",
+  "activeVersionId": "06f8c99d-e2a7-4c6d-85d0-5a223eb5a380",
   "connections": {
     "main_trigger": {
       "main": [
@@ -3193,7 +3193,7 @@
         -320
       ],
       "parameters": {
-        "jsCode": "// Turn the request into the agent's brief and the session request. The brief is the\n// caller's CONTENT plus the type's declared frame: duration, size and format. The\n// session gets a run-scoped id so a later run cannot overwrite this artifact before\n// its caller fetches it. Everything here is data-driven, so a type is retuned from\n// the registry (longer, slower, another format) without touching the adapter image.\nconst a = $input.first().json;\nconst req = $('normalize_input').first().json;\nconst safe = (s) => String(s || '').replace(/[^A-Za-z0-9._-]/g, '').slice(0, 40);\nconst sessionId = (safe(a.ASSET_TYPE) + '-' + safe(req.RUN_ID)) || 'default';\nconst base = ($env.PI_RENDER_URL || '').replace(/\\/+$/, '');\nconst format = ['mp4', 'gif', 'webp', 'png'].includes(a.FORMAT) ? a.FORMAT : 'mp4';\nconst [aw, ah] = String(a.ASPECT || '4:5').split(':').map(Number);\nconst width = Math.max(1, Number(a.VIEWPORT) || 1080);\nconst height = Math.round(width * (ah || 5) / (aw || 4));\nconst frames = Math.max(1, Number(a.FRAMES) || 24);\nconst seconds = Math.max(1, Number(a.DURATION_SECONDS) || Math.round(frames / Math.max(1, Number(a.FPS) || 8)));\n// The effective rate for the final GIF: the type budget (frames) spread over the\n// declared duration, so a slow 18s clip is 24 samples, not 24 samples per second.\nconst rate = Math.max(0.1, frames / seconds);\nconst brief = [\n  req.CONTENT,\n  '',\n  'Render a ' + width + 'x' + height + ' (' + (a.ASPECT || '4:5') + ') composition that runs about ' + seconds + ' seconds.',\n  'Animate slowly and deliberately: reveal a few elements in sequence, each held long enough to read, rather than many quick changes. The clip is sampled into a low-frame-rate GIF, so fast or busy motion is lost.',\n].join('\\n');\nreturn [{ json: Object.assign({}, a, {\n  FORMAT: format,\n  FPS: rate, WIDTH: width, HEIGHT: height, FRAMES: frames, DURATION_SECONDS: seconds, RATE: rate,\n  SESSION_ID: sessionId,\n  AUTHOR_URL: base ? base + '/v1/chat/completions' : '',\n  ARTIFACT_URL: base ? base + '/artifacts/' + sessionId + '/out.' + format : '',\n  AUTHOR_BODY: JSON.stringify({ messages: [{ role: 'user', content: brief }], session_id: sessionId, format: format, fps: rate, width: width, frames: frames, durationSeconds: seconds }),\n}) }];\n"
+        "jsCode": "// Turn the request into the agent's brief and the session request. The brief is the\n// caller's CONTENT plus the type's declared frame: duration, size and format. The\n// session gets a run-scoped id so a later run cannot overwrite this artifact before\n// its caller fetches it. Everything here is data-driven, so a type is retuned from\n// the registry (longer, slower, another format) without touching the adapter image.\nconst a = $input.first().json;\nconst req = $('normalize_input').first().json;\nconst safe = (s) => String(s || '').replace(/[^A-Za-z0-9._-]/g, '').slice(0, 40);\nconst sessionId = (safe(a.ASSET_TYPE) + '-' + safe(req.RUN_ID)) || 'default';\nconst base = ($env.PI_RENDER_URL || '').replace(/\\/+$/, '');\nconst format = ['mp4', 'gif', 'webp', 'png'].includes(a.FORMAT) ? a.FORMAT : 'mp4';\nconst [aw, ah] = String(a.ASPECT || '4:5').split(':').map(Number);\nconst width = Math.max(1, Number(a.VIEWPORT) || 1080);\nconst height = Math.round(width * (ah || 5) / (aw || 4));\nconst frames = Math.max(1, Number(a.FRAMES) || 24);\nconst seconds = Math.max(1, Number(a.DURATION_SECONDS) || Math.round(frames / Math.max(1, Number(a.FPS) || 8)));\n// The effective rate for the final GIF: the type budget (frames) spread over the\n// declared duration, so a slow 18s clip is 24 samples, not 24 samples per second.\nconst rate = Math.max(0.1, frames / seconds);\nconst brief = [\n  req.CONTENT,\n  '',\n  'Render a ' + width + 'x' + height + ' (' + (a.ASPECT || '4:5') + ') composition that runs about ' + seconds + ' seconds.',\n  'Animate slowly and deliberately: reveal a few elements in sequence, each held long enough to read, rather than many quick changes. The clip is sampled into a low-frame-rate GIF, so fast or busy motion is lost.',\n  'You cannot see images: do not take screenshots and do not write scripts to inspect the layout - rely on `hyperframes lint`.',\n  'Run `hyperframes render` in the foreground and let it finish; never background it, because the render aborts the moment its parent shell exits.',\n].join('\\n');\nreturn [{ json: Object.assign({}, a, {\n  FORMAT: format,\n  FPS: rate, WIDTH: width, HEIGHT: height, FRAMES: frames, DURATION_SECONDS: seconds, RATE: rate,\n  SESSION_ID: sessionId,\n  AUTHOR_URL: base ? base + '/v1/chat/completions' : '',\n  ARTIFACT_URL: base ? base + '/artifacts/' + sessionId + '/out.' + format : '',\n  AUTHOR_BODY: JSON.stringify({ messages: [{ role: 'user', content: brief }], session_id: sessionId, format: format, fps: rate, width: width, frames: frames, durationSeconds: seconds }),\n}) }];\n"
       }
     },
     {
@@ -3294,6 +3294,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 2,
-  "updatedAt": "2026-10-05T19:22:42.602Z",
-  "versionId": "4c3e0507-5d1d-4022-8a3f-8a2c22daa072"
+  "updatedAt": "2026-10-05T20:39:22.652Z",
+  "versionId": "06f8c99d-e2a7-4c6d-85d0-5a223eb5a380"
 }

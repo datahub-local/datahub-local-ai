@@ -128,7 +128,7 @@ jobs:
           if echo "$files" | grep -qE '^(agents/n8n/render/|agents/n8n/render$)'; then
             targets=$(echo "$targets" | jq -c '. + ["render","pi-render-adapter"] | unique')
           fi
-          if echo "$files" | grep -qE '^(agents/adapters/|agents/adapters$)'; then
+          if echo "$files" | grep -E '^agents/adapters/' | grep -qvE '^agents/adapters/[^/]+/deploy/'; then
             targets=$(echo "$targets" | jq -c '. + ["pi-render-adapter"] | unique')
           fi
           echo "targets=$targets" >> "$GITHUB_OUTPUT"

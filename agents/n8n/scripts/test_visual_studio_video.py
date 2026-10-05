@@ -63,6 +63,10 @@ def test_a_failed_render_is_continued_and_handled(label, doc):
     code = _node(doc, "video_result")["parameters"]["jsCode"]
     assert "STATUS: 'ERROR'" in code
     assert "bin" in code
+    # Binary is read through the helper: this instance stores it out of band, so
+    # binary.data is a reference and concatenating it corrupts the asset.
+    assert "getBinaryDataBuffer(0, 'data')" in code
+    assert "bin.data" not in code
 
 
 @pytest.mark.parametrize("label,doc", list(_copies()))

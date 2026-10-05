@@ -10,6 +10,7 @@ import {
   resolveArtifact,
   contentTypeFor,
   transcodeArgs,
+  outputFps,
   DEFAULT_SESSION_WORKSPACE,
 } from "../session-lib.mjs";
 
@@ -82,4 +83,20 @@ test("transcodeArgs only runs ffmpeg when the format is not mp4", () => {
   const png = transcodeArgs("png", {});
   assert.ok(png.includes("-frames:v"));
   assert.equal(png.at(-1), "out.png");
+});
+
+test("outputFps prefers frames/duration so a type is tunable from data", () => {
+  assert.equal(outputFps({ frames: 24, durationSeconds: 18 }), 24 / 18);
+  assert.equal(outputFps({ fps: 6 }), 6);
+  assert.equal(outputFps({}), 8);
+  // frames without a duration falls back to fps.
+  assert.equal(outputFps({ frames: 24, fps: 5 }), 5);
+});
+
+test("a declared duration trims the input and sets the frame rate", () => {
+  const gif = transcodeArgs("gif", { frames: 24, durationSeconds: 18, width: 1080 });
+  const line = gif.join(" ");
+  assert.ok(line.includes("-t 18"), "the input is trimmed to the declared duration");
+  assert.ok(line.includes("fps=1.333"), "24 frames over 18s is 1.333 fps");
+  assert.ok(line.includes("scale=1080:-2"));
 });

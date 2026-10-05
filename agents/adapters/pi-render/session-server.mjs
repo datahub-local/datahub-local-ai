@@ -277,6 +277,8 @@ http
       const format = safeFormat(request.format);
       const fps = Number(request.fps);
       const width = Number(request.width);
+      const frames = Number(request.frames);
+      const durationSeconds = Number(request.durationSeconds);
       const stream = request.stream === true;
       const id = `chatcmpl-${randomUUID()}`;
       const cancellation = new AbortController();
@@ -321,7 +323,7 @@ http
 
       // Produce the caller's requested format from the engine's out.mp4, in the
       // same run directory, before answering.
-      await transcode(dir, format, { fps, width });
+      await transcode(dir, format, { fps, width, frames, durationSeconds });
 
       if (stream) {
         writeSSE(res, {

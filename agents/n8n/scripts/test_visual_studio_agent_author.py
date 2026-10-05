@@ -93,6 +93,15 @@ def test_the_result_is_content_not_a_reference(label, doc):
 
 
 @pytest.mark.parametrize("label,doc", list(_copies()))
+def test_the_binary_is_read_through_the_helper(label, doc):
+    # This instance stores binaries out of band, so binary.data is a reference
+    # ("database:<id>"), not base64. Reading it directly uploaded a 6-byte file.
+    code = _node(doc, "agent_result")["parameters"]["jsCode"]
+    assert "getBinaryDataBuffer(0, 'data')" in code
+    assert "bin.data" not in code, "binary.data is a reference here, not base64"
+
+
+@pytest.mark.parametrize("label,doc", list(_copies()))
 def test_merge_assets_skips_agent_types(label, doc):
     # merge_assets loops every registry item; agent types are produced by the
     # branch off parse_registry, so emitting them here would duplicate them.
@@ -109,3 +118,26 @@ def test_the_agent_type_is_declared():
     assert entry["render"] == "agent"
     assert entry["format"] == "gif"
     assert entry["specTemplate"] is None, "the agent takes the brief, not a content spec"
+    assert entry.get("durationSeconds", 0) >= 10, "the agent type is a long, slow clip"
+
+
+@pytest.mark.parametrize("label,doc", list(_copies()))
+def test_the_duration_and_frame_budget_are_data_driven(label, doc):
+    # The type's declared duration drives the brief and the request, and the
+    # effective rate is frames/duration -- so a type is retuned from the registry
+    # without touching the adapter image.
+    body = _node(doc, "build_author_brief")["parameters"]["jsCode"]
+    assert "DURATION_SECONDS" in body
+    assert "durationSeconds" in body and "frames" in body
+    assert "slow" in body.lower(), "the brief must ask for slow, deliberate motion"
+    assert "DURATION_SECONDS" in _node(doc, "parse_registry")["parameters"]["jsCode"]
+
+
+@pytest.mark.parametrize("label,doc", list(_copies()))
+def test_a_transient_empty_agent_turn_is_retried(label, doc):
+    # A turn can come back empty (the model returned nothing and no artifact was
+    # written); a live LinkedIn run hit exactly that and fell back to the still
+    # image. One retry covers the transient case without burning a whole run.
+    node = _node(doc, "execute_author")
+    assert node.get("retryOnFail") is True
+    assert node.get("maxTries", 0) >= 2

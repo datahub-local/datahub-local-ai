@@ -117,6 +117,7 @@
       "render": "agent",
       "format": "gif",
       "aspect": "4:5",
+      "durationSeconds": 18,
       "available": true,
       "budget": {
         "fps": 8,

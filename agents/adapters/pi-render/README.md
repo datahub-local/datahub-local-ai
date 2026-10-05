@@ -258,10 +258,14 @@ PVC. A caller that needs the artifact (an n8n workflow) sends two extra fields a
 a second request:
 
 1. `POST /v1/chat/completions` with `session_id` identifying the run and `format` naming
-   the output kind (`mp4`, `gif`, `webp`, `png`; optional `fps` and `width`). The server
-   runs Pi in `<workspace>/runs/<session_id>/`, tells it to write `out.mp4` there, then
-   converts to the requested format in the same directory — `ffmpeg` is already in the
-   image (MP4 → GIF at the declared fps/size, the LinkedIn case). The workspace defaults
+   the output kind (`mp4`, `gif`, `webp`, `png`). The output's shape is all request
+   data: `width`, `frames` and `durationSeconds` (or `fps`). `frames`/`durationSeconds`
+   are what make a long, slow clip possible — 24 frames over 18 s is 1.33 fps, so the
+   composition is authored slowly and sampled sparsely, and a type is retuned from the
+   registry without touching this image. The server runs Pi in
+   `<workspace>/runs/<session_id>/`, tells it to write `out.mp4` there, then converts
+   to the requested format in the same directory — `ffmpeg` is already in the image
+   (MP4 → GIF at the declared rate/size, the LinkedIn case). The workspace defaults
    to `/tmp/aivideo` because a session container mounts the session PVC at `/tmp` and
    does **not** mount `/workspace`; `SYMPOZIUM_WORKSPACE` overrides it.
 2. `GET /artifacts/<session_id>/out.<ext>` fetches it. Only the names the server writes,

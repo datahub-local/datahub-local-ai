@@ -22,6 +22,12 @@ You are authoring a HyperFrames video composition, not answering in prose.
 - Never pair a CSS `transform` with a GSAP tween on the same property. Set the
   start state inside the tween.
 - No network at render time. No clocks, no unseeded randomness.
+- **The motion is sampled into a low-frame-rate GIF.** The clip may be 15-20
+  seconds long but only a few dozen frames survive into the file, so animate
+  slowly and deliberately: a handful of changes, each held long enough to read,
+  rather than many quick ones. A 0.4-second flourish is invisible; a 2-second
+  reveal is the target. Prefer revealing elements in sequence over animating
+  everything at once.
 
 ## How to work
 

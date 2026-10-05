@@ -196,6 +196,7 @@ def test_the_agent_type_is_declared_and_inside_the_caps():
     assert entry["format"] == "gif"
     assert entry["available"] is True
     assert entry["specTemplate"] is None, "the agent takes the brief, not a content spec"
+    assert entry.get("durationSeconds", 0) >= 10
 
     budget = entry["budget"]
     width = budget["viewport"]

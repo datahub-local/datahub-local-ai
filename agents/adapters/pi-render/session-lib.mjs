@@ -75,26 +75,45 @@ export function contentTypeFor(name) {
   return "application/octet-stream";
 }
 
+// The sampling rate for the converted animation. The caller's declared `frames`
+// over `durationSeconds` wins, so a type can be tuned entirely from data (a long,
+// slow clip at a low frame rate) without touching the image; otherwise the declared
+// `fps`, otherwise a safe default.
+export function outputFps({ frames, durationSeconds, fps } = {}) {
+  const f = Number(frames);
+  const d = Number(durationSeconds);
+  const p = Number(fps);
+  if (Number.isFinite(f) && f > 0 && Number.isFinite(d) && d > 0) return f / d;
+  if (Number.isFinite(p) && p > 0) return p;
+  return 8;
+}
+
+function trimNumber(n) {
+  return String(Math.round(n * 1000) / 1000);
+}
+
 // The ffmpeg argument list that turns the engine's out.mp4 into the requested
-// format inside runDir. Returns null when no transcode is needed (mp4). The fps
-// and width are the type's declared budget; a missing value keeps ffmpeg's source.
-export function transcodeArgs(format, { fps, width } = {}) {
-  const filters = [];
-  if (Number.isFinite(fps) && fps > 0) filters.push(`fps=${fps}`);
+// format inside runDir. Returns null when no transcode is needed (mp4). A declared
+// duration trims the input to that length, so the frame count is what the type
+// budget says it is even if the agent's render ran long.
+export function transcodeArgs(format, { fps, width, frames, durationSeconds } = {}) {
+  const rate = outputFps({ frames, durationSeconds, fps });
+  const filters = [`fps=${trimNumber(rate)}`];
   if (Number.isFinite(width) && width > 0) filters.push(`scale=${width}:-2:flags=lanczos`);
+  const trim = Number.isFinite(durationSeconds) && durationSeconds > 0 ? ["-t", trimNumber(durationSeconds)] : [];
   switch (safeFormat(format)) {
     case "mp4":
       return null;
     case "gif": {
-      const chain = filters.length ? filters.join(",") : "fps=12";
       // Palettegen/paletteuse is what makes a flat-colour diagram GIF small and
       // clean; -loop 0 makes it animate.
       return [
         "-y",
+        ...trim,
         "-i",
         "out.mp4",
         "-vf",
-        `${chain},split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse`,
+        `${filters.join(",")},split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse`,
         "-loop",
         "0",
         "out.gif",
@@ -103,13 +122,15 @@ export function transcodeArgs(format, { fps, width } = {}) {
     case "webp":
       return [
         "-y",
+        ...trim,
         "-i",
         "out.mp4",
         "-vcodec",
         "libwebp",
         "-loop",
         "0",
-        ...(filters.length ? ["-vf", filters.join(",")] : []),
+        "-vf",
+        filters.join(","),
         "out.webp",
       ];
     case "png":

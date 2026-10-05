@@ -1,7 +1,7 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "84d6d163-683c-4426-a70d-c2d076d078e8",
+    "versionId": "4c3e0507-5d1d-4022-8a3f-8a2c22daa072",
     "workflowId": "2pSrRNmYR2jkX1JG",
     "nodes": [
       {
@@ -158,7 +158,7 @@
           96
         ],
         "parameters": {
-          "jsCode": "const cfg = JSON.parse($('download_registry').first().json.output || '{}');\nconst req = $('normalize_input').first().json;\nconst types = Array.isArray(cfg.types) ? cfg.types : [];\nconst byId = new Map(types.map((t) => [t.id, t]));\nconst budget = cfg.budget || {};\nconst cap = Number(cfg.max_types_per_request || 3);\nlet requested = req.ASSET_TYPES\n  ? req.ASSET_TYPES.split(',').map((s) => s.trim()).filter(Boolean)\n  : (cfg.default_types || []);\nrequested = [...new Set(requested)];\nconst out = [];\nconst note = (id, status, error) => out.push({ json: Object.assign({}, req, {\n  ASSET_TYPE: id, NAME: id, AUTHOR: null, TEMPLATE: null, SPEC_TEMPLATE: null,\n  RENDER_MODE: '', FORMAT: '', FALLBACK_FORMAT: null, ASPECT: '', AVAILABLE: false,\n  UNAVAILABLE_REASON: '', FPS: 0, FRAMES: 0, VIEWPORT: 0, STATUS: status, ERROR: error }) });\nfor (const id of requested.slice(0, cap)) {\n  const t = byId.get(id);\n  if (!t) { note(id, 'UNKNOWN', 'unknown asset type: ' + id); continue; }\n  const b = Object.assign({}, budget, t.budget || {});\n  out.push({ json: Object.assign({}, req, {\n    ASSET_TYPE: t.id, NAME: t.name || t.id, AUTHOR: t.author, TEMPLATE: t.template || null,\n    SPEC_TEMPLATE: t.specTemplate || null, RENDER_MODE: t.render, FORMAT: t.format,\n    FALLBACK_FORMAT: t.fallbackFormat || null, ASPECT: t.aspect || '4:5',\n    AVAILABLE: t.available !== false, UNAVAILABLE_REASON: t.unavailableReason || '',\n    FPS: Number(b.fps || 12), FRAMES: Number(b.frames || 36), VIEWPORT: Number(b.viewport || 1200),\n  }) });\n}\nfor (const id of requested.slice(cap)) note(id, 'SKIPPED', 'over the per-request cap of ' + cap);\nreturn out;"
+          "jsCode": "const cfg = JSON.parse($('download_registry').first().json.output || '{}');\nconst req = $('normalize_input').first().json;\nconst types = Array.isArray(cfg.types) ? cfg.types : [];\nconst byId = new Map(types.map((t) => [t.id, t]));\nconst budget = cfg.budget || {};\nconst cap = Number(cfg.max_types_per_request || 3);\nlet requested = req.ASSET_TYPES\n  ? req.ASSET_TYPES.split(',').map((s) => s.trim()).filter(Boolean)\n  : (cfg.default_types || []);\nrequested = [...new Set(requested)];\nconst out = [];\nconst note = (id, status, error) => out.push({ json: Object.assign({}, req, {\n  ASSET_TYPE: id, NAME: id, AUTHOR: null, TEMPLATE: null, SPEC_TEMPLATE: null,\n  RENDER_MODE: '', FORMAT: '', FALLBACK_FORMAT: null, ASPECT: '', AVAILABLE: false,\n  UNAVAILABLE_REASON: '', FPS: 0, FRAMES: 0, VIEWPORT: 0, DURATION_SECONDS: 0, STATUS: status, ERROR: error }) });\nfor (const id of requested.slice(0, cap)) {\n  const t = byId.get(id);\n  if (!t) { note(id, 'UNKNOWN', 'unknown asset type: ' + id); continue; }\n  const b = Object.assign({}, budget, t.budget || {});\n  out.push({ json: Object.assign({}, req, {\n    ASSET_TYPE: t.id, NAME: t.name || t.id, AUTHOR: t.author, TEMPLATE: t.template || null,\n    SPEC_TEMPLATE: t.specTemplate || null, RENDER_MODE: t.render, FORMAT: t.format,\n    FALLBACK_FORMAT: t.fallbackFormat || null, ASPECT: t.aspect || '4:5',\n    AVAILABLE: t.available !== false, UNAVAILABLE_REASON: t.unavailableReason || '',\n    FPS: Number(b.fps || 12), FRAMES: Number(b.frames || 36), VIEWPORT: Number(b.viewport || 1200),\n    DURATION_SECONDS: Number(t.durationSeconds || 0),\n  }) });\n}\nfor (const id of requested.slice(cap)) note(id, 'SKIPPED', 'over the per-request cap of ' + cap);\nreturn out;\n"
         }
       },
       {
@@ -944,7 +944,7 @@
           448
         ],
         "parameters": {
-          "jsCode": "const a = $('build_video').first().json;\nconst out = $input.first().json || {};\nconst bin = ($input.first().binary && $input.first().binary.data) || null;\nconst base = { ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: '', SPEC_JSON: a.SPEC_JSON || '', PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: a.DURATION_MS || '', FRAME_COUNT: a.FRAME_COUNT || '',\n  WIDTH: a.WIDTH || '', HEIGHT: a.HEIGHT || '', MARKUP: '', IMAGE: '' };\nif (!bin || !bin.data) {\n  const fallback = a.RENDER_URL ? 'render service returned no video' : 'RENDER_URL is not configured';\n  const reason = String(out.error || out.message || fallback).slice(0, 500);\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: reason }) }];\n}\nconst mime = bin.mimeType || 'video/mp4';\nreturn [{ json: Object.assign({}, base, { STATUS: 'RENDERED', CONTENT_TYPE: mime,\n  IMAGE: 'data:' + mime + ';base64,' + bin.data }) }];\n"
+          "jsCode": "// Handles render_video's continued error: no binary means that asset carries ERROR\n// and the run continues, which is what makes the failure visible instead of silent.\n// Binary is read with getBinaryDataBuffer because this instance stores it out of band.\nconst a = $('build_video').first().json;\nconst out = $input.first().json || {};\nconst binMeta = ($input.first().binary && $input.first().binary.data) || null;\nconst base = { ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: '', SPEC_JSON: a.SPEC_JSON || '', PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: a.DURATION_MS || '', FRAME_COUNT: a.FRAME_COUNT || '',\n  WIDTH: a.WIDTH || '', HEIGHT: a.HEIGHT || '', MARKUP: '', IMAGE: '' };\nif (!binMeta) {\n  const fallback = a.RENDER_URL ? 'render service returned no video' : 'RENDER_URL is not configured';\n  const reason = String(out.error || out.message || fallback).slice(0, 500);\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: reason }) }];\n}\nconst mime = binMeta.mimeType || 'video/mp4';\nconst buffer = await this.helpers.getBinaryDataBuffer(0, 'data');\nreturn [{ json: Object.assign({}, base, { STATUS: 'RENDERED', CONTENT_TYPE: mime,\n  IMAGE: 'data:' + mime + ';base64,' + buffer.toString('base64') }) }];\n"
         }
       },
       {
@@ -991,7 +991,7 @@
           -320
         ],
         "parameters": {
-          "jsCode": "// Turn the request into the agent's brief and the session request. The brief is\n// the caller's CONTENT plus the type's declared frame; the session gets a\n// run-scoped id so a later run cannot overwrite this artifact before its caller\n// fetches it.\nconst a = $input.first().json;\nconst req = $('normalize_input').first().json;\nconst safe = (s) => String(s || '').replace(/[^A-Za-z0-9._-]/g, '').slice(0, 40);\nconst sessionId = (safe(a.ASSET_TYPE) + '-' + safe(req.RUN_ID)) || 'default';\nconst base = ($env.PI_RENDER_URL || '').replace(/\\/+$/, '');\nconst format = ['mp4', 'gif', 'webp', 'png'].includes(a.FORMAT) ? a.FORMAT : 'mp4';\nconst [aw, ah] = String(a.ASPECT || '4:5').split(':').map(Number);\nconst width = Math.max(1, Number(a.VIEWPORT) || 1080);\nconst height = Math.round(width * (ah || 5) / (aw || 4));\nconst fps = Math.max(1, Math.min(12, Number(a.FPS) || 12));\nconst seconds = Math.max(1, Math.round((Number(a.FRAMES) || 24) / fps));\nconst brief = [\n  req.CONTENT,\n  '',\n  'Render a ' + width + 'x' + height + ' (' + (a.ASPECT || '4:5') + ') composition, about ' + seconds + ' seconds, and nothing else.',\n].join('\\n');\nreturn [{ json: Object.assign({}, a, {\n  FORMAT: format,\n  FPS: fps, WIDTH: width, HEIGHT: height,\n  SESSION_ID: sessionId,\n  AUTHOR_URL: base ? base + '/v1/chat/completions' : '',\n  ARTIFACT_URL: base ? base + '/artifacts/' + sessionId + '/out.' + format : '',\n  AUTHOR_BODY: JSON.stringify({ messages: [{ role: 'user', content: brief }], session_id: sessionId, format: format, fps: fps, width: width }),\n}) }];\n"
+          "jsCode": "// Turn the request into the agent's brief and the session request. The brief is the\n// caller's CONTENT plus the type's declared frame: duration, size and format. The\n// session gets a run-scoped id so a later run cannot overwrite this artifact before\n// its caller fetches it. Everything here is data-driven, so a type is retuned from\n// the registry (longer, slower, another format) without touching the adapter image.\nconst a = $input.first().json;\nconst req = $('normalize_input').first().json;\nconst safe = (s) => String(s || '').replace(/[^A-Za-z0-9._-]/g, '').slice(0, 40);\nconst sessionId = (safe(a.ASSET_TYPE) + '-' + safe(req.RUN_ID)) || 'default';\nconst base = ($env.PI_RENDER_URL || '').replace(/\\/+$/, '');\nconst format = ['mp4', 'gif', 'webp', 'png'].includes(a.FORMAT) ? a.FORMAT : 'mp4';\nconst [aw, ah] = String(a.ASPECT || '4:5').split(':').map(Number);\nconst width = Math.max(1, Number(a.VIEWPORT) || 1080);\nconst height = Math.round(width * (ah || 5) / (aw || 4));\nconst frames = Math.max(1, Number(a.FRAMES) || 24);\nconst seconds = Math.max(1, Number(a.DURATION_SECONDS) || Math.round(frames / Math.max(1, Number(a.FPS) || 8)));\n// The effective rate for the final GIF: the type budget (frames) spread over the\n// declared duration, so a slow 18s clip is 24 samples, not 24 samples per second.\nconst rate = Math.max(0.1, frames / seconds);\nconst brief = [\n  req.CONTENT,\n  '',\n  'Render a ' + width + 'x' + height + ' (' + (a.ASPECT || '4:5') + ') composition that runs about ' + seconds + ' seconds.',\n  'Animate slowly and deliberately: reveal a few elements in sequence, each held long enough to read, rather than many quick changes. The clip is sampled into a low-frame-rate GIF, so fast or busy motion is lost.',\n].join('\\n');\nreturn [{ json: Object.assign({}, a, {\n  FORMAT: format,\n  FPS: rate, WIDTH: width, HEIGHT: height, FRAMES: frames, DURATION_SECONDS: seconds, RATE: rate,\n  SESSION_ID: sessionId,\n  AUTHOR_URL: base ? base + '/v1/chat/completions' : '',\n  ARTIFACT_URL: base ? base + '/artifacts/' + sessionId + '/out.' + format : '',\n  AUTHOR_BODY: JSON.stringify({ messages: [{ role: 'user', content: brief }], session_id: sessionId, format: format, fps: rate, width: width, frames: frames, durationSeconds: seconds }),\n}) }];\n"
         }
       },
       {
@@ -1000,6 +1000,9 @@
         "notes": "A failed or unconfigured authoring call must not block the other assets, so the error is continued and agent_result turns the missing binary into that asset's ERROR. See agent_result.notes and the 'continueRegularOutput makes a failure invisible' rule in AGENTS.md.",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
+        "retryOnFail": true,
+        "maxTries": 2,
+        "waitBetweenTries": 20000,
         "onError": "continueRegularOutput",
         "position": [
           896,
@@ -1012,7 +1015,7 @@
           "specifyBody": "json",
           "jsonBody": "={{ $json.AUTHOR_BODY }}",
           "options": {
-            "timeout": 600000
+            "timeout": 1200000
           }
         }
       },
@@ -1051,7 +1054,7 @@
           -320
         ],
         "parameters": {
-          "jsCode": "// The rendered artifact the session returned, as the asset. The workflow never\n// sees the agent's composition markup -- only this file -- which is what keeps the\n// studio's \"model output is data\" boundary intact for the agent path.\nconst a = $('build_author_brief').first().json;\nconst out = $input.first().json || {};\nconst bin = ($input.first().binary && $input.first().binary.data) || null;\nconst base = {\n  ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: '', SPEC_JSON: a.SPEC_JSON || '', PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: '', FRAME_COUNT: '', WIDTH: a.WIDTH || '', HEIGHT: a.HEIGHT || '',\n  MARKUP: '', IMAGE: '',\n};\nif (!a.AUTHOR_URL) {\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: 'PI_RENDER_URL is not configured' }) }];\n}\nif (!bin || !bin.data) {\n  const reason = String(out.error || out.message || 'agent authoring returned no artifact').slice(0, 500);\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: reason }) }];\n}\nconst mime = bin.mimeType || 'image/gif';\nreturn [{ json: Object.assign({}, base, { STATUS: 'RENDERED', CONTENT_TYPE: mime,\n  IMAGE: 'data:' + mime + ';base64,' + bin.data }) }];\n"
+          "jsCode": "// The rendered artifact the session returned, as the asset. Read the bytes with\n// getBinaryDataBuffer: this instance keeps binaries out of band, so binary.data is a\n// reference (\"database:<id>\"), not the base64. The workflow never sees the agent's\n// composition markup, only this file.\nconst a = $('build_author_brief').first().json;\nconst out = $input.first().json || {};\nconst binMeta = ($input.first().binary && $input.first().binary.data) || null;\nconst base = {\n  ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: '', SPEC_JSON: a.SPEC_JSON || '', PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: '', FRAME_COUNT: '', WIDTH: a.WIDTH || '', HEIGHT: a.HEIGHT || '',\n  MARKUP: '', IMAGE: '',\n};\nconst describe = (v, fallback) => {\n  if (typeof v === 'string' && v) return v;\n  if (v && typeof v === 'object' && typeof v.message === 'string') return v.message;\n  if (v != null) return JSON.stringify(v);\n  return fallback;\n};\nif (!a.AUTHOR_URL) {\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: 'PI_RENDER_URL is not configured' }) }];\n}\nif (!binMeta) {\n  const reason = describe(out.error || out.message, 'agent authoring returned no artifact').slice(0, 500);\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: reason }) }];\n}\nconst mime = binMeta.mimeType || 'image/gif';\nconst buffer = await this.helpers.getBinaryDataBuffer(0, 'data');\nreturn [{ json: Object.assign({}, base, { STATUS: 'RENDERED', CONTENT_TYPE: mime,\n  IMAGE: 'data:' + mime + ';base64,' + buffer.toString('base64') }) }];\n"
         }
       }
     ],
@@ -1613,36 +1616,36 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-10-05T11:23:57.451Z",
-    "updatedAt": "2026-10-05T11:23:57.451Z",
+    "createdAt": "2026-10-05T19:22:42.619Z",
+    "updatedAt": "2026-10-05T19:22:42.619Z",
     "workflowPublishHistory": [
       {
-        "id": 724,
+        "id": 746,
         "workflowId": "2pSrRNmYR2jkX1JG",
-        "versionId": "84d6d163-683c-4426-a70d-c2d076d078e8",
+        "versionId": "4c3e0507-5d1d-4022-8a3f-8a2c22daa072",
         "event": "activated",
         "userId": "83289481-80d9-4bba-906f-8b49aff6b65d",
-        "createdAt": "2026-10-05T11:23:57.630Z"
+        "createdAt": "2026-10-05T19:22:43.124Z"
       },
       {
-        "id": 725,
+        "id": 747,
         "workflowId": "2pSrRNmYR2jkX1JG",
-        "versionId": "84d6d163-683c-4426-a70d-c2d076d078e8",
+        "versionId": "4c3e0507-5d1d-4022-8a3f-8a2c22daa072",
         "event": "deactivated",
         "userId": "83289481-80d9-4bba-906f-8b49aff6b65d",
-        "createdAt": "2026-10-05T11:24:04.757Z"
+        "createdAt": "2026-10-05T19:22:50.605Z"
       },
       {
-        "id": 726,
+        "id": 748,
         "workflowId": "2pSrRNmYR2jkX1JG",
-        "versionId": "84d6d163-683c-4426-a70d-c2d076d078e8",
+        "versionId": "4c3e0507-5d1d-4022-8a3f-8a2c22daa072",
         "event": "activated",
         "userId": "83289481-80d9-4bba-906f-8b49aff6b65d",
-        "createdAt": "2026-10-05T11:24:05.040Z"
+        "createdAt": "2026-10-05T19:22:50.846Z"
       }
     ]
   },
-  "activeVersionId": "84d6d163-683c-4426-a70d-c2d076d078e8",
+  "activeVersionId": "4c3e0507-5d1d-4022-8a3f-8a2c22daa072",
   "connections": {
     "main_trigger": {
       "main": [
@@ -2357,7 +2360,7 @@
         96
       ],
       "parameters": {
-        "jsCode": "const cfg = JSON.parse($('download_registry').first().json.output || '{}');\nconst req = $('normalize_input').first().json;\nconst types = Array.isArray(cfg.types) ? cfg.types : [];\nconst byId = new Map(types.map((t) => [t.id, t]));\nconst budget = cfg.budget || {};\nconst cap = Number(cfg.max_types_per_request || 3);\nlet requested = req.ASSET_TYPES\n  ? req.ASSET_TYPES.split(',').map((s) => s.trim()).filter(Boolean)\n  : (cfg.default_types || []);\nrequested = [...new Set(requested)];\nconst out = [];\nconst note = (id, status, error) => out.push({ json: Object.assign({}, req, {\n  ASSET_TYPE: id, NAME: id, AUTHOR: null, TEMPLATE: null, SPEC_TEMPLATE: null,\n  RENDER_MODE: '', FORMAT: '', FALLBACK_FORMAT: null, ASPECT: '', AVAILABLE: false,\n  UNAVAILABLE_REASON: '', FPS: 0, FRAMES: 0, VIEWPORT: 0, STATUS: status, ERROR: error }) });\nfor (const id of requested.slice(0, cap)) {\n  const t = byId.get(id);\n  if (!t) { note(id, 'UNKNOWN', 'unknown asset type: ' + id); continue; }\n  const b = Object.assign({}, budget, t.budget || {});\n  out.push({ json: Object.assign({}, req, {\n    ASSET_TYPE: t.id, NAME: t.name || t.id, AUTHOR: t.author, TEMPLATE: t.template || null,\n    SPEC_TEMPLATE: t.specTemplate || null, RENDER_MODE: t.render, FORMAT: t.format,\n    FALLBACK_FORMAT: t.fallbackFormat || null, ASPECT: t.aspect || '4:5',\n    AVAILABLE: t.available !== false, UNAVAILABLE_REASON: t.unavailableReason || '',\n    FPS: Number(b.fps || 12), FRAMES: Number(b.frames || 36), VIEWPORT: Number(b.viewport || 1200),\n  }) });\n}\nfor (const id of requested.slice(cap)) note(id, 'SKIPPED', 'over the per-request cap of ' + cap);\nreturn out;"
+        "jsCode": "const cfg = JSON.parse($('download_registry').first().json.output || '{}');\nconst req = $('normalize_input').first().json;\nconst types = Array.isArray(cfg.types) ? cfg.types : [];\nconst byId = new Map(types.map((t) => [t.id, t]));\nconst budget = cfg.budget || {};\nconst cap = Number(cfg.max_types_per_request || 3);\nlet requested = req.ASSET_TYPES\n  ? req.ASSET_TYPES.split(',').map((s) => s.trim()).filter(Boolean)\n  : (cfg.default_types || []);\nrequested = [...new Set(requested)];\nconst out = [];\nconst note = (id, status, error) => out.push({ json: Object.assign({}, req, {\n  ASSET_TYPE: id, NAME: id, AUTHOR: null, TEMPLATE: null, SPEC_TEMPLATE: null,\n  RENDER_MODE: '', FORMAT: '', FALLBACK_FORMAT: null, ASPECT: '', AVAILABLE: false,\n  UNAVAILABLE_REASON: '', FPS: 0, FRAMES: 0, VIEWPORT: 0, DURATION_SECONDS: 0, STATUS: status, ERROR: error }) });\nfor (const id of requested.slice(0, cap)) {\n  const t = byId.get(id);\n  if (!t) { note(id, 'UNKNOWN', 'unknown asset type: ' + id); continue; }\n  const b = Object.assign({}, budget, t.budget || {});\n  out.push({ json: Object.assign({}, req, {\n    ASSET_TYPE: t.id, NAME: t.name || t.id, AUTHOR: t.author, TEMPLATE: t.template || null,\n    SPEC_TEMPLATE: t.specTemplate || null, RENDER_MODE: t.render, FORMAT: t.format,\n    FALLBACK_FORMAT: t.fallbackFormat || null, ASPECT: t.aspect || '4:5',\n    AVAILABLE: t.available !== false, UNAVAILABLE_REASON: t.unavailableReason || '',\n    FPS: Number(b.fps || 12), FRAMES: Number(b.frames || 36), VIEWPORT: Number(b.viewport || 1200),\n    DURATION_SECONDS: Number(t.durationSeconds || 0),\n  }) });\n}\nfor (const id of requested.slice(cap)) note(id, 'SKIPPED', 'over the per-request cap of ' + cap);\nreturn out;\n"
       }
     },
     {
@@ -3143,7 +3146,7 @@
         448
       ],
       "parameters": {
-        "jsCode": "const a = $('build_video').first().json;\nconst out = $input.first().json || {};\nconst bin = ($input.first().binary && $input.first().binary.data) || null;\nconst base = { ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: '', SPEC_JSON: a.SPEC_JSON || '', PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: a.DURATION_MS || '', FRAME_COUNT: a.FRAME_COUNT || '',\n  WIDTH: a.WIDTH || '', HEIGHT: a.HEIGHT || '', MARKUP: '', IMAGE: '' };\nif (!bin || !bin.data) {\n  const fallback = a.RENDER_URL ? 'render service returned no video' : 'RENDER_URL is not configured';\n  const reason = String(out.error || out.message || fallback).slice(0, 500);\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: reason }) }];\n}\nconst mime = bin.mimeType || 'video/mp4';\nreturn [{ json: Object.assign({}, base, { STATUS: 'RENDERED', CONTENT_TYPE: mime,\n  IMAGE: 'data:' + mime + ';base64,' + bin.data }) }];\n"
+        "jsCode": "// Handles render_video's continued error: no binary means that asset carries ERROR\n// and the run continues, which is what makes the failure visible instead of silent.\n// Binary is read with getBinaryDataBuffer because this instance stores it out of band.\nconst a = $('build_video').first().json;\nconst out = $input.first().json || {};\nconst binMeta = ($input.first().binary && $input.first().binary.data) || null;\nconst base = { ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: '', SPEC_JSON: a.SPEC_JSON || '', PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: a.DURATION_MS || '', FRAME_COUNT: a.FRAME_COUNT || '',\n  WIDTH: a.WIDTH || '', HEIGHT: a.HEIGHT || '', MARKUP: '', IMAGE: '' };\nif (!binMeta) {\n  const fallback = a.RENDER_URL ? 'render service returned no video' : 'RENDER_URL is not configured';\n  const reason = String(out.error || out.message || fallback).slice(0, 500);\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: reason }) }];\n}\nconst mime = binMeta.mimeType || 'video/mp4';\nconst buffer = await this.helpers.getBinaryDataBuffer(0, 'data');\nreturn [{ json: Object.assign({}, base, { STATUS: 'RENDERED', CONTENT_TYPE: mime,\n  IMAGE: 'data:' + mime + ';base64,' + buffer.toString('base64') }) }];\n"
       }
     },
     {
@@ -3190,7 +3193,7 @@
         -320
       ],
       "parameters": {
-        "jsCode": "// Turn the request into the agent's brief and the session request. The brief is\n// the caller's CONTENT plus the type's declared frame; the session gets a\n// run-scoped id so a later run cannot overwrite this artifact before its caller\n// fetches it.\nconst a = $input.first().json;\nconst req = $('normalize_input').first().json;\nconst safe = (s) => String(s || '').replace(/[^A-Za-z0-9._-]/g, '').slice(0, 40);\nconst sessionId = (safe(a.ASSET_TYPE) + '-' + safe(req.RUN_ID)) || 'default';\nconst base = ($env.PI_RENDER_URL || '').replace(/\\/+$/, '');\nconst format = ['mp4', 'gif', 'webp', 'png'].includes(a.FORMAT) ? a.FORMAT : 'mp4';\nconst [aw, ah] = String(a.ASPECT || '4:5').split(':').map(Number);\nconst width = Math.max(1, Number(a.VIEWPORT) || 1080);\nconst height = Math.round(width * (ah || 5) / (aw || 4));\nconst fps = Math.max(1, Math.min(12, Number(a.FPS) || 12));\nconst seconds = Math.max(1, Math.round((Number(a.FRAMES) || 24) / fps));\nconst brief = [\n  req.CONTENT,\n  '',\n  'Render a ' + width + 'x' + height + ' (' + (a.ASPECT || '4:5') + ') composition, about ' + seconds + ' seconds, and nothing else.',\n].join('\\n');\nreturn [{ json: Object.assign({}, a, {\n  FORMAT: format,\n  FPS: fps, WIDTH: width, HEIGHT: height,\n  SESSION_ID: sessionId,\n  AUTHOR_URL: base ? base + '/v1/chat/completions' : '',\n  ARTIFACT_URL: base ? base + '/artifacts/' + sessionId + '/out.' + format : '',\n  AUTHOR_BODY: JSON.stringify({ messages: [{ role: 'user', content: brief }], session_id: sessionId, format: format, fps: fps, width: width }),\n}) }];\n"
+        "jsCode": "// Turn the request into the agent's brief and the session request. The brief is the\n// caller's CONTENT plus the type's declared frame: duration, size and format. The\n// session gets a run-scoped id so a later run cannot overwrite this artifact before\n// its caller fetches it. Everything here is data-driven, so a type is retuned from\n// the registry (longer, slower, another format) without touching the adapter image.\nconst a = $input.first().json;\nconst req = $('normalize_input').first().json;\nconst safe = (s) => String(s || '').replace(/[^A-Za-z0-9._-]/g, '').slice(0, 40);\nconst sessionId = (safe(a.ASSET_TYPE) + '-' + safe(req.RUN_ID)) || 'default';\nconst base = ($env.PI_RENDER_URL || '').replace(/\\/+$/, '');\nconst format = ['mp4', 'gif', 'webp', 'png'].includes(a.FORMAT) ? a.FORMAT : 'mp4';\nconst [aw, ah] = String(a.ASPECT || '4:5').split(':').map(Number);\nconst width = Math.max(1, Number(a.VIEWPORT) || 1080);\nconst height = Math.round(width * (ah || 5) / (aw || 4));\nconst frames = Math.max(1, Number(a.FRAMES) || 24);\nconst seconds = Math.max(1, Number(a.DURATION_SECONDS) || Math.round(frames / Math.max(1, Number(a.FPS) || 8)));\n// The effective rate for the final GIF: the type budget (frames) spread over the\n// declared duration, so a slow 18s clip is 24 samples, not 24 samples per second.\nconst rate = Math.max(0.1, frames / seconds);\nconst brief = [\n  req.CONTENT,\n  '',\n  'Render a ' + width + 'x' + height + ' (' + (a.ASPECT || '4:5') + ') composition that runs about ' + seconds + ' seconds.',\n  'Animate slowly and deliberately: reveal a few elements in sequence, each held long enough to read, rather than many quick changes. The clip is sampled into a low-frame-rate GIF, so fast or busy motion is lost.',\n].join('\\n');\nreturn [{ json: Object.assign({}, a, {\n  FORMAT: format,\n  FPS: rate, WIDTH: width, HEIGHT: height, FRAMES: frames, DURATION_SECONDS: seconds, RATE: rate,\n  SESSION_ID: sessionId,\n  AUTHOR_URL: base ? base + '/v1/chat/completions' : '',\n  ARTIFACT_URL: base ? base + '/artifacts/' + sessionId + '/out.' + format : '',\n  AUTHOR_BODY: JSON.stringify({ messages: [{ role: 'user', content: brief }], session_id: sessionId, format: format, fps: rate, width: width, frames: frames, durationSeconds: seconds }),\n}) }];\n"
       }
     },
     {
@@ -3199,6 +3202,9 @@
       "notes": "A failed or unconfigured authoring call must not block the other assets, so the error is continued and agent_result turns the missing binary into that asset's ERROR. See agent_result.notes and the 'continueRegularOutput makes a failure invisible' rule in AGENTS.md.",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 20000,
       "onError": "continueRegularOutput",
       "position": [
         896,
@@ -3211,7 +3217,7 @@
         "specifyBody": "json",
         "jsonBody": "={{ $json.AUTHOR_BODY }}",
         "options": {
-          "timeout": 600000
+          "timeout": 1200000
         }
       }
     },
@@ -3250,7 +3256,7 @@
         -320
       ],
       "parameters": {
-        "jsCode": "// The rendered artifact the session returned, as the asset. The workflow never\n// sees the agent's composition markup -- only this file -- which is what keeps the\n// studio's \"model output is data\" boundary intact for the agent path.\nconst a = $('build_author_brief').first().json;\nconst out = $input.first().json || {};\nconst bin = ($input.first().binary && $input.first().binary.data) || null;\nconst base = {\n  ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: '', SPEC_JSON: a.SPEC_JSON || '', PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: '', FRAME_COUNT: '', WIDTH: a.WIDTH || '', HEIGHT: a.HEIGHT || '',\n  MARKUP: '', IMAGE: '',\n};\nif (!a.AUTHOR_URL) {\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: 'PI_RENDER_URL is not configured' }) }];\n}\nif (!bin || !bin.data) {\n  const reason = String(out.error || out.message || 'agent authoring returned no artifact').slice(0, 500);\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: reason }) }];\n}\nconst mime = bin.mimeType || 'image/gif';\nreturn [{ json: Object.assign({}, base, { STATUS: 'RENDERED', CONTENT_TYPE: mime,\n  IMAGE: 'data:' + mime + ';base64,' + bin.data }) }];\n"
+        "jsCode": "// The rendered artifact the session returned, as the asset. Read the bytes with\n// getBinaryDataBuffer: this instance keeps binaries out of band, so binary.data is a\n// reference (\"database:<id>\"), not the base64. The workflow never sees the agent's\n// composition markup, only this file.\nconst a = $('build_author_brief').first().json;\nconst out = $input.first().json || {};\nconst binMeta = ($input.first().binary && $input.first().binary.data) || null;\nconst base = {\n  ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: '', SPEC_JSON: a.SPEC_JSON || '', PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: '', FRAME_COUNT: '', WIDTH: a.WIDTH || '', HEIGHT: a.HEIGHT || '',\n  MARKUP: '', IMAGE: '',\n};\nconst describe = (v, fallback) => {\n  if (typeof v === 'string' && v) return v;\n  if (v && typeof v === 'object' && typeof v.message === 'string') return v.message;\n  if (v != null) return JSON.stringify(v);\n  return fallback;\n};\nif (!a.AUTHOR_URL) {\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: 'PI_RENDER_URL is not configured' }) }];\n}\nif (!binMeta) {\n  const reason = describe(out.error || out.message, 'agent authoring returned no artifact').slice(0, 500);\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: reason }) }];\n}\nconst mime = binMeta.mimeType || 'image/gif';\nconst buffer = await this.helpers.getBinaryDataBuffer(0, 'data');\nreturn [{ json: Object.assign({}, base, { STATUS: 'RENDERED', CONTENT_TYPE: mime,\n  IMAGE: 'data:' + mime + ';base64,' + buffer.toString('base64') }) }];\n"
       }
     }
   ],
@@ -3288,6 +3294,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 2,
-  "updatedAt": "2026-10-05T11:23:57.432Z",
-  "versionId": "84d6d163-683c-4426-a70d-c2d076d078e8"
+  "updatedAt": "2026-10-05T19:22:42.602Z",
+  "versionId": "4c3e0507-5d1d-4022-8a3f-8a2c22daa072"
 }

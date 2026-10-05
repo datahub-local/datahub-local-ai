@@ -90,20 +90,54 @@ that way — exit 137, at 4–10 minutes, always mid-`check`, never reaching
 container; a normal render launches one Chrome per worker at ~256 MB each, so
 `--workers=auto` cannot fit.
 
-**It cannot be raised from anything this repository controls.** All four candidate
-fields were tested against the live cluster on 2026-10-04:
+**It cannot be raised, and every plausible field was tested against the live
+cluster.** The sweep covered **every Sympozium CRD**, not just the candidates:
 
-| Where | Result |
-| ----- | ------ |
-| `AgentRuntime.spec.resources` | accepted, runtime reports `Ready` — and **the pod still shows 1Gi**. No effect. |
-| `Agent.spec.agents.default.resources` | **rejected**: `unknown field "spec.agents.default.resources"` |
+| Placement | Result |
+| --------- | ------ |
+| `Agent.spec.resources` | ❌ **rejected**: `unknown field "spec.resources"` |
+| `AgentRun.spec.resources` | ❌ **rejected**: `unknown field "spec.resources"` |
 | `AgentRun.spec.sandbox.resources` | accepted, but creates a **separate third container** (`sandbox: 512Mi`); the agent stays 1Gi |
-| `SympoziumPolicy` | has no resource field at all |
+| `Agent.spec.agents.default.resources` | ❌ **rejected**: `unknown field` |
+| `AgentRuntime.spec.resources` | ✅ the field exists and says *"the primary container's requests/limits"* — **and nothing applies it** (see below) |
+| `SympoziumSchedule.spec` | no such field |
+| `SympoziumPolicy.spec` | no such field |
 
-The Sympozium harness docs' operating note says *"Node-based harnesses sit close to
-that memory limit; raise it on the Agent if one is OOM-killed."* **That is a
-documentation/implementation mismatch in v0.10.87** — the Agent has no such field.
-Worth reporting upstream.
+Only two CRDs in the whole API expose anything: `AgentRuntime.spec.resources` and
+`Models.spec.resources`. **The agent container's resources are hardcoded** in
+`internal/controller/agentrun_controller.go`:
+
+```go
+Resources: corev1.ResourceRequirements{
+    Requests: { ResourceCPU: "250m", ResourceMemory: "512Mi" },
+    Limits:   { ResourceCPU: "1",    ResourceMemory: "1Gi"  },
+},
+```
+
+Nothing reads a field to fill that. So `AgentRuntime.spec.resources` is a **reconciler
+gap**: the type documents it as the primary container's resources, the CRD accepts it,
+the runtime reports `Ready` with it set — and the pod is unchanged. Verified: patched
+to `6Gi`, `Ready=True`, pod still `limit=1Gi request=512Mi`.
+
+The docs' operating note (*"raise it on the Agent if one is OOM-killed"*) compounds it,
+since the Agent has no such field either. **That is the precise thing to report
+upstream**, and three separate external sources describing `Agent.spec.resources` and
+`AgentRun.spec.resources` are all wrong for this version — the field they name does not
+exist.
+
+**What does work: cap the heap through the env that does exist.** `AgentRun.spec.env`
+is appended to the agent container **last**, so it reaches the process:
+
+```yaml
+spec:
+  env:
+    NODE_OPTIONS: "--max-old-space-size=512"
+```
+
+Verified in-cluster: `NODE_OPTIONS` on the agent container and a **524 MB heap cap**
+inside it. Capping the heap makes V8 collect rather than grow into the cgroup limit.
+Combined with `--low-memory-mode --workers 1` in the prompt, a render completes under a
+hard `--memory 1g` cap — 1080×1350, 270 frames, 9.0 s, measured.
 
 **The working fix is the render's own flag, and it is in the prompt.** HyperFrames
 offers `--low-memory-mode`, which *"pins to 1 worker, uses screenshot capture, and

@@ -261,7 +261,9 @@ a second request:
    the output kind (`mp4`, `gif`, `webp`, `png`; optional `fps` and `width`). The server
    runs Pi in `<workspace>/runs/<session_id>/`, tells it to write `out.mp4` there, then
    converts to the requested format in the same directory — `ffmpeg` is already in the
-   image (MP4 → GIF at the declared fps/size, the LinkedIn case).
+   image (MP4 → GIF at the declared fps/size, the LinkedIn case). The workspace defaults
+   to `/tmp/aivideo` because a session container mounts the session PVC at `/tmp` and
+   does **not** mount `/workspace`; `SYMPOZIUM_WORKSPACE` overrides it.
 2. `GET /artifacts/<session_id>/out.<ext>` fetches it. Only the names the server writes,
    under that run's own directory, are reachable; `session_id` and the file name are both
    validated, and traversal is refused.

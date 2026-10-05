@@ -34,6 +34,7 @@ import {
   resolveArtifact,
   contentTypeFor,
   transcodeArgs,
+  DEFAULT_SESSION_WORKSPACE,
 } from "./session-lib.mjs";
 
 const port = Number(process.env.SYMPOZIUM_SESSION_PORT || "8080");
@@ -42,7 +43,10 @@ const maxOutput = 2_000_000;
 // The session PVC is mounted at /tmp, so Pi's transcript survives a pod restart.
 const sessionDir = "/tmp/pi-sessions";
 const promptPath = "/opt/pi-render/prompts/authoring.md";
-const workDir = process.env.SYMPOZIUM_WORKSPACE || "/workspace";
+// A session container mounts the session PVC at /tmp and does **not** mount
+// /workspace (only the Job path does), so the workspace must default under the PVC.
+// The caller can still override it.
+const workDir = process.env.SYMPOZIUM_WORKSPACE || DEFAULT_SESSION_WORKSPACE;
 
 function fail(message) {
   console.error(`sympozium pi render session: ${message}`);

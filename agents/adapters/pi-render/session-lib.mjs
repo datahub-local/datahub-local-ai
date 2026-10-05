@@ -16,6 +16,11 @@ const ARTIFACT_NAME_RE = /^out\.(mp4|gif|webp|png)$/;
 
 export const DEFAULT_FORMAT = "mp4";
 
+// A session container mounts the session PVC at /tmp and does not mount /workspace
+// (only the Job path does). The default workspace must therefore live under /tmp, or
+// the first turn fails with "mkdir '/workspace/runs'".
+export const DEFAULT_SESSION_WORKSPACE = "/tmp/aivideo";
+
 // format -> how it is produced and served.
 export const FORMATS = {
   mp4: { ext: "mp4", mime: "video/mp4" },

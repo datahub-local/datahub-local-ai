@@ -10,9 +10,17 @@ import {
   resolveArtifact,
   contentTypeFor,
   transcodeArgs,
+  DEFAULT_SESSION_WORKSPACE,
 } from "../session-lib.mjs";
 
 const WORKSPACE = "/tmp/aivideo";
+
+test("the default workspace is under the session PVC mount, not /workspace", () => {
+  // A live session mounts the PVC at /tmp and not /workspace; defaulting to
+  // /workspace failed the first turn with "mkdir '/workspace/runs'".
+  assert.ok(DEFAULT_SESSION_WORKSPACE.startsWith("/tmp/"));
+  assert.notEqual(DEFAULT_SESSION_WORKSPACE, "/workspace");
+});
 
 test("safeSessionId accepts a path-safe id and rejects everything else", () => {
   assert.equal(safeSessionId("run_01.abc-XYZ"), "run_01.abc-XYZ");

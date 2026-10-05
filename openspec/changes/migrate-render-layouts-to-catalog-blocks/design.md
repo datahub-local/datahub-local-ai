@@ -34,9 +34,12 @@ layout modules, but better designed and authored upstream.
 
 **Goals:**
 
-- Remove our hand-written layout templates as the composition source.
-- Make catalog blocks the layout library, vendored into the image so renders stay
-  offline and reproducible.
+- Add catalog data blocks **alongside** the hand-written layout templates, adopting
+  a layout's block wherever the catalog has one. Removing every layout is not
+  reachable (see the catalog findings): no adoptable block expresses `flow` or
+  `timeline`, so those keep their modules.
+- Make the adopted catalog blocks part of the layout library, vendored into the
+  image so renders stay offline and reproducible.
 - Keep the spec-only HTTP contract and the "model output is data" boundary exact.
 - Let a spec address a block's declared variables, so one block serves more than
   one idea.
@@ -178,24 +181,26 @@ contract and the tests in one step with no intermediate check.
 
 ## Migration Plan
 
-1. Add the vendoring step and the adapter, with `animated-bar-chart` replacing
-   `bars` as the first block. Both paths render; `bars` keeps working.
-2. Restyle that block to the house theme; verify offline and against the shell.
-3. For each remaining layout, adopt and verify a block, then delete the layout
-   module it replaces.
-4. When no `src/layouts/*.mjs` remains, retire the layout string builders and
-   update `prompts/visual_spec.md` to describe blocks.
+1. Add the vendoring step and the adapter; `bar-chart-race` is the first adopted
+   block. Both paths render; `bars` keeps working.
+2. Drive the block's declared colour variables (the light touch of D3); verify
+   offline and against the shell.
+3. Adopt and verify a block for each layout the catalog can back (`comparison` via
+   `comparison-split`; `stats` via `chart-story`/`count-up`), deleting only that
+   layout module once its block's render smoke passes.
+4. Keep the layout modules no block can replace (`flow`, `timeline`) and update
+   `prompts/visual_spec.md` to describe the block vocabulary alongside them.
 
 Rollback is per step: a block that does not pass its render smoke is dropped and
 its layout keeps rendering. Nothing else in the service changes.
 
 ## Open Questions
 
-- Which block replaces `flow`? The catalog's graph/diagram shapes are not obvious
-  from their names; resolve by inspection when that migration is reached.
-- Whether the restyle should live as patched vendored files or as an override
-  stylesheet applied by the adapter. Resolve on the second block, when the shape of
-  the common edits is known.
+- ~~Which block replaces `flow`?~~ **Answered by the catalog findings:** none does;
+  `flow` keeps its hand-written layout, and so does `timeline`.
+- ~~Whether the restyle should live as patched vendored files or as an override
+  stylesheet applied by the adapter.~~ **Answered by D3:** neither — a light touch
+  drives declared colour variables and otherwise accepts the block's design.
 
 ## Catalog findings (2026-10-04)
 

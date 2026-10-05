@@ -55,16 +55,18 @@ typed spec should keep answering deterministically.
 - None.
 
 ### Modified Capabilities
-- `visual-studio`: the render service's composition source changes from
-  service-authored layout templates to vendored catalog blocks. The requirement
-  that the service authors compositions deterministically from versioned templates
-  is refined: templates become vendored blocks, still versioned, still offline, and
-  still never caller-supplied markup.
+- `visual-studio`: the render service's composition source extends from
+  service-authored layout templates to vendored catalog blocks where the catalog
+  has a block. The requirement that the service authors compositions
+  deterministically from versioned templates is refined: an adopted template
+  becomes a vendored block, still versioned, still offline, and still never
+  caller-supplied markup; a layout with no adoptable block stays a template.
 
 ## Impact
 
 - `agents/n8n/render/` — new `src/blocks/` adapter and `vendor/blocks/`; `src/layouts/`
-  shrinks to nothing as blocks land; `src/spec.mjs` layout vocabulary widens.
+  loses only the modules a block replaces (`comparison`, `stats`) and keeps the rest;
+  `src/spec.mjs` layout vocabulary widens.
 - `agents/n8n/render/Dockerfile` — vendoring step; image grows by the vendored blocks.
 - `agents/n8n/prompts/visual_spec.md` — the authoring model must know which spec
   fields each block expects.

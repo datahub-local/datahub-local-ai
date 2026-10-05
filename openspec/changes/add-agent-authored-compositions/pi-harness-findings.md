@@ -178,30 +178,33 @@ must declare its `capabilities` honestly, and must fit the pod security context.
 ### Built: `agents/adapters/pi-render/`
 
 The extended-Pi route was taken (the user's choice), and the image is built and
-verified on 2026-10-04. It is the upstream Pi adapter's base image —
-`node:22.19.0-alpine3.21` + `jq` + `git` + `@earendil-works/pi-coding-agent@0.84.4`
-— plus the render toolchain, with `--no-tools` and `--no-skills` dropped. Alpine
-carries both `chromium` and `ffmpeg`, so the base stays upstream's and the diff is
-small.
+verified. It **derives from our own render image** (`FROM ${RENDER_IMAGE}`, Debian
+with Chromium and FFmpeg) rather than the upstream Pi adapter's Alpine base: the
+render image already carries the browser, the encoder and the vendored engine, so
+this adapter adds only the agent loop and the contract. It installs
+`@earendil-works/pi-coding-agent@0.84.4` pinned, adds `jq`, and drops the adapter's
+`--no-tools` and `--no-skills`. `git` is deliberately not carried over. The README
+states why and the cost.
 
 Verified **under the platform's own constraints** (UID 1000, read-only root
 filesystem, `--network none`):
 
 | Check | Result |
 | ----- | ------ |
-| Toolchain as UID 1000, read-only rootfs | node, jq, git, chromium, ffmpeg, ffprobe, hyperframes, pi — all found |
+| Toolchain as UID 1000, read-only rootfs | node, jq, chromium, ffmpeg, ffprobe, hyperframes, pi — all found |
 | Offline render of the known-good sample | 1080×1350, **270 frames, 9.000 s** — identical to the host render |
 | `lint` runs | `0 error(s), 1 warning(s)` |
 | Pi's tools available | `pi 0.84.4`, "AI coding assistant with read, bash, edit, write tools"; `--no-tools` absent |
 
-**Still unverified, and it is the decisive question:** a full `AgentRun` in the
-cluster where Pi writes the composition, reads lint's findings, corrects and
-renders. Everything up to the model call is proven; whether Pi's coding-agent loop
-suits authoring is not.
-
-The cost is stated in the adapter's README: this tracks Pi's release cadence for the
-adapter, upstream does not maintain it, and no conformance suite has been run
-against it.
+**Verified end-to-end on 2026-10-05 — the decisive question is answered.** On the
+`v1alpha2` session path (the only one with enough memory) Pi wrote a composition,
+ran the engine's lint and check, read the findings, corrected them and rendered.
+The result is committed as `agents/render-samples/pi-authored/`: 1080×1350, 180
+frames, 6.000 s, lint `0 errors, 0 warnings`, check Contrast 37/37 WCAG AA. So Pi's
+coding-agent loop does suit authoring, once the adapter enables tools *and* the run
+has memory. The `AgentRun` (Job) path cannot do it — the Job's agent container is
+hardcoded to 1Gi — which is why the session path exists. The transferable platform
+findings are in `agents/render-samples/pi-authored/README.md`.
 
 ### Note for anyone revisiting this
 

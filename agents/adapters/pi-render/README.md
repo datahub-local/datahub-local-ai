@@ -82,16 +82,16 @@ image knows nothing about this adapter.
 
 **Upstream drift is ours.** No upstream conformance run covers this image.
 
-## Resources: the 1Gi default, and the one knob that works
+## Resources: the 1Gi default, and the two constraints on the session path
 
-**The agent container's 1Gi default OOMKills a default render**, and every run died
-that way — exit 137, at 4–10 minutes, always mid-`check`, never reaching
-`hyperframes render`. Pi, a Chromium instance and a multi-worker render share one
-container; a normal render launches one Chrome per worker at ~256 MB each, so
-`--workers=auto` cannot fit.
+**The agent container's 1Gi default OOMKills a render**, and eight runs died that way
+— exit 137, between 70 s and 10 minutes, always before an `out.mp4` existed. Pi, a
+Chromium instance and a multi-worker render share one container, and the render warns
+in advance: *"5 capture workers may exceed this process's V8 heap"*.
 
-**It cannot be raised, and every plausible field was tested against the live
-cluster.** The sweep covered **every Sympozium CRD**, not just the candidates:
+### The limit is hardcoded on the Job path
+
+A sweep of **every Sympozium CRD** found no field that reaches a Job's agent container:
 
 | Placement | Result |
 | --------- | ------ |
@@ -99,13 +99,10 @@ cluster.** The sweep covered **every Sympozium CRD**, not just the candidates:
 | `AgentRun.spec.resources` | ❌ **rejected**: `unknown field "spec.resources"` |
 | `AgentRun.spec.sandbox.resources` | accepted, but creates a **separate third container** (`sandbox: 512Mi`); the agent stays 1Gi |
 | `Agent.spec.agents.default.resources` | ❌ **rejected**: `unknown field` |
-| `AgentRuntime.spec.resources` | ✅ the field exists and says *"the primary container's requests/limits"* — **and nothing applies it** (see below) |
-| `SympoziumSchedule.spec` | no such field |
-| `SympoziumPolicy.spec` | no such field |
+| `AgentRuntime.spec.resources` | ✅ exists and says *"the primary container's requests/limits"* — **but is not read on the Job path** |
+| `SympoziumSchedule.spec`, `SympoziumPolicy.spec` | no such field |
 
-Only two CRDs in the whole API expose anything: `AgentRuntime.spec.resources` and
-`Models.spec.resources`. **The agent container's resources are hardcoded** in
-`internal/controller/agentrun_controller.go`:
+The value is **hardcoded** in `internal/controller/agentrun_controller.go`:
 
 ```go
 Resources: corev1.ResourceRequirements{
@@ -114,19 +111,59 @@ Resources: corev1.ResourceRequirements{
 },
 ```
 
-Nothing reads a field to fill that. So `AgentRuntime.spec.resources` is a **reconciler
-gap**: the type documents it as the primary container's resources, the CRD accepts it,
-the runtime reports `Ready` with it set — and the pod is unchanged. Verified: patched
-to `6Gi`, `Ready=True`, pod still `limit=1Gi request=512Mi`.
+Nothing reads a field to fill it. Docs, and three separate external sources, all name
+a field that does not exist in this version.
 
-The docs' operating note (*"raise it on the Agent if one is OOM-killed"*) compounds it,
-since the Agent has no such field either. **That is the precise thing to report
-upstream**, and three separate external sources describing `Agent.spec.resources` and
-`AgentRun.spec.resources` are all wrong for this version — the field they name does not
-exist.
+### The session path honours it — with two constraints
 
-**What does work: cap the heap through the env that does exist.** `AgentRun.spec.env`
-is appended to the agent container **last**, so it reaches the process:
+`internal/controller/harnesssession_controller.go` **does** apply the field:
+
+```go
+Resources: corev1.ResourceRequirements{},
+...
+if runtime.Spec.Resources != nil {
+    container.Resources = *runtime.Spec.Resources
+}
+```
+
+So a `v1alpha2` `AgentRuntime` behind a `HarnessSession` runs as a Deployment whose
+memory is ours to set. Verified: `harness: limit=6Gi request=2Gi`, `session=Ready`.
+
+**But the session's NetworkPolicy is ingress-only to the apiserver and hardcodes its
+egress allowlist** (`harnesssession_controller.go`):
+
+```go
+Egress: []networkingv1.NetworkPolicyEgressRule{
+    {Ports: {53/UDP, 53/TCP}},                          // DNS
+    // "HTTPS covers public providers; 8080 and 9473 preserve standard
+    //  cluster-local/node-proxy model routes. NATS (4222) is absent."
+    {Ports: {443, 8080, 9473}},
+},
+```
+
+**This cluster's LiteLLM gateway listens on 4000, which is not in that list**, so a
+session cannot reach an in-cluster model without widening it. There is no field to
+extend it. NetworkPolicies are **additive**, so a second policy permitting that port
+is the fix, and it was required to make a session work here:
+
+```yaml
+kind: NetworkPolicy
+spec:
+  podSelector: {matchLabels: {app.kubernetes.io/name: harness-session}}
+  policyTypes: [Egress]
+  egress:
+    - to: [{namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: data}}}]
+      ports: [{port: 4000, protocol: TCP}]
+```
+
+Two constraints, then, and both are upstream gaps rather than misconfiguration: the
+Job path cannot raise memory, and the session path cannot reach a model that listens
+on any port outside `{443, 8080, 9473}`.
+
+### Partial workaround that still holds
+
+`AgentRun.spec.env` is appended to the agent container **last**, so it reaches the
+process:
 
 ```yaml
 spec:
@@ -134,10 +171,12 @@ spec:
     NODE_OPTIONS: "--max-old-space-size=512"
 ```
 
-Verified in-cluster: `NODE_OPTIONS` on the agent container and a **524 MB heap cap**
-inside it. Capping the heap makes V8 collect rather than grow into the cgroup limit.
-Combined with `--low-memory-mode --workers 1` in the prompt, a render completes under a
-hard `--memory 1g` cap — 1080×1350, 270 frames, 9.0 s, measured.
+Verified: `NODE_OPTIONS` on the container and a **524 MB heap cap** inside it. With
+that plus `--low-memory-mode --workers 1`, the best Job run got further than any other
+— it wrote `index.html` and `index.motion.json` and **actually started a render**,
+surviving four minutes — but still OOMed. Capping the heap makes V8 collect; it does
+not make a render fit in 1Gi. The image now sets the cap itself, so neither path
+depends on the caller.
 
 **The working fix is the render's own flag, and it is in the prompt.** HyperFrames
 offers `--low-memory-mode`, which *"pins to 1 worker, uses screenshot capture, and
@@ -186,6 +225,53 @@ The earlier version of this section said to raise memory on the `AgentRuntime` a
 showed a YAML block; that field is accepted and **ignored**, which is the trap — kept
 here rather than deleted.
 
+## Serving the agent as an API (the v1alpha2 session path)
+
+One image serves both contracts, dispatched in `entrypoint.sh` on
+`SYMPOZIUM_HARNESS_CONTRACT_VERSION`, exactly as the upstream Pi adapter does:
+
+| Contract | Shape | Container | Resources |
+| -------- | ----- | --------- | --------- |
+| `v1alpha1` | one-shot `AgentRun` (Job) | `agent` | **hardcoded 1Gi** |
+| `v1alpha2` | `HarnessSession` (Deployment + ClusterIP Service) | `harness` | **`AgentRuntime.spec.resources` is applied** |
+
+A session is the reason this adapter can render at all: it is the only path where the
+memory is ours to set. It also keeps Pi's transcript on the session PVC across turns,
+and costs one pod instead of one per request.
+
+**Two constraints came with it, both upstream gaps rather than misconfiguration** — a
+Job cannot raise its 1Gi, and a session cannot reach a model outside a hardcoded egress
+allowlist. Both are in the section above.
+
+`session-server.mjs` is derived from the maintainer's reference for the contract. Three
+deltas: Pi's **tools and skills are enabled** (that is the whole job here, and the
+maintained adapters disable both), the toolchain is pointed at our vendored engine and
+browser, and each turn gets the authoring method appended to the caller's brief. The
+contract itself is upstream's shape — a `/healthz` readiness probe, `POST
+/v1/chat/completions` with SSE framing, bounded request and output, serialized turns
+because Pi's session file is shared, and client-disconnect cancellation.
+
+### Deploying it
+
+Four objects, and the ordering matters — the runtime must be `Ready` before a session
+may reference it:
+
+1. **`SympoziumPolicy`** — `harnessPolicy.enabled: true` plus the image's **full digest**
+   in `imagePolicy.allowedRegistries` (matched by string prefix).
+2. **`AgentRuntime`** — `contractVersion: v1alpha2`, a
+   `session: {protocol: openai-chat, port: 8080}` block, its `capabilities`, and the
+   `resources` this whole path exists for.
+3. **`Agent`** — `policyRef`, `runtimeRef`, `authRefs`.
+4. **`HarnessSession`** — `agentRef`, `runtimeRef`, `desiredState: running`.
+
+Plus a **second NetworkPolicy** for model egress if the gateway does not listen on 443,
+8080 or 9473 — see above.
+
+The session's own NetworkPolicy admits **only the Sympozium apiserver** on 8080, which
+is deliberate: the docs are explicit that *"the browser never receives a pod IP"*. So a
+session is driven through the apiserver, or from inside its own pod for a test — a
+`curl` from an unrelated pod fails even when everything is healthy.
+
 ## Watching a run
 
 A run takes minutes. With the logging in `entrypoint.sh` the log states each stage,
@@ -224,9 +310,10 @@ is one entry in the workflow, not a new file.
   because its base moving is a change to it.
 - **Retention: five versions per package**, with `main` never deleted.
 
-## Deploying it
+## Deploying the one-shot path
 
-The platform requires, in order:
+For the `AgentRun` path, three objects in order. (The four-object session path above
+is the one that can render, since only it can raise the memory.)
 
 1. **A policy that enables harness mode and admits the image by digest.**
    `SympoziumPolicy.spec.harnessPolicy.enabled: true`, plus the full
@@ -240,6 +327,15 @@ The platform requires, in order:
 
 The image must be published by digest; a tag is rejected at admission and again in
 the controller.
+
+One admission quirk worth knowing: a harness run whose `spec.toolPolicy` is **absent**
+is rejected with `task.mode "harness" does not support [toolFilter] … (mode supports:
+[persona])`, even though nothing sets a tool policy — not the AgentRun, not the Agent,
+not the policy, and the CRD defaults nothing. Passing an **explicit empty**
+`toolPolicy: {allow: [], deny: []}` makes it pass. The adapter therefore declares
+`persona` only: it maps `SYSTEM_PROMPT` onto Pi's prompt, and does **not** translate
+`TOOL_POLICY_*`, so claiming `toolFilter` would be the silent-drop the capability
+descriptor exists to catch.
 
 ## Honest limitations
 

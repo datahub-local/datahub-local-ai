@@ -1,9 +1,16 @@
-# Agent-authored composition samples
+# Composition samples
 
-A composition **written by an agent**, not by a template in the render service. It
-exists to show the difference: the render service's typed spec can express five
-layouts, while a composition authored against HyperFrames' own skills can express
-anything the brief asks for.
+Two compositions from the same kind of brief, to show what the two paths can do:
+
+| Sample | Authored by | Path |
+| ------ | ----------- | ---- |
+| [`agent-flow/`](#agent-flow) | an assistant, working locally | outside the harness contract, resources set by hand |
+| [`pi-authored/`](pi-authored/) | a `pi` coding agent, **in-cluster** | a Sympozium `HarnessSession` |
+
+`pi-authored/` is the one that shows the capability end to end: a model wrote the
+composition, ran HyperFrames' own lint and check, corrected what they found and
+rendered the video — with nobody in the loop. Its README records the three platform
+limits that had to be lifted to get there, all of them upstream gaps.
 
 ## `agent-flow/`
 

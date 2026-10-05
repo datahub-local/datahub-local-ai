@@ -1,7 +1,7 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "53aa3576-2e35-4895-a619-b90c8f817b49",
+    "versionId": "95aba87b-bce9-4c61-8623-9cbc3ebf1d94",
     "workflowId": "2pSrRNmYR2jkX1JG",
     "nodes": [
       {
@@ -859,7 +859,7 @@
         }
       },
       {
-        "id": "1a428090-3752-475d-b92e-081c517d560f",
+        "id": "a62fb762-f33d-4820-a9e1-1e7d56e77c87",
         "name": "if_video",
         "type": "n8n-nodes-base.if",
         "typeVersion": 2.2,
@@ -893,7 +893,7 @@
         }
       },
       {
-        "id": "b0c4c32b-58d4-4631-a709-ee5c034241c1",
+        "id": "0230330a-be9a-4f2d-884d-d9f8a06800e3",
         "name": "build_video",
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
@@ -906,16 +906,16 @@
         }
       },
       {
-        "id": "8bc1fed3-38ce-4d8c-a0e9-1c82f97a5f8d",
+        "id": "aa926fee-3148-43d7-b014-4f715f672d6a",
         "name": "render_video",
+        "notes": "A failed render must not block the other assets, so the error is continued and video_result turns the missing binary into that asset's ERROR. See video_result.notes and the 'continueRegularOutput makes a failure invisible' rule in AGENTS.md.",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
+        "onError": "continueRegularOutput",
         "position": [
           3264,
           336
         ],
-        "onError": "continueRegularOutput",
-        "notes": "A failed render must not block the other assets, so the error is continued and video_result turns the missing binary into that asset's ERROR. See video_result.notes and the 'continueRegularOutput makes a failure invisible' rule in AGENTS.md.",
         "parameters": {
           "method": "POST",
           "url": "={{ $json.RENDER_URL }}",
@@ -934,15 +934,15 @@
         }
       },
       {
-        "id": "e17c3f88-fa58-445e-a6f2-e98dadb870ea",
+        "id": "8fc8a8ec-b1d3-48a2-a410-5ba3bb535b61",
         "name": "video_result",
+        "notes": "Handles render_video's continued error: no binary means that asset carries ERROR and the run continues, which is what makes the failure visible instead of silent.",
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
           4736,
           448
         ],
-        "notes": "Handles render_video's continued error: no binary means that asset carries ERROR and the run continues, which is what makes the failure visible instead of silent.",
         "parameters": {
           "jsCode": "const a = $('build_video').first().json;\nconst out = $input.first().json || {};\nconst bin = ($input.first().binary && $input.first().binary.data) || null;\nconst base = { ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: '', SPEC_JSON: a.SPEC_JSON || '', PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: a.DURATION_MS || '', FRAME_COUNT: a.FRAME_COUNT || '',\n  WIDTH: a.WIDTH || '', HEIGHT: a.HEIGHT || '', MARKUP: '', IMAGE: '' };\nif (!bin || !bin.data) {\n  const fallback = a.RENDER_URL ? 'render service returned no video' : 'RENDER_URL is not configured';\n  const reason = String(out.error || out.message || fallback).slice(0, 500);\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: reason }) }];\n}\nconst mime = bin.mimeType || 'video/mp4';\nreturn [{ json: Object.assign({}, base, { STATUS: 'RENDERED', CONTENT_TYPE: mime,\n  IMAGE: 'data:' + mime + ';base64,' + bin.data }) }];\n"
         }
@@ -1444,10 +1444,10 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-10-01T19:19:34.623Z",
-    "updatedAt": "2026-10-01T19:19:34.623Z"
+    "createdAt": "2026-10-04T07:30:14.217Z",
+    "updatedAt": "2026-10-04T07:30:14.217Z"
   },
-  "activeVersionId": "53aa3576-2e35-4895-a619-b90c8f817b49",
+  "activeVersionId": "95aba87b-bce9-4c61-8623-9cbc3ebf1d94",
   "connections": {
     "main_trigger": {
       "main": [
@@ -2850,14 +2850,14 @@
     {
       "id": "aa926fee-3148-43d7-b014-4f715f672d6a",
       "name": "render_video",
+      "notes": "A failed render must not block the other assets, so the error is continued and video_result turns the missing binary into that asset's ERROR. See video_result.notes and the 'continueRegularOutput makes a failure invisible' rule in AGENTS.md.",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
+      "onError": "continueRegularOutput",
       "position": [
         3264,
         336
       ],
-      "onError": "continueRegularOutput",
-      "notes": "A failed render must not block the other assets, so the error is continued and video_result turns the missing binary into that asset's ERROR. See video_result.notes and the 'continueRegularOutput makes a failure invisible' rule in AGENTS.md.",
       "parameters": {
         "method": "POST",
         "url": "={{ $json.RENDER_URL }}",
@@ -2878,13 +2878,13 @@
     {
       "id": "8fc8a8ec-b1d3-48a2-a410-5ba3bb535b61",
       "name": "video_result",
+      "notes": "Handles render_video's continued error: no binary means that asset carries ERROR and the run continues, which is what makes the failure visible instead of silent.",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         4736,
         448
       ],
-      "notes": "Handles render_video's continued error: no binary means that asset carries ERROR and the run continues, which is what makes the failure visible instead of silent.",
       "parameters": {
         "jsCode": "const a = $('build_video').first().json;\nconst out = $input.first().json || {};\nconst bin = ($input.first().binary && $input.first().binary.data) || null;\nconst base = { ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: '', SPEC_JSON: a.SPEC_JSON || '', PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: a.DURATION_MS || '', FRAME_COUNT: a.FRAME_COUNT || '',\n  WIDTH: a.WIDTH || '', HEIGHT: a.HEIGHT || '', MARKUP: '', IMAGE: '' };\nif (!bin || !bin.data) {\n  const fallback = a.RENDER_URL ? 'render service returned no video' : 'RENDER_URL is not configured';\n  const reason = String(out.error || out.message || fallback).slice(0, 500);\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: reason }) }];\n}\nconst mime = bin.mimeType || 'video/mp4';\nreturn [{ json: Object.assign({}, base, { STATUS: 'RENDERED', CONTENT_TYPE: mime,\n  IMAGE: 'data:' + mime + ';base64,' + bin.data }) }];\n"
       }
@@ -2913,6 +2913,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 2,
-  "updatedAt": "2026-10-01T19:19:34.547Z",
-  "versionId": "53aa3576-2e35-4895-a619-b90c8f817b49"
+  "updatedAt": "2026-10-04T07:30:14.199Z",
+  "versionId": "95aba87b-bce9-4c61-8623-9cbc3ebf1d94"
 }

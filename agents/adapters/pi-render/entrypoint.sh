@@ -15,6 +15,16 @@
 # unchanged, so the platform sees exactly the behaviour it expects.
 set -eu
 
+# v1alpha2 is the session contract: a long-lived Deployment that serves
+# /v1/chat/completions instead of a one-shot Job. The session path is the one that
+# honours AgentRuntime.spec.resources, where a Job's agent container is hardcoded to
+# 1Gi. Dispatch first, before anything below assumes the Job contract — the session
+# container mounts no /ipc and sets no SYMPOZIUM_RESULT_PATH, so the result protocol
+# that follows would crash on a read-only root filesystem trying to create one.
+if [ "${SYMPOZIUM_HARNESS_CONTRACT_VERSION:-}" = v1alpha2 ]; then
+  exec node /usr/local/bin/sympozium-pi-render-session
+fi
+
 result_path="${SYMPOZIUM_RESULT_PATH:-/ipc/output/result.json}"
 work_path="${TMPDIR:-/tmp}/pi-output.txt"
 prompt_path="/opt/pi-render/prompts/authoring.md"
@@ -29,20 +39,19 @@ emit() {
   else
     payload="$(jq -cn --arg error "$body" '{status:"error",error:$error}')"
   fi
-  mkdir -p "$(dirname "$result_path")"
-  printf '%s' "$payload" > "$result_path"
+  # A Job mounts /ipc writable; anything else may not, and a failure to write the
+  # result must still leave the reason readable on stdout rather than dying on a
+  # mkdir. The marker goes out either way — that is what the controller parses.
+  if mkdir -p "$(dirname "$result_path")" 2>/dev/null; then
+    printf '%s' "$payload" > "$result_path" 2>/dev/null || \
+      echo "sympozium pi render adapter: could not write $result_path" >&2
+  else
+    echo "sympozium pi render adapter: could not create $(dirname "$result_path")" >&2
+  fi
   printf '__SYMPOZIUM_RESULT__\n%s\n__SYMPOZIUM_END__\n' "$payload"
 }
 
 fail() { emit error "$1"; exit 1; }
-
-# v1alpha2 is the session contract: a long-lived Deployment that serves
-# /v1/chat/completions instead of a one-shot Job. The session path is the one that
-# honours AgentRuntime.spec.resources, where a Job's agent container is hardcoded to
-# 1Gi. Dispatch before anything else, so a missing cookie has no say.
-if [ "${SYMPOZIUM_HARNESS_CONTRACT_VERSION:-}" = v1alpha2 ]; then
-  exec node /usr/local/bin/sympozium-pi-render-session
-fi
 
 # A preRun hook can find no work to do. Upstream's adapter checks this marker and
 # so must we: it replaces agent-runner, and nothing else reads it for us.

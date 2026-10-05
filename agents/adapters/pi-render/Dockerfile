@@ -65,8 +65,18 @@ RUN mkdir -p /home/agent /workspace \
     && chown -R 1000:1000 /home/agent /workspace /opt/hyperframes /opt/pi-render
 
 COPY --chmod=0755 entrypoint.sh /usr/local/bin/sympozium-pi-render-adapter
+# The v1alpha2 session endpoint. The entrypoint dispatches to it on the contract
+# version, so one image serves both the one-shot Job and the long-lived session.
+COPY --chmod=0755 session-server.mjs /usr/local/bin/sympozium-pi-render-session
 
 USER 1000:1000
 ENV HOME=/home/agent
+# Cap V8's heap at the image level so a render collects rather than growing into
+# whatever cgroup limit it is given. A Job's agent container is hardcoded to 1Gi by
+# the controller and no CRD field reaches it, so a cap here is what keeps a
+# Node-based render from being OOMKilled there; a session Deployment honours
+# AgentRuntime.spec.resources, so it can be raised rather than capped. Setting it
+# in the image means neither path depends on the caller remembering.
+ENV NODE_OPTIONS=--max-old-space-size=2048
 WORKDIR /workspace
 ENTRYPOINT ["/usr/local/bin/sympozium-pi-render-adapter"]

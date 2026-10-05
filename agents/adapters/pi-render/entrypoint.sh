@@ -36,6 +36,14 @@ emit() {
 
 fail() { emit error "$1"; exit 1; }
 
+# v1alpha2 is the session contract: a long-lived Deployment that serves
+# /v1/chat/completions instead of a one-shot Job. The session path is the one that
+# honours AgentRuntime.spec.resources, where a Job's agent container is hardcoded to
+# 1Gi. Dispatch before anything else, so a missing cookie has no say.
+if [ "${SYMPOZIUM_HARNESS_CONTRACT_VERSION:-}" = v1alpha2 ]; then
+  exec node /usr/local/bin/sympozium-pi-render-session
+fi
+
 # A preRun hook can find no work to do. Upstream's adapter checks this marker and
 # so must we: it replaces agent-runner, and nothing else reads it for us.
 if [ -e /ipc/control/skip ]; then

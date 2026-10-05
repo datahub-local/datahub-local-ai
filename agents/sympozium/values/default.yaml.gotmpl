@@ -51,6 +51,27 @@ sympozium_mcp_servers:
     kubernetesReader: false
     renderUrl: http://datahub-local-core-automation-render.automation.svc.cluster.local:8080
 
+sympozium_pi_render:
+  enabled: true
+  image: ghcr.io/datahub-local/datahub-local-ai-pi-render-adapter
+  digest: sha256:0779b3ac6a7fcd218a1555b2bfa0de17914829b163f690f813e5a373a72fc22d
+  storage: 8Gi
+  storageClass: longhorn
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2Gi
+    limits:
+      cpu: "3"
+      memory: 6Gi
+  model:
+    provider: openrouter
+    name: opencode-go/deepseek-v4.1-flash
+    baseURL: http://datahub-local-core-data-litellm.data.svc.cluster.local:4000/v1
+    authSecret: litellm-auth-credentials
+    namespace: data
+    port: 4000
+
 sympozium_delivery_hook:
   image: python:3.13-alpine
   secret: mcp-slack-token

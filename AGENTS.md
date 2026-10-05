@@ -563,6 +563,38 @@ in `datahub-local-ai-mcp`, declared under `sympozium_mcp_servers.render` (disabl
 until that image publishes). Rationale, alternatives and the cross-repo plan are
 in `openspec/changes/add-hyperframes-render-service/`.
 
+#### Agent-authored assets
+
+`author: agent` in the type registry is the other path: instead of a typed spec,
+the request's `CONTENT` is a **brief** sent to the `pi-render` agent, which authors
+a composition and renders it. `diagram_agent` is the type; the workflow's
+`if_agent` branch (off `parse_registry`, so a non-agent request never reaches it)
+posts the brief to the session and fetches the artifact, and `merge_assets` skips
+agent types so they are not emitted twice. The workflow never sees the agent's
+markup — only the rendered file — which is what keeps the studio's "model output
+is data" boundary intact.
+
+The agent is a Sympozium `HarnessSession` declared in `agents/sympozium/`
+(`sympozium_pi_render`, template `pi-render-session.yaml`), not a core service: a
+session Deployment honours `AgentRuntime.spec.resources` where a Job's agent
+container is hardcoded to 1 GiB. It is kept running (no `idleTimeout`), its PVC is
+**pre-created at 8 GiB** because the controller's fixed 1 GiB claim is below the
+engine's 1024 MiB disk gate, and two additive NetworkPolicies give n8n ingress on
+8080 and the session egress to LiteLLM on 4000. `PI_RENDER_URL` on the n8n
+deployment points at the session's own Service
+(`datahub-local-ai-pi-render-api.automation.svc:8080`).
+
+The adapter it runs is `agents/adapters/pi-render/`. Its session server returns Pi's
+report, not the file, so the artifact contract is a second request: the authoring
+`POST /v1/chat/completions` carries a run-scoped `session_id` and an output `format`,
+the turn runs in `<workspace>/runs/<session_id>/`, and `GET
+/artifacts/<session_id>/out.<ext>` serves it (validated; traversal refused). The
+requested format is produced after the engine render with the image's `ffmpeg` —
+LinkedIn needs a **GIF**, so `diagram_agent` declares `format: gif`. A row opts in
+with `POST_MEDIA=AGENT`; `ANIMATED` keeps the deterministic type and the still-image
+fallback is unchanged. Rationale and the rollout are in
+`openspec/changes/add-agent-authored-assets/`.
+
 ### MCP servers
 
 The servers live in

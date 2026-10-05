@@ -1,7 +1,7 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "95aba87b-bce9-4c61-8623-9cbc3ebf1d94",
+    "versionId": "84d6d163-683c-4426-a70d-c2d076d078e8",
     "workflowId": "2pSrRNmYR2jkX1JG",
     "nodes": [
       {
@@ -476,7 +476,7 @@
           96
         ],
         "parameters": {
-          "jsCode": "const esc = (s) => String(s).replace(/&/g, \"&amp;\").replace(/</g, \"&lt;\").replace(/>/g, \"&gt;\");\nconst escAttr = (s) => esc(s).replace(/\"/g, \"&quot;\");\nfunction buildMarkup(tmpl, spec, fps, frames, viewport, isSvg) {\n  const accent = /^#[0-9a-fA-F]{6}$/.test(spec.accent || \"\") ? spec.accent : \"#22d3ee\";\n  const kind = [\"rise\", \"fade\", \"sweep\", \"pulse\"].includes(spec.motion && spec.motion.kind)\n    ? spec.motion.kind : \"rise\";\n  const duration = Math.max(1000, Math.min(4000, (spec.motion && spec.motion.durationMs) || 3000));\n  const blocks = (spec.blocks || []).slice(0, 6);\n  const step = Math.floor(duration / (blocks.length + 1));\n  let out;\n  if (isSvg) {\n    const top = 360, row = 150;\n    const svgBlocks = blocks.map((b, i) => {\n      const delay = i * step, d = Math.max(200, duration - delay), y = top + i * row;\n      return `<g class=\"block\" style=\"animation-delay:${delay}ms;animation-duration:${d}ms\">` +\n        `<text class=\"label\" x=\"64\" y=\"${y}\">${esc(b.label)}</text>` +\n        `<text class=\"value\" x=\"1136\" y=\"${y}\" text-anchor=\"end\">${esc(b.value)}</text>` +\n        `<line class=\"sep\" x1=\"64\" y1=\"${y + 28}\" x2=\"1136\" y2=\"${y + 28}\" /></g>`;\n    }).join(\"\\n  \");\n    out = tmpl.split(\"%%TITLE%%\").join(esc(spec.title || \"\"))\n      .split(\"%%BLOCKS%%\").join(svgBlocks).split(\"%%ACCENT%%\").join(accent)\n      .split(\"%%MOTION_ANIM%%\").join(kind).split(\"%%DURATION_MS%%\").join(String(duration))\n      .split(\"%%FPS%%\").join(String(fps)).split(\"%%FRAMES%%\").join(String(frames))\n      .split(\"%%VIEWPORT%%\").join(String(viewport)).split(\"%%ALT%%\").join(escAttr(spec.alt || \"\"));\n  } else {\n    const htmlBlocks = blocks.map((b, i) => {\n      const delay = i * step, d = Math.max(200, duration - delay);\n      return `<div class=\"block\" style=\"animation-delay:${delay}ms;animation-duration:${d}ms\">` +\n        `<span class=\"label\">${esc(b.label)}</span><span class=\"value\">${esc(b.value)}</span></div>`;\n    }).join(\"\\n      \");\n    out = tmpl.split(\"%%TITLE%%\").join(esc(spec.title || \"\"))\n      .split(\"%%BLOCKS%%\").join(htmlBlocks).split(\"%%ACCENT%%\").join(accent)\n      .split(\"%%MOTION_ANIM%%\").join(kind).split(\"%%DURATION_MS%%\").join(String(duration))\n      .split(\"%%FPS%%\").join(String(fps)).split(\"%%FRAMES%%\").join(String(frames))\n      .split(\"%%VIEWPORT%%\").join(String(viewport));\n  }\n  const left = out.match(/%%[A-Z_]+%%/g);\n  if (left) throw new Error(\"unresolved template token(s): \" + left.join(\", \"));\n  return out;\n}\nconst spec = $('spec_ready').first().json.SPEC;\nconst specJson = $('spec_ready').first().json.SPEC_JSON;\nconst specDuration = Math.max(1000, Math.min(4000, (spec.motion && spec.motion.durationMs) || 3000));\nconst htmlT = $('download_html_template').first().json.output;\nconst svgT = $('download_svg_template').first().json.output;\nconst asset = (a, status) => ({\n  ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: status, SPEC_JSON: specJson, PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: '', FRAME_COUNT: '', WIDTH: '', HEIGHT: '',\n});\nconst out = [];\nfor (const item of $('parse_registry').all()) {\n  const a = item.json;\n  if (a.STATUS === 'UNKNOWN' || a.STATUS === 'SKIPPED') {\n    out.push({ json: asset(a, a.STATUS) });\n    out[out.length - 1].json.ERROR = a.ERROR || '';\n    continue;\n  }\n  if (a.AVAILABLE === false) {\n    const r = asset(a, 'UNAVAILABLE');\n    r.ERROR = a.UNAVAILABLE_REASON || ('unavailable: ' + a.ASSET_TYPE);\n    out.push({ json: r });\n    continue;\n  }\n  const r = asset(a, 'AUTHORED');\n  let markup = '', markupKind = '';\n  if (a.AUTHOR === 'spec_markup') {\n    if (a.RENDER_MODE === 'animated') { markup = buildMarkup(htmlT, spec, a.FPS, a.FRAMES, a.VIEWPORT, false); markupKind = 'text/html'; }\n    else if (a.RENDER_MODE === 'text') { markup = buildMarkup(svgT, spec, a.FPS, a.FRAMES, a.VIEWPORT, true); markupKind = 'image/svg+xml'; }\n  }\n  r.MARKUP = markup;\n  r.CONTENT_TYPE = markupKind;\n  if (a.RENDER_MODE === 'animated') {\n    const fpsCap = Math.max(1, Math.min(12, Number(a.FPS) || 12));\n    const frameCap = Math.max(1, Math.min(36, Number(a.FRAMES) || 36));\n    r.VIEWPORT = String(Math.max(1, Math.min(1200, Number(a.VIEWPORT) || 1200)));\n    r.DURATION_MS = String(specDuration);\n    r.FRAME_COUNT = String(Math.max(1, Math.min(frameCap, Math.floor(specDuration * fpsCap / 1000))));\n  }\n  out.push({ json: Object.assign({}, a, r) });\n}\nreturn out;"
+          "jsCode": "const esc = (s) => String(s).replace(/&/g, \"&amp;\").replace(/</g, \"&lt;\").replace(/>/g, \"&gt;\");\nconst escAttr = (s) => esc(s).replace(/\"/g, \"&quot;\");\nfunction buildMarkup(tmpl, spec, fps, frames, viewport, isSvg) {\n  const accent = /^#[0-9a-fA-F]{6}$/.test(spec.accent || \"\") ? spec.accent : \"#22d3ee\";\n  const kind = [\"rise\", \"fade\", \"sweep\", \"pulse\"].includes(spec.motion && spec.motion.kind)\n    ? spec.motion.kind : \"rise\";\n  const duration = Math.max(1000, Math.min(4000, (spec.motion && spec.motion.durationMs) || 3000));\n  const blocks = (spec.blocks || []).slice(0, 6);\n  const step = Math.floor(duration / (blocks.length + 1));\n  let out;\n  if (isSvg) {\n    const top = 360, row = 150;\n    const svgBlocks = blocks.map((b, i) => {\n      const delay = i * step, d = Math.max(200, duration - delay), y = top + i * row;\n      return `<g class=\"block\" style=\"animation-delay:${delay}ms;animation-duration:${d}ms\">` +\n        `<text class=\"label\" x=\"64\" y=\"${y}\">${esc(b.label)}</text>` +\n        `<text class=\"value\" x=\"1136\" y=\"${y}\" text-anchor=\"end\">${esc(b.value)}</text>` +\n        `<line class=\"sep\" x1=\"64\" y1=\"${y + 28}\" x2=\"1136\" y2=\"${y + 28}\" /></g>`;\n    }).join(\"\\n  \");\n    out = tmpl.split(\"%%TITLE%%\").join(esc(spec.title || \"\"))\n      .split(\"%%BLOCKS%%\").join(svgBlocks).split(\"%%ACCENT%%\").join(accent)\n      .split(\"%%MOTION_ANIM%%\").join(kind).split(\"%%DURATION_MS%%\").join(String(duration))\n      .split(\"%%FPS%%\").join(String(fps)).split(\"%%FRAMES%%\").join(String(frames))\n      .split(\"%%VIEWPORT%%\").join(String(viewport)).split(\"%%ALT%%\").join(escAttr(spec.alt || \"\"));\n  } else {\n    const htmlBlocks = blocks.map((b, i) => {\n      const delay = i * step, d = Math.max(200, duration - delay);\n      return `<div class=\"block\" style=\"animation-delay:${delay}ms;animation-duration:${d}ms\">` +\n        `<span class=\"label\">${esc(b.label)}</span><span class=\"value\">${esc(b.value)}</span></div>`;\n    }).join(\"\\n      \");\n    out = tmpl.split(\"%%TITLE%%\").join(esc(spec.title || \"\"))\n      .split(\"%%BLOCKS%%\").join(htmlBlocks).split(\"%%ACCENT%%\").join(accent)\n      .split(\"%%MOTION_ANIM%%\").join(kind).split(\"%%DURATION_MS%%\").join(String(duration))\n      .split(\"%%FPS%%\").join(String(fps)).split(\"%%FRAMES%%\").join(String(frames))\n      .split(\"%%VIEWPORT%%\").join(String(viewport));\n  }\n  const left = out.match(/%%[A-Z_]+%%/g);\n  if (left) throw new Error(\"unresolved template token(s): \" + left.join(\", \"));\n  return out;\n}\nconst spec = $('spec_ready').first().json.SPEC;\nconst specJson = $('spec_ready').first().json.SPEC_JSON;\nconst specDuration = Math.max(1000, Math.min(4000, (spec.motion && spec.motion.durationMs) || 3000));\nconst htmlT = $('download_html_template').first().json.output;\nconst svgT = $('download_svg_template').first().json.output;\nconst asset = (a, status) => ({\n  ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: status, SPEC_JSON: specJson, PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: '', FRAME_COUNT: '', WIDTH: '', HEIGHT: '',\n});\nconst out = [];\nfor (const item of $('parse_registry').all()) {\n  const a = item.json;\n  // Agent-authored types are produced by the agent branch off parse_registry,\n  // not here; skip them so they are not emitted twice.\n  if (a.AUTHOR === 'agent') continue;\n  if (a.STATUS === 'UNKNOWN' || a.STATUS === 'SKIPPED') {\n    out.push({ json: asset(a, a.STATUS) });\n    out[out.length - 1].json.ERROR = a.ERROR || '';\n    continue;\n  }\n  if (a.AVAILABLE === false) {\n    const r = asset(a, 'UNAVAILABLE');\n    r.ERROR = a.UNAVAILABLE_REASON || ('unavailable: ' + a.ASSET_TYPE);\n    out.push({ json: r });\n    continue;\n  }\n  const r = asset(a, 'AUTHORED');\n  let markup = '', markupKind = '';\n  if (a.AUTHOR === 'spec_markup') {\n    if (a.RENDER_MODE === 'animated') { markup = buildMarkup(htmlT, spec, a.FPS, a.FRAMES, a.VIEWPORT, false); markupKind = 'text/html'; }\n    else if (a.RENDER_MODE === 'text') { markup = buildMarkup(svgT, spec, a.FPS, a.FRAMES, a.VIEWPORT, true); markupKind = 'image/svg+xml'; }\n  }\n  r.MARKUP = markup;\n  r.CONTENT_TYPE = markupKind;\n  if (a.RENDER_MODE === 'animated') {\n    const fpsCap = Math.max(1, Math.min(12, Number(a.FPS) || 12));\n    const frameCap = Math.max(1, Math.min(36, Number(a.FRAMES) || 36));\n    r.VIEWPORT = String(Math.max(1, Math.min(1200, Number(a.VIEWPORT) || 1200)));\n    r.DURATION_MS = String(specDuration);\n    r.FRAME_COUNT = String(Math.max(1, Math.min(frameCap, Math.floor(specDuration * fpsCap / 1000))));\n  }\n  out.push({ json: Object.assign({}, a, r) });\n}\nreturn out;"
         }
       },
       {
@@ -946,6 +946,113 @@
         "parameters": {
           "jsCode": "const a = $('build_video').first().json;\nconst out = $input.first().json || {};\nconst bin = ($input.first().binary && $input.first().binary.data) || null;\nconst base = { ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: '', SPEC_JSON: a.SPEC_JSON || '', PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: a.DURATION_MS || '', FRAME_COUNT: a.FRAME_COUNT || '',\n  WIDTH: a.WIDTH || '', HEIGHT: a.HEIGHT || '', MARKUP: '', IMAGE: '' };\nif (!bin || !bin.data) {\n  const fallback = a.RENDER_URL ? 'render service returned no video' : 'RENDER_URL is not configured';\n  const reason = String(out.error || out.message || fallback).slice(0, 500);\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: reason }) }];\n}\nconst mime = bin.mimeType || 'video/mp4';\nreturn [{ json: Object.assign({}, base, { STATUS: 'RENDERED', CONTENT_TYPE: mime,\n  IMAGE: 'data:' + mime + ';base64,' + bin.data }) }];\n"
         }
+      },
+      {
+        "id": "f17239ca-e010-4e5c-ad90-2bf03db6f60b",
+        "name": "if_agent",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          448,
+          -320
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "combinator": "and",
+            "conditions": [
+              {
+                "id": "if_agent-c",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                },
+                "leftValue": "={{ $json.AUTHOR === 'agent' }}",
+                "rightValue": ""
+              }
+            ]
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "f4190f9c-1117-48cc-8ce7-85b3652ea99d",
+        "name": "build_author_brief",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          672,
+          -320
+        ],
+        "parameters": {
+          "jsCode": "// Turn the request into the agent's brief and the session request. The brief is\n// the caller's CONTENT plus the type's declared frame; the session gets a\n// run-scoped id so a later run cannot overwrite this artifact before its caller\n// fetches it.\nconst a = $input.first().json;\nconst req = $('normalize_input').first().json;\nconst safe = (s) => String(s || '').replace(/[^A-Za-z0-9._-]/g, '').slice(0, 40);\nconst sessionId = (safe(a.ASSET_TYPE) + '-' + safe(req.RUN_ID)) || 'default';\nconst base = ($env.PI_RENDER_URL || '').replace(/\\/+$/, '');\nconst format = ['mp4', 'gif', 'webp', 'png'].includes(a.FORMAT) ? a.FORMAT : 'mp4';\nconst [aw, ah] = String(a.ASPECT || '4:5').split(':').map(Number);\nconst width = Math.max(1, Number(a.VIEWPORT) || 1080);\nconst height = Math.round(width * (ah || 5) / (aw || 4));\nconst fps = Math.max(1, Math.min(12, Number(a.FPS) || 12));\nconst seconds = Math.max(1, Math.round((Number(a.FRAMES) || 24) / fps));\nconst brief = [\n  req.CONTENT,\n  '',\n  'Render a ' + width + 'x' + height + ' (' + (a.ASPECT || '4:5') + ') composition, about ' + seconds + ' seconds, and nothing else.',\n].join('\\n');\nreturn [{ json: Object.assign({}, a, {\n  FORMAT: format,\n  FPS: fps, WIDTH: width, HEIGHT: height,\n  SESSION_ID: sessionId,\n  AUTHOR_URL: base ? base + '/v1/chat/completions' : '',\n  ARTIFACT_URL: base ? base + '/artifacts/' + sessionId + '/out.' + format : '',\n  AUTHOR_BODY: JSON.stringify({ messages: [{ role: 'user', content: brief }], session_id: sessionId, format: format, fps: fps, width: width }),\n}) }];\n"
+        }
+      },
+      {
+        "id": "e0286e3f-7244-4d0a-b4f9-ff65d1048013",
+        "name": "execute_author",
+        "notes": "A failed or unconfigured authoring call must not block the other assets, so the error is continued and agent_result turns the missing binary into that asset's ERROR. See agent_result.notes and the 'continueRegularOutput makes a failure invisible' rule in AGENTS.md.",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "onError": "continueRegularOutput",
+        "position": [
+          896,
+          -320
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $json.AUTHOR_URL }}",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ $json.AUTHOR_BODY }}",
+          "options": {
+            "timeout": 600000
+          }
+        }
+      },
+      {
+        "id": "68237f50-4e6d-442f-9018-7f65d59c807d",
+        "name": "fetch_artifact",
+        "notes": "The artifact the session served; continued on error for the same reason as execute_author, and agent_result reports it as this asset's ERROR.",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "onError": "continueRegularOutput",
+        "position": [
+          1120,
+          -320
+        ],
+        "parameters": {
+          "method": "GET",
+          "url": "={{ $('build_author_brief').item.json.ARTIFACT_URL }}",
+          "options": {
+            "response": {
+              "response": {
+                "responseFormat": "file",
+                "outputPropertyName": "data"
+              }
+            },
+            "timeout": 120000
+          }
+        }
+      },
+      {
+        "id": "20f42e27-8199-4da2-9602-cf7fa50d3786",
+        "name": "agent_result",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1344,
+          -320
+        ],
+        "parameters": {
+          "jsCode": "// The rendered artifact the session returned, as the asset. The workflow never\n// sees the agent's composition markup -- only this file -- which is what keeps the\n// studio's \"model output is data\" boundary intact for the agent path.\nconst a = $('build_author_brief').first().json;\nconst out = $input.first().json || {};\nconst bin = ($input.first().binary && $input.first().binary.data) || null;\nconst base = {\n  ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: '', SPEC_JSON: a.SPEC_JSON || '', PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: '', FRAME_COUNT: '', WIDTH: a.WIDTH || '', HEIGHT: a.HEIGHT || '',\n  MARKUP: '', IMAGE: '',\n};\nif (!a.AUTHOR_URL) {\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: 'PI_RENDER_URL is not configured' }) }];\n}\nif (!bin || !bin.data) {\n  const reason = String(out.error || out.message || 'agent authoring returned no artifact').slice(0, 500);\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: reason }) }];\n}\nconst mime = bin.mimeType || 'image/gif';\nreturn [{ json: Object.assign({}, base, { STATUS: 'RENDERED', CONTENT_TYPE: mime,\n  IMAGE: 'data:' + mime + ';base64,' + bin.data }) }];\n"
+        }
       }
     ],
     "connections": {
@@ -1008,7 +1115,7 @@
         "main": [
           [
             {
-              "node": "pick_spec_type",
+              "node": "if_agent",
               "type": "main",
               "index": 0
             }
@@ -1437,6 +1544,68 @@
             }
           ]
         ]
+      },
+      "if_agent": {
+        "main": [
+          [
+            {
+              "node": "build_author_brief",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "pick_spec_type",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "build_author_brief": {
+        "main": [
+          [
+            {
+              "node": "execute_author",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "execute_author": {
+        "main": [
+          [
+            {
+              "node": "fetch_artifact",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "fetch_artifact": {
+        "main": [
+          [
+            {
+              "node": "agent_result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "agent_result": {
+        "main": [
+          [
+            {
+              "node": "merge_branches",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
       }
     },
     "nodeGroups": [],
@@ -1444,10 +1613,36 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-10-04T07:30:14.217Z",
-    "updatedAt": "2026-10-04T07:30:14.217Z"
+    "createdAt": "2026-10-05T11:23:57.451Z",
+    "updatedAt": "2026-10-05T11:23:57.451Z",
+    "workflowPublishHistory": [
+      {
+        "id": 724,
+        "workflowId": "2pSrRNmYR2jkX1JG",
+        "versionId": "84d6d163-683c-4426-a70d-c2d076d078e8",
+        "event": "activated",
+        "userId": "83289481-80d9-4bba-906f-8b49aff6b65d",
+        "createdAt": "2026-10-05T11:23:57.630Z"
+      },
+      {
+        "id": 725,
+        "workflowId": "2pSrRNmYR2jkX1JG",
+        "versionId": "84d6d163-683c-4426-a70d-c2d076d078e8",
+        "event": "deactivated",
+        "userId": "83289481-80d9-4bba-906f-8b49aff6b65d",
+        "createdAt": "2026-10-05T11:24:04.757Z"
+      },
+      {
+        "id": 726,
+        "workflowId": "2pSrRNmYR2jkX1JG",
+        "versionId": "84d6d163-683c-4426-a70d-c2d076d078e8",
+        "event": "activated",
+        "userId": "83289481-80d9-4bba-906f-8b49aff6b65d",
+        "createdAt": "2026-10-05T11:24:05.040Z"
+      }
+    ]
   },
-  "activeVersionId": "95aba87b-bce9-4c61-8623-9cbc3ebf1d94",
+  "activeVersionId": "84d6d163-683c-4426-a70d-c2d076d078e8",
   "connections": {
     "main_trigger": {
       "main": [
@@ -1508,7 +1703,7 @@
       "main": [
         [
           {
-            "node": "pick_spec_type",
+            "node": "if_agent",
             "type": "main",
             "index": 0
           }
@@ -1928,6 +2123,68 @@
       ]
     },
     "video_result": {
+      "main": [
+        [
+          {
+            "node": "merge_branches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if_agent": {
+      "main": [
+        [
+          {
+            "node": "build_author_brief",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "pick_spec_type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "build_author_brief": {
+      "main": [
+        [
+          {
+            "node": "execute_author",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "execute_author": {
+      "main": [
+        [
+          {
+            "node": "fetch_artifact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "fetch_artifact": {
+      "main": [
+        [
+          {
+            "node": "agent_result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "agent_result": {
       "main": [
         [
           {
@@ -2418,7 +2675,7 @@
         96
       ],
       "parameters": {
-        "jsCode": "const esc = (s) => String(s).replace(/&/g, \"&amp;\").replace(/</g, \"&lt;\").replace(/>/g, \"&gt;\");\nconst escAttr = (s) => esc(s).replace(/\"/g, \"&quot;\");\nfunction buildMarkup(tmpl, spec, fps, frames, viewport, isSvg) {\n  const accent = /^#[0-9a-fA-F]{6}$/.test(spec.accent || \"\") ? spec.accent : \"#22d3ee\";\n  const kind = [\"rise\", \"fade\", \"sweep\", \"pulse\"].includes(spec.motion && spec.motion.kind)\n    ? spec.motion.kind : \"rise\";\n  const duration = Math.max(1000, Math.min(4000, (spec.motion && spec.motion.durationMs) || 3000));\n  const blocks = (spec.blocks || []).slice(0, 6);\n  const step = Math.floor(duration / (blocks.length + 1));\n  let out;\n  if (isSvg) {\n    const top = 360, row = 150;\n    const svgBlocks = blocks.map((b, i) => {\n      const delay = i * step, d = Math.max(200, duration - delay), y = top + i * row;\n      return `<g class=\"block\" style=\"animation-delay:${delay}ms;animation-duration:${d}ms\">` +\n        `<text class=\"label\" x=\"64\" y=\"${y}\">${esc(b.label)}</text>` +\n        `<text class=\"value\" x=\"1136\" y=\"${y}\" text-anchor=\"end\">${esc(b.value)}</text>` +\n        `<line class=\"sep\" x1=\"64\" y1=\"${y + 28}\" x2=\"1136\" y2=\"${y + 28}\" /></g>`;\n    }).join(\"\\n  \");\n    out = tmpl.split(\"%%TITLE%%\").join(esc(spec.title || \"\"))\n      .split(\"%%BLOCKS%%\").join(svgBlocks).split(\"%%ACCENT%%\").join(accent)\n      .split(\"%%MOTION_ANIM%%\").join(kind).split(\"%%DURATION_MS%%\").join(String(duration))\n      .split(\"%%FPS%%\").join(String(fps)).split(\"%%FRAMES%%\").join(String(frames))\n      .split(\"%%VIEWPORT%%\").join(String(viewport)).split(\"%%ALT%%\").join(escAttr(spec.alt || \"\"));\n  } else {\n    const htmlBlocks = blocks.map((b, i) => {\n      const delay = i * step, d = Math.max(200, duration - delay);\n      return `<div class=\"block\" style=\"animation-delay:${delay}ms;animation-duration:${d}ms\">` +\n        `<span class=\"label\">${esc(b.label)}</span><span class=\"value\">${esc(b.value)}</span></div>`;\n    }).join(\"\\n      \");\n    out = tmpl.split(\"%%TITLE%%\").join(esc(spec.title || \"\"))\n      .split(\"%%BLOCKS%%\").join(htmlBlocks).split(\"%%ACCENT%%\").join(accent)\n      .split(\"%%MOTION_ANIM%%\").join(kind).split(\"%%DURATION_MS%%\").join(String(duration))\n      .split(\"%%FPS%%\").join(String(fps)).split(\"%%FRAMES%%\").join(String(frames))\n      .split(\"%%VIEWPORT%%\").join(String(viewport));\n  }\n  const left = out.match(/%%[A-Z_]+%%/g);\n  if (left) throw new Error(\"unresolved template token(s): \" + left.join(\", \"));\n  return out;\n}\nconst spec = $('spec_ready').first().json.SPEC;\nconst specJson = $('spec_ready').first().json.SPEC_JSON;\nconst specDuration = Math.max(1000, Math.min(4000, (spec.motion && spec.motion.durationMs) || 3000));\nconst htmlT = $('download_html_template').first().json.output;\nconst svgT = $('download_svg_template').first().json.output;\nconst asset = (a, status) => ({\n  ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: status, SPEC_JSON: specJson, PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: '', FRAME_COUNT: '', WIDTH: '', HEIGHT: '',\n});\nconst out = [];\nfor (const item of $('parse_registry').all()) {\n  const a = item.json;\n  if (a.STATUS === 'UNKNOWN' || a.STATUS === 'SKIPPED') {\n    out.push({ json: asset(a, a.STATUS) });\n    out[out.length - 1].json.ERROR = a.ERROR || '';\n    continue;\n  }\n  if (a.AVAILABLE === false) {\n    const r = asset(a, 'UNAVAILABLE');\n    r.ERROR = a.UNAVAILABLE_REASON || ('unavailable: ' + a.ASSET_TYPE);\n    out.push({ json: r });\n    continue;\n  }\n  const r = asset(a, 'AUTHORED');\n  let markup = '', markupKind = '';\n  if (a.AUTHOR === 'spec_markup') {\n    if (a.RENDER_MODE === 'animated') { markup = buildMarkup(htmlT, spec, a.FPS, a.FRAMES, a.VIEWPORT, false); markupKind = 'text/html'; }\n    else if (a.RENDER_MODE === 'text') { markup = buildMarkup(svgT, spec, a.FPS, a.FRAMES, a.VIEWPORT, true); markupKind = 'image/svg+xml'; }\n  }\n  r.MARKUP = markup;\n  r.CONTENT_TYPE = markupKind;\n  if (a.RENDER_MODE === 'animated') {\n    const fpsCap = Math.max(1, Math.min(12, Number(a.FPS) || 12));\n    const frameCap = Math.max(1, Math.min(36, Number(a.FRAMES) || 36));\n    r.VIEWPORT = String(Math.max(1, Math.min(1200, Number(a.VIEWPORT) || 1200)));\n    r.DURATION_MS = String(specDuration);\n    r.FRAME_COUNT = String(Math.max(1, Math.min(frameCap, Math.floor(specDuration * fpsCap / 1000))));\n  }\n  out.push({ json: Object.assign({}, a, r) });\n}\nreturn out;"
+        "jsCode": "const esc = (s) => String(s).replace(/&/g, \"&amp;\").replace(/</g, \"&lt;\").replace(/>/g, \"&gt;\");\nconst escAttr = (s) => esc(s).replace(/\"/g, \"&quot;\");\nfunction buildMarkup(tmpl, spec, fps, frames, viewport, isSvg) {\n  const accent = /^#[0-9a-fA-F]{6}$/.test(spec.accent || \"\") ? spec.accent : \"#22d3ee\";\n  const kind = [\"rise\", \"fade\", \"sweep\", \"pulse\"].includes(spec.motion && spec.motion.kind)\n    ? spec.motion.kind : \"rise\";\n  const duration = Math.max(1000, Math.min(4000, (spec.motion && spec.motion.durationMs) || 3000));\n  const blocks = (spec.blocks || []).slice(0, 6);\n  const step = Math.floor(duration / (blocks.length + 1));\n  let out;\n  if (isSvg) {\n    const top = 360, row = 150;\n    const svgBlocks = blocks.map((b, i) => {\n      const delay = i * step, d = Math.max(200, duration - delay), y = top + i * row;\n      return `<g class=\"block\" style=\"animation-delay:${delay}ms;animation-duration:${d}ms\">` +\n        `<text class=\"label\" x=\"64\" y=\"${y}\">${esc(b.label)}</text>` +\n        `<text class=\"value\" x=\"1136\" y=\"${y}\" text-anchor=\"end\">${esc(b.value)}</text>` +\n        `<line class=\"sep\" x1=\"64\" y1=\"${y + 28}\" x2=\"1136\" y2=\"${y + 28}\" /></g>`;\n    }).join(\"\\n  \");\n    out = tmpl.split(\"%%TITLE%%\").join(esc(spec.title || \"\"))\n      .split(\"%%BLOCKS%%\").join(svgBlocks).split(\"%%ACCENT%%\").join(accent)\n      .split(\"%%MOTION_ANIM%%\").join(kind).split(\"%%DURATION_MS%%\").join(String(duration))\n      .split(\"%%FPS%%\").join(String(fps)).split(\"%%FRAMES%%\").join(String(frames))\n      .split(\"%%VIEWPORT%%\").join(String(viewport)).split(\"%%ALT%%\").join(escAttr(spec.alt || \"\"));\n  } else {\n    const htmlBlocks = blocks.map((b, i) => {\n      const delay = i * step, d = Math.max(200, duration - delay);\n      return `<div class=\"block\" style=\"animation-delay:${delay}ms;animation-duration:${d}ms\">` +\n        `<span class=\"label\">${esc(b.label)}</span><span class=\"value\">${esc(b.value)}</span></div>`;\n    }).join(\"\\n      \");\n    out = tmpl.split(\"%%TITLE%%\").join(esc(spec.title || \"\"))\n      .split(\"%%BLOCKS%%\").join(htmlBlocks).split(\"%%ACCENT%%\").join(accent)\n      .split(\"%%MOTION_ANIM%%\").join(kind).split(\"%%DURATION_MS%%\").join(String(duration))\n      .split(\"%%FPS%%\").join(String(fps)).split(\"%%FRAMES%%\").join(String(frames))\n      .split(\"%%VIEWPORT%%\").join(String(viewport));\n  }\n  const left = out.match(/%%[A-Z_]+%%/g);\n  if (left) throw new Error(\"unresolved template token(s): \" + left.join(\", \"));\n  return out;\n}\nconst spec = $('spec_ready').first().json.SPEC;\nconst specJson = $('spec_ready').first().json.SPEC_JSON;\nconst specDuration = Math.max(1000, Math.min(4000, (spec.motion && spec.motion.durationMs) || 3000));\nconst htmlT = $('download_html_template').first().json.output;\nconst svgT = $('download_svg_template').first().json.output;\nconst asset = (a, status) => ({\n  ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: status, SPEC_JSON: specJson, PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: '', FRAME_COUNT: '', WIDTH: '', HEIGHT: '',\n});\nconst out = [];\nfor (const item of $('parse_registry').all()) {\n  const a = item.json;\n  // Agent-authored types are produced by the agent branch off parse_registry,\n  // not here; skip them so they are not emitted twice.\n  if (a.AUTHOR === 'agent') continue;\n  if (a.STATUS === 'UNKNOWN' || a.STATUS === 'SKIPPED') {\n    out.push({ json: asset(a, a.STATUS) });\n    out[out.length - 1].json.ERROR = a.ERROR || '';\n    continue;\n  }\n  if (a.AVAILABLE === false) {\n    const r = asset(a, 'UNAVAILABLE');\n    r.ERROR = a.UNAVAILABLE_REASON || ('unavailable: ' + a.ASSET_TYPE);\n    out.push({ json: r });\n    continue;\n  }\n  const r = asset(a, 'AUTHORED');\n  let markup = '', markupKind = '';\n  if (a.AUTHOR === 'spec_markup') {\n    if (a.RENDER_MODE === 'animated') { markup = buildMarkup(htmlT, spec, a.FPS, a.FRAMES, a.VIEWPORT, false); markupKind = 'text/html'; }\n    else if (a.RENDER_MODE === 'text') { markup = buildMarkup(svgT, spec, a.FPS, a.FRAMES, a.VIEWPORT, true); markupKind = 'image/svg+xml'; }\n  }\n  r.MARKUP = markup;\n  r.CONTENT_TYPE = markupKind;\n  if (a.RENDER_MODE === 'animated') {\n    const fpsCap = Math.max(1, Math.min(12, Number(a.FPS) || 12));\n    const frameCap = Math.max(1, Math.min(36, Number(a.FRAMES) || 36));\n    r.VIEWPORT = String(Math.max(1, Math.min(1200, Number(a.VIEWPORT) || 1200)));\n    r.DURATION_MS = String(specDuration);\n    r.FRAME_COUNT = String(Math.max(1, Math.min(frameCap, Math.floor(specDuration * fpsCap / 1000))));\n  }\n  out.push({ json: Object.assign({}, a, r) });\n}\nreturn out;"
       }
     },
     {
@@ -2888,6 +3145,113 @@
       "parameters": {
         "jsCode": "const a = $('build_video').first().json;\nconst out = $input.first().json || {};\nconst bin = ($input.first().binary && $input.first().binary.data) || null;\nconst base = { ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: '', SPEC_JSON: a.SPEC_JSON || '', PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: a.DURATION_MS || '', FRAME_COUNT: a.FRAME_COUNT || '',\n  WIDTH: a.WIDTH || '', HEIGHT: a.HEIGHT || '', MARKUP: '', IMAGE: '' };\nif (!bin || !bin.data) {\n  const fallback = a.RENDER_URL ? 'render service returned no video' : 'RENDER_URL is not configured';\n  const reason = String(out.error || out.message || fallback).slice(0, 500);\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: reason }) }];\n}\nconst mime = bin.mimeType || 'video/mp4';\nreturn [{ json: Object.assign({}, base, { STATUS: 'RENDERED', CONTENT_TYPE: mime,\n  IMAGE: 'data:' + mime + ';base64,' + bin.data }) }];\n"
       }
+    },
+    {
+      "id": "f17239ca-e010-4e5c-ad90-2bf03db6f60b",
+      "name": "if_agent",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        448,
+        -320
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "if_agent-c",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.AUTHOR === 'agent' }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "f4190f9c-1117-48cc-8ce7-85b3652ea99d",
+      "name": "build_author_brief",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        -320
+      ],
+      "parameters": {
+        "jsCode": "// Turn the request into the agent's brief and the session request. The brief is\n// the caller's CONTENT plus the type's declared frame; the session gets a\n// run-scoped id so a later run cannot overwrite this artifact before its caller\n// fetches it.\nconst a = $input.first().json;\nconst req = $('normalize_input').first().json;\nconst safe = (s) => String(s || '').replace(/[^A-Za-z0-9._-]/g, '').slice(0, 40);\nconst sessionId = (safe(a.ASSET_TYPE) + '-' + safe(req.RUN_ID)) || 'default';\nconst base = ($env.PI_RENDER_URL || '').replace(/\\/+$/, '');\nconst format = ['mp4', 'gif', 'webp', 'png'].includes(a.FORMAT) ? a.FORMAT : 'mp4';\nconst [aw, ah] = String(a.ASPECT || '4:5').split(':').map(Number);\nconst width = Math.max(1, Number(a.VIEWPORT) || 1080);\nconst height = Math.round(width * (ah || 5) / (aw || 4));\nconst fps = Math.max(1, Math.min(12, Number(a.FPS) || 12));\nconst seconds = Math.max(1, Math.round((Number(a.FRAMES) || 24) / fps));\nconst brief = [\n  req.CONTENT,\n  '',\n  'Render a ' + width + 'x' + height + ' (' + (a.ASPECT || '4:5') + ') composition, about ' + seconds + ' seconds, and nothing else.',\n].join('\\n');\nreturn [{ json: Object.assign({}, a, {\n  FORMAT: format,\n  FPS: fps, WIDTH: width, HEIGHT: height,\n  SESSION_ID: sessionId,\n  AUTHOR_URL: base ? base + '/v1/chat/completions' : '',\n  ARTIFACT_URL: base ? base + '/artifacts/' + sessionId + '/out.' + format : '',\n  AUTHOR_BODY: JSON.stringify({ messages: [{ role: 'user', content: brief }], session_id: sessionId, format: format, fps: fps, width: width }),\n}) }];\n"
+      }
+    },
+    {
+      "id": "e0286e3f-7244-4d0a-b4f9-ff65d1048013",
+      "name": "execute_author",
+      "notes": "A failed or unconfigured authoring call must not block the other assets, so the error is continued and agent_result turns the missing binary into that asset's ERROR. See agent_result.notes and the 'continueRegularOutput makes a failure invisible' rule in AGENTS.md.",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "onError": "continueRegularOutput",
+      "position": [
+        896,
+        -320
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.AUTHOR_URL }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.AUTHOR_BODY }}",
+        "options": {
+          "timeout": 600000
+        }
+      }
+    },
+    {
+      "id": "68237f50-4e6d-442f-9018-7f65d59c807d",
+      "name": "fetch_artifact",
+      "notes": "The artifact the session served; continued on error for the same reason as execute_author, and agent_result reports it as this asset's ERROR.",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "onError": "continueRegularOutput",
+      "position": [
+        1120,
+        -320
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('build_author_brief').item.json.ARTIFACT_URL }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          },
+          "timeout": 120000
+        }
+      }
+    },
+    {
+      "id": "20f42e27-8199-4da2-9602-cf7fa50d3786",
+      "name": "agent_result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        -320
+      ],
+      "parameters": {
+        "jsCode": "// The rendered artifact the session returned, as the asset. The workflow never\n// sees the agent's composition markup -- only this file -- which is what keeps the\n// studio's \"model output is data\" boundary intact for the agent path.\nconst a = $('build_author_brief').first().json;\nconst out = $input.first().json || {};\nconst bin = ($input.first().binary && $input.first().binary.data) || null;\nconst base = {\n  ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: '', SPEC_JSON: a.SPEC_JSON || '', PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: '', FRAME_COUNT: '', WIDTH: a.WIDTH || '', HEIGHT: a.HEIGHT || '',\n  MARKUP: '', IMAGE: '',\n};\nif (!a.AUTHOR_URL) {\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: 'PI_RENDER_URL is not configured' }) }];\n}\nif (!bin || !bin.data) {\n  const reason = String(out.error || out.message || 'agent authoring returned no artifact').slice(0, 500);\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: reason }) }];\n}\nconst mime = bin.mimeType || 'image/gif';\nreturn [{ json: Object.assign({}, base, { STATUS: 'RENDERED', CONTENT_TYPE: mime,\n  IMAGE: 'data:' + mime + ';base64,' + bin.data }) }];\n"
+      }
     }
   ],
   "pinData": {},
@@ -2906,6 +3270,17 @@
       "role": "workflow:owner",
       "workflowId": "2pSrRNmYR2jkX1JG",
       "projectId": "zcGU09G6dy4Oah3l",
+      "project": {
+        "id": "zcGU09G6dy4Oah3l",
+        "name": "no name <admin@example.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "customTelemetryTags": [],
+        "creatorId": "83289481-80d9-4bba-906f-8b49aff6b65d",
+        "createdAt": "2025-05-10T07:47:06.870Z",
+        "updatedAt": "2025-05-10T07:47:20.397Z"
+      },
       "createdAt": "2026-09-27T15:39:17.669Z",
       "updatedAt": "2026-09-27T15:39:17.669Z"
     }
@@ -2913,6 +3288,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 2,
-  "updatedAt": "2026-10-04T07:30:14.199Z",
-  "versionId": "95aba87b-bce9-4c61-8623-9cbc3ebf1d94"
+  "updatedAt": "2026-10-05T11:23:57.432Z",
+  "versionId": "84d6d163-683c-4426-a70d-c2d076d078e8"
 }

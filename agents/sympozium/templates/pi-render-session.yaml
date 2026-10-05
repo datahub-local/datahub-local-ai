@@ -1,0 +1,163 @@
+{{- $s := .Values.sympozium_pi_render | default dict }}
+{{- if $s.enabled }}
+{{- $name := printf "%s-pi-render" $.Values.release_name }}
+{{- $image := printf "%s@%s" $s.image $s.digest }}
+---
+apiVersion: sympozium.ai/v1alpha1
+kind: SympoziumPolicy
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app.kubernetes.io/managed-by: Helm
+spec:
+  harnessPolicy:
+    enabled: true
+    allowUnmetered: true
+  imagePolicy:
+    allowedRegistries:
+      - {{ $image | quote }}
+---
+apiVersion: sympozium.ai/v1alpha1
+kind: AgentRuntime
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app.kubernetes.io/managed-by: Helm
+spec:
+  image: {{ $image | quote }}
+  contractVersion: v1alpha2
+  capabilities:
+    - persona
+  resources:
+    requests:
+      cpu: {{ $s.resources.requests.cpu | quote }}
+      memory: {{ $s.resources.requests.memory | quote }}
+    limits:
+      cpu: {{ $s.resources.limits.cpu | quote }}
+      memory: {{ $s.resources.limits.memory | quote }}
+  session:
+    protocol: openai-chat
+    port: 8080
+  model:
+    provider: {{ $s.model.provider | quote }}
+    model: {{ $s.model.name | quote }}
+    baseURL: {{ $s.model.baseURL | quote }}
+    authSecretRef: {{ $s.model.authSecret | quote }}
+  supportOwner: datahub-local-ai
+  conformance:
+    status: pending
+    owner: datahub-local-ai
+---
+apiVersion: sympozium.ai/v1alpha1
+kind: Agent
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app.kubernetes.io/managed-by: Helm
+spec:
+  displayName: Pi Render Session
+  policyRef: {{ $name }}
+  runtimeRef: {{ $name }}
+  authRefs:
+    - provider: {{ $s.model.provider | quote }}
+      secret: {{ $s.model.authSecret | quote }}
+  agents:
+    default:
+      baseURL: {{ $s.model.baseURL | quote }}
+      model: {{ $s.model.name | quote }}
+      runTimeout: 30m
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app.kubernetes.io/managed-by: Helm
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: {{ $s.storageClass | quote }}
+  resources:
+    requests:
+      storage: {{ $s.storage | quote }}
+---
+apiVersion: sympozium.ai/v1alpha1
+kind: HarnessSession
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app.kubernetes.io/managed-by: Helm
+spec:
+  agentRef: {{ $name }}
+  runtimeRef: {{ $name }}
+  desiredState: running
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ printf "%s-api" $name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: harness-session
+    app.kubernetes.io/instance: {{ $name }}
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ printf "%s-callers" $name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app.kubernetes.io/managed-by: Helm
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: harness-session
+      app.kubernetes.io/instance: {{ $name }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: n8n
+      ports:
+        - port: 8080
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ printf "%s-model-egress" $name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app.kubernetes.io/managed-by: Helm
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: harness-session
+      app.kubernetes.io/instance: {{ $name }}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $s.model.namespace }}
+      ports:
+        - port: {{ $s.model.port }}
+          protocol: TCP
+{{- end }}

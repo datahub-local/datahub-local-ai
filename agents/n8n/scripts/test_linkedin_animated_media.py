@@ -20,6 +20,7 @@ SHARING = WORKFLOWS / "linked_in_post_sharing.workflow.json"
 TYPES = WORKFLOWS.parent / "datasets" / "visual_types.json"
 
 ANIMATED_TYPE = "diagram_animated_linkedin"
+AGENT_TYPE = "diagram_agent"
 PUBLISH = "send_2_linkedin_omImage"
 
 
@@ -78,17 +79,43 @@ def test_static_rows_still_take_the_image_path(label, document):
 
 @pytest.mark.parametrize("label,document", list(_copies(SHARING)))
 def test_animated_rows_call_the_studio_for_the_declared_type(label, document):
-    """The animation comes from the studio, asked for by type, with no frozen spec."""
+    """The animation comes from the studio, asked for by type, with no frozen spec.
+
+    Two opt-ins share the branch: ANIMATED asks for the deterministic type,
+    AGENT asks for the agent-authored type. The asset type is an expression over
+    POST_MEDIA, so both must appear and the deterministic one must remain the
+    default for a row that is not AGENT.
+    """
     connections = _connections(document)
     nodes = _nodes(document)
     assert "execute_visual_studio" in _targets(connections, "switch_post_media")
 
     values = nodes["execute_visual_studio"]["parameters"]["workflowInputs"]["value"]
-    assert values["ASSET_TYPES"] == ANIMATED_TYPE, "the studio must be asked for the platform's type"
+    asset_types = values["ASSET_TYPES"]
+    assert "POST_MEDIA" in asset_types, "the requested type must follow the row's opt-in"
+    assert AGENT_TYPE in asset_types, "AGENT must request the agent-authored type"
+    assert ANIMATED_TYPE in asset_types, "the deterministic type must stay the default"
     # No frozen spec: a post has one media asset, so nothing needs keeping in step,
     # and a retry has to be free to re-author.
     assert values["SPEC_JSON"] in ("", None)
     assert "FEEDBACK" in values
+
+
+@pytest.mark.parametrize("label,document", list(_copies(SHARING)))
+def test_the_media_switch_accepts_both_opt_ins(label, document):
+    """AGENT must reach the studio; a blank or STATIC row must not."""
+    conditions = _nodes(document)["switch_post_media"]["parameters"]["conditions"]["conditions"]
+    left = conditions[0]["leftValue"]
+    assert "'ANIMATED'" in left and "'AGENT'" in left
+    assert "POST_MEDIA" in left
+
+
+@pytest.mark.parametrize("label,document", list(_copies(SHARING)))
+def test_the_result_resolves_the_requested_type(label, document):
+    """check_animation_result must look up the type that was asked for, not a fixed one."""
+    js = _nodes(document)["check_animation_result"]["parameters"]["jsCode"]
+    assert AGENT_TYPE in js and ANIMATED_TYPE in js
+    assert "POST_MEDIA" in js
 
 
 @pytest.mark.parametrize("label,document", list(_copies(SHARING)))
@@ -159,6 +186,22 @@ def test_the_declared_type_is_inside_the_platform_caps():
     total_pixels = budget["frames"] * width * height
     assert budget["frames"] <= 500
     assert total_pixels <= 36152320, f"{total_pixels} pixels exceeds the platform's GIF cap"
+
+
+def test_the_agent_type_is_declared_and_inside_the_caps():
+    """A GIF produced by the agent, with the same platform cap as the deterministic one."""
+    registry = json.loads(TYPES.read_text())
+    entry = next(t for t in registry["types"] if t["id"] == AGENT_TYPE)
+    assert entry["author"] == "agent"
+    assert entry["format"] == "gif"
+    assert entry["available"] is True
+    assert entry["specTemplate"] is None, "the agent takes the brief, not a content spec"
+
+    budget = entry["budget"]
+    width = budget["viewport"]
+    height = round(width * 5 / 4)
+    assert budget["frames"] <= 500
+    assert budget["frames"] * width * height <= 36152320
 
 
 CREDENTIALS = {

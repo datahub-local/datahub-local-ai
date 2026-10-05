@@ -73,6 +73,23 @@ jobs:
       - name: Test composition builder
         run: node --test 'agents/n8n/render/test/*.test.mjs'
 
+  pi-render-adapter:
+    name: pi-render adapter session helpers
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # Offline: the session server's path validation and output-format helpers
+      # import only node builtins, so no image, no ffmpeg and no cluster are needed.
+      - name: Test session helpers
+        run: node --test 'agents/adapters/pi-render/test/*.test.mjs'
+
   render-changes:
     name: render changes
     runs-on: ubuntu-latest

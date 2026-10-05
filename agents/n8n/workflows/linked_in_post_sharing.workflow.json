@@ -1,7 +1,7 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "d945358b-070f-4fe4-b5a5-60605cbfa9a0",
+    "versionId": "a36c8acc-dece-48f3-ad4c-409ef177dbc5",
     "workflowId": "oxARWWyxenKgmv6A",
     "nodes": [
       {
@@ -2223,18 +2223,19 @@
               "typeValidation": "strict",
               "version": 2
             },
+            "combinator": "and",
             "conditions": [
               {
-                "id": "anim-equals-.POST_MEDIA }}",
-                "leftValue": "={{ $('select_article_to_post').item.json.POST_MEDIA }}",
-                "rightValue": "ANIMATED",
+                "id": "post-media-is-animated-or-agent",
+                "leftValue": "={{ ['ANIMATED','AGENT'].includes($('select_article_to_post').item.json.POST_MEDIA) }}",
+                "rightValue": "",
                 "operator": {
-                  "type": "string",
-                  "operation": "equals"
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
                 }
               }
-            ],
-            "combinator": "and"
+            ]
           },
           "options": {}
         }
@@ -2260,7 +2261,7 @@
             "mappingMode": "defineBelow",
             "value": {
               "CONTENT": "={{ $('execute_post_creator').item.json.text }}",
-              "ASSET_TYPES": "diagram_animated_linkedin",
+              "ASSET_TYPES": "={{ $('select_article_to_post').item.json.POST_MEDIA === 'AGENT' ? 'diagram_agent' : 'diagram_animated_linkedin' }}",
               "FEEDBACK": "={{ $('notification_retry_or_cancel_animation').isExecuted ? ($('notification_retry_or_cancel_animation').last().json.data.Feedback || '') : '' }}",
               "SPEC_JSON": ""
             },
@@ -2325,7 +2326,7 @@
           -1180
         ],
         "parameters": {
-          "jsCode": "// The studio's own run STATUS is PARTIAL whenever a requested type is unavailable, so the\n// asset's status is what this branches on.\nconst r = $input.first().json || {};\nconst assets = r.ASSETS || [];\nconst a = assets.find((x) => x.ASSET_TYPE === 'diagram_animated_linkedin') || null;\nconst ok = Boolean(a && a.STATUS === 'RENDERED' && a.IMAGE);\nreturn [{ json: {\n  RUN_ID: r.RUN_ID || '',\n  RUN_STATUS: r.STATUS || '',\n  ASSET_TYPE: a ? a.ASSET_TYPE : '',\n  ASSET_STATUS: a ? a.STATUS : 'MISSING',\n  CONTENT_TYPE: a ? (a.CONTENT_TYPE || '') : '',\n  IMAGE: a && a.IMAGE ? a.IMAGE : '',\n  DURATION_MS: a ? (a.DURATION_MS || '') : '',\n  FRAME_COUNT: a ? (a.FRAME_COUNT || '') : '',\n  ERROR: ok ? '' : ('animated media unavailable: ' + ((a && (a.ERROR || a.STATUS)) || 'no asset returned')),\n} }];"
+          "jsCode": "// The studio's own run STATUS is PARTIAL whenever a requested type is unavailable, so the\n// asset's status is what this branches on. The requested type follows POST_MEDIA:\n// AGENT asks the studio for the agent-authored type, anything else the deterministic one.\nconst r = $input.first().json || {};\nconst assets = r.ASSETS || [];\nconst req = $('select_article_to_post').first().json;\nconst want = req.POST_MEDIA === 'AGENT' ? 'diagram_agent' : 'diagram_animated_linkedin';\nconst a = assets.find((x) => x.ASSET_TYPE === want) || null;\nconst ok = Boolean(a && a.STATUS === 'RENDERED' && a.IMAGE);\nreturn [{ json: {\n  RUN_ID: r.RUN_ID || '',\n  RUN_STATUS: r.STATUS || '',\n  ASSET_TYPE: a ? a.ASSET_TYPE : '',\n  ASSET_STATUS: a ? a.STATUS : 'MISSING',\n  CONTENT_TYPE: a ? (a.CONTENT_TYPE || '') : '',\n  IMAGE: a && a.IMAGE ? a.IMAGE : '',\n  DURATION_MS: a ? (a.DURATION_MS || '') : '',\n  FRAME_COUNT: a ? (a.FRAME_COUNT || '') : '',\n  ERROR: ok ? '' : ('animated media unavailable: ' + ((a && (a.ERROR || a.STATUS)) || 'no asset returned')),\n} }];"
         }
       },
       {
@@ -3133,10 +3134,36 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-10-02T04:29:11.441Z",
-    "updatedAt": "2026-10-02T04:29:11.441Z"
+    "createdAt": "2026-10-05T11:25:28.085Z",
+    "updatedAt": "2026-10-05T11:25:28.085Z",
+    "workflowPublishHistory": [
+      {
+        "id": 728,
+        "workflowId": "oxARWWyxenKgmv6A",
+        "versionId": "a36c8acc-dece-48f3-ad4c-409ef177dbc5",
+        "event": "activated",
+        "userId": "83289481-80d9-4bba-906f-8b49aff6b65d",
+        "createdAt": "2026-10-05T11:25:28.374Z"
+      },
+      {
+        "id": 729,
+        "workflowId": "oxARWWyxenKgmv6A",
+        "versionId": "a36c8acc-dece-48f3-ad4c-409ef177dbc5",
+        "event": "deactivated",
+        "userId": "83289481-80d9-4bba-906f-8b49aff6b65d",
+        "createdAt": "2026-10-05T11:25:29.872Z"
+      },
+      {
+        "id": 730,
+        "workflowId": "oxARWWyxenKgmv6A",
+        "versionId": "a36c8acc-dece-48f3-ad4c-409ef177dbc5",
+        "event": "activated",
+        "userId": "83289481-80d9-4bba-906f-8b49aff6b65d",
+        "createdAt": "2026-10-05T11:25:30.143Z"
+      }
+    ]
   },
-  "activeVersionId": "d945358b-070f-4fe4-b5a5-60605cbfa9a0",
+  "activeVersionId": "a36c8acc-dece-48f3-ad4c-409ef177dbc5",
   "connections": {
     "switch_user_accept": {
       "main": [
@@ -5844,18 +5871,19 @@
             "typeValidation": "strict",
             "version": 2
           },
+          "combinator": "and",
           "conditions": [
             {
-              "id": "anim-equals-.POST_MEDIA }}",
-              "leftValue": "={{ $('select_article_to_post').item.json.POST_MEDIA }}",
-              "rightValue": "ANIMATED",
+              "id": "post-media-is-animated-or-agent",
+              "leftValue": "={{ ['ANIMATED','AGENT'].includes($('select_article_to_post').item.json.POST_MEDIA) }}",
+              "rightValue": "",
               "operator": {
-                "type": "string",
-                "operation": "equals"
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
               }
             }
-          ],
-          "combinator": "and"
+          ]
         },
         "options": {}
       }
@@ -5881,7 +5909,7 @@
           "mappingMode": "defineBelow",
           "value": {
             "CONTENT": "={{ $('execute_post_creator').item.json.text }}",
-            "ASSET_TYPES": "diagram_animated_linkedin",
+            "ASSET_TYPES": "={{ $('select_article_to_post').item.json.POST_MEDIA === 'AGENT' ? 'diagram_agent' : 'diagram_animated_linkedin' }}",
             "FEEDBACK": "={{ $('notification_retry_or_cancel_animation').isExecuted ? ($('notification_retry_or_cancel_animation').last().json.data.Feedback || '') : '' }}",
             "SPEC_JSON": ""
           },
@@ -5946,7 +5974,7 @@
         -1180
       ],
       "parameters": {
-        "jsCode": "// The studio's own run STATUS is PARTIAL whenever a requested type is unavailable, so the\n// asset's status is what this branches on.\nconst r = $input.first().json || {};\nconst assets = r.ASSETS || [];\nconst a = assets.find((x) => x.ASSET_TYPE === 'diagram_animated_linkedin') || null;\nconst ok = Boolean(a && a.STATUS === 'RENDERED' && a.IMAGE);\nreturn [{ json: {\n  RUN_ID: r.RUN_ID || '',\n  RUN_STATUS: r.STATUS || '',\n  ASSET_TYPE: a ? a.ASSET_TYPE : '',\n  ASSET_STATUS: a ? a.STATUS : 'MISSING',\n  CONTENT_TYPE: a ? (a.CONTENT_TYPE || '') : '',\n  IMAGE: a && a.IMAGE ? a.IMAGE : '',\n  DURATION_MS: a ? (a.DURATION_MS || '') : '',\n  FRAME_COUNT: a ? (a.FRAME_COUNT || '') : '',\n  ERROR: ok ? '' : ('animated media unavailable: ' + ((a && (a.ERROR || a.STATUS)) || 'no asset returned')),\n} }];"
+        "jsCode": "// The studio's own run STATUS is PARTIAL whenever a requested type is unavailable, so the\n// asset's status is what this branches on. The requested type follows POST_MEDIA:\n// AGENT asks the studio for the agent-authored type, anything else the deterministic one.\nconst r = $input.first().json || {};\nconst assets = r.ASSETS || [];\nconst req = $('select_article_to_post').first().json;\nconst want = req.POST_MEDIA === 'AGENT' ? 'diagram_agent' : 'diagram_animated_linkedin';\nconst a = assets.find((x) => x.ASSET_TYPE === want) || null;\nconst ok = Boolean(a && a.STATUS === 'RENDERED' && a.IMAGE);\nreturn [{ json: {\n  RUN_ID: r.RUN_ID || '',\n  RUN_STATUS: r.STATUS || '',\n  ASSET_TYPE: a ? a.ASSET_TYPE : '',\n  ASSET_STATUS: a ? a.STATUS : 'MISSING',\n  CONTENT_TYPE: a ? (a.CONTENT_TYPE || '') : '',\n  IMAGE: a && a.IMAGE ? a.IMAGE : '',\n  DURATION_MS: a ? (a.DURATION_MS || '') : '',\n  FRAME_COUNT: a ? (a.FRAME_COUNT || '') : '',\n  ERROR: ok ? '' : ('animated media unavailable: ' + ((a && (a.ERROR || a.STATUS)) || 'no asset returned')),\n} }];"
       }
     },
     {
@@ -6285,6 +6313,17 @@
       "role": "workflow:owner",
       "workflowId": "oxARWWyxenKgmv6A",
       "projectId": "zcGU09G6dy4Oah3l",
+      "project": {
+        "id": "zcGU09G6dy4Oah3l",
+        "name": "no name <admin@example.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "customTelemetryTags": [],
+        "creatorId": "83289481-80d9-4bba-906f-8b49aff6b65d",
+        "createdAt": "2025-05-10T07:47:06.870Z",
+        "updatedAt": "2025-05-10T07:47:20.397Z"
+      },
       "createdAt": "2025-05-26T15:30:12.395Z",
       "updatedAt": "2025-05-26T15:30:12.395Z"
     }
@@ -6306,6 +6345,6 @@
   },
   "tags": [],
   "triggerCount": 1,
-  "updatedAt": "2026-10-02T04:29:11.422Z",
-  "versionId": "d945358b-070f-4fe4-b5a5-60605cbfa9a0"
+  "updatedAt": "2026-10-05T11:25:28.068Z",
+  "versionId": "a36c8acc-dece-48f3-ad4c-409ef177dbc5"
 }

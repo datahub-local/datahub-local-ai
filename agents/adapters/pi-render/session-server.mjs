@@ -21,9 +21,20 @@
 // behaviour it expects.
 
 import http from "node:http";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
+
+import {
+  safeSessionId,
+  safeFormat,
+  artifactName,
+  runDir as resolveRunDir,
+  resolveArtifact,
+  contentTypeFor,
+  transcodeArgs,
+} from "./session-lib.mjs";
 
 const port = Number(process.env.SYMPOZIUM_SESSION_PORT || "8080");
 const maxBody = 1_048_576;
@@ -125,7 +136,7 @@ function promptFrom(messages) {
 
 // Pi emits its response on stdout; forwarding each chunk keeps `stream: true`
 // genuine rather than a UI replaying a finished answer.
-function runPi(prompt, sessionID, onOutput, signal) {
+function runPi(prompt, sessionID, onOutput, signal, cwd = workDir) {
   return new Promise((resolve, reject) => {
     const args = [
       "--print",
@@ -140,7 +151,7 @@ function runPi(prompt, sessionID, onOutput, signal) {
       sessionDir,
       prompt,
     ];
-    const child = spawn("pi", args, { cwd: workDir, env: process.env, stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn("pi", args, { cwd, env: process.env, stdio: ["ignore", "pipe", "pipe"] });
     let output = "";
     let stderr = "";
     let exceeded = false;
@@ -180,6 +191,34 @@ function runPi(prompt, sessionID, onOutput, signal) {
   });
 }
 
+// A bounded child process (ffmpeg) whose failure names its stderr, so a transcode
+// problem is legible rather than a bare exit code.
+function runCommand(command, args, cwd) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { cwd, env: process.env, stdio: ["ignore", "pipe", "pipe"] });
+    let stderr = "";
+    child.stderr.setEncoding("utf8");
+    child.stderr.on("data", (chunk) => {
+      if (stderr.length < 4000) stderr += chunk;
+    });
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code === 0) return resolve();
+      reject(new Error(`${command} exited ${code}: ${stderr.slice(-1000)}`));
+    });
+  });
+}
+
+// The engine always renders out.mp4. A caller that asked for another format gets it
+// produced here, after the render, from the type's declared fps/width — deterministic
+// post-processing, not a model decision. MP4 needs no step.
+async function transcode(dir, format, opts) {
+  const args = transcodeArgs(format, opts);
+  if (!args) return artifactName(format);
+  await runCommand("ffmpeg", args, dir);
+  return artifactName(format);
+}
+
 function writeSSE(res, value) {
   if (!res.writableEnded) res.write(`data: ${JSON.stringify(value)}\n\n`);
 }
@@ -196,6 +235,33 @@ http
       res.writeHead(200).end("ok");
       return;
     }
+    // The artifact a workflow fetches after authoring. Only files this server
+    // writes, under their own run directory, are reachable.
+    const artifactMatch = req.method === "GET" && req.url.match(/^\/artifacts\/([^/]+)\/([^/]+)$/);
+    if (artifactMatch) {
+      let sessionId;
+      let name;
+      try {
+        sessionId = decodeURIComponent(artifactMatch[1]);
+        name = decodeURIComponent(artifactMatch[2]);
+      } catch {
+        res.writeHead(400).end();
+        return;
+      }
+      const file = resolveArtifact(workDir, sessionId, name);
+      if (!file) {
+        res.writeHead(404).end();
+        return;
+      }
+      try {
+        const info = await stat(file);
+        res.writeHead(200, { "content-type": contentTypeFor(name), "content-length": info.size });
+        createReadStream(file).pipe(res);
+      } catch {
+        res.writeHead(404).end();
+      }
+      return;
+    }
     if (req.method !== "POST" || req.url !== "/v1/chat/completions") {
       res.writeHead(404).end();
       return;
@@ -203,10 +269,10 @@ http
     try {
       const request = await readJSON(req);
       const brief = promptFrom(request.messages);
-      const sessionID =
-        typeof request.session_id === "string" && /^[a-zA-Z0-9._-]{1,80}$/.test(request.session_id)
-          ? request.session_id
-          : "default";
+      const sessionID = safeSessionId(request.session_id);
+      const format = safeFormat(request.format);
+      const fps = Number(request.fps);
+      const width = Number(request.width);
       const stream = request.stream === true;
       const id = `chatcmpl-${randomUUID()}`;
       const cancellation = new AbortController();
@@ -222,9 +288,13 @@ http
         });
       }
 
-      // The caller's brief is the task; the file supplies the method. Joined here
-      // so the file stays a reusable constant and the brief arrives unmodified.
-      const prompt = `${brief}\n\n---\n\nWorking directory: ${workDir}\n\n${method}`;
+      // One directory per run: sequential turns must not overwrite each other's
+      // artifact, and the agent is told exactly where to write it.
+      const dir = resolveRunDir(workDir, sessionID);
+      await mkdir(dir, { recursive: true });
+      const prompt =
+        `${brief}\n\n---\n\nWorking directory: ${dir}\n` +
+        `Write the composition to \`index.html\` here and render it to \`out.mp4\` in this same directory.\n\n${method}`;
 
       const response = await (queue = queue.catch(() => undefined).then(() =>
         runPi(
@@ -240,9 +310,14 @@ http
                   choices: [{ index: 0, delta: { content: chunk }, finish_reason: null }],
                 })
             : undefined,
-          cancellation.signal
+          cancellation.signal,
+          dir
         )
       ));
+
+      // Produce the caller's requested format from the engine's out.mp4, in the
+      // same run directory, before answering.
+      await transcode(dir, format, { fps, width });
 
       if (stream) {
         writeSSE(res, {

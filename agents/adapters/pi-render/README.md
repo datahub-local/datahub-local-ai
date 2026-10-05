@@ -251,6 +251,25 @@ contract itself is upstream's shape — a `/healthz` readiness probe, `POST
 /v1/chat/completions` with SSE framing, bounded request and output, serialized turns
 because Pi's session file is shared, and client-disconnect cancellation.
 
+### The artifact contract (a workflow caller)
+
+The chat endpoint returns Pi's *report*, not the file — the render lands on the session
+PVC. A caller that needs the artifact (an n8n workflow) sends two extra fields and makes
+a second request:
+
+1. `POST /v1/chat/completions` with `session_id` identifying the run and `format` naming
+   the output kind (`mp4`, `gif`, `webp`, `png`; optional `fps` and `width`). The server
+   runs Pi in `<workspace>/runs/<session_id>/`, tells it to write `out.mp4` there, then
+   converts to the requested format in the same directory — `ffmpeg` is already in the
+   image (MP4 → GIF at the declared fps/size, the LinkedIn case).
+2. `GET /artifacts/<session_id>/out.<ext>` fetches it. Only the names the server writes,
+   under that run's own directory, are reachable; `session_id` and the file name are both
+   validated, and traversal is refused.
+
+The per-run directory is the point: turns are serialized, but a later run must not
+overwrite an earlier run's artifact before its caller has fetched it. `session-lib.mjs`
+holds the path and format rules, unit-tested under `test/`.
+
 ### Deploying it
 
 **The worked manifests are in [`deploy/`](deploy/) — start there.** It holds the

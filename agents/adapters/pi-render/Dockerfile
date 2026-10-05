@@ -68,6 +68,8 @@ COPY --chmod=0755 entrypoint.sh /usr/local/bin/sympozium-pi-render-adapter
 # The v1alpha2 session endpoint. The entrypoint dispatches to it on the contract
 # version, so one image serves both the one-shot Job and the long-lived session.
 COPY --chmod=0755 session-server.mjs /usr/local/bin/sympozium-pi-render-session
+# Pure helpers imported by the session server (artifact paths and output formats).
+COPY --chmod=0644 session-lib.mjs /usr/local/bin/session-lib.mjs
 
 USER 1000:1000
 ENV HOME=/home/agent

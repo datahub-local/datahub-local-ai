@@ -1,0 +1,98 @@
+# The session-mode objects: the same adapter, run as a long-lived API instead of a
+# Job.
+#
+# Why: `agentrun_controller.go` hardcodes a Job's `agent` container to 1Gi with no
+# field reaching it, which OOMKilled eight authoring runs. `harnesssession_controller.go`
+# does `if runtime.Spec.Resources != nil { container.Resources = *runtime.Spec.Resources }`,
+# so this path is the one where the memory is ours to set.
+#
+# `contractVersion: v1alpha2` plus `spec.session` is what routes the adapter to its
+# session server: the controller creates a private Deployment, a ClusterIP Service,
+# and waits for /healthz. Nothing here posts to Slack and no schedule exists.
+---
+apiVersion: sympozium.ai/v1alpha1
+kind: SympoziumPolicy
+metadata:
+  name: spike-pi-render-session
+  namespace: automation
+  labels:
+    sympozium.ai/spike: "true"
+spec:
+  harnessPolicy:
+    enabled: true
+    allowUnmetered: true
+  imagePolicy:
+    # A full digest, not the org prefix: this list is matched by string prefix, so
+    # `ghcr.io/datahub-local` would admit every repository under that org.
+    allowedRegistries:
+      - ghcr.io/datahub-local/datahub-local-ai-pi-render-adapter@sha256:c401bd6b206d1324c5d768e69456c698a9897efc1c7b53ba0757535fb141cd21
+---
+apiVersion: sympozium.ai/v1alpha1
+kind: AgentRuntime
+metadata:
+  name: spike-pi-render-session
+  namespace: automation
+  labels:
+    sympozium.ai/spike: "true"
+spec:
+  image: ghcr.io/datahub-local/datahub-local-ai-pi-render-adapter@sha256:c401bd6b206d1324c5d768e69456c698a9897efc1c7b53ba0757535fb141cd21
+  # v1alpha2 is the session contract, and it is what selects the Deployment path
+  # rather than the Job path.
+  contractVersion: v1alpha2
+  capabilities:
+    - persona
+  # The reason this route exists: a session Deployment reads these, a Job does not.
+  # Pi, one Chromium and a multi-worker render share the container, and the Job's
+  # hardcoded 1Gi is not enough for them.
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2Gi
+    limits:
+      cpu: "3"
+      memory: 6Gi
+  session:
+    protocol: openai-chat
+    port: 8080
+  model:
+    provider: openrouter
+    model: opencode-go/deepseek-v4.1-flash
+    baseURL: http://datahub-local-core-data-litellm.data.svc.cluster.local:4000/v1
+    authSecretRef: litellm-auth-credentials
+  supportOwner: datahub-local-ai
+  conformance:
+    status: pending
+    owner: datahub-local-ai
+---
+apiVersion: sympozium.ai/v1alpha1
+kind: Agent
+metadata:
+  name: spike-pi-render-session
+  namespace: automation
+  labels:
+    sympozium.ai/spike: "true"
+spec:
+  displayName: Spike Pi Render Session
+  policyRef: spike-pi-render-session
+  runtimeRef: spike-pi-render-session
+  authRefs:
+    - provider: openrouter
+      secret: litellm-auth-credentials
+  agents:
+    default:
+      baseURL: http://datahub-local-core-data-litellm.data.svc.cluster.local:4000/v1
+      model: opencode-go/deepseek-v4.1-flash
+      runTimeout: 30m
+---
+apiVersion: sympozium.ai/v1alpha1
+kind: HarnessSession
+metadata:
+  name: spike-pi-render-session
+  namespace: automation
+  labels:
+    sympozium.ai/spike: "true"
+spec:
+  agentRef: spike-pi-render-session
+  runtimeRef: spike-pi-render-session
+  desiredState: running
+  idleTimeout: "60m"

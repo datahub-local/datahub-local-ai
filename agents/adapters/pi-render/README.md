@@ -253,6 +253,11 @@ because Pi's session file is shared, and client-disconnect cancellation.
 
 ### Deploying it
 
+**The worked manifests are in [`deploy/`](deploy/) — start there.** It holds the
+objects that produced the sample, plus the two things a fresh session needs: the PVC
+expansion it cannot render without, and the egress policy for a gateway not on
+443/8080/9473. The summary below is the shape; `deploy/README.md` is the procedure.
+
 Four objects, and the ordering matters — the runtime must be `Ready` before a session
 may reference it:
 

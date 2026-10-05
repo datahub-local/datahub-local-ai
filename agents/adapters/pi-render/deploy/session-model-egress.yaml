@@ -1,0 +1,26 @@
+# A second NetworkPolicy is ADDITIVE in Kubernetes: the controller's own session
+# policy is not replaced, and this only widens egress to the LiteLLM gateway's
+# port. The controller hardcodes {53, 443, 8080, 9473} and this cluster's gateway
+# listens on 4000, so a session cannot reach a cluster-local model without it.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: spike-pi-render-session-model-egress
+  namespace: automation
+  labels:
+    sympozium.ai/spike: "true"
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: harness-session
+      app.kubernetes.io/instance: spike-pi-render-session
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: data
+      ports:
+        - port: 4000
+          protocol: TCP

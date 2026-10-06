@@ -1,18 +1,10 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "a36c8acc-dece-48f3-ad4c-409ef177dbc5",
+    "versionId": "47e4e041-f923-4a5e-87ab-ceb72a26c85b",
     "workflowId": "oxARWWyxenKgmv6A",
     "nodes": [
       {
-        "id": "acba55e8-5c20-43d1-bd5d-2cf52fb0a890",
-        "name": "switch_user_accept",
-        "type": "n8n-nodes-base.switch",
-        "typeVersion": 3.2,
-        "position": [
-          9248,
-          -1264
-        ],
         "parameters": {
           "rules": {
             "values": [
@@ -65,17 +57,17 @@
             ]
           },
           "options": {}
-        }
+        },
+        "id": "acba55e8-5c20-43d1-bd5d-2cf52fb0a890",
+        "name": "switch_user_accept",
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.2,
+        "position": [
+          9248,
+          -1024
+        ]
       },
       {
-        "id": "fae60bb3-a2b5-44dc-8683-b1b857840466",
-        "name": "set_error_cancelled",
-        "type": "n8n-nodes-base.set",
-        "typeVersion": 3.4,
-        "position": [
-          10144,
-          -1440
-        ],
         "parameters": {
           "assignments": {
             "assignments": [
@@ -88,17 +80,17 @@
             ]
           },
           "options": {}
-        }
+        },
+        "id": "fae60bb3-a2b5-44dc-8683-b1b857840466",
+        "name": "set_error_cancelled",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          12608,
+          -1216
+        ]
       },
       {
-        "id": "849ebad2-6f59-447b-be3d-7b8337c4c31c",
-        "name": "download_content",
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.2,
-        "position": [
-          8128,
-          -1296
-        ],
         "parameters": {
           "workflowId": {
             "__rl": true,
@@ -132,17 +124,17 @@
           "options": {
             "waitForSubWorkflow": true
           }
-        }
+        },
+        "id": "849ebad2-6f59-447b-be3d-7b8337c4c31c",
+        "name": "download_content",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          8128,
+          -976
+        ]
       },
       {
-        "id": "82b9e00d-9401-4121-8b73-ea3539a2ca29",
-        "name": "check_subworkflow_error",
-        "type": "n8n-nodes-base.switch",
-        "typeVersion": 3.2,
-        "position": [
-          8576,
-          -1360
-        ],
         "parameters": {
           "rules": {
             "values": [
@@ -174,18 +166,17 @@
           "options": {
             "fallbackOutput": "extra"
           }
-        }
+        },
+        "id": "82b9e00d-9401-4121-8b73-ea3539a2ca29",
+        "name": "check_subworkflow_error",
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.2,
+        "position": [
+          8576,
+          -1104
+        ]
       },
       {
-        "id": "207084a5-9b0d-4935-8031-08d9df8c49f3",
-        "name": "execute_post_creator",
-        "notesInFlow": false,
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.2,
-        "position": [
-          8352,
-          -1296
-        ],
         "parameters": {
           "workflowId": {
             "__rl": true,
@@ -283,17 +274,18 @@
           "options": {
             "waitForSubWorkflow": true
           }
-        }
+        },
+        "id": "207084a5-9b0d-4935-8031-08d9df8c49f3",
+        "name": "execute_post_creator",
+        "notesInFlow": false,
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          8352,
+          -976
+        ]
       },
       {
-        "id": "8b44d543-1399-4d6d-963e-79877bf80aaf",
-        "name": "read_articles_sheet",
-        "type": "n8n-nodes-base.googleSheets",
-        "typeVersion": 4.6,
-        "position": [
-          7456,
-          -1296
-        ],
         "parameters": {
           "documentId": {
             "__rl": true,
@@ -316,6 +308,14 @@
             }
           }
         },
+        "id": "8b44d543-1399-4d6d-963e-79877bf80aaf",
+        "name": "read_articles_sheet",
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4.6,
+        "position": [
+          7456,
+          -976
+        ],
         "credentials": {
           "googleSheetsOAuth2Api": {
             "id": "pGARJmt50qz64xOo",
@@ -324,28 +324,19 @@
         }
       },
       {
+        "parameters": {
+          "jsCode": "// Pick the one article this run publishes, out of the curator's backlog.\n//\n// Topic rotation, added when content_queue became a durable backlog: the curator used to\n// hand over a fresh five-item slate whose diversity caps were fought over inside a single\n// run, and the four it did not publish were expired. Now it just tops the backlog up, and\n// variety is decided here instead - where it can be guaranteed across a week rather than\n// inside one slate. Skipping the topics of the last AVOID_LAST published posts is enough:\n// it is deterministic, needs no state of its own, and costs nothing.\n//\n// Deliberately NOT random. Random selection would throw away the ranking the curator paid\n// an LLM to produce, and it only pays for itself as exploration - which needs a reward\n// signal. Nothing reads LinkedIn engagement back into this sheet yet, so there is nothing\n// to explore against. Revisit if that changes.\n// AVOID_LAST must leave at least TWO categories eligible, or rotation stops being a\n// tiebreak and becomes a strict round-robin that overrides the ranking entirely. It was 2\n// while the curator ran five categories; the curator now runs three (Data/AI/DevOps), so 2\n// would leave exactly one eligible category and a VERY_HIGH row would wait behind a LOW one\n// purely because of publish order. At 1 the same topic can never go out twice in a row -\n// which is the whole point - and PRIORITY still chooses between the other two.\nconst AVOID_LAST = 1;\n\nconst priorityOrder = {\n  VERY_HIGH: 0,\n  HIGH: 1,\n  MEDIUM: 2,\n  LOW: 3\n};\nconst topicOf = (r) => String(r.TOPIC || '').trim();\nconst byPriorityThenRow = (a, b) => {\n  const aPriority = priorityOrder[a.PRIORITY] ?? 4;\n  const bPriority = priorityOrder[b.PRIORITY] ?? 4;\n  if (aPriority !== bPriority) {\n    return aPriority - bPriority; // sort by priority\n  }\n  return a.row_number - b.row_number; // sort by row_number ascending\n};\n\nconst rows = $input.all().map((item) => item.json).filter((item) => item && item.URL);\n\n// Most recently published first. RELEASE_DATE is written by update_status_published_a;\n// rows that predate it fall back to UPDATE_DATE so the rotation still sees them.\nconst recentTopics = rows\n  .filter((r) => /^PUBLISHED$/.test(String(r.STATUS || '').trim()))\n  .map((r) => ({ topic: topicOf(r), at: Date.parse(r.RELEASE_DATE || '') || Date.parse(r.UPDATE_DATE || '') || 0 }))\n  .filter((r) => r.topic && r.at)\n  .sort((a, b) => b.at - a.at)\n  .slice(0, AVOID_LAST)\n  .map((r) => r.topic);\n\nconst queue = rows.filter((item) => /^(QUEUE)$/.test(item.STATUS)).toSorted(byPriorityThenRow);\nconst rotated = queue.filter((r) => !recentTopics.includes(topicOf(r)));\n\n// Rotation must never be the reason nothing gets published: if every queued row is on a\n// topic we just covered, publish the best one anyway rather than skipping the slot.\nconst pool = rotated.length ? rotated : queue;\nconsole.log(\n  'select_article_to_post: ' + queue.length + ' queued, avoiding [' + recentTopics.join(', ') + '], ' +\n    rotated.length + ' on a fresh topic' + (rotated.length ? '' : ' - rotation relaxed to fill the slot')\n);\n\nreturn pool.slice(0, 1);\n"
+        },
         "id": "b5d6ca82-1834-47f4-a4b8-f381b8eee95c",
         "name": "select_article_to_post",
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
           7680,
-          -1296
-        ],
-        "parameters": {
-          "jsCode": "// Pick the one article this run publishes, out of the curator's backlog.\n//\n// Topic rotation, added when content_queue became a durable backlog: the curator used to\n// hand over a fresh five-item slate whose diversity caps were fought over inside a single\n// run, and the four it did not publish were expired. Now it just tops the backlog up, and\n// variety is decided here instead - where it can be guaranteed across a week rather than\n// inside one slate. Skipping the topics of the last AVOID_LAST published posts is enough:\n// it is deterministic, needs no state of its own, and costs nothing.\n//\n// Deliberately NOT random. Random selection would throw away the ranking the curator paid\n// an LLM to produce, and it only pays for itself as exploration - which needs a reward\n// signal. Nothing reads LinkedIn engagement back into this sheet yet, so there is nothing\n// to explore against. Revisit if that changes.\n// AVOID_LAST must leave at least TWO categories eligible, or rotation stops being a\n// tiebreak and becomes a strict round-robin that overrides the ranking entirely. It was 2\n// while the curator ran five categories; the curator now runs three (Data/AI/DevOps), so 2\n// would leave exactly one eligible category and a VERY_HIGH row would wait behind a LOW one\n// purely because of publish order. At 1 the same topic can never go out twice in a row -\n// which is the whole point - and PRIORITY still chooses between the other two.\nconst AVOID_LAST = 1;\n\nconst priorityOrder = {\n  VERY_HIGH: 0,\n  HIGH: 1,\n  MEDIUM: 2,\n  LOW: 3\n};\nconst topicOf = (r) => String(r.TOPIC || '').trim();\nconst byPriorityThenRow = (a, b) => {\n  const aPriority = priorityOrder[a.PRIORITY] ?? 4;\n  const bPriority = priorityOrder[b.PRIORITY] ?? 4;\n  if (aPriority !== bPriority) {\n    return aPriority - bPriority; // sort by priority\n  }\n  return a.row_number - b.row_number; // sort by row_number ascending\n};\n\nconst rows = $input.all().map((item) => item.json).filter((item) => item && item.URL);\n\n// Most recently published first. RELEASE_DATE is written by update_status_published_a;\n// rows that predate it fall back to UPDATE_DATE so the rotation still sees them.\nconst recentTopics = rows\n  .filter((r) => /^PUBLISHED$/.test(String(r.STATUS || '').trim()))\n  .map((r) => ({ topic: topicOf(r), at: Date.parse(r.RELEASE_DATE || '') || Date.parse(r.UPDATE_DATE || '') || 0 }))\n  .filter((r) => r.topic && r.at)\n  .sort((a, b) => b.at - a.at)\n  .slice(0, AVOID_LAST)\n  .map((r) => r.topic);\n\nconst queue = rows.filter((item) => /^(QUEUE)$/.test(item.STATUS)).toSorted(byPriorityThenRow);\nconst rotated = queue.filter((r) => !recentTopics.includes(topicOf(r)));\n\n// Rotation must never be the reason nothing gets published: if every queued row is on a\n// topic we just covered, publish the best one anyway rather than skipping the slot.\nconst pool = rotated.length ? rotated : queue;\nconsole.log(\n  'select_article_to_post: ' + queue.length + ' queued, avoiding [' + recentTopics.join(', ') + '], ' +\n    rotated.length + ' on a fresh topic' + (rotated.length ? '' : ' - rotation relaxed to fill the slot')\n);\n\nreturn pool.slice(0, 1);\n"
-        }
+          -976
+        ]
       },
       {
-        "id": "9ea4a15e-fc97-4739-9565-ad8ebd7dd549",
-        "name": "send_error_notification",
-        "webhookId": "faa5f272-06d5-4d4d-ad75-e17f49c6fbc8",
-        "type": "n8n-nodes-base.slack",
-        "typeVersion": 2.3,
-        "position": [
-          10368,
-          -1536
-        ],
         "parameters": {
           "select": "channel",
           "channelId": {
@@ -359,6 +350,15 @@
             "includeLinkToWorkflow": true
           }
         },
+        "id": "9ea4a15e-fc97-4739-9565-ad8ebd7dd549",
+        "name": "send_error_notification",
+        "webhookId": "faa5f272-06d5-4d4d-ad75-e17f49c6fbc8",
+        "type": "n8n-nodes-base.slack",
+        "typeVersion": 2.3,
+        "position": [
+          12832,
+          -1552
+        ],
         "credentials": {
           "slackApi": {
             "id": "DszMmPE7WwOjHQjz",
@@ -367,14 +367,6 @@
         }
       },
       {
-        "id": "c9cb5037-af75-49bc-b0c2-42e3845de3cc",
-        "name": "switch_user_retry",
-        "type": "n8n-nodes-base.switch",
-        "typeVersion": 3.2,
-        "position": [
-          9696,
-          -1440
-        ],
         "parameters": {
           "rules": {
             "values": [
@@ -425,18 +417,17 @@
             ]
           },
           "options": {}
-        }
+        },
+        "id": "c9cb5037-af75-49bc-b0c2-42e3845de3cc",
+        "name": "switch_user_retry",
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.2,
+        "position": [
+          9696,
+          -1488
+        ]
       },
       {
-        "id": "b67e019a-5801-4c03-87f1-239b8b318b48",
-        "name": "notification_retry_or_cancel",
-        "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
-        "type": "n8n-nodes-base.slack",
-        "typeVersion": 2.3,
-        "position": [
-          9472,
-          -1440
-        ],
         "parameters": {
           "operation": "sendAndWait",
           "select": "channel",
@@ -478,6 +469,15 @@
             "appendAttribution": true
           }
         },
+        "id": "b67e019a-5801-4c03-87f1-239b8b318b48",
+        "name": "notification_retry_or_cancel",
+        "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
+        "type": "n8n-nodes-base.slack",
+        "typeVersion": 2.3,
+        "position": [
+          9472,
+          -1488
+        ],
         "credentials": {
           "slackApi": {
             "id": "DszMmPE7WwOjHQjz",
@@ -486,15 +486,6 @@
         }
       },
       {
-        "id": "dfb12e7f-5e44-4289-8db5-7f5828eb503f",
-        "name": "notification_accept",
-        "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
-        "type": "n8n-nodes-base.slack",
-        "typeVersion": 2.3,
-        "position": [
-          9024,
-          -1264
-        ],
         "parameters": {
           "operation": "sendAndWait",
           "select": "channel",
@@ -514,6 +505,15 @@
             "appendAttribution": true
           }
         },
+        "id": "dfb12e7f-5e44-4289-8db5-7f5828eb503f",
+        "name": "notification_accept",
+        "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
+        "type": "n8n-nodes-base.slack",
+        "typeVersion": 2.3,
+        "position": [
+          9024,
+          -1024
+        ],
         "credentials": {
           "slackApi": {
             "id": "DszMmPE7WwOjHQjz",
@@ -522,14 +522,6 @@
         }
       },
       {
-        "id": "ace4c6c2-2206-408e-b9b4-7b1b303593a7",
-        "name": "update_status_waiting_approval",
-        "type": "n8n-nodes-base.googleSheets",
-        "typeVersion": 4.6,
-        "position": [
-          8800,
-          -1264
-        ],
         "parameters": {
           "operation": "update",
           "documentId": {
@@ -752,6 +744,14 @@
           },
           "options": {}
         },
+        "id": "ace4c6c2-2206-408e-b9b4-7b1b303593a7",
+        "name": "update_status_waiting_approval",
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4.6,
+        "position": [
+          8800,
+          -1024
+        ],
         "credentials": {
           "googleSheetsOAuth2Api": {
             "id": "pGARJmt50qz64xOo",
@@ -760,14 +760,6 @@
         }
       },
       {
-        "id": "4d7064b7-28ec-4e35-8272-bea3223f4823",
-        "name": "update_status_cancelled",
-        "type": "n8n-nodes-base.googleSheets",
-        "typeVersion": 4.6,
-        "position": [
-          9920,
-          -1440
-        ],
         "parameters": {
           "operation": "update",
           "documentId": {
@@ -991,6 +983,14 @@
           },
           "options": {}
         },
+        "id": "4d7064b7-28ec-4e35-8272-bea3223f4823",
+        "name": "update_status_cancelled",
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4.6,
+        "position": [
+          12384,
+          -1216
+        ],
         "credentials": {
           "googleSheetsOAuth2Api": {
             "id": "pGARJmt50qz64xOo",
@@ -999,14 +999,6 @@
         }
       },
       {
-        "id": "1ca5acfc-27a9-4516-8b82-055e51aafa44",
-        "name": "update_status_in_progress",
-        "type": "n8n-nodes-base.googleSheets",
-        "typeVersion": 4.6,
-        "position": [
-          7904,
-          -1296
-        ],
         "parameters": {
           "operation": "update",
           "documentId": {
@@ -1230,6 +1222,14 @@
           },
           "options": {}
         },
+        "id": "1ca5acfc-27a9-4516-8b82-055e51aafa44",
+        "name": "update_status_in_progress",
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4.6,
+        "position": [
+          7904,
+          -976
+        ],
         "credentials": {
           "googleSheetsOAuth2Api": {
             "id": "pGARJmt50qz64xOo",
@@ -1238,42 +1238,33 @@
         }
       },
       {
+        "parameters": {
+          "content": "## Link to the [Google Sheet](https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI)",
+          "height": 376,
+          "width": 852
+        },
         "id": "3286d8e2-96ec-4c86-bd6f-2354d54844c3",
         "name": "Sticky Note",
-        "disabled": true,
         "type": "n8n-nodes-base.stickyNote",
         "typeVersion": 1,
         "position": [
           7664,
           -1792
         ],
-        "parameters": {
-          "content": "## Link to the [Google Sheet](https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI)",
-          "height": 376,
-          "width": 852
-        }
+        "disabled": true
       },
       {
+        "parameters": {},
         "id": "56d87db9-17ea-429a-a8e5-4e640f7a42cb",
         "name": "click_trigger",
         "type": "n8n-nodes-base.manualTrigger",
         "typeVersion": 1,
         "position": [
           7232,
-          -1200
-        ],
-        "parameters": {}
+          -880
+        ]
       },
       {
-        "id": "607d252b-5ec8-4a44-9e88-bca212d50472",
-        "name": "schedule_trigger",
-        "notes": "Mon 16:00, Wed 10:30, Fri 10:30 Europe/Madrid - even 2-day spacing so posts never compete.\nWed gets the prime 10-12 slot because it is the strongest B2B day. Fri keeps the morning, since Friday afternoon is the weakest slot of the week.\nMon 16:00 is 10:00 US Eastern: Monday morning is the weaker half of the EU window, so it is the cheapest slot to spend testing whether your audience is actually US. Compare LINKEDIN_URL engagement after 8-10 weeks and move it if not.",
-        "type": "n8n-nodes-base.scheduleTrigger",
-        "typeVersion": 1.2,
-        "position": [
-          7232,
-          -1392
-        ],
         "parameters": {
           "rule": {
             "interval": [
@@ -1287,17 +1278,18 @@
               }
             ]
           }
-        }
+        },
+        "id": "607d252b-5ec8-4a44-9e88-bca212d50472",
+        "name": "schedule_trigger",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [
+          7232,
+          -1072
+        ],
+        "notes": "Mon 16:00, Wed 10:30, Fri 10:30 Europe/Madrid - even 2-day spacing so posts never compete.\nWed gets the prime 10-12 slot because it is the strongest B2B day. Fri keeps the morning, since Friday afternoon is the weakest slot of the week.\nMon 16:00 is 10:00 US Eastern: Monday morning is the weaker half of the EU window, so it is the cheapest slot to spend testing whether your audience is actually US. Compare LINKEDIN_URL engagement after 8-10 weeks and move it if not."
       },
       {
-        "id": "680f517e-f663-464f-b76e-59d07609a84b",
-        "name": "update_status_error",
-        "type": "n8n-nodes-base.googleSheets",
-        "typeVersion": 4.6,
-        "position": [
-          9920,
-          -1632
-        ],
         "parameters": {
           "operation": "update",
           "documentId": {
@@ -1522,6 +1514,14 @@
           },
           "options": {}
         },
+        "id": "680f517e-f663-464f-b76e-59d07609a84b",
+        "name": "update_status_error",
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4.6,
+        "position": [
+          11040,
+          -1632
+        ],
         "credentials": {
           "googleSheetsOAuth2Api": {
             "id": "pGARJmt50qz64xOo",
@@ -1530,14 +1530,6 @@
         }
       },
       {
-        "id": "7331acf8-870a-42eb-8579-dcd40443bc14",
-        "name": "send_2_linkedin_omImage",
-        "type": "n8n-nodes-base.linkedIn",
-        "typeVersion": 1,
-        "position": [
-          10816,
-          -1296
-        ],
         "parameters": {
           "person": "ZK1zEXWkav",
           "text": "={{ $('execute_post_creator').item.json.text }}",
@@ -1547,6 +1539,14 @@
             "visibility": "PUBLIC"
           }
         },
+        "id": "7331acf8-870a-42eb-8579-dcd40443bc14",
+        "name": "send_2_linkedin_omImage",
+        "type": "n8n-nodes-base.linkedIn",
+        "typeVersion": 1,
+        "position": [
+          11936,
+          -1296
+        ],
         "credentials": {
           "linkedInOAuth2Api": {
             "id": "dNaa8BbpK1D8IDZZ",
@@ -1555,15 +1555,6 @@
         }
       },
       {
-        "id": "74d854ca-5ef2-4ee9-bf0b-d11034fdb6d1",
-        "name": "send_published_notification_a",
-        "webhookId": "faa5f272-06d5-4d4d-ad75-e17f49c6fbc8",
-        "type": "n8n-nodes-base.slack",
-        "typeVersion": 2.3,
-        "position": [
-          11040,
-          -1296
-        ],
         "parameters": {
           "select": "channel",
           "channelId": {
@@ -1577,6 +1568,15 @@
             "includeLinkToWorkflow": true
           }
         },
+        "id": "74d854ca-5ef2-4ee9-bf0b-d11034fdb6d1",
+        "name": "send_published_notification_a",
+        "webhookId": "faa5f272-06d5-4d4d-ad75-e17f49c6fbc8",
+        "type": "n8n-nodes-base.slack",
+        "typeVersion": 2.3,
+        "position": [
+          12160,
+          -1296
+        ],
         "credentials": {
           "slackApi": {
             "id": "DszMmPE7WwOjHQjz",
@@ -1585,14 +1585,6 @@
         }
       },
       {
-        "id": "d45c6035-4747-411b-bca4-55016e74a523",
-        "name": "update_status_published_a",
-        "type": "n8n-nodes-base.googleSheets",
-        "typeVersion": 4.6,
-        "position": [
-          11264,
-          -1296
-        ],
         "parameters": {
           "operation": "update",
           "documentId": {
@@ -1817,6 +1809,14 @@
           },
           "options": {}
         },
+        "id": "d45c6035-4747-411b-bca4-55016e74a523",
+        "name": "update_status_published_a",
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4.6,
+        "position": [
+          12384,
+          -1024
+        ],
         "credentials": {
           "googleSheetsOAuth2Api": {
             "id": "pGARJmt50qz64xOo",
@@ -1825,14 +1825,6 @@
         }
       },
       {
-        "id": "0ccd00e1-3a39-42c3-a1eb-275faa38f03f",
-        "name": "check_subworkflow_error_image",
-        "type": "n8n-nodes-base.switch",
-        "typeVersion": 3.2,
-        "position": [
-          9696,
-          -1248
-        ],
         "parameters": {
           "rules": {
             "values": [
@@ -1864,18 +1856,17 @@
           "options": {
             "fallbackOutput": "extra"
           }
-        }
+        },
+        "id": "0ccd00e1-3a39-42c3-a1eb-275faa38f03f",
+        "name": "check_subworkflow_error_image",
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.2,
+        "position": [
+          10816,
+          -1024
+        ]
       },
       {
-        "id": "d01b9e6b-29bd-402e-b9c2-c1159d16a0eb",
-        "name": "notification_accept_image",
-        "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
-        "type": "n8n-nodes-base.slack",
-        "typeVersion": 2.3,
-        "position": [
-          10368,
-          -1200
-        ],
         "parameters": {
           "operation": "sendAndWait",
           "select": "channel",
@@ -1895,6 +1886,15 @@
             "appendAttribution": true
           }
         },
+        "id": "d01b9e6b-29bd-402e-b9c2-c1159d16a0eb",
+        "name": "notification_accept_image",
+        "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
+        "type": "n8n-nodes-base.slack",
+        "typeVersion": 2.3,
+        "position": [
+          11488,
+          -960
+        ],
         "credentials": {
           "slackApi": {
             "id": "DszMmPE7WwOjHQjz",
@@ -1903,14 +1903,6 @@
         }
       },
       {
-        "id": "52c0a91c-9177-4e0a-964f-f2185b85ec79",
-        "name": "switch_user_accept_image",
-        "type": "n8n-nodes-base.switch",
-        "typeVersion": 3.2,
-        "position": [
-          10592,
-          -1200
-        ],
         "parameters": {
           "rules": {
             "values": [
@@ -1963,18 +1955,17 @@
             ]
           },
           "options": {}
-        }
+        },
+        "id": "52c0a91c-9177-4e0a-964f-f2185b85ec79",
+        "name": "switch_user_accept_image",
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.2,
+        "position": [
+          11712,
+          -960
+        ]
       },
       {
-        "id": "2df5a6bd-a5ff-4183-ada3-11fa6be0d89e",
-        "name": "notification_retry_or_cancel_image",
-        "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
-        "type": "n8n-nodes-base.slack",
-        "typeVersion": 2.3,
-        "position": [
-          10816,
-          -1104
-        ],
         "parameters": {
           "operation": "sendAndWait",
           "select": "channel",
@@ -2016,6 +2007,15 @@
             "appendAttribution": true
           }
         },
+        "id": "2df5a6bd-a5ff-4183-ada3-11fa6be0d89e",
+        "name": "notification_retry_or_cancel_image",
+        "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
+        "type": "n8n-nodes-base.slack",
+        "typeVersion": 2.3,
+        "position": [
+          11936,
+          -912
+        ],
         "credentials": {
           "slackApi": {
             "id": "DszMmPE7WwOjHQjz",
@@ -2024,14 +2024,6 @@
         }
       },
       {
-        "id": "cbc71ef1-d419-4061-a021-76f006f28fc8",
-        "name": "execute_image_creator",
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.3,
-        "position": [
-          9472,
-          -1168
-        ],
         "parameters": {
           "workflowId": {
             "__rl": true,
@@ -2106,17 +2098,17 @@
             "convertFieldsToString": true
           },
           "options": {}
-        }
+        },
+        "id": "cbc71ef1-d419-4061-a021-76f006f28fc8",
+        "name": "execute_image_creator",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.3,
+        "position": [
+          10592,
+          -976
+        ]
       },
       {
-        "id": "b2f9c476-7c18-4f44-8b36-9b0c52b075d3",
-        "name": "switch_user_retry_image",
-        "type": "n8n-nodes-base.switch",
-        "typeVersion": 3.2,
-        "position": [
-          11040,
-          -1024
-        ],
         "parameters": {
           "rules": {
             "values": [
@@ -2167,18 +2159,17 @@
             ]
           },
           "options": {}
-        }
+        },
+        "id": "b2f9c476-7c18-4f44-8b36-9b0c52b075d3",
+        "name": "switch_user_retry_image",
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.2,
+        "position": [
+          12160,
+          -832
+        ]
       },
       {
-        "id": "accdc9ba-b83e-4e00-bd9c-9cd9ec72f91a",
-        "name": "notification_sent_image",
-        "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
-        "type": "n8n-nodes-base.slack",
-        "typeVersion": 2.3,
-        "position": [
-          10144,
-          -1200
-        ],
         "parameters": {
           "resource": "file",
           "binaryPropertyName": "={{ $('convert_image').item.binary.data }}",
@@ -2186,6 +2177,15 @@
             "channelId": "C08RQNXQV3P"
           }
         },
+        "id": "accdc9ba-b83e-4e00-bd9c-9cd9ec72f91a",
+        "name": "notification_sent_image",
+        "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
+        "type": "n8n-nodes-base.slack",
+        "typeVersion": 2.3,
+        "position": [
+          11264,
+          -960
+        ],
         "credentials": {
           "slackApi": {
             "id": "DszMmPE7WwOjHQjz",
@@ -2194,27 +2194,19 @@
         }
       },
       {
+        "parameters": {
+          "jsCode": "const data = JSON.parse($input.first().json[\"omImage \"]);\nconst base64Data = data.url.split(',')[1];\nconst buffer = Buffer.from(base64Data, 'base64');\n\nreturn  [{\n  json: {},\n  binary: {\n    data: {\n      mimeType: 'image/png',\n      fileName: 'ai_image.png',\n      fileExtension: 'png',\n      data: buffer,\n    }\n  }\n}];"
+        },
         "id": "18443e35-2d6e-4cb1-88f7-bfde843e8c76",
         "name": "convert_image",
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          9920,
-          -1200
-        ],
-        "parameters": {
-          "jsCode": "const data = JSON.parse($input.first().json[\"omImage \"]);\nconst base64Data = data.url.split(',')[1];\nconst buffer = Buffer.from(base64Data, 'base64');\n\nreturn  [{\n  json: {},\n  binary: {\n    data: {\n      mimeType: 'image/png',\n      fileName: 'ai_image.png',\n      fileExtension: 'png',\n      data: buffer,\n    }\n  }\n}];"
-        }
+          11040,
+          -960
+        ]
       },
       {
-        "id": "an000000-0000-4000-8000-000000000001",
-        "name": "switch_post_media",
-        "type": "n8n-nodes-base.if",
-        "typeVersion": 2.2,
-        "position": [
-          9520,
-          -1180
-        ],
         "parameters": {
           "conditions": {
             "options": {
@@ -2238,17 +2230,17 @@
             ]
           },
           "options": {}
-        }
+        },
+        "id": "an000000-0000-4000-8000-000000000001",
+        "name": "switch_post_media",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          9472,
+          -928
+        ]
       },
       {
-        "id": "an000000-0000-4000-8000-000000000002",
-        "name": "execute_visual_studio",
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.3,
-        "position": [
-          9760,
-          -1180
-        ],
         "parameters": {
           "workflowId": {
             "__rl": true,
@@ -2314,30 +2306,30 @@
           "options": {
             "waitForSubWorkflow": true
           }
-        }
+        },
+        "id": "an000000-0000-4000-8000-000000000002",
+        "name": "execute_visual_studio",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.3,
+        "position": [
+          9696,
+          -1008
+        ]
       },
       {
+        "parameters": {
+          "jsCode": "// The studio's own run STATUS is PARTIAL whenever a requested type is unavailable, so the\n// asset's status is what this branches on. The requested type follows POST_MEDIA:\n// AGENT asks the studio for the agent-authored type, anything else the deterministic one.\nconst r = $input.first().json || {};\nconst assets = r.ASSETS || [];\nconst req = $('select_article_to_post').first().json;\nconst want = req.POST_MEDIA === 'AGENT' ? 'diagram_agent' : 'diagram_animated_linkedin';\nconst a = assets.find((x) => x.ASSET_TYPE === want) || null;\nconst ok = Boolean(a && a.STATUS === 'RENDERED' && a.IMAGE);\nreturn [{ json: {\n  RUN_ID: r.RUN_ID || '',\n  RUN_STATUS: r.STATUS || '',\n  ASSET_TYPE: a ? a.ASSET_TYPE : '',\n  ASSET_STATUS: a ? a.STATUS : 'MISSING',\n  CONTENT_TYPE: a ? (a.CONTENT_TYPE || '') : '',\n  IMAGE: a && a.IMAGE ? a.IMAGE : '',\n  DURATION_MS: a ? (a.DURATION_MS || '') : '',\n  FRAME_COUNT: a ? (a.FRAME_COUNT || '') : '',\n  ERROR: ok ? '' : ('animated media unavailable: ' + ((a && (a.ERROR || a.STATUS)) || 'no asset returned')),\n} }];"
+        },
         "id": "an000000-0000-4000-8000-000000000003",
         "name": "check_animation_result",
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          9960,
-          -1180
-        ],
-        "parameters": {
-          "jsCode": "// The studio's own run STATUS is PARTIAL whenever a requested type is unavailable, so the\n// asset's status is what this branches on. The requested type follows POST_MEDIA:\n// AGENT asks the studio for the agent-authored type, anything else the deterministic one.\nconst r = $input.first().json || {};\nconst assets = r.ASSETS || [];\nconst req = $('select_article_to_post').first().json;\nconst want = req.POST_MEDIA === 'AGENT' ? 'diagram_agent' : 'diagram_animated_linkedin';\nconst a = assets.find((x) => x.ASSET_TYPE === want) || null;\nconst ok = Boolean(a && a.STATUS === 'RENDERED' && a.IMAGE);\nreturn [{ json: {\n  RUN_ID: r.RUN_ID || '',\n  RUN_STATUS: r.STATUS || '',\n  ASSET_TYPE: a ? a.ASSET_TYPE : '',\n  ASSET_STATUS: a ? a.STATUS : 'MISSING',\n  CONTENT_TYPE: a ? (a.CONTENT_TYPE || '') : '',\n  IMAGE: a && a.IMAGE ? a.IMAGE : '',\n  DURATION_MS: a ? (a.DURATION_MS || '') : '',\n  FRAME_COUNT: a ? (a.FRAME_COUNT || '') : '',\n  ERROR: ok ? '' : ('animated media unavailable: ' + ((a && (a.ERROR || a.STATUS)) || 'no asset returned')),\n} }];"
-        }
+          9920,
+          -1072
+        ]
       },
       {
-        "id": "an000000-0000-4000-8000-000000000004",
-        "name": "if_animation_ok",
-        "type": "n8n-nodes-base.if",
-        "typeVersion": 2.2,
-        "position": [
-          10160,
-          -1180
-        ],
         "parameters": {
           "conditions": {
             "options": {
@@ -2362,31 +2354,30 @@
           },
           "looseTypeValidation": true,
           "options": {}
-        }
+        },
+        "id": "an000000-0000-4000-8000-000000000004",
+        "name": "if_animation_ok",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          10144,
+          -1072
+        ]
       },
       {
+        "parameters": {
+          "jsCode": "const a = $input.first().json || {};\nconst url = String(a.IMAGE || '');\nif (!url.startsWith('data:')) throw new Error('no animation data URL to publish');\nconst i = url.indexOf(',');\nconst ext = a.CONTENT_TYPE === 'image/gif' ? 'gif' : (a.CONTENT_TYPE === 'image/webp' ? 'webp' : 'png');\nreturn [{ json: { CONTENT_TYPE: a.CONTENT_TYPE, ASSET_TYPE: a.ASSET_TYPE, RUN_ID: a.RUN_ID,\n  DURATION_MS: a.DURATION_MS, FRAME_COUNT: a.FRAME_COUNT },\n  binary: { data: { data: Buffer.from(url.slice(i + 1), 'base64'), mimeType: a.CONTENT_TYPE,\n    fileName: 'animated_infographic.' + ext, fileExtension: ext } } }];"
+        },
         "id": "an000000-0000-4000-8000-000000000005",
         "name": "convert_animation",
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          10360,
-          -1240
-        ],
-        "parameters": {
-          "jsCode": "const a = $input.first().json || {};\nconst url = String(a.IMAGE || '');\nif (!url.startsWith('data:')) throw new Error('no animation data URL to publish');\nconst i = url.indexOf(',');\nconst ext = a.CONTENT_TYPE === 'image/gif' ? 'gif' : (a.CONTENT_TYPE === 'image/webp' ? 'webp' : 'png');\nreturn [{ json: { CONTENT_TYPE: a.CONTENT_TYPE, ASSET_TYPE: a.ASSET_TYPE, RUN_ID: a.RUN_ID,\n  DURATION_MS: a.DURATION_MS, FRAME_COUNT: a.FRAME_COUNT },\n  binary: { data: { data: Buffer.from(url.slice(i + 1), 'base64'), mimeType: a.CONTENT_TYPE,\n    fileName: 'animated_infographic.' + ext, fileExtension: ext } } }];"
-        }
+          11040,
+          -1216
+        ]
       },
       {
-        "id": "an000000-0000-4000-8000-000000000006",
-        "name": "notification_sent_animation",
-        "webhookId": "53d1d089-9efe-41aa-940c-cd92351a1720",
-        "type": "n8n-nodes-base.slack",
-        "typeVersion": 2.3,
-        "position": [
-          10560,
-          -1240
-        ],
         "parameters": {
           "resource": "file",
           "binaryPropertyName": "={{ $('convert_animation').item.binary.data }}",
@@ -2394,6 +2385,15 @@
             "channelId": "C08RQNXQV3P"
           }
         },
+        "id": "an000000-0000-4000-8000-000000000006",
+        "name": "notification_sent_animation",
+        "webhookId": "53d1d089-9efe-41aa-940c-cd92351a1720",
+        "type": "n8n-nodes-base.slack",
+        "typeVersion": 2.3,
+        "position": [
+          11264,
+          -1216
+        ],
         "credentials": {
           "slackApi": {
             "id": "DszMmPE7WwOjHQjz",
@@ -2402,15 +2402,6 @@
         }
       },
       {
-        "id": "an000000-0000-4000-8000-000000000007",
-        "name": "notification_accept_animation",
-        "webhookId": "129e1286-6069-45e7-81ee-c4ec6b7c2fc1",
-        "type": "n8n-nodes-base.slack",
-        "typeVersion": 2.3,
-        "position": [
-          10760,
-          -1240
-        ],
         "parameters": {
           "operation": "sendAndWait",
           "select": "channel",
@@ -2430,6 +2421,15 @@
             "appendAttribution": true
           }
         },
+        "id": "an000000-0000-4000-8000-000000000007",
+        "name": "notification_accept_animation",
+        "webhookId": "129e1286-6069-45e7-81ee-c4ec6b7c2fc1",
+        "type": "n8n-nodes-base.slack",
+        "typeVersion": 2.3,
+        "position": [
+          11488,
+          -1216
+        ],
         "credentials": {
           "slackApi": {
             "id": "DszMmPE7WwOjHQjz",
@@ -2438,14 +2438,6 @@
         }
       },
       {
-        "id": "an000000-0000-4000-8000-000000000008",
-        "name": "switch_user_accept_animation",
-        "type": "n8n-nodes-base.switch",
-        "typeVersion": 3.2,
-        "position": [
-          10960,
-          -1240
-        ],
         "parameters": {
           "rules": {
             "values": [
@@ -2498,18 +2490,17 @@
             ]
           },
           "options": {}
-        }
+        },
+        "id": "an000000-0000-4000-8000-000000000008",
+        "name": "switch_user_accept_animation",
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.2,
+        "position": [
+          11712,
+          -1216
+        ]
       },
       {
-        "id": "an000000-0000-4000-8000-000000000009",
-        "name": "notification_retry_or_cancel_animation",
-        "webhookId": "f169b654-0f71-4e9b-95c6-41dccef4bb37",
-        "type": "n8n-nodes-base.slack",
-        "typeVersion": 2.3,
-        "position": [
-          11160,
-          -1180
-        ],
         "parameters": {
           "operation": "sendAndWait",
           "select": "channel",
@@ -2551,6 +2542,15 @@
             "appendAttribution": true
           }
         },
+        "id": "an000000-0000-4000-8000-000000000009",
+        "name": "notification_retry_or_cancel_animation",
+        "webhookId": "f169b654-0f71-4e9b-95c6-41dccef4bb37",
+        "type": "n8n-nodes-base.slack",
+        "typeVersion": 2.3,
+        "position": [
+          11936,
+          -1104
+        ],
         "credentials": {
           "slackApi": {
             "id": "DszMmPE7WwOjHQjz",
@@ -2559,14 +2559,6 @@
         }
       },
       {
-        "id": "an000000-0000-4000-8000-000000000010",
-        "name": "switch_user_retry_animation",
-        "type": "n8n-nodes-base.switch",
-        "typeVersion": 3.2,
-        "position": [
-          11360,
-          -1180
-        ],
         "parameters": {
           "rules": {
             "values": [
@@ -2617,18 +2609,17 @@
             ]
           },
           "options": {}
-        }
+        },
+        "id": "an000000-0000-4000-8000-000000000010",
+        "name": "switch_user_retry_animation",
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.2,
+        "position": [
+          12160,
+          -1024
+        ]
       },
       {
-        "id": "an000000-0000-4000-8000-000000000011",
-        "name": "notify_animation_fallback",
-        "webhookId": "1c412efe-b74f-4b1f-9130-6ddf98622f24",
-        "type": "n8n-nodes-base.slack",
-        "typeVersion": 2.3,
-        "position": [
-          10080,
-          -900
-        ],
         "parameters": {
           "select": "channel",
           "channelId": {
@@ -2638,10 +2629,17 @@
             "cachedResultName": "workflows"
           },
           "text": "=Animated media was not used for {{ $('select_article_to_post').item.json.URL }}: {{ $('check_animation_result').item.json.ERROR }}. Falling back to the still image, which will be approved as usual.",
-          "options": {
-            "appendAttribution": true
-          }
+          "otherOptions": {}
         },
+        "id": "an000000-0000-4000-8000-000000000011",
+        "name": "notify_animation_fallback",
+        "webhookId": "1c412efe-b74f-4b1f-9130-6ddf98622f24",
+        "type": "n8n-nodes-base.slack",
+        "typeVersion": 2.3,
+        "position": [
+          10368,
+          -976
+        ],
         "credentials": {
           "slackApi": {
             "id": "DszMmPE7WwOjHQjz",
@@ -3131,39 +3129,13 @@
     },
     "nodeGroups": [],
     "authors": "no name",
-    "name": null,
-    "description": null,
-    "autosaved": false,
-    "createdAt": "2026-10-05T11:25:28.085Z",
-    "updatedAt": "2026-10-05T11:25:28.085Z",
-    "workflowPublishHistory": [
-      {
-        "id": 728,
-        "workflowId": "oxARWWyxenKgmv6A",
-        "versionId": "a36c8acc-dece-48f3-ad4c-409ef177dbc5",
-        "event": "activated",
-        "userId": "83289481-80d9-4bba-906f-8b49aff6b65d",
-        "createdAt": "2026-10-05T11:25:28.374Z"
-      },
-      {
-        "id": 729,
-        "workflowId": "oxARWWyxenKgmv6A",
-        "versionId": "a36c8acc-dece-48f3-ad4c-409ef177dbc5",
-        "event": "deactivated",
-        "userId": "83289481-80d9-4bba-906f-8b49aff6b65d",
-        "createdAt": "2026-10-05T11:25:29.872Z"
-      },
-      {
-        "id": 730,
-        "workflowId": "oxARWWyxenKgmv6A",
-        "versionId": "a36c8acc-dece-48f3-ad4c-409ef177dbc5",
-        "event": "activated",
-        "userId": "83289481-80d9-4bba-906f-8b49aff6b65d",
-        "createdAt": "2026-10-05T11:25:30.143Z"
-      }
-    ]
+    "name": "Version 47e4e041",
+    "description": "",
+    "autosaved": true,
+    "createdAt": "2026-10-05T18:17:49.950Z",
+    "updatedAt": "2026-10-05T18:17:53.628Z"
   },
-  "activeVersionId": "a36c8acc-dece-48f3-ad4c-409ef177dbc5",
+  "activeVersionId": "47e4e041-f923-4a5e-87ab-ceb72a26c85b",
   "connections": {
     "switch_user_accept": {
       "main": [
@@ -3653,14 +3625,6 @@
   "nodeGroups": [],
   "nodes": [
     {
-      "id": "acba55e8-5c20-43d1-bd5d-2cf52fb0a890",
-      "name": "switch_user_accept",
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 3.2,
-      "position": [
-        9248,
-        -1264
-      ],
       "parameters": {
         "rules": {
           "values": [
@@ -3713,17 +3677,17 @@
           ]
         },
         "options": {}
-      }
+      },
+      "id": "acba55e8-5c20-43d1-bd5d-2cf52fb0a890",
+      "name": "switch_user_accept",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        9248,
+        -1024
+      ]
     },
     {
-      "id": "fae60bb3-a2b5-44dc-8683-b1b857840466",
-      "name": "set_error_cancelled",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        10144,
-        -1440
-      ],
       "parameters": {
         "assignments": {
           "assignments": [
@@ -3736,17 +3700,17 @@
           ]
         },
         "options": {}
-      }
+      },
+      "id": "fae60bb3-a2b5-44dc-8683-b1b857840466",
+      "name": "set_error_cancelled",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        12608,
+        -1216
+      ]
     },
     {
-      "id": "849ebad2-6f59-447b-be3d-7b8337c4c31c",
-      "name": "download_content",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        8128,
-        -1296
-      ],
       "parameters": {
         "workflowId": {
           "__rl": true,
@@ -3780,17 +3744,17 @@
         "options": {
           "waitForSubWorkflow": true
         }
-      }
+      },
+      "id": "849ebad2-6f59-447b-be3d-7b8337c4c31c",
+      "name": "download_content",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        8128,
+        -976
+      ]
     },
     {
-      "id": "82b9e00d-9401-4121-8b73-ea3539a2ca29",
-      "name": "check_subworkflow_error",
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 3.2,
-      "position": [
-        8576,
-        -1360
-      ],
       "parameters": {
         "rules": {
           "values": [
@@ -3822,18 +3786,17 @@
         "options": {
           "fallbackOutput": "extra"
         }
-      }
+      },
+      "id": "82b9e00d-9401-4121-8b73-ea3539a2ca29",
+      "name": "check_subworkflow_error",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        8576,
+        -1104
+      ]
     },
     {
-      "id": "207084a5-9b0d-4935-8031-08d9df8c49f3",
-      "name": "execute_post_creator",
-      "notesInFlow": false,
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        8352,
-        -1296
-      ],
       "parameters": {
         "workflowId": {
           "__rl": true,
@@ -3931,17 +3894,18 @@
         "options": {
           "waitForSubWorkflow": true
         }
-      }
+      },
+      "id": "207084a5-9b0d-4935-8031-08d9df8c49f3",
+      "name": "execute_post_creator",
+      "notesInFlow": false,
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        8352,
+        -976
+      ]
     },
     {
-      "id": "8b44d543-1399-4d6d-963e-79877bf80aaf",
-      "name": "read_articles_sheet",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.6,
-      "position": [
-        7456,
-        -1296
-      ],
       "parameters": {
         "documentId": {
           "__rl": true,
@@ -3964,6 +3928,14 @@
           }
         }
       },
+      "id": "8b44d543-1399-4d6d-963e-79877bf80aaf",
+      "name": "read_articles_sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        7456,
+        -976
+      ],
       "credentials": {
         "googleSheetsOAuth2Api": {
           "id": "pGARJmt50qz64xOo",
@@ -3972,28 +3944,19 @@
       }
     },
     {
+      "parameters": {
+        "jsCode": "// Pick the one article this run publishes, out of the curator's backlog.\n//\n// Topic rotation, added when content_queue became a durable backlog: the curator used to\n// hand over a fresh five-item slate whose diversity caps were fought over inside a single\n// run, and the four it did not publish were expired. Now it just tops the backlog up, and\n// variety is decided here instead - where it can be guaranteed across a week rather than\n// inside one slate. Skipping the topics of the last AVOID_LAST published posts is enough:\n// it is deterministic, needs no state of its own, and costs nothing.\n//\n// Deliberately NOT random. Random selection would throw away the ranking the curator paid\n// an LLM to produce, and it only pays for itself as exploration - which needs a reward\n// signal. Nothing reads LinkedIn engagement back into this sheet yet, so there is nothing\n// to explore against. Revisit if that changes.\n// AVOID_LAST must leave at least TWO categories eligible, or rotation stops being a\n// tiebreak and becomes a strict round-robin that overrides the ranking entirely. It was 2\n// while the curator ran five categories; the curator now runs three (Data/AI/DevOps), so 2\n// would leave exactly one eligible category and a VERY_HIGH row would wait behind a LOW one\n// purely because of publish order. At 1 the same topic can never go out twice in a row -\n// which is the whole point - and PRIORITY still chooses between the other two.\nconst AVOID_LAST = 1;\n\nconst priorityOrder = {\n  VERY_HIGH: 0,\n  HIGH: 1,\n  MEDIUM: 2,\n  LOW: 3\n};\nconst topicOf = (r) => String(r.TOPIC || '').trim();\nconst byPriorityThenRow = (a, b) => {\n  const aPriority = priorityOrder[a.PRIORITY] ?? 4;\n  const bPriority = priorityOrder[b.PRIORITY] ?? 4;\n  if (aPriority !== bPriority) {\n    return aPriority - bPriority; // sort by priority\n  }\n  return a.row_number - b.row_number; // sort by row_number ascending\n};\n\nconst rows = $input.all().map((item) => item.json).filter((item) => item && item.URL);\n\n// Most recently published first. RELEASE_DATE is written by update_status_published_a;\n// rows that predate it fall back to UPDATE_DATE so the rotation still sees them.\nconst recentTopics = rows\n  .filter((r) => /^PUBLISHED$/.test(String(r.STATUS || '').trim()))\n  .map((r) => ({ topic: topicOf(r), at: Date.parse(r.RELEASE_DATE || '') || Date.parse(r.UPDATE_DATE || '') || 0 }))\n  .filter((r) => r.topic && r.at)\n  .sort((a, b) => b.at - a.at)\n  .slice(0, AVOID_LAST)\n  .map((r) => r.topic);\n\nconst queue = rows.filter((item) => /^(QUEUE)$/.test(item.STATUS)).toSorted(byPriorityThenRow);\nconst rotated = queue.filter((r) => !recentTopics.includes(topicOf(r)));\n\n// Rotation must never be the reason nothing gets published: if every queued row is on a\n// topic we just covered, publish the best one anyway rather than skipping the slot.\nconst pool = rotated.length ? rotated : queue;\nconsole.log(\n  'select_article_to_post: ' + queue.length + ' queued, avoiding [' + recentTopics.join(', ') + '], ' +\n    rotated.length + ' on a fresh topic' + (rotated.length ? '' : ' - rotation relaxed to fill the slot')\n);\n\nreturn pool.slice(0, 1);\n"
+      },
       "id": "b5d6ca82-1834-47f4-a4b8-f381b8eee95c",
       "name": "select_article_to_post",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         7680,
-        -1296
-      ],
-      "parameters": {
-        "jsCode": "// Pick the one article this run publishes, out of the curator's backlog.\n//\n// Topic rotation, added when content_queue became a durable backlog: the curator used to\n// hand over a fresh five-item slate whose diversity caps were fought over inside a single\n// run, and the four it did not publish were expired. Now it just tops the backlog up, and\n// variety is decided here instead - where it can be guaranteed across a week rather than\n// inside one slate. Skipping the topics of the last AVOID_LAST published posts is enough:\n// it is deterministic, needs no state of its own, and costs nothing.\n//\n// Deliberately NOT random. Random selection would throw away the ranking the curator paid\n// an LLM to produce, and it only pays for itself as exploration - which needs a reward\n// signal. Nothing reads LinkedIn engagement back into this sheet yet, so there is nothing\n// to explore against. Revisit if that changes.\n// AVOID_LAST must leave at least TWO categories eligible, or rotation stops being a\n// tiebreak and becomes a strict round-robin that overrides the ranking entirely. It was 2\n// while the curator ran five categories; the curator now runs three (Data/AI/DevOps), so 2\n// would leave exactly one eligible category and a VERY_HIGH row would wait behind a LOW one\n// purely because of publish order. At 1 the same topic can never go out twice in a row -\n// which is the whole point - and PRIORITY still chooses between the other two.\nconst AVOID_LAST = 1;\n\nconst priorityOrder = {\n  VERY_HIGH: 0,\n  HIGH: 1,\n  MEDIUM: 2,\n  LOW: 3\n};\nconst topicOf = (r) => String(r.TOPIC || '').trim();\nconst byPriorityThenRow = (a, b) => {\n  const aPriority = priorityOrder[a.PRIORITY] ?? 4;\n  const bPriority = priorityOrder[b.PRIORITY] ?? 4;\n  if (aPriority !== bPriority) {\n    return aPriority - bPriority; // sort by priority\n  }\n  return a.row_number - b.row_number; // sort by row_number ascending\n};\n\nconst rows = $input.all().map((item) => item.json).filter((item) => item && item.URL);\n\n// Most recently published first. RELEASE_DATE is written by update_status_published_a;\n// rows that predate it fall back to UPDATE_DATE so the rotation still sees them.\nconst recentTopics = rows\n  .filter((r) => /^PUBLISHED$/.test(String(r.STATUS || '').trim()))\n  .map((r) => ({ topic: topicOf(r), at: Date.parse(r.RELEASE_DATE || '') || Date.parse(r.UPDATE_DATE || '') || 0 }))\n  .filter((r) => r.topic && r.at)\n  .sort((a, b) => b.at - a.at)\n  .slice(0, AVOID_LAST)\n  .map((r) => r.topic);\n\nconst queue = rows.filter((item) => /^(QUEUE)$/.test(item.STATUS)).toSorted(byPriorityThenRow);\nconst rotated = queue.filter((r) => !recentTopics.includes(topicOf(r)));\n\n// Rotation must never be the reason nothing gets published: if every queued row is on a\n// topic we just covered, publish the best one anyway rather than skipping the slot.\nconst pool = rotated.length ? rotated : queue;\nconsole.log(\n  'select_article_to_post: ' + queue.length + ' queued, avoiding [' + recentTopics.join(', ') + '], ' +\n    rotated.length + ' on a fresh topic' + (rotated.length ? '' : ' - rotation relaxed to fill the slot')\n);\n\nreturn pool.slice(0, 1);\n"
-      }
+        -976
+      ]
     },
     {
-      "id": "9ea4a15e-fc97-4739-9565-ad8ebd7dd549",
-      "name": "send_error_notification",
-      "webhookId": "faa5f272-06d5-4d4d-ad75-e17f49c6fbc8",
-      "type": "n8n-nodes-base.slack",
-      "typeVersion": 2.3,
-      "position": [
-        10368,
-        -1536
-      ],
       "parameters": {
         "select": "channel",
         "channelId": {
@@ -4007,6 +3970,15 @@
           "includeLinkToWorkflow": true
         }
       },
+      "id": "9ea4a15e-fc97-4739-9565-ad8ebd7dd549",
+      "name": "send_error_notification",
+      "webhookId": "faa5f272-06d5-4d4d-ad75-e17f49c6fbc8",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        12832,
+        -1552
+      ],
       "credentials": {
         "slackApi": {
           "id": "DszMmPE7WwOjHQjz",
@@ -4015,14 +3987,6 @@
       }
     },
     {
-      "id": "c9cb5037-af75-49bc-b0c2-42e3845de3cc",
-      "name": "switch_user_retry",
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 3.2,
-      "position": [
-        9696,
-        -1440
-      ],
       "parameters": {
         "rules": {
           "values": [
@@ -4073,18 +4037,17 @@
           ]
         },
         "options": {}
-      }
+      },
+      "id": "c9cb5037-af75-49bc-b0c2-42e3845de3cc",
+      "name": "switch_user_retry",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        9696,
+        -1488
+      ]
     },
     {
-      "id": "b67e019a-5801-4c03-87f1-239b8b318b48",
-      "name": "notification_retry_or_cancel",
-      "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
-      "type": "n8n-nodes-base.slack",
-      "typeVersion": 2.3,
-      "position": [
-        9472,
-        -1440
-      ],
       "parameters": {
         "operation": "sendAndWait",
         "select": "channel",
@@ -4126,6 +4089,15 @@
           "appendAttribution": true
         }
       },
+      "id": "b67e019a-5801-4c03-87f1-239b8b318b48",
+      "name": "notification_retry_or_cancel",
+      "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        9472,
+        -1488
+      ],
       "credentials": {
         "slackApi": {
           "id": "DszMmPE7WwOjHQjz",
@@ -4134,15 +4106,6 @@
       }
     },
     {
-      "id": "dfb12e7f-5e44-4289-8db5-7f5828eb503f",
-      "name": "notification_accept",
-      "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
-      "type": "n8n-nodes-base.slack",
-      "typeVersion": 2.3,
-      "position": [
-        9024,
-        -1264
-      ],
       "parameters": {
         "operation": "sendAndWait",
         "select": "channel",
@@ -4162,6 +4125,15 @@
           "appendAttribution": true
         }
       },
+      "id": "dfb12e7f-5e44-4289-8db5-7f5828eb503f",
+      "name": "notification_accept",
+      "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        9024,
+        -1024
+      ],
       "credentials": {
         "slackApi": {
           "id": "DszMmPE7WwOjHQjz",
@@ -4170,14 +4142,6 @@
       }
     },
     {
-      "id": "ace4c6c2-2206-408e-b9b4-7b1b303593a7",
-      "name": "update_status_waiting_approval",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.6,
-      "position": [
-        8800,
-        -1264
-      ],
       "parameters": {
         "operation": "update",
         "documentId": {
@@ -4400,6 +4364,14 @@
         },
         "options": {}
       },
+      "id": "ace4c6c2-2206-408e-b9b4-7b1b303593a7",
+      "name": "update_status_waiting_approval",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        8800,
+        -1024
+      ],
       "credentials": {
         "googleSheetsOAuth2Api": {
           "id": "pGARJmt50qz64xOo",
@@ -4408,14 +4380,6 @@
       }
     },
     {
-      "id": "4d7064b7-28ec-4e35-8272-bea3223f4823",
-      "name": "update_status_cancelled",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.6,
-      "position": [
-        9920,
-        -1440
-      ],
       "parameters": {
         "operation": "update",
         "documentId": {
@@ -4639,6 +4603,14 @@
         },
         "options": {}
       },
+      "id": "4d7064b7-28ec-4e35-8272-bea3223f4823",
+      "name": "update_status_cancelled",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        12384,
+        -1216
+      ],
       "credentials": {
         "googleSheetsOAuth2Api": {
           "id": "pGARJmt50qz64xOo",
@@ -4647,14 +4619,6 @@
       }
     },
     {
-      "id": "1ca5acfc-27a9-4516-8b82-055e51aafa44",
-      "name": "update_status_in_progress",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.6,
-      "position": [
-        7904,
-        -1296
-      ],
       "parameters": {
         "operation": "update",
         "documentId": {
@@ -4878,6 +4842,14 @@
         },
         "options": {}
       },
+      "id": "1ca5acfc-27a9-4516-8b82-055e51aafa44",
+      "name": "update_status_in_progress",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        7904,
+        -976
+      ],
       "credentials": {
         "googleSheetsOAuth2Api": {
           "id": "pGARJmt50qz64xOo",
@@ -4886,42 +4858,33 @@
       }
     },
     {
+      "parameters": {
+        "content": "## Link to the [Google Sheet](https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI)",
+        "height": 376,
+        "width": 852
+      },
       "id": "3286d8e2-96ec-4c86-bd6f-2354d54844c3",
       "name": "Sticky Note",
-      "disabled": true,
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
         7664,
         -1792
       ],
-      "parameters": {
-        "content": "## Link to the [Google Sheet](https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI)",
-        "height": 376,
-        "width": 852
-      }
+      "disabled": true
     },
     {
+      "parameters": {},
       "id": "56d87db9-17ea-429a-a8e5-4e640f7a42cb",
       "name": "click_trigger",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
       "position": [
         7232,
-        -1200
-      ],
-      "parameters": {}
+        -880
+      ]
     },
     {
-      "id": "607d252b-5ec8-4a44-9e88-bca212d50472",
-      "name": "schedule_trigger",
-      "notes": "Mon 16:00, Wed 10:30, Fri 10:30 Europe/Madrid - even 2-day spacing so posts never compete.\nWed gets the prime 10-12 slot because it is the strongest B2B day. Fri keeps the morning, since Friday afternoon is the weakest slot of the week.\nMon 16:00 is 10:00 US Eastern: Monday morning is the weaker half of the EU window, so it is the cheapest slot to spend testing whether your audience is actually US. Compare LINKEDIN_URL engagement after 8-10 weeks and move it if not.",
-      "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1.2,
-      "position": [
-        7232,
-        -1392
-      ],
       "parameters": {
         "rule": {
           "interval": [
@@ -4935,17 +4898,18 @@
             }
           ]
         }
-      }
+      },
+      "id": "607d252b-5ec8-4a44-9e88-bca212d50472",
+      "name": "schedule_trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        7232,
+        -1072
+      ],
+      "notes": "Mon 16:00, Wed 10:30, Fri 10:30 Europe/Madrid - even 2-day spacing so posts never compete.\nWed gets the prime 10-12 slot because it is the strongest B2B day. Fri keeps the morning, since Friday afternoon is the weakest slot of the week.\nMon 16:00 is 10:00 US Eastern: Monday morning is the weaker half of the EU window, so it is the cheapest slot to spend testing whether your audience is actually US. Compare LINKEDIN_URL engagement after 8-10 weeks and move it if not."
     },
     {
-      "id": "680f517e-f663-464f-b76e-59d07609a84b",
-      "name": "update_status_error",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.6,
-      "position": [
-        9920,
-        -1632
-      ],
       "parameters": {
         "operation": "update",
         "documentId": {
@@ -5170,6 +5134,14 @@
         },
         "options": {}
       },
+      "id": "680f517e-f663-464f-b76e-59d07609a84b",
+      "name": "update_status_error",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        11040,
+        -1632
+      ],
       "credentials": {
         "googleSheetsOAuth2Api": {
           "id": "pGARJmt50qz64xOo",
@@ -5178,14 +5150,6 @@
       }
     },
     {
-      "id": "7331acf8-870a-42eb-8579-dcd40443bc14",
-      "name": "send_2_linkedin_omImage",
-      "type": "n8n-nodes-base.linkedIn",
-      "typeVersion": 1,
-      "position": [
-        10816,
-        -1296
-      ],
       "parameters": {
         "person": "ZK1zEXWkav",
         "text": "={{ $('execute_post_creator').item.json.text }}",
@@ -5195,6 +5159,14 @@
           "visibility": "PUBLIC"
         }
       },
+      "id": "7331acf8-870a-42eb-8579-dcd40443bc14",
+      "name": "send_2_linkedin_omImage",
+      "type": "n8n-nodes-base.linkedIn",
+      "typeVersion": 1,
+      "position": [
+        11936,
+        -1296
+      ],
       "credentials": {
         "linkedInOAuth2Api": {
           "id": "dNaa8BbpK1D8IDZZ",
@@ -5203,15 +5175,6 @@
       }
     },
     {
-      "id": "74d854ca-5ef2-4ee9-bf0b-d11034fdb6d1",
-      "name": "send_published_notification_a",
-      "webhookId": "faa5f272-06d5-4d4d-ad75-e17f49c6fbc8",
-      "type": "n8n-nodes-base.slack",
-      "typeVersion": 2.3,
-      "position": [
-        11040,
-        -1296
-      ],
       "parameters": {
         "select": "channel",
         "channelId": {
@@ -5225,6 +5188,15 @@
           "includeLinkToWorkflow": true
         }
       },
+      "id": "74d854ca-5ef2-4ee9-bf0b-d11034fdb6d1",
+      "name": "send_published_notification_a",
+      "webhookId": "faa5f272-06d5-4d4d-ad75-e17f49c6fbc8",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        12160,
+        -1296
+      ],
       "credentials": {
         "slackApi": {
           "id": "DszMmPE7WwOjHQjz",
@@ -5233,14 +5205,6 @@
       }
     },
     {
-      "id": "d45c6035-4747-411b-bca4-55016e74a523",
-      "name": "update_status_published_a",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.6,
-      "position": [
-        11264,
-        -1296
-      ],
       "parameters": {
         "operation": "update",
         "documentId": {
@@ -5465,6 +5429,14 @@
         },
         "options": {}
       },
+      "id": "d45c6035-4747-411b-bca4-55016e74a523",
+      "name": "update_status_published_a",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        12384,
+        -1024
+      ],
       "credentials": {
         "googleSheetsOAuth2Api": {
           "id": "pGARJmt50qz64xOo",
@@ -5473,14 +5445,6 @@
       }
     },
     {
-      "id": "0ccd00e1-3a39-42c3-a1eb-275faa38f03f",
-      "name": "check_subworkflow_error_image",
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 3.2,
-      "position": [
-        9696,
-        -1248
-      ],
       "parameters": {
         "rules": {
           "values": [
@@ -5512,18 +5476,17 @@
         "options": {
           "fallbackOutput": "extra"
         }
-      }
+      },
+      "id": "0ccd00e1-3a39-42c3-a1eb-275faa38f03f",
+      "name": "check_subworkflow_error_image",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        10816,
+        -1024
+      ]
     },
     {
-      "id": "d01b9e6b-29bd-402e-b9c2-c1159d16a0eb",
-      "name": "notification_accept_image",
-      "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
-      "type": "n8n-nodes-base.slack",
-      "typeVersion": 2.3,
-      "position": [
-        10368,
-        -1200
-      ],
       "parameters": {
         "operation": "sendAndWait",
         "select": "channel",
@@ -5543,6 +5506,15 @@
           "appendAttribution": true
         }
       },
+      "id": "d01b9e6b-29bd-402e-b9c2-c1159d16a0eb",
+      "name": "notification_accept_image",
+      "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        11488,
+        -960
+      ],
       "credentials": {
         "slackApi": {
           "id": "DszMmPE7WwOjHQjz",
@@ -5551,14 +5523,6 @@
       }
     },
     {
-      "id": "52c0a91c-9177-4e0a-964f-f2185b85ec79",
-      "name": "switch_user_accept_image",
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 3.2,
-      "position": [
-        10592,
-        -1200
-      ],
       "parameters": {
         "rules": {
           "values": [
@@ -5611,18 +5575,17 @@
           ]
         },
         "options": {}
-      }
+      },
+      "id": "52c0a91c-9177-4e0a-964f-f2185b85ec79",
+      "name": "switch_user_accept_image",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        11712,
+        -960
+      ]
     },
     {
-      "id": "2df5a6bd-a5ff-4183-ada3-11fa6be0d89e",
-      "name": "notification_retry_or_cancel_image",
-      "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
-      "type": "n8n-nodes-base.slack",
-      "typeVersion": 2.3,
-      "position": [
-        10816,
-        -1104
-      ],
       "parameters": {
         "operation": "sendAndWait",
         "select": "channel",
@@ -5664,6 +5627,15 @@
           "appendAttribution": true
         }
       },
+      "id": "2df5a6bd-a5ff-4183-ada3-11fa6be0d89e",
+      "name": "notification_retry_or_cancel_image",
+      "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        11936,
+        -912
+      ],
       "credentials": {
         "slackApi": {
           "id": "DszMmPE7WwOjHQjz",
@@ -5672,14 +5644,6 @@
       }
     },
     {
-      "id": "cbc71ef1-d419-4061-a021-76f006f28fc8",
-      "name": "execute_image_creator",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.3,
-      "position": [
-        9472,
-        -1168
-      ],
       "parameters": {
         "workflowId": {
           "__rl": true,
@@ -5754,17 +5718,17 @@
           "convertFieldsToString": true
         },
         "options": {}
-      }
+      },
+      "id": "cbc71ef1-d419-4061-a021-76f006f28fc8",
+      "name": "execute_image_creator",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        10592,
+        -976
+      ]
     },
     {
-      "id": "b2f9c476-7c18-4f44-8b36-9b0c52b075d3",
-      "name": "switch_user_retry_image",
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 3.2,
-      "position": [
-        11040,
-        -1024
-      ],
       "parameters": {
         "rules": {
           "values": [
@@ -5815,18 +5779,17 @@
           ]
         },
         "options": {}
-      }
+      },
+      "id": "b2f9c476-7c18-4f44-8b36-9b0c52b075d3",
+      "name": "switch_user_retry_image",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        12160,
+        -832
+      ]
     },
     {
-      "id": "accdc9ba-b83e-4e00-bd9c-9cd9ec72f91a",
-      "name": "notification_sent_image",
-      "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
-      "type": "n8n-nodes-base.slack",
-      "typeVersion": 2.3,
-      "position": [
-        10144,
-        -1200
-      ],
       "parameters": {
         "resource": "file",
         "binaryPropertyName": "={{ $('convert_image').item.binary.data }}",
@@ -5834,6 +5797,15 @@
           "channelId": "C08RQNXQV3P"
         }
       },
+      "id": "accdc9ba-b83e-4e00-bd9c-9cd9ec72f91a",
+      "name": "notification_sent_image",
+      "webhookId": "000ae367-e34e-4ae3-97e2-8a35dd30487e",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        11264,
+        -960
+      ],
       "credentials": {
         "slackApi": {
           "id": "DszMmPE7WwOjHQjz",
@@ -5842,27 +5814,19 @@
       }
     },
     {
+      "parameters": {
+        "jsCode": "const data = JSON.parse($input.first().json[\"omImage \"]);\nconst base64Data = data.url.split(',')[1];\nconst buffer = Buffer.from(base64Data, 'base64');\n\nreturn  [{\n  json: {},\n  binary: {\n    data: {\n      mimeType: 'image/png',\n      fileName: 'ai_image.png',\n      fileExtension: 'png',\n      data: buffer,\n    }\n  }\n}];"
+      },
       "id": "18443e35-2d6e-4cb1-88f7-bfde843e8c76",
       "name": "convert_image",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        9920,
-        -1200
-      ],
-      "parameters": {
-        "jsCode": "const data = JSON.parse($input.first().json[\"omImage \"]);\nconst base64Data = data.url.split(',')[1];\nconst buffer = Buffer.from(base64Data, 'base64');\n\nreturn  [{\n  json: {},\n  binary: {\n    data: {\n      mimeType: 'image/png',\n      fileName: 'ai_image.png',\n      fileExtension: 'png',\n      data: buffer,\n    }\n  }\n}];"
-      }
+        11040,
+        -960
+      ]
     },
     {
-      "id": "an000000-0000-4000-8000-000000000001",
-      "name": "switch_post_media",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        9520,
-        -1180
-      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -5886,17 +5850,17 @@
           ]
         },
         "options": {}
-      }
+      },
+      "id": "an000000-0000-4000-8000-000000000001",
+      "name": "switch_post_media",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        9472,
+        -928
+      ]
     },
     {
-      "id": "an000000-0000-4000-8000-000000000002",
-      "name": "execute_visual_studio",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.3,
-      "position": [
-        9760,
-        -1180
-      ],
       "parameters": {
         "workflowId": {
           "__rl": true,
@@ -5910,8 +5874,7 @@
           "value": {
             "CONTENT": "={{ $('execute_post_creator').item.json.text }}",
             "ASSET_TYPES": "={{ $('select_article_to_post').item.json.POST_MEDIA === 'AGENT' ? 'diagram_agent' : 'diagram_animated_linkedin' }}",
-            "FEEDBACK": "={{ $('notification_retry_or_cancel_animation').isExecuted ? ($('notification_retry_or_cancel_animation').last().json.data.Feedback || '') : '' }}",
-            "SPEC_JSON": ""
+            "FEEDBACK": "={{ $('notification_retry_or_cancel_animation').isExecuted ? ($('notification_retry_or_cancel_animation').last().json.data.Feedback || '') : '' }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -5921,7 +5884,7 @@
               "required": false,
               "defaultMatch": false,
               "display": true,
-              "canBeUsedToMatch": false,
+              "canBeUsedToMatch": true,
               "type": "string",
               "removed": false
             },
@@ -5931,7 +5894,7 @@
               "required": false,
               "defaultMatch": false,
               "display": true,
-              "canBeUsedToMatch": false,
+              "canBeUsedToMatch": true,
               "type": "string",
               "removed": false
             },
@@ -5941,7 +5904,7 @@
               "required": false,
               "defaultMatch": false,
               "display": true,
-              "canBeUsedToMatch": false,
+              "canBeUsedToMatch": true,
               "type": "string",
               "removed": false
             },
@@ -5951,7 +5914,7 @@
               "required": false,
               "defaultMatch": false,
               "display": true,
-              "canBeUsedToMatch": false,
+              "canBeUsedToMatch": true,
               "type": "string",
               "removed": false
             }
@@ -5962,30 +5925,30 @@
         "options": {
           "waitForSubWorkflow": true
         }
-      }
+      },
+      "id": "an000000-0000-4000-8000-000000000002",
+      "name": "execute_visual_studio",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        9696,
+        -1008
+      ]
     },
     {
+      "parameters": {
+        "jsCode": "// The studio's own run STATUS is PARTIAL whenever a requested type is unavailable, so the\n// asset's status is what this branches on. The requested type follows POST_MEDIA:\n// AGENT asks the studio for the agent-authored type, anything else the deterministic one.\nconst r = $input.first().json || {};\nconst assets = r.ASSETS || [];\nconst req = $('select_article_to_post').first().json;\nconst want = req.POST_MEDIA === 'AGENT' ? 'diagram_agent' : 'diagram_animated_linkedin';\nconst a = assets.find((x) => x.ASSET_TYPE === want) || null;\nconst ok = Boolean(a && a.STATUS === 'RENDERED' && a.IMAGE);\nreturn [{ json: {\n  RUN_ID: r.RUN_ID || '',\n  RUN_STATUS: r.STATUS || '',\n  ASSET_TYPE: a ? a.ASSET_TYPE : '',\n  ASSET_STATUS: a ? a.STATUS : 'MISSING',\n  CONTENT_TYPE: a ? (a.CONTENT_TYPE || '') : '',\n  IMAGE: a && a.IMAGE ? a.IMAGE : '',\n  DURATION_MS: a ? (a.DURATION_MS || '') : '',\n  FRAME_COUNT: a ? (a.FRAME_COUNT || '') : '',\n  ERROR: ok ? '' : ('animated media unavailable: ' + ((a && (a.ERROR || a.STATUS)) || 'no asset returned')),\n} }];"
+      },
       "id": "an000000-0000-4000-8000-000000000003",
       "name": "check_animation_result",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        9960,
-        -1180
-      ],
-      "parameters": {
-        "jsCode": "// The studio's own run STATUS is PARTIAL whenever a requested type is unavailable, so the\n// asset's status is what this branches on. The requested type follows POST_MEDIA:\n// AGENT asks the studio for the agent-authored type, anything else the deterministic one.\nconst r = $input.first().json || {};\nconst assets = r.ASSETS || [];\nconst req = $('select_article_to_post').first().json;\nconst want = req.POST_MEDIA === 'AGENT' ? 'diagram_agent' : 'diagram_animated_linkedin';\nconst a = assets.find((x) => x.ASSET_TYPE === want) || null;\nconst ok = Boolean(a && a.STATUS === 'RENDERED' && a.IMAGE);\nreturn [{ json: {\n  RUN_ID: r.RUN_ID || '',\n  RUN_STATUS: r.STATUS || '',\n  ASSET_TYPE: a ? a.ASSET_TYPE : '',\n  ASSET_STATUS: a ? a.STATUS : 'MISSING',\n  CONTENT_TYPE: a ? (a.CONTENT_TYPE || '') : '',\n  IMAGE: a && a.IMAGE ? a.IMAGE : '',\n  DURATION_MS: a ? (a.DURATION_MS || '') : '',\n  FRAME_COUNT: a ? (a.FRAME_COUNT || '') : '',\n  ERROR: ok ? '' : ('animated media unavailable: ' + ((a && (a.ERROR || a.STATUS)) || 'no asset returned')),\n} }];"
-      }
+        9920,
+        -1072
+      ]
     },
     {
-      "id": "an000000-0000-4000-8000-000000000004",
-      "name": "if_animation_ok",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        10160,
-        -1180
-      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -6010,31 +5973,30 @@
         },
         "looseTypeValidation": true,
         "options": {}
-      }
+      },
+      "id": "an000000-0000-4000-8000-000000000004",
+      "name": "if_animation_ok",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        10144,
+        -1072
+      ]
     },
     {
+      "parameters": {
+        "jsCode": "const a = $input.first().json || {};\nconst url = String(a.IMAGE || '');\nif (!url.startsWith('data:')) throw new Error('no animation data URL to publish');\nconst i = url.indexOf(',');\nconst ext = a.CONTENT_TYPE === 'image/gif' ? 'gif' : (a.CONTENT_TYPE === 'image/webp' ? 'webp' : 'png');\nreturn [{ json: { CONTENT_TYPE: a.CONTENT_TYPE, ASSET_TYPE: a.ASSET_TYPE, RUN_ID: a.RUN_ID,\n  DURATION_MS: a.DURATION_MS, FRAME_COUNT: a.FRAME_COUNT },\n  binary: { data: { data: Buffer.from(url.slice(i + 1), 'base64'), mimeType: a.CONTENT_TYPE,\n    fileName: 'animated_infographic.' + ext, fileExtension: ext } } }];"
+      },
       "id": "an000000-0000-4000-8000-000000000005",
       "name": "convert_animation",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        10360,
-        -1240
-      ],
-      "parameters": {
-        "jsCode": "const a = $input.first().json || {};\nconst url = String(a.IMAGE || '');\nif (!url.startsWith('data:')) throw new Error('no animation data URL to publish');\nconst i = url.indexOf(',');\nconst ext = a.CONTENT_TYPE === 'image/gif' ? 'gif' : (a.CONTENT_TYPE === 'image/webp' ? 'webp' : 'png');\nreturn [{ json: { CONTENT_TYPE: a.CONTENT_TYPE, ASSET_TYPE: a.ASSET_TYPE, RUN_ID: a.RUN_ID,\n  DURATION_MS: a.DURATION_MS, FRAME_COUNT: a.FRAME_COUNT },\n  binary: { data: { data: Buffer.from(url.slice(i + 1), 'base64'), mimeType: a.CONTENT_TYPE,\n    fileName: 'animated_infographic.' + ext, fileExtension: ext } } }];"
-      }
+        11040,
+        -1216
+      ]
     },
     {
-      "id": "an000000-0000-4000-8000-000000000006",
-      "name": "notification_sent_animation",
-      "webhookId": "53d1d089-9efe-41aa-940c-cd92351a1720",
-      "type": "n8n-nodes-base.slack",
-      "typeVersion": 2.3,
-      "position": [
-        10560,
-        -1240
-      ],
       "parameters": {
         "resource": "file",
         "binaryPropertyName": "={{ $('convert_animation').item.binary.data }}",
@@ -6042,6 +6004,15 @@
           "channelId": "C08RQNXQV3P"
         }
       },
+      "id": "an000000-0000-4000-8000-000000000006",
+      "name": "notification_sent_animation",
+      "webhookId": "53d1d089-9efe-41aa-940c-cd92351a1720",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        11264,
+        -1216
+      ],
       "credentials": {
         "slackApi": {
           "id": "DszMmPE7WwOjHQjz",
@@ -6050,15 +6021,6 @@
       }
     },
     {
-      "id": "an000000-0000-4000-8000-000000000007",
-      "name": "notification_accept_animation",
-      "webhookId": "129e1286-6069-45e7-81ee-c4ec6b7c2fc1",
-      "type": "n8n-nodes-base.slack",
-      "typeVersion": 2.3,
-      "position": [
-        10760,
-        -1240
-      ],
       "parameters": {
         "operation": "sendAndWait",
         "select": "channel",
@@ -6078,6 +6040,15 @@
           "appendAttribution": true
         }
       },
+      "id": "an000000-0000-4000-8000-000000000007",
+      "name": "notification_accept_animation",
+      "webhookId": "129e1286-6069-45e7-81ee-c4ec6b7c2fc1",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        11488,
+        -1216
+      ],
       "credentials": {
         "slackApi": {
           "id": "DszMmPE7WwOjHQjz",
@@ -6086,14 +6057,6 @@
       }
     },
     {
-      "id": "an000000-0000-4000-8000-000000000008",
-      "name": "switch_user_accept_animation",
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 3.2,
-      "position": [
-        10960,
-        -1240
-      ],
       "parameters": {
         "rules": {
           "values": [
@@ -6146,18 +6109,17 @@
           ]
         },
         "options": {}
-      }
+      },
+      "id": "an000000-0000-4000-8000-000000000008",
+      "name": "switch_user_accept_animation",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        11712,
+        -1216
+      ]
     },
     {
-      "id": "an000000-0000-4000-8000-000000000009",
-      "name": "notification_retry_or_cancel_animation",
-      "webhookId": "f169b654-0f71-4e9b-95c6-41dccef4bb37",
-      "type": "n8n-nodes-base.slack",
-      "typeVersion": 2.3,
-      "position": [
-        11160,
-        -1180
-      ],
       "parameters": {
         "operation": "sendAndWait",
         "select": "channel",
@@ -6199,6 +6161,15 @@
           "appendAttribution": true
         }
       },
+      "id": "an000000-0000-4000-8000-000000000009",
+      "name": "notification_retry_or_cancel_animation",
+      "webhookId": "f169b654-0f71-4e9b-95c6-41dccef4bb37",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        11936,
+        -1104
+      ],
       "credentials": {
         "slackApi": {
           "id": "DszMmPE7WwOjHQjz",
@@ -6207,14 +6178,6 @@
       }
     },
     {
-      "id": "an000000-0000-4000-8000-000000000010",
-      "name": "switch_user_retry_animation",
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 3.2,
-      "position": [
-        11360,
-        -1180
-      ],
       "parameters": {
         "rules": {
           "values": [
@@ -6265,18 +6228,17 @@
           ]
         },
         "options": {}
-      }
+      },
+      "id": "an000000-0000-4000-8000-000000000010",
+      "name": "switch_user_retry_animation",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        12160,
+        -1024
+      ]
     },
     {
-      "id": "an000000-0000-4000-8000-000000000011",
-      "name": "notify_animation_fallback",
-      "webhookId": "1c412efe-b74f-4b1f-9130-6ddf98622f24",
-      "type": "n8n-nodes-base.slack",
-      "typeVersion": 2.3,
-      "position": [
-        10080,
-        -900
-      ],
       "parameters": {
         "select": "channel",
         "channelId": {
@@ -6286,10 +6248,17 @@
           "cachedResultName": "workflows"
         },
         "text": "=Animated media was not used for {{ $('select_article_to_post').item.json.URL }}: {{ $('check_animation_result').item.json.ERROR }}. Falling back to the still image, which will be approved as usual.",
-        "options": {
-          "appendAttribution": true
-        }
+        "otherOptions": {}
       },
+      "id": "an000000-0000-4000-8000-000000000011",
+      "name": "notify_animation_fallback",
+      "webhookId": "1c412efe-b74f-4b1f-9130-6ddf98622f24",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        10368,
+        -976
+      ],
       "credentials": {
         "slackApi": {
           "id": "DszMmPE7WwOjHQjz",
@@ -6313,17 +6282,6 @@
       "role": "workflow:owner",
       "workflowId": "oxARWWyxenKgmv6A",
       "projectId": "zcGU09G6dy4Oah3l",
-      "project": {
-        "id": "zcGU09G6dy4Oah3l",
-        "name": "no name <admin@example.com>",
-        "type": "personal",
-        "icon": null,
-        "description": null,
-        "customTelemetryTags": [],
-        "creatorId": "83289481-80d9-4bba-906f-8b49aff6b65d",
-        "createdAt": "2025-05-10T07:47:06.870Z",
-        "updatedAt": "2025-05-10T07:47:20.397Z"
-      },
       "createdAt": "2025-05-26T15:30:12.395Z",
       "updatedAt": "2025-05-26T15:30:12.395Z"
     }
@@ -6345,6 +6303,6 @@
   },
   "tags": [],
   "triggerCount": 1,
-  "updatedAt": "2026-10-05T11:25:28.068Z",
-  "versionId": "a36c8acc-dece-48f3-ad4c-409ef177dbc5"
+  "updatedAt": "2026-10-05T19:11:47.038Z",
+  "versionId": "48d3617d-fec1-4243-9e26-0ebe82ae50fc"
 }

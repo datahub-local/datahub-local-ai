@@ -96,8 +96,10 @@ def test_animated_rows_call_the_studio_for_the_declared_type(label, document):
     assert AGENT_TYPE in asset_types, "AGENT must request the agent-authored type"
     assert ANIMATED_TYPE in asset_types, "the deterministic type must stay the default"
     # No frozen spec: a post has one media asset, so nothing needs keeping in step,
-    # and a retry has to be free to re-author.
-    assert values["SPEC_JSON"] in ("", None)
+    # and a retry has to be free to re-author. An unset field is omitted from
+    # workflowInputs.value while its definition stays in `schema`, so an absent key
+    # is the same statement as an empty one.
+    assert values.get("SPEC_JSON") in ("", None)
     assert "FEEDBACK" in values
 
 

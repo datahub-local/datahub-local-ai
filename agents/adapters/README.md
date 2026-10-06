@@ -28,17 +28,17 @@ Authoritative upstream sources: [sympozium-ai/harness-adapters](https://github.c
 
 **In** — environment and mounts:
 
-| | |
-| --- | --- |
-| `TASK` | the task text (`task.parameters.prompt`), or `/ipc/input/task.json` |
-| `SYSTEM_PROMPT` | `spec.systemPrompt`; honour only if you declare `persona` |
-| `MODEL_NAME`, `MODEL_BASE_URL`, `MODEL_PROVIDER` | map these onto what the harness reads |
-| provider credential | injected per-key by `SecretKeyRef`; never widen the allowlist to make an adapter work |
-| `MCP_CONFIG_PATH` | the trusted loopback SkillPack registry, as JSON |
-| `HOME` | `/home/agent`, an `emptyDir` — the only writable path besides `/workspace`, `/ipc/output`, `/tmp` |
-| `SYMPOZIUM_RESULT_PATH` | where to write the result; read it from env, do not hardcode |
-| `SYMPOZIUM_HARNESS_CONTRACT_VERSION` | check it and fail closed on an unknown version |
-| `/ipc/control/skip` | a preRun hook found no work; the adapter must check this itself |
+|                                                  |                                                                                                   |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| `TASK`                                           | the task text (`task.parameters.prompt`), or `/ipc/input/task.json`                               |
+| `SYSTEM_PROMPT`                                  | `spec.systemPrompt`; honour only if you declare `persona`                                         |
+| `MODEL_NAME`, `MODEL_BASE_URL`, `MODEL_PROVIDER` | map these onto what the harness reads                                                             |
+| provider credential                              | injected per-key by `SecretKeyRef`; never widen the allowlist to make an adapter work             |
+| `MCP_CONFIG_PATH`                                | the trusted loopback SkillPack registry, as JSON                                                  |
+| `HOME`                                           | `/home/agent`, an `emptyDir` — the only writable path besides `/workspace`, `/ipc/output`, `/tmp` |
+| `SYMPOZIUM_RESULT_PATH`                          | where to write the result; read it from env, do not hardcode                                      |
+| `SYMPOZIUM_HARNESS_CONTRACT_VERSION`             | check it and fail closed on an unknown version                                                    |
+| `/ipc/control/skip`                              | a preRun hook found no work; the adapter must check this itself                                   |
 
 `/ipc` is **not** a shared surface: an adapter gets `input/` (read-only),
 `control/` (read-only) and `output/`. The rest is absent from its mount namespace,

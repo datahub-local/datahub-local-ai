@@ -34,14 +34,14 @@ The reasoning is the point:
 So: **one toolchain, built once — ours.** This image adds only the agent loop and the
 adapter contract on top.
 
-| Change | Why |
-| ------ | --- |
-| `jq` | the adapter contract builds the result payload with it; the Debian base does not carry it |
-| `@earendil-works/pi-coding-agent@0.84.4` | the agent loop, pinned and installed with lifecycle scripts disabled, exactly as upstream installs it |
-| the engine moved to `/opt/hyperframes` | so the prompt and the entrypoint do not depend on the base image's `WORKDIR` |
-| `prompts/authoring.md` at `/opt/pi-render/prompts/` | the instruction is a file, read at run time, not inlined in shell |
-| `--no-tools` **dropped** | so the agent can write the composition and run the engine |
-| `--no-skills` **dropped** | so the agent can read the skills that ship in the image |
+| Change                                              | Why                                                                                                   |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `jq`                                                | the adapter contract builds the result payload with it; the Debian base does not carry it             |
+| `@earendil-works/pi-coding-agent@0.84.4`            | the agent loop, pinned and installed with lifecycle scripts disabled, exactly as upstream installs it |
+| the engine moved to `/opt/hyperframes`              | so the prompt and the entrypoint do not depend on the base image's `WORKDIR`                          |
+| `prompts/authoring.md` at `/opt/pi-render/prompts/` | the instruction is a file, read at run time, not inlined in shell                                     |
+| `--no-tools` **dropped**                            | so the agent can write the composition and run the engine                                             |
+| `--no-skills` **dropped**                           | so the agent can read the skills that ship in the image                                               |
 
 Deliberately **not** carried over: `git`. Upstream's Pi image has it because Pi offers
 a repo-cloning tool; nothing in this adapter or the authoring loop calls it, and a
@@ -56,13 +56,13 @@ the `/ipc/control/skip` handling.
 Built and exercised on 2026-10-04, under the platform's own constraints — **UID
 1000, read-only root filesystem, `--network none`**:
 
-| Check | Result |
-| ----- | ------ |
-| Toolchain present as UID 1000, read-only rootfs | node, jq, chromium, ffmpeg, ffprobe, hyperframes, pi — **all found** |
-| A render succeeds **offline** | the known-good sample rendered 1080×1350, **270 frames, 9.000 s** |
-| `lint` runs as the agent's gate | `0 error(s), 1 warning(s)` on the sample |
-| The prompt file is readable by UID 1000 | `/opt/pi-render/prompts/authoring.md`, 1742 bytes |
-| Pi runs with tools available | `pi 0.84.4`, described as "AI coding assistant with read, bash, edit, write tools"; `--no-tools` is not passed |
+| Check                                           | Result                                                                                                         |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Toolchain present as UID 1000, read-only rootfs | node, jq, chromium, ffmpeg, ffprobe, hyperframes, pi — **all found**                                           |
+| A render succeeds **offline**                   | the known-good sample rendered 1080×1350, **270 frames, 9.000 s**                                              |
+| `lint` runs as the agent's gate                 | `0 error(s), 1 warning(s)` on the sample                                                                       |
+| The prompt file is readable by UID 1000         | `/opt/pi-render/prompts/authoring.md`, 1742 bytes                                                              |
+| Pi runs with tools available                    | `pi 0.84.4`, described as "AI coding assistant with read, bash, edit, write tools"; `--no-tools` is not passed |
 
 Two defects were found and fixed by this test, which is why it is not a formality:
 the Debian base has no `jq` (every run would have failed on the result payload), and
@@ -93,14 +93,14 @@ in advance: *"5 capture workers may exceed this process's V8 heap"*.
 
 A sweep of **every Sympozium CRD** found no field that reaches a Job's agent container:
 
-| Placement | Result |
-| --------- | ------ |
-| `Agent.spec.resources` | ❌ **rejected**: `unknown field "spec.resources"` |
-| `AgentRun.spec.resources` | ❌ **rejected**: `unknown field "spec.resources"` |
-| `AgentRun.spec.sandbox.resources` | accepted, but creates a **separate third container** (`sandbox: 512Mi`); the agent stays 1Gi |
-| `Agent.spec.agents.default.resources` | ❌ **rejected**: `unknown field` |
-| `AgentRuntime.spec.resources` | ✅ exists and says *"the primary container's requests/limits"* — **but is not read on the Job path** |
-| `SympoziumSchedule.spec`, `SympoziumPolicy.spec` | no such field |
+| Placement                                        | Result                                                                                              |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| `Agent.spec.resources`                           | ❌ **rejected**: `unknown field "spec.resources"`                                                    |
+| `AgentRun.spec.resources`                        | ❌ **rejected**: `unknown field "spec.resources"`                                                    |
+| `AgentRun.spec.sandbox.resources`                | accepted, but creates a **separate third container** (`sandbox: 512Mi`); the agent stays 1Gi        |
+| `Agent.spec.agents.default.resources`            | ❌ **rejected**: `unknown field`                                                                     |
+| `AgentRuntime.spec.resources`                    | ✅ exists and says *"the primary container's requests/limits"* — **but is not read on the Job path** |
+| `SympoziumSchedule.spec`, `SympoziumPolicy.spec` | no such field                                                                                       |
 
 The value is **hardcoded** in `internal/controller/agentrun_controller.go`:
 
@@ -197,13 +197,13 @@ out.mp4: 1080x1350, 270 frames, 9.000000 s
 **But that flag has not yet rescued a real run — and six runs have now died without
 producing a video.**
 
-| Run | Prompt | Brief | Lived | Wrote `index.html`? |
-| --- | ------ | ----- | ----- | ------------------- |
-| 1 | original | long | ~8 min | yes, 4 revisions |
-| 2 | original | long | ~2.5 min | yes |
-| 3, 4 | original | long | ~5 min | yes |
-| 5 | **low-memory** | **one sentence** | **70 s** | **no** |
-| 6 | **low-memory** | long | ~4 min | yes (t+150 s) |
+| Run  | Prompt         | Brief            | Lived    | Wrote `index.html`? |
+| ---- | -------------- | ---------------- | -------- | ------------------- |
+| 1    | original       | long             | ~8 min   | yes, 4 revisions    |
+| 2    | original       | long             | ~2.5 min | yes                 |
+| 3, 4 | original       | long             | ~5 min   | yes                 |
+| 5    | **low-memory** | **one sentence** | **70 s** | **no**              |
+| 6    | **low-memory** | long             | ~4 min   | yes (t+150 s)       |
 
 So this section's earlier conclusion — "the render is what exhausts the memory" — is
 **not supported**, and neither is "low-memory mode fixes it". No run ever invoked
@@ -230,9 +230,9 @@ here rather than deleted.
 One image serves both contracts, dispatched in `entrypoint.sh` on
 `SYMPOZIUM_HARNESS_CONTRACT_VERSION`, exactly as the upstream Pi adapter does:
 
-| Contract | Shape | Container | Resources |
-| -------- | ----- | --------- | --------- |
-| `v1alpha1` | one-shot `AgentRun` (Job) | `agent` | **hardcoded 1Gi** |
+| Contract   | Shape                                             | Container | Resources                                    |
+| ---------- | ------------------------------------------------- | --------- | -------------------------------------------- |
+| `v1alpha1` | one-shot `AgentRun` (Job)                         | `agent`   | **hardcoded 1Gi**                            |
 | `v1alpha2` | `HarnessSession` (Deployment + ClusterIP Service) | `harness` | **`AgentRuntime.spec.resources` is applied** |
 
 A session is the reason this adapter can render at all: it is the only path where the

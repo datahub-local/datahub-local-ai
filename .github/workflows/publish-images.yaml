@@ -123,7 +123,7 @@ jobs:
             add() { targets=$(echo "$targets" | jq -c --arg t "$1" '. + [$t] | unique'); }
             if echo "$files" | grep -qE '^(workflows/dbt/|workflows/dbt$)'; then add dbt; fi
             if echo "$files" | grep -qE '^(workflows/dlt/|workflows/dlt$)'; then add dlt; fi
-            if echo "$files" | grep -qE '^(agents/n8n/render/|agents/n8n/render$)'; then
+            if echo "$files" | grep -qE '^(agents/n8n/render/|agents/n8n/render$|agents/n8n/datasets/brand\.json$)'; then
               add render
               # An adapter that builds FROM the render image moves when it does.
               for a in $(echo "$adapters" | jq -r '.[]'); do
@@ -173,18 +173,19 @@ jobs:
         run: |
           set -euo pipefail
           case "${{ matrix.target }}" in
-            dbt)    context=workflows/dbt;     image=ghcr.io/datahub-local/datahub-local-ai-dbt ;;
-            dlt)    context=workflows/dlt;     image=ghcr.io/datahub-local/datahub-local-ai-dlt ;;
-            render) context=agents/n8n/render; image=ghcr.io/datahub-local/datahub-local-ai-render ;;
+            dbt)    context=workflows/dbt;     file=workflows/dbt/Dockerfile;     image=ghcr.io/datahub-local/datahub-local-ai-dbt ;;
+            dlt)    context=workflows/dlt;     file=workflows/dlt/Dockerfile;     image=ghcr.io/datahub-local/datahub-local-ai-dlt ;;
+            render) context=agents/n8n;        file=agents/n8n/render/Dockerfile; image=ghcr.io/datahub-local/datahub-local-ai-render ;;
             *)
               # Every other target is an adapter, named by its directory: the build
               # context is agents/adapters/<target> and the image carries the
               # -adapter suffix. The Dockerfile is the gate, so a typo is an error
               # here rather than an empty context build.
               context="agents/adapters/${{ matrix.target }}"
+              file="$context/Dockerfile"
               image="ghcr.io/datahub-local/datahub-local-ai-${{ matrix.target }}-adapter"
-              if [ ! -f "$context/Dockerfile" ]; then
-                echo "unknown target: ${{ matrix.target }} (no $context/Dockerfile)" >&2
+              if [ ! -f "$file" ]; then
+                echo "unknown target: ${{ matrix.target }} (no $file)" >&2
                 exit 1
               fi
               ;;
@@ -193,6 +194,7 @@ jobs:
           docker buildx build \
             --platform linux/amd64,linux/arm64 \
             --push \
+            --file "$file" \
             --cache-from type=gha \
             --cache-to type=gha,mode=max \
             --tag "$image:main" \

@@ -1,50 +1,14 @@
 [
   {
-    "id": "light",
-    "icon": "☀️",
-    "name": "Light",
-    "description": "White or very light gray background with dark text and colored accents. Maximum readability for documentation and presentations."
-  },
-  {
     "id": "dark",
     "icon": "🌙",
-    "name": "Dark",
-    "description": "Deep gray or near-black background with light-colored elements and bright accents. High contrast for digital-first or dark-mode contexts."
+    "name": "Brand dark",
+    "description": "The brand's dark MOSS scheme. Background #0E1116, text #F4F2EC, muted text a 75% #F4F2EC, accent #7FAF5A with #A3CF7A highlight and #5E8A3F deep. No other colour."
   },
   {
-    "id": "neutral",
-    "icon": "⚪",
-    "name": "Neutral",
-    "description": "Muted mid-tone palette with soft grays, beige, and slate. Understated and professional for formal reports and internal documentation."
-  },
-  {
-    "id": "vibrant",
-    "icon": "🌈",
-    "name": "Vibrant",
-    "description": "Saturated, high-energy color palette with bold fills and bright contrasts. Ideal for presentations targeting non-technical or executive audiences."
-  },
-  {
-    "id": "monochrome",
-    "icon": "⬛",
-    "name": "Monochrome",
-    "description": "Single hue or pure black-and-white palette. Clean and print-friendly, best for minimal, editorial, or high-contrast accessibility contexts."
-  },
-  {
-    "id": "brand-blue",
-    "icon": "🔵",
-    "name": "Brand Blue",
-    "description": "Corporate blue-dominant palette with white and gray supporting tones. Conveys trust, technology, and professionalism."
-  },
-  {
-    "id": "warm",
-    "icon": "🔥",
-    "name": "Warm",
-    "description": "Warm orange, amber, and soft red tones with light neutral backgrounds. Energetic and approachable for workshop and team-facing materials."
-  },
-  {
-    "id": "cool",
-    "icon": "🧊",
-    "name": "Cool",
-    "description": "Cool cyan, teal, and lavender tones with white or dark backgrounds. Calm, modern feel suited for technical and data-heavy diagrams."
+    "id": "light",
+    "icon": "☀️",
+    "name": "Brand light",
+    "description": "The brand's light MOSS scheme. Background #F4F2EC, text #0E1116, accent #7FAF5A with #5E8A3F and #3d5c28 deep. No other colour."
   }
 ]

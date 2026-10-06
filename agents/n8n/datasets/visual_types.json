@@ -15,6 +15,7 @@
   "types": [
     {
       "id": "hero_static",
+      "brandKind": "photographic",
       "name": "Static hero",
       "author": "raster",
       "specTemplate": null,
@@ -26,6 +27,7 @@
     },
     {
       "id": "infographic_static",
+      "brandKind": "diagrammatic",
       "name": "Static infographic",
       "author": "spec_raster",
       "specTemplate": "prompts/visual_spec.md",
@@ -37,6 +39,7 @@
     },
     {
       "id": "diagram_animated",
+      "brandKind": "diagrammatic",
       "name": "Animated diagram",
       "author": "spec_markup",
       "specTemplate": "prompts/visual_spec.md",
@@ -54,6 +57,7 @@
     },
     {
       "id": "diagram_animated_linkedin",
+      "brandKind": "diagrammatic",
       "name": "Animated diagram (LinkedIn)",
       "author": "spec_markup",
       "specTemplate": "prompts/visual_spec.md",
@@ -71,6 +75,7 @@
     },
     {
       "id": "animated_svg",
+      "brandKind": "diagrammatic",
       "name": "Animated SVG",
       "author": "spec_markup",
       "specTemplate": "prompts/visual_spec.md",
@@ -82,6 +87,7 @@
     },
     {
       "id": "motion_clip",
+      "brandKind": "diagrammatic",
       "name": "Motion clip",
       "author": "spec_markup",
       "specTemplate": "prompts/visual_spec.md",
@@ -94,6 +100,7 @@
     },
     {
       "id": "diagram_video",
+      "brandKind": "diagrammatic",
       "name": "Video diagram",
       "author": "spec_service",
       "specTemplate": "prompts/visual_spec.md",
@@ -110,6 +117,7 @@
     },
     {
       "id": "diagram_agent",
+      "brandKind": "diagrammatic",
       "name": "Agent-authored diagram",
       "author": "agent",
       "specTemplate": null,

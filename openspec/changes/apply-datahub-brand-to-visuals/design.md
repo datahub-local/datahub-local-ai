@@ -182,6 +182,40 @@ crash. It is run by a human at sync time; nothing runs it in CI.
 the sync would then depend on what is deployed rather than what is committed, and
 the two diverge during a deploy.
 
+### D9. A capture surface that cannot carry a brand face names the closest it has
+
+The render service vendors both brand typefaces and uses them. The n8n capture
+sidecar is `browserless/chromium`, a third-party image that carries neither, and
+installing them there is a cross-repository change to a foreign image. The
+templates therefore name the brand face first and then the closest family the
+sidecar does ship (`Roboto` for text, `DejaVu Sans Mono` for code), so the render
+service gets the brand face and the n8n path gets a deliberate substitute rather
+than an arbitrary default. Both substitute names live in `brand.json` as
+`typography.textFallback`/`codeFallback`, so the enforcement test still holds: a
+surface may only name a typeface the token document carries.
+
+*Alternatives considered.* Embed a Latin subset of each face as a data URI in the
+templates (self-contained and exact, rejected by the user as unnecessary weight);
+install the faces into the browserless release in core (a fragile mount into a
+third-party image); leave the family names only and accept a silent fallback to
+whatever Chromium picks (rejected — a silent default is the drift this change
+removes).
+
+### D10. The render image's build context is `agents/n8n`
+
+The shell reads `datasets/brand.json`, which is outside `agents/n8n/render/`, so
+the image's build context moves one level up and the Dockerfile mirrors the
+repository (`render/src` → `/app/render/src`, `datasets` → `/app/datasets`). That
+keeps `../../datasets/brand.json` resolving identically in a checkout and in the
+image, and avoids a committed second copy of the tokens inside the render
+directory. `publish-images.yaml` and the render smoke job pass the new context
+and `-f`, and the changed-path filter also rebuilds the image when `brand.json`
+changes.
+
+*Alternatives considered.* A committed copy of `brand.json` under `render/`
+(rejected — a second copy that can drift); mounting the file at deploy time
+(rejected — the image would no longer render offline on its own).
+
 ## Risks / Trade-offs
 
 **[Changing the shell changes every existing asset's bytes.]** → The render smoke

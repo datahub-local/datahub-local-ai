@@ -7,6 +7,8 @@
   "max_domains": 3,
   "runner_up_ratio": 0.5,
   "default_domain": "default",
+  "_comment_art_direction": "The single photographic art direction for a raster hero, copied verbatim from datasets/brand.json (agents/n8n/scripts/test_brand.py fails if the two drift). parse_image_motifs exposes it as ART_DIRECTION, replacing the old per-run random style list so the brand, not a dice roll, decides medium, lighting and palette.",
+  "art_direction": "dark studio photograph, matte subject, one soft moss-green key light raking across the form, deep near-black background, restrained contrast, fine physical texture, no gloss, no screen or interface, no text",
   "default_hook": "default",
   "hooks": {
     "CONTRARIAN": {

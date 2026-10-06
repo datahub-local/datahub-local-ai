@@ -30,7 +30,7 @@ const ENTRANCE = {
 export function compose(specInput, optionInput) {
   const spec = parseSpec(specInput);
   const opt = { ...parseOptions(optionInput), durationMs: spec.motion.durationMs };
-  const pal = palette(spec);
+  const pal = palette(spec, opt.scheme);
   const u = (opt.width / 1080).toFixed(4);
   const ctx = { spec, opt, pal, esc, escAttr, icon, u, dur: opt.durationMs / 1000 };
   // A layout name is either backed by a catalog block (the migration) or by a

@@ -20,6 +20,7 @@ Use Diagram Type as the base label, Diagram Description for essential structure 
 4. Quote every text that must appear in the image: `"SOME TEXT"`. Use quoted edge labels such as `"Yes"` and `"No"` only where they distinguish branches, attached to the correct outgoing edge.
 5. Bind each note, side label, edge label, callout or outcome box to the specific node or edge it belongs to, e.g. `attach note "High maintenance" to "Argo Workflows"`. Never write generic wording such as "add labels X and Y" unless they apply to every primary item, and never infer symmetric annotations — state only the attachments the inputs actually give.
 6. If a mapping is unclear, omit it rather than invent it.
+7. The palette is always the brand's: `{{COLOR_PRESET}}` names the brand's dark or light scheme, and no colour outside it may appear. Use the brand accent for the one highlighted element.
 
 ## Output Format
 

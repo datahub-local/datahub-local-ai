@@ -103,12 +103,12 @@ const VARIABLE_MAPPINGS = {
   // A race wants a time series. Our spec is a flat list of labelled figures, so
   // this reads them as one period: a single-period race, the honest rendering of a
   // spec that carries no history.
-  "bar-chart-race": (spec) => ({
+  "bar-chart-race": (spec, ctx) => ({
     title: spec.title,
     subtitle: spec.alt || "",
     periods: "now",
     series: spec.blocks.map((b) => `${b.label}: ${numeric(b.value)}`).join("\n"),
-    accent: spec.accent,
+    accent: ctx.pal.accent,
     valueSuffix: suffix(spec.blocks.map((b) => b.value)),
   }),
 };

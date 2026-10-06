@@ -2,8 +2,8 @@
   <title>%%TITLE%%</title>
   <style>
     .title {
-      fill: #f5f7fa;
-      font-family: "DejaVu Sans", Arial, Helvetica, sans-serif;
+      fill: %%BRAND_INK%%;
+      font-family: %%FONT_TEXT%%, "Roboto", ui-sans-serif, system-ui, sans-serif;
       font-size: 64px;
       font-weight: 700;
       letter-spacing: -1px;
@@ -28,18 +28,18 @@
       animation-duration: %%DURATION_MS%%ms;
     }
     .label {
-      fill: rgba(245, 247, 250, 0.72);
-      font-family: "DejaVu Sans", Arial, Helvetica, sans-serif;
+      fill: %%BRAND_INK_MUTED%%;
+      font-family: %%FONT_TEXT%%, "Roboto", ui-sans-serif, system-ui, sans-serif;
       font-size: 34px;
     }
     .value {
       fill: %%ACCENT%%;
-      font-family: "DejaVu Sans", Arial, Helvetica, sans-serif;
+      font-family: %%FONT_TEXT%%, "Roboto", ui-sans-serif, system-ui, sans-serif;
       font-size: 52px;
       font-weight: 700;
     }
     .sep {
-      stroke: rgba(245, 247, 250, 0.12);
+      stroke: %%BRAND_HAIRLINE%%;
       stroke-width: 2;
     }
     @keyframes title-in {
@@ -103,7 +103,7 @@
       }
     }
   </style>
-  <rect width="1200" height="1500" fill="#0b0d10" />
+  <rect width="1200" height="1500" fill="%%BRAND_SHELL%%" />
   <text class="title" x="64" y="168">%%TITLE%%</text>
   <rect class="rule" x="64" y="208" width="1072" height="8" rx="4" />
   %%BLOCKS%%

@@ -1,0 +1,10 @@
+# The render image's build context is agents/n8n (see render/Dockerfile), so this
+# ignore file sits at the context root. Without it the daemon would receive the
+# host's node_modules and render scratch output.
+render/node_modules
+render/.hyperframes-scratch
+render/renders
+render/test
+render/demo
+**/*.mp4
+**/*.webm

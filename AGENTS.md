@@ -400,8 +400,27 @@ Seven structural things worth knowing before editing an export:
 One workflow turns a source text into a set of visual assets — hero, static
 infographic, animated diagram, animated SVG — driven by the type registry
 `agents/n8n/datasets/visual_types.json`. Adding a type is a change to that file,
-not a branch in the graph; the registry governs structure, render mode and format
-only, and raster art direction stays in `image_motifs.json`.
+not a branch in the graph; the registry governs structure, render mode, format
+and the type's `brandKind` (`diagrammatic` or `photographic`), while the raster
+art direction it applies comes from the brand.
+
+**The brand is one committed document.** `agents/n8n/datasets/brand.json` is the
+only copy of the palette and typefaces; every px-generating surface reads it —
+the render service's shell and layouts, the two infographic templates, the four
+prompts, and the type registry — and `agents/n8n/scripts/test_brand.py` fails on
+a colour or a typeface that appears anywhere else. The workflow fetches it once
+(`download_brand` → `brand_tokens`) and hands the spec prompt a `{{ BRAND }}`
+text block, the raster prompt the `photographic.artDirection`, and the markup
+builder the raw colour roles, so no prompt or template spells a colour. A
+`diagrammatic` asset uses the brand's dark or light scheme and its ramp; a
+`photographic` hero is described by the art direction instead. A caller's accent
+is mapped onto the ramp, never rendered free-form. The tokens are extracted from
+the site repository (`mkdocs.yml`, `docs/stylesheets/extra.css`); re-sync with
+`BRAND_REPO=... python agents/n8n/scripts/extract_brand.py`, which is a
+byte-identical no-op when the site is unchanged. The n8n capture sidecar has
+neither brand typeface, so the templates name the closest face it does carry
+(`Roboto` / `DejaVu Sans Mono`) after the brand face; the render image vendors
+the real faces.
 
 **Three triggers, one contract.** An `executeWorkflowTrigger` (sub-workflow
 call), `POST /webhook/visual-studio`, and a form all take `CONTENT` (required),

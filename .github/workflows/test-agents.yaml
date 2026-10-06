@@ -123,7 +123,7 @@ jobs:
           files=$(git diff --name-only "$base"...HEAD || git diff --name-only HEAD^ HEAD)
           echo "changed files:"
           echo "$files"
-          if echo "$files" | grep -q '^agents/n8n/render/'; then
+          if echo "$files" | grep -qE '^agents/n8n/render/|^agents/n8n/datasets/brand\.json$'; then
             echo "image=true" >> "$GITHUB_OUTPUT"
           else
             echo "image=false" >> "$GITHUB_OUTPUT"
@@ -139,7 +139,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build the image
-        run: docker build -t datahub-local-ai-render:ci agents/n8n/render
+        run: docker build -t datahub-local-ai-render:ci -f agents/n8n/render/Dockerfile agents/n8n
 
       # Same security context the core deployment runs with (read-only root,
       # all capabilities dropped, /tmp an emptyDir) so a read-only-filesystem

@@ -21,8 +21,8 @@ points the Visual Studio workflow's video type at it.
 The service **accepts a content spec and nothing else**. It authors the
 composition itself from versioned templates and rejects any request carrying
 HTML, CSS or script, so the repository's "model output is data" rule holds at
-the service edge. It renders with **no network**: the browser, the fonts and the
-animation runtime (a vendored GSAP) are all in the image.
+the service edge. It renders with **no network**: the browser, the two brand
+typefaces and the animation runtime (a vendored GSAP) are all in the image.
 
 ## Layouts
 
@@ -30,12 +30,39 @@ animation runtime (a vendored GSAP) are all in the image.
 list). The others are `flow` (connected nodes with drawn connectors and a
 travelled arrow), `timeline`, `comparison`, `bars`, and the catalog block
 `bar-chart-race`. An item may name an icon from `src/icons.json`, and the theme
-is `accent` plus an optional `accent2` and `background` — all validated hex.
+is `accent` plus an optional `accent2` and `background`. The accent is mapped
+onto the brand's ramp and a `background` stays the caller's only if it is a
+valid hex; see [Brand](#brand).
 
 The five names from `stats` to `bars` are hand-written builders
 (`src/layouts/*.mjs`); `bar-chart-race` comes from the HyperFrames catalog. The
 registry (`src/blocks/registry.mjs`) is the closed set a caller may name, and
 `src/spec.mjs` validates against it, so a caller never names a file.
+
+## Brand
+
+`datasets/brand.json` is the only copy of the project's palette and typefaces.
+The shell, every layout and the block adapter read it through `src/scene.mjs`,
+which exposes colour **roles** (`ink`, `surface`, `accent`) rather than hex
+values, so a layout asks for a role and never spells a colour. The image ships
+the two OFL typefaces from `vendor/fonts/` and loads them with `@font-face`, so
+the render stays offline. Both schemes — the brand's dark default and its light
+scheme — are available to a caller through the `scheme` render option.
+
+A caller's `accent` is mapped onto the scheme's ramp (nearest role, or the
+scheme's default when it is not a colour), so an out-of-brand value is never
+rendered as given and a legacy frozen spec still renders; a brand value is kept
+as the brand spells it. `src/spec.mjs` rejects an unknown scheme by name.
+
+The document is extracted from the site repository that owns the brand; see
+[`../README.md`](../README.md) for the sync command. `agents/n8n/scripts/test_brand.py`
+fails any surface that spells its own colour or typeface, and
+`test/brand.test.mjs` asserts the composition uses the declared scheme throughout.
+
+The build context is `agents/n8n`, not this directory: the image mirrors the
+repository so `render/src/scene.mjs` can read `datasets/brand.json` by the same
+relative path in the image as in a checkout. Build with
+`docker build -f agents/n8n/render/Dockerfile agents/n8n`.
 
 ## Catalog blocks
 
@@ -93,10 +120,11 @@ Debian's `chromium` and points HyperFrames at it with
 downloaded at runtime.
 
 The container smoke test is separate because it needs a live service. Build and
-run the image, then run it against the fixture:
+run the image from the repository root (the build context is `agents/n8n`), then
+run it against the fixture:
 
 ```
-docker build -t datahub-local-ai-render:local .
+docker build -f agents/n8n/render/Dockerfile -t datahub-local-ai-render:local agents/n8n
 docker run -d --name render \
   --read-only --cap-drop ALL --security-opt no-new-privileges \
   --shm-size=1g --tmpfs /tmp \

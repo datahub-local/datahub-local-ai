@@ -3,7 +3,7 @@
     "id": "clean-tech",
     "icon": "🧹",
     "name": "Clean Tech / Flat Design",
-    "description": "Flat icons, bold color-coded sections, crisp edges, white background, sans-serif labels. Minimal shadows. Best for documentation and technical audiences.",
+    "description": "Flat icons, bold color-coded sections, crisp edges, white background, sans-serif labels. Minimal shadows. Best for documentation and technical audiences. Colours always come from the brand's dark or light scheme, never from this style.",
     "compatible_types": [
       "linear-data-flow",
       "architecture-blueprint",
@@ -23,7 +23,7 @@
     "id": "isometric-3d",
     "icon": "📦",
     "name": "Isometric 3D",
-    "description": "3D perspective with depth, shadows, and gradient fills. Isometric grid alignment. High visual impact for presentations and executive decks.",
+    "description": "3D perspective with depth, shadows, and gradient fills. Isometric grid alignment. High visual impact for presentations and executive decks. Colours always come from the brand's dark or light scheme, never from this style.",
     "compatible_types": [
       "linear-data-flow",
       "architecture-blueprint",
@@ -41,7 +41,7 @@
     "id": "blueprint",
     "icon": "📐",
     "name": "Blueprint / Engineering",
-    "description": "Dark navy background, white or cyan technical lines, engineering/schematic aesthetic. Monochromatic with accent highlights. Great for infrastructure and network diagrams.",
+    "description": "Dark navy background, white or cyan technical lines, engineering/schematic aesthetic. Monochromatic with accent highlights. Great for infrastructure and network diagrams. Colours always come from the brand's dark or light scheme, never from this style.",
     "compatible_types": [
       "linear-data-flow",
       "architecture-blueprint",
@@ -56,7 +56,7 @@
     "id": "infographic",
     "icon": "🎨",
     "name": "Infographic / Presentation",
-    "description": "Colorful sections, large illustrative icons, banner-style labels, presentation-ready layout. Best for non-technical stakeholders and slide decks.",
+    "description": "Colorful sections, large illustrative icons, banner-style labels, presentation-ready layout. Best for non-technical stakeholders and slide decks. Colours always come from the brand's dark or light scheme, never from this style.",
     "compatible_types": [
       "linear-data-flow",
       "comparison-matrix",
@@ -76,7 +76,7 @@
     "id": "hand-drawn",
     "icon": "✏️",
     "name": "Hand-Drawn / Whiteboard",
-    "description": "Rough sketch aesthetic, pencil-style or marker lines, sticky-note colors, informal and brainstorming feel. Ideal for workshops and early-stage ideation.",
+    "description": "Rough sketch aesthetic, pencil-style or marker lines, sticky-note colors, informal and brainstorming feel. Ideal for workshops and early-stage ideation. Colours always come from the brand's dark or light scheme, never from this style.",
     "compatible_types": [
       "architecture-blueprint",
       "decision-tree-flowchart",
@@ -93,7 +93,7 @@
     "id": "neon-dark",
     "icon": "💜",
     "name": "Neon Dark / Cyberpunk",
-    "description": "Dark background, glowing neon-colored elements, bright edge lines. Cyberpunk or data-mesh aesthetic. High contrast, suitable for tech conferences and digital media.",
+    "description": "Dark background, glowing neon-colored elements, bright edge lines. Cyberpunk or data-mesh aesthetic. High contrast, suitable for tech conferences and digital media. Colours always come from the brand's dark or light scheme, never from this style.",
     "compatible_types": [
       "node-edge-graph",
       "venn-diagram-tradeoffs",
@@ -115,7 +115,7 @@
     "id": "minimal-outline",
     "icon": "⬜",
     "name": "Minimal Outline / Editorial",
-    "description": "Black-and-white or two-tone, thin outlines only, clean editorial or documentation style. No fills, maximum readability in print or monochrome contexts.",
+    "description": "Black-and-white or two-tone, thin outlines only, clean editorial or documentation style. No fills, maximum readability in print or monochrome contexts. Colours always come from the brand's dark or light scheme, never from this style.",
     "compatible_types": [
       "comparison-matrix",
       "venn-diagram-tradeoffs",
@@ -135,7 +135,7 @@
     "id": "split-screen",
     "icon": "🪟",
     "name": "Split Screen / Before & After",
-    "description": "Full-bleed two-panel layout with strong visual contrast between panels. Left side in muted/dark/messy style, right side in clean/bright/modern style.",
+    "description": "Full-bleed two-panel layout with strong visual contrast between panels. Left side in muted/dark/messy style, right side in clean/bright/modern style. Colours always come from the brand's dark or light scheme, never from this style.",
     "compatible_types": [
       "before-after-sequence",
       "comparison-matrix"
@@ -145,7 +145,7 @@
     "id": "circular-gradient",
     "icon": "🌀",
     "name": "Circular Gradient / Flow Loop",
-    "description": "Smooth color gradient along a circular or elliptical path, pill-shaped stage labels. Ideal for conveying continuous, iterative processes.",
+    "description": "Smooth color gradient along a circular or elliptical path, pill-shaped stage labels. Ideal for conveying continuous, iterative processes. Colours always come from the brand's dark or light scheme, never from this style.",
     "compatible_types": [
       "continuous-loop-cycle",
       "hub-and-spoke",
@@ -156,7 +156,7 @@
     "id": "radar-chart",
     "icon": "🕷️",
     "name": "Radar / Spider Chart",
-    "description": "Overlapping polygon radar chart showing multi-dimensional comparison across criteria axes. Best for comparing 3+ options across 4+ dimensions simultaneously.",
+    "description": "Overlapping polygon radar chart showing multi-dimensional comparison across criteria axes. Best for comparing 3+ options across 4+ dimensions simultaneously. Colours always come from the brand's dark or light scheme, never from this style.",
     "compatible_types": [
       "comparison-matrix",
       "venn-diagram-tradeoffs"
@@ -166,7 +166,7 @@
     "id": "conference-whiteboard-room",
     "icon": "🏫",
     "name": "Conference Room Whiteboard",
-    "description": "Diagram drawn on a large office whiteboard inside a modern meeting room, with realistic dry-erase marker strokes, subtle reflections, pinned notes, and natural presentation context.",
+    "description": "Diagram drawn on a large office whiteboard inside a modern meeting room, with realistic dry-erase marker strokes, subtle reflections, pinned notes, and natural presentation context. Colours always come from the brand's dark or light scheme, never from this style.",
     "compatible_types": [
       "linear-data-flow",
       "architecture-blueprint",
@@ -184,7 +184,7 @@
     "id": "glass-board-workshop",
     "icon": "🔮",
     "name": "Glass Board Workshop",
-    "description": "Semi-transparent glass wall board style with layered marker lines, sticky notes, workshop annotations, and a creative studio atmosphere. Slight parallax and hand-drawn energy.",
+    "description": "Semi-transparent glass wall board style with layered marker lines, sticky notes, workshop annotations, and a creative studio atmosphere. Slight parallax and hand-drawn energy. Colours always come from the brand's dark or light scheme, never from this style.",
     "compatible_types": [
       "architecture-blueprint",
       "node-edge-graph",
@@ -204,7 +204,7 @@
     "id": "macos-window-showcase",
     "icon": "🖥️",
     "name": "macOS Window Showcase",
-    "description": "Diagram presented inside a polished macOS application window with traffic-light controls, soft shadows, rounded corners, sidebar or toolbar chrome, and clean Apple-inspired UI framing.",
+    "description": "Diagram presented inside a polished macOS application window with traffic-light controls, soft shadows, rounded corners, sidebar or toolbar chrome, and clean Apple-inspired UI framing. Colours always come from the brand's dark or light scheme, never from this style.",
     "compatible_types": [
       "comparison-matrix",
       "node-edge-graph",
@@ -221,7 +221,7 @@
     "id": "control-panel-console",
     "icon": "🎛️",
     "name": "Control Panel / Console",
-    "description": "Futuristic panel or operations console aesthetic with segmented modules, indicator lights, tactical lines, dark surfaces, and precision UI framing around the diagram.",
+    "description": "Futuristic panel or operations console aesthetic with segmented modules, indicator lights, tactical lines, dark surfaces, and precision UI framing around the diagram. Colours always come from the brand's dark or light scheme, never from this style.",
     "compatible_types": [
       "linear-data-flow",
       "architecture-blueprint",
@@ -238,7 +238,7 @@
     "id": "macbook-desk-mockup",
     "icon": "💻",
     "name": "MacBook Desk Mockup",
-    "description": "Diagram displayed on a MacBook screen in a premium desk setup, with device bezel, keyboard edge, subtle perspective, ambient lighting, and a refined product mockup presentation feel.",
+    "description": "Diagram displayed on a MacBook screen in a premium desk setup, with device bezel, keyboard edge, subtle perspective, ambient lighting, and a refined product mockup presentation feel. Colours always come from the brand's dark or light scheme, never from this style.",
     "compatible_types": [
       "comparison-matrix",
       "title-slide-hero-layout",
@@ -255,7 +255,7 @@
     "id": "brand-style-guide",
     "icon": "🖌️",
     "name": "Brand Style Guide",
-    "description": "Mood-board layout with color swatches, typeface specimens, logo lockup previews, and usage examples arranged on a clean editorial canvas. Ideal for branding presentations and design system documentation.",
+    "description": "Mood-board layout with color swatches, typeface specimens, logo lockup previews, and usage examples arranged on a clean editorial canvas. Ideal for branding presentations and design system documentation. Colours always come from the brand's dark or light scheme, never from this style.",
     "compatible_types": [
       "logo-generator",
       "icon-set-grid",
@@ -267,7 +267,7 @@
     "id": "notebook-sketchpad",
     "icon": "📓",
     "name": "Notebook / Sketchpad",
-    "description": "Lined or dotted notebook paper texture with pencil or ink sketch aesthetic, hand-lettered labels, and margin annotations. Ideal for concept ideation, logo exploration, and early-stage diagram drafts.",
+    "description": "Lined or dotted notebook paper texture with pencil or ink sketch aesthetic, hand-lettered labels, and margin annotations. Ideal for concept ideation, logo exploration, and early-stage diagram drafts. Colours always come from the brand's dark or light scheme, never from this style.",
     "compatible_types": [
       "logo-generator",
       "icon-set-grid",

@@ -77,6 +77,10 @@ export async function renderVideo(html, opt) {
     await writeFile(join(dir, "index.html"), html);
     await mkdir(join(dir, "vendor"), { recursive: true });
     await copyFile(join(PKG, "vendor", "gsap.min.js"), join(dir, "vendor", "gsap.min.js"));
+    // The shell's @font-face resolves ./vendor/fonts/... against the composition
+    // file, so the vendored faces must sit in the tmp render dir too. They are
+    // local files with no network, which is what keeps the render offline.
+    await cp(join(PKG, "vendor", "fonts"), join(dir, "vendor", "fonts"), { recursive: true });
     // A referenced block resolves its own relative assets against its location, so
     // the vendored blocks are copied in whole: a block beside ./vendor/ is what
     // makes the rewritten GSAP path in a full block resolve.

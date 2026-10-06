@@ -11,6 +11,8 @@
 // decoration: an unknown layout fails (the whole composition depends on it), an
 // unknown icon is dropped later (it is only a glyph).
 
+import { BRAND, SCHEMES } from "./scene.mjs";
+
 export const LAYOUTS = ["stats", "flow", "timeline", "comparison", "bars", "bar-chart-race"];
 export const MOTIONS = ["rise", "fade", "sweep", "pulse", "draw", "travel", "spin"];
 
@@ -106,7 +108,9 @@ export function parseOptions(input = {}) {
   const height = bounded(input.height, "height", 64, CAPS.edge) ?? 1350;
   if (width > CAPS.edge || height > CAPS.edge) fail(`resolution exceeds the ${CAPS.edge}px cap`);
   const fps = bounded(input.fps, "fps", CAPS.fps.min, CAPS.fps.max) ?? 30;
-  return { width: Math.round(width), height: Math.round(height), fps: Math.round(fps) };
+  const scheme = input.scheme === undefined || input.scheme === "" ? BRAND.defaultScheme : String(input.scheme);
+  if (!SCHEMES.includes(scheme)) fail(`unknown scheme: ${scheme}`);
+  return { width: Math.round(width), height: Math.round(height), fps: Math.round(fps), scheme };
 }
 
 export { SpecError };

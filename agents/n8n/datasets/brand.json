@@ -1,0 +1,45 @@
+{
+  "defaultScheme": "dark",
+  "photographic": {
+    "artDirection": "dark studio photograph, matte subject, one soft moss-green key light raking across the form, deep near-black background, restrained contrast, fine physical texture, no gloss, no screen or interface, no text"
+  },
+  "schemes": {
+    "dark": {
+      "accent": "#7FAF5A",
+      "accentDeep": "#5E8A3F",
+      "accentStrong": "#A3CF7A",
+      "codeBg": "#141a12",
+      "codeInk": "#c8e6a8",
+      "ink": "#F4F2EC",
+      "inkMuted": "rgba(244, 242, 236, 0.75)",
+      "shell": "#0E1116",
+      "surface": "#131a11",
+      "surfaceRaised": "#182016"
+    },
+    "light": {
+      "accent": "#7FAF5A",
+      "accentDeep": "#3d5c28",
+      "accentStrong": "#5E8A3F",
+      "codeBg": "#eceae3",
+      "codeInk": "#3d5c28",
+      "ink": "#0E1116",
+      "inkMuted": "rgba(14, 17, 22, 0.75)",
+      "shell": "#F4F2EC",
+      "surface": "#eceae3",
+      "surfaceRaised": "#eceae3"
+    }
+  },
+  "shape": {
+    "hairlineAlpha": 0.1,
+    "radiusCard": "0.75rem",
+    "radiusPanel": "1rem",
+    "radiusPill": "99rem",
+    "shadow": "none"
+  },
+  "typography": {
+    "code": "JetBrains Mono",
+    "codeFallback": "DejaVu Sans Mono",
+    "text": "Space Grotesk",
+    "textFallback": "Roboto"
+  }
+}

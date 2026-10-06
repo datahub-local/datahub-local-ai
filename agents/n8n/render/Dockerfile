@@ -3,7 +3,13 @@
 # Node 22 is HyperFrames' floor. FFmpeg/FFprobe are what the n8n image does not
 # have (the reason a video type could not exist before); the browser is baked in
 # at build time so the running container needs no network. The animation runtime
-# (GSAP) is a vendored local file, never a CDN, for the same reason.
+# (GSAP) and the two brand typefaces are vendored local files, never a CDN, for
+# the same reason.
+#
+# The build context is agents/n8n, not this directory: the shell reads
+# datasets/brand.json, the repository's only copy of the brand, and the layout
+# below mirrors the repository so `../../datasets/brand.json` resolves the same
+# in the image as it does in a checkout.
 #
 # Multi-arch like every published image here: agents render on amd64, but a
 # caller on an arm64 node must be able to pull it too.
@@ -50,11 +56,14 @@ ENV HOME=/tmp
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+COPY render/package.json render/package-lock.json ./render/
+RUN cd render && npm ci --omit=dev
 
-COPY vendor ./vendor
-COPY src ./src
+COPY render/vendor ./render/vendor
+COPY render/src ./render/src
+COPY datasets/brand.json ./datasets/brand.json
+
+WORKDIR /app/render
 
 # The browser is already in the image via apt; point HyperFrames at it rather
 # than letting it attempt a download. HYPERFRAMES_BROWSER_PATH is its first

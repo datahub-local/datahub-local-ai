@@ -18,9 +18,9 @@
       html,
       body {
         width: var(--page);
-        background: #0b0d10;
-        color: #f5f7fa;
-        font-family: "DejaVu Sans", Arial, Helvetica, sans-serif;
+        background: %%BRAND_SHELL%%;
+        color: %%BRAND_INK%%;
+        font-family: %%FONT_TEXT%%, "Roboto", ui-sans-serif, system-ui, sans-serif;
         -webkit-font-smoothing: antialiased;
       }
       body {
@@ -43,7 +43,7 @@
       .rule {
         height: 8px;
         border-radius: 4px;
-        background: linear-gradient(90deg, var(--accent), rgba(245, 247, 250, 0.06));
+        background: linear-gradient(90deg, var(--accent), %%BRAND_HAIRLINE%%);
         transform-origin: left center;
         animation-name: grow;
         animation-timing-function: linear;
@@ -62,7 +62,7 @@
         justify-content: space-between;
         gap: 32px;
         padding-bottom: 20px;
-        border-bottom: 2px solid rgba(245, 247, 250, 0.12);
+        border-bottom: 2px solid %%BRAND_HAIRLINE%%;
         animation-name: %%MOTION_ANIM%%;
         animation-timing-function: linear;
         animation-fill-mode: both;
@@ -71,7 +71,7 @@
       .label {
         font-size: 34px;
         line-height: 1.2;
-        color: rgba(245, 247, 250, 0.72);
+        color: %%BRAND_INK_MUTED%%;
       }
       .value {
         font-size: 54px;

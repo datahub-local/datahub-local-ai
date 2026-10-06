@@ -15,7 +15,8 @@ name: Publish and rebuild images
 #                 image is a moving target - node, debian and python all publish
 #                 CVE fixes without a commit. One image per weekday carries those
 #                 in, staggered so a failure is attributable to one image and the
-#                 heavy multi-arch builds do not compete.
+#                 heavy multi-arch builds do not compete. The adapter day rebuilds
+#                 every adapter, since each ages on its own base.
 #   dispatch      rebuild or prune on demand.
 #
 # The day-of-week field is used rather than a `*/14` day-of-month step: the latter
@@ -30,14 +31,14 @@ on:
     - cron: "17 3 * * 1" # dbt
     - cron: "17 3 * * 2" # dlt
     - cron: "17 3 * * 3" # render
-    - cron: "17 3 * * 4" # pi-render-adapter
+    - cron: "17 3 * * 4" # adapters
     - cron: "17 3 * * 5" # prune
   workflow_dispatch:
     inputs:
       target:
         description: "Which image to build, or prune"
         type: choice
-        options: [dbt, dlt, render, pi-render-adapter, all, prune]
+        options: [dbt, dlt, render, adapters, all, prune]
         default: all
 
 permissions:
@@ -50,12 +51,16 @@ concurrency:
 
 jobs:
   # One place decides which images this run builds. Everything downstream is a
-  # matrix over its output, so adding an image is one entry here and one `case`
-  # arm in the build step - not a new workflow file.
+  # matrix over its output. dbt, dlt and render are named here; every adapter is
+  # discovered from agents/adapters/<dir>/Dockerfile, so adding one is a new
+  # directory - the target, the context, the image and the pin all follow from it,
+  # with no edit here or in the build step.
   select:
     runs-on: ubuntu-latest
     outputs:
       targets: ${{ steps.pick.outputs.targets }}
+      adapter_targets: ${{ steps.pick.outputs.adapter_targets }}
+      packages: ${{ steps.pick.outputs.packages }}
       prune: ${{ steps.pick.outputs.prune }}
     steps:
       - uses: actions/checkout@v4
@@ -73,65 +78,71 @@ jobs:
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
-          echo "prune=false" >> "$GITHUB_OUTPUT"
+
+          # Every agents/adapters/<dir>/ that carries a Dockerfile is an image named
+          # datahub-local-ai-<dir>-adapter. Discovery lives here rather than in a
+          # list, so a new adapter is a new directory and nothing else: the target
+          # name, the build context, the image and the pin all follow from it.
+          adapters=$(for d in agents/adapters/*/; do
+            [ -f "${d}Dockerfile" ] || continue
+            basename "$d"
+          done | jq -Rsc 'split("\n") | map(select(length > 0))')
+          echo "adapters=$adapters" >> "$GITHUB_OUTPUT"
+          echo "packages=$(echo "$adapters" | jq -c \
+            '[.[] | "datahub-local-ai-" + . + "-adapter"] + ["datahub-local-ai-dbt","datahub-local-ai-dlt","datahub-local-ai-render"] | unique')" >> "$GITHUB_OUTPUT"
+
+          prune=false
+          targets="[]"
 
           # A push-to-main run only publishes if its tests passed.
           if [ "$EVENT" = "workflow_run" ] && [ "$CONCLUSION" != "success" ]; then
             echo "tests did not succeed; nothing to publish"
-            echo 'targets=[]' >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          if [ "$EVENT" = "schedule" ]; then
+          elif [ "$EVENT" = "schedule" ]; then
             case "$SCHEDULE" in
-              "17 3 * * 1") echo 'targets=["dbt"]' >> "$GITHUB_OUTPUT" ;;
-              "17 3 * * 2") echo 'targets=["dlt"]' >> "$GITHUB_OUTPUT" ;;
-              "17 3 * * 3") echo 'targets=["render"]' >> "$GITHUB_OUTPUT" ;;
-              "17 3 * * 4") echo 'targets=["pi-render-adapter"]' >> "$GITHUB_OUTPUT" ;;
-              "17 3 * * 5")
-                echo 'targets=[]' >> "$GITHUB_OUTPUT"
-                echo "prune=true" >> "$GITHUB_OUTPUT"
-                ;;
+              "17 3 * * 1") targets='["dbt"]' ;;
+              "17 3 * * 2") targets='["dlt"]' ;;
+              "17 3 * * 3") targets='["render"]' ;;
+              # Every adapter is one image, and each ages with its own base, so the
+              # adapter day rebuilds all of them rather than a named one.
+              "17 3 * * 4") targets="$adapters" ;;
+              "17 3 * * 5") prune=true ;;
             esac
-            exit 0
-          fi
-
-          if [ "$EVENT" = "workflow_dispatch" ]; then
-            if [ "$DISPATCH" = "prune" ]; then
-              echo 'targets=[]' >> "$GITHUB_OUTPUT"
-              echo "prune=true" >> "$GITHUB_OUTPUT"
-            elif [ "$DISPATCH" = "all" ]; then
-              echo 'targets=["dbt","dlt","render","pi-render-adapter"]' >> "$GITHUB_OUTPUT"
-            else
-              echo "targets=[\"$DISPATCH\"]" >> "$GITHUB_OUTPUT"
+          elif [ "$EVENT" = "workflow_dispatch" ]; then
+            case "$DISPATCH" in
+              prune) prune=true ;;
+              all) targets=$(echo "$adapters" | jq -c '. + ["dbt","dlt","render"] | unique') ;;
+              adapters) targets="$adapters" ;;
+              "") targets="[]" ;;
+              *) targets=$(jq -nc --arg t "$DISPATCH" '[$t]') ;;
+            esac
+          else
+            # workflow_run: the changed paths decide. `^` anchors matter - a bare
+            # `workflows/dbt` would also match workflows/dbt-old/.
+            files=$(git diff --name-only "${HEAD_SHA}^" "$HEAD_SHA" || true)
+            echo "changed files:"; echo "$files"
+            add() { targets=$(echo "$targets" | jq -c --arg t "$1" '. + [$t] | unique'); }
+            if echo "$files" | grep -qE '^(workflows/dbt/|workflows/dbt$)'; then add dbt; fi
+            if echo "$files" | grep -qE '^(workflows/dlt/|workflows/dlt$)'; then add dlt; fi
+            if echo "$files" | grep -qE '^(agents/n8n/render/|agents/n8n/render$)'; then
+              add render
+              # An adapter that builds FROM the render image moves when it does.
+              for a in $(echo "$adapters" | jq -r '.[]'); do
+                if grep -q 'datahub-local-ai-render' "agents/adapters/$a/Dockerfile"; then add "$a"; fi
+              done
             fi
-            exit 0
+            # A source change under an adapter rebuilds it; its deploy/ manifests are
+            # what the pin writes, so a change there must not rebuild anything.
+            for a in $(echo "$adapters" | jq -r '.[]'); do
+              if echo "$files" | grep -E "^agents/adapters/$a/" | grep -qvE "^agents/adapters/$a/deploy/"; then
+                add "$a"
+              fi
+            done
           fi
 
-          # workflow_run: the changed paths decide. `^` anchors matter - a bare
-          # `workflows/dbt` would also match workflows/dbt-old/.
-          files=$(git diff --name-only "${HEAD_SHA}^" "$HEAD_SHA" || true)
-          echo "changed files:"; echo "$files"
-
-          targets="[]"
-          # NOTE: test-agents.yaml does not watch agents/adapters/**, so an
-          # adapter-only change does not reach here at all. That is fixed in that
-          # workflow's paths, not here; this filter assumes it is listed.
-          if echo "$files" | grep -qE '^(workflows/dbt/|workflows/dbt$)'; then
-            targets=$(echo "$targets" | jq -c '. + ["dbt"]')
-          fi
-          if echo "$files" | grep -qE '^(workflows/dlt/|workflows/dlt$)'; then
-            targets=$(echo "$targets" | jq -c '. + ["dlt"]')
-          fi
-          # The adapter derives from the render image, so a render change is a
-          # change to the adapter too.
-          if echo "$files" | grep -qE '^(agents/n8n/render/|agents/n8n/render$)'; then
-            targets=$(echo "$targets" | jq -c '. + ["render","pi-render-adapter"] | unique')
-          fi
-          if echo "$files" | grep -E '^agents/adapters/' | grep -qvE '^agents/adapters/[^/]+/deploy/'; then
-            targets=$(echo "$targets" | jq -c '. + ["pi-render-adapter"] | unique')
-          fi
           echo "targets=$targets" >> "$GITHUB_OUTPUT"
+          echo "prune=$prune" >> "$GITHUB_OUTPUT"
+          # Only the adapters this run actually built get re-pinned.
+          echo "adapter_targets=$(echo "$targets" | jq -c --argjson a "$adapters" '[.[] | select(. as $t | $a | index($t))]')" >> "$GITHUB_OUTPUT"
 
   build:
     needs: select
@@ -162,11 +173,21 @@ jobs:
         run: |
           set -euo pipefail
           case "${{ matrix.target }}" in
-            dbt)               context=workflows/dbt;                 image=ghcr.io/datahub-local/datahub-local-ai-dbt ;;
-            dlt)               context=workflows/dlt;                 image=ghcr.io/datahub-local/datahub-local-ai-dlt ;;
-            render)            context=agents/n8n/render;             image=ghcr.io/datahub-local/datahub-local-ai-render ;;
-            pi-render-adapter) context=agents/adapters/pi-render;     image=ghcr.io/datahub-local/datahub-local-ai-pi-render-adapter ;;
-            *) echo "unknown target: ${{ matrix.target }}" >&2; exit 1 ;;
+            dbt)    context=workflows/dbt;     image=ghcr.io/datahub-local/datahub-local-ai-dbt ;;
+            dlt)    context=workflows/dlt;     image=ghcr.io/datahub-local/datahub-local-ai-dlt ;;
+            render) context=agents/n8n/render; image=ghcr.io/datahub-local/datahub-local-ai-render ;;
+            *)
+              # Every other target is an adapter, named by its directory: the build
+              # context is agents/adapters/<target> and the image carries the
+              # -adapter suffix. The Dockerfile is the gate, so a typo is an error
+              # here rather than an empty context build.
+              context="agents/adapters/${{ matrix.target }}"
+              image="ghcr.io/datahub-local/datahub-local-ai-${{ matrix.target }}-adapter"
+              if [ ! -f "$context/Dockerfile" ]; then
+                echo "unknown target: ${{ matrix.target }} (no $context/Dockerfile)" >&2
+                exit 1
+              fi
+              ;;
           esac
           echo "building $image from $context"
           docker buildx build \
@@ -177,6 +198,61 @@ jobs:
             --tag "$image:main" \
             --tag "$image:${{ github.event.workflow_run.head_sha || github.sha }}" \
             "$context"
+
+  # The adapter is consumed by digest, so a published image is not deployed until
+  # the pin moves. Doing it here means a rebuild cannot leave the cluster on the
+  # previous image with nothing to say so, which is what happened every time until
+  # now: the image was built, and the chart kept pointing at the old one.
+  #
+  # The push uses GITHUB_TOKEN, so it does not start another run: a push made with
+  # the token never triggers workflows, which is also what keeps the digest commit
+  # from looping back into this one. Neither file it touches is in the changed-path
+  # filter above, so even a token that did trigger would select no targets.
+  pin:
+    needs: [select, build]
+    if: needs.select.outputs.adapter_targets != '[]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Pin the published adapter digests
+        run: |
+          set -euo pipefail
+          for name in $(echo '${{ needs.select.outputs.adapter_targets }}' | jq -r '.[]'); do
+            image="ghcr.io/datahub-local/datahub-local-ai-$name-adapter"
+            digest=$(docker buildx imagetools inspect "$image:main" | awk '/^Digest:/{print $2}')
+            if [ -z "$digest" ]; then echo "no digest from $image:main" >&2; exit 1; fi
+            echo "$name -> $digest"
+            # The chart pin is the digest line inside the <sympozium_<name>> block.
+            key="sympozium_$(echo "$name" | tr '-' '_')"
+            for f in agents/sympozium/values/*.gotmpl agents/sympozium/values/*.yaml; do
+              [ -f "$f" ] || continue
+              awk -v key="$key" -v dig="$digest" '
+                $0 ~ "^" key ":" { inblk = 1; print; next }
+                inblk && /^[^[:space:]]/ { inblk = 0 }
+                inblk && /^[[:space:]]+digest:[[:space:]]+sha256:/ { sub(/sha256:[0-9a-f]+/, dig); inblk = 0 }
+                { print }
+              ' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+            done
+            # The adapter's own deploy manifests reference the image inline.
+            refs=$(grep -rl '@sha256:' "agents/adapters/$name/deploy" 2>/dev/null || true)
+            for f in $refs; do sed -i "s|@sha256:[0-9a-f]*|@$digest|g" "$f"; done
+          done
+          if git diff --quiet; then
+            echo "already pinned"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A agents/sympozium/values agents/adapters
+          git commit -m "chore(sympozium): pin the published adapter digests ($(echo '${{ needs.select.outputs.adapter_targets }}' | jq -r 'join(",")'))"
+          git push
 
   # RETENTION - both modes, because the two tagging habits differ. A package that
   # only ever pushes `:main` leaves untagged orphans behind and needs
@@ -193,11 +269,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        package:
-          - datahub-local-ai-dbt
-          - datahub-local-ai-dlt
-          - datahub-local-ai-render
-          - datahub-local-ai-pi-render-adapter
+        package: ${{ fromJSON(needs.select.outputs.packages) }}
     steps:
       - name: Prune untagged versions of ${{ matrix.package }} (keep 5)
         uses: actions/delete-package-versions@v5

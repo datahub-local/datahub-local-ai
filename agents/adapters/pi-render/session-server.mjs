@@ -78,14 +78,21 @@ await writeFile(
         baseUrl: process.env.MODEL_BASE_URL,
         api: "openai-completions",
         apiKey: "$OPENAI_API_KEY",
-        compat: { supportsDeveloperRole: false, supportsReasoningEffort: false },
+        compat: { supportsDeveloperRole: false, supportsReasoningEffort: true },
         models: [
           {
             id: process.env.MODEL_NAME,
-            reasoning: false,
+            reasoning: true,
             input: ["text"],
-            contextWindow: 65536,
-            maxTokens: 8192,
+            contextWindow: Number(process.env.PI_RENDER_CONTEXT_WINDOW || "262144"),
+            // The gateway's reasoning is billed as output and, left on, this model
+            // spends every token it is given thinking and returns no content at all
+            // (8192 and 32768 both came back `length` with empty content). Pi only
+            // sends `reasoning_effort` for a non-off thinking level, so the session
+            // runs at `minimal`, which this map turns into the `none` the gateway
+            // honours. Both numbers are overridable so they can move without a rebuild.
+            thinkingLevelMap: { minimal: "none" },
+            maxTokens: Number(process.env.PI_RENDER_MAX_TOKENS || "65536"),
           },
         ],
       },
@@ -149,6 +156,11 @@ function runPi(prompt, sessionID, onOutput, signal, cwd = workDir) {
       "sympozium",
       "--model",
       process.env.MODEL_NAME,
+      // The level is only a key into the model's thinkingLevelMap, which turns it
+      // into `reasoning_effort: none`; without a non-off level Pi sends no effort
+      // and the model reasons until it hits the token cap and returns nothing.
+      "--thinking",
+      "minimal",
       "--session-id",
       sessionID,
       "--session-dir",

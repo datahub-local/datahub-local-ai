@@ -29,8 +29,8 @@
 
 ## 5. Prompt and docs
 
-- [ ] 5.1 Update `prompts/visual_spec.md` to describe the block vocabulary and which spec fields each block expects, keeping it short and literal per the repository's prompt policy; verify every block name and field it names exists in the registry
-- [ ] 5.2 Update `agents/n8n/render/README.md` to describe vendored blocks, the adapter and the offline guarantee, and note the change in the `visual-studio` capability; verify a reader can add a block without reading the adapter
+- [x] 5.1 Update `prompts/visual_spec.md` to describe the block vocabulary and which spec fields each block expects, keeping it short and literal per the repository's prompt policy; verify every block name and field it names exists in the registry
+- [x] 5.2 Update `agents/n8n/render/README.md` to describe vendored blocks, the adapter and the offline guarantee, and note the change in the `visual-studio` capability; verify a reader can add a block without reading the adapter
 
 ## 6. Verify
 

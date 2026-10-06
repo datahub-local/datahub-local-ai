@@ -28,9 +28,56 @@ animation runtime (a vendored GSAP) are all in the image.
 
 `layout` is optional and defaults to `stats` (the studio's original label/value
 list). The others are `flow` (connected nodes with drawn connectors and a
-travelled arrow), `timeline`, `comparison` and `bars`. An item may name an icon
-from `src/icons.json`, and the theme is `accent` plus an optional `accent2` and
-`background` — all validated hex.
+travelled arrow), `timeline`, `comparison`, `bars`, and the catalog block
+`bar-chart-race`. An item may name an icon from `src/icons.json`, and the theme
+is `accent` plus an optional `accent2` and `background` — all validated hex.
+
+The five names from `stats` to `bars` are hand-written builders
+(`src/layouts/*.mjs`); `bar-chart-race` comes from the HyperFrames catalog. The
+registry (`src/blocks/registry.mjs`) is the closed set a caller may name, and
+`src/spec.mjs` validates against it, so a caller never names a file.
+
+## Catalog blocks
+
+A catalog block is a HyperFrames-designed, variable-declaring template. We do
+not write its markup; we pass it values. Blocks are vendored into
+`vendor/blocks/` at image-build time by `scripts/vendor-blocks.mjs`, run against
+the HyperFrames version pinned in `package.json`, and **committed** — so the
+image builds and renders offline, and a re-vendor is a reviewable diff rather
+than a silent overwrite. `vendor/blocks/lock.json` records each block's upstream
+hash. The vendoring step rewrites a block's GSAP CDN reference to the vendored
+`vendor/gsap.min.js` and **hard-fails** on any other remote `src`/`href`; the
+offline render is the gate.
+
+`src/blocks/adapter.mjs` binds a spec to a block. It reads the block's declared
+variables from `data-composition-variables`, maps spec fields onto them through a
+per-block table, coerces each to its declared type (and clamps a declared range),
+and drops anything the block does not declare so the block's own default applies.
+It includes the block by `data-composition-src` and hands this mount's values on
+the include element's `data-variable-values` — the block is referenced, never
+pasted, and its markup is never rewritten.
+
+Only **variable-declaring** blocks are adopted. A catalog *component* (markup +
+CSS with hardcoded content and no declared variables) would have to have its
+content substituted, which is the hand-written markup this path exists to avoid.
+
+Adopted blocks are listed in `blocks.json`; a block is reachable by its own name
+and, once a layout name is switched over to it, by that layout name.
+
+### Adding a block
+
+1. Add its name to `blocks.json` and run `node scripts/vendor-blocks.mjs`; commit
+   the vendored file and the updated `lock.json`.
+2. Add its spec mapping to `VARIABLE_MAPPINGS` in `src/blocks/adapter.mjs` (and a
+   helper if the shape needs one), mapping only variables the block declares.
+3. Add the name to `BLOCK_NAMES` (or point a layout name at it in
+   `BLOCK_LAYOUTS`) in `src/blocks/registry.mjs`, and to `LAYOUTS` in
+   `src/spec.mjs`.
+4. Add an adapter unit test and a container render smoke asserting the produced
+   MP4's duration and frame count.
+
+The image contacts the registry **only** when vendoring, never at render time: a
+block already committed in `vendor/blocks/` renders from disk.
 
 ## Development
 

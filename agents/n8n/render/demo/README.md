@@ -10,6 +10,10 @@ compared against a known result.
 | `flow.json` | `flow` | [`flow.mp4`](flow.mp4) · [`flow.gif`](flow.gif) | 6.0 s | 180 |
 | `bars.json` | `bars` | [`bars.mp4`](bars.mp4) · [`bars.gif`](bars.gif) | 5.0 s | 150 |
 
+The specs' `accent` values are deliberately outside the brand ramp; the service
+maps a caller accent onto the nearest brand role, so the rendered samples use
+brand moss rather than the accent as written. See [`../README.md#brand`](../README.md#brand).
+
 `flow` draws its connectors and steps them one node at a time; `bars` fills each
 bar proportionally to the number in the value. The GIFs are 10 fps previews of
 the MP4s, not a service output format.

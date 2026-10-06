@@ -9,8 +9,8 @@ The only module that knows Enable Banking's wire format
   (which changes on re-link), so the stable identity used downstream is the
   configured ``alias``;
 - transactions are normalised (list ``remittance_information``, signed amount
-  from ``credit_debit_indicator``, ``entry_reference``-first stable id) and
-  filtered to ``status=BOOK``;
+  from ``credit_debit_indicator``, a validated ``entry_reference``-first stable
+  id) and filtered to ``status=BOOK``;
 - PSD2 failures become named exceptions (``RateLimitError``,
   ``AccessExpiredError``, ``AuthError``) rather than a generic HTTP error.
 """
@@ -20,6 +20,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
@@ -46,6 +47,21 @@ STABLE_ID_LENGTH = 32
 JWT_TTL_SECONDS = 3600
 DEFAULT_BASE_URL = "https://api.enablebanking.com"
 BOOK_STATUS = "BOOK"
+
+# A booking-date-scoped positional ordinal: an ISO date, a literal dot and an
+# integer, and nothing else. Anchored so a reference that merely contains
+# punctuation is not mistaken for one.
+_POSITIONAL_REFERENCE = re.compile(r"^\d{4}-\d{2}-\d{2}\.\d+$")
+
+
+def _is_positional_reference(value: str) -> bool:
+    """Whether a provider reference describes a position rather than a transaction.
+
+    Some ASPSPs return a booking-date-scoped ordinal (``2026-09-28.9`` is the
+    tenth transaction booked that day). It is renumbered whenever the list
+    shifts, so it is not an identity.
+    """
+    return bool(_POSITIONAL_REFERENCE.match(value))
 
 
 @dataclass(frozen=True)
@@ -386,12 +402,15 @@ def _stable_id(
     remittance: str | None,
     counterparty: str | None,
 ) -> str:
-    """``entry_reference`` when the ASPSP supplies one, else a deterministic hash.
+    """``entry_reference`` when the ASPSP supplies a usable one, else a hash.
 
-    ``transaction_id`` is never used: Enable Banking documents that it may change
-    when the same transaction list is re-fetched.
+    The reference is trusted only when its shape is not a booking-date-scoped
+    positional ordinal (see :func:`_is_positional_reference`); a positional
+    value is not an identity and falls through to the hash. ``transaction_id``
+    is never used: Enable Banking documents that it may change when the same
+    transaction list is re-fetched.
     """
-    if entry_reference:
+    if entry_reference and not _is_positional_reference(str(entry_reference)):
         return str(entry_reference)
     digest = hashlib.sha256(
         "|".join(

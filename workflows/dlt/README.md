@@ -92,6 +92,18 @@ produced and never consents on its own. Actual Budget's *built-in* bank sync
 must stay unconfigured — it would become a second fetcher competing for the same
 per-account daily budget (spec 005 §5, the recorded ordering mistake).
 
+### Transaction identity
+
+`stable_id` is the ASPSP's `entry_reference` **only** when its shape is not a
+booking-date-scoped positional ordinal — an ISO date, a literal `.` and an
+integer, matched against the whole value; otherwise it is a deterministic hash
+of the account, booking date, amount, currency, remittance and counterparty.
+Openbank returns the ordinal (`2026-09-28.9` is the tenth transaction booked
+that day) and renumbers it whenever the list shifts, so trusting its presence
+would mint a new id for the same transaction on every re-fetch. The untouched
+provider payload stays in `payload_json`, so a reference the adapter rejected is
+still auditable.
+
 ### First link / re-link
 
 ```bash

@@ -296,6 +296,31 @@ class TestFetchTransactions:
         txn = provider.fetch_transactions(ACCOUNT.alias, date(2026, 1, 1), date(2026, 1, 31))[0]
         assert txn.stable_id == "ASPSP-REF-1"
 
+    @pytest.mark.parametrize("positional", ["2026-09-28.9", "2026-09-23.0"])
+    def test_positional_entry_reference_is_rejected_for_the_hash(self, positional):
+        # Openbank returns a booking-date-scoped ordinal, which is a position in
+        # a list and is renumbered when the list shifts, so it cannot be identity.
+        provider = _provider(self._handler_for({"transactions": [_txn(entry_reference=positional)]}))
+        txn = provider.fetch_transactions(ACCOUNT.alias, date(2026, 1, 1), date(2026, 1, 31))[0]
+        null_identity = _provider(
+            self._handler_for({"transactions": [_txn(entry_reference=None)]})
+        ).fetch_transactions(ACCOUNT.alias, date(2026, 1, 1), date(2026, 1, 31))[0]
+        assert txn.stable_id == null_identity.stable_id
+        assert len(txn.stable_id) == 32
+
+    def test_null_entry_reference_falls_back_to_the_hash(self):
+        provider = _provider(self._handler_for({"transactions": [_txn(entry_reference=None)]}))
+        txn = provider.fetch_transactions(ACCOUNT.alias, date(2026, 1, 1), date(2026, 1, 31))[0]
+        assert len(txn.stable_id) == 32
+
+    @pytest.mark.parametrize("reference", ["REF.2026.0001", "0912-3456-7890", "ASPSP-REF-1"])
+    def test_punctuation_alone_does_not_disqualify_a_reference(self, reference):
+        # the rejection rule is shape-based on the whole value, so a genuine
+        # opaque reference that merely contains punctuation stays the identity
+        provider = _provider(self._handler_for({"transactions": [_txn(entry_reference=reference)]}))
+        txn = provider.fetch_transactions(ACCOUNT.alias, date(2026, 1, 1), date(2026, 1, 31))[0]
+        assert txn.stable_id == reference
+
     def test_hash_is_stable_across_identical_fetches(self):
         page = {"transactions": [_txn()]}
         provider = _provider(self._handler_for(page, page))

@@ -1617,33 +1617,7 @@
     "description": null,
     "autosaved": false,
     "createdAt": "2026-10-05T20:39:22.668Z",
-    "updatedAt": "2026-10-05T20:39:22.668Z",
-    "workflowPublishHistory": [
-      {
-        "id": 750,
-        "workflowId": "2pSrRNmYR2jkX1JG",
-        "versionId": "06f8c99d-e2a7-4c6d-85d0-5a223eb5a380",
-        "event": "activated",
-        "userId": "83289481-80d9-4bba-906f-8b49aff6b65d",
-        "createdAt": "2026-10-05T20:39:22.837Z"
-      },
-      {
-        "id": 751,
-        "workflowId": "2pSrRNmYR2jkX1JG",
-        "versionId": "06f8c99d-e2a7-4c6d-85d0-5a223eb5a380",
-        "event": "deactivated",
-        "userId": "83289481-80d9-4bba-906f-8b49aff6b65d",
-        "createdAt": "2026-10-05T20:39:31.313Z"
-      },
-      {
-        "id": 752,
-        "workflowId": "2pSrRNmYR2jkX1JG",
-        "versionId": "06f8c99d-e2a7-4c6d-85d0-5a223eb5a380",
-        "event": "activated",
-        "userId": "83289481-80d9-4bba-906f-8b49aff6b65d",
-        "createdAt": "2026-10-05T20:39:31.528Z"
-      }
-    ]
+    "updatedAt": "2026-10-05T20:39:22.668Z"
   },
   "activeVersionId": "06f8c99d-e2a7-4c6d-85d0-5a223eb5a380",
   "connections": {
@@ -3276,17 +3250,6 @@
       "role": "workflow:owner",
       "workflowId": "2pSrRNmYR2jkX1JG",
       "projectId": "zcGU09G6dy4Oah3l",
-      "project": {
-        "id": "zcGU09G6dy4Oah3l",
-        "name": "no name <admin@example.com>",
-        "type": "personal",
-        "icon": null,
-        "description": null,
-        "customTelemetryTags": [],
-        "creatorId": "83289481-80d9-4bba-906f-8b49aff6b65d",
-        "createdAt": "2025-05-10T07:47:06.870Z",
-        "updatedAt": "2025-05-10T07:47:20.397Z"
-      },
       "createdAt": "2026-09-27T15:39:17.669Z",
       "updatedAt": "2026-09-27T15:39:17.669Z"
     }

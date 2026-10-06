@@ -35,7 +35,7 @@
 ## 6. Agent-authored path
 
 - [x] 6.1 Carry the brand block into the `pi-render` brief built by `build_author_brief` in `visual_studio.workflow.json` (and the adapter if the brief is assembled there); verify the brief text contains the brand tokens and the workflow's `--require-edge` graph is unchanged — apply live per the n8n rules and re-read the published version. Applied live to `Visual Studio` (`2pSrRNmYR2jkX1JG`) and `LinkedIn Image Creator` (`a9tFFs8qkRu8taC2`) through `apply_workflow_changes.py --changes`, every premise edge confirmed first. Re-read afterwards: both are `active`, `nodes`/`activeVersion.nodes` are both 48/12, and live node params/connections are identical to the committed export in both copies. A production run (`RUN_ID 12211`, `STATUS COMPLETE`) returned an SVG carrying the brand shell/ink/moss and `Space Grotesk`, with the authored spec accent on the brand ramp — proof the brand fetch, token builder, prompt and markup builder all execute. The `pi-render` brief half is structural only until 6.2.
-- [ ] 6.2 Author one composition through the agent path with the branded brief and verify the rendered video uses the brand palette and typefaces — `[UNVERIFIED]` until a live session run; record the outcome in the task
+- [x] 6.2 Author one composition through the agent path with the branded brief and verify the rendered video uses the brand palette and typefaces. Done: `RUN_ID 12217` (`diagram_agent`, `STATUS COMPLETE`) authored and rendered a 1080×1350 / 24-frame GIF through the `pi-render` session; a frame shows the dark shell, cream ink, moss bars and the brand typefaces (Space Grotesk headings, monospace captions), so `build_author_brief` carried the brand block and the agent used it.
 
 ## 7. Acceptance and record
 

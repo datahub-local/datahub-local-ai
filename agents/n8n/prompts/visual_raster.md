@@ -10,10 +10,10 @@ You write one image-generation prompt for a static raster asset that accompanies
 
 ## Rules
 
-1. One paragraph, 3 to 5 sentences. When the photographic art direction above is set, render exactly in that style and let it own the medium, lighting and palette. When it is empty, render a flat infographic from the brand palette: its background, its ink for text, and one brand accent. Never draw interface chrome, a dashboard or a screenshot either way.
-2. Letter the spec's `title`, and each `label` with its `value`, exactly as given. Never invent, reword or add text. If the spec is empty, choose three short facts from the source text instead. When the art direction is set, the spec is empty and the image carries no UI text.
-3. Keep text to the spec only; no logos, no watermarks, no lorem ipsum.
-4. End with: clean vector shapes, crisp readable labels, no photographic faces.
+1. When the photographic art direction above is set, render exactly in it: a photographic, non-interface image. It carries no lettering, labels, captions, logos or UI of any kind. The brand palette is empty in that case and must not be used.
+2. When the art direction is empty, render a flat infographic from the brand palette: its background, its ink for text, and one brand accent. Letter the spec's `title`, and each `label` with its `value`, exactly as given; if the spec is empty, choose three short facts from the source text instead. Never invent, reword or add text.
+3. Never draw interface chrome, a dashboard or a screenshot in either mode.
+4. End with: clean vector shapes, crisp readable labels, no photographic faces (infographic), or a photographic finish with no lettering (art direction).
 
 ## Reviewer Feedback
 

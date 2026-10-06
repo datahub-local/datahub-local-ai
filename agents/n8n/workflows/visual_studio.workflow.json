@@ -534,7 +534,7 @@
             "mappingMode": "defineBelow",
             "value": {
               "template_name": "prompts/visual_raster.md",
-              "template_vars": "={{ {\n \"ASSET_TYPE\": $json.ASSET_TYPE,\n \"CONTENT\": $json.CONTENT,\n \"SPEC_JSON\": $json.SPEC_JSON,\n \"BRAND\": $('brand_tokens').first().json.BRAND,\n \"ART_DIRECTION\": $json.BRAND_KIND === 'photographic' ? $('brand_tokens').first().json.ART_DIRECTION : '',\n \"FEEDBACK\": $json.FEEDBACK\n} }}"
+              "template_vars": "={{ {\n \"ASSET_TYPE\": $json.ASSET_TYPE,\n \"CONTENT\": $json.CONTENT,\n \"SPEC_JSON\": $json.BRAND_KIND === 'photographic' ? '' : $json.SPEC_JSON,\n \"BRAND\": $json.BRAND_KIND === 'photographic' ? '' : $('brand_tokens').first().json.BRAND,\n \"ART_DIRECTION\": $json.BRAND_KIND === 'photographic' ? $('brand_tokens').first().json.ART_DIRECTION : '',\n \"FEEDBACK\": $json.FEEDBACK\n} }}"
             },
             "matchingColumns": [],
             "schema": [
@@ -2821,7 +2821,7 @@
           "mappingMode": "defineBelow",
           "value": {
             "template_name": "prompts/visual_raster.md",
-            "template_vars": "={{ {\n \"ASSET_TYPE\": $json.ASSET_TYPE,\n \"CONTENT\": $json.CONTENT,\n \"SPEC_JSON\": $json.SPEC_JSON,\n \"BRAND\": $('brand_tokens').first().json.BRAND,\n \"ART_DIRECTION\": $json.BRAND_KIND === 'photographic' ? $('brand_tokens').first().json.ART_DIRECTION : '',\n \"FEEDBACK\": $json.FEEDBACK\n} }}"
+            "template_vars": "={{ {\n \"ASSET_TYPE\": $json.ASSET_TYPE,\n \"CONTENT\": $json.CONTENT,\n \"SPEC_JSON\": $json.BRAND_KIND === 'photographic' ? '' : $json.SPEC_JSON,\n \"BRAND\": $json.BRAND_KIND === 'photographic' ? '' : $('brand_tokens').first().json.BRAND,\n \"ART_DIRECTION\": $json.BRAND_KIND === 'photographic' ? $('brand_tokens').first().json.ART_DIRECTION : '',\n \"FEEDBACK\": $json.FEEDBACK\n} }}"
           },
           "matchingColumns": [],
           "schema": [

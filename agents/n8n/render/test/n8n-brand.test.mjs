@@ -53,10 +53,12 @@ test("the spec and raster prompts are handed the brand block", () => {
   const specVars = node("download_spec_prompt").parameters.workflowInputs.value.template_vars;
   const rasterVars = node("download_raster_prompt").parameters.workflowInputs.value.template_vars;
   assert.match(specVars, /"BRAND": \$\('brand_tokens'\)/);
-  assert.match(rasterVars, /"BRAND": \$\('brand_tokens'\)/);
-  // The art direction reaches the raster prompt only for a photographic kind; a
-  // diagrammatic raster uses the palette instead (design D4).
-  assert.match(rasterVars, /BRAND_KIND === 'photographic' \? \$\('brand_tokens'\).*ART_DIRECTION : ''/);
+  assert.match(rasterVars, /\$\('brand_tokens'\)\.first\(\)\.json\.BRAND/);
+  // A photographic kind gets the art direction and is deliberately handed no spec and
+  // no UI palette, so a hero is never asked to reproduce UI tokens (design D4).
+  assert.match(rasterVars, /"SPEC_JSON": \$json\.BRAND_KIND === 'photographic' \? '' : \$json\.SPEC_JSON/);
+  assert.match(rasterVars, /"BRAND": \$json\.BRAND_KIND === 'photographic' \? '' : \$\('brand_tokens'\)/);
+  assert.match(rasterVars, /"ART_DIRECTION": \$json\.BRAND_KIND === 'photographic' \? \$\('brand_tokens'\).*ART_DIRECTION : ''/);
 });
 
 test("the prompt templates declare the placeholders the workflow fills", () => {

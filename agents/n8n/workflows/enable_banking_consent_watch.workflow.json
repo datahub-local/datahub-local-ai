@@ -639,10 +639,18 @@
       "consent_states": {
         "cuenta_compartida": {
           "state": "BANK_FAULT",
-          "detail": "500: Internal server error",
-          "status": 500
+          "detail": "ASPSP_ERROR: Error interacting with ASPSP",
+          "status": 400
         }
       }
+    },
+    "node:Twelve-Hourly Watch": {
+      "recurrenceRules": [
+        null
+      ],
+      "recurrenceRuleSignatures": [
+        null
+      ]
     }
   },
   "tags": [],

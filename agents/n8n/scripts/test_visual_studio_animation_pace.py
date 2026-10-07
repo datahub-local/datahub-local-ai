@@ -50,7 +50,7 @@ def test_the_animated_ceiling_is_raised(label, doc):
     for name in ("capture_frames", "build_assemble"):
         assert f"Math.min({CEILING}, Number(a.DURATION_MS) || 3000)" in _code(doc, name), name
     assert f"Math.min({CEILING}, Number(a.DURATION_MS) || specDuration)" in _code(doc, "merge_assets")
-    assert f"Math.min({CEILING}, (spec.motion && spec.motion.durationMs) || 3000)" in _code(doc, "merge_assets")
+    assert f"Math.min({CEILING}, (spec && spec.motion && spec.motion.durationMs) || 3000)" in _code(doc, "merge_assets")
 
 
 @pytest.mark.parametrize("label,doc", list(_copies()))
@@ -66,6 +66,16 @@ def test_the_frame_cap_is_raised(label, doc):
     for name in ("capture_frames", "build_assemble"):
         assert "Math.min(90, Number(a.FRAME_COUNT) || 36)" in _code(doc, name), name
     assert "Math.min(90, Number(a.FRAMES) || 36)" in _code(doc, "merge_assets")
+
+
+@pytest.mark.parametrize("label,doc", list(_copies()))
+def test_a_request_without_a_spec_does_not_crash(label, doc):
+    # A raster-only request (hero_static) carries no spec, and merge_assets computes
+    # the duration before it branches, so an unguarded `spec.motion` null-derefs and
+    # the whole run 500s ("Cannot read properties of null (reading 'motion')").
+    merge = _code(doc, "merge_assets")
+    assert "spec && spec.motion && spec.motion.durationMs" in merge
+    assert "(spec.motion && spec.motion.durationMs)" not in merge
 
 
 def test_the_linkedin_type_declares_a_pace():

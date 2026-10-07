@@ -59,13 +59,26 @@ def test_the_authored_range_is_widened(label, doc):
         assert "d > 12000" in _code(doc, name)
 
 
+@pytest.mark.parametrize("label,doc", list(_copies()))
+def test_the_frame_cap_is_raised(label, doc):
+    # More samples across the same window is what makes a slow transition read; the
+    # cap was 36, which a longer duration cannot exceed.
+    for name in ("capture_frames", "build_assemble"):
+        assert "Math.min(90, Number(a.FRAME_COUNT) || 36)" in _code(doc, name), name
+    assert "Math.min(90, Number(a.FRAMES) || 36)" in _code(doc, "merge_assets")
+
+
 def test_the_linkedin_type_declares_a_pace():
     registry = json.loads(TYPES.read_text())
     li = [t for t in registry["types"] if t["id"] == "diagram_animated_linkedin"]
     assert len(li) == 1
-    # 9000 ms over 24 frames is ~2.7 fps, 3x the 3000 ms default.
+    # 9000 ms over 36 frames is 4 fps, 3x the 3000 ms default and 1.5x the old 24 frames.
     assert li[0]["durationMs"] == 9000
-    assert li[0]["budget"]["frames"] == 24
+    budget = li[0]["budget"]
+    assert budget["frames"] == 36
+    # The extra frames must stay inside the platform's total-pixel cap at 4:5.
+    height = round(budget["viewport"] * 5 / 4)
+    assert budget["frames"] * budget["viewport"] * height <= 36152320
 
 
 def test_the_spec_prompt_states_the_new_range():

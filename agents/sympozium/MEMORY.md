@@ -184,7 +184,7 @@ The fleet is on the hosted model, so the parts of the design that existed only
 because a 4B model ran on one GPU were loosened. The parts that exist because the
 *runner* mishandles a failure were not touched, and the distinction is the whole
 change. See
-[`docs/specs/004-agents-hosted-model.md`](../../docs/specs/004-agents-hosted-model.md).
+[`openspec/changes/archive/2026-10-07-retire-docs-specs/designs/004-agents-hosted-model.md`](../../openspec/changes/archive/2026-10-07-retire-docs-specs/designs/004-agents-hosted-model.md).
 
 What was relaxed:
 

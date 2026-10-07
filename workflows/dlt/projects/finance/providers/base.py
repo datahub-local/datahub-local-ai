@@ -3,7 +3,8 @@
 A provider satisfies :class:`BankDataProvider` and returns the normalised
 dataclasses below. Wire-format quirks (string amounts, list remittance
 information, per-bank missing ids) are handled inside the adapter, never by dbt
-or the ingest pipeline: ``docs/specs/005-personal-finance-datalake.md`` §4.1.
+or the ingest pipeline:
+``openspec/changes/archive/2026-10-07-retire-docs-specs/designs/005-personal-finance-datalake.md`` §4.1.
 """
 
 from __future__ import annotations

@@ -1,7 +1,7 @@
 """Enable Banking provider adapter.
 
 The only module that knows Enable Banking's wire format
-(``docs/specs/005-personal-finance-datalake.md`` §4.1):
+(``openspec/changes/archive/2026-10-07-retire-docs-specs/designs/005-personal-finance-datalake.md`` §4.1):
 
 - auth is a self-signed RS256 JWT minted per request from the application id
   (``kid``) and the RSA private key — no token is ever stored;

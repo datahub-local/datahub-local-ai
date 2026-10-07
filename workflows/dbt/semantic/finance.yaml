@@ -1,8 +1,10 @@
 # Finance semantic registry.
 #
 # MetricFlow-compatible on purpose, exactly like bodega.yaml: `semantic_models` /
-# `metrics` as dbt defines them. See ../../../docs/specs/002-01-semantic-layer.md
-# and, for this domain, docs/specs/005-personal-finance-datalake.md (AI-1).
+# `metrics` as dbt defines them. See
+# ../../../openspec/changes/archive/2026-10-07-retire-docs-specs/designs/002-01-semantic-layer.md
+# and, for this domain,
+# openspec/changes/archive/2026-10-07-retire-docs-specs/designs/005-personal-finance-datalake.md (AI-1).
 #
 # Every `expr` here is a bare documented column of the dbt model, because the
 # compiler validates it against dbt's manifest and the server binds the model's

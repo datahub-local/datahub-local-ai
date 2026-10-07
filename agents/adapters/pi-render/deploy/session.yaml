@@ -58,7 +58,7 @@ spec:
     provider: openrouter
     model: opencode-go/deepseek-v4.1-flash
     baseURL: http://datahub-local-core-data-litellm.data.svc.cluster.local:4000/v1
-    authSecretRef: litellm-auth-credentials
+    authSecretRef: litellm-auth-credentials-pi-render
   supportOwner: datahub-local-ai
   conformance:
     status: pending
@@ -77,7 +77,7 @@ spec:
   runtimeRef: spike-pi-render-session
   authRefs:
     - provider: openrouter
-      secret: litellm-auth-credentials
+      secret: litellm-auth-credentials-pi-render
   agents:
     default:
       baseURL: http://datahub-local-core-data-litellm.data.svc.cluster.local:4000/v1

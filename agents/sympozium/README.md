@@ -350,7 +350,7 @@ real thing — a different prompt, a narrower tool policy, no delivery:
         provider: openrouter
         model: opencode-go/deepseek-v4.1-flash
         baseURL: http://datahub-local-core-data-litellm.data.svc.cluster.local:4000/v1
-        authSecretRef: litellm-auth-credentials
+        authSecretRef: litellm-auth-credentials-homelab-ops
       systemPrompt: |
         <the prompt under test>
       task: |

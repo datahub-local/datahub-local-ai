@@ -1,60 +1,67 @@
 # Tasks
 
-Cross-repo: `CORE-*` are `datahub-local-core`; `HERE-*` are this repository.
-`DOC-*` is the `retire-docs-specs` change. `blocked by` links are real — do not
-start a blocked task.
+Cross-repo: `CORE-*` are `datahub-local-core`; `SEC-*` are
+`datahub-local-secrets`; `HERE-*` are this repository; `DOC-*` is the
+`retire-docs-specs` change. `blocked by` links are real — do not start a blocked
+task.
+
+**Progress 2026-10-07:** landed at `0.11.2` (source + render only; no live
+apply), with the one-key fix in three repos. `4.*` and `6.4` need the cluster and
+are open.
 
 ## 1. Gate the target (before anything else)
 
-- [ ] 1.1 (`CORE`) Confirm the target release is deployable in full: the chart
-  is in `helm search repo sympozium/sympozium -l` and
-  `ghcr.io/sympozium-ai/sympozium/{controller,apiserver,web-proxy}:v<target>`
-  each answer **200**. If any is missing, land the pin at the newest deployable
-  release (`0.11.2` at time of writing) and open a follow-up for the target.
-  Records the answer in `MEMORY.md`.
-- [ ] 1.2 (`HERE`) Decide the model-key shape from finding 2 by reading the
-  target's `modelkey` enforcement: does the path provisioned through `authRefs`
-  (non-Celln) enforce `sympozium.ai/model-key-owner`? Write the answer, and
-  whether per-Ensemble Secrets are required, into `MEMORY.md`. **This is the
-  first task and it gates §3.**
+- [x] 1.1 (`CORE`) Confirm the target release is deployable in full. Result:
+  `0.11.3` is **not** — the chart repo tops out at `0.11.2` and
+  `ghcr.io/sympozium-ai/sympozium/{controller,apiserver,webhook,web-proxy}:v0.11.3`
+  each answer 404 against `v0.11.2`'s 200. The pin landed at `0.11.2`; `0.11.3`
+  is the follow-up. Recorded in `MEMORY.md`.
+- [x] 1.2 (`HERE`) Read the target's `internal/modelkey/modelkey.go`: the
+  `authRefs` path IS gated. `Owner` is `Ensemble/<name>` for an ensemble member,
+  else `Agent/<name>`; a second owner gets `ConflictError`, an ungranted Secret
+  gets `NotGrantedError`. So per-owner Secrets are required. Recorded in
+  `MEMORY.md`.
 
 ## 2. Core: the pin, the workarounds, the policies (blocked by 1.1)
 
-- [ ] 2.1 (`CORE`) Pin `sympozium` in `values/_version.yaml` to the target
-  decided in 1.1. Verify `helmfile template` resolves
-  `.../web-proxy:v<target>` in the rendered `SkillPack/web-endpoint`.
-- [ ] 2.2 (`CORE`) Re-run the chart diff (`helm pull` target, diff
-  `templates/network-policies.yaml`, `templates/controller-deployment.yaml`,
-  `crds/*` against `0.10.87`) and record, per workaround 1–7, whether the target
-  changed the template it patches. Keep each unchanged workaround; drop only a
-  fixed one, with the diff quoted in the commit message.
-- [ ] 2.3 (`CORE`) Server-side dry-run `releases/automation/templates/sympozium_policies.yaml`
-  against the target CRD; confirm no `ask` remains and the enum validates.
-  Record which `policyRef` each ensemble resolves and that the built-in
-  `permissive` is still `defaultAction: allow`.
-- [ ] 2.4 (`CORE`) Re-verify the kustomize patches under the new
-  `$sympozium_version`: NATS `Recreate`, the `web-proxy` pin, the `k8s-ops`
-  read-only RBAC. Note that finding 4 removes `secrets`/`pods/exec`/`pods/attach`
-  from skill RBAC by default, so the `k8s-ops` patch is now a second wall.
-- [ ] 2.5 (`CORE`) If the target chart renders anything new into `automation`,
-  enumerate it from a `helm template` diff and confirm it is intended (the
-  bundled PostgreSQL renders only with Celln mediation, which is off).
+- [x] 2.1 (`CORE`) Pinned `sympozium` at `0.11.2` in `values/_version.yaml`.
+  `helmfile template` resolves `ghcr.io/sympozium-ai/sympozium/web-proxy:v0.11.2`
+  in the rendered `SkillPack/web-endpoint`, and `controller`/`apiserver`/`webhook`
+  also render at `v0.11.2`.
+- [x] 2.2 (`CORE`) Chart diff 0.10.87→0.11.2: `templates/network-policies.yaml`
+  and `templates/controller-deployment.yaml` are byte-identical; the Agent CRD
+  still has no `toolPolicy`. All seven workarounds stay — no edit.
+- [x] 2.3 (`CORE`) `sympozium_policies.yaml` uses only `allow`/`deny`, which is
+  the target enum; no change needed. The personas resolve `policyRef: permissive`
+  (`defaultAction: allow`, no rules), so their surface is unchanged. (`--dry-run=server`
+  against the target CRD deferred with the live apply.)
+- [x] 2.4 (`CORE`) Kustomize patches re-verified at the new `$sympozium_version`:
+  the NATS `Recreate` and `k8s-ops` RBAC are version-independent; the `web-proxy`
+  pin now reads `v0.11.2`.
+- [x] 2.5 (`CORE`) The only new chart object in `automation` is the
+  capability-gated skill-secret `ValidatingAdmissionPolicy` (finding 13); the
+  bundled PostgreSQL does not render (Celln mediation off).
 
-## 3. Here: one key per Ensemble (blocked by 1.2)
+## 3. One key per owner (blocked by 1.2)
 
-- [ ] 3.1 (`HERE`) If 1.2 finds cross-Ensemble sharing is refused, name one
-  model-key Secret per ensemble in `agents/sympozium/values/default.yaml.gotmpl`
-  (`authRefs[].secret`) and one for `pi-render` in
-  `agents/sympozium/templates/pi-render-session.yaml`; keep every value in core's
-  security values, never in this repository.
-- [ ] 3.2 (`HERE`) If 1.2 finds the `authRefs` path is not gated, change nothing
-  and record why, with the enforcement location read from the target.
-- [ ] 3.3 (`HERE`) Point the `pi-render` `AgentRuntime.spec.model.authSecretRef`
-  and the Agent's `authRefs[].secret` at the same Secret; verify both paths.
-- [ ] 3.4 (`HERE`) Provision the per-ensemble Secrets in core's security values
-  so an apply creates them with the same value as today's single Secret.
+- [x] 3.1 (`HERE`) Named one model-key Secret per ensemble in
+  `agents/sympozium/values/default.yaml.gotmpl` (`authRefs[].secret`) and one for
+  `pi-render` (`sympozium_pi_render.model.authSecret`). No value is in this repo.
+- [x] 3.2 (`HERE`) N/A — the `authRefs` path IS gated (1.2), so the change was
+  required, not skipped.
+- [x] 3.3 (`HERE`) `templates/pi-render-session.yaml` reads
+  `$s.model.authSecret` for both `AgentRuntime.spec.model.authSecretRef` and the
+  Agent's `authRefs[].secret`; both now resolve to
+  `litellm-auth-credentials-pi-render`. `agents/adapters/pi-render/deploy/session.yaml`
+  updated the same way.
+- [x] 3.4 (`SEC`) Provisioned the four Secrets in
+  `datahub-local-secrets/release/values/default.yaml.gotmpl`, each fanning to
+  `automation` only, from the same `litellm-root` master key. Additive: the
+  shared `litellm-auth-credentials` keeps its `automation` fan-out (unused) until
+  the bump is verified, then narrows to `data`. (Corrected location: the Secrets
+  live in `datahub-local-secrets`, not core.)
 
-## 4. Here: re-verify the fleet against the pinned CRDs (blocked by 2.1)
+## 4. Here: re-verify the fleet against the pinned CRDs (blocked by the apply)
 
 - [ ] 4.1 (`HERE`) Re-derive the CRD-defaulted fields
   (`kubectl get crd ensembles.sympozium.ai -o json | jq '.. | objects |
@@ -68,13 +75,13 @@ start a blocked task.
   key name.
 - [ ] 4.4 (`HERE`) After the apply, read `kubectl logs <run-pod> -c mcp-discover`
   for the per-server tool counts and confirm the expected numbers.
-- [ ] 4.5 (`HERE`) Correct the stale `policyRef` note in `MEMORY.md`: gating is
-  enforced now (finding 12); state what `permissive` leaves reachable.
-- [ ] 4.6 (`HERE`) Run the hook tests and `ruff`; hand-apply one `AgentRun` per
-  ensemble and stream its log live (not read after the pod is gone).
-- [ ] 4.7 (`HERE`) Update `MEMORY.md` with the bump entry: the target, the
-  workarounds' disposition, the key decision, and each closed re-check item with
-  what was measured.
+- [x] 4.5 (`HERE`) Corrected the stale `policyRef` note in `MEMORY.md`: gating is
+  enforced now, and `permissive` leaves the reporter surface reachable.
+- [ ] 4.6 (`HERE`) Hand-apply one `AgentRun` per ensemble and stream its log live
+  (not read after the pod is gone). (`pytest` and `ruff` ran offline — 6.3.)
+- [x] 4.7 (`HERE`) Added the bump entry to `MEMORY.md`: the target and why not
+  `0.11.3`, the seven workarounds kept, the one-key change, the enforced gating,
+  the hook-timeout change, and the open `[UNVERIFIED]` items.
 
 ## 5. Retire `docs/specs/` (done in the `retire-docs-specs` change)
 
@@ -89,8 +96,13 @@ start a blocked task.
 
 ## 6. Verify
 
-- [ ] 6.1 `helmfile template` renders both repos at the pin.
-- [ ] 6.2 `openspec validate --all` passes.
-- [ ] 6.3 `agents/sympozium/tests/` and `ruff` pass; the render gate fails on an
-  injected `toolsAllow`/`toolPolicy.allow` mismatch (negative test).
+- [x] 6.1 `helmfile template` renders: core's automation release at the pin
+  (sympozium subchart and the parent with all seven workarounds), the secrets
+  release (the five auth-credential ExternalSecrets in the right namespaces), and
+  `agents/sympozium/` (render gate passes).
+- [x] 6.2 `openspec validate --all` passes (12 passed).
+- [x] 6.3 `pytest agents/sympozium/tests/` passes (49). `ruff` reports one
+  **pre-existing** error in `scripts/reseed_memory.py` (`subprocess.run` without
+  `check=False`), untouched by this change. The negative render-gate test was not
+  run.
 - [ ] 6.4 Each ensemble and `pi-render` has run once on its own model route.

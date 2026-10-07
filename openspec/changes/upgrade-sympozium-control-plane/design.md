@@ -25,18 +25,19 @@ Nothing is inferred. Where a fact could not be read, it is marked
 
 | # | Finding | Evidence (2026-10-07) | Consequence |
 |---|---------|-----------------------|-------------|
-| 1 | **The chosen target `0.11.3` is not deployable.** | `helm search repo sympozium/sympozium -l` tops out at `0.11.2`; GHCR manifest for `controller`, `apiserver`, `web-proxy` at `v0.11.3` returns **404**, at `v0.11.2` returns **200**. | The pin is written to `0.11.3` per the user's decision, but **the apply is blocked** until the chart and all three images publish. `0.11.2` is the newest deployable release and is the fallback. |
-| 2 | **One model key per Agent is enforced, and this fleet shares one Secret five ways.** | `0.11.0` release note; PR #650: owner recorded in `sympozium.ai/model-key-owner` — "one Agent, or the members of one Ensemble". | `values/default.yaml.gotmpl` names `litellm-auth-credentials` on all three ensembles; `templates/pi-render-session.yaml` names it on the `pi-render` Agent. Cross-Ensemble sharing is what the release refuses. **This is the change most likely to break the fleet.** |
+| 1 | **The chosen target `0.11.3` is not deployable.** | `helm search repo sympozium/sympozium -l` tops out at `0.11.2`; GHCR manifest for `controller`, `apiserver`, `webhook`, `web-proxy` at `v0.11.3` returns **404**, at `v0.11.2` returns **200**. | Resolved 2026-10-07: the pin landed at **`0.11.2`**. `0.11.3` is the follow-up, gated on its chart and all four images publishing. |
+| 2 | **One model key per Agent is enforced, and this fleet shared one Secret five ways.** | `0.11.0` release note; PR #650; `internal/modelkey/modelkey.go` (`Owner`, `ConflictError`, `NotGrantedError`) enforces it on every run path. | Resolved: each owner has its own Secret — `litellm-auth-credentials-{homelab-ops,homelab-responder,homelab-reviewer,pi-render}` — created in `datahub-local-secrets` and fanned only to `automation`; the old shared name now fans only to `data`. |
 | 3 | **`toolGating` is now enforced and `ask` is gone.** | `sympozium.ai_sympoziumpolicies.yaml` 0.11.2: `defaultAction` and rule `action` are `enum: [allow, deny]`, and the `ask` member is dropped. | The chart's built-in `permissive` policy is `defaultAction: allow` with no rules, so `policyRef: permissive` still yields the full tool surface. Core's two custom policies use only `allow`/`deny` and remain valid. A policy that used `ask` would now fail admission. |
 | 4 | **Skill sidecars lose Secret reach, and a new admission policy refuses a workaround.** | New `templates/skill-secret-admission.yaml` in 0.11.2 (absent in 0.10.87): `ValidatingAdmissionPolicy` `skill-secret-references`, `failurePolicy: Fail`, denies `sympozium-run-*` accounts creating/updating workloads that mount a Secret (`volumes[].secret`, projected secret sources) or read one into the environment (`secretKeyRef`, `envFrom.secretRef`). Opt out per policy with `spec.skillPolicy.allowSecretAccess`. | No persona mounts a SkillPack today, so nothing breaks now. It becomes load-bearing the moment a SkillPack is mounted, and it is the reason `skillPolicy` must be a conscious field, not a default. |
 | 5 | **The bundled PostgreSQL renders only under Celln mediation.** | New `templates/model-gateway-database.yaml` and the `sympozium.modelGatewayBundledDatabase` helper gate on `include "sympozium.cellnMediation"`. Core sets no `celln.mediation.enabled`. | No new workload, PVC or Secret appears in `automation` from this chart. If it ever does, it is a mediated-Celln install, not this fleet. |
 | 6 | **The Agent CRD still carries no `toolPolicy` field.** | `sympozium.ai_agents.yaml` diff 0.10.87→0.11.2 is hook-`timeout` doc text only. | Core's `MutatingAdmissionPolicy` for policy-less `AgentRun`s (fix 6) is **still required**; the "drop once the Agent CRD carries toolPolicy" note has not come due. |
 | 7 | **The network-policy and controller templates are byte-identical across the bump.** | `diff` of `templates/network-policies.yaml` and `templates/controller-deployment.yaml` 0.10.87→0.11.2 is empty. | Workarounds 1, 2, 3, 4 and 7 (eventbus/OTel/web-proxy/post-run network policy holes and the hardcoded NATS Service) are unchanged upstream and **stay**. |
-| 8 | **The `web-endpoint` SkillPack still hardcodes `web-proxy:latest`.** | `files/skills/web-endpoint.yaml` line 84 unchanged; `webProxy.image` values exist but do not reach the SkillPack body. | Core's kustomize pin of the sidecar to `web-proxy:v{{ $sympozium_version }}` stays, and it now resolves to `v0.11.3` — gated on finding 1's 404. |
+| 8 | **The `web-endpoint` SkillPack still hardcodes `web-proxy:latest`.** | `files/skills/web-endpoint.yaml` line 84 unchanged; `webProxy.image` values exist but do not reach the SkillPack body. | Core's kustomize pin of the sidecar to `web-proxy:v{{ $sympozium_version }}` stays; it now resolves to `v0.11.2` (rendered and confirmed). |
 | 9 | **Hook `timeout` semantics changed; a postRun hook now bounds the Job.** | `sympozium.ai_agents.yaml` / `_ensembles` / `_agentruns`: postRun hook timeouts are summed into the Job deadline, never less than 10 minutes; not yet honoured on preRun hooks. | This fleet runs one postRun hook with no explicit `timeout`, so the change is documentation for us — but `MEMORY.md` must record it and the hook must be re-read, not assumed unchanged. |
 | 10 | **The postRun hook's injected env is documented for only two of the vars `deliver-slack.py` reads.** | MEMORY.md, "the CRD documents only the first two" (`AGENT_RESULT`, `AGENT_EXIT_CODE`); the hook also reads `AGENT_RUN_ID` and `AGENT_NAMESPACE`. | `[UNVERIFIED]` for the target release. Re-read a live hook pod's environment before trusting the run-id line in the failure verdict. |
 | 11 | **The built-in policy set changed in exactly one character.** | `templates/default-policies.yaml` diff: the restrictive policy's `execute_command` rule moves `ask` → `deny`. `permissive` and `network-isolated` are unchanged. | No fleet behaviour change from the built-ins, because the personas resolve `permissive`. Recorded so the next reader does not re-derive it. |
 | 12 | **`SympoziumPolicy` was previously declarative-only for `toolGating`; that is now false.** | PR #631: the `MutatingWebhookConfiguration` that would have applied gating was never registered, so `deny`/`defaultAction` did nothing on a run without its own list; `0.11.0` applies the policy while building the pod, on both Job and sandbox paths. | `MEMORY.md`'s "probably moot rather than merely settled" note about `policyRef` is now wrong and must be corrected. The enforcement is schema-registration plus dispatch for the run's own list; the deny list joins the run's, and `defaultAction: deny` leaves only rule-allowed tools. |
+| 13 | **The skill-secret admission policy is capability-gated and does not appear in an offline render.** | `skill-secret-admission.yaml` is guarded by `.Capabilities.APIVersions.Has "admissionregistration.k8s.io/v1/ValidatingAdmissionPolicy"`. `helmfile template` (offline) omits it; adding `--api-versions` to a direct `helm template` renders it as `<release>-sympozium-skill-secret-references`. Live: `kubectl api-resources` lists the kind. | CI/render cannot see the policy, so nothing gates a change to it. It WILL appear on the ArgoCD sync — the cluster serves the kind — which is where its effect is real. |
 
 ## 1. Architecture — what moves, what does not
 
@@ -129,10 +130,19 @@ Finding 2 forces the shape. The fleet needs one model route, so the options are:
   change to the provisioning path; out of scope unless the per-Ensemble Secret
   is refused.
 
-The default decision is the per-Ensemble Secret, because it is the least change
-and it matches the owner semantics ("the members of one Ensemble"). The exact
-Secret names are written by the apply, injected through core's security values;
-this repository names them and never carries a value.
+**Decision (implemented 2026-10-07): one Secret per owner, four in total.**
+Each is created by `datahub-local-secrets` from the same `litellm-root` master
+key, fanned only to `automation`:
+`litellm-auth-credentials-homelab-ops`, `…-homelab-responder`,
+`…-homelab-reviewer`, and `…-pi-render` for the `pi-render` Agent, which is a
+member of no Ensemble and so is its own owner. The change is **additive**: the
+old shared `litellm-auth-credentials` keeps its `automation` fan-out until the
+bump is verified, because dropping it in the same sync would break a still-0.10.87
+run between the secrets sync and the control-plane sync; a follow-up narrows it
+to `data`. This repository names the Secrets and never carries a value. The two
+rejected alternatives are recorded above: a single owner for four consumers is
+impossible by construction, and a shared `ModelConnection` is a larger change to
+the provisioning path than the problem needs.
 
 `pi-render`'s Agent is not a member of an Ensemble, so it takes its **own**
 Secret and its own owner. The `AgentRuntime`'s `authSecretRef` and the Agent's
@@ -166,16 +176,15 @@ tasks, not prose, and each closes with what was measured:
 
 ## 5. Open questions
 
-- Does the target release accept one fleet-wide key when the Agents are
-  provisioned through `authRefs` rather than Celln mediation, or is
-  `model-key-owner` enforced for this path too? This decides between "four
-  Secrets" and "no change" and is the first task to run.
-- Is `0.11.3` published (chart and images) before this work starts, or does the
-  pin land at `0.11.2` and follow to `0.11.3` when it does? Determined by
-  finding 1 at apply time.
+- **Resolved:** the one-key rule IS enforced on the `authRefs` path
+  (`internal/modelkey` runs in the controller, webhook and gateway), so four
+  Secrets were required. See §3.1.
+- **Resolved:** `0.11.3` was not published; the pin landed at `0.11.2` and
+  follows when the chart and images appear. See finding 1.
 - Does the enforced gating change what `toolsAllow` can narrow, or only what
-  `policyRef` denies? The two mechanisms are adjacent; the render gate and a
-  probe run answer it.
+  `policyRef` denies? The two mechanisms are adjacent; the render gate already
+  holds the `toolsAllow`↔`toolPolicy.allow` mirror, and a probe run answers the
+  dispatch half. `[UNVERIFIED]` — no live run in this change.
 - Whether spec 004's **AI-12** (delegation) should be revisited now that
   `delegate_to_persona` is subject to policy gating — deliberately not in this
   change, since the responder still has no second persona.

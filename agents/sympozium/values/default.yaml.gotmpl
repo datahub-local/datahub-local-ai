@@ -68,7 +68,7 @@ sympozium_pi_render:
     provider: openrouter
     name: opencode-go/deepseek-v4.1-flash
     baseURL: http://datahub-local-core-data-litellm.data.svc.cluster.local:4000/v1
-    authSecret: litellm-auth-credentials
+    authSecret: litellm-auth-credentials-pi-render
     namespace: data
     port: 4000
 
@@ -107,7 +107,7 @@ sympozium_ensembles:
 
     authRefs:
       - provider: openrouter
-        secret: litellm-auth-credentials
+        secret: litellm-auth-credentials-homelab-ops
 
     policyRef: permissive
 
@@ -122,7 +122,7 @@ sympozium_ensembles:
 
     authRefs:
       - provider: openrouter
-        secret: litellm-auth-credentials
+        secret: litellm-auth-credentials-homelab-reviewer
 
     policyRef: permissive
 
@@ -145,6 +145,6 @@ sympozium_ensembles:
 
     authRefs:
       - provider: openrouter
-        secret: litellm-auth-credentials
+        secret: litellm-auth-credentials-homelab-responder
 
     policyRef: permissive

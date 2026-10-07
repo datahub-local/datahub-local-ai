@@ -148,13 +148,81 @@ evidence.
 
 ---
 
+## The control plane moved to 0.11.2 (2026-10-07)
+
+core's `values/_version.yaml` names `sympozium/sympozium` at `0.11.2`. It landed
+there rather than at the newest tag `0.11.3` because `0.11.3` is not deployable:
+the chart repo tops out at `0.11.2` and
+`ghcr.io/sympozium-ai/sympozium/{controller,apiserver,webhook,web-proxy}:v0.11.3`
+each answers 404 against `v0.11.2`'s 200 (verified 2026-10-07). The `web-proxy`
+kustomize pin follows the version, so a pin at an unpublished release fails at
+image pull, not at render.
+
+Breaking changes in the `0.10.87 -> 0.11.x` range that touch this fleet:
+
+- **One model key per Agent.** A Secret's owner is recorded in
+  `sympozium.ai/model-key-owner` (`Ensemble/<name>` for an ensemble member, else
+  `Agent/<name>`), and enforced on every run path. All three ensembles and
+  `pi-render` shared `litellm-auth-credentials`, which the first run would claim
+  and the rest would be refused. Fixed by one Secret per owner — see *One model
+  key per owner*.
+- **`SympoziumPolicy.toolGating` is enforced** and the action enum is
+  `allow`/`deny` (`ask` removed). `policyRef: permissive` is `defaultAction:
+  allow` with no rules, so the reporter surface is unchanged. The note further
+  down that gating "is not observably implemented" was true at `v0.10.47` and is
+  now false.
+- **Skill sidecars lose Secret reach**, and a new chart `ValidatingAdmissionPolicy`
+  (`-skill-secret-references`) refuses a `sympozium-run-*` account that creates a
+  workload mounting or reading a Secret. No persona mounts a SkillPack; if one is
+  ever mounted, `spec.skillPolicy.allowSecretAccess` is the deliberate opt-in.
+- **postRun hook `timeout` semantics changed**: hooks run sequentially in one Job
+  and their timeouts are summed into the Job deadline (never less than 10
+  minutes); preRun timeouts are still ignored. This fleet runs one hook and sets
+  no timeout, so nothing changed for it. `[UNVERIFIED]` whether the hook still
+  receives `AGENT_RUN_ID` and `AGENT_NAMESPACE`; re-read a live postrun pod.
+
+All seven workarounds in core's `sympozium_upstream_fixes.yaml` were kept: the
+target chart's `network-policies.yaml` and `controller-deployment.yaml` are
+byte-identical to `0.10.87`'s, and the Agent CRD still carries no `toolPolicy`.
+
+## One model key per owner (2026-10-07)
+
+`0.11.0` gives each model-key Secret exactly one owner and enforces it on every
+run path (`internal/modelkey`): a run is refused with `ConflictError` if another
+live owner claimed the Secret first, and with `NotGrantedError` if the Agent does
+not list it in `spec.authRefs`. Sharing one Secret across Ensembles is what the
+release was written to stop.
+
+The fleet therefore names one Secret per owner, all created by
+`datahub-local-secrets` and fanned to `automation`:
+
+| Owner | Secret |
+|-------|--------|
+| `Ensemble/homelab-ops` | `litellm-auth-credentials-homelab-ops` |
+| `Ensemble/homelab-responder` | `litellm-auth-credentials-homelab-responder` |
+| `Ensemble/homelab-reviewer` | `litellm-auth-credentials-homelab-reviewer` |
+| `Agent/datahub-local-ai-pi-render` | `litellm-auth-credentials-pi-render` |
+
+The old shared `litellm-auth-credentials` keeps its `automation` fan-out, unused,
+until the bump is verified — a follow-up narrows it to `data`. Removing it in the
+same change would break a still-`0.10.87` run between the secrets sync and the
+control-plane sync. `templates/pi-render-session.yaml` names the pi-render Secret
+on both the `AgentRuntime` `authSecretRef` and the Agent `authRefs`, which must be
+the same value. Apply order: the secrets release first (it only adds), then this
+chart (the rename), then core (the bump) — not core first, because a `0.11.2` run
+whose ensemble no longer grants the Secret it names is refused, while a
+`0.10.87` run still naming the old Secret works either way.
+
 ## The fleet runs on the LiteLLM gateway now (2026-09-12)
 
 All three ensembles moved off cluster-local Ollama to the LiteLLM gateway in
 `data`, model `opencode-go/deepseek-v4.1-flash`, with `opencode-go/glm-5.3-flash`
 as the gateway's router fallback. The endpoint, `provider: openrouter` and the
-`litellm-auth-credentials` secret are a matched set across two files — change one
-half and the run has no credential, which is not a startup error.
+model-key secret are a matched set across `values/default.yaml.gotmpl` and
+`templates/pi-render-session.yaml` — change one half and the run has no
+credential, which is not a startup error. Since 2026-10-07 each owner has its
+own secret (`litellm-auth-credentials-<owner>`, one per ensemble plus one for
+`pi-render`); see *One model key per owner*.
 
 `provider: openrouter` is deliberate and does not name the model vendor: the
 agent-runner treats any unrecognized provider as an OpenAI-compatible endpoint,
@@ -561,9 +629,10 @@ alongside the trust boundary it was split on.
 **`channelAccessControl`** lives here because a sender id names a person, not the
 agent — see *`allowedTriggers` is not access control*.
 
-**`policyRef: permissive`** — see *Why the `permissive` policy*, and note that
-`SympoziumPolicy` appears to be declarative-only in v0.10.47, which makes the
-whole question probably moot rather than merely settled.
+**`policyRef: permissive`** — see *Why the `permissive` policy*. The `0.10.47`
+note that `SympoziumPolicy` was declarative-only is stale: `0.11.0` enforces
+`toolGating` (PR #631), and `permissive` is `defaultAction: allow` with no rules,
+so the fleet's surface is unchanged — see *The control plane moved to 0.11.2*.
 
 ---
 
@@ -1869,13 +1938,15 @@ The exposure is narrower than "unrestricted", and two obvious fixes do nothing:
   SkillPacks: the executor was the skill sidecar's `[tool-executor]`, so the runner
   writes the request and nothing answers. Do not read this as safety — it holds
   only while no persona mounts a pack with a sidecar.
-- **`SympoziumPolicy.toolGating` looks like the fix and is not.** It has exactly
-  the right shape and the Agent does carry `policyRef`, but it is not observably
-  implemented in v0.10.47: no container logs `toolGating`, `featureGates` or
-  `policyRef`, and every Sympozium NetworkPolicy in `automation` traces to the Helm
-  chart or to core, `network-isolated`'s `denyAll: true` included. A custom
-  hardened policy would deploy cleanly, read as a fix in review, and change
-  nothing.
+- **`SympoziumPolicy.toolGating` is the fix, and it now runs.** At `v0.10.47` it
+  had the right shape and the Agent carries `policyRef`, but it was not
+  observably implemented: no container logged `toolGating`, `featureGates` or
+  `policyRef`, and every Sympozium NetworkPolicy in `automation` traced to the
+  Helm chart or to core. `0.11.0` applies the policy while building the pod on
+  both the Job and sandbox paths (PR #631), so a custom hardened policy now
+  changes what a run may call. The fleet still resolves `permissive`
+  (`defaultAction: allow`, no rules), so its surface is unchanged — see *The
+  control plane moved to 0.11.2*.
 - **`channelAccessControl` gates *who* may trigger a run, not what the run may do.**
 
 What is left reachable, in order: **the persona's own memory through `autoStore`

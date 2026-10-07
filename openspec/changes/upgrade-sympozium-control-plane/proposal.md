@@ -34,10 +34,10 @@ core can bump the pin while the ensembles keep sharing one key, and here can fix
 
 ## What Changes
 
-- **Core pins the control plane to the target release** in
-  `values/_version.yaml`, gated on that release's chart and images being
-  published (see the gate findings — `0.11.3` is not yet deployable, so the
-  apply is blocked until its chart and images appear).
+- **Core pins the control plane to `0.11.2`**, the newest deployable release, in
+  `values/_version.yaml`. `0.11.3` is tracked as the follow-up: its chart and its
+  `controller`/`apiserver`/`webhook`/`web-proxy` images are still unpublished, so
+  a pin at `0.11.3` would fail at image pull (verified 2026-10-07).
 - **Core re-reviews `sympozium_upstream_fixes.yaml`.** Each of the seven
   workarounds is kept or dropped on evidence from the target chart render, not
   on a reading of the release notes.
@@ -73,15 +73,21 @@ decisions have lived in `docs/specs/004-agents-hosted-model.md` and
 
 ## Impact
 
-- **core** (`datahub-local-core`): `values/_version.yaml`,
-  `releases/automation/values/sympozium.yaml.gotmpl`,
-  `releases/automation/values/_kustomize.yaml.gotmpl`,
-  `releases/automation/templates/sympozium_upstream_fixes.yaml`,
-  `releases/automation/templates/sympozium_policies.yaml`.
+- **core** (`datahub-local-core`): `values/_version.yaml` (0.10.87 → 0.11.2),
+  `releases/automation/values/sympozium.yaml.gotmpl`, `releases/automation/values/_kustomize.yaml.gotmpl`
+  (the `web-proxy` tag follows the pin), and the two templates under
+  `releases/automation/templates/` — no change needed in them, kept as-is.
+- **datahub-local-secrets**: `release/values/default.yaml.gotmpl` — one
+  model-key Secret per owner (`…-homelab-ops`, `…-homelab-responder`,
+  `…-homelab-reviewer`, `…-pi-render`) into `automation`; the shared
+  `litellm-auth-credentials` is kept fanned to `automation` (unused) until the
+  bump is verified, then narrowed to `data` in a follow-up.
 - **here**: `agents/sympozium/values/default.yaml.gotmpl` (`authRefs` per
-  ensemble), `agents/sympozium/templates/pi-render-session.yaml` (its `authRefs`),
-  `agents/sympozium/MEMORY.md` (the bump entry and closed re-check items), and
-  the personas only where a verified change requires it.
+  ensemble, `sympozium_pi_render.model.authSecret`),
+  `agents/sympozium/templates/pi-render-session.yaml` (its `authRefs` and
+  `AgentRuntime.authSecretRef` read that same value),
+  `agents/adapters/pi-render/deploy/session.yaml`, `agents/sympozium/README.md`
+  and `MEMORY.md`.
 - **docs**: `docs/specs/004-agents-hosted-model.md` →
   `openspec/changes/archive/2026-10-07-retire-docs-specs/designs/` (the
   `retire-docs-specs` change); live references to `docs/specs/` in

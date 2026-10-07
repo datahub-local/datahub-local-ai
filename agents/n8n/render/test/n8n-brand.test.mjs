@@ -117,3 +117,42 @@ test("the brand fetch sits on the single-item path before anything reads it", ()
   assert.deepEqual(next("download_brand"), ["brand_tokens"]);
   assert.deepEqual(next("brand_tokens"), ["download_registry"]);
 });
+
+// The LinkedIn flow is a separate workflow and a separate dataset. Its art direction
+// used to be an inline random list in the node; it now comes from image_motifs.json,
+// which carries the brand's photographic direction, so this is the offline proof that
+// the dataset value reaches the prompt (task 5.2).
+const linkedin = JSON.parse(
+  readFileSync(join(N8N, "workflows", "linked_in_image_creator.workflow.json"), "utf8")
+);
+const liNode = (name) => {
+  const found = linkedin.nodes.find((n) => n.name === name);
+  assert.ok(found, `LinkedIn workflow has no node '${name}'`);
+  return found;
+};
+
+test("the LinkedIn art direction comes from the dataset, not the node", () => {
+  const motifs = JSON.parse(readFileSync(join(N8N, "datasets", "image_motifs.json"), "utf8"));
+  assert.equal(motifs.art_direction, brand.photographic.artDirection);
+
+  const scope = (name) => {
+    assert.equal(name, "set_workflow_vars");
+    return { first: () => ({ json: { HOOK: "", POST_CONTENT: "a post about dbt pipelines" } }) };
+  };
+  const run = new Function(
+    "$",
+    "$json",
+    "return (function () {" + liNode("parse_image_motifs").parameters.jsCode + "})()"
+  );
+  const [out] = run(scope, { output: JSON.stringify(motifs) }).map((r) => r.json);
+  assert.equal(out.ART_DIRECTION, brand.photographic.artDirection);
+
+  const vars = liNode("download_image_prompt").parameters.workflowInputs.value.template_vars;
+  assert.match(vars, /"ART_DIRECTION": \$\('parse_image_motifs'\)\.first\(\)\.json\.ART_DIRECTION/);
+  assert.ok(!vars.includes("Math.random()"), "the random inline style list must be gone");
+});
+
+test("both copies of the LinkedIn graph are identical", () => {
+  assert.deepEqual(linkedin.nodes, linkedin.activeVersion.nodes);
+  assert.deepEqual(linkedin.connections, linkedin.activeVersion.connections);
+});

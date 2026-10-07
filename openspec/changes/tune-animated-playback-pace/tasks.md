@@ -17,7 +17,8 @@
 ## 3. Apply and verify live
 
 - [x] 3.1 Applied the six node fields to `Visual Studio` with `--require-edge` guards (`merge_assets>if_video`, `spec_ready>download_html_template`, `if_animated>mkdir_frames`), republished, and re-read: `active`, 48 nodes in both copies, `merge_assets` override present
-- [ ] 3.2 Run `Visual Studio Test` for `diagram_animated_linkedin` with a spec asking `motion.durationMs: 3000` and confirm the asset is ~9000 ms from the **type's** declared pace. **Blocked on pushing `visual_types.json` to GitHub `main`** (the live `DownloadTemplate` reads main; the local edit is not live). The raised ceiling itself is verified live: a spec asking 9000/12000 produced 9.000 s / 12.000 s GIFs.
+- [x] 3.2 The type override is verified live end-to-end: after pushing `visual_types.json` to `main`, `Visual Studio Test` requested `diagram_animated_linkedin` with a spec asking `motion.durationMs: 3000` and returned `DURATION_MS: 9000` (the type's declared pace), 48 frames, 776×970 — the spec was ignored as designed. A spec asking 9000/12000 had already produced 9.000 s / 12.000 s GIFs against the raised ceiling.
+- [x] 3.4 Raise the animated frame cap from 36 to 90 (`merge_assets`, `capture_frames`, `build_assemble`) and set the LinkedIn type to 48 frames at viewport 776 (`36,130,560` total pixels ≤ the platform cap), so a long transition gets more samples; applied live and verified — a 48-frame GIF reads 5.3 fps at 9.000 s. A 60-frame/694 px option was sampled and rejected as too low-resolution.
 - [x] 3.3 Generated comparison samples (see below) for the other types and the LinkedIn type; recorded in `~/visual-studio-samples/pace/`
 
 ## Samples (in `~/visual-studio-samples/pace/`)
@@ -36,4 +37,4 @@
 
 ## 4. Record
 
-- [ ] 4.1 Update the `#### LinkedIn post media` section of `AGENTS.md` to name the type's declared pace and the raised ceiling
+- [x] 4.1 Update the `#### LinkedIn post media` section of `AGENTS.md` to name the type's declared pace and the raised ceiling. Done: the budget paragraph now states 48 frames / 776 px / 9.000 s, the frames-vs-resolution trade, and the `durationMs` precedence (type wins, spec fallback, 20000 ceiling).

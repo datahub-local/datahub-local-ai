@@ -72,13 +72,15 @@ def test_the_linkedin_type_declares_a_pace():
     registry = json.loads(TYPES.read_text())
     li = [t for t in registry["types"] if t["id"] == "diagram_animated_linkedin"]
     assert len(li) == 1
-    # 9000 ms over 36 frames is 4 fps, 3x the 3000 ms default and 1.5x the old 24 frames.
+    # 9000 ms over 48 frames is 5.3 fps, 3x the 3000 ms default and 2x the old 24 frames.
     assert li[0]["durationMs"] == 9000
     budget = li[0]["budget"]
-    assert budget["frames"] == 36
+    assert budget["frames"] == 48
     # The extra frames must stay inside the platform's total-pixel cap at 4:5.
     height = round(budget["viewport"] * 5 / 4)
     assert budget["frames"] * budget["viewport"] * height <= 36152320
+    # No leftover comparison type from tuning the pace.
+    assert not [t for t in registry["types"] if t["id"].startswith("diagram_animated_linkedin_")]
 
 
 def test_the_spec_prompt_states_the_new_range():

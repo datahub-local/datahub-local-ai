@@ -70,46 +70,8 @@
       "durationMs": 9000,
       "budget": {
         "fps": 8,
-        "frames": 36,
-        "viewport": 896
-      }
-    },
-    {
-      "id": "diagram_animated_linkedin_48",
-      "brandKind": "diagrammatic",
-      "name": "Animated diagram (LinkedIn, 48f)",
-      "author": "spec_markup",
-      "specTemplate": "prompts/visual_spec.md",
-      "template": "templates/infographic.html",
-      "render": "animated",
-      "format": "gif",
-      "fallbackFormat": "webp",
-      "aspect": "4:5",
-      "available": true,
-      "durationMs": 9000,
-      "budget": {
-        "fps": 8,
         "frames": 48,
         "viewport": 776
-      }
-    },
-    {
-      "id": "diagram_animated_linkedin_60",
-      "brandKind": "diagrammatic",
-      "name": "Animated diagram (LinkedIn, 60f)",
-      "author": "spec_markup",
-      "specTemplate": "prompts/visual_spec.md",
-      "template": "templates/infographic.html",
-      "render": "animated",
-      "format": "gif",
-      "fallbackFormat": "webp",
-      "aspect": "4:5",
-      "available": true,
-      "durationMs": 9000,
-      "budget": {
-        "fps": 8,
-        "frames": 60,
-        "viewport": 694
       }
     },
     {

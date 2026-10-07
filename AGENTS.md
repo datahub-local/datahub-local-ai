@@ -545,10 +545,17 @@ Four things about the animated branch are deliberate:
   double approval, and the approval names the studio run, the frame count and the
   content type.
 
-The type's budget (8 fps, 24 frames, 1080 px = 34,992,000 pixels) is what keeps a
-GIF inside LinkedIn's documented cap of 500 frames or 36,152,320 pixels; both the
-budget and the branch's wiring are asserted offline in
-`agents/n8n/scripts/test_linkedin_animated_media.py`, which also fails if a node
+The type's budget (8 fps, 48 frames, 776 px = 36,130,560 pixels) is what keeps a
+GIF inside LinkedIn's documented cap of 500 frames or 36,152,320 pixels; frames and
+viewport are a trade — more frames read smoother but must shrink to stay under the
+cap, so the earlier 24 frames at 1080 px both looked fast and moved in visible steps.
+The type also declares `durationMs: 9000`, which fixes the playback pace regardless
+of the duration the authoring model puts in the spec: a type's declared `durationMs`
+wins, a type with none follows the spec's `motion.durationMs` (authored range
+2000–12000), and both are bounded by a 20000 ms ceiling shared with the video path.
+Both the budget and the branch's wiring are asserted offline in
+`agents/n8n/scripts/test_linkedin_animated_media.py` and
+`agents/n8n/scripts/test_visual_studio_animation_pace.py`, which also fail if a node
 that needs a credential has none or if the export has no published version.
 
 #### Visual render service

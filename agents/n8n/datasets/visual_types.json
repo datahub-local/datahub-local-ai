@@ -67,6 +67,7 @@
       "fallbackFormat": "webp",
       "aspect": "4:5",
       "available": true,
+      "durationMs": 9000,
       "budget": {
         "fps": 8,
         "frames": 24,

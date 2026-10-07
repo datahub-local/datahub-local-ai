@@ -20,6 +20,7 @@ import pytest
 
 WORKFLOWS = Path(__file__).resolve().parents[1] / "workflows"
 STUDIO = WORKFLOWS / "visual_studio.workflow.json"
+HARNESS = WORKFLOWS / "visual_studio_test.workflow.json"
 TYPES = WORKFLOWS.parent / "datasets" / "visual_types.json"
 
 
@@ -108,3 +109,16 @@ def test_existing_renderers_are_untouched():
         assert _node(doc, "if_raster")["parameters"]["conditions"]["conditions"][0]["leftValue"]
         assert _node(doc, "if_animated")["parameters"]["conditions"]["conditions"][0]["leftValue"]
         assert "merge_assets" in doc["connections"]
+
+
+def test_the_test_harness_names_an_mp4_download():
+    # Visual Studio Test maps an asset's content type to a file extension for the
+    # download URL it hands back. Without a `video/mp4` case an MP4 asset is named
+    # `diagram_video.png`, so the saved file's extension lies about its bytes.
+    doc = json.loads(HARNESS.read_text())
+    copies = [("top", doc)]
+    if isinstance(doc.get("activeVersion"), dict) and "nodes" in doc["activeVersion"]:
+        copies.append(("activeVersion", doc["activeVersion"]))
+    for label, c in copies:
+        code = _node(c, "unpack_assets")["parameters"]["jsCode"]
+        assert "ct === 'video/mp4' ? 'mp4'" in code, f"{label}: unpack_assets has no mp4 extension"

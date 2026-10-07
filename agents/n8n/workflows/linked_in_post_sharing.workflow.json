@@ -2253,9 +2253,8 @@
             "mappingMode": "defineBelow",
             "value": {
               "CONTENT": "={{ $('execute_post_creator').item.json.text }}",
-              "ASSET_TYPES": "={{ $('select_article_to_post').item.json.POST_MEDIA === 'AGENT' ? 'diagram_agent' : 'diagram_animated_linkedin' }}",
-              "FEEDBACK": "={{ $('notification_retry_or_cancel_animation').isExecuted ? ($('notification_retry_or_cancel_animation').last().json.data.Feedback || '') : '' }}",
-              "SPEC_JSON": ""
+              "ASSET_TYPES": "animation_linkedin",
+              "FEEDBACK": "={{ $('notification_retry_or_cancel_animation').isExecuted ? ($('notification_retry_or_cancel_animation').last().json.data.Feedback || '') : '' }}"
             },
             "matchingColumns": [],
             "schema": [
@@ -2288,16 +2287,6 @@
                 "canBeUsedToMatch": false,
                 "type": "string",
                 "removed": false
-              },
-              {
-                "id": "SPEC_JSON",
-                "displayName": "SPEC_JSON",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": false,
-                "type": "string",
-                "removed": false
               }
             ],
             "attemptToConvertTypes": false,
@@ -2318,7 +2307,7 @@
       },
       {
         "parameters": {
-          "jsCode": "// The studio's own run STATUS is PARTIAL whenever a requested type is unavailable, so the\n// asset's status is what this branches on. The requested type follows POST_MEDIA:\n// AGENT asks the studio for the agent-authored type, anything else the deterministic one.\nconst r = $input.first().json || {};\nconst assets = r.ASSETS || [];\nconst req = $('select_article_to_post').first().json;\nconst want = req.POST_MEDIA === 'AGENT' ? 'diagram_agent' : 'diagram_animated_linkedin';\nconst a = assets.find((x) => x.ASSET_TYPE === want) || null;\nconst ok = Boolean(a && a.STATUS === 'RENDERED' && a.IMAGE);\nreturn [{ json: {\n  RUN_ID: r.RUN_ID || '',\n  RUN_STATUS: r.STATUS || '',\n  ASSET_TYPE: a ? a.ASSET_TYPE : '',\n  ASSET_STATUS: a ? a.STATUS : 'MISSING',\n  CONTENT_TYPE: a ? (a.CONTENT_TYPE || '') : '',\n  IMAGE: a && a.IMAGE ? a.IMAGE : '',\n  DURATION_MS: a ? (a.DURATION_MS || '') : '',\n  FRAME_COUNT: a ? (a.FRAME_COUNT || '') : '',\n  ERROR: ok ? '' : ('animated media unavailable: ' + ((a && (a.ERROR || a.STATUS)) || 'no asset returned')),\n} }];"
+          "jsCode": "// The studio's own run STATUS is PARTIAL whenever a requested type is unavailable, so the\n// asset's status is what this branches on. The LinkedIn branch asks the studio for the\n// composer-authored GIF type; both animated opt-ins (ANIMATED, AGENT) share it.\nconst r = $input.first().json || {};\nconst assets = r.ASSETS || [];\nconst req = $('select_article_to_post').first().json;\nconst want = 'animation_linkedin';\nconst a = assets.find((x) => x.ASSET_TYPE === want) || null;\nconst ok = Boolean(a && a.STATUS === 'RENDERED' && a.IMAGE);\nreturn [{ json: {\n  RUN_ID: r.RUN_ID || '',\n  RUN_STATUS: r.STATUS || '',\n  ASSET_TYPE: a ? a.ASSET_TYPE : '',\n  ASSET_STATUS: a ? a.STATUS : 'MISSING',\n  CONTENT_TYPE: a ? (a.CONTENT_TYPE || '') : '',\n  IMAGE: a && a.IMAGE ? a.IMAGE : '',\n  DURATION_MS: a ? (a.DURATION_MS || '') : '',\n  FRAME_COUNT: a ? (a.FRAME_COUNT || '') : '',\n  ERROR: ok ? '' : ('animated media unavailable: ' + ((a && (a.ERROR || a.STATUS)) || 'no asset returned')),\n} }];"
         },
         "id": "an000000-0000-4000-8000-000000000003",
         "name": "check_animation_result",
@@ -5873,7 +5862,7 @@
           "mappingMode": "defineBelow",
           "value": {
             "CONTENT": "={{ $('execute_post_creator').item.json.text }}",
-            "ASSET_TYPES": "={{ $('select_article_to_post').item.json.POST_MEDIA === 'AGENT' ? 'diagram_agent' : 'diagram_animated_linkedin' }}",
+            "ASSET_TYPES": "animation_linkedin",
             "FEEDBACK": "={{ $('notification_retry_or_cancel_animation').isExecuted ? ($('notification_retry_or_cancel_animation').last().json.data.Feedback || '') : '' }}"
           },
           "matchingColumns": [],
@@ -5907,16 +5896,6 @@
               "canBeUsedToMatch": true,
               "type": "string",
               "removed": false
-            },
-            {
-              "id": "SPEC_JSON",
-              "displayName": "SPEC_JSON",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
             }
           ],
           "attemptToConvertTypes": false,
@@ -5937,7 +5916,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// The studio's own run STATUS is PARTIAL whenever a requested type is unavailable, so the\n// asset's status is what this branches on. The requested type follows POST_MEDIA:\n// AGENT asks the studio for the agent-authored type, anything else the deterministic one.\nconst r = $input.first().json || {};\nconst assets = r.ASSETS || [];\nconst req = $('select_article_to_post').first().json;\nconst want = req.POST_MEDIA === 'AGENT' ? 'diagram_agent' : 'diagram_animated_linkedin';\nconst a = assets.find((x) => x.ASSET_TYPE === want) || null;\nconst ok = Boolean(a && a.STATUS === 'RENDERED' && a.IMAGE);\nreturn [{ json: {\n  RUN_ID: r.RUN_ID || '',\n  RUN_STATUS: r.STATUS || '',\n  ASSET_TYPE: a ? a.ASSET_TYPE : '',\n  ASSET_STATUS: a ? a.STATUS : 'MISSING',\n  CONTENT_TYPE: a ? (a.CONTENT_TYPE || '') : '',\n  IMAGE: a && a.IMAGE ? a.IMAGE : '',\n  DURATION_MS: a ? (a.DURATION_MS || '') : '',\n  FRAME_COUNT: a ? (a.FRAME_COUNT || '') : '',\n  ERROR: ok ? '' : ('animated media unavailable: ' + ((a && (a.ERROR || a.STATUS)) || 'no asset returned')),\n} }];"
+        "jsCode": "// The studio's own run STATUS is PARTIAL whenever a requested type is unavailable, so the\n// asset's status is what this branches on. The LinkedIn branch asks the studio for the\n// composer-authored GIF type; both animated opt-ins (ANIMATED, AGENT) share it.\nconst r = $input.first().json || {};\nconst assets = r.ASSETS || [];\nconst req = $('select_article_to_post').first().json;\nconst want = 'animation_linkedin';\nconst a = assets.find((x) => x.ASSET_TYPE === want) || null;\nconst ok = Boolean(a && a.STATUS === 'RENDERED' && a.IMAGE);\nreturn [{ json: {\n  RUN_ID: r.RUN_ID || '',\n  RUN_STATUS: r.STATUS || '',\n  ASSET_TYPE: a ? a.ASSET_TYPE : '',\n  ASSET_STATUS: a ? a.STATUS : 'MISSING',\n  CONTENT_TYPE: a ? (a.CONTENT_TYPE || '') : '',\n  IMAGE: a && a.IMAGE ? a.IMAGE : '',\n  DURATION_MS: a ? (a.DURATION_MS || '') : '',\n  FRAME_COUNT: a ? (a.FRAME_COUNT || '') : '',\n  ERROR: ok ? '' : ('animated media unavailable: ' + ((a && (a.ERROR || a.STATUS)) || 'no asset returned')),\n} }];"
       },
       "id": "an000000-0000-4000-8000-000000000003",
       "name": "check_animation_result",

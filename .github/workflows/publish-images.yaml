@@ -30,7 +30,6 @@ on:
   schedule:
     - cron: "17 3 * * 1" # dbt
     - cron: "17 3 * * 2" # dlt
-    - cron: "17 3 * * 3" # render
     - cron: "17 3 * * 4" # adapters
     - cron: "17 3 * * 5" # prune
   workflow_dispatch:
@@ -38,7 +37,7 @@ on:
       target:
         description: "Which image to build, or prune"
         type: choice
-        options: [dbt, dlt, render, adapters, all, prune]
+        options: [dbt, dlt, adapters, all, prune]
         default: all
 
 permissions:
@@ -51,7 +50,7 @@ concurrency:
 
 jobs:
   # One place decides which images this run builds. Everything downstream is a
-  # matrix over its output. dbt, dlt and render are named here; every adapter is
+  # matrix over its output. dbt and dlt are named here; every adapter is
   # discovered from agents/adapters/<dir>/Dockerfile, so adding one is a new
   # directory - the target, the context, the image and the pin all follow from it,
   # with no edit here or in the build step.
@@ -89,7 +88,7 @@ jobs:
           done | jq -Rsc 'split("\n") | map(select(length > 0))')
           echo "adapters=$adapters" >> "$GITHUB_OUTPUT"
           echo "packages=$(echo "$adapters" | jq -c \
-            '[.[] | "datahub-local-ai-" + . + "-adapter"] + ["datahub-local-ai-dbt","datahub-local-ai-dlt","datahub-local-ai-render"] | unique')" >> "$GITHUB_OUTPUT"
+            '[.[] | "datahub-local-ai-" + . + "-adapter"] + ["datahub-local-ai-dbt","datahub-local-ai-dlt"] | unique')" >> "$GITHUB_OUTPUT"
 
           prune=false
           targets="[]"
@@ -101,7 +100,6 @@ jobs:
             case "$SCHEDULE" in
               "17 3 * * 1") targets='["dbt"]' ;;
               "17 3 * * 2") targets='["dlt"]' ;;
-              "17 3 * * 3") targets='["render"]' ;;
               # Every adapter is one image, and each ages with its own base, so the
               # adapter day rebuilds all of them rather than a named one.
               "17 3 * * 4") targets="$adapters" ;;
@@ -110,7 +108,7 @@ jobs:
           elif [ "$EVENT" = "workflow_dispatch" ]; then
             case "$DISPATCH" in
               prune) prune=true ;;
-              all) targets=$(echo "$adapters" | jq -c '. + ["dbt","dlt","render"] | unique') ;;
+              all) targets=$(echo "$adapters" | jq -c '. + ["dbt","dlt"] | unique') ;;
               adapters) targets="$adapters" ;;
               "") targets="[]" ;;
               *) targets=$(jq -nc --arg t "$DISPATCH" '[$t]') ;;
@@ -123,13 +121,6 @@ jobs:
             add() { targets=$(echo "$targets" | jq -c --arg t "$1" '. + [$t] | unique'); }
             if echo "$files" | grep -qE '^(workflows/dbt/|workflows/dbt$)'; then add dbt; fi
             if echo "$files" | grep -qE '^(workflows/dlt/|workflows/dlt$)'; then add dlt; fi
-            if echo "$files" | grep -qE '^(agents/n8n/render/|agents/n8n/render$|agents/n8n/datasets/brand\.json$)'; then
-              add render
-              # An adapter that builds FROM the render image moves when it does.
-              for a in $(echo "$adapters" | jq -r '.[]'); do
-                if grep -q 'datahub-local-ai-render' "agents/adapters/$a/Dockerfile"; then add "$a"; fi
-              done
-            fi
             # A source change under an adapter rebuilds it; its deploy/ manifests are
             # what the pin writes, so a change there must not rebuild anything.
             for a in $(echo "$adapters" | jq -r '.[]'); do
@@ -175,7 +166,6 @@ jobs:
           case "${{ matrix.target }}" in
             dbt)    context=workflows/dbt;     file=workflows/dbt/Dockerfile;     image=ghcr.io/datahub-local/datahub-local-ai-dbt ;;
             dlt)    context=workflows/dlt;     file=workflows/dlt/Dockerfile;     image=ghcr.io/datahub-local/datahub-local-ai-dlt ;;
-            render) context=agents/n8n;        file=agents/n8n/render/Dockerfile; image=ghcr.io/datahub-local/datahub-local-ai-render ;;
             *)
               # Every other target is an adapter, named by its directory: the build
               # context is agents/adapters/<target> and the image carries the

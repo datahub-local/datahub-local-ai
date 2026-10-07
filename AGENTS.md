@@ -387,38 +387,49 @@ Seven structural things worth knowing before editing an export:
 
 #### Visual Studio
 
-One workflow turns a source text into a set of visual assets — hero, static
-infographic, animated diagram, animated SVG — driven by the type registry
-`agents/n8n/datasets/visual_types.json`. Adding a type is a change to that file,
-not a branch in the graph; the registry governs structure, render mode, format
-and the type's `brandKind` (`diagrammatic` or `photographic`), while the raster
-art direction it applies comes from the brand.
+One workflow turns a source text into visual assets, driven by the type registry
+`agents/n8n/datasets/visual_types.json`. Adding a type is a change to that file, not a
+branch in the graph. Three types: `image` (authored by the Gemini image model, png),
+`animation` (authored by the composer agent, mp4) and `animation_linkedin` (authored by
+the composer agent, gif, inside LinkedIn's GIF cap). A type declares its `brandKind`
+(`diagrammatic` or `photographic`), its output format and the frame the composer is
+briefed to produce.
 
-**The brand is one committed document.** `agents/n8n/datasets/brand.json` is the
-only copy of the palette and typefaces; every px-generating surface reads it —
-the render service's shell and layouts, the two infographic templates, the four
-prompts, and the type registry — and `agents/n8n/scripts/test_brand.py` fails on
-a colour or a typeface that appears anywhere else. The workflow fetches it once
-(`download_brand` → `brand_tokens`) and hands the spec prompt a `{{ BRAND }}`
-text block, the raster prompt the `photographic.artDirection`, and the markup
-builder the raw colour roles, so no prompt or template spells a colour. A
-`diagrammatic` asset uses the brand's dark or light scheme and its ramp; a
-`photographic` hero is described by the art direction instead. A caller's accent
-is mapped onto the ramp, never rendered free-form. The tokens are extracted from
-the site repository (`mkdocs.yml`, `docs/stylesheets/extra.css`); re-sync with
-`BRAND_REPO=... python agents/n8n/scripts/extract_brand.py`, which is a
-byte-identical no-op when the site is unchanged. The n8n capture sidecar has
-neither brand typeface, so the templates name the closest face it does carry
-(`Roboto` / `DejaVu Sans Mono`) after the brand face; the render image vendors
-the real faces.
+**Authoring is one composer turn.** For an agent type the request's `CONTENT` is a brief
+sent to the `pi-render` session, which plans a **storyboard** (form, style, scenes) and
+then authors a HyperFrames composition and renders it, in the same turn. The workflow
+never sees the composition markup, only the rendered file; the composer's own report is
+kept on the asset as `STORYBOARD` in the run record, so a bad visual is diagnosable.
+There is no typed content spec and no markup template: the old `spec_markup`/`spec_raster`/
+`spec_service` branches, the browser frame capture and the render service are all gone.
+The `image` type stays on Gemini — a different medium, not a fallback for an animation.
 
-**Three triggers, one contract.** An `executeWorkflowTrigger` (sub-workflow
-call), `POST /webhook/visual-studio`, and a form all take `CONTENT` (required),
-`ASSET_TYPES` (comma-separated; blank means the registry's `default_types`;
-over `max_types_per_request` is reported as skipped, never silently dropped),
-`FEEDBACK`, and an optional frozen `SPEC_JSON`. The studio reads no caller state:
-everything it needs arrives on the trigger, and it writes only to the
-`visual_studio_table` DataTable.
+**The brand is one committed document.** `agents/n8n/datasets/brand.json` is the only copy
+of the palette and typefaces; every surface that describes a look reads it — the authoring
+brief, the raster prompt and the type registry — and `agents/n8n/scripts/test_brand.py`
+fails on a colour or a typeface that appears anywhere else. The workflow fetches it once
+(`download_brand` → `brand_tokens`), which resolves the requested scheme and hands the
+composer a `{{ BRAND }}` text block and the raster prompt the `photographic.artDirection`.
+A `diagrammatic` asset uses the brand's dark or light scheme; a `photographic` one is
+described by the art direction instead, and the raster prompt keeps both modes. The tokens
+are extracted from the site repository (`mkdocs.yml`, `docs/stylesheets/extra.css`);
+re-sync with `BRAND_REPO=... python agents/n8n/scripts/extract_brand.py`, which is a
+byte-identical no-op when the site is unchanged.
+
+**Three triggers, one contract.** An `executeWorkflowTrigger` (sub-workflow call),
+`POST /webhook/visual-studio`, and a form all take `CONTENT` (required), `ASSET_TYPES`
+(comma-separated; blank means the registry's `default_types`; over
+`max_types_per_request` is reported as skipped, never silently dropped), `FEEDBACK`,
+`FORCE` and `STYLE`. The studio reads no caller state: everything it needs arrives on the
+trigger, and it writes only to the `visual_studio_table` DataTable.
+
+**FORCE and STYLE.** `FORCE` is `auto | diagram | story | data | poster | image`; `auto`
+lets the composer choose the form, anything else pins it, and a forced form is honoured or
+reported, never silently replaced. `STYLE` names a brand scheme (`dark | light`). `FORCE`
+is validated in `normalize_input`, which is where a fixed enum belongs; `STYLE` is resolved
+and validated in `brand_tokens`, because the scheme names are data in `brand.json` and a
+hardcoded default would be a second copy of that decision. An unknown value in either
+fails loudly, naming it.
 
 **Creating it on a fresh instance**, in order:
 
@@ -437,179 +448,96 @@ everything it needs arrives on the trigger, and it writes only to the
 
     # 3. every later edit is field-level and guarded by the graph
     kubectl -n security exec n8n-apply -- python3 /tmp/s.py --workflow 'Visual Studio' \
-      --require-edge 'merge_assets>if_raster' --set 'some_node:field=value' --apply
+      --require-edge 'parse_registry>if_agent' --set 'some_node:field=value' --apply
 
     # 4. and the handler it points at, which must be active to fire
     kubectl -n security exec n8n-apply -- python3 /tmp/s.py --create /tmp/vse.json
     curl -X POST -H "X-N8N-API-KEY: $N8N_API_KEY" "$N8N_URL/api/v1/workflows/<id>/activate"
 
-**Frozen spec.** `SPEC_JSON` is a typed content spec — `title`, `blocks[]` of
-label/value, `accent`, `motion{kind,durationMs}`, `alt`. Present, it is used
-verbatim for every variant in the request and **no authoring model call is
-made**, which is what keeps a static infographic and its animated counterpart
-from ever disagreeing: the caller passes an approved spec back to re-render one
-rejected asset. It is validated by the same validator the model's output passes,
-so a malformed spec fails loudly with the missing field named. Enforcing *when*
-a spec is frozen is the caller's job; the studio only guarantees a supplied spec
-is never silently re-authored.
+**The composer is a Sympozium `HarnessSession`, not a core service.**
+`sympozium_pi_render` (template `pi-render-session.yaml`) in `agents/sympozium/` runs the
+`agents/adapters/pi-render/` image. A session Deployment honours
+`AgentRuntime.spec.resources` where a Job's agent container is hardcoded to 1 GiB. It is
+kept running (no `idleTimeout`), its PVC is **pre-created at 8 GiB** because the
+controller's fixed 1 GiB claim is below the engine's 1024 MiB disk gate, and two additive
+NetworkPolicies give n8n ingress on 8080 and the session egress to LiteLLM on 4000.
+`PI_RENDER_URL` on the n8n deployment points at the session's own Service
+(`datahub-local-ai-pi-render-api.automation.svc:8080`). The session server returns Pi's
+report, not the file, so the artifact is a second request: the authoring
+`POST /v1/chat/completions` carries a run-scoped `session_id` and an output `format`, the
+turn runs in `<workspace>/runs/<session_id>/`, and `GET /artifacts/<session_id>/out.<ext>`
+serves it (validated; traversal refused). The requested format is produced after the engine
+render with the image's `ffmpeg` — `animation_linkedin` declares `format: gif`. Rationale
+and the rollout are in `openspec/changes/add-agent-authored-assets/`.
 
-**Browser-render pipeline.** Animated types go markup → frames → assembled file,
-deterministically — frame count, frame rate and duration come from the spec and
-the registry, never from wall-clock recording:
+**Failure and retention.** `settings.errorWorkflow` points at `Visual Studio Error`, which
+upserts a `STATUS=FAILED` row keyed by `RUN_ID` with the reason and posts to the
+`workflows` Slack channel; the studio's own graph has no Slack, no schedule, no GitHub
+node and one terminal node. A failed composer costs one asset, not the run:
+`execute_author` and `fetch_artifact` continue on error and `agent_result` turns the empty
+result into that asset's `ERROR`. `Visual Studio Prune` runs daily at 04:00 UTC and deletes
+rows whose system `createdAt` is older than 7 days, whatever their status, so the multi-MB
+`RESULT` payloads do not accumulate.
 
-1. `capture_frames` (Puppeteer `Run Custom Script`, `CUSTOM.puppeteer`) opens the
-   markup from a `data:` URL against browserless at a fixed viewport, waits for
-   `document.fonts.ready`, pauses every animation and seeks `currentTime` across
-   the timeline, screenshotting one JPEG per frame **directly to disk** at
-   `~/.n8n-files/<execution>/<asset>/f_NNN.jpg`.
-2. `assemble_animation` (`ExecuteCommand`) runs
-   `img2webp -loop 0 -d <ms> f_*.jpg -o out.webp` over that directory with the
-   duration remainder distributed across frames so the total equals the spec
-   (3000 ms over 36 frames is 24×83 + 12×84), and falls back to
-   `gm convert -delay <cs> -loop 0` when `img2webp` is absent or fails — `gm`
-   writes an animated GIF only, never a WebP. The file comes back as a data URL
-   on stdout.
+**Verification is manual — there is no CI coverage for n8n.** The claims above were checked
+by POSTing to the live webhook and by `--require-edge` graph checks. Read the live workflow
+back after every apply and diff it against the export before believing a change landed.
 
-The Files node may only touch paths under `~/.n8n-files`
-(`N8N_RESTRICT_FILE_ACCESS_TO` defaults to it), so `/tmp` is out of reach without
-disabling a security default instance-wide — hence the directory above. Frames
-are removed as soon as the run finishes: `assemble_animation` deletes its own
-directory, `cleanup_frames` removes `~/.n8n-files/<execution>` on the way to the
-run record, and `Visual Studio Error` removes it again when the run fails
-outright. Nothing else in the graph touches the filesystem.
+**The studio can be exercised without touching a pipeline.** `Visual Studio Test` holds its
+parameters in a Code node and ends in one item per asset — the summary plus the asset
+itself as binary — so it runs from the editor's *Execute workflow*, or by POSTing
+`/webhook/visual-studio-test` with any of `CONTENT`, `ASSET_TYPES`, `FEEDBACK`, `FORCE` or
+`STYLE`. Its default is the cheap path (one `image`, no composer turn); set
+`ASSET_TYPES=animation` or `animation_linkedin` to exercise the composer, and `FORCE` to
+pin the form. It computes `TOTAL_PIXELS` and `LINKEDIN_GIF_CAP_OK` for a GIF, which is how
+the platform's pixel cap can be checked by eye rather than by memory.
 
-**Failure and retention.** `settings.errorWorkflow` points at `Visual Studio
-Error`, which upserts a `STATUS=FAILED` row keyed by `RUN_ID` with the reason and
-posts to the `workflows` Slack channel; the studio's own graph has no Slack, no
-schedule, no GitHub node and one terminal node, so the boundary still holds with
-the render branch in place. `Visual Studio Prune` runs daily at 04:00 UTC and
-deletes rows whose system `createdAt` is older than 7 days, whatever their
-status, so the multi-MB `RESULT` payloads do not accumulate.
-
-**Verification is manual — there is no CI coverage for n8n.** The claims above
-were checked by POSTing to the live webhook and by `--require-edge` graph checks;
-node parameters that are not obvious (`CUSTOM.puppeteer`, the DataTable
-`deleteRows` filter, the `Files` node path rules) were read out of the running
-image rather than guessed, e.g.
-`kubectl exec … -- node -e "require('n8n-nodes-base/dist/nodes/ExecuteCommand/ExecuteCommand.node.js')"`.
-Read the live workflow back after every apply and diff it against the export
-before believing a change landed.
-
-**The studio can be exercised without touching a pipeline.** `Visual Studio
-Test` holds its parameters in a Code node and ends in one item per asset — the
-summary plus the asset itself as binary — so it runs from the editor's *Execute
-workflow*, or by POSTing `/webhook/visual-studio-test` with any of `CONTENT`,
-`ASSET_TYPES`, `FEEDBACK` or `SPEC_JSON`. Its defaults are deliberately the cheap
-deterministic case (one `diagram_animated` from a frozen spec, so no image-model
-call); send `SPEC_JSON: ""` to make the authoring model write one, and set
-`ASSET_TYPES` to try the others. It computes `TOTAL_PIXELS` and
-`LINKEDIN_GIF_CAP_OK` for an animated asset, which is how the platform's pixel
-cap can be checked by eye rather than by memory.
-
-**A webhook whose path declares a parameter is served under its `webhookId`, and
-that URL is not the obvious one.** `File Webhook`'s path is
-`76a3521f-…/:fileId`, and the address that works is
-`/webhook/76a3521f-…/76a3521f-…/<fileId>` — the id, then the declared path with
-the parameter substituted. `/webhook/76a3521f-…/<fileId>` answers 404 "not
-registered", which is presumably why `Image Content Generator` already publishes
-the doubled-id form; the shape was verified by fetching a real asset on
-2026-10-01. `Visual Studio Test` uses it to hand back the assets it produced:
-each is written to `TemporalFiles` and returned as a `DOWNLOAD_URL`, and the
-links stop working about an hour later because `File Webhook` deletes rows whose
-`updatedAt` is older than that on every request.
+**A webhook whose path declares a parameter is served under its `webhookId`, and that URL
+is not the obvious one.** `File Webhook`'s path is `76a3521f-…/:fileId`, and the address
+that works is `/webhook/76a3521f-…/76a3521f-…/<fileId>` — the id, then the declared path
+with the parameter substituted. `/webhook/76a3521f-…/<fileId>` answers 404 "not
+registered", which is presumably why `Image Content Generator` already publishes the
+doubled-id form; the shape was verified by fetching a real asset on 2026-10-01. `Visual
+Studio Test` uses it to hand back the assets it produced: each is written to
+`TemporalFiles` and returned as a `DOWNLOAD_URL`, and the links stop working about an hour
+later because `File Webhook` deletes rows whose `updatedAt` is older than that on every
+request.
 
 #### LinkedIn post media
 
-`LinkedIn Post Sharing` carries one media item per post, and which one is the
-**row's** decision: `content_queue.POST_MEDIA` = `ANIMATED` asks `Visual Studio`
-for `diagram_animated_linkedin` and attaches the approved animation, while a
-blank or `STATIC` value takes the `LinkedIn Image Creator` path exactly as
-before. The switch sits on the text approval's output, so both media kinds pass
-through the same publish node, which picks whichever conversion actually ran
-(`$('convert_animation').isExecuted ? … : $('convert_image')…`) — never a second
-publish node, and never a path that guesses.
+`LinkedIn Post Sharing` carries one media item per post, and which one is the **row's**
+decision: `content_queue.POST_MEDIA` of `ANIMATED` or `AGENT` asks `Visual Studio` for
+`animation_linkedin` and attaches the approved animation, while a blank or `STATIC` value
+takes the `LinkedIn Image Creator` path exactly as before. The switch sits on the text
+approval's output, so both media kinds pass through the same publish node, which picks
+whichever conversion actually ran (`$('convert_animation').isExecuted ? … :
+$('convert_image')…`) — never a second publish node, and never a path that guesses.
 
-Four things about the animated branch are deliberate:
+Both animated opt-ins now request the same type, because the deterministic path is retired
+and LinkedIn needs a GIF inside its cap; the opt-in only decides *whether* media is
+animated. Four things about the branch are deliberate:
 
-- **It branches on the asset, not the run.** The studio reports its run
-  `STATUS: PARTIAL` whenever a requested type is unavailable, so
-  `check_animation_result` tests the asset's own `STATUS`/`ERROR`.
-- **A failed animation never blocks the post.** The failure output lands on a
-  Slack notice naming the article and the reason, then continues into the image
-  branch *before* the image's own approval gate — so the substitute is reviewed
-  as an image instead of silently replacing the animation.
-- **No frozen spec.** A post has one media asset, so nothing needs keeping in
-  step, and a rejection has to be free to re-author; the retry form's feedback is
-  passed straight back to the studio as `FEEDBACK`.
-- **The reviewer sees the motion**: the asset is uploaded to Slack before the
-  double approval, and the approval names the studio run, the frame count and the
-  content type.
+- **It branches on the asset, not the run.** The studio reports its run `STATUS: PARTIAL`
+  whenever a requested type is unavailable, so `check_animation_result` tests the asset's
+  own `STATUS`/`ERROR`.
+- **A failed animation never blocks the post.** The failure output lands on a Slack notice
+  naming the article and the reason, then continues into the image branch *before* the
+  image's own approval gate — so the substitute is reviewed as an image instead of silently
+  replacing the animation.
+- **No frozen spec.** A post has one media asset, so nothing needs keeping in step, and a
+  rejection has to be free to re-author; the retry form's feedback is passed straight back
+  to the studio as `FEEDBACK`.
+- **The reviewer sees the motion**: the asset is uploaded to Slack before the double
+  approval, and the approval names the studio run, the frame count and the content type.
 
-The type's budget (8 fps, 48 frames, 776 px = 36,130,560 pixels) is what keeps a
-GIF inside LinkedIn's documented cap of 500 frames or 36,152,320 pixels; frames and
-viewport are a trade — more frames read smoother but must shrink to stay under the
-cap, so the earlier 24 frames at 1080 px both looked fast and moved in visible steps.
-The type also declares `durationMs: 9000`, which fixes the playback pace regardless
-of the duration the authoring model puts in the spec: a type's declared `durationMs`
-wins, a type with none follows the spec's `motion.durationMs` (authored range
-2000–12000), and both are bounded by a 20000 ms ceiling shared with the video path.
-Both the budget and the branch's wiring are asserted offline in
-`agents/n8n/scripts/test_linkedin_animated_media.py` and
-`agents/n8n/scripts/test_visual_studio_animation_pace.py`, which also fail if a node
-that needs a credential has none or if the export has no published version.
-
-#### Visual render service
-
-Video is produced **outside** the n8n pod, because the n8n image has no FFmpeg —
-the same reason `motion_clip` was declared unavailable. `agents/n8n/render/` is a
-small Node service that takes a **typed content spec** and returns an MP4. It
-authors the composition itself from versioned templates, so it never executes
-model-authored HTML, and it renders with **no network**: Chrome, the fonts and a
-vendored GSAP are baked into the image. The image publishes as
-`ghcr.io/datahub-local/datahub-local-ai-render:main` (see
-`.github/workflows/publish-images.yaml`) and is deployed by core's
-`automation` release through the `app-template` chart beside n8n, which owns the
-NetworkPolicy (declared through the chart's own `networkpolicies:` key, not a
-standalone template).
-
-The registry's `spec_service` author and the `render: video` type are the studio
-side; the existing animated WebP/GIF path and its `merge_assets` builders are
-unchanged. Sympozium agents reach the same engine through the `render` MCP proxy
-in `datahub-local-ai-mcp`, declared under `sympozium_mcp_servers.render` (disabled
-until that image publishes). Rationale, alternatives and the cross-repo plan are
-in `openspec/changes/add-hyperframes-render-service/`.
-
-#### Agent-authored assets
-
-`author: agent` in the type registry is the other path: instead of a typed spec,
-the request's `CONTENT` is a **brief** sent to the `pi-render` agent, which authors
-a composition and renders it. `diagram_agent` is the type; the workflow's
-`if_agent` branch (off `parse_registry`, so a non-agent request never reaches it)
-posts the brief to the session and fetches the artifact, and `merge_assets` skips
-agent types so they are not emitted twice. The workflow never sees the agent's
-markup — only the rendered file — which is what keeps the studio's "model output
-is data" boundary intact.
-
-The agent is a Sympozium `HarnessSession` declared in `agents/sympozium/`
-(`sympozium_pi_render`, template `pi-render-session.yaml`), not a core service: a
-session Deployment honours `AgentRuntime.spec.resources` where a Job's agent
-container is hardcoded to 1 GiB. It is kept running (no `idleTimeout`), its PVC is
-**pre-created at 8 GiB** because the controller's fixed 1 GiB claim is below the
-engine's 1024 MiB disk gate, and two additive NetworkPolicies give n8n ingress on
-8080 and the session egress to LiteLLM on 4000. `PI_RENDER_URL` on the n8n
-deployment points at the session's own Service
-(`datahub-local-ai-pi-render-api.automation.svc:8080`).
-
-The adapter it runs is `agents/adapters/pi-render/`. Its session server returns Pi's
-report, not the file, so the artifact contract is a second request: the authoring
-`POST /v1/chat/completions` carries a run-scoped `session_id` and an output `format`,
-the turn runs in `<workspace>/runs/<session_id>/`, and `GET
-/artifacts/<session_id>/out.<ext>` serves it (validated; traversal refused). The
-requested format is produced after the engine render with the image's `ffmpeg` —
-LinkedIn needs a **GIF**, so `diagram_agent` declares `format: gif`. A row opts in
-with `POST_MEDIA=AGENT`; `ANIMATED` keeps the deterministic type and the still-image
-fallback is unchanged. Rationale and the rollout are in
-`openspec/changes/add-agent-authored-assets/`.
+The type's budget (8 fps, 48 frames, 776 px = 36,130,560 pixels) is what keeps the GIF
+inside LinkedIn's documented cap of 500 frames or 36,152,320 pixels; frames and viewport
+are a trade — more frames read smoother but must shrink to stay under the cap. The type
+also declares `durationSeconds: 9`, which the workflow passes to the composer and to the
+server's transcode, so the playback pace is the type's, not the composer's. The budget and
+the branch's wiring are asserted offline in
+`agents/n8n/scripts/test_linkedin_animated_media.py`, which also fails if a node that needs
+a credential has none or if the export has no published version.
 
 ### MCP servers
 

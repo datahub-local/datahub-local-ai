@@ -2,10 +2,9 @@
 
 `agents/n8n/datasets/brand.json` is the only place this repository may write a
 brand colour or a typeface. Every surface that produces a visual must read it:
-the render service's source and layouts, the infographic templates, the four
-prompts that describe a look, and the type registry. This test walks those files
-and fails on a hex literal or a typeface that the brand document does not carry,
-so a surface cannot quietly grow a second palette.
+the prompts that describe a look and the type registry. This test walks those
+files and fails on a hex literal or a typeface that the brand document does not
+carry, so a surface cannot quietly grow a second palette.
 
 This is the mechanism the design calls D6. It is review-only otherwise, and this
 repository already records that an unenforced rule drifts.
@@ -21,14 +20,11 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]  # agents/n8n
 BRAND_PATH = ROOT / "datasets" / "brand.json"
 
-# Files the gate deliberately does not read: the third-party catalog blocks and
-# fonts under vendor/ are upstream, icons.json is a third-party icon set, and the
-# render tests assert against literals on purpose. Every entry is exercised by
+# Files the gate deliberately does not read. Empty now: the render service's
+# third-party catalog and fonts went with the render service, and nothing else
+# carries a value the gate should skip. Every entry is exercised by
 # test_allow_list_is_the_expected_set, so a stray entry fails rather than hides.
-ALLOW = (
-    "render/src/icons.json",
-    "render/vendor/",
-)
+ALLOW = ()
 
 HEX_RE = re.compile(r"#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})\b")
 FONT_RE = re.compile(r"font-family:\s*([^;{}\n]+)")
@@ -78,11 +74,9 @@ def brand_fonts() -> set:
 
 def targets():
     paths = []
-    paths += sorted((ROOT / "render" / "src").rglob("*"))
-    paths += sorted((ROOT / "templates").glob("*"))
     paths += [
         ROOT / "prompts" / name
-        for name in ("visual_spec.md", "visual_raster.md", "linkedin_image_prompt.md", "diagram_generator.md")
+        for name in ("visual_raster.md", "linkedin_image_prompt.md", "diagram_generator.md")
     ]
     paths += [ROOT / "datasets" / "visual_types.json"]
     for path in paths:
@@ -96,7 +90,7 @@ def is_allowed(path: Path) -> bool:
 
 
 def test_allow_list_is_the_expected_set():
-    assert ALLOW == ("render/src/icons.json", "render/vendor/"), (
+    assert ALLOW == (), (
         "the brand gate's allow-list changed; justify the new entry in a comment "
         "and update this assertion deliberately"
     )
@@ -111,13 +105,10 @@ def test_brand_has_no_template_placeholder():
 
 
 def test_every_surface_is_walked():
-    # A path-list typo would silently skip a whole surface, so assert the known
-    # count of walked files is non-trivial and every expected surface is present.
+    # A path-list typo would silently skip a whole surface, so assert every
+    # expected surface is present.
     walked = [p.relative_to(ROOT).as_posix() for p in targets()]
-    assert "render/src/scene.mjs" in walked
-    assert "templates/infographic.html" in walked
-    assert "templates/infographic.svg" in walked
-    assert "prompts/visual_spec.md" in walked
+    assert "prompts/visual_raster.md" in walked
     assert "datasets/visual_types.json" in walked
 
 

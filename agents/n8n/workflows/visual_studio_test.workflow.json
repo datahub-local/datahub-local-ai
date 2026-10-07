@@ -42,7 +42,7 @@
           96
         ],
         "parameters": {
-          "jsCode": "// Parameters for the studio call. With the manual trigger these defaults are used;\n// a POST to /webhook/visual-studio-test with any of CONTENT / ASSET_TYPES /\n// FEEDBACK / SPEC_JSON overrides them.\nconst body = ($input.first().json || {}).body || {};\n\n// Try others here, e.g. 'hero_static,infographic_static,diagram_animated' or\n// 'animated_svg,motion_clip' (declared but unavailable, to see the unavailable path).\nconst DEFAULT_TYPES = 'diagram_animated';\n\n// A frozen spec keeps a manual run deterministic and makes no authoring model call.\n// Send SPEC_JSON: \"\" over the webhook to let the model author the spec instead.\nconst DEFAULT_SPEC = JSON.stringify({\n  title: 'Homelab data flow',\n  blocks: [\n    { label: 'Ingest', value: 'bronze' },\n    { label: 'Build', value: 'silver + gold' },\n    { label: 'Serve', value: 'Trino' }\n  ],\n  accent: '#22d3ee',\n  motion: { kind: 'rise', durationMs: 3000 },\n  alt: 'Animated diagram of the homelab data flow: ingest, build, serve'\n});\n\nconst asString = (v) => (typeof v === 'string' ? v : JSON.stringify(v));\n\nreturn [{\n  json: {\n    CONTENT: body.CONTENT ?? 'The homelab runs a small data platform across four machines. Ingest lands raw files in bronze, dbt builds the silver and gold tables in Iceberg, and Trino serves the dashboards that sit on top of them.',\n    ASSET_TYPES: body.ASSET_TYPES ?? DEFAULT_TYPES,\n    FEEDBACK: body.FEEDBACK ?? '',\n    SPEC_JSON: body.SPEC_JSON !== undefined ? asString(body.SPEC_JSON) : DEFAULT_SPEC\n  }\n}];"
+          "jsCode": "// Parameters for the studio call. With the manual trigger these defaults are used;\n// a POST to /webhook/visual-studio-test with any of CONTENT / ASSET_TYPES /\n// FEEDBACK / FORCE / STYLE overrides them.\nconst body = ($input.first().json || {}).body || {};\n\n// The default is the cheap path: one Gemini image, no composer turn. Set ASSET_TYPES\n// to 'animation' or 'animation_linkedin' to exercise the composer, and FORCE to pin\n// the form (auto|diagram|story|data|poster|image). STYLE is a brand scheme.\nconst DEFAULT_TYPES = 'image';\n\nreturn [{\n  json: {\n    CONTENT: body.CONTENT ?? 'The homelab runs a small data platform across four machines. Ingest lands raw files in bronze, dbt builds the silver and gold tables in Iceberg, and Trino serves the dashboards that sit on top of them.',\n    ASSET_TYPES: body.ASSET_TYPES ?? DEFAULT_TYPES,\n    FEEDBACK: body.FEEDBACK ?? '',\n    FORCE: body.FORCE ?? 'auto',\n    STYLE: body.STYLE ?? ''\n  }\n}];\n"
         }
       },
       {
@@ -68,7 +68,8 @@
               "CONTENT": "={{ $json.CONTENT }}",
               "ASSET_TYPES": "={{ $json.ASSET_TYPES }}",
               "FEEDBACK": "={{ $json.FEEDBACK }}",
-              "SPEC_JSON": "={{ $json.SPEC_JSON }}"
+              "FORCE": "={{ $json.FORCE }}",
+              "STYLE": "={{ $json.STYLE }}"
             },
             "matchingColumns": [],
             "schema": [
@@ -103,8 +104,18 @@
                 "removed": false
               },
               {
-                "id": "SPEC_JSON",
-                "displayName": "SPEC_JSON",
+                "id": "FORCE",
+                "displayName": "FORCE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "STYLE",
+                "displayName": "STYLE",
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
@@ -131,7 +142,7 @@
           96
         ],
         "parameters": {
-          "jsCode": "// One output item per asset: the summary, the asset itself as binary (preview in the\n// execution view), and what the File Webhook needs to serve it as a download.\nconst r = $input.first().json;\nconst assets = r.ASSETS || [];\nconst ext = (ct) => (ct === 'image/gif' ? 'gif' : ct === 'image/webp' ? 'webp' : ct === 'image/svg+xml' ? 'svg' : ct === 'video/mp4' ? 'mp4' : 'png');\n\nif (!assets.length) {\n  return [{ json: { RUN_ID: r.RUN_ID, RUN_STATUS: r.STATUS, NOTE: 'the studio returned no assets' } }];\n}\n\nreturn assets.map((a) => {\n  const frames = Number(a.FRAME_COUNT) || 1;\n  const pixels = a.WIDTH && a.HEIGHT ? Number(a.WIDTH) * Number(a.HEIGHT) * frames : 0;\n  const isText = a.CONTENT_TYPE === 'image/svg+xml';\n  const dataUrl = String(a.IMAGE || '');\n  const base64 = dataUrl.startsWith('data:')\n    ? dataUrl.slice(dataUrl.indexOf(',') + 1)\n    : (a.MARKUP ? Buffer.from(String(a.MARKUP), 'utf8').toString('base64') : '');\n\n  const json = {\n    RUN_ID: r.RUN_ID,\n    RUN_STATUS: r.STATUS,\n    ASSET_TYPE: a.ASSET_TYPE,\n    STATUS: a.STATUS,\n    FORMAT: a.FORMAT,\n    CONTENT_TYPE: a.CONTENT_TYPE || '',\n    DURATION_MS: a.DURATION_MS || '',\n    FRAME_COUNT: a.FRAME_COUNT || '',\n    WIDTH: a.WIDTH || '',\n    HEIGHT: a.HEIGHT || '',\n    TOTAL_PIXELS: pixels || '',\n    LINKEDIN_GIF_CAP_OK: a.CONTENT_TYPE === 'image/gif' ? (frames <= 500 && pixels <= 36152320) : undefined,\n    IMAGE_BYTES: a.IMAGE ? Math.floor((String(a.IMAGE).length - String(a.IMAGE).indexOf(',') - 1) * 3 / 4) : 0,\n    ERROR: a.ERROR || '',\n    MARKUP: isText ? a.MARKUP : undefined,\n    FILE_ID: a.ASSET_TYPE + '_' + r.RUN_ID,\n    FILE_EXT: ext(a.CONTENT_TYPE),\n    DATA_BASE64: base64\n  };\n\n  const item = { json };\n  if (dataUrl.startsWith('data:')) {\n    item.binary = {\n      data: {\n        data: Buffer.from(base64, 'base64'),\n        mimeType: a.CONTENT_TYPE,\n        fileName: a.ASSET_TYPE + '.' + ext(a.CONTENT_TYPE),\n        fileExtension: ext(a.CONTENT_TYPE)\n      }\n    };\n  }\n  return item;\n});\n"
+          "jsCode": "// One output item per asset: the summary, the asset itself as binary (preview in the\n// execution view), and what the File Webhook needs to serve it as a download.\nconst r = $input.first().json;\nconst assets = r.ASSETS || [];\nconst ext = (ct) => (ct === 'image/gif' ? 'gif' : ct === 'image/webp' ? 'webp' : ct === 'video/mp4' ? 'mp4' : 'png');\n\nif (!assets.length) {\n  return [{ json: { RUN_ID: r.RUN_ID, RUN_STATUS: r.STATUS, NOTE: 'the studio returned no assets' } }];\n}\n\nreturn assets.map((a) => {\n  const frames = Number(a.FRAME_COUNT) || 1;\n  const pixels = a.WIDTH && a.HEIGHT ? Number(a.WIDTH) * Number(a.HEIGHT) * frames : 0;\n  const dataUrl = String(a.IMAGE || '');\n  const base64 = dataUrl.startsWith('data:') ? dataUrl.slice(dataUrl.indexOf(',') + 1) : '';\n\n  const json = {\n    RUN_ID: r.RUN_ID,\n    RUN_STATUS: r.STATUS,\n    ASSET_TYPE: a.ASSET_TYPE,\n    STATUS: a.STATUS,\n    FORMAT: a.FORMAT,\n    CONTENT_TYPE: a.CONTENT_TYPE || '',\n    DURATION_MS: a.DURATION_MS || '',\n    FRAME_COUNT: a.FRAME_COUNT || '',\n    WIDTH: a.WIDTH || '',\n    HEIGHT: a.HEIGHT || '',\n    TOTAL_PIXELS: pixels || '',\n    LINKEDIN_GIF_CAP_OK: a.CONTENT_TYPE === 'image/gif' ? (frames <= 500 && pixels <= 36152320) : undefined,\n    IMAGE_BYTES: a.IMAGE ? Math.floor((String(a.IMAGE).length - String(a.IMAGE).indexOf(',') - 1) * 3 / 4) : 0,\n    STORYBOARD: a.STORYBOARD || '',\n    ERROR: a.ERROR || '',\n    FILE_ID: a.ASSET_TYPE + '_' + r.RUN_ID,\n    FILE_EXT: ext(a.CONTENT_TYPE),\n    DATA_BASE64: base64\n  };\n\n  const item = { json };\n  if (dataUrl.startsWith('data:')) {\n    item.binary = {\n      data: {\n        data: Buffer.from(base64, 'base64'),\n        mimeType: a.CONTENT_TYPE,\n        fileName: a.ASSET_TYPE + '.' + ext(a.CONTENT_TYPE),\n        fileExtension: ext(a.CONTENT_TYPE)\n      }\n    };\n  }\n  return item;\n});\n"
         }
       },
       {
@@ -436,7 +447,7 @@
         96
       ],
       "parameters": {
-        "jsCode": "// Parameters for the studio call. With the manual trigger these defaults are used;\n// a POST to /webhook/visual-studio-test with any of CONTENT / ASSET_TYPES /\n// FEEDBACK / SPEC_JSON overrides them.\nconst body = ($input.first().json || {}).body || {};\n\n// Try others here, e.g. 'hero_static,infographic_static,diagram_animated' or\n// 'animated_svg,motion_clip' (declared but unavailable, to see the unavailable path).\nconst DEFAULT_TYPES = 'diagram_animated';\n\n// A frozen spec keeps a manual run deterministic and makes no authoring model call.\n// Send SPEC_JSON: \"\" over the webhook to let the model author the spec instead.\nconst DEFAULT_SPEC = JSON.stringify({\n  title: 'Homelab data flow',\n  blocks: [\n    { label: 'Ingest', value: 'bronze' },\n    { label: 'Build', value: 'silver + gold' },\n    { label: 'Serve', value: 'Trino' }\n  ],\n  accent: '#22d3ee',\n  motion: { kind: 'rise', durationMs: 3000 },\n  alt: 'Animated diagram of the homelab data flow: ingest, build, serve'\n});\n\nconst asString = (v) => (typeof v === 'string' ? v : JSON.stringify(v));\n\nreturn [{\n  json: {\n    CONTENT: body.CONTENT ?? 'The homelab runs a small data platform across four machines. Ingest lands raw files in bronze, dbt builds the silver and gold tables in Iceberg, and Trino serves the dashboards that sit on top of them.',\n    ASSET_TYPES: body.ASSET_TYPES ?? DEFAULT_TYPES,\n    FEEDBACK: body.FEEDBACK ?? '',\n    SPEC_JSON: body.SPEC_JSON !== undefined ? asString(body.SPEC_JSON) : DEFAULT_SPEC\n  }\n}];"
+        "jsCode": "// Parameters for the studio call. With the manual trigger these defaults are used;\n// a POST to /webhook/visual-studio-test with any of CONTENT / ASSET_TYPES /\n// FEEDBACK / FORCE / STYLE overrides them.\nconst body = ($input.first().json || {}).body || {};\n\n// The default is the cheap path: one Gemini image, no composer turn. Set ASSET_TYPES\n// to 'animation' or 'animation_linkedin' to exercise the composer, and FORCE to pin\n// the form (auto|diagram|story|data|poster|image). STYLE is a brand scheme.\nconst DEFAULT_TYPES = 'image';\n\nreturn [{\n  json: {\n    CONTENT: body.CONTENT ?? 'The homelab runs a small data platform across four machines. Ingest lands raw files in bronze, dbt builds the silver and gold tables in Iceberg, and Trino serves the dashboards that sit on top of them.',\n    ASSET_TYPES: body.ASSET_TYPES ?? DEFAULT_TYPES,\n    FEEDBACK: body.FEEDBACK ?? '',\n    FORCE: body.FORCE ?? 'auto',\n    STYLE: body.STYLE ?? ''\n  }\n}];\n"
       }
     },
     {
@@ -462,7 +473,8 @@
             "CONTENT": "={{ $json.CONTENT }}",
             "ASSET_TYPES": "={{ $json.ASSET_TYPES }}",
             "FEEDBACK": "={{ $json.FEEDBACK }}",
-            "SPEC_JSON": "={{ $json.SPEC_JSON }}"
+            "FORCE": "={{ $json.FORCE }}",
+            "STYLE": "={{ $json.STYLE }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -497,8 +509,18 @@
               "removed": false
             },
             {
-              "id": "SPEC_JSON",
-              "displayName": "SPEC_JSON",
+              "id": "FORCE",
+              "displayName": "FORCE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "STYLE",
+              "displayName": "STYLE",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -525,7 +547,7 @@
         96
       ],
       "parameters": {
-        "jsCode": "// One output item per asset: the summary, the asset itself as binary (preview in the\n// execution view), and what the File Webhook needs to serve it as a download.\nconst r = $input.first().json;\nconst assets = r.ASSETS || [];\nconst ext = (ct) => (ct === 'image/gif' ? 'gif' : ct === 'image/webp' ? 'webp' : ct === 'image/svg+xml' ? 'svg' : ct === 'video/mp4' ? 'mp4' : 'png');\n\nif (!assets.length) {\n  return [{ json: { RUN_ID: r.RUN_ID, RUN_STATUS: r.STATUS, NOTE: 'the studio returned no assets' } }];\n}\n\nreturn assets.map((a) => {\n  const frames = Number(a.FRAME_COUNT) || 1;\n  const pixels = a.WIDTH && a.HEIGHT ? Number(a.WIDTH) * Number(a.HEIGHT) * frames : 0;\n  const isText = a.CONTENT_TYPE === 'image/svg+xml';\n  const dataUrl = String(a.IMAGE || '');\n  const base64 = dataUrl.startsWith('data:')\n    ? dataUrl.slice(dataUrl.indexOf(',') + 1)\n    : (a.MARKUP ? Buffer.from(String(a.MARKUP), 'utf8').toString('base64') : '');\n\n  const json = {\n    RUN_ID: r.RUN_ID,\n    RUN_STATUS: r.STATUS,\n    ASSET_TYPE: a.ASSET_TYPE,\n    STATUS: a.STATUS,\n    FORMAT: a.FORMAT,\n    CONTENT_TYPE: a.CONTENT_TYPE || '',\n    DURATION_MS: a.DURATION_MS || '',\n    FRAME_COUNT: a.FRAME_COUNT || '',\n    WIDTH: a.WIDTH || '',\n    HEIGHT: a.HEIGHT || '',\n    TOTAL_PIXELS: pixels || '',\n    LINKEDIN_GIF_CAP_OK: a.CONTENT_TYPE === 'image/gif' ? (frames <= 500 && pixels <= 36152320) : undefined,\n    IMAGE_BYTES: a.IMAGE ? Math.floor((String(a.IMAGE).length - String(a.IMAGE).indexOf(',') - 1) * 3 / 4) : 0,\n    ERROR: a.ERROR || '',\n    MARKUP: isText ? a.MARKUP : undefined,\n    FILE_ID: a.ASSET_TYPE + '_' + r.RUN_ID,\n    FILE_EXT: ext(a.CONTENT_TYPE),\n    DATA_BASE64: base64\n  };\n\n  const item = { json };\n  if (dataUrl.startsWith('data:')) {\n    item.binary = {\n      data: {\n        data: Buffer.from(base64, 'base64'),\n        mimeType: a.CONTENT_TYPE,\n        fileName: a.ASSET_TYPE + '.' + ext(a.CONTENT_TYPE),\n        fileExtension: ext(a.CONTENT_TYPE)\n      }\n    };\n  }\n  return item;\n});\n"
+        "jsCode": "// One output item per asset: the summary, the asset itself as binary (preview in the\n// execution view), and what the File Webhook needs to serve it as a download.\nconst r = $input.first().json;\nconst assets = r.ASSETS || [];\nconst ext = (ct) => (ct === 'image/gif' ? 'gif' : ct === 'image/webp' ? 'webp' : ct === 'video/mp4' ? 'mp4' : 'png');\n\nif (!assets.length) {\n  return [{ json: { RUN_ID: r.RUN_ID, RUN_STATUS: r.STATUS, NOTE: 'the studio returned no assets' } }];\n}\n\nreturn assets.map((a) => {\n  const frames = Number(a.FRAME_COUNT) || 1;\n  const pixels = a.WIDTH && a.HEIGHT ? Number(a.WIDTH) * Number(a.HEIGHT) * frames : 0;\n  const dataUrl = String(a.IMAGE || '');\n  const base64 = dataUrl.startsWith('data:') ? dataUrl.slice(dataUrl.indexOf(',') + 1) : '';\n\n  const json = {\n    RUN_ID: r.RUN_ID,\n    RUN_STATUS: r.STATUS,\n    ASSET_TYPE: a.ASSET_TYPE,\n    STATUS: a.STATUS,\n    FORMAT: a.FORMAT,\n    CONTENT_TYPE: a.CONTENT_TYPE || '',\n    DURATION_MS: a.DURATION_MS || '',\n    FRAME_COUNT: a.FRAME_COUNT || '',\n    WIDTH: a.WIDTH || '',\n    HEIGHT: a.HEIGHT || '',\n    TOTAL_PIXELS: pixels || '',\n    LINKEDIN_GIF_CAP_OK: a.CONTENT_TYPE === 'image/gif' ? (frames <= 500 && pixels <= 36152320) : undefined,\n    IMAGE_BYTES: a.IMAGE ? Math.floor((String(a.IMAGE).length - String(a.IMAGE).indexOf(',') - 1) * 3 / 4) : 0,\n    STORYBOARD: a.STORYBOARD || '',\n    ERROR: a.ERROR || '',\n    FILE_ID: a.ASSET_TYPE + '_' + r.RUN_ID,\n    FILE_EXT: ext(a.CONTENT_TYPE),\n    DATA_BASE64: base64\n  };\n\n  const item = { json };\n  if (dataUrl.startsWith('data:')) {\n    item.binary = {\n      data: {\n        data: Buffer.from(base64, 'base64'),\n        mimeType: a.CONTENT_TYPE,\n        fileName: a.ASSET_TYPE + '.' + ext(a.CONTENT_TYPE),\n        fileExtension: ext(a.CONTENT_TYPE)\n      }\n    };\n  }\n  return item;\n});\n"
       }
     },
     {

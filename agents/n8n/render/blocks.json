@@ -1,4 +1,0 @@
-{
-  "_comment": "Catalog blocks this service carries, vendored into vendor/blocks/ by scripts/vendor-blocks.mjs at the hyperframes version pinned in package.json. Adding a block is an entry here plus a generated file, never a registry fetch at render time. Only variable-declaring blocks are listed: a component (markup + CSS with hardcoded content) would have to be rewritten to carry our data, which is the hand-written markup this migration removes.",
-  "blocks": ["bar-chart-race"]
-}

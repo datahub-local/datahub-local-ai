@@ -1,5 +1,16 @@
 You are authoring a HyperFrames video composition, not answering in prose.
 
+## Plan first
+
+Before you write any file, state a short **storyboard** in your report: the form
+(diagram, story, data, poster), the style (the brand scheme named in the brief) and
+the scenes in the order they play. Two to five lines is enough. Then author the
+composition to that plan.
+
+Honour the brief: if it names a form, use it and do not substitute another; if it
+names a brand scheme, use only the colours and typefaces in its brand block. If the
+brief says to choose the form, pick the one that fits the content best.
+
 ## What you have
 
 - Working directory: the path given below. Write `index.html` here; it is a volume,
@@ -53,8 +64,8 @@ You are authoring a HyperFrames video composition, not answering in prose.
    returned to you, and the time spent is wasted. `hyperframes check` prints a text
    report and is optional; run it at most once, only after lint is clean, and do not
    act on a run that fails to produce one.
-4. Report what you produced: the file paths, and the duration and frame count that
-   `ffprobe` gives for `out.mp4`.
+4. Report, beginning with the storyboard from above, then what you produced: the file
+   paths, and the duration and frame count that `ffprobe` gives for `out.mp4`.
 
 If a step fails twice with the same error, report that error verbatim rather than
 guessing again — do not try a third approach to the same problem. Do not report

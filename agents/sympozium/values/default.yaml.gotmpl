@@ -42,15 +42,6 @@ sympozium_mcp_servers:
     warehouseScopes: silver.finance,gold.finance
     cacheTTLSeconds: 3600
 
-  render:
-    enabled: true
-    image: ghcr.io/datahub-local/mcp-render
-    tag: main
-    toolsPrefix: render
-    observabilityEnv: false
-    kubernetesReader: false
-    renderUrl: http://datahub-local-core-automation-render.automation.svc.cluster.local:8080
-
 sympozium_pi_render:
   enabled: true
   image: ghcr.io/datahub-local/datahub-local-ai-pi-render-adapter

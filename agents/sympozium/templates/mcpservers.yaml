@@ -174,10 +174,6 @@ spec:
             - name: TRINO_USER
               value: {{ $server.trinoUser | default "mcp" | quote }}
 {{-     end }}
-{{-     if $server.renderUrl }}
-            - name: RENDER_URL
-              value: {{ $server.renderUrl | quote }}
-{{-     end }}
 {{-     if or (not (hasKey $server "observabilityEnv")) $server.observabilityEnv }}
 {{-       if and $server.garageSecret $server.garageUrlKey }}
             - name: GARAGE_ADMIN_URL

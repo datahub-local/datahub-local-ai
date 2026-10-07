@@ -26,7 +26,10 @@
                 "name": "FEEDBACK"
               },
               {
-                "name": "SPEC_JSON"
+                "name": "FORCE"
+              },
+              {
+                "name": "STYLE"
               }
             ]
           }
@@ -77,8 +80,10 @@
                 "fieldType": "textarea"
               },
               {
-                "fieldLabel": "SPEC_JSON",
-                "fieldType": "textarea"
+                "fieldLabel": "FORCE"
+              },
+              {
+                "fieldLabel": "STYLE"
               }
             ]
           },
@@ -95,7 +100,7 @@
           96
         ],
         "parameters": {
-          "jsCode": "const raw = $input.first().json || {};\nconst src = Object.assign({}, raw.body || {}, raw.query || {}, raw);\nconst v = (k) => { const x = src[k]; return x == null ? '' : String(x).trim(); };\nconst content = v('CONTENT');\nif (!content) throw new Error('CONTENT is required');\nreturn [{ json: {\n  RUN_ID: String($execution.id),\n  CONTENT: content,\n  ASSET_TYPES: v('ASSET_TYPES'),\n  FEEDBACK: v('FEEDBACK'),\n  SPEC_JSON: v('SPEC_JSON'),\n} }];"
+          "jsCode": "const raw = $input.first().json || {};\nconst src = Object.assign({}, raw.body || {}, raw.query || {}, raw);\nconst v = (k) => { const x = src[k]; return x == null ? '' : String(x).trim(); };\nconst content = v('CONTENT');\nif (!content) throw new Error('CONTENT is required');\n// FORCE pins the form; STYLE names a brand scheme and is resolved (and defaulted)\n// in brand_tokens, where the scheme names live, so an unknown value fails there.\nconst FORCES = ['auto', 'diagram', 'story', 'data', 'poster', 'image'];\nconst force = v('FORCE') || 'auto';\nif (!FORCES.includes(force)) throw new Error('unknown FORCE: ' + force + ' (expected one of ' + FORCES.join(', ') + ')');\nreturn [{ json: {\n  RUN_ID: String($execution.id),\n  CONTENT: content,\n  ASSET_TYPES: v('ASSET_TYPES'),\n  FEEDBACK: v('FEEDBACK'),\n  FORCE: force,\n  STYLE: v('STYLE'),\n} }];\n"
         }
       },
       {
@@ -158,132 +163,7 @@
           96
         ],
         "parameters": {
-          "jsCode": "const cfg = JSON.parse($('download_registry').first().json.output || '{}');\nconst req = $('normalize_input').first().json;\nconst types = Array.isArray(cfg.types) ? cfg.types : [];\nconst byId = new Map(types.map((t) => [t.id, t]));\nconst budget = cfg.budget || {};\nconst cap = Number(cfg.max_types_per_request || 3);\nlet requested = req.ASSET_TYPES\n  ? req.ASSET_TYPES.split(',').map((s) => s.trim()).filter(Boolean)\n  : (cfg.default_types || []);\nrequested = [...new Set(requested)];\nconst out = [];\nconst note = (id, status, error) => out.push({ json: Object.assign({}, req, {\n  ASSET_TYPE: id, NAME: id, AUTHOR: null, BRAND_KIND: '', TEMPLATE: null, SPEC_TEMPLATE: null,\n  RENDER_MODE: '', FORMAT: '', FALLBACK_FORMAT: null, ASPECT: '', AVAILABLE: false,\n  UNAVAILABLE_REASON: '', FPS: 0, FRAMES: 0, VIEWPORT: 0, DURATION_SECONDS: 0, STATUS: status, ERROR: error }) });\nfor (const id of requested.slice(0, cap)) {\n  const t = byId.get(id);\n  if (!t) { note(id, 'UNKNOWN', 'unknown asset type: ' + id); continue; }\n  const kind = t.brandKind || 'diagrammatic';\n  if (kind !== 'diagrammatic' && kind !== 'photographic') throw new Error('unknown brandKind for ' + t.id + ': ' + t.brandKind);\n  const b = Object.assign({}, budget, t.budget || {});\n  out.push({ json: Object.assign({}, req, {\n    ASSET_TYPE: t.id, NAME: t.name || t.id, AUTHOR: t.author, BRAND_KIND: kind, TEMPLATE: t.template || null,\n    SPEC_TEMPLATE: t.specTemplate || null, RENDER_MODE: t.render, FORMAT: t.format,\n    FALLBACK_FORMAT: t.fallbackFormat || null, ASPECT: t.aspect || '4:5',\n    AVAILABLE: t.available !== false, UNAVAILABLE_REASON: t.unavailableReason || '',\n    FPS: Number(b.fps || 12), FRAMES: Number(b.frames || 36), VIEWPORT: Number(b.viewport || 1200),\n    DURATION_SECONDS: Number(t.durationSeconds || 0),\n    DURATION_MS: Number(t.durationMs || 0),\n  }) });\n}\nfor (const id of requested.slice(cap)) note(id, 'SKIPPED', 'over the per-request cap of ' + cap);\nreturn out;\n"
-        }
-      },
-      {
-        "id": "9db82fc1-795a-4199-b49d-256ee4d0709c",
-        "name": "pick_spec_type",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          896,
-          96
-        ],
-        "parameters": {
-          "jsCode": "const req = $('normalize_input').first().json;\nconst wants = $('parse_registry').all().map((i) => i.json).filter((a) => a.SPEC_TEMPLATE);\nconst first = wants.length ? wants[0] : null;\nreturn [{ json: Object.assign({}, req, {\n  ASSET_TYPE: first ? first.ASSET_TYPE : '',\n  NEEDS_SPEC: !!first,\n}) }];"
-        }
-      },
-      {
-        "id": "a2fae492-3c6c-4d1b-a7ec-7e3d6393564b",
-        "name": "if_spec_given",
-        "type": "n8n-nodes-base.if",
-        "typeVersion": 2.2,
-        "position": [
-          1120,
-          96
-        ],
-        "parameters": {
-          "conditions": {
-            "options": {
-              "caseSensitive": true,
-              "leftValue": "",
-              "typeValidation": "strict",
-              "version": 2
-            },
-            "combinator": "and",
-            "conditions": [
-              {
-                "id": "if_spec_given-c",
-                "operator": {
-                  "type": "boolean",
-                  "operation": "true",
-                  "singleValue": true
-                },
-                "leftValue": "={{ !!$json.SPEC_JSON || !$json.NEEDS_SPEC }}",
-                "rightValue": ""
-              }
-            ]
-          },
-          "options": {}
-        }
-      },
-      {
-        "id": "e08e8108-bb62-482a-8f09-e3da7f0248ee",
-        "name": "spec_from_param",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          1920,
-          0
-        ],
-        "parameters": {
-          "jsCode": "\nconst raw = ($input.first().json.SPEC_JSON || '').trim();\nif (!raw) return [{ json: { SPEC: null, SPEC_JSON: '' } }];\nlet spec;\ntry { spec = JSON.parse(raw); } catch (e) { throw new Error('SPEC_JSON parameter is invalid JSON: ' + e.message); }\n\nconst fail = (msg) => { throw new Error('content spec invalid: ' + msg); };\nif (typeof spec.title !== 'string' || !spec.title.trim()) fail('missing field: title');\nif (!Array.isArray(spec.blocks) || spec.blocks.length < 3 || spec.blocks.length > 6)\n  fail('blocks must be an array of 3 to 6 entries');\nspec.blocks.forEach((b, i) => {\n  if (!b || typeof b.label !== 'string' || !b.label.trim()) fail('missing field: blocks[' + i + '].label');\n  if (b.value == null || String(b.value).trim() === '') fail('missing field: blocks[' + i + '].value');\n});\nif (typeof spec.accent !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(spec.accent))\n  fail('missing field: accent');\nif (!spec.motion || typeof spec.motion !== 'object') fail('missing field: motion');\nif (!['rise', 'fade', 'sweep', 'pulse'].includes(spec.motion.kind)) fail('missing field: motion.kind');\nconst d = Number(spec.motion.durationMs);\nif (!Number.isFinite(d) || d < 2000 || d > 12000) fail('missing field: motion.durationMs');\nif (typeof spec.alt !== 'string' || !spec.alt.trim()) fail('missing field: alt');\nreturn [{ json: { SPEC: spec, SPEC_JSON: JSON.stringify(spec) } }];"
-        }
-      },
-      {
-        "id": "c83ca7e1-abf0-4665-b1e1-eb77de155f5c",
-        "name": "download_spec_prompt",
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.2,
-        "position": [
-          1344,
-          192
-        ],
-        "parameters": {
-          "workflowId": {
-            "__rl": true,
-            "value": "qUfjfWLGEjV96ljf",
-            "mode": "list",
-            "cachedResultName": "DownloadTemplate",
-            "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf"
-          },
-          "workflowInputs": {
-            "mappingMode": "defineBelow",
-            "value": {
-              "template_name": "prompts/visual_spec.md",
-              "template_vars": "={{ {\n \"ASSET_TYPE\": $('pick_spec_type').first().json.ASSET_TYPE,\n \"CONTENT\": $('normalize_input').first().json.CONTENT,\n \"BRAND\": $('brand_tokens').first().json.BRAND,\n \"FEEDBACK\": $('normalize_input').first().json.FEEDBACK\n} }}"
-            },
-            "matchingColumns": [],
-            "schema": [
-              {
-                "id": "template_name",
-                "displayName": "template_name",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string"
-              },
-              {
-                "id": "template_vars",
-                "displayName": "template_vars",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "object"
-              }
-            ],
-            "attemptToConvertTypes": false,
-            "convertFieldsToString": true
-          },
-          "options": {}
-        }
-      },
-      {
-        "id": "2dee4efd-d8af-4d51-b233-0af74a3c5046",
-        "name": "author_spec",
-        "type": "@n8n/n8n-nodes-langchain.chainLlm",
-        "typeVersion": 1.6,
-        "position": [
-          1568,
-          192
-        ],
-        "parameters": {
-          "promptType": "define",
-          "text": "={{ $('download_spec_prompt').item.json.output }}",
-          "needsFallback": true
+          "jsCode": "const cfg = JSON.parse($('download_registry').first().json.output || '{}');\nconst req = $('normalize_input').first().json;\nconst types = Array.isArray(cfg.types) ? cfg.types : [];\nconst byId = new Map(types.map((t) => [t.id, t]));\nconst budget = cfg.budget || {};\nconst cap = Number(cfg.max_types_per_request || 3);\nlet requested = req.ASSET_TYPES\n  ? req.ASSET_TYPES.split(',').map((s) => s.trim()).filter(Boolean)\n  : (cfg.default_types || []);\nrequested = [...new Set(requested)];\nconst out = [];\nconst shaped = (t, extra) => {\n  const b = Object.assign({}, budget, t.budget || {});\n  return Object.assign({}, req, {\n    ASSET_TYPE: t.id, NAME: t.name || t.id, AUTHOR: t.author, BRAND_KIND: t.brandKind || 'diagrammatic',\n    RENDER_MODE: t.render, FORMAT: t.format, ASPECT: t.aspect || '4:5',\n    FPS: Number(b.fps || 12), FRAMES: Number(b.frames || 36), VIEWPORT: Number(b.viewport || 1200),\n    DURATION_SECONDS: Number(t.durationSeconds || 0),\n  }, extra);\n};\nconst note = (id, status, error) => out.push({ json: Object.assign({}, req, {\n  ASSET_TYPE: id, NAME: id, AUTHOR: null, BRAND_KIND: '', RENDER_MODE: '', FORMAT: '', ASPECT: '',\n  FPS: 0, FRAMES: 0, VIEWPORT: 0, DURATION_SECONDS: 0, STATUS: status, ERROR: error }) });\nfor (const id of requested.slice(0, cap)) {\n  const t = byId.get(id);\n  if (!t) { note(id, 'UNKNOWN', 'unknown asset type: ' + id); continue; }\n  const kind = t.brandKind || 'diagrammatic';\n  if (kind !== 'diagrammatic' && kind !== 'photographic') throw new Error('unknown brandKind for ' + t.id + ': ' + t.brandKind);\n  // An unavailable type must not take its author branch: null its author so it\n  // falls through to the report path with a STATUS and reason.\n  if (t.available === false) {\n    out.push({ json: shaped(t, { AUTHOR: null, STATUS: 'UNAVAILABLE', ERROR: t.unavailableReason || ('unavailable: ' + t.id) }) });\n    continue;\n  }\n  out.push({ json: shaped(t, { STATUS: '' }) });\n}\nfor (const id of requested.slice(cap)) note(id, 'SKIPPED', 'over the per-request cap of ' + cap);\nreturn out;\n"
         }
       },
       {
@@ -341,145 +221,6 @@
         }
       },
       {
-        "id": "f88cf49b-0f7e-4ca9-b245-f95821fc7102",
-        "name": "parse_spec",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          1920,
-          192
-        ],
-        "parameters": {
-          "jsCode": "\nconst raw0 = $('author_spec').first().json.text || '';\nlet raw = raw0.trim().replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```$/, '');\nconst m = raw.match(/\\{[\\s\\S]*\\}/);\nif (!m) throw new Error('content spec is not JSON');\nlet spec;\ntry { spec = JSON.parse(m[0]); } catch (e) { throw new Error('content spec is invalid JSON: ' + e.message); }\n\nconst fail = (msg) => { throw new Error('content spec invalid: ' + msg); };\nif (typeof spec.title !== 'string' || !spec.title.trim()) fail('missing field: title');\nif (!Array.isArray(spec.blocks) || spec.blocks.length < 3 || spec.blocks.length > 6)\n  fail('blocks must be an array of 3 to 6 entries');\nspec.blocks.forEach((b, i) => {\n  if (!b || typeof b.label !== 'string' || !b.label.trim()) fail('missing field: blocks[' + i + '].label');\n  if (b.value == null || String(b.value).trim() === '') fail('missing field: blocks[' + i + '].value');\n});\nif (typeof spec.accent !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(spec.accent))\n  fail('missing field: accent');\nif (!spec.motion || typeof spec.motion !== 'object') fail('missing field: motion');\nif (!['rise', 'fade', 'sweep', 'pulse'].includes(spec.motion.kind)) fail('missing field: motion.kind');\nconst d = Number(spec.motion.durationMs);\nif (!Number.isFinite(d) || d < 2000 || d > 12000) fail('missing field: motion.durationMs');\nif (typeof spec.alt !== 'string' || !spec.alt.trim()) fail('missing field: alt');\nreturn [{ json: { SPEC: spec, SPEC_JSON: JSON.stringify(spec) } }];"
-        }
-      },
-      {
-        "id": "239cc47b-dc9b-47fc-bc61-2263f7f6ab6e",
-        "name": "spec_ready",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          2144,
-          96
-        ],
-        "parameters": {
-          "jsCode": "const j = $input.first().json;\nreturn [{ json: { SPEC: j.SPEC, SPEC_JSON: j.SPEC_JSON } }];"
-        }
-      },
-      {
-        "id": "0769f54c-55f1-4425-94d8-330e040b3ccd",
-        "name": "download_html_template",
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.2,
-        "position": [
-          2368,
-          96
-        ],
-        "parameters": {
-          "workflowId": {
-            "__rl": true,
-            "value": "qUfjfWLGEjV96ljf",
-            "mode": "list",
-            "cachedResultName": "DownloadTemplate",
-            "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf"
-          },
-          "workflowInputs": {
-            "mappingMode": "defineBelow",
-            "value": {
-              "template_name": "templates/infographic.html",
-              "template_vars": "={{ {} }}"
-            },
-            "matchingColumns": [],
-            "schema": [
-              {
-                "id": "template_name",
-                "displayName": "template_name",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string"
-              },
-              {
-                "id": "template_vars",
-                "displayName": "template_vars",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "object"
-              }
-            ],
-            "attemptToConvertTypes": false,
-            "convertFieldsToString": true
-          },
-          "options": {}
-        }
-      },
-      {
-        "id": "73328cd8-01f0-4449-9339-2a0d8c083e4a",
-        "name": "download_svg_template",
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.2,
-        "position": [
-          2592,
-          96
-        ],
-        "parameters": {
-          "workflowId": {
-            "__rl": true,
-            "value": "qUfjfWLGEjV96ljf",
-            "mode": "list",
-            "cachedResultName": "DownloadTemplate",
-            "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf"
-          },
-          "workflowInputs": {
-            "mappingMode": "defineBelow",
-            "value": {
-              "template_name": "templates/infographic.svg",
-              "template_vars": "={{ {} }}"
-            },
-            "matchingColumns": [],
-            "schema": [
-              {
-                "id": "template_name",
-                "displayName": "template_name",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string"
-              },
-              {
-                "id": "template_vars",
-                "displayName": "template_vars",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "object"
-              }
-            ],
-            "attemptToConvertTypes": false,
-            "convertFieldsToString": true
-          },
-          "options": {}
-        }
-      },
-      {
-        "id": "37b83457-d820-4a6f-b69a-a829a52ffb8f",
-        "name": "merge_assets",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          2816,
-          96
-        ],
-        "parameters": {
-          "jsCode": "const esc = (s) => String(s).replace(/&/g, \"&amp;\").replace(/</g, \"&lt;\").replace(/>/g, \"&gt;\");\nconst escAttr = (s) => esc(s).replace(/\"/g, \"&quot;\");\nfunction buildMarkup(tmpl, spec, fps, frames, viewport, durationMs, isSvg, brandTokens) {\n  // The caller's accent is mapped onto the brand ramp, so an out-of-brand or\n  // legacy value is never rendered as given (design D3).\n  const rgb = (h) => { const s = String(h).replace(\"#\", \"\"); return [0, 2, 4].map((i) => parseInt(s.slice(i, i + 2), 16)); };\n  const dist = (a, c) => { const x = rgb(a), y = rgb(c); return (x[0]-y[0])**2 + (x[1]-y[1])**2 + (x[2]-y[2])**2; };\n  const ramp = brandTokens.RAMP || [];\n  const mapAccent = (v) => { const want = String(v || \"\").toLowerCase();\n    for (const c of ramp) if (c.toLowerCase() === want) return c;\n    return ramp.length ? ramp.reduce((best, c) => dist(c, want) < dist(best, want) ? c : best) : want; };\n  const accent = mapAccent(spec.accent);\n  const kind = [\"rise\", \"fade\", \"sweep\", \"pulse\"].includes(spec.motion && spec.motion.kind)\n    ? spec.motion.kind : \"rise\";\n  const duration = Math.max(1000, Math.min(20000, Number(durationMs) || (spec && spec.motion && spec.motion.durationMs) || 3000));\n  const blocks = (spec.blocks || []).slice(0, 6);\n  const step = Math.floor(duration / (blocks.length + 1));\n  let out;\n  if (isSvg) {\n    const top = 360, row = 150;\n    const svgBlocks = blocks.map((b, i) => {\n      const delay = i * step, d = Math.max(200, duration - delay), y = top + i * row;\n      return `<g class=\"block\" style=\"animation-delay:${delay}ms;animation-duration:${d}ms\">` +\n        `<text class=\"label\" x=\"64\" y=\"${y}\">${esc(b.label)}</text>` +\n        `<text class=\"value\" x=\"1136\" y=\"${y}\" text-anchor=\"end\">${esc(b.value)}</text>` +\n        `<line class=\"sep\" x1=\"64\" y1=\"${y + 28}\" x2=\"1136\" y2=\"${y + 28}\" /></g>`;\n    }).join(\"\\n  \");\n    out = tmpl.split(\"%%TITLE%%\").join(esc(spec.title || \"\"))\n      .split(\"%%BLOCKS%%\").join(svgBlocks).split(\"%%ACCENT%%\").join(accent)\n      .split(\"%%MOTION_ANIM%%\").join(kind).split(\"%%DURATION_MS%%\").join(String(duration))\n      .split(\"%%FPS%%\").join(String(fps)).split(\"%%FRAMES%%\").join(String(frames))\n      .split(\"%%VIEWPORT%%\").join(String(viewport)).split(\"%%ALT%%\").join(escAttr(spec.alt || \"\"));\n  } else {\n    const htmlBlocks = blocks.map((b, i) => {\n      const delay = i * step, d = Math.max(200, duration - delay);\n      return `<div class=\"block\" style=\"animation-delay:${delay}ms;animation-duration:${d}ms\">` +\n        `<span class=\"label\">${esc(b.label)}</span><span class=\"value\">${esc(b.value)}</span></div>`;\n    }).join(\"\\n      \");\n    out = tmpl.split(\"%%TITLE%%\").join(esc(spec.title || \"\"))\n      .split(\"%%BLOCKS%%\").join(htmlBlocks).split(\"%%ACCENT%%\").join(accent)\n      .split(\"%%MOTION_ANIM%%\").join(kind).split(\"%%DURATION_MS%%\").join(String(duration))\n      .split(\"%%FPS%%\").join(String(fps)).split(\"%%FRAMES%%\").join(String(frames))\n      .split(\"%%VIEWPORT%%\").join(String(viewport));\n  }\n  out = out.split(\"%%BRAND_SHELL%%\").join(brandTokens.SHELL)\n    .split(\"%%BRAND_INK%%\").join(brandTokens.INK)\n    .split(\"%%BRAND_INK_MUTED%%\").join(brandTokens.INK_MUTED)\n    .split(\"%%BRAND_HAIRLINE%%\").join(brandTokens.HAIRLINE)\n    .split(\"%%FONT_TEXT%%\").join(brandTokens.FONT_TEXT)\n    .split(\"%%FONT_CODE%%\").join(brandTokens.FONT_CODE);\n  const left = out.match(/%%[A-Z_]+%%/g);\n  if (left) throw new Error(\"unresolved template token(s): \" + left.join(\", \"));\n  return out;\n}\nconst spec = $('spec_ready').first().json.SPEC;\nconst specJson = $('spec_ready').first().json.SPEC_JSON;\nconst specDuration = Math.max(1000, Math.min(20000, (spec && spec.motion && spec.motion.durationMs) || 3000));\nconst htmlT = $('download_html_template').first().json.output;\nconst brandTokens = $('brand_tokens').first().json.TEMPLATE;\nconst svgT = $('download_svg_template').first().json.output;\nconst asset = (a, status) => ({\n  ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: status, SPEC_JSON: specJson, PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: '', FRAME_COUNT: '', WIDTH: '', HEIGHT: '',\n});\nconst out = [];\nfor (const item of $('parse_registry').all()) {\n  const a = item.json;\n  // Agent-authored types are produced by the agent branch off parse_registry,\n  // not here; skip them so they are not emitted twice.\n  if (a.AUTHOR === 'agent') continue;\n  if (a.STATUS === 'UNKNOWN' || a.STATUS === 'SKIPPED') {\n    out.push({ json: asset(a, a.STATUS) });\n    out[out.length - 1].json.ERROR = a.ERROR || '';\n    continue;\n  }\n  if (a.AVAILABLE === false) {\n    const r = asset(a, 'UNAVAILABLE');\n    r.ERROR = a.UNAVAILABLE_REASON || ('unavailable: ' + a.ASSET_TYPE);\n    out.push({ json: r });\n    continue;\n  }\n  const r = asset(a, 'AUTHORED');\n  const dur = Math.max(1000, Math.min(20000, Number(a.DURATION_MS) || specDuration));\n  let markup = '', markupKind = '';\n  if (a.AUTHOR === 'spec_markup') {\n    if (a.RENDER_MODE === 'animated') { markup = buildMarkup(htmlT, spec, a.FPS, a.FRAMES, a.VIEWPORT, dur, false, brandTokens); markupKind = 'text/html'; }\n    else if (a.RENDER_MODE === 'text') { markup = buildMarkup(svgT, spec, a.FPS, a.FRAMES, a.VIEWPORT, dur, true, brandTokens); markupKind = 'image/svg+xml'; }\n  }\n  r.MARKUP = markup;\n  r.CONTENT_TYPE = markupKind;\n  if (a.RENDER_MODE === 'animated') {\n    const fpsCap = Math.max(1, Math.min(12, Number(a.FPS) || 12));\n    const frameCap = Math.max(1, Math.min(90, Number(a.FRAMES) || 36));\n    r.VIEWPORT = String(Math.max(1, Math.min(1200, Number(a.VIEWPORT) || 1200)));\n    r.DURATION_MS = String(dur);\n    r.FRAME_COUNT = String(Math.max(1, Math.min(frameCap, Math.floor(dur * fpsCap / 1000))));\n  }\n  out.push({ json: Object.assign({}, a, r) });\n}\nreturn out;"
-        }
-      },
-      {
         "id": "135dc3bb-bf36-48e5-a833-889670a83b0e",
         "name": "if_raster",
         "type": "n8n-nodes-base.if",
@@ -505,7 +246,7 @@
                   "operation": "true",
                   "singleValue": true
                 },
-                "leftValue": "={{ ['raster','spec_raster'].includes($json.AUTHOR) }}",
+                "leftValue": "={{ $json.AUTHOR === 'image' }}",
                 "rightValue": ""
               }
             ]
@@ -534,7 +275,7 @@
             "mappingMode": "defineBelow",
             "value": {
               "template_name": "prompts/visual_raster.md",
-              "template_vars": "={{ {\n \"ASSET_TYPE\": $json.ASSET_TYPE,\n \"CONTENT\": $json.CONTENT,\n \"SPEC_JSON\": $json.BRAND_KIND === 'photographic' ? '' : $json.SPEC_JSON,\n \"BRAND\": $json.BRAND_KIND === 'photographic' ? '' : $('brand_tokens').first().json.BRAND,\n \"ART_DIRECTION\": $json.BRAND_KIND === 'photographic' ? $('brand_tokens').first().json.ART_DIRECTION : '',\n \"FEEDBACK\": $json.FEEDBACK\n} }}"
+              "template_vars": "={{ {\n \"ASSET_TYPE\": $json.ASSET_TYPE,\n \"CONTENT\": $json.CONTENT,\n \"BRAND\": $json.BRAND_KIND === 'photographic' ? '' : $('brand_tokens').first().json.BRAND,\n \"ART_DIRECTION\": $json.BRAND_KIND === 'photographic' ? $('brand_tokens').first().json.ART_DIRECTION : '',\n \"FEEDBACK\": $json.FEEDBACK\n} }}"
             },
             "matchingColumns": [],
             "schema": [
@@ -652,7 +393,7 @@
           128
         ],
         "parameters": {
-          "jsCode": "const items = $('merge_branches').all().map((i) => i.json);\nconst req = $('normalize_input').first().json;\nconst errors = items.filter((i) => i.ERROR).map((i) => i.ASSET_TYPE + ': ' + i.ERROR);\nconst payload = items.map((i) => Object.assign({}, i, {\n  SPEC: undefined, MARKUP: i.CONTENT_TYPE === 'image/svg+xml' ? i.MARKUP : undefined,\n}));\nreturn [{ json: {\n  RUN_ID: req.RUN_ID,\n  STATUS: errors.length === 0 ? 'COMPLETE' : (items.some((i) => !i.ERROR) ? 'PARTIAL' : 'FAILED'),\n  REQUEST: JSON.stringify({ ASSET_TYPES: req.ASSET_TYPES, FEEDBACK: req.FEEDBACK,\n                            SPEC_GIVEN: !!req.SPEC_JSON, CONTENT_LENGTH: req.CONTENT.length }),\n  RESULT: JSON.stringify(payload),\n  ASSET_COUNT: String(items.length),\n  ERROR: errors.join(' | ').slice(0, 2000),\n} }];"
+          "jsCode": "const items = $('merge_branches').all().map((i) => i.json);\nconst req = $('normalize_input').first().json;\nconst brand = $('brand_tokens').first().json;\nconst errors = items.filter((i) => i.ERROR).map((i) => i.ASSET_TYPE + ': ' + i.ERROR);\nreturn [{ json: {\n  RUN_ID: req.RUN_ID,\n  STATUS: errors.length === 0 ? 'COMPLETE' : (items.some((i) => !i.ERROR) ? 'PARTIAL' : 'FAILED'),\n  REQUEST: JSON.stringify({ ASSET_TYPES: req.ASSET_TYPES, FORCE: req.FORCE, STYLE: brand.STYLE,\n                            FEEDBACK: req.FEEDBACK, CONTENT_LENGTH: req.CONTENT.length }),\n  // RESULT carries each asset's STORYBOARD, so a bad visual is diagnosable.\n  RESULT: JSON.stringify(items),\n  ASSET_COUNT: String(items.length),\n  ERROR: errors.join(' | ').slice(0, 2000),\n} }];\n"
         }
       },
       {
@@ -688,263 +429,6 @@
         ],
         "parameters": {
           "jsCode": "const items = $('merge_branches').all().map((i) => i.json);\nconst req = $('normalize_input').first().json;\nreturn [{ json: {\n  RUN_ID: req.RUN_ID,\n  STATUS: items.some((i) => i.ERROR) ? (items.every((i) => i.ERROR) ? 'FAILED' : 'PARTIAL') : 'COMPLETE',\n  ASSETS: items,\n} }];"
-        }
-      },
-      {
-        "id": "e749e1b8-ce22-4bac-a5a5-40a3a6011823",
-        "name": "animated_result",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          4736,
-          224
-        ],
-        "parameters": {
-          "jsCode": "const a = $('capture_frames').first().json;\nconst out = $input.first().json || {};\nconst base = {\n  ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: '', SPEC_JSON: a.SPEC_JSON || '', PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: a.DURATION_MS || '', FRAME_COUNT: a.FRAME_COUNT || '',\n  WIDTH: a.WIDTH || '', HEIGHT: a.HEIGHT || '', MARKUP: '', IMAGE: '',\n};\nconst img = String(out.stdout || '').trim();\nif (out.error || !/^data:image\\/[a-z+.-]+;base64,/.test(img)) {\n  const reason = String(out.error || out.stderr || 'animation assembly failed').slice(0, 500);\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: reason }) }];\n}\nreturn [{ json: Object.assign({}, base, {\n  STATUS: 'RENDERED', IMAGE: img, CONTENT_TYPE: img.slice(5, img.indexOf(';')),\n}) }];"
-        }
-      },
-      {
-        "id": "f074f7c2-a093-4c4e-9c8b-acccca9ae591",
-        "name": "assemble_animation",
-        "type": "n8n-nodes-base.executeCommand",
-        "typeVersion": 1,
-        "onError": "continueRegularOutput",
-        "position": [
-          4512,
-          224
-        ],
-        "parameters": {
-          "command": "={{ $json.CMD }}"
-        }
-      },
-      {
-        "id": "98a7c88d-a5da-4bc0-b609-6e2702783341",
-        "name": "build_assemble",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          4224,
-          224
-        ],
-        "parameters": {
-          "jsCode": "const a = $('capture_frames').first().json;\nconst frames = Math.max(1, Math.min(90, Number(a.FRAME_COUNT) || 36));\nconst duration = Math.max(1000, Math.min(20000, Number(a.DURATION_MS) || 3000));\nconst run = String(a.RUN_ID);\nconst asset = String(a.ASSET_TYPE);\nif (!/^[A-Za-z0-9_-]+$/.test(run)) throw new Error('unsafe RUN_ID');\nif (!/^[a-z0-9_]+$/.test(asset)) throw new Error('unsafe ASSET_TYPE');\nconst dir = '/home/node/.n8n-files/' + run + '/' + asset;\nconst img2webp = '/usr/local/lib/node_modules/webp-converter/bin/libwebp_linux/bin/img2webp';\nconst name = (i) => 'f_' + String(i).padStart(3, '0') + '.jpg';\n// Both encoders get the whole duration: WebP in milliseconds, GIF in centiseconds,\n// spreading the remainder over the last frames so the total is exact rather than\n// rounded per frame (3000 ms over 24 frames is 12x12cs + 12x13cs, not 24x13cs).\nconst webpArgs = [];\nconst wBase = Math.floor(duration / frames);\nconst wRem = duration - wBase * frames;\nconst gifArgs = [];\nconst totalCs = Math.max(frames, Math.round(duration / 10));\nconst gBase = Math.floor(totalCs / frames);\nconst gRem = totalCs - gBase * frames;\nfor (let i = 0; i < frames; i++) {\n  webpArgs.push('-d', String(wBase + (i >= frames - wRem ? 1 : 0)), name(i));\n  gifArgs.push('-delay', String(gBase + (i >= frames - gRem ? 1 : 0)), name(i));\n}\n// The type's declared format picks the encoder and the other one is the fallback, so a\n// gif type is assembled as GIF rather than falling back to it. A missing FORMAT keeps\n// the original webp-then-gif order.\nconst webpCmd = \"'\" + img2webp + \"' -loop 0 \" + webpArgs.join(' ') + \" -o out.webp\";\nconst gifCmd = 'gm convert ' + gifArgs.join(' ') + ' out.gif';\nconst encoders = {\n  gif: { want: gifCmd, F: 'out.gif', MIME: 'image/gif', other: webpCmd, oF: 'out.webp', oMIME: 'image/webp' },\n  webp: { want: webpCmd, F: 'out.webp', MIME: 'image/webp', other: gifCmd, oF: 'out.gif', oMIME: 'image/gif' },\n};\nconst pick = encoders[String(a.FORMAT || '').toLowerCase()] || encoders.webp;\nconst encoderCmd = [\n  'if ' + pick.want + ' >/dev/null 2>&1; then F=' + pick.F + '; MIME=' + pick.MIME + ';',\n  'elif ' + pick.other + ' >/dev/null 2>&1; then F=' + pick.oF + '; MIME=' + pick.oMIME + ';',\n  'else exit 1; fi',\n].join(' ');\nconst cmd = [\n  'set -e',\n  \"cd '\" + dir + \"'\",\n  encoderCmd,\n  \"printf 'data:%s;base64,' \\\"$MIME\\\"\",\n  'base64 -w0 \"$F\"',\n  \"rm -rf '\" + dir + \"'\",\n  \"rmdir '/home/node/.n8n-files/\" + run + \"' 2>/dev/null || true\",\n].join('\\n');\nreturn [{ json: { CMD: cmd, RUN_ID: run, ASSET_TYPE: asset } }];"
-        }
-      },
-      {
-        "id": "46d4db3e-91de-4c45-bc13-f277ebfe14d0",
-        "name": "capture_failed",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          4736,
-          416
-        ],
-        "parameters": {
-          "jsCode": "const a = $('if_animated').first().json;\nconst err = $input.first().json || {};\nconst reason = err.CAPTURE_ERROR || err.error || 'frame capture failed';\nreturn [{ json: Object.assign({}, a, {\n  STATUS: 'ERROR',\n  ERROR: String(reason).slice(0, 500),\n  MARKUP: '', IMAGE: '', CONTENT_TYPE: '',\n  DURATION_MS: '', FRAME_COUNT: '', WIDTH: '', HEIGHT: '',\n}) }];"
-        }
-      },
-      {
-        "id": "31e72edd-126b-49ea-86f9-83cf252d2f75",
-        "name": "capture_frames",
-        "type": "CUSTOM.puppeteer",
-        "typeVersion": 1,
-        "onError": "continueRegularOutput",
-        "position": [
-          3712,
-          320
-        ],
-        "parameters": {
-          "operation": "runCustomScript",
-          "scriptCode": "const a = $('if_animated').first().json;\nconst bail = (msg) => [{ json: Object.assign({}, a, {\n  CAPTURE_ERROR: String(msg).slice(0, 500), WIDTH: '', FRAME_COUNT: '', HEIGHT: '',\n}) }];\ntry {\n  const markup = a.MARKUP || '';\n  if (!markup) throw new Error('no markup to capture for ' + (a.ASSET_TYPE || 'asset'));\n  const duration = Math.max(1000, Math.min(20000, Number(a.DURATION_MS) || 3000));\n  const frames = Math.max(1, Math.min(90, Number(a.FRAME_COUNT) || 36));\n  const viewport = Math.max(1, Math.min(1200, Number(a.VIEWPORT) || 1200));\n  const aspect = String(a.ASPECT || '4:5').split(':');\n  const rw = Number(aspect[0]) || 4;\n  const rh = Number(aspect[1]) || 5;\n  const width = Math.round(viewport);\n  const height = Math.round((viewport * rh) / rw);\n  if (!/^[A-Za-z0-9_-]+$/.test(String(a.RUN_ID))) throw new Error('unsafe RUN_ID');\n  if (!/^[a-z0-9_]+$/.test(String(a.ASSET_TYPE))) throw new Error('unsafe ASSET_TYPE');\n  const dir = '/home/node/.n8n-files/' + a.RUN_ID + '/' + a.ASSET_TYPE;\n  await $page.setViewport({ width, height, deviceScaleFactor: 1 });\n  await $page.goto('data:text/html;charset=utf-8,' + encodeURIComponent(markup), { waitUntil: 'load', timeout: 60000 });\n  await $page.evaluate(() => document.fonts.ready);\n  await $page.evaluate(() => { document.getAnimations().forEach((an) => { an.pause(); an.currentTime = 0; }); });\n  for (let i = 0; i < frames; i++) {\n    const t = (i * duration) / frames;\n    await $page.evaluate((at) => { document.getAnimations().forEach((an) => { an.currentTime = at; }); }, t);\n    await $page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));\n    await $page.screenshot({ type: 'jpeg', quality: 85, path: dir + '/f_' + String(i).padStart(3, '0') + '.jpg' });\n  }\n  return [{ json: Object.assign({}, a, { WIDTH: String(width), HEIGHT: String(height), FRAME_COUNT: String(frames), DURATION_MS: String(duration) }) }];\n} catch (e) {\n  return bail(e && e.message ? e.message : e);\n}\n",
-          "options": {
-            "browserWSEndpoint": "ws://datahub-local-core-automation-n8n-chromium:3000?token=TOKEN-1234567890",
-            "protocolTimeout": 120000
-          }
-        }
-      },
-      {
-        "id": "5e18f66b-62af-452e-8240-904b90ff3220",
-        "name": "cleanup_frames",
-        "type": "n8n-nodes-base.executeCommand",
-        "typeVersion": 1,
-        "onError": "continueRegularOutput",
-        "position": [
-          5184,
-          128
-        ],
-        "parameters": {
-          "command": "={{ String($json.RUN_ID).replace(/[^A-Za-z0-9_-]/g,'') ? 'rm -rf /home/node/.n8n-files/' + String($json.RUN_ID).replace(/[^A-Za-z0-9_-]/g,'') : 'true' }}"
-        }
-      },
-      {
-        "id": "fe0b3a61-8c9e-4e6f-bb42-334aaa7823be",
-        "name": "if_animated",
-        "type": "n8n-nodes-base.if",
-        "typeVersion": 2.2,
-        "position": [
-          3264,
-          224
-        ],
-        "parameters": {
-          "conditions": {
-            "options": {
-              "caseSensitive": true,
-              "leftValue": "",
-              "typeValidation": "strict",
-              "version": 2
-            },
-            "combinator": "and",
-            "conditions": [
-              {
-                "id": "if_animated-c",
-                "operator": {
-                  "type": "boolean",
-                  "operation": "true",
-                  "singleValue": true
-                },
-                "leftValue": "={{ $json.RENDER_MODE === 'animated' }}",
-                "rightValue": ""
-              }
-            ]
-          },
-          "options": {}
-        }
-      },
-      {
-        "id": "887bd8bb-f806-456a-bb89-6e3a023c5542",
-        "name": "if_capture_ok",
-        "type": "n8n-nodes-base.if",
-        "typeVersion": 2.2,
-        "position": [
-          3936,
-          320
-        ],
-        "parameters": {
-          "conditions": {
-            "options": {
-              "caseSensitive": true,
-              "leftValue": "",
-              "typeValidation": "strict",
-              "version": 2
-            },
-            "combinator": "and",
-            "conditions": [
-              {
-                "id": "if_capture_ok-c",
-                "operator": {
-                  "type": "boolean",
-                  "operation": "true",
-                  "singleValue": true
-                },
-                "leftValue": "={{ !!$json.FRAME_COUNT && !$json.CAPTURE_ERROR }}",
-                "rightValue": ""
-              }
-            ]
-          },
-          "options": {}
-        }
-      },
-      {
-        "id": "1183dd80-b03a-4acd-9704-edfe70b0907c",
-        "name": "mkdir_frames",
-        "type": "n8n-nodes-base.executeCommand",
-        "typeVersion": 1,
-        "onError": "continueRegularOutput",
-        "position": [
-          3488,
-          320
-        ],
-        "parameters": {
-          "command": "=mkdir -p /home/node/.n8n-files/{{ $json.RUN_ID }}/{{ $json.ASSET_TYPE }}"
-        }
-      },
-      {
-        "id": "a62fb762-f33d-4820-a9e1-1e7d56e77c87",
-        "name": "if_video",
-        "type": "n8n-nodes-base.if",
-        "typeVersion": 2.2,
-        "position": [
-          2816,
-          336
-        ],
-        "parameters": {
-          "conditions": {
-            "options": {
-              "caseSensitive": true,
-              "leftValue": "",
-              "typeValidation": "strict",
-              "version": 2
-            },
-            "combinator": "and",
-            "conditions": [
-              {
-                "id": "if_video-c",
-                "operator": {
-                  "type": "boolean",
-                  "operation": "true",
-                  "singleValue": true
-                },
-                "leftValue": "={{ $json.RENDER_MODE === 'video' }}",
-                "rightValue": ""
-              }
-            ]
-          },
-          "options": {}
-        }
-      },
-      {
-        "id": "0230330a-be9a-4f2d-884d-d9f8a06800e3",
-        "name": "build_video",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          3040,
-          336
-        ],
-        "parameters": {
-          "jsCode": "// Shape the render-service request from the asset: the spec travels as JSON and\n// nothing executable crosses the boundary. Compute the frame metadata here because\n// the service returns the file, not the numbers the run record wants.\nconst a = $input.first().json;\nconst [aw, ah] = String(a.ASPECT || '4:5').split(':').map(Number);\nconst width = Math.max(1, Number(a.VIEWPORT) || 1080);\nconst height = Math.round(width * (ah || 5) / (aw || 4));\nlet spec = null;\ntry { spec = a.SPEC_JSON ? JSON.parse(a.SPEC_JSON) : null; } catch (e) { spec = null; }\nconst fps = Math.max(1, Number(a.FPS) || 30);\nconst durationMs = Math.max(1000, Math.min(20000, (spec && spec.motion && Number(spec.motion.durationMs)) || 3000));\nconst url = ($env.RENDER_URL || '').replace(/\\/+$/, '');\nreturn [{ json: Object.assign({}, a, {\n  RENDER_URL: url ? url + '/render' : '',\n  RENDER_BODY: JSON.stringify({ spec: spec, options: { width: width, height: height, fps: fps } }),\n  DURATION_MS: String(durationMs),\n  FRAME_COUNT: String(Math.round(fps * durationMs / 1000)),\n  WIDTH: String(width),\n  HEIGHT: String(height),\n}) }];\n"
-        }
-      },
-      {
-        "id": "aa926fee-3148-43d7-b014-4f715f672d6a",
-        "name": "render_video",
-        "notes": "A failed render must not block the other assets, so the error is continued and video_result turns the missing binary into that asset's ERROR. See video_result.notes and the 'continueRegularOutput makes a failure invisible' rule in AGENTS.md.",
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.4,
-        "onError": "continueRegularOutput",
-        "position": [
-          3264,
-          336
-        ],
-        "parameters": {
-          "method": "POST",
-          "url": "={{ $json.RENDER_URL }}",
-          "sendBody": true,
-          "specifyBody": "json",
-          "jsonBody": "={{ $json.RENDER_BODY }}",
-          "options": {
-            "response": {
-              "response": {
-                "responseFormat": "file",
-                "outputPropertyName": "data"
-              }
-            },
-            "timeout": 300000
-          }
-        }
-      },
-      {
-        "id": "8fc8a8ec-b1d3-48a2-a410-5ba3bb535b61",
-        "name": "video_result",
-        "notes": "Handles render_video's continued error: no binary means that asset carries ERROR and the run continues, which is what makes the failure visible instead of silent.",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          4736,
-          448
-        ],
-        "parameters": {
-          "jsCode": "// Handles render_video's continued error: no binary means that asset carries ERROR\n// and the run continues, which is what makes the failure visible instead of silent.\n// Binary is read with getBinaryDataBuffer because this instance stores it out of band.\nconst a = $('build_video').first().json;\nconst out = $input.first().json || {};\nconst binMeta = ($input.first().binary && $input.first().binary.data) || null;\nconst base = { ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: '', SPEC_JSON: a.SPEC_JSON || '', PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: a.DURATION_MS || '', FRAME_COUNT: a.FRAME_COUNT || '',\n  WIDTH: a.WIDTH || '', HEIGHT: a.HEIGHT || '', MARKUP: '', IMAGE: '' };\nif (!binMeta) {\n  const fallback = a.RENDER_URL ? 'render service returned no video' : 'RENDER_URL is not configured';\n  const reason = String(out.error || out.message || fallback).slice(0, 500);\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: reason }) }];\n}\nconst mime = binMeta.mimeType || 'video/mp4';\nconst buffer = await this.helpers.getBinaryDataBuffer(0, 'data');\nreturn [{ json: Object.assign({}, base, { STATUS: 'RENDERED', CONTENT_TYPE: mime,\n  IMAGE: 'data:' + mime + ';base64,' + buffer.toString('base64') }) }];\n"
         }
       },
       {
@@ -991,7 +475,7 @@
           -320
         ],
         "parameters": {
-          "jsCode": "// Turn the request into the agent's brief and the session request. The brief is the\n// caller's CONTENT plus the type's declared frame: duration, size and format. The\n// session gets a run-scoped id so a later run cannot overwrite this artifact before\n// its caller fetches it. Everything here is data-driven, so a type is retuned from\n// the registry (longer, slower, another format) without touching the adapter image.\nconst a = $input.first().json;\nconst req = $('normalize_input').first().json;\nconst safe = (s) => String(s || '').replace(/[^A-Za-z0-9._-]/g, '').slice(0, 40);\nconst sessionId = (safe(a.ASSET_TYPE) + '-' + safe(req.RUN_ID)) || 'default';\nconst base = ($env.PI_RENDER_URL || '').replace(/\\/+$/, '');\nconst format = ['mp4', 'gif', 'webp', 'png'].includes(a.FORMAT) ? a.FORMAT : 'mp4';\nconst [aw, ah] = String(a.ASPECT || '4:5').split(':').map(Number);\nconst width = Math.max(1, Number(a.VIEWPORT) || 1080);\nconst height = Math.round(width * (ah || 5) / (aw || 4));\nconst frames = Math.max(1, Number(a.FRAMES) || 24);\nconst seconds = Math.max(1, Number(a.DURATION_SECONDS) || Math.round(frames / Math.max(1, Number(a.FPS) || 8)));\n// The effective rate for the final GIF: the type budget (frames) spread over the\n// declared duration, so a slow 18s clip is 24 samples, not 24 samples per second.\nconst rate = Math.max(0.1, frames / seconds);\nconst brief = [\n  req.CONTENT,\n  '',\n  'Render a ' + width + 'x' + height + ' (' + (a.ASPECT || '4:5') + ') composition that runs about ' + seconds + ' seconds.',\n  'Animate slowly and deliberately: reveal a few elements in sequence, each held long enough to read, rather than many quick changes. The clip is sampled into a low-frame-rate GIF, so fast or busy motion is lost.',\n  'You cannot see images: do not take screenshots and do not write scripts to inspect the layout - rely on `hyperframes lint`.',\n  'Run `hyperframes render` in the foreground and let it finish; never background it, because the render aborts the moment its parent shell exits.',\n].join('\\n') + '\\n\\n' + $('brand_tokens').first().json.BRAND;\nreturn [{ json: Object.assign({}, a, {\n  FORMAT: format,\n  FPS: rate, WIDTH: width, HEIGHT: height, FRAMES: frames, DURATION_SECONDS: seconds, RATE: rate,\n  SESSION_ID: sessionId,\n  AUTHOR_URL: base ? base + '/v1/chat/completions' : '',\n  ARTIFACT_URL: base ? base + '/artifacts/' + sessionId + '/out.' + format : '',\n  AUTHOR_BODY: JSON.stringify({ messages: [{ role: 'user', content: brief }], session_id: sessionId, format: format, fps: rate, width: width, frames: frames, durationSeconds: seconds }),\n}) }];\n"
+          "jsCode": "// Turn the request into the composer's brief and the session request. The brief is\n// the caller's CONTENT plus the requested form and style and the type's declared\n// frame: duration, size and format. The session gets a run-scoped id so a later run\n// cannot overwrite this artifact before its caller fetches it. Everything here is\n// data-driven, so a type is retuned from the registry without touching the adapter.\nconst a = $input.first().json;\nconst req = $('normalize_input').first().json;\nconst brand = $('brand_tokens').first().json;\nconst safe = (s) => String(s || '').replace(/[^A-Za-z0-9._-]/g, '').slice(0, 40);\nconst sessionId = (safe(a.ASSET_TYPE) + '-' + safe(req.RUN_ID)) || 'default';\nconst base = ($env.PI_RENDER_URL || '').replace(/\\/+$/, '');\nconst format = ['mp4', 'gif', 'webp', 'png'].includes(a.FORMAT) ? a.FORMAT : 'mp4';\nconst [aw, ah] = String(a.ASPECT || '4:5').split(':').map(Number);\nconst width = Math.max(1, Number(a.VIEWPORT) || 1080);\nconst height = Math.round(width * (ah || 5) / (aw || 4));\nconst frames = Math.max(1, Number(a.FRAMES) || 24);\nconst seconds = Math.max(1, Number(a.DURATION_SECONDS) || Math.round(frames / Math.max(1, Number(a.FPS) || 8)));\nconst rate = Math.max(0.1, frames / seconds);\nconst force = String(req.FORCE || 'auto');\nconst form = force === 'auto'\n  ? 'Choose the form that fits the content best (a diagram, a story, a set of figures or a poster).'\n  : 'Use the ' + force + ' form; do not substitute another.';\nconst sampling = ['gif', 'webp'].includes(format)\n  ? 'Animate slowly and deliberately: reveal a few elements in sequence, each held long enough to read, rather than many quick changes. The clip is sampled into a low-frame-rate file, so fast or busy motion is lost.'\n  : 'Animate deliberately: a few clear beats, each held long enough to read, rather than many quick changes.';\nconst brief = [\n  req.CONTENT,\n  '',\n  'Plan first: state a short storyboard with the form, the scenes and the order they play in, then author the composition.',\n  form,\n  'Style: use the brand\\'s ' + brand.STYLE + ' scheme; do not introduce a colour or typeface the brand block below does not define.',\n  'Render a ' + width + 'x' + height + ' (' + (a.ASPECT || '4:5') + ') composition that runs about ' + seconds + ' seconds.',\n  sampling,\n  'You cannot see images: do not take screenshots and do not write scripts to inspect the layout - rely on `hyperframes lint`.',\n  'Run `hyperframes render` in the foreground and let it finish; never background it, because the render aborts the moment its parent shell exits.',\n  '',\n  'Brand block:',\n  brand.BRAND,\n].join('\\n');\nreturn [{ json: Object.assign({}, a, {\n  FORCE: force, STYLE: brand.STYLE,\n  FORMAT: format, FPS: rate, WIDTH: width, HEIGHT: height, FRAMES: frames, DURATION_SECONDS: seconds, RATE: rate,\n  SESSION_ID: sessionId,\n  AUTHOR_URL: base ? base + '/v1/chat/completions' : '',\n  ARTIFACT_URL: base ? base + '/artifacts/' + sessionId + '/out.' + format : '',\n  AUTHOR_BODY: JSON.stringify({ messages: [{ role: 'user', content: brief }], session_id: sessionId, format: format, fps: rate, width: width, frames: frames, durationSeconds: seconds }),\n}) }];\n"
         }
       },
       {
@@ -1054,7 +538,7 @@
           -320
         ],
         "parameters": {
-          "jsCode": "// The rendered artifact the session returned, as the asset. Read the bytes with\n// getBinaryDataBuffer: this instance keeps binaries out of band, so binary.data is a\n// reference (\"database:<id>\"), not the base64. The workflow never sees the agent's\n// composition markup, only this file.\nconst a = $('build_author_brief').first().json;\nconst out = $input.first().json || {};\nconst binMeta = ($input.first().binary && $input.first().binary.data) || null;\nconst base = {\n  ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: '', SPEC_JSON: a.SPEC_JSON || '', PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: '', FRAME_COUNT: '', WIDTH: a.WIDTH || '', HEIGHT: a.HEIGHT || '',\n  MARKUP: '', IMAGE: '',\n};\nconst describe = (v, fallback) => {\n  if (typeof v === 'string' && v) return v;\n  if (v && typeof v === 'object' && typeof v.message === 'string') return v.message;\n  if (v != null) return JSON.stringify(v);\n  return fallback;\n};\nif (!a.AUTHOR_URL) {\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: 'PI_RENDER_URL is not configured' }) }];\n}\nif (!binMeta) {\n  const reason = describe(out.error || out.message, 'agent authoring returned no artifact').slice(0, 500);\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: reason }) }];\n}\nconst mime = binMeta.mimeType || 'image/gif';\nconst buffer = await this.helpers.getBinaryDataBuffer(0, 'data');\nreturn [{ json: Object.assign({}, base, { STATUS: 'RENDERED', CONTENT_TYPE: mime,\n  IMAGE: 'data:' + mime + ';base64,' + buffer.toString('base64') }) }];\n"
+          "jsCode": "// The rendered artifact the session returned, as the asset, plus the composer's own\n// report kept as STORYBOARD so a bad visual is diagnosable from the run record. Read\n// the bytes with getBinaryDataBuffer: this instance keeps binaries out of band, so\n// binary.data is a reference (\"database:<id>\"), not the base64. The workflow never\n// sees the agent's composition markup, only this file.\nconst a = $('build_author_brief').first().json;\nconst out = $input.first().json || {};\nconst binMeta = ($input.first().binary && $input.first().binary.data) || null;\nconst report = (() => {\n  try {\n    const resp = $('execute_author').first().json || {};\n    const msg = resp.choices && resp.choices[0] && resp.choices[0].message;\n    const content = msg && msg.content;\n    return typeof content === 'string' ? content.slice(0, 6000) : '';\n  } catch (e) { return ''; }\n})();\nconst base = {\n  ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: '', PROMPT: '', CONTENT_TYPE: '', ERROR: '', STORYBOARD: report,\n  DURATION_MS: String(Math.round((Number(a.DURATION_SECONDS) || 0) * 1000)),\n  FRAME_COUNT: String(Number(a.FRAMES) || ''), WIDTH: a.WIDTH || '', HEIGHT: a.HEIGHT || '',\n  IMAGE: '',\n};\nconst describe = (v, fallback) => {\n  if (typeof v === 'string' && v) return v;\n  if (v && typeof v === 'object' && typeof v.message === 'string') return v.message;\n  if (v != null) return JSON.stringify(v);\n  return fallback;\n};\nif (!a.AUTHOR_URL) {\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: 'PI_RENDER_URL is not configured' }) }];\n}\nif (!binMeta) {\n  const reason = describe(out.error || out.message, 'agent authoring returned no artifact').slice(0, 500);\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: reason }) }];\n}\nconst mime = binMeta.mimeType || 'image/gif';\nconst buffer = await this.helpers.getBinaryDataBuffer(0, 'data');\nreturn [{ json: Object.assign({}, base, { STATUS: 'RENDERED', CONTENT_TYPE: mime,\n  IMAGE: 'data:' + mime + ';base64,' + buffer.toString('base64') }) }];\n"
         }
       },
       {
@@ -1121,49 +605,38 @@
           452
         ],
         "parameters": {
-          "jsCode": "// The brand tokens, read once from datasets/brand.json (the only copy of the\n// brand) and shaped for the three consumers: a short text block for the authoring\n// prompts, the photographic art direction for a raster hero, and the raw roles the\n// markup templates take.\n//\n// This node exists so no prompt or template spells a colour or a typeface: a\n// surface names a role here and the value travels from brand.json. The build is\n// deterministic, so the same brand.json produces the same strings.\nconst raw = $('download_brand').first().json.output || '{}';\nlet b;\ntry {\n  b = JSON.parse(raw);\n} catch (e) {\n  throw new Error('datasets/brand.json is not valid JSON: ' + e.message);\n}\nconst scheme = b.schemes && b.schemes[b.defaultScheme];\nif (!scheme) throw new Error('datasets/brand.json has no schemes.' + (b.defaultScheme || ''));\nconst typo = b.typography || {};\nconst hex = (v) => String(v || '');\nconst rgb = (h) => { const s = hex(h).replace('#', ''); return [0, 2, 4].map((i) => parseInt(s.slice(i, i + 2), 16)); };\nconst hairline = () => {\n  const [r, g, bl] = rgb(scheme.ink);\n  return 'rgba(' + r + ', ' + g + ', ' + bl + ', ' + Number((b.shape || {}).hairlineAlpha) + ')';\n};\nconst BRAND = [\n  'Brand palette (moss on near-black, use only these roles):',\n  'background ' + scheme.shell + ', text ' + scheme.ink + ', muted text ' + scheme.inkMuted + ',',\n  'accent ' + scheme.accent + ', accent-strong ' + scheme.accentStrong + ', accent-deep ' + scheme.accentDeep + '.',\n  'Typefaces: ' + typo.text + ' for text, ' + typo.code + ' for code.',\n].join('\\n');\nreturn [{ json: {\n  BRAND,\n  ART_DIRECTION: String((b.photographic || {}).artDirection || ''),\n  TEMPLATE: {\n    SHELL: scheme.shell,\n    INK: scheme.ink,\n    INK_MUTED: scheme.inkMuted,\n    HAIRLINE: hairline(),\n    FONT_TEXT: typo.text,\n    FONT_CODE: typo.code,\n    RAMP: [scheme.accent, scheme.accentStrong, scheme.accentDeep],\n  },\n} }];\n"
+          "jsCode": "// The brand, read once from datasets/brand.json (the only copy), resolved to the\n// requested scheme and shaped for its two consumers: the authoring brief for the\n// composer and the raster prompt. This node also owns the STYLE check, because the\n// scheme names are data here and nowhere else, so an unknown STYLE fails naming it.\nconst raw = $('download_brand').first().json.output || '{}';\nlet b;\ntry {\n  b = JSON.parse(raw);\n} catch (e) {\n  throw new Error('datasets/brand.json is not valid JSON: ' + e.message);\n}\nconst req = $('normalize_input').first().json;\nconst schemeName = String(req.STYLE || b.defaultScheme || '');\nconst scheme = b.schemes && b.schemes[schemeName];\nif (!scheme) throw new Error('unknown STYLE: ' + schemeName + ' (brand declares: ' + Object.keys(b.schemes || {}).join(', ') + ')');\nconst typo = b.typography || {};\nconst BRAND = [\n  'Brand palette (' + schemeName + ' scheme, use only these roles):',\n  'background ' + scheme.shell + ', text ' + scheme.ink + ', muted text ' + scheme.inkMuted + ',',\n  'accent ' + scheme.accent + ', accent-strong ' + scheme.accentStrong + ', accent-deep ' + scheme.accentDeep + '.',\n  'Typefaces: ' + typo.text + ' for text, ' + typo.code + ' for code.',\n].join('\\n');\nreturn [{ json: {\n  STYLE: schemeName,\n  BRAND,\n  ART_DIRECTION: String((b.photographic || {}).artDirection || ''),\n} }];\n"
         }
       }
     ],
     "connections": {
-      "main_trigger": {
-        "main": [
-          [
-            {
-              "node": "normalize_input",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "api_trigger": {
-        "main": [
-          [
-            {
-              "node": "normalize_input",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "form_trigger": {
-        "main": [
-          [
-            {
-              "node": "normalize_input",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
       "normalize_input": {
         "main": [
           [
             {
               "node": "download_brand",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "download_brand": {
+        "main": [
+          [
+            {
+              "node": "brand_tokens",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "brand_tokens": {
+        "main": [
+          [
+            {
+              "node": "download_registry",
               "type": "main",
               "index": 0
             }
@@ -1192,117 +665,62 @@
           ]
         ]
       },
-      "pick_spec_type": {
+      "if_agent": {
         "main": [
           [
             {
-              "node": "if_spec_given",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "if_spec_given": {
-        "main": [
-          [
-            {
-              "node": "spec_from_param",
+              "node": "build_author_brief",
               "type": "main",
               "index": 0
             }
           ],
           [
             {
-              "node": "download_spec_prompt",
+              "node": "if_raster",
               "type": "main",
               "index": 0
             }
           ]
         ]
       },
-      "spec_from_param": {
+      "build_author_brief": {
         "main": [
           [
             {
-              "node": "spec_ready",
+              "node": "execute_author",
               "type": "main",
               "index": 0
             }
           ]
         ]
       },
-      "download_spec_prompt": {
+      "execute_author": {
         "main": [
           [
             {
-              "node": "author_spec",
+              "node": "fetch_artifact",
               "type": "main",
               "index": 0
             }
           ]
         ]
       },
-      "author_spec": {
+      "fetch_artifact": {
         "main": [
           [
             {
-              "node": "parse_spec",
+              "node": "agent_result",
               "type": "main",
               "index": 0
             }
           ]
         ]
       },
-      "parse_spec": {
+      "agent_result": {
         "main": [
           [
             {
-              "node": "spec_ready",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "spec_ready": {
-        "main": [
-          [
-            {
-              "node": "download_html_template",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "download_html_template": {
-        "main": [
-          [
-            {
-              "node": "download_svg_template",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "download_svg_template": {
-        "main": [
-          [
-            {
-              "node": "merge_assets",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "merge_assets": {
-        "main": [
-          [
-            {
-              "node": "if_video",
+              "node": "merge_branches",
               "type": "main",
               "index": 0
             }
@@ -1320,9 +738,9 @@
           ],
           [
             {
-              "node": "if_animated",
+              "node": "ready_pass",
               "type": "main",
-              "index": 0
+              "index": 2
             }
           ]
         ]
@@ -1386,7 +804,7 @@
         "main": [
           [
             {
-              "node": "cleanup_frames",
+              "node": "run_record",
               "type": "main",
               "index": 0
             }
@@ -1417,13 +835,7 @@
       },
       "ai_model": {
         "ai_languageModel": [
-          [
-            {
-              "node": "author_spec",
-              "type": "ai_languageModel",
-              "index": 0
-            }
-          ],
+          [],
           [
             {
               "node": "raster_director",
@@ -1435,13 +847,7 @@
       },
       "ai_model_fallback": {
         "ai_languageModel": [
-          [
-            {
-              "node": "author_spec",
-              "type": "ai_languageModel",
-              "index": 1
-            }
-          ],
+          [],
           [
             {
               "node": "raster_director",
@@ -1451,248 +857,33 @@
           ]
         ]
       },
-      "animated_result": {
+      "main_trigger": {
         "main": [
           [
             {
-              "node": "merge_branches",
-              "type": "main",
-              "index": 1
-            }
-          ]
-        ]
-      },
-      "assemble_animation": {
-        "main": [
-          [
-            {
-              "node": "animated_result",
+              "node": "normalize_input",
               "type": "main",
               "index": 0
             }
           ]
         ]
       },
-      "build_assemble": {
+      "api_trigger": {
         "main": [
           [
             {
-              "node": "assemble_animation",
+              "node": "normalize_input",
               "type": "main",
               "index": 0
             }
           ]
         ]
       },
-      "capture_failed": {
+      "form_trigger": {
         "main": [
           [
             {
-              "node": "merge_branches",
-              "type": "main",
-              "index": 1
-            }
-          ]
-        ]
-      },
-      "capture_frames": {
-        "main": [
-          [
-            {
-              "node": "if_capture_ok",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "cleanup_frames": {
-        "main": [
-          [
-            {
-              "node": "run_record",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "if_animated": {
-        "main": [
-          [
-            {
-              "node": "mkdir_frames",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "ready_pass",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "if_capture_ok": {
-        "main": [
-          [
-            {
-              "node": "build_assemble",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "capture_failed",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "mkdir_frames": {
-        "main": [
-          [
-            {
-              "node": "capture_frames",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "if_video": {
-        "main": [
-          [
-            {
-              "node": "build_video",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "if_raster",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "build_video": {
-        "main": [
-          [
-            {
-              "node": "render_video",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "render_video": {
-        "main": [
-          [
-            {
-              "node": "video_result",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "video_result": {
-        "main": [
-          [
-            {
-              "node": "merge_branches",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "if_agent": {
-        "main": [
-          [
-            {
-              "node": "build_author_brief",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "pick_spec_type",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "build_author_brief": {
-        "main": [
-          [
-            {
-              "node": "execute_author",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "execute_author": {
-        "main": [
-          [
-            {
-              "node": "fetch_artifact",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "fetch_artifact": {
-        "main": [
-          [
-            {
-              "node": "agent_result",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "agent_result": {
-        "main": [
-          [
-            {
-              "node": "merge_branches",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "download_brand": {
-        "main": [
-          [
-            {
-              "node": "brand_tokens",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "brand_tokens": {
-        "main": [
-          [
-            {
-              "node": "download_registry",
+              "node": "normalize_input",
               "type": "main",
               "index": 0
             }
@@ -1710,44 +901,33 @@
   },
   "activeVersionId": "2443fdbd-876b-4451-84b5-3b13efbbc688",
   "connections": {
-    "main_trigger": {
-      "main": [
-        [
-          {
-            "node": "normalize_input",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "api_trigger": {
-      "main": [
-        [
-          {
-            "node": "normalize_input",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "form_trigger": {
-      "main": [
-        [
-          {
-            "node": "normalize_input",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "normalize_input": {
       "main": [
         [
           {
             "node": "download_brand",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "download_brand": {
+      "main": [
+        [
+          {
+            "node": "brand_tokens",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "brand_tokens": {
+      "main": [
+        [
+          {
+            "node": "download_registry",
             "type": "main",
             "index": 0
           }
@@ -1776,117 +956,62 @@
         ]
       ]
     },
-    "pick_spec_type": {
+    "if_agent": {
       "main": [
         [
           {
-            "node": "if_spec_given",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "if_spec_given": {
-      "main": [
-        [
-          {
-            "node": "spec_from_param",
+            "node": "build_author_brief",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "download_spec_prompt",
+            "node": "if_raster",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "spec_from_param": {
+    "build_author_brief": {
       "main": [
         [
           {
-            "node": "spec_ready",
+            "node": "execute_author",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "download_spec_prompt": {
+    "execute_author": {
       "main": [
         [
           {
-            "node": "author_spec",
+            "node": "fetch_artifact",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "author_spec": {
+    "fetch_artifact": {
       "main": [
         [
           {
-            "node": "parse_spec",
+            "node": "agent_result",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "parse_spec": {
+    "agent_result": {
       "main": [
         [
           {
-            "node": "spec_ready",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "spec_ready": {
-      "main": [
-        [
-          {
-            "node": "download_html_template",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "download_html_template": {
-      "main": [
-        [
-          {
-            "node": "download_svg_template",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "download_svg_template": {
-      "main": [
-        [
-          {
-            "node": "merge_assets",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "merge_assets": {
-      "main": [
-        [
-          {
-            "node": "if_video",
+            "node": "merge_branches",
             "type": "main",
             "index": 0
           }
@@ -1904,9 +1029,9 @@
         ],
         [
           {
-            "node": "if_animated",
+            "node": "ready_pass",
             "type": "main",
-            "index": 0
+            "index": 2
           }
         ]
       ]
@@ -1970,7 +1095,7 @@
       "main": [
         [
           {
-            "node": "cleanup_frames",
+            "node": "run_record",
             "type": "main",
             "index": 0
           }
@@ -2001,13 +1126,7 @@
     },
     "ai_model": {
       "ai_languageModel": [
-        [
-          {
-            "node": "author_spec",
-            "type": "ai_languageModel",
-            "index": 0
-          }
-        ],
+        [],
         [
           {
             "node": "raster_director",
@@ -2019,13 +1138,7 @@
     },
     "ai_model_fallback": {
       "ai_languageModel": [
-        [
-          {
-            "node": "author_spec",
-            "type": "ai_languageModel",
-            "index": 1
-          }
-        ],
+        [],
         [
           {
             "node": "raster_director",
@@ -2035,248 +1148,33 @@
         ]
       ]
     },
-    "animated_result": {
+    "main_trigger": {
       "main": [
         [
           {
-            "node": "merge_branches",
-            "type": "main",
-            "index": 1
-          }
-        ]
-      ]
-    },
-    "assemble_animation": {
-      "main": [
-        [
-          {
-            "node": "animated_result",
+            "node": "normalize_input",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "build_assemble": {
+    "api_trigger": {
       "main": [
         [
           {
-            "node": "assemble_animation",
+            "node": "normalize_input",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "capture_failed": {
+    "form_trigger": {
       "main": [
         [
           {
-            "node": "merge_branches",
-            "type": "main",
-            "index": 1
-          }
-        ]
-      ]
-    },
-    "capture_frames": {
-      "main": [
-        [
-          {
-            "node": "if_capture_ok",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "cleanup_frames": {
-      "main": [
-        [
-          {
-            "node": "run_record",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "if_animated": {
-      "main": [
-        [
-          {
-            "node": "mkdir_frames",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "ready_pass",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "if_capture_ok": {
-      "main": [
-        [
-          {
-            "node": "build_assemble",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "capture_failed",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "mkdir_frames": {
-      "main": [
-        [
-          {
-            "node": "capture_frames",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "if_video": {
-      "main": [
-        [
-          {
-            "node": "build_video",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "if_raster",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "build_video": {
-      "main": [
-        [
-          {
-            "node": "render_video",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "render_video": {
-      "main": [
-        [
-          {
-            "node": "video_result",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "video_result": {
-      "main": [
-        [
-          {
-            "node": "merge_branches",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "if_agent": {
-      "main": [
-        [
-          {
-            "node": "build_author_brief",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "pick_spec_type",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "build_author_brief": {
-      "main": [
-        [
-          {
-            "node": "execute_author",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "execute_author": {
-      "main": [
-        [
-          {
-            "node": "fetch_artifact",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "fetch_artifact": {
-      "main": [
-        [
-          {
-            "node": "agent_result",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "agent_result": {
-      "main": [
-        [
-          {
-            "node": "merge_branches",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "download_brand": {
-      "main": [
-        [
-          {
-            "node": "brand_tokens",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "brand_tokens": {
-      "main": [
-        [
-          {
-            "node": "download_registry",
+            "node": "normalize_input",
             "type": "main",
             "index": 0
           }
@@ -2313,7 +1211,10 @@
               "name": "FEEDBACK"
             },
             {
-              "name": "SPEC_JSON"
+              "name": "FORCE"
+            },
+            {
+              "name": "STYLE"
             }
           ]
         }
@@ -2364,8 +1265,10 @@
               "fieldType": "textarea"
             },
             {
-              "fieldLabel": "SPEC_JSON",
-              "fieldType": "textarea"
+              "fieldLabel": "FORCE"
+            },
+            {
+              "fieldLabel": "STYLE"
             }
           ]
         },
@@ -2382,7 +1285,7 @@
         96
       ],
       "parameters": {
-        "jsCode": "const raw = $input.first().json || {};\nconst src = Object.assign({}, raw.body || {}, raw.query || {}, raw);\nconst v = (k) => { const x = src[k]; return x == null ? '' : String(x).trim(); };\nconst content = v('CONTENT');\nif (!content) throw new Error('CONTENT is required');\nreturn [{ json: {\n  RUN_ID: String($execution.id),\n  CONTENT: content,\n  ASSET_TYPES: v('ASSET_TYPES'),\n  FEEDBACK: v('FEEDBACK'),\n  SPEC_JSON: v('SPEC_JSON'),\n} }];"
+        "jsCode": "const raw = $input.first().json || {};\nconst src = Object.assign({}, raw.body || {}, raw.query || {}, raw);\nconst v = (k) => { const x = src[k]; return x == null ? '' : String(x).trim(); };\nconst content = v('CONTENT');\nif (!content) throw new Error('CONTENT is required');\n// FORCE pins the form; STYLE names a brand scheme and is resolved (and defaulted)\n// in brand_tokens, where the scheme names live, so an unknown value fails there.\nconst FORCES = ['auto', 'diagram', 'story', 'data', 'poster', 'image'];\nconst force = v('FORCE') || 'auto';\nif (!FORCES.includes(force)) throw new Error('unknown FORCE: ' + force + ' (expected one of ' + FORCES.join(', ') + ')');\nreturn [{ json: {\n  RUN_ID: String($execution.id),\n  CONTENT: content,\n  ASSET_TYPES: v('ASSET_TYPES'),\n  FEEDBACK: v('FEEDBACK'),\n  FORCE: force,\n  STYLE: v('STYLE'),\n} }];\n"
       }
     },
     {
@@ -2445,132 +1348,7 @@
         96
       ],
       "parameters": {
-        "jsCode": "const cfg = JSON.parse($('download_registry').first().json.output || '{}');\nconst req = $('normalize_input').first().json;\nconst types = Array.isArray(cfg.types) ? cfg.types : [];\nconst byId = new Map(types.map((t) => [t.id, t]));\nconst budget = cfg.budget || {};\nconst cap = Number(cfg.max_types_per_request || 3);\nlet requested = req.ASSET_TYPES\n  ? req.ASSET_TYPES.split(',').map((s) => s.trim()).filter(Boolean)\n  : (cfg.default_types || []);\nrequested = [...new Set(requested)];\nconst out = [];\nconst note = (id, status, error) => out.push({ json: Object.assign({}, req, {\n  ASSET_TYPE: id, NAME: id, AUTHOR: null, BRAND_KIND: '', TEMPLATE: null, SPEC_TEMPLATE: null,\n  RENDER_MODE: '', FORMAT: '', FALLBACK_FORMAT: null, ASPECT: '', AVAILABLE: false,\n  UNAVAILABLE_REASON: '', FPS: 0, FRAMES: 0, VIEWPORT: 0, DURATION_SECONDS: 0, STATUS: status, ERROR: error }) });\nfor (const id of requested.slice(0, cap)) {\n  const t = byId.get(id);\n  if (!t) { note(id, 'UNKNOWN', 'unknown asset type: ' + id); continue; }\n  const kind = t.brandKind || 'diagrammatic';\n  if (kind !== 'diagrammatic' && kind !== 'photographic') throw new Error('unknown brandKind for ' + t.id + ': ' + t.brandKind);\n  const b = Object.assign({}, budget, t.budget || {});\n  out.push({ json: Object.assign({}, req, {\n    ASSET_TYPE: t.id, NAME: t.name || t.id, AUTHOR: t.author, BRAND_KIND: kind, TEMPLATE: t.template || null,\n    SPEC_TEMPLATE: t.specTemplate || null, RENDER_MODE: t.render, FORMAT: t.format,\n    FALLBACK_FORMAT: t.fallbackFormat || null, ASPECT: t.aspect || '4:5',\n    AVAILABLE: t.available !== false, UNAVAILABLE_REASON: t.unavailableReason || '',\n    FPS: Number(b.fps || 12), FRAMES: Number(b.frames || 36), VIEWPORT: Number(b.viewport || 1200),\n    DURATION_SECONDS: Number(t.durationSeconds || 0),\n    DURATION_MS: Number(t.durationMs || 0),\n  }) });\n}\nfor (const id of requested.slice(cap)) note(id, 'SKIPPED', 'over the per-request cap of ' + cap);\nreturn out;\n"
-      }
-    },
-    {
-      "id": "9db82fc1-795a-4199-b49d-256ee4d0709c",
-      "name": "pick_spec_type",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        896,
-        96
-      ],
-      "parameters": {
-        "jsCode": "const req = $('normalize_input').first().json;\nconst wants = $('parse_registry').all().map((i) => i.json).filter((a) => a.SPEC_TEMPLATE);\nconst first = wants.length ? wants[0] : null;\nreturn [{ json: Object.assign({}, req, {\n  ASSET_TYPE: first ? first.ASSET_TYPE : '',\n  NEEDS_SPEC: !!first,\n}) }];"
-      }
-    },
-    {
-      "id": "a2fae492-3c6c-4d1b-a7ec-7e3d6393564b",
-      "name": "if_spec_given",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        1120,
-        96
-      ],
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 2
-          },
-          "combinator": "and",
-          "conditions": [
-            {
-              "id": "if_spec_given-c",
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
-              },
-              "leftValue": "={{ !!$json.SPEC_JSON || !$json.NEEDS_SPEC }}",
-              "rightValue": ""
-            }
-          ]
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "e08e8108-bb62-482a-8f09-e3da7f0248ee",
-      "name": "spec_from_param",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1920,
-        0
-      ],
-      "parameters": {
-        "jsCode": "\nconst raw = ($input.first().json.SPEC_JSON || '').trim();\nif (!raw) return [{ json: { SPEC: null, SPEC_JSON: '' } }];\nlet spec;\ntry { spec = JSON.parse(raw); } catch (e) { throw new Error('SPEC_JSON parameter is invalid JSON: ' + e.message); }\n\nconst fail = (msg) => { throw new Error('content spec invalid: ' + msg); };\nif (typeof spec.title !== 'string' || !spec.title.trim()) fail('missing field: title');\nif (!Array.isArray(spec.blocks) || spec.blocks.length < 3 || spec.blocks.length > 6)\n  fail('blocks must be an array of 3 to 6 entries');\nspec.blocks.forEach((b, i) => {\n  if (!b || typeof b.label !== 'string' || !b.label.trim()) fail('missing field: blocks[' + i + '].label');\n  if (b.value == null || String(b.value).trim() === '') fail('missing field: blocks[' + i + '].value');\n});\nif (typeof spec.accent !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(spec.accent))\n  fail('missing field: accent');\nif (!spec.motion || typeof spec.motion !== 'object') fail('missing field: motion');\nif (!['rise', 'fade', 'sweep', 'pulse'].includes(spec.motion.kind)) fail('missing field: motion.kind');\nconst d = Number(spec.motion.durationMs);\nif (!Number.isFinite(d) || d < 2000 || d > 12000) fail('missing field: motion.durationMs');\nif (typeof spec.alt !== 'string' || !spec.alt.trim()) fail('missing field: alt');\nreturn [{ json: { SPEC: spec, SPEC_JSON: JSON.stringify(spec) } }];"
-      }
-    },
-    {
-      "id": "c83ca7e1-abf0-4665-b1e1-eb77de155f5c",
-      "name": "download_spec_prompt",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        1344,
-        192
-      ],
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "qUfjfWLGEjV96ljf",
-          "mode": "list",
-          "cachedResultName": "DownloadTemplate",
-          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "template_name": "prompts/visual_spec.md",
-            "template_vars": "={{ {\n \"ASSET_TYPE\": $('pick_spec_type').first().json.ASSET_TYPE,\n \"CONTENT\": $('normalize_input').first().json.CONTENT,\n \"BRAND\": $('brand_tokens').first().json.BRAND,\n \"FEEDBACK\": $('normalize_input').first().json.FEEDBACK\n} }}"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "template_name",
-              "displayName": "template_name",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string"
-            },
-            {
-              "id": "template_vars",
-              "displayName": "template_vars",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "object"
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "2dee4efd-d8af-4d51-b233-0af74a3c5046",
-      "name": "author_spec",
-      "type": "@n8n/n8n-nodes-langchain.chainLlm",
-      "typeVersion": 1.6,
-      "position": [
-        1568,
-        192
-      ],
-      "parameters": {
-        "promptType": "define",
-        "text": "={{ $('download_spec_prompt').item.json.output }}",
-        "needsFallback": true
+        "jsCode": "const cfg = JSON.parse($('download_registry').first().json.output || '{}');\nconst req = $('normalize_input').first().json;\nconst types = Array.isArray(cfg.types) ? cfg.types : [];\nconst byId = new Map(types.map((t) => [t.id, t]));\nconst budget = cfg.budget || {};\nconst cap = Number(cfg.max_types_per_request || 3);\nlet requested = req.ASSET_TYPES\n  ? req.ASSET_TYPES.split(',').map((s) => s.trim()).filter(Boolean)\n  : (cfg.default_types || []);\nrequested = [...new Set(requested)];\nconst out = [];\nconst shaped = (t, extra) => {\n  const b = Object.assign({}, budget, t.budget || {});\n  return Object.assign({}, req, {\n    ASSET_TYPE: t.id, NAME: t.name || t.id, AUTHOR: t.author, BRAND_KIND: t.brandKind || 'diagrammatic',\n    RENDER_MODE: t.render, FORMAT: t.format, ASPECT: t.aspect || '4:5',\n    FPS: Number(b.fps || 12), FRAMES: Number(b.frames || 36), VIEWPORT: Number(b.viewport || 1200),\n    DURATION_SECONDS: Number(t.durationSeconds || 0),\n  }, extra);\n};\nconst note = (id, status, error) => out.push({ json: Object.assign({}, req, {\n  ASSET_TYPE: id, NAME: id, AUTHOR: null, BRAND_KIND: '', RENDER_MODE: '', FORMAT: '', ASPECT: '',\n  FPS: 0, FRAMES: 0, VIEWPORT: 0, DURATION_SECONDS: 0, STATUS: status, ERROR: error }) });\nfor (const id of requested.slice(0, cap)) {\n  const t = byId.get(id);\n  if (!t) { note(id, 'UNKNOWN', 'unknown asset type: ' + id); continue; }\n  const kind = t.brandKind || 'diagrammatic';\n  if (kind !== 'diagrammatic' && kind !== 'photographic') throw new Error('unknown brandKind for ' + t.id + ': ' + t.brandKind);\n  // An unavailable type must not take its author branch: null its author so it\n  // falls through to the report path with a STATUS and reason.\n  if (t.available === false) {\n    out.push({ json: shaped(t, { AUTHOR: null, STATUS: 'UNAVAILABLE', ERROR: t.unavailableReason || ('unavailable: ' + t.id) }) });\n    continue;\n  }\n  out.push({ json: shaped(t, { STATUS: '' }) });\n}\nfor (const id of requested.slice(cap)) note(id, 'SKIPPED', 'over the per-request cap of ' + cap);\nreturn out;\n"
       }
     },
     {
@@ -2628,145 +1406,6 @@
       }
     },
     {
-      "id": "f88cf49b-0f7e-4ca9-b245-f95821fc7102",
-      "name": "parse_spec",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1920,
-        192
-      ],
-      "parameters": {
-        "jsCode": "\nconst raw0 = $('author_spec').first().json.text || '';\nlet raw = raw0.trim().replace(/^```(?:json)?\\s*/i, '').replace(/\\s*```$/, '');\nconst m = raw.match(/\\{[\\s\\S]*\\}/);\nif (!m) throw new Error('content spec is not JSON');\nlet spec;\ntry { spec = JSON.parse(m[0]); } catch (e) { throw new Error('content spec is invalid JSON: ' + e.message); }\n\nconst fail = (msg) => { throw new Error('content spec invalid: ' + msg); };\nif (typeof spec.title !== 'string' || !spec.title.trim()) fail('missing field: title');\nif (!Array.isArray(spec.blocks) || spec.blocks.length < 3 || spec.blocks.length > 6)\n  fail('blocks must be an array of 3 to 6 entries');\nspec.blocks.forEach((b, i) => {\n  if (!b || typeof b.label !== 'string' || !b.label.trim()) fail('missing field: blocks[' + i + '].label');\n  if (b.value == null || String(b.value).trim() === '') fail('missing field: blocks[' + i + '].value');\n});\nif (typeof spec.accent !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(spec.accent))\n  fail('missing field: accent');\nif (!spec.motion || typeof spec.motion !== 'object') fail('missing field: motion');\nif (!['rise', 'fade', 'sweep', 'pulse'].includes(spec.motion.kind)) fail('missing field: motion.kind');\nconst d = Number(spec.motion.durationMs);\nif (!Number.isFinite(d) || d < 2000 || d > 12000) fail('missing field: motion.durationMs');\nif (typeof spec.alt !== 'string' || !spec.alt.trim()) fail('missing field: alt');\nreturn [{ json: { SPEC: spec, SPEC_JSON: JSON.stringify(spec) } }];"
-      }
-    },
-    {
-      "id": "239cc47b-dc9b-47fc-bc61-2263f7f6ab6e",
-      "name": "spec_ready",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        2144,
-        96
-      ],
-      "parameters": {
-        "jsCode": "const j = $input.first().json;\nreturn [{ json: { SPEC: j.SPEC, SPEC_JSON: j.SPEC_JSON } }];"
-      }
-    },
-    {
-      "id": "0769f54c-55f1-4425-94d8-330e040b3ccd",
-      "name": "download_html_template",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        2368,
-        96
-      ],
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "qUfjfWLGEjV96ljf",
-          "mode": "list",
-          "cachedResultName": "DownloadTemplate",
-          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "template_name": "templates/infographic.html",
-            "template_vars": "={{ {} }}"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "template_name",
-              "displayName": "template_name",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string"
-            },
-            {
-              "id": "template_vars",
-              "displayName": "template_vars",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "object"
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "73328cd8-01f0-4449-9339-2a0d8c083e4a",
-      "name": "download_svg_template",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        2592,
-        96
-      ],
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "qUfjfWLGEjV96ljf",
-          "mode": "list",
-          "cachedResultName": "DownloadTemplate",
-          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "template_name": "templates/infographic.svg",
-            "template_vars": "={{ {} }}"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "template_name",
-              "displayName": "template_name",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string"
-            },
-            {
-              "id": "template_vars",
-              "displayName": "template_vars",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "object"
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "37b83457-d820-4a6f-b69a-a829a52ffb8f",
-      "name": "merge_assets",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        2816,
-        96
-      ],
-      "parameters": {
-        "jsCode": "const esc = (s) => String(s).replace(/&/g, \"&amp;\").replace(/</g, \"&lt;\").replace(/>/g, \"&gt;\");\nconst escAttr = (s) => esc(s).replace(/\"/g, \"&quot;\");\nfunction buildMarkup(tmpl, spec, fps, frames, viewport, durationMs, isSvg, brandTokens) {\n  // The caller's accent is mapped onto the brand ramp, so an out-of-brand or\n  // legacy value is never rendered as given (design D3).\n  const rgb = (h) => { const s = String(h).replace(\"#\", \"\"); return [0, 2, 4].map((i) => parseInt(s.slice(i, i + 2), 16)); };\n  const dist = (a, c) => { const x = rgb(a), y = rgb(c); return (x[0]-y[0])**2 + (x[1]-y[1])**2 + (x[2]-y[2])**2; };\n  const ramp = brandTokens.RAMP || [];\n  const mapAccent = (v) => { const want = String(v || \"\").toLowerCase();\n    for (const c of ramp) if (c.toLowerCase() === want) return c;\n    return ramp.length ? ramp.reduce((best, c) => dist(c, want) < dist(best, want) ? c : best) : want; };\n  const accent = mapAccent(spec.accent);\n  const kind = [\"rise\", \"fade\", \"sweep\", \"pulse\"].includes(spec.motion && spec.motion.kind)\n    ? spec.motion.kind : \"rise\";\n  const duration = Math.max(1000, Math.min(20000, Number(durationMs) || (spec && spec.motion && spec.motion.durationMs) || 3000));\n  const blocks = (spec.blocks || []).slice(0, 6);\n  const step = Math.floor(duration / (blocks.length + 1));\n  let out;\n  if (isSvg) {\n    const top = 360, row = 150;\n    const svgBlocks = blocks.map((b, i) => {\n      const delay = i * step, d = Math.max(200, duration - delay), y = top + i * row;\n      return `<g class=\"block\" style=\"animation-delay:${delay}ms;animation-duration:${d}ms\">` +\n        `<text class=\"label\" x=\"64\" y=\"${y}\">${esc(b.label)}</text>` +\n        `<text class=\"value\" x=\"1136\" y=\"${y}\" text-anchor=\"end\">${esc(b.value)}</text>` +\n        `<line class=\"sep\" x1=\"64\" y1=\"${y + 28}\" x2=\"1136\" y2=\"${y + 28}\" /></g>`;\n    }).join(\"\\n  \");\n    out = tmpl.split(\"%%TITLE%%\").join(esc(spec.title || \"\"))\n      .split(\"%%BLOCKS%%\").join(svgBlocks).split(\"%%ACCENT%%\").join(accent)\n      .split(\"%%MOTION_ANIM%%\").join(kind).split(\"%%DURATION_MS%%\").join(String(duration))\n      .split(\"%%FPS%%\").join(String(fps)).split(\"%%FRAMES%%\").join(String(frames))\n      .split(\"%%VIEWPORT%%\").join(String(viewport)).split(\"%%ALT%%\").join(escAttr(spec.alt || \"\"));\n  } else {\n    const htmlBlocks = blocks.map((b, i) => {\n      const delay = i * step, d = Math.max(200, duration - delay);\n      return `<div class=\"block\" style=\"animation-delay:${delay}ms;animation-duration:${d}ms\">` +\n        `<span class=\"label\">${esc(b.label)}</span><span class=\"value\">${esc(b.value)}</span></div>`;\n    }).join(\"\\n      \");\n    out = tmpl.split(\"%%TITLE%%\").join(esc(spec.title || \"\"))\n      .split(\"%%BLOCKS%%\").join(htmlBlocks).split(\"%%ACCENT%%\").join(accent)\n      .split(\"%%MOTION_ANIM%%\").join(kind).split(\"%%DURATION_MS%%\").join(String(duration))\n      .split(\"%%FPS%%\").join(String(fps)).split(\"%%FRAMES%%\").join(String(frames))\n      .split(\"%%VIEWPORT%%\").join(String(viewport));\n  }\n  out = out.split(\"%%BRAND_SHELL%%\").join(brandTokens.SHELL)\n    .split(\"%%BRAND_INK%%\").join(brandTokens.INK)\n    .split(\"%%BRAND_INK_MUTED%%\").join(brandTokens.INK_MUTED)\n    .split(\"%%BRAND_HAIRLINE%%\").join(brandTokens.HAIRLINE)\n    .split(\"%%FONT_TEXT%%\").join(brandTokens.FONT_TEXT)\n    .split(\"%%FONT_CODE%%\").join(brandTokens.FONT_CODE);\n  const left = out.match(/%%[A-Z_]+%%/g);\n  if (left) throw new Error(\"unresolved template token(s): \" + left.join(\", \"));\n  return out;\n}\nconst spec = $('spec_ready').first().json.SPEC;\nconst specJson = $('spec_ready').first().json.SPEC_JSON;\nconst specDuration = Math.max(1000, Math.min(20000, (spec && spec.motion && spec.motion.durationMs) || 3000));\nconst htmlT = $('download_html_template').first().json.output;\nconst brandTokens = $('brand_tokens').first().json.TEMPLATE;\nconst svgT = $('download_svg_template').first().json.output;\nconst asset = (a, status) => ({\n  ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: status, SPEC_JSON: specJson, PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: '', FRAME_COUNT: '', WIDTH: '', HEIGHT: '',\n});\nconst out = [];\nfor (const item of $('parse_registry').all()) {\n  const a = item.json;\n  // Agent-authored types are produced by the agent branch off parse_registry,\n  // not here; skip them so they are not emitted twice.\n  if (a.AUTHOR === 'agent') continue;\n  if (a.STATUS === 'UNKNOWN' || a.STATUS === 'SKIPPED') {\n    out.push({ json: asset(a, a.STATUS) });\n    out[out.length - 1].json.ERROR = a.ERROR || '';\n    continue;\n  }\n  if (a.AVAILABLE === false) {\n    const r = asset(a, 'UNAVAILABLE');\n    r.ERROR = a.UNAVAILABLE_REASON || ('unavailable: ' + a.ASSET_TYPE);\n    out.push({ json: r });\n    continue;\n  }\n  const r = asset(a, 'AUTHORED');\n  const dur = Math.max(1000, Math.min(20000, Number(a.DURATION_MS) || specDuration));\n  let markup = '', markupKind = '';\n  if (a.AUTHOR === 'spec_markup') {\n    if (a.RENDER_MODE === 'animated') { markup = buildMarkup(htmlT, spec, a.FPS, a.FRAMES, a.VIEWPORT, dur, false, brandTokens); markupKind = 'text/html'; }\n    else if (a.RENDER_MODE === 'text') { markup = buildMarkup(svgT, spec, a.FPS, a.FRAMES, a.VIEWPORT, dur, true, brandTokens); markupKind = 'image/svg+xml'; }\n  }\n  r.MARKUP = markup;\n  r.CONTENT_TYPE = markupKind;\n  if (a.RENDER_MODE === 'animated') {\n    const fpsCap = Math.max(1, Math.min(12, Number(a.FPS) || 12));\n    const frameCap = Math.max(1, Math.min(90, Number(a.FRAMES) || 36));\n    r.VIEWPORT = String(Math.max(1, Math.min(1200, Number(a.VIEWPORT) || 1200)));\n    r.DURATION_MS = String(dur);\n    r.FRAME_COUNT = String(Math.max(1, Math.min(frameCap, Math.floor(dur * fpsCap / 1000))));\n  }\n  out.push({ json: Object.assign({}, a, r) });\n}\nreturn out;"
-      }
-    },
-    {
       "id": "135dc3bb-bf36-48e5-a833-889670a83b0e",
       "name": "if_raster",
       "type": "n8n-nodes-base.if",
@@ -2792,7 +1431,7 @@
                 "operation": "true",
                 "singleValue": true
               },
-              "leftValue": "={{ ['raster','spec_raster'].includes($json.AUTHOR) }}",
+              "leftValue": "={{ $json.AUTHOR === 'image' }}",
               "rightValue": ""
             }
           ]
@@ -2821,7 +1460,7 @@
           "mappingMode": "defineBelow",
           "value": {
             "template_name": "prompts/visual_raster.md",
-            "template_vars": "={{ {\n \"ASSET_TYPE\": $json.ASSET_TYPE,\n \"CONTENT\": $json.CONTENT,\n \"SPEC_JSON\": $json.BRAND_KIND === 'photographic' ? '' : $json.SPEC_JSON,\n \"BRAND\": $json.BRAND_KIND === 'photographic' ? '' : $('brand_tokens').first().json.BRAND,\n \"ART_DIRECTION\": $json.BRAND_KIND === 'photographic' ? $('brand_tokens').first().json.ART_DIRECTION : '',\n \"FEEDBACK\": $json.FEEDBACK\n} }}"
+            "template_vars": "={{ {\n \"ASSET_TYPE\": $json.ASSET_TYPE,\n \"CONTENT\": $json.CONTENT,\n \"BRAND\": $json.BRAND_KIND === 'photographic' ? '' : $('brand_tokens').first().json.BRAND,\n \"ART_DIRECTION\": $json.BRAND_KIND === 'photographic' ? $('brand_tokens').first().json.ART_DIRECTION : '',\n \"FEEDBACK\": $json.FEEDBACK\n} }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -2939,7 +1578,7 @@
         128
       ],
       "parameters": {
-        "jsCode": "const items = $('merge_branches').all().map((i) => i.json);\nconst req = $('normalize_input').first().json;\nconst errors = items.filter((i) => i.ERROR).map((i) => i.ASSET_TYPE + ': ' + i.ERROR);\nconst payload = items.map((i) => Object.assign({}, i, {\n  SPEC: undefined, MARKUP: i.CONTENT_TYPE === 'image/svg+xml' ? i.MARKUP : undefined,\n}));\nreturn [{ json: {\n  RUN_ID: req.RUN_ID,\n  STATUS: errors.length === 0 ? 'COMPLETE' : (items.some((i) => !i.ERROR) ? 'PARTIAL' : 'FAILED'),\n  REQUEST: JSON.stringify({ ASSET_TYPES: req.ASSET_TYPES, FEEDBACK: req.FEEDBACK,\n                            SPEC_GIVEN: !!req.SPEC_JSON, CONTENT_LENGTH: req.CONTENT.length }),\n  RESULT: JSON.stringify(payload),\n  ASSET_COUNT: String(items.length),\n  ERROR: errors.join(' | ').slice(0, 2000),\n} }];"
+        "jsCode": "const items = $('merge_branches').all().map((i) => i.json);\nconst req = $('normalize_input').first().json;\nconst brand = $('brand_tokens').first().json;\nconst errors = items.filter((i) => i.ERROR).map((i) => i.ASSET_TYPE + ': ' + i.ERROR);\nreturn [{ json: {\n  RUN_ID: req.RUN_ID,\n  STATUS: errors.length === 0 ? 'COMPLETE' : (items.some((i) => !i.ERROR) ? 'PARTIAL' : 'FAILED'),\n  REQUEST: JSON.stringify({ ASSET_TYPES: req.ASSET_TYPES, FORCE: req.FORCE, STYLE: brand.STYLE,\n                            FEEDBACK: req.FEEDBACK, CONTENT_LENGTH: req.CONTENT.length }),\n  // RESULT carries each asset's STORYBOARD, so a bad visual is diagnosable.\n  RESULT: JSON.stringify(items),\n  ASSET_COUNT: String(items.length),\n  ERROR: errors.join(' | ').slice(0, 2000),\n} }];\n"
       }
     },
     {
@@ -2975,263 +1614,6 @@
       ],
       "parameters": {
         "jsCode": "const items = $('merge_branches').all().map((i) => i.json);\nconst req = $('normalize_input').first().json;\nreturn [{ json: {\n  RUN_ID: req.RUN_ID,\n  STATUS: items.some((i) => i.ERROR) ? (items.every((i) => i.ERROR) ? 'FAILED' : 'PARTIAL') : 'COMPLETE',\n  ASSETS: items,\n} }];"
-      }
-    },
-    {
-      "id": "e749e1b8-ce22-4bac-a5a5-40a3a6011823",
-      "name": "animated_result",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        4736,
-        224
-      ],
-      "parameters": {
-        "jsCode": "const a = $('capture_frames').first().json;\nconst out = $input.first().json || {};\nconst base = {\n  ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: '', SPEC_JSON: a.SPEC_JSON || '', PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: a.DURATION_MS || '', FRAME_COUNT: a.FRAME_COUNT || '',\n  WIDTH: a.WIDTH || '', HEIGHT: a.HEIGHT || '', MARKUP: '', IMAGE: '',\n};\nconst img = String(out.stdout || '').trim();\nif (out.error || !/^data:image\\/[a-z+.-]+;base64,/.test(img)) {\n  const reason = String(out.error || out.stderr || 'animation assembly failed').slice(0, 500);\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: reason }) }];\n}\nreturn [{ json: Object.assign({}, base, {\n  STATUS: 'RENDERED', IMAGE: img, CONTENT_TYPE: img.slice(5, img.indexOf(';')),\n}) }];"
-      }
-    },
-    {
-      "id": "f074f7c2-a093-4c4e-9c8b-acccca9ae591",
-      "name": "assemble_animation",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "onError": "continueRegularOutput",
-      "position": [
-        4512,
-        224
-      ],
-      "parameters": {
-        "command": "={{ $json.CMD }}"
-      }
-    },
-    {
-      "id": "98a7c88d-a5da-4bc0-b609-6e2702783341",
-      "name": "build_assemble",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        4224,
-        224
-      ],
-      "parameters": {
-        "jsCode": "const a = $('capture_frames').first().json;\nconst frames = Math.max(1, Math.min(90, Number(a.FRAME_COUNT) || 36));\nconst duration = Math.max(1000, Math.min(20000, Number(a.DURATION_MS) || 3000));\nconst run = String(a.RUN_ID);\nconst asset = String(a.ASSET_TYPE);\nif (!/^[A-Za-z0-9_-]+$/.test(run)) throw new Error('unsafe RUN_ID');\nif (!/^[a-z0-9_]+$/.test(asset)) throw new Error('unsafe ASSET_TYPE');\nconst dir = '/home/node/.n8n-files/' + run + '/' + asset;\nconst img2webp = '/usr/local/lib/node_modules/webp-converter/bin/libwebp_linux/bin/img2webp';\nconst name = (i) => 'f_' + String(i).padStart(3, '0') + '.jpg';\n// Both encoders get the whole duration: WebP in milliseconds, GIF in centiseconds,\n// spreading the remainder over the last frames so the total is exact rather than\n// rounded per frame (3000 ms over 24 frames is 12x12cs + 12x13cs, not 24x13cs).\nconst webpArgs = [];\nconst wBase = Math.floor(duration / frames);\nconst wRem = duration - wBase * frames;\nconst gifArgs = [];\nconst totalCs = Math.max(frames, Math.round(duration / 10));\nconst gBase = Math.floor(totalCs / frames);\nconst gRem = totalCs - gBase * frames;\nfor (let i = 0; i < frames; i++) {\n  webpArgs.push('-d', String(wBase + (i >= frames - wRem ? 1 : 0)), name(i));\n  gifArgs.push('-delay', String(gBase + (i >= frames - gRem ? 1 : 0)), name(i));\n}\n// The type's declared format picks the encoder and the other one is the fallback, so a\n// gif type is assembled as GIF rather than falling back to it. A missing FORMAT keeps\n// the original webp-then-gif order.\nconst webpCmd = \"'\" + img2webp + \"' -loop 0 \" + webpArgs.join(' ') + \" -o out.webp\";\nconst gifCmd = 'gm convert ' + gifArgs.join(' ') + ' out.gif';\nconst encoders = {\n  gif: { want: gifCmd, F: 'out.gif', MIME: 'image/gif', other: webpCmd, oF: 'out.webp', oMIME: 'image/webp' },\n  webp: { want: webpCmd, F: 'out.webp', MIME: 'image/webp', other: gifCmd, oF: 'out.gif', oMIME: 'image/gif' },\n};\nconst pick = encoders[String(a.FORMAT || '').toLowerCase()] || encoders.webp;\nconst encoderCmd = [\n  'if ' + pick.want + ' >/dev/null 2>&1; then F=' + pick.F + '; MIME=' + pick.MIME + ';',\n  'elif ' + pick.other + ' >/dev/null 2>&1; then F=' + pick.oF + '; MIME=' + pick.oMIME + ';',\n  'else exit 1; fi',\n].join(' ');\nconst cmd = [\n  'set -e',\n  \"cd '\" + dir + \"'\",\n  encoderCmd,\n  \"printf 'data:%s;base64,' \\\"$MIME\\\"\",\n  'base64 -w0 \"$F\"',\n  \"rm -rf '\" + dir + \"'\",\n  \"rmdir '/home/node/.n8n-files/\" + run + \"' 2>/dev/null || true\",\n].join('\\n');\nreturn [{ json: { CMD: cmd, RUN_ID: run, ASSET_TYPE: asset } }];"
-      }
-    },
-    {
-      "id": "46d4db3e-91de-4c45-bc13-f277ebfe14d0",
-      "name": "capture_failed",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        4736,
-        416
-      ],
-      "parameters": {
-        "jsCode": "const a = $('if_animated').first().json;\nconst err = $input.first().json || {};\nconst reason = err.CAPTURE_ERROR || err.error || 'frame capture failed';\nreturn [{ json: Object.assign({}, a, {\n  STATUS: 'ERROR',\n  ERROR: String(reason).slice(0, 500),\n  MARKUP: '', IMAGE: '', CONTENT_TYPE: '',\n  DURATION_MS: '', FRAME_COUNT: '', WIDTH: '', HEIGHT: '',\n}) }];"
-      }
-    },
-    {
-      "id": "31e72edd-126b-49ea-86f9-83cf252d2f75",
-      "name": "capture_frames",
-      "type": "CUSTOM.puppeteer",
-      "typeVersion": 1,
-      "onError": "continueRegularOutput",
-      "position": [
-        3712,
-        320
-      ],
-      "parameters": {
-        "operation": "runCustomScript",
-        "scriptCode": "const a = $('if_animated').first().json;\nconst bail = (msg) => [{ json: Object.assign({}, a, {\n  CAPTURE_ERROR: String(msg).slice(0, 500), WIDTH: '', FRAME_COUNT: '', HEIGHT: '',\n}) }];\ntry {\n  const markup = a.MARKUP || '';\n  if (!markup) throw new Error('no markup to capture for ' + (a.ASSET_TYPE || 'asset'));\n  const duration = Math.max(1000, Math.min(20000, Number(a.DURATION_MS) || 3000));\n  const frames = Math.max(1, Math.min(90, Number(a.FRAME_COUNT) || 36));\n  const viewport = Math.max(1, Math.min(1200, Number(a.VIEWPORT) || 1200));\n  const aspect = String(a.ASPECT || '4:5').split(':');\n  const rw = Number(aspect[0]) || 4;\n  const rh = Number(aspect[1]) || 5;\n  const width = Math.round(viewport);\n  const height = Math.round((viewport * rh) / rw);\n  if (!/^[A-Za-z0-9_-]+$/.test(String(a.RUN_ID))) throw new Error('unsafe RUN_ID');\n  if (!/^[a-z0-9_]+$/.test(String(a.ASSET_TYPE))) throw new Error('unsafe ASSET_TYPE');\n  const dir = '/home/node/.n8n-files/' + a.RUN_ID + '/' + a.ASSET_TYPE;\n  await $page.setViewport({ width, height, deviceScaleFactor: 1 });\n  await $page.goto('data:text/html;charset=utf-8,' + encodeURIComponent(markup), { waitUntil: 'load', timeout: 60000 });\n  await $page.evaluate(() => document.fonts.ready);\n  await $page.evaluate(() => { document.getAnimations().forEach((an) => { an.pause(); an.currentTime = 0; }); });\n  for (let i = 0; i < frames; i++) {\n    const t = (i * duration) / frames;\n    await $page.evaluate((at) => { document.getAnimations().forEach((an) => { an.currentTime = at; }); }, t);\n    await $page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));\n    await $page.screenshot({ type: 'jpeg', quality: 85, path: dir + '/f_' + String(i).padStart(3, '0') + '.jpg' });\n  }\n  return [{ json: Object.assign({}, a, { WIDTH: String(width), HEIGHT: String(height), FRAME_COUNT: String(frames), DURATION_MS: String(duration) }) }];\n} catch (e) {\n  return bail(e && e.message ? e.message : e);\n}\n",
-        "options": {
-          "browserWSEndpoint": "ws://datahub-local-core-automation-n8n-chromium:3000?token=TOKEN-1234567890",
-          "protocolTimeout": 120000
-        }
-      }
-    },
-    {
-      "id": "5e18f66b-62af-452e-8240-904b90ff3220",
-      "name": "cleanup_frames",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "onError": "continueRegularOutput",
-      "position": [
-        5184,
-        128
-      ],
-      "parameters": {
-        "command": "={{ String($json.RUN_ID).replace(/[^A-Za-z0-9_-]/g,'') ? 'rm -rf /home/node/.n8n-files/' + String($json.RUN_ID).replace(/[^A-Za-z0-9_-]/g,'') : 'true' }}"
-      }
-    },
-    {
-      "id": "fe0b3a61-8c9e-4e6f-bb42-334aaa7823be",
-      "name": "if_animated",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        3264,
-        224
-      ],
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 2
-          },
-          "combinator": "and",
-          "conditions": [
-            {
-              "id": "if_animated-c",
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
-              },
-              "leftValue": "={{ $json.RENDER_MODE === 'animated' }}",
-              "rightValue": ""
-            }
-          ]
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "887bd8bb-f806-456a-bb89-6e3a023c5542",
-      "name": "if_capture_ok",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        3936,
-        320
-      ],
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 2
-          },
-          "combinator": "and",
-          "conditions": [
-            {
-              "id": "if_capture_ok-c",
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
-              },
-              "leftValue": "={{ !!$json.FRAME_COUNT && !$json.CAPTURE_ERROR }}",
-              "rightValue": ""
-            }
-          ]
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "1183dd80-b03a-4acd-9704-edfe70b0907c",
-      "name": "mkdir_frames",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "onError": "continueRegularOutput",
-      "position": [
-        3488,
-        320
-      ],
-      "parameters": {
-        "command": "=mkdir -p /home/node/.n8n-files/{{ $json.RUN_ID }}/{{ $json.ASSET_TYPE }}"
-      }
-    },
-    {
-      "id": "a62fb762-f33d-4820-a9e1-1e7d56e77c87",
-      "name": "if_video",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        2816,
-        336
-      ],
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 2
-          },
-          "combinator": "and",
-          "conditions": [
-            {
-              "id": "if_video-c",
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
-              },
-              "leftValue": "={{ $json.RENDER_MODE === 'video' }}",
-              "rightValue": ""
-            }
-          ]
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "0230330a-be9a-4f2d-884d-d9f8a06800e3",
-      "name": "build_video",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        3040,
-        336
-      ],
-      "parameters": {
-        "jsCode": "// Shape the render-service request from the asset: the spec travels as JSON and\n// nothing executable crosses the boundary. Compute the frame metadata here because\n// the service returns the file, not the numbers the run record wants.\nconst a = $input.first().json;\nconst [aw, ah] = String(a.ASPECT || '4:5').split(':').map(Number);\nconst width = Math.max(1, Number(a.VIEWPORT) || 1080);\nconst height = Math.round(width * (ah || 5) / (aw || 4));\nlet spec = null;\ntry { spec = a.SPEC_JSON ? JSON.parse(a.SPEC_JSON) : null; } catch (e) { spec = null; }\nconst fps = Math.max(1, Number(a.FPS) || 30);\nconst durationMs = Math.max(1000, Math.min(20000, (spec && spec.motion && Number(spec.motion.durationMs)) || 3000));\nconst url = ($env.RENDER_URL || '').replace(/\\/+$/, '');\nreturn [{ json: Object.assign({}, a, {\n  RENDER_URL: url ? url + '/render' : '',\n  RENDER_BODY: JSON.stringify({ spec: spec, options: { width: width, height: height, fps: fps } }),\n  DURATION_MS: String(durationMs),\n  FRAME_COUNT: String(Math.round(fps * durationMs / 1000)),\n  WIDTH: String(width),\n  HEIGHT: String(height),\n}) }];\n"
-      }
-    },
-    {
-      "id": "aa926fee-3148-43d7-b014-4f715f672d6a",
-      "name": "render_video",
-      "notes": "A failed render must not block the other assets, so the error is continued and video_result turns the missing binary into that asset's ERROR. See video_result.notes and the 'continueRegularOutput makes a failure invisible' rule in AGENTS.md.",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "onError": "continueRegularOutput",
-      "position": [
-        3264,
-        336
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $json.RENDER_URL }}",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ $json.RENDER_BODY }}",
-        "options": {
-          "response": {
-            "response": {
-              "responseFormat": "file",
-              "outputPropertyName": "data"
-            }
-          },
-          "timeout": 300000
-        }
-      }
-    },
-    {
-      "id": "8fc8a8ec-b1d3-48a2-a410-5ba3bb535b61",
-      "name": "video_result",
-      "notes": "Handles render_video's continued error: no binary means that asset carries ERROR and the run continues, which is what makes the failure visible instead of silent.",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        4736,
-        448
-      ],
-      "parameters": {
-        "jsCode": "// Handles render_video's continued error: no binary means that asset carries ERROR\n// and the run continues, which is what makes the failure visible instead of silent.\n// Binary is read with getBinaryDataBuffer because this instance stores it out of band.\nconst a = $('build_video').first().json;\nconst out = $input.first().json || {};\nconst binMeta = ($input.first().binary && $input.first().binary.data) || null;\nconst base = { ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: '', SPEC_JSON: a.SPEC_JSON || '', PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: a.DURATION_MS || '', FRAME_COUNT: a.FRAME_COUNT || '',\n  WIDTH: a.WIDTH || '', HEIGHT: a.HEIGHT || '', MARKUP: '', IMAGE: '' };\nif (!binMeta) {\n  const fallback = a.RENDER_URL ? 'render service returned no video' : 'RENDER_URL is not configured';\n  const reason = String(out.error || out.message || fallback).slice(0, 500);\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: reason }) }];\n}\nconst mime = binMeta.mimeType || 'video/mp4';\nconst buffer = await this.helpers.getBinaryDataBuffer(0, 'data');\nreturn [{ json: Object.assign({}, base, { STATUS: 'RENDERED', CONTENT_TYPE: mime,\n  IMAGE: 'data:' + mime + ';base64,' + buffer.toString('base64') }) }];\n"
       }
     },
     {
@@ -3278,7 +1660,7 @@
         -320
       ],
       "parameters": {
-        "jsCode": "// Turn the request into the agent's brief and the session request. The brief is the\n// caller's CONTENT plus the type's declared frame: duration, size and format. The\n// session gets a run-scoped id so a later run cannot overwrite this artifact before\n// its caller fetches it. Everything here is data-driven, so a type is retuned from\n// the registry (longer, slower, another format) without touching the adapter image.\nconst a = $input.first().json;\nconst req = $('normalize_input').first().json;\nconst safe = (s) => String(s || '').replace(/[^A-Za-z0-9._-]/g, '').slice(0, 40);\nconst sessionId = (safe(a.ASSET_TYPE) + '-' + safe(req.RUN_ID)) || 'default';\nconst base = ($env.PI_RENDER_URL || '').replace(/\\/+$/, '');\nconst format = ['mp4', 'gif', 'webp', 'png'].includes(a.FORMAT) ? a.FORMAT : 'mp4';\nconst [aw, ah] = String(a.ASPECT || '4:5').split(':').map(Number);\nconst width = Math.max(1, Number(a.VIEWPORT) || 1080);\nconst height = Math.round(width * (ah || 5) / (aw || 4));\nconst frames = Math.max(1, Number(a.FRAMES) || 24);\nconst seconds = Math.max(1, Number(a.DURATION_SECONDS) || Math.round(frames / Math.max(1, Number(a.FPS) || 8)));\n// The effective rate for the final GIF: the type budget (frames) spread over the\n// declared duration, so a slow 18s clip is 24 samples, not 24 samples per second.\nconst rate = Math.max(0.1, frames / seconds);\nconst brief = [\n  req.CONTENT,\n  '',\n  'Render a ' + width + 'x' + height + ' (' + (a.ASPECT || '4:5') + ') composition that runs about ' + seconds + ' seconds.',\n  'Animate slowly and deliberately: reveal a few elements in sequence, each held long enough to read, rather than many quick changes. The clip is sampled into a low-frame-rate GIF, so fast or busy motion is lost.',\n  'You cannot see images: do not take screenshots and do not write scripts to inspect the layout - rely on `hyperframes lint`.',\n  'Run `hyperframes render` in the foreground and let it finish; never background it, because the render aborts the moment its parent shell exits.',\n].join('\\n') + '\\n\\n' + $('brand_tokens').first().json.BRAND;\nreturn [{ json: Object.assign({}, a, {\n  FORMAT: format,\n  FPS: rate, WIDTH: width, HEIGHT: height, FRAMES: frames, DURATION_SECONDS: seconds, RATE: rate,\n  SESSION_ID: sessionId,\n  AUTHOR_URL: base ? base + '/v1/chat/completions' : '',\n  ARTIFACT_URL: base ? base + '/artifacts/' + sessionId + '/out.' + format : '',\n  AUTHOR_BODY: JSON.stringify({ messages: [{ role: 'user', content: brief }], session_id: sessionId, format: format, fps: rate, width: width, frames: frames, durationSeconds: seconds }),\n}) }];\n"
+        "jsCode": "// Turn the request into the composer's brief and the session request. The brief is\n// the caller's CONTENT plus the requested form and style and the type's declared\n// frame: duration, size and format. The session gets a run-scoped id so a later run\n// cannot overwrite this artifact before its caller fetches it. Everything here is\n// data-driven, so a type is retuned from the registry without touching the adapter.\nconst a = $input.first().json;\nconst req = $('normalize_input').first().json;\nconst brand = $('brand_tokens').first().json;\nconst safe = (s) => String(s || '').replace(/[^A-Za-z0-9._-]/g, '').slice(0, 40);\nconst sessionId = (safe(a.ASSET_TYPE) + '-' + safe(req.RUN_ID)) || 'default';\nconst base = ($env.PI_RENDER_URL || '').replace(/\\/+$/, '');\nconst format = ['mp4', 'gif', 'webp', 'png'].includes(a.FORMAT) ? a.FORMAT : 'mp4';\nconst [aw, ah] = String(a.ASPECT || '4:5').split(':').map(Number);\nconst width = Math.max(1, Number(a.VIEWPORT) || 1080);\nconst height = Math.round(width * (ah || 5) / (aw || 4));\nconst frames = Math.max(1, Number(a.FRAMES) || 24);\nconst seconds = Math.max(1, Number(a.DURATION_SECONDS) || Math.round(frames / Math.max(1, Number(a.FPS) || 8)));\nconst rate = Math.max(0.1, frames / seconds);\nconst force = String(req.FORCE || 'auto');\nconst form = force === 'auto'\n  ? 'Choose the form that fits the content best (a diagram, a story, a set of figures or a poster).'\n  : 'Use the ' + force + ' form; do not substitute another.';\nconst sampling = ['gif', 'webp'].includes(format)\n  ? 'Animate slowly and deliberately: reveal a few elements in sequence, each held long enough to read, rather than many quick changes. The clip is sampled into a low-frame-rate file, so fast or busy motion is lost.'\n  : 'Animate deliberately: a few clear beats, each held long enough to read, rather than many quick changes.';\nconst brief = [\n  req.CONTENT,\n  '',\n  'Plan first: state a short storyboard with the form, the scenes and the order they play in, then author the composition.',\n  form,\n  'Style: use the brand\\'s ' + brand.STYLE + ' scheme; do not introduce a colour or typeface the brand block below does not define.',\n  'Render a ' + width + 'x' + height + ' (' + (a.ASPECT || '4:5') + ') composition that runs about ' + seconds + ' seconds.',\n  sampling,\n  'You cannot see images: do not take screenshots and do not write scripts to inspect the layout - rely on `hyperframes lint`.',\n  'Run `hyperframes render` in the foreground and let it finish; never background it, because the render aborts the moment its parent shell exits.',\n  '',\n  'Brand block:',\n  brand.BRAND,\n].join('\\n');\nreturn [{ json: Object.assign({}, a, {\n  FORCE: force, STYLE: brand.STYLE,\n  FORMAT: format, FPS: rate, WIDTH: width, HEIGHT: height, FRAMES: frames, DURATION_SECONDS: seconds, RATE: rate,\n  SESSION_ID: sessionId,\n  AUTHOR_URL: base ? base + '/v1/chat/completions' : '',\n  ARTIFACT_URL: base ? base + '/artifacts/' + sessionId + '/out.' + format : '',\n  AUTHOR_BODY: JSON.stringify({ messages: [{ role: 'user', content: brief }], session_id: sessionId, format: format, fps: rate, width: width, frames: frames, durationSeconds: seconds }),\n}) }];\n"
       }
     },
     {
@@ -3341,7 +1723,7 @@
         -320
       ],
       "parameters": {
-        "jsCode": "// The rendered artifact the session returned, as the asset. Read the bytes with\n// getBinaryDataBuffer: this instance keeps binaries out of band, so binary.data is a\n// reference (\"database:<id>\"), not the base64. The workflow never sees the agent's\n// composition markup, only this file.\nconst a = $('build_author_brief').first().json;\nconst out = $input.first().json || {};\nconst binMeta = ($input.first().binary && $input.first().binary.data) || null;\nconst base = {\n  ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: '', SPEC_JSON: a.SPEC_JSON || '', PROMPT: '', CONTENT_TYPE: '', ERROR: '',\n  DURATION_MS: '', FRAME_COUNT: '', WIDTH: a.WIDTH || '', HEIGHT: a.HEIGHT || '',\n  MARKUP: '', IMAGE: '',\n};\nconst describe = (v, fallback) => {\n  if (typeof v === 'string' && v) return v;\n  if (v && typeof v === 'object' && typeof v.message === 'string') return v.message;\n  if (v != null) return JSON.stringify(v);\n  return fallback;\n};\nif (!a.AUTHOR_URL) {\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: 'PI_RENDER_URL is not configured' }) }];\n}\nif (!binMeta) {\n  const reason = describe(out.error || out.message, 'agent authoring returned no artifact').slice(0, 500);\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: reason }) }];\n}\nconst mime = binMeta.mimeType || 'image/gif';\nconst buffer = await this.helpers.getBinaryDataBuffer(0, 'data');\nreturn [{ json: Object.assign({}, base, { STATUS: 'RENDERED', CONTENT_TYPE: mime,\n  IMAGE: 'data:' + mime + ';base64,' + buffer.toString('base64') }) }];\n"
+        "jsCode": "// The rendered artifact the session returned, as the asset, plus the composer's own\n// report kept as STORYBOARD so a bad visual is diagnosable from the run record. Read\n// the bytes with getBinaryDataBuffer: this instance keeps binaries out of band, so\n// binary.data is a reference (\"database:<id>\"), not the base64. The workflow never\n// sees the agent's composition markup, only this file.\nconst a = $('build_author_brief').first().json;\nconst out = $input.first().json || {};\nconst binMeta = ($input.first().binary && $input.first().binary.data) || null;\nconst report = (() => {\n  try {\n    const resp = $('execute_author').first().json || {};\n    const msg = resp.choices && resp.choices[0] && resp.choices[0].message;\n    const content = msg && msg.content;\n    return typeof content === 'string' ? content.slice(0, 6000) : '';\n  } catch (e) { return ''; }\n})();\nconst base = {\n  ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: '', PROMPT: '', CONTENT_TYPE: '', ERROR: '', STORYBOARD: report,\n  DURATION_MS: String(Math.round((Number(a.DURATION_SECONDS) || 0) * 1000)),\n  FRAME_COUNT: String(Number(a.FRAMES) || ''), WIDTH: a.WIDTH || '', HEIGHT: a.HEIGHT || '',\n  IMAGE: '',\n};\nconst describe = (v, fallback) => {\n  if (typeof v === 'string' && v) return v;\n  if (v && typeof v === 'object' && typeof v.message === 'string') return v.message;\n  if (v != null) return JSON.stringify(v);\n  return fallback;\n};\nif (!a.AUTHOR_URL) {\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: 'PI_RENDER_URL is not configured' }) }];\n}\nif (!binMeta) {\n  const reason = describe(out.error || out.message, 'agent authoring returned no artifact').slice(0, 500);\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: reason }) }];\n}\nconst mime = binMeta.mimeType || 'image/gif';\nconst buffer = await this.helpers.getBinaryDataBuffer(0, 'data');\nreturn [{ json: Object.assign({}, base, { STATUS: 'RENDERED', CONTENT_TYPE: mime,\n  IMAGE: 'data:' + mime + ';base64,' + buffer.toString('base64') }) }];\n"
       }
     },
     {
@@ -3408,7 +1790,7 @@
         452
       ],
       "parameters": {
-        "jsCode": "// The brand tokens, read once from datasets/brand.json (the only copy of the\n// brand) and shaped for the three consumers: a short text block for the authoring\n// prompts, the photographic art direction for a raster hero, and the raw roles the\n// markup templates take.\n//\n// This node exists so no prompt or template spells a colour or a typeface: a\n// surface names a role here and the value travels from brand.json. The build is\n// deterministic, so the same brand.json produces the same strings.\nconst raw = $('download_brand').first().json.output || '{}';\nlet b;\ntry {\n  b = JSON.parse(raw);\n} catch (e) {\n  throw new Error('datasets/brand.json is not valid JSON: ' + e.message);\n}\nconst scheme = b.schemes && b.schemes[b.defaultScheme];\nif (!scheme) throw new Error('datasets/brand.json has no schemes.' + (b.defaultScheme || ''));\nconst typo = b.typography || {};\nconst hex = (v) => String(v || '');\nconst rgb = (h) => { const s = hex(h).replace('#', ''); return [0, 2, 4].map((i) => parseInt(s.slice(i, i + 2), 16)); };\nconst hairline = () => {\n  const [r, g, bl] = rgb(scheme.ink);\n  return 'rgba(' + r + ', ' + g + ', ' + bl + ', ' + Number((b.shape || {}).hairlineAlpha) + ')';\n};\nconst BRAND = [\n  'Brand palette (moss on near-black, use only these roles):',\n  'background ' + scheme.shell + ', text ' + scheme.ink + ', muted text ' + scheme.inkMuted + ',',\n  'accent ' + scheme.accent + ', accent-strong ' + scheme.accentStrong + ', accent-deep ' + scheme.accentDeep + '.',\n  'Typefaces: ' + typo.text + ' for text, ' + typo.code + ' for code.',\n].join('\\n');\nreturn [{ json: {\n  BRAND,\n  ART_DIRECTION: String((b.photographic || {}).artDirection || ''),\n  TEMPLATE: {\n    SHELL: scheme.shell,\n    INK: scheme.ink,\n    INK_MUTED: scheme.inkMuted,\n    HAIRLINE: hairline(),\n    FONT_TEXT: typo.text,\n    FONT_CODE: typo.code,\n    RAMP: [scheme.accent, scheme.accentStrong, scheme.accentDeep],\n  },\n} }];\n"
+        "jsCode": "// The brand, read once from datasets/brand.json (the only copy), resolved to the\n// requested scheme and shaped for its two consumers: the authoring brief for the\n// composer and the raster prompt. This node also owns the STYLE check, because the\n// scheme names are data here and nowhere else, so an unknown STYLE fails naming it.\nconst raw = $('download_brand').first().json.output || '{}';\nlet b;\ntry {\n  b = JSON.parse(raw);\n} catch (e) {\n  throw new Error('datasets/brand.json is not valid JSON: ' + e.message);\n}\nconst req = $('normalize_input').first().json;\nconst schemeName = String(req.STYLE || b.defaultScheme || '');\nconst scheme = b.schemes && b.schemes[schemeName];\nif (!scheme) throw new Error('unknown STYLE: ' + schemeName + ' (brand declares: ' + Object.keys(b.schemes || {}).join(', ') + ')');\nconst typo = b.typography || {};\nconst BRAND = [\n  'Brand palette (' + schemeName + ' scheme, use only these roles):',\n  'background ' + scheme.shell + ', text ' + scheme.ink + ', muted text ' + scheme.inkMuted + ',',\n  'accent ' + scheme.accent + ', accent-strong ' + scheme.accentStrong + ', accent-deep ' + scheme.accentDeep + '.',\n  'Typefaces: ' + typo.text + ' for text, ' + typo.code + ' for code.',\n].join('\\n');\nreturn [{ json: {\n  STYLE: schemeName,\n  BRAND,\n  ART_DIRECTION: String((b.photographic || {}).artDirection || ''),\n} }];\n"
       }
     }
   ],

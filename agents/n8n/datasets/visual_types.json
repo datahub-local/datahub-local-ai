@@ -1,137 +1,58 @@
 {
-  "_comment": "Artifact-type registry for the Visual Studio workflow. Downloaded through DownloadTemplate (template_name: datasets/visual_types.json) with an empty template_vars, so this file must contain no doubled-curly-brace placeholder anywhere, not even in a comment. It declares how each type is authored, rendered and formatted; the workflow routes on these fields and adding a type is a data change. Raster art direction is NOT here: it stays in datasets/image_motifs.json, and the raster prompt only receives the spec this registry's authoring stage produces.",
-  "_comment_author": "author is one of: raster (content -> image prompt -> image model), spec_raster (content -> content spec -> raster prompt -> image model), spec_markup (content -> content spec -> deterministic markup from template), spec_service (content spec -> render service -> mp4), agent (content -> the pi-render agent authors and renders a composition -> the artifact).",
-  "_comment_render": "render is one of: static (one raster file), animated (browser frame capture -> img2webp animated webp, gif fallback via GraphicsMagick), text (authored markup committed as-is, never rasterized), video (the render service composes and encodes an mp4).",
-  "_comment_budget": "budget.fps/frames/viewport are the animation ceiling. A type may override them lower; the renderer never exceeds the registry value. 12 fps, 36 frames (3 s), 1200 px viewport.",
+  "_comment": "Artifact-type registry for the Visual Studio workflow. Downloaded through DownloadTemplate (template_name: datasets/visual_types.json) with an empty template_vars, so this file must contain no doubled-curly-brace placeholder anywhere, not even in a comment. It declares how each type is authored, rendered and formatted; the workflow routes on these fields and adding a type is a data change.",
+  "_comment_author": "author is one of: image (content -> image prompt -> image model), agent (content -> the pi-render composer authors and renders a composition -> the artifact). The composer plans a storyboard and authors the composition in one turn; the type declares only the output frame (format, aspect, duration, budget).",
+  "_comment_render": "render is one of: static (one raster file), video (the composer's render, encoded to the type's format).",
+  "_comment_budget": "budget.fps/frames/viewport size the composition the composer is briefed to author. A type may declare its own; the workflow passes the type's values to the composer.",
+  "_comment_brandKind": "brandKind is diagrammatic or photographic. A photographic type is rendered from the brand's photographic art direction with no lettering; a diagrammatic type is rendered from the brand palette in the requested scheme, with lettering.",
   "_comment_default": "Requested types come from the caller's ASSET_TYPES parameter (comma-separated). When it is blank, default_types is used. max_types_per_request caps one request.",
   "budget": {
-    "fps": 12,
-    "frames": 36,
-    "viewport": 1200
+    "fps": 30,
+    "frames": 300,
+    "viewport": 1280
   },
-  "motion_kinds": ["rise", "fade", "sweep", "pulse", "draw", "travel", "spin"],
   "max_types_per_request": 3,
-  "default_types": ["hero_static", "infographic_static"],
+  "default_types": ["image"],
   "types": [
     {
-      "id": "hero_static",
-      "brandKind": "photographic",
-      "name": "Static hero",
-      "author": "raster",
-      "specTemplate": null,
-      "template": "prompts/visual_raster.md",
+      "id": "image",
+      "brandKind": "diagrammatic",
+      "name": "Image",
+      "author": "image",
       "render": "static",
       "format": "png",
       "aspect": "4:5",
       "available": true
     },
     {
-      "id": "infographic_static",
+      "id": "animation",
       "brandKind": "diagrammatic",
-      "name": "Static infographic",
-      "author": "spec_raster",
-      "specTemplate": "prompts/visual_spec.md",
-      "template": "prompts/visual_raster.md",
-      "render": "static",
-      "format": "png",
-      "aspect": "4:5",
-      "available": true
-    },
-    {
-      "id": "diagram_animated",
-      "brandKind": "diagrammatic",
-      "name": "Animated diagram",
-      "author": "spec_markup",
-      "specTemplate": "prompts/visual_spec.md",
-      "template": "templates/infographic.html",
-      "render": "animated",
-      "format": "webp",
-      "fallbackFormat": "gif",
-      "aspect": "4:5",
+      "name": "Animation",
+      "author": "agent",
+      "render": "video",
+      "format": "mp4",
+      "aspect": "16:9",
+      "durationSeconds": 12,
       "available": true,
       "budget": {
-        "fps": 12,
-        "frames": 36,
-        "viewport": 1200
+        "fps": 30,
+        "frames": 360,
+        "viewport": 1280
       }
     },
     {
-      "id": "diagram_animated_linkedin",
+      "id": "animation_linkedin",
       "brandKind": "diagrammatic",
-      "name": "Animated diagram (LinkedIn)",
-      "author": "spec_markup",
-      "specTemplate": "prompts/visual_spec.md",
-      "template": "templates/infographic.html",
-      "render": "animated",
+      "name": "Animation (LinkedIn)",
+      "author": "agent",
+      "render": "video",
       "format": "gif",
-      "fallbackFormat": "webp",
       "aspect": "4:5",
+      "durationSeconds": 9,
       "available": true,
-      "durationMs": 9000,
       "budget": {
         "fps": 8,
         "frames": 48,
         "viewport": 776
-      }
-    },
-    {
-      "id": "animated_svg",
-      "brandKind": "diagrammatic",
-      "name": "Animated SVG",
-      "author": "spec_markup",
-      "specTemplate": "prompts/visual_spec.md",
-      "template": "templates/infographic.svg",
-      "render": "text",
-      "format": "svg",
-      "aspect": "4:5",
-      "available": true
-    },
-    {
-      "id": "motion_clip",
-      "brandKind": "diagrammatic",
-      "name": "Motion clip",
-      "author": "spec_markup",
-      "specTemplate": "prompts/visual_spec.md",
-      "template": null,
-      "render": "video",
-      "format": "webm",
-      "aspect": "16:9",
-      "available": false,
-      "unavailableReason": "unavailable: no video encoder in this environment"
-    },
-    {
-      "id": "diagram_video",
-      "brandKind": "diagrammatic",
-      "name": "Video diagram",
-      "author": "spec_service",
-      "specTemplate": "prompts/visual_spec.md",
-      "template": null,
-      "render": "video",
-      "format": "mp4",
-      "aspect": "4:5",
-      "available": true,
-      "budget": {
-        "fps": 30,
-        "frames": 300,
-        "viewport": 1080
-      }
-    },
-    {
-      "id": "diagram_agent",
-      "brandKind": "diagrammatic",
-      "name": "Agent-authored diagram",
-      "author": "agent",
-      "specTemplate": null,
-      "template": null,
-      "render": "agent",
-      "format": "gif",
-      "aspect": "4:5",
-      "durationSeconds": 18,
-      "available": true,
-      "budget": {
-        "fps": 8,
-        "frames": 24,
-        "viewport": 1080
       }
     }
   ]

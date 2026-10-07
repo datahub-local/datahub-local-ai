@@ -19,8 +19,8 @@ WORKFLOWS = Path(__file__).resolve().parents[1] / "workflows"
 SHARING = WORKFLOWS / "linked_in_post_sharing.workflow.json"
 TYPES = WORKFLOWS.parent / "datasets" / "visual_types.json"
 
-ANIMATED_TYPE = "diagram_animated_linkedin"
-AGENT_TYPE = "diagram_agent"
+ANIMATED_TYPE = "animation_linkedin"
+AGENT_TYPE = "animation"
 PUBLISH = "send_2_linkedin_omImage"
 
 
@@ -81,24 +81,19 @@ def test_static_rows_still_take_the_image_path(label, document):
 def test_animated_rows_call_the_studio_for_the_declared_type(label, document):
     """The animation comes from the studio, asked for by type, with no frozen spec.
 
-    Two opt-ins share the branch: ANIMATED asks for the deterministic type,
-    AGENT asks for the agent-authored type. The asset type is an expression over
-    POST_MEDIA, so both must appear and the deterministic one must remain the
-    default for a row that is not AGENT.
+    Both animated opt-ins (ANIMATED and AGENT) are composer-authored, and LinkedIn
+    needs a GIF inside the platform cap, so both request the ``animation_linkedin``
+    type. The type is fixed here rather than following POST_MEDIA: the deterministic
+    path is retired, so the opt-in now only decides *whether* media is animated.
     """
     connections = _connections(document)
     nodes = _nodes(document)
     assert "execute_visual_studio" in _targets(connections, "switch_post_media")
 
     values = nodes["execute_visual_studio"]["parameters"]["workflowInputs"]["value"]
-    asset_types = values["ASSET_TYPES"]
-    assert "POST_MEDIA" in asset_types, "the requested type must follow the row's opt-in"
-    assert AGENT_TYPE in asset_types, "AGENT must request the agent-authored type"
-    assert ANIMATED_TYPE in asset_types, "the deterministic type must stay the default"
+    assert values["ASSET_TYPES"] == ANIMATED_TYPE, "the LinkedIn branch must ask for the GIF type"
     # No frozen spec: a post has one media asset, so nothing needs keeping in step,
-    # and a retry has to be free to re-author. An unset field is omitted from
-    # workflowInputs.value while its definition stays in `schema`, so an absent key
-    # is the same statement as an empty one.
+    # and a retry has to be free to re-author.
     assert values.get("SPEC_JSON") in ("", None)
     assert "FEEDBACK" in values
 
@@ -114,10 +109,9 @@ def test_the_media_switch_accepts_both_opt_ins(label, document):
 
 @pytest.mark.parametrize("label,document", list(_copies(SHARING)))
 def test_the_result_resolves_the_requested_type(label, document):
-    """check_animation_result must look up the type that was asked for, not a fixed one."""
+    """check_animation_result must look up the type that was asked for."""
     js = _nodes(document)["check_animation_result"]["parameters"]["jsCode"]
-    assert AGENT_TYPE in js and ANIMATED_TYPE in js
-    assert "POST_MEDIA" in js
+    assert ANIMATED_TYPE in js
 
 
 @pytest.mark.parametrize("label,document", list(_copies(SHARING)))
@@ -178,7 +172,7 @@ def test_the_declared_type_is_inside_the_platform_caps():
     """GIF, at most 500 frames, at most 36,152,320 pixels in total."""
     registry = json.loads(TYPES.read_text())
     entry = next(t for t in registry["types"] if t["id"] == ANIMATED_TYPE)
-    assert entry["render"] == "animated"
+    assert entry["render"] == "video"
     assert entry["format"] == "gif"
     assert entry["available"] is True
 
@@ -190,17 +184,17 @@ def test_the_declared_type_is_inside_the_platform_caps():
     assert total_pixels <= 36152320, f"{total_pixels} pixels exceeds the platform's GIF cap"
 
 
-def test_the_agent_type_is_declared_and_inside_the_caps():
-    """A GIF produced by the agent, with the same platform cap as the deterministic one."""
+def test_the_agent_types_are_declared():
+    """Both animation types are composer-authored; only LinkedIn carries the GIF cap."""
     registry = json.loads(TYPES.read_text())
     entry = next(t for t in registry["types"] if t["id"] == AGENT_TYPE)
     assert entry["author"] == "agent"
-    assert entry["format"] == "gif"
+    assert entry["format"] == "mp4"
     assert entry["available"] is True
-    assert entry["specTemplate"] is None, "the agent takes the brief, not a content spec"
-    assert entry.get("durationSeconds", 0) >= 10
+    assert entry.get("durationSeconds", 0) > 0
 
-    budget = entry["budget"]
+    linkedin = next(t for t in registry["types"] if t["id"] == ANIMATED_TYPE)
+    budget = linkedin["budget"]
     width = budget["viewport"]
     height = round(width * 5 / 4)
     assert budget["frames"] <= 500

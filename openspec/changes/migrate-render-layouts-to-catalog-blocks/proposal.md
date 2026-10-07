@@ -42,9 +42,11 @@ typed spec should keep answering deterministically.
   otherwise leave its own design intact, so vendored files stay close to upstream.
 - **Widen the `layout` vocabulary** to the adopted block ids, alongside the existing
   layout names; no layout name changes meaning.
-- **Keep the hand-written layouts that no block can replace** (`flow`, `timeline`,
-  and the rest until a block is adopted). This is an addition, not a migration away
-  from them.
+- **Keep the hand-written layouts that no block can replace** (`bars`, `flow`,
+  `timeline`). This is an addition, not a migration away from them: the `bars`
+  migration is explicitly **dropped** (task 3.4), because no variable-declaring
+  block expresses its shape, and `flow`/`timeline` are dropped for the same reason
+  (tasks 4.2/4.4). Only `comparison` and `stats` still have an adoptable block.
 - **Keep the trust boundary unchanged.** The service still accepts a typed spec and
   rejects caller markup. Catalog blocks are ours, shipped in the image; no caller
   HTML is ever accepted or executed.

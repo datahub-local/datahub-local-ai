@@ -4,12 +4,17 @@
 
 ### Requirement: Animation is rendered from a browser timeline
 
-For an animated type rendered **in the workflow** the system SHALL render the markup in a browser, capture a deterministic sequence of frames at points on the animation timeline, and assemble the frames into one animated image. The number of frames, the frame rate and the duration SHALL be determined by the type and the content spec, not by wall-clock timing. In-workflow output SHALL be animated WebP, with animated GIF as the fallback. A **video type** is instead rendered by the visual render service (see the video requirement); the workflow MUST NOT encode video itself.
+For an animated type rendered **in the workflow** the system SHALL render the markup in a browser, capture a deterministic sequence of frames at points on the animation timeline, and assemble the frames into one animated image. The number of frames, the frame rate and the duration SHALL be determined by the type and the content spec, not by wall-clock timing. In-workflow output SHALL be assembled in the format the type declares: a type declaring `webp` SHALL be assembled as an animated WebP, with animated GIF as the fallback when the WebP encoder is unavailable or fails, and a type declaring `gif` SHALL be assembled as an animated GIF directly, with animated WebP as the fallback when the GIF encoder is unavailable or fails. A **video type** is instead rendered by the visual render service (see the video requirement); the workflow MUST NOT encode video itself.
 
 #### Scenario: Animated image produced
 - **WHEN** an in-workflow animated type is produced
 - **THEN** the captured frames are assembled into a playable animated file
 - **AND** its duration matches the value declared for the asset
+
+#### Scenario: Declared format selects the encoder
+- **WHEN** an animated type declares GIF as its format
+- **THEN** its frames are assembled as an animated GIF
+- **AND** no WebP file is used as that asset's output
 
 #### Scenario: Frame capture fails
 - **WHEN** the browser render or the frame capture fails

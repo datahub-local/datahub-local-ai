@@ -54,6 +54,11 @@ behavioral capability of its own.
   request an authored composition and receive the rendered artifact over HTTP from a
   deployed, reachable, adequately sized session.
 
+Archive order: archive `migrate-render-layouts-to-catalog-blocks` **before** this change.
+Both MODIFY `Authoring is two-stage`, and this change carries the union (the template and
+catalog-block rules **and** the `author: agent` carve-out); archiving it first would let the
+earlier change's narrower text replace the requirement and drop the carve-out.
+
 ## Impact
 
 - `agents/adapters/pi-render/session-server.mjs` — a per-run artifact directory and

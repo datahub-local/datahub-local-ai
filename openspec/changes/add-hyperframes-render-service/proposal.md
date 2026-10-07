@@ -52,6 +52,11 @@ LinkedIn animated-GIF path do not move.
 - `visual-studio`: adds a video asset type produced by the render service, and the
   composition vocabulary (layout, icons, theme, structural motion) the service renders.
 
+Archive order: archive `add-linkedin-animated-post-media` **before** this change. Both
+MODIFY `Animation is rendered from a browser timeline`, and this change carries the union
+(declared format selects the encoder **and** the video carve-out); archiving it first would
+let the earlier change's narrower text replace the requirement and drop the carve-out.
+
 ## Impact
 
 - **This repo**: new render sub-project (`agents/n8n/render/`) with Dockerfile, HTTP

@@ -43,6 +43,10 @@ artifact and its declared format.
 
 For every infographic-family type the system SHALL first produce a typed **content spec** as data, and MUST derive the rendered markup deterministically from that spec. The model MUST NOT author the markup. The spec SHALL carry the title, the ordered labelled blocks with their values, the accent, the motion kind and the duration; a spec missing required fields MUST fail loudly rather than render a partial asset. This requirement applies to the deterministic family (`raster`, `spec_raster`, `spec_markup`, `spec_service`); a type declaring `author: agent` is authored by the agent path instead.
 
+The composition source SHALL be a set of **versioned, pre-installed templates** rather than caller input: a render MUST NOT execute markup, script or style supplied in a request. Templates SHALL be installed into the render image at build time at a pinned version and MUST be able to render with no outbound network, so the same spec and the same image produce the same composition.
+
+A template MAY be a catalog block that declares its own typed variables. When it does, the system SHALL map spec fields onto those declared variables, SHALL only pass values of the declared type, and SHALL fall back to the template's declared default for any variable the spec does not supply. A spec field a template does not declare MUST be ignored rather than injected.
+
 #### Scenario: Spec then markup
 - **WHEN** an infographic-family asset is produced
 - **THEN** a content spec exists first
@@ -52,3 +56,7 @@ For every infographic-family type the system SHALL first produce a typed **conte
 - **WHEN** the produced spec is missing a required field
 - **THEN** the run fails naming the missing field
 - **AND** no markup or image is produced for it
+
+#### Scenario: Caller markup is refused
+- **WHEN** a request carries HTML, CSS or script rather than a spec
+- **THEN** the request fails without rendering

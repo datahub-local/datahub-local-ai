@@ -643,14 +643,6 @@
           "status": 400
         }
       }
-    },
-    "node:Twelve-Hourly Watch": {
-      "recurrenceRules": [
-        null
-      ],
-      "recurrenceRuleSignatures": [
-        null
-      ]
     }
   },
   "tags": [],

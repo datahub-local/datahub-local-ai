@@ -1,8 +1,8 @@
 # Pi render adapter
 
 A Sympozium harness adapter that lets an agent **author a HyperFrames composition
-and render it** inside a run. Built from the upstream Pi adapter's base image with
-the render toolchain added and Pi's tools enabled.
+and render it** inside a run. Built on `node:22-bookworm-slim` with a browser, an
+encoder and a vendored HyperFrames baked in, and Pi's tools enabled.
 
 See `openspec/changes/add-agent-authored-compositions/` and its
 `pi-harness-findings.md` for why this exists.
@@ -21,18 +21,17 @@ Dockerfile so the diff is small and reviewable.
 
 ## What it adds to the upstream adapter
 
-It **derives from our own render image**, not from the upstream Pi adapter's image.
-The reasoning is the point:
+It **owns its own toolchain**, and this is the point:
 
 - Upstream's Pi image is `node:22-alpine` + `jq` + `git` + `pi-coding-agent`. What it
   does **not** have is a browser or an encoder, which authoring needs.
-- Our render image already has both — plus a vendored HyperFrames and GSAP, with the
-  read-only-rootfs and `HOME` problems already found and fixed.
-- Deriving from the Pi image would mean re-adding what ours already carries, and
-  inheriting a release cadence for a decision we are overriding.
+- This image is `node:22-bookworm-slim` + Debian's `chromium` and `ffmpeg` + a
+  vendored HyperFrames and GSAP, with the read-only-rootfs and `HOME` problems
+  already found and fixed. It used to derive FROM the visual render service's image,
+  but that service is retired, so the toolchain is built here directly.
 
-So: **one toolchain, built once — ours.** This image adds only the agent loop and the
-adapter contract on top.
+So: **one toolchain, built once — this image's.** It adds only the agent loop and
+the adapter contract on top.
 
 | Change                                              | Why                                                                                                   |
 | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
@@ -75,10 +74,10 @@ suits authoring. Everything up to the model call is proven.
 
 ## Cost
 
-**This image derives from a deployed artifact.** A render-service change flows into
-this adapter's next build. That is either one toolchain kept in step (the intent) or
-unwanted coupling, depending on your view — but it is one direction only: the render
-image knows nothing about this adapter.
+**This image carries a browser and an encoder.** That is the price of authoring
+offline, and it is one toolchain kept in one place: the render service that used to
+provide it is retired, so this image is now the only thing that builds HyperFrames,
+Chromium and FFmpeg for the fleet.
 
 **Upstream drift is ours.** No upstream conformance run covers this image.
 
@@ -331,13 +330,12 @@ OOMKill had to be diagnosed from process state rather than from output.
 ## Publishing
 
 `.github/workflows/publish-images.yaml` owns every image in this repository — this
-one, the render image, dbt and dlt — because they share one build. Adding an image
-is one entry in the workflow, not a new file.
+one, dbt and dlt — because they share one build. Adding an image is one entry in
+the workflow, not a new file.
 
 - **On a source change**, after that image's tests pass: publish at merge.
 - **Weekly, one image per weekday**: rebuild so base-image CVE fixes land without a
-  commit here. This image also rebuilds when the render image's sources change,
-  because its base moving is a change to it.
+  commit here.
 - **Retention: five versions per package**, with `main` never deleted.
 
 ## Deploying the one-shot path

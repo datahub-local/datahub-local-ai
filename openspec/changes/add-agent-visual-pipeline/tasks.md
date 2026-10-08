@@ -37,13 +37,13 @@
 
 ## Follow-ups (deployment, not code)
 
-The live graph is applied and published, but two runtime inputs travel outside the
-workflow export and are only correct after the commit is pushed and the adapter
-image is rebuilt:
+The live graph is applied and published, but the composer's instruction travels in
+the adapter image, which is only correct after it is rebuilt and its digest pinned:
 
-- [ ] Push `agents/n8n/prompts/visual_raster.md`: `DownloadTemplate` fetches it from
-  GitHub `main`, and until it is pushed the live raster path fails on the retired
+- [x] Push `agents/n8n/prompts/visual_raster.md`: `DownloadTemplate` fetches it from
+  GitHub `main`; until it is pushed the live raster path fails on the retired
   `{{ SPEC_JSON }}` placeholder.
 - [ ] Rebuild and re-pin the `pi-render` adapter image: `prompts/authoring.md` is
-  baked into the image, so the plan-first instruction is not live until the image
-  is republished and its digest pinned.
+  baked into the image, so the plan-first instruction is not live until the image is
+  republished and its digest pinned. The adapter is now self-contained (it no longer
+  derives from the retired render image), which unblocks that build.

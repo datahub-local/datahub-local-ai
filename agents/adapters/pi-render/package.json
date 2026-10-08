@@ -1,15 +1,11 @@
 {
-  "name": "datahub-local-ai-render",
+  "name": "datahub-local-ai-pi-render-adapter-toolchain",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Visual render service: a typed content spec in, an MP4 motion graphic out.",
+  "description": "Toolchain baked into the pi-render adapter: HyperFrames and its runtime. The browser and encoder come from the base image's apt packages.",
   "engines": {
     "node": ">=22"
-  },
-  "scripts": {
-    "start": "node src/server.mjs",
-    "test": "node --test test/"
   },
   "dependencies": {
     "hyperframes": "0.8.123"

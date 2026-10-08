@@ -1,31 +1,65 @@
-# A Sympozium harness adapter that lets an agent author a HyperFrames composition
-# and render it, inside a run.
+# The Pi render adapter: a Sympozium harness adapter that lets an agent author a
+# HyperFrames composition and render it inside a run.
 #
-# It derives from **our own render image**, not from the upstream Pi adapter's
-# image. The reasoning is the point of this file:
+# This image owns its own toolchain. It used to derive FROM the visual render
+# service's image, but that service is retired, so the toolchain it carried — a
+# browser, an encoder and a vendored HyperFrames — is built here directly from
+# node:22-bookworm-slim. Deriving from the upstream Pi adapter's image was never
+# an option: it is node:22-alpine + jq + git + pi-coding-agent with no browser and
+# no encoder, which is exactly what authoring needs.
 #
-#   The upstream Pi adapter is node:22-alpine + jq + git + pi-coding-agent. What
-#   it does NOT have is a browser or an encoder, which authoring needs. Our render
-#   image already has both, plus a vendored HyperFrames and GSAP, with the
-#   read-only-rootfs and HOME problems already found and fixed. Deriving from the
-#   Pi image would mean re-adding what ours already carries and inheriting a
-#   release cadence for a decision we are overriding.
+# Multi-arch like every published image here: agents are scheduled onto the arm64
+# nodes, and an amd64-only image is unschedulable there.
 #
-#   So: one toolchain, built once — ours — and this image adds only the agent loop
-#   and the adapter contract on top.
-#
-# The cost is stated plainly in README.md: a render-service change flows into this
-# adapter's next build, and upstream does not maintain this image.
-#
-# Platform constraints are already satisfied by the base: UID 1000, a writable
-# $HOME, and everything the contract requires.
+# Platform constraints are satisfied below: UID 1000, a writable $HOME, and a
+# read-only root filesystem with everything the contract requires on it.
 
-# Digest-pinned, because the platform rejects a mutable tag and records the
-# digest. `main` is the published tag; the digest is what admission checks.
-ARG RENDER_IMAGE=ghcr.io/datahub-local/datahub-local-ai-render:main
-FROM ${RENDER_IMAGE}
+FROM node:22-bookworm-slim
 
-USER root
+# Chromium is not optional and not amd64-only work. Google publishes no
+# chrome-headless-shell build for linux/arm64 (HyperFrames' platform map has no
+# entry for it and `browser ensure` refuses outright), so the browser comes from
+# Debian here. On amd64 that also matches what HyperFrames downloads itself, so
+# one path serves both architectures. FFmpeg is what produces a caller's GIF from
+# the engine's MP4; the fonts are fallbacks for the brand faces.
+#
+# jq is not optional either: the adapter contract builds the result payload with
+# it (`jq --arg`, so LLM output cannot forge a result structure).
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    chromium \
+    ffmpeg \
+    jq \
+    ca-certificates \
+    fonts-dejavu-core \
+    fontconfig \
+    libgbm1 \
+    libnss3 \
+    libatk-bridge2.0-0 \
+    libdrm2 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
+    libcups2 \
+    libasound2 \
+    libpangocairo-1.0-0 \
+    libxshmfence1 \
+    libgtk-3-0 \
+    && rm -rf /var/lib/apt/lists/* \
+    && fc-cache -fv
+
+# The browser is already in the image via apt; point HyperFrames at it rather than
+# letting it attempt a download. HYPERFRAMES_BROWSER_PATH is its first choice at
+# render time (findFromEnv), and `/usr/bin/chromium` is present in the system
+# layout both architectures ship.
+ENV HYPERFRAMES_BROWSER_PATH=/usr/bin/chromium
+
+WORKDIR /app
+
+# The engine and its runtime are this image's own dependencies, so the build no
+# longer depends on another image's layout.
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+COPY vendor/gsap.min.js ./vendor/gsap.min.js
 
 # Pi, installed exactly as the upstream adapter installs it: the pinned package,
 # lifecycle scripts disabled. It is pure JS — verified to install and run on this
@@ -33,16 +67,8 @@ USER root
 RUN npm install --global --ignore-scripts --no-audit --no-fund \
       @earendil-works/pi-coding-agent@0.84.4
 
-# jq is not optional: the adapter contract builds the result payload with it
-# (`jq --arg`, so LLM output cannot forge a result structure), and the upstream
-# entrypoint requires it. The render base image is Debian and does not carry it.
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends jq \
-    && rm -rf /var/lib/apt/lists/*
-
-# Move the engine to a stable, documented path so the prompt and the entrypoint do
-# not depend on the base image's WORKDIR. The base keeps /app as well; these are
-# the same files, exposed where the adapter's contract points at them.
+# Move the engine to a stable, documented path so the prompt and the entrypoint
+# do not depend on the build directory.
 RUN mkdir -p /opt/hyperframes /opt/pi-render/prompts \
     && cp -r /app/node_modules /opt/hyperframes/node_modules \
     && ln -s /opt/hyperframes/node_modules/.bin/hyperframes /usr/local/bin/hyperframes \
@@ -58,9 +84,9 @@ RUN mkdir -p /opt/hyperframes /opt/pi-render/prompts \
 # runs as UID 1000 and reads it.
 COPY --chmod=0644 prompts/authoring.md /opt/pi-render/prompts/authoring.md
 
-# $HOME must stay writable: the base sets HOME=/tmp for the read-only root
-# filesystem, and the platform provides a writable $HOME at /home/agent. Either
-# works, so this defers to the platform when it sets one.
+# $HOME must stay writable: a read-only root filesystem means Chrome fails with
+# "Failed to create headless user data directory container" unless HOME points at
+# a writable mount. The platform provides one at /home/agent.
 RUN mkdir -p /home/agent /workspace \
     && chown -R 1000:1000 /home/agent /workspace /opt/hyperframes /opt/pi-render
 

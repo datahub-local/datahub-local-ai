@@ -5,9 +5,7 @@
 Produce a video for a brief that no fixed layout or template expresses: an agent
 authors a HyperFrames composition for that brief, gates it with the engine's own
 validation, and renders it offline. The composition is the committed artifact of
-record. This is distinct from the typed-spec render service, which authors
-deterministically from a fixed vocabulary; a caller must not reach for the wrong
-one. In the cluster the path runs through a purpose-built harness adapter
+record. In the cluster the path runs through a purpose-built harness adapter
 (`agents/adapters/pi-render/`) on a `HarnessSession`, because a Job's agent
 container cannot be given enough memory to render.
 
@@ -15,18 +13,18 @@ container cannot be given enough memory to render.
 
 ### Requirement: A composition can be authored from a brief
 
-The system SHALL support producing a video by authoring a composition from a
-free-form brief, where the composition is generated for that brief rather than
-selected from a fixed set of layouts or templates. The authored composition SHALL
-be the artifact of record: it is what is committed, reviewed and re-rendered.
+The system SHALL support producing a video by authoring a composition from a free-form
+brief, where the composition is generated for that brief rather than selected from a
+fixed set of layouts or templates. The authored composition SHALL be the artifact of
+record: it is what is committed, reviewed and re-rendered.
 
-This path SHALL be distinct from the typed-spec render service. A typed spec
-selects an arrangement the system defines; an authored composition is written for
-one brief. Neither SHALL be presented as the other, and adding this path SHALL NOT
-change what a typed-spec request accepts.
+The authoring turn SHALL plan before it builds: it states a short storyboard (the form,
+the style and the scenes) and then authors the composition to that plan. The storyboard
+is recorded with the run so a visual can be diagnosed, but nothing downstream parses or
+transforms it.
 
 #### Scenario: A brief with no matching template
-- **WHEN** a brief describes something no existing layout or template expresses
+- **WHEN** a brief describes something no existing template expresses
 - **THEN** a composition is authored for that brief
 - **AND** the result is not a fallback to the nearest template
 
@@ -34,6 +32,11 @@ change what a typed-spec request accepts.
 - **WHEN** an authored composition is produced
 - **THEN** the composition source is retained alongside the video
 - **AND** the video can be reproduced from that source without re-authoring
+
+#### Scenario: The plan is stated first
+- **WHEN** a composition is authored
+- **THEN** a storyboard is stated before the composition is written
+- **AND** the storyboard is recorded with the run
 
 ### Requirement: An authored composition is validated before it is rendered
 

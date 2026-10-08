@@ -43,7 +43,18 @@ the adapter image, which is only correct after it is rebuilt and its digest pinn
 - [x] Push `agents/n8n/prompts/visual_raster.md`: `DownloadTemplate` fetches it from
   GitHub `main`; until it is pushed the live raster path fails on the retired
   `{{ SPEC_JSON }}` placeholder.
-- [ ] Rebuild and re-pin the `pi-render` adapter image: `prompts/authoring.md` is
+- [x] Rebuild and re-pin the `pi-render` adapter image: `prompts/authoring.md` is
   baked into the image, so the plan-first instruction is not live until the image is
   republished and its digest pinned. The adapter is now self-contained (it no longer
-  derives from the retired render image), which unblocks that build.
+  derives from the retired render image), which unblocks that build. (done 2026-10-08:
+  CI run `37729997108` built and published the multi-arch index, then the `pin` job
+  committed `5956742` recording `sha256:e3294d2a…` in
+  `sympozium_pi_render.digest` and `agents/adapters/pi-render/deploy/session.yaml`;
+  ArgoCD synced to that revision and the session reports the new
+  `status.resolvedImageDigest` with `phase: Ready`. The baked prompt carries the
+  `## Plan first` section. A live authoring turn from the n8n pod
+  (`session_id: verify-planfirst-20261008`, format `mp4`) returned `200` in 79 s and
+  its report opens with the storyboard — form `diagram`, the dark scheme, five scenes
+  in order; the artifact fetched over `GET /artifacts/…/out.mp4` is `video/mp4`,
+  1,118,698 bytes, and `ffprobe` on the session reads h264 1080×1350, 180 frames,
+  6.000 s.)

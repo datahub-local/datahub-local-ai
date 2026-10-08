@@ -40,12 +40,37 @@ brief says to choose the form, pick the one that fits the content best.
   reveal is the target. Prefer revealing elements in sequence over animating
   everything at once.
 
+## Review before you render
+
+The engine's checks do not catch a composition that fills only part of its frame or
+changes too fast to read, and you cannot see images. So before you render, review the
+composition against these four points and fix every miss. State the review, with its
+numbers, in your report.
+
+1. **Content.** One line per scene naming the single claim it carries. Every string on
+   screen must come from the brief — invent no fact, number or name. Cut a scene that
+   adds nothing.
+2. **Proportion.** Each scene's content must fill the frame's height, not sit in a band
+   at the top. Put the padding and the vertical layout on the element that directly
+   contains the content; never put padding on a clip and the content in a second,
+   absolutely-positioned wrapper, which escapes the padding and leaves the content at
+   the top. State how much of `data-height` each scene's content covers.
+3. **Legibility.** At the width you render, size type for a phone: headings at least
+   34px, body at least 18px, labels and captions at least 14px. `hyperframes check` must
+   report 0 layout errors and pass every contrast check.
+4. **Pacing.** Each scene 2.5-3.5 seconds, each reveal 0.6-0.9 seconds, each element held
+   at least 1.5 seconds before the next change. The whole composition must not exceed the
+   duration the brief asks for: the file is sampled to that length, so a longer
+   composition loses its final scene. State the total.
+
 ## How to work
 
 1. Write `index.html`.
 2. Run `hyperframes lint`. Fix every error it reports, re-running until it reports
    **0 errors**. Lint is your only reliable check.
-3. When lint is clean, render **in the foreground** and let it finish:
+3. Review the composition as above, and fix every miss.
+4. When lint is clean and the review passes, render **in the foreground** and let it
+   finish:
 
    `hyperframes render -o out.mp4 -f 30 --low-memory-mode`
 
@@ -64,8 +89,9 @@ brief says to choose the form, pick the one that fits the content best.
    returned to you, and the time spent is wasted. `hyperframes check` prints a text
    report and is optional; run it at most once, only after lint is clean, and do not
    act on a run that fails to produce one.
-4. Report, beginning with the storyboard from above, then what you produced: the file
-   paths, and the duration and frame count that `ffprobe` gives for `out.mp4`.
+5. Report, beginning with the storyboard from above, then the review you performed,
+   then what you produced: the file paths, and the duration and frame count that
+   `ffprobe` gives for `out.mp4`.
 
 If a step fails twice with the same error, report that error verbatim rather than
 guessing again — do not try a third approach to the same problem. Do not report

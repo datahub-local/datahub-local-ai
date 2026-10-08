@@ -275,6 +275,27 @@ The per-run directory is the point: turns are serialized, but a later run must n
 overwrite an earlier run's artifact before its caller has fetched it. `session-lib.mjs`
 holds the path and format rules, unit-tested under `test/`.
 
+### The authoring review (before render)
+
+`prompts/authoring.md` makes the agent review its composition before it renders it,
+because the engine's own `check` does not cover the two defects seen live on 2026-10-08
+(`LinkedIn Post Sharing`, row 49, `POST_MEDIA=AGENT`), which took three composer turns:
+
+- studio run `12622`: every scene's content sat in the top ~40 % of the 776×970 frame —
+  the padding and centering were on the outer `#s1`/`#s2` while the content lived in an
+  absolutely-positioned inner `.scene` that escaped them — and `hyperframes check`
+  reported 0 layout errors;
+- studio run `12625`: the same proportion defect, and it overran the requested 9 s by
+  building 10.5 s, so the GIF sample dropped most of the final scene;
+- studio run `12628`: accepted, after a human supplied proportion and never-overshoot
+  feedback.
+
+The composer cannot see images, so the review is a checklist over the values the agent
+already knows — its own CSS and its scene durations — not visual inspection: content
+fidelity, frame proportion, legibility minimums, and pacing with a total no longer than
+the brief's duration. `test/authoring-prompt.test.mjs` keeps the section and its numbers
+from being dropped.
+
 ### Deploying it
 
 **The worked manifests are in [`deploy/`](deploy/) — start there.** It holds the

@@ -162,7 +162,7 @@
           "workflowInputs": {
             "mappingMode": "defineBelow",
             "value": {
-              "template_vars": "={{ {\n\"POST_CONTENT\": $('set_workflow_vars').item.json.POST_CONTENT,\n\"IMAGE_ASPECT_RATIO\": $('set_workflow_vars').item.json.IMAGE_ASPECT_RATIO,\n\"SUBJECT_MOTIFS\": $('parse_image_motifs').first().json.SUBJECT_MOTIFS,\n\"HOOK_TREATMENT\": $('parse_image_motifs').first().json.HOOK_TREATMENT,\n\"ART_DIRECTION\": $('parse_image_motifs').first().json.ART_DIRECTION,",
+              "template_vars": "={{ {\n\"POST_CONTENT\": $('set_workflow_vars').item.json.POST_CONTENT,\n\"IMAGE_ASPECT_RATIO\": $('set_workflow_vars').item.json.IMAGE_ASPECT_RATIO,\n\"SUBJECT_MOTIFS\": $('parse_image_motifs').first().json.SUBJECT_MOTIFS,\n\"HOOK_TREATMENT\": $('parse_image_motifs').first().json.HOOK_TREATMENT,\n\"ART_DIRECTION\": $('parse_image_motifs').first().json.ART_DIRECTION,\n\"FEEDBACK\": $('set_workflow_vars').item.json.FEEDBACK,\n} }}",
               "template_name": "prompts/linkedin_image_prompt.md"
             },
             "matchingColumns": [],
@@ -786,7 +786,7 @@
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "template_vars": "={{ {\n\"POST_CONTENT\": $('set_workflow_vars').item.json.POST_CONTENT,\n\"IMAGE_ASPECT_RATIO\": $('set_workflow_vars').item.json.IMAGE_ASPECT_RATIO,\n\"SUBJECT_MOTIFS\": $('parse_image_motifs').first().json.SUBJECT_MOTIFS,\n\"HOOK_TREATMENT\": $('parse_image_motifs').first().json.HOOK_TREATMENT,\n\"ART_DIRECTION\": $('parse_image_motifs').first().json.ART_DIRECTION,",
+            "template_vars": "={{ {\n\"POST_CONTENT\": $('set_workflow_vars').item.json.POST_CONTENT,\n\"IMAGE_ASPECT_RATIO\": $('set_workflow_vars').item.json.IMAGE_ASPECT_RATIO,\n\"SUBJECT_MOTIFS\": $('parse_image_motifs').first().json.SUBJECT_MOTIFS,\n\"HOOK_TREATMENT\": $('parse_image_motifs').first().json.HOOK_TREATMENT,\n\"ART_DIRECTION\": $('parse_image_motifs').first().json.ART_DIRECTION,\n\"FEEDBACK\": $('set_workflow_vars').item.json.FEEDBACK,\n} }}",
             "template_name": "prompts/linkedin_image_prompt.md"
           },
           "matchingColumns": [],

@@ -178,12 +178,43 @@ Breaking changes in the `0.10.87 -> 0.11.x` range that touch this fleet:
 - **postRun hook `timeout` semantics changed**: hooks run sequentially in one Job
   and their timeouts are summed into the Job deadline (never less than 10
   minutes); preRun timeouts are still ignored. This fleet runs one hook and sets
-  no timeout, so nothing changed for it. `[UNVERIFIED]` whether the hook still
-  receives `AGENT_RUN_ID` and `AGENT_NAMESPACE`; re-read a live postrun pod.
+  no timeout, so nothing changed for it. **Verified 2026-10-08** on a live
+  `postrun` pod: the hook container receives `AGENT_RUN_ID` (the AgentRun name),
+  `AGENT_NAMESPACE`, `AGENT_EXIT_CODE`, `AGENT_RESULT` and `INSTANCE_NAME` as
+  plain env values, so `deliver-slack.py`'s run-id line still resolves. The hook
+  now runs as its own `<run>-postrun` Job, not a container on the run pod.
 
 All seven workarounds in core's `sympozium_upstream_fixes.yaml` were kept: the
 target chart's `network-policies.yaml` and `controller-deployment.yaml` are
 byte-identical to `0.10.87`'s, and the Agent CRD still carries no `toolPolicy`.
+
+### The re-check list, closed (2026-10-08)
+
+Every "re-check after a control-plane bump" item was run against the live
+`0.11.2` plane. What was measured:
+
+- **CRD-defaulted fields**: the `ensembles.sympozium.ai` CRD's default paths and
+  values are identical between the `0.10.87` and `0.11.2` chart tarballs (only the
+  hook-`timeout` doc text changed), so no new default was written into the live
+  objects. The four the source already states (`mcpServers[].timeout`,
+  `schedule.firstTick`, `memory.maxSizeKB`, `sharedMemory.storageSize`) plus
+  `lifecycle.gateDefault` are the whole set that lands. Nothing to add.
+- **Provider-key env names**: unchanged. The `v0.11.2` controller still
+  allowlists eleven names (including `API_KEY` and `OPENAI_API_KEY`) and the
+  runner still resolves `firstNonEmpty(API_KEY, OPENAI_API_KEY,
+  ANTHROPIC_API_KEY, AZURE_OPENAI_API_KEY, PROVIDER_API_KEY)` — so `API_KEY`
+  remains the one that arrives and is read, and `PROVIDER_API_KEY` still cannot
+  arrive. Each per-owner Secret publishes `API_KEY` and `OPENAI_API_KEY`.
+- **MCPServer tool counts**: `mcp-homelab-facts` exposes **18** tools,
+  `semantic` and `semantic-finance` **5** each (read from a live `tools/list`).
+  A run's `mcp-discover` log shows the *post-`toolsAllow`* counts, e.g.
+  `sre-sentinel` discovers 4 (facts) + 5 (k8s) + 2 (argocd) = 11.
+- **One route per owner**: each of the four owners ran once on its own Secret and
+  the controller recorded `sympozium.ai/model-key-owner` on it —
+  `homelab-ops` on a scheduled run, `pi-render` on a Visual Studio turn, and
+  hand-applied probes for `homelab-responder` and `homelab-reviewer` (both
+  `Succeeded`, no `ConflictError`/`NotGrantedError`). See *One model key per
+  owner*.
 
 ## One model key per owner (2026-10-07)
 

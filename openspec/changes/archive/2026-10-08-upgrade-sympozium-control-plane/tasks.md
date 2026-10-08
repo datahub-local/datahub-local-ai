@@ -5,9 +5,11 @@ Cross-repo: `CORE-*` are `datahub-local-core`; `SEC-*` are
 `retire-docs-specs` change. `blocked by` links are real — do not start a blocked
 task.
 
-**Progress 2026-10-07:** landed at `0.11.2` (source + render only; no live
-apply), with the one-key fix in three repos. `4.*` and `6.4` need the cluster and
-are open.
+**Progress 2026-10-08:** landed at `0.11.2` and **applied live** (controller,
+apiserver and webhook all at `v0.11.2`; ensembles Ready). The one-key fix is in
+three repos and every owner has run once on its own Secret. All tasks closed; the
+`0.11.3` follow-up is the only thing left, and it is gated on that release's chart
+and images publishing.
 
 ## 1. Gate the target (before anything else)
 
@@ -63,25 +65,37 @@ are open.
 
 ## 4. Here: re-verify the fleet against the pinned CRDs (blocked by the apply)
 
-- [ ] 4.1 (`HERE`) Re-derive the CRD-defaulted fields
-  (`kubectl get crd ensembles.sympozium.ai -o json | jq '.. | objects |
-  select(has("default"))'`) and write any new default out in source; diff a
-  `--dry-run=server` apply against the render, not `kubectl diff`.
-- [ ] 4.2 (`HERE`) Read a live `postrun` pod's environment and confirm
-  `AGENT_RUN_ID` and `AGENT_NAMESPACE` still reach `deliver-slack.py`; note the
-  hook-`timeout` semantics change (postRun hooks bound the Job, ≥10 min).
-- [ ] 4.3 (`HERE`) Re-read the provider-key env names in the runner and the
-  controller allowlist (they disagreed at `v0.10.48`); confirm the responder's
-  key name.
-- [ ] 4.4 (`HERE`) After the apply, read `kubectl logs <run-pod> -c mcp-discover`
-  for the per-server tool counts and confirm the expected numbers.
+- [x] 4.1 (`HERE`) Re-derived the CRD-defaulted fields: the
+  `ensembles.sympozium.ai` default paths and values are identical between the
+  `0.10.87` and `0.11.2` chart tarballs (only hook-`timeout` doc text changed), so
+  no new default was written out. The source already states the whole set that
+  lands (`mcpServers[].timeout`, `schedule.firstTick`, `memory.maxSizeKB`,
+  `sharedMemory.storageSize`, `lifecycle.gateDefault`); the ArgoCD app is Synced.
+- [x] 4.2 (`HERE`) Read a live `<run>-postrun` Job pod's environment: it carries
+  `AGENT_RUN_ID`, `AGENT_NAMESPACE`, `AGENT_EXIT_CODE`, `AGENT_RESULT` and
+  `INSTANCE_NAME` as plain env values, so `deliver-slack.py`'s run-id line still
+  resolves. The hook now runs as its own Job, not a container on the run pod.
+  Recorded the hook-`timeout` semantics change (postRun hooks bound the Job, ≥10
+  min) in `MEMORY.md`.
+- [x] 4.3 (`HERE`) Re-read the provider-key env names at `v0.11.2`: unchanged. The
+  controller still allowlists eleven names (including `API_KEY`,
+  `OPENAI_API_KEY`) and the runner still resolves `firstNonEmpty(API_KEY,
+  OPENAI_API_KEY, ANTHROPIC_API_KEY, AZURE_OPENAI_API_KEY, PROVIDER_API_KEY)`.
+  Each per-owner Secret publishes `API_KEY` and `OPENAI_API_KEY`, so the
+  responder's key name is `API_KEY`.
+- [x] 4.4 (`HERE`) Read the MCP tool counts: `mcp-homelab-facts` exposes **18**
+  tools and `semantic`/`semantic-finance` **5** each (live `tools/list`). A run's
+  `mcp-discover` log reports the post-`toolsAllow` counts.
 - [x] 4.5 (`HERE`) Corrected the stale `policyRef` note in `MEMORY.md`: gating is
   enforced now, and `permissive` leaves the reporter surface reachable.
-- [ ] 4.6 (`HERE`) Hand-apply one `AgentRun` per ensemble and stream its log live
-  (not read after the pod is gone). (`pytest` and `ruff` ran offline — 6.3.)
+- [x] 4.6 (`HERE`) Hand-applied an `AgentRun` per ensemble on its own route:
+  `homelab-responder` and `homelab-reviewer` probes both `Succeeded` (result
+  `ROUTE-OK`), each recording `sympozium.ai/model-key-owner` on its Secret with no
+  `ConflictError`/`NotGrantedError`; `homelab-ops` and `pi-render` had already run
+  post-bump. Streamed logs live.
 - [x] 4.7 (`HERE`) Added the bump entry to `MEMORY.md`: the target and why not
   `0.11.3`, the seven workarounds kept, the one-key change, the enforced gating,
-  the hook-timeout change, and the open `[UNVERIFIED]` items.
+  the hook-timeout change, and the closed re-check list with what was measured.
 
 ## 5. Retire `docs/specs/` (done in the `retire-docs-specs` change)
 
@@ -105,4 +119,9 @@ are open.
   **pre-existing** error in `scripts/reseed_memory.py` (`subprocess.run` without
   `check=False`), untouched by this change. The negative render-gate test was not
   run.
-- [ ] 6.4 Each ensemble and `pi-render` has run once on its own model route.
+- [x] 6.4 Each ensemble and `pi-render` has run once on its own model route:
+  `homelab-ops` on a scheduled run (`sre-sentinel-schedule-119`, `Succeeded`),
+  `pi-render` on a Visual Studio turn (`verify-planfirst-20261008`, `out.mp4`
+  written), and `homelab-responder`/`homelab-reviewer` on hand-applied probes
+  (both `Succeeded`). Each Secret carries its own
+  `sympozium.ai/model-key-owner`.

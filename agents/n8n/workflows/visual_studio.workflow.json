@@ -1,7 +1,7 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "2443fdbd-876b-4451-84b5-3b13efbbc688",
+    "versionId": "94f29e14-20b2-4e63-b241-c14b0f7a1f68",
     "workflowId": "2pSrRNmYR2jkX1JG",
     "nodes": [
       {
@@ -610,33 +610,44 @@
       }
     ],
     "connections": {
+      "main_trigger": {
+        "main": [
+          [
+            {
+              "node": "normalize_input",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "api_trigger": {
+        "main": [
+          [
+            {
+              "node": "normalize_input",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "form_trigger": {
+        "main": [
+          [
+            {
+              "node": "normalize_input",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
       "normalize_input": {
         "main": [
           [
             {
               "node": "download_brand",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "download_brand": {
-        "main": [
-          [
-            {
-              "node": "brand_tokens",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "brand_tokens": {
-        "main": [
-          [
-            {
-              "node": "download_registry",
               "type": "main",
               "index": 0
             }
@@ -659,68 +670,6 @@
           [
             {
               "node": "if_agent",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "if_agent": {
-        "main": [
-          [
-            {
-              "node": "build_author_brief",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "if_raster",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "build_author_brief": {
-        "main": [
-          [
-            {
-              "node": "execute_author",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "execute_author": {
-        "main": [
-          [
-            {
-              "node": "fetch_artifact",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "fetch_artifact": {
-        "main": [
-          [
-            {
-              "node": "agent_result",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "agent_result": {
-        "main": [
-          [
-            {
-              "node": "merge_branches",
               "type": "main",
               "index": 0
             }
@@ -857,33 +806,84 @@
           ]
         ]
       },
-      "main_trigger": {
+      "if_agent": {
         "main": [
           [
             {
-              "node": "normalize_input",
+              "node": "build_author_brief",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "if_raster",
               "type": "main",
               "index": 0
             }
           ]
         ]
       },
-      "api_trigger": {
+      "build_author_brief": {
         "main": [
           [
             {
-              "node": "normalize_input",
+              "node": "execute_author",
               "type": "main",
               "index": 0
             }
           ]
         ]
       },
-      "form_trigger": {
+      "execute_author": {
         "main": [
           [
             {
-              "node": "normalize_input",
+              "node": "fetch_artifact",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "fetch_artifact": {
+        "main": [
+          [
+            {
+              "node": "agent_result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "agent_result": {
+        "main": [
+          [
+            {
+              "node": "merge_branches",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "download_brand": {
+        "main": [
+          [
+            {
+              "node": "brand_tokens",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "brand_tokens": {
+        "main": [
+          [
+            {
+              "node": "download_registry",
               "type": "main",
               "index": 0
             }
@@ -896,38 +896,49 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-10-06T20:57:53.820Z",
-    "updatedAt": "2026-10-06T20:57:53.820Z"
+    "createdAt": "2026-10-07T20:39:56.464Z",
+    "updatedAt": "2026-10-07T20:39:56.464Z"
   },
-  "activeVersionId": "2443fdbd-876b-4451-84b5-3b13efbbc688",
+  "activeVersionId": "94f29e14-20b2-4e63-b241-c14b0f7a1f68",
   "connections": {
+    "main_trigger": {
+      "main": [
+        [
+          {
+            "node": "normalize_input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "api_trigger": {
+      "main": [
+        [
+          {
+            "node": "normalize_input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "form_trigger": {
+      "main": [
+        [
+          {
+            "node": "normalize_input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "normalize_input": {
       "main": [
         [
           {
             "node": "download_brand",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "download_brand": {
-      "main": [
-        [
-          {
-            "node": "brand_tokens",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "brand_tokens": {
-      "main": [
-        [
-          {
-            "node": "download_registry",
             "type": "main",
             "index": 0
           }
@@ -950,68 +961,6 @@
         [
           {
             "node": "if_agent",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "if_agent": {
-      "main": [
-        [
-          {
-            "node": "build_author_brief",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "if_raster",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "build_author_brief": {
-      "main": [
-        [
-          {
-            "node": "execute_author",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "execute_author": {
-      "main": [
-        [
-          {
-            "node": "fetch_artifact",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "fetch_artifact": {
-      "main": [
-        [
-          {
-            "node": "agent_result",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "agent_result": {
-      "main": [
-        [
-          {
-            "node": "merge_branches",
             "type": "main",
             "index": 0
           }
@@ -1148,33 +1097,84 @@
         ]
       ]
     },
-    "main_trigger": {
+    "if_agent": {
       "main": [
         [
           {
-            "node": "normalize_input",
+            "node": "build_author_brief",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "if_raster",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "api_trigger": {
+    "build_author_brief": {
       "main": [
         [
           {
-            "node": "normalize_input",
+            "node": "execute_author",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "form_trigger": {
+    "execute_author": {
       "main": [
         [
           {
-            "node": "normalize_input",
+            "node": "fetch_artifact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "fetch_artifact": {
+      "main": [
+        [
+          {
+            "node": "agent_result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "agent_result": {
+      "main": [
+        [
+          {
+            "node": "merge_branches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "download_brand": {
+      "main": [
+        [
+          {
+            "node": "brand_tokens",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "brand_tokens": {
+      "main": [
+        [
+          {
+            "node": "download_registry",
             "type": "main",
             "index": 0
           }
@@ -1817,6 +1817,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 2,
-  "updatedAt": "2026-10-06T20:57:53.794Z",
-  "versionId": "2443fdbd-876b-4451-84b5-3b13efbbc688"
+  "updatedAt": "2026-10-07T20:39:56.445Z",
+  "versionId": "94f29e14-20b2-4e63-b241-c14b0f7a1f68"
 }

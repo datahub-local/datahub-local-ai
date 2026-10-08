@@ -44,17 +44,18 @@ brief says to choose the form, pick the one that fits the content best.
 
 The engine's checks do not catch a composition that fills only part of its frame or
 changes too fast to read, and you cannot see images. So before you render, review the
-composition against these four points and fix every miss. State the review, with its
+composition against these points and fix every miss. State the review, with its
 numbers, in your report.
 
 1. **Content.** One line per scene naming the single claim it carries. Every string on
    screen must come from the brief — invent no fact, number or name. Cut a scene that
    adds nothing.
-2. **Proportion.** Each scene's content must fill the frame's height, not sit in a band
-   at the top. Put the padding and the vertical layout on the element that directly
-   contains the content; never put padding on a clip and the content in a second,
-   absolutely-positioned wrapper, which escapes the padding and leaves the content at
-   the top. State how much of `data-height` each scene's content covers.
+2. **Proportion.** Each scene's **visible content** — the text and graphics a viewer
+   sees — must span the frame's height, not sit in a band at the top. Keep the vertical
+   layout on the element that directly contains the content; never put padding on a clip
+   and the content in a second, absolutely-positioned wrapper, which escapes it. A
+   wrapper that stretches to fill the height (for example `flex: 1`) is not the measure:
+   report the visible content's top and bottom, not the wrapper's box.
 3. **Legibility.** At the width you render, size type for a phone: headings at least
    34px, body at least 18px, labels and captions at least 14px. `hyperframes check` must
    report 0 layout errors and pass every contrast check.
@@ -62,6 +63,9 @@ numbers, in your report.
    at least 1.5 seconds before the next change. The whole composition must not exceed the
    duration the brief asks for: the file is sampled to that length, so a longer
    composition loses its final scene. State the total.
+5. **Pages.** If the composition has more than one scene, give every scene a page
+   indicator in the same bottom-right position (for example `2 / 3`) in the muted small
+   type, so a viewer always knows where they are.
 
 ## How to work
 

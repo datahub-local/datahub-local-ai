@@ -27,6 +27,14 @@ Every correction came from a human rejecting the asset in Slack, which is slow a
 costs a full composer turn each time. The engine cannot check what the composer most
 needs checked, so the composer must review it itself.
 
+The first run to carry the review still passed a layout it should have caught: studio
+run `12645` reported "content spans 834 of 970px (86%)" while the rendered frames kept
+every scene's visible content in the top third. The composer had measured a `flex: 1`
+wrapper that stretches to fill the height, not the content inside it, so the proportion
+rule has to name the **visible content** as the measure. The same run exposed a second,
+smaller gap: a multi-scene composition gave the viewer no sense of position, so it
+should carry a page indicator.
+
 ## What Changes
 
 - **Add a mandatory review before rendering** to
@@ -36,9 +44,14 @@ needs checked, so the composer must review it itself.
   are stated in the run report so the review is checkable offline.
 - **State the layout rule that fills the frame**: put the padding and vertical layout
   on the element that directly contains the content; never put padding on a clip and
-  the content in a second absolutely-positioned wrapper, which escapes it.
+  the content in a second absolutely-positioned wrapper, which escapes it. Measure the
+  **visible content's** coverage, not a wrapper that can flex to fill.
+- **Require a page indicator on a multi-scene composition**: every scene carries the
+  scene number in the same bottom-right position, so a viewer always knows where they
+  are.
 - **Add an offline test** (`agents/adapters/pi-render/test/authoring-prompt.test.mjs`)
-  asserting the guide carries the review section and its thresholds.
+  asserting the guide carries the review section, its checks, its thresholds and its
+  page-indicator rule.
 - **No change** to the session contract, the artifact endpoint, the type registry, or
   any workflow. This is the authoring guide alone.
 

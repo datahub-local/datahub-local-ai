@@ -13,9 +13,14 @@ record.
 
 #### Scenario: Frame proportion is checked
 - **WHEN** an authored composition is reviewed before rendering
-- **THEN** each scene's content is confirmed to fill the frame's height rather than a
-  band within it
+- **THEN** each scene's **visible content** is confirmed to fill the frame's height
+  rather than a band within it, measured on the content and not on a wrapper that
+  stretches to fill
 - **AND** a scene whose content does not fill the frame is corrected before rendering
+
+#### Scenario: A multi-scene composition is paginated
+- **WHEN** an authored composition has more than one scene
+- **THEN** every scene carries a page indicator in the same bottom-right position
 
 #### Scenario: Legibility is checked
 - **WHEN** an authored composition is reviewed before rendering

@@ -74,6 +74,29 @@ Legibility and pacing are stated as numbers (heading ≥ 34 px, body ≥ 18 px, 
 model acted on "animate slowly" for two turns and still produced sub-frame reveals; the
 same model can compare two numbers.
 
+### D5. Proportion measures the visible content, not a wrapper
+
+Studio run `12645` satisfied the first version of the proportion check by measuring a
+`flex: 1` element that stretches to fill the frame, while the visible content stayed in
+the top third. The rule therefore names the **visible content** (the text and graphics a
+viewer sees) as the measure and names a stretching wrapper as an invalid one, so the
+reported coverage is the number a reviewer can check against a frame.
+
+*Alternatives considered:* drop the proportion check and rely on a deterministic guard
+— rejected (see Open Questions); tighten only the wording without an example — rejected
+because the failure was precisely that a plausible-looking box was accepted as the
+content.
+
+### D6. A multi-scene composition carries a page indicator
+
+A viewer of a multi-scene composition cannot tell how much is left. Every scene carries
+the scene number (for example `2 / 3`) in the same bottom-right position, in the muted
+small type, so the deck reads as a sequence. This is a convention of the authoring
+guide, not of a type, so it applies to every caller.
+
+*Alternatives considered:* a per-type flag — rejected; it is not a per-type decision,
+and the guide is the one place every type reads.
+
 ## Risks / Trade-offs
 
 - **A longer guide competes for the model's attention and the context window.** → The

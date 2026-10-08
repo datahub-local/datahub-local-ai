@@ -288,7 +288,11 @@ because the engine's own `check` does not cover the two defects seen live on 202
 - studio run `12625`: the same proportion defect, and it overran the requested 9 s by
   building 10.5 s, so the GIF sample dropped most of the final scene;
 - studio run `12628`: accepted, after a human supplied proportion and never-overshoot
-  feedback.
+  feedback;
+- studio run `12645`, the first with the review in place: it satisfied the proportion
+  check by measuring a `flex: 1` wrapper and reported "86 %", while the frames kept every
+  scene's content in the top third — so the rule now names the **visible content** as the
+  measure, and a multi-scene clip also carries a page indicator.
 
 The composer cannot see images, so the review is a checklist over the values the agent
 already knows — its own CSS and its scene durations — not visual inspection: content

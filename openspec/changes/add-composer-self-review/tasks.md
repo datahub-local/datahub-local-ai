@@ -37,3 +37,16 @@
 - [x] 4.2 Record this session's evidence (studio runs 12622/12625/12628 and the two
   defects) in `agents/adapters/pi-render/README.md` so the review's rationale is not
   re-litigated (added `### The authoring review (before render)` with the three runs)
+
+## 5. Proportion follow-up and pagination
+
+- [x] 5.1 Tighten the proportion rule to measure the **visible content**, not a wrapper
+  that stretches to fill, after studio run `12645` reported 86 % coverage while the
+  frames kept every scene's content in the top third (`flex: 1` on the wrapper)
+- [x] 5.2 Add the page-indicator rule: a multi-scene composition carries the scene
+  number in the same bottom-right position on every scene
+- [x] 5.3 Extend `authoring-prompt.test.mjs` to assert the visible-content wording and
+  the page-indicator rule; `node --test` is 22/22
+- [ ] 5.4 Rebuild and pin the adapter image again (a second `publish-images.yaml` cycle)
+  and re-run the acceptance (4.1) with a multi-scene brief, confirming the report's
+  proportion figure matches the frames and every scene carries the page indicator

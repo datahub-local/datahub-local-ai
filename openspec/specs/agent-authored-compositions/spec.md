@@ -118,3 +118,76 @@ ignores the brand, and it SHALL NOT be asked to invent a palette.
 - **WHEN** an authored composition and a deterministic asset are produced for the same brand
 - **THEN** both use the same palette and typefaces
 - **AND** neither is the only branded artefact
+
+### Requirement: An authored composition is reviewed before it is rendered
+
+Because the rendering engine's own checks do not detect a composition that fills only
+part of its frame or that changes too fast for a viewer, and the authoring agent cannot
+see images, the authoring turn SHALL review the composition against content,
+proportion, legibility and pacing before rendering it, and SHALL correct every miss.
+The review SHALL be reported with its measured values so it is checkable from the run
+record.
+
+#### Scenario: Frame proportion is checked
+- **WHEN** an authored composition is reviewed before rendering
+- **THEN** each scene's **visible content** is confirmed to fill the frame's height
+  rather than a band within it, measured on the content and not on a wrapper that
+  stretches to fill
+- **AND** a scene whose content does not fill the frame is corrected before rendering
+
+#### Scenario: A multi-scene composition is paginated
+- **WHEN** an authored composition has more than one scene
+- **THEN** every scene carries a page indicator in the same bottom-right position
+
+#### Scenario: Legibility is checked
+- **WHEN** an authored composition is reviewed before rendering
+- **THEN** type is confirmed to meet the minimum sizes for the rendered width
+- **AND** the composition passes the engine's layout and contrast checks
+
+#### Scenario: Pacing and total length are checked
+- **WHEN** an authored composition is reviewed before rendering
+- **THEN** each scene, reveal and hold is within the pacing bounds the guide states
+- **AND** the composition's total duration does not exceed the duration the brief asks
+  for
+
+#### Scenario: Content is checked
+- **WHEN** an authored composition is reviewed before rendering
+- **THEN** every string shown is traceable to the brief
+- **AND** no fact, number or name is introduced that the brief does not contain
+
+#### Scenario: The review is reported
+- **WHEN** the authoring turn reports what it produced
+- **THEN** the report states the review and its measured values
+
+### Requirement: A workflow can request an authored composition and receive its artifact
+
+The authoring runtime SHALL accept a request that carries a brief and an output
+kind, author and render the composition, and return the rendered artifact to the
+caller over HTTP. Each request's artifact MUST be isolated from other requests, so
+a caller always receives the artifact authored for its own brief, and the request
+MUST identify its output unambiguously without exposing the runtime's filesystem.
+
+#### Scenario: A workflow receives the artifact
+- **WHEN** a workflow requests an authored composition with a brief and an output kind
+- **THEN** the composition is authored and rendered
+- **AND** the rendered artifact is returned to the caller over HTTP
+
+#### Scenario: Requests do not collide
+- **WHEN** two authoring requests are made in sequence
+- **THEN** each caller receives the artifact authored for its own brief
+
+### Requirement: The deployed authoring runtime is reachable and sized to render
+
+A deployed authoring session SHALL admit the calling workload on its contract port.
+Its workspace SHALL be at least the engine's render disk gate, which the runtime's
+default claim does not satisfy, and the session MUST remain available between a
+workflow's request and its completion.
+
+#### Scenario: The calling workflow reaches the session
+- **WHEN** a calling workflow sends an authoring request to the deployed session
+- **THEN** the session admits it and returns an artifact
+
+#### Scenario: The workspace can render
+- **WHEN** the session renders an artifact
+- **THEN** its workspace is at least the engine's disk gate
+- **AND** the session is not reclaimed between the request and its completion

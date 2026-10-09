@@ -1614,7 +1614,8 @@
               "UPDATE_DATE": "={{ (new Date()).toISOString() }}",
               "STATUS": "PUBLISHED",
               "row_number": "={{ $('select_article_to_post').item.json.row_number }}",
-              "LINKEDIN_URL": "=https://www.linkedin.com/feed/update/{{ $('send_2_linkedin_omImage').item.json.urn }}"
+              "LINKEDIN_URL": "=https://www.linkedin.com/feed/update/{{ $('send_2_linkedin_omImage').item.json.urn }}",
+              "ERROR": ""
             },
             "matchingColumns": [
               "row_number"
@@ -1788,7 +1789,7 @@
                 "display": true,
                 "type": "string",
                 "canBeUsedToMatch": true,
-                "removed": true
+                "removed": false
               },
               {
                 "id": "EXECUTION_ID",
@@ -5223,7 +5224,8 @@
             "UPDATE_DATE": "={{ (new Date()).toISOString() }}",
             "STATUS": "PUBLISHED",
             "row_number": "={{ $('select_article_to_post').item.json.row_number }}",
-            "LINKEDIN_URL": "=https://www.linkedin.com/feed/update/{{ $('send_2_linkedin_omImage').item.json.urn }}"
+            "LINKEDIN_URL": "=https://www.linkedin.com/feed/update/{{ $('send_2_linkedin_omImage').item.json.urn }}",
+            "ERROR": ""
           },
           "matchingColumns": [
             "row_number"
@@ -5397,7 +5399,7 @@
               "display": true,
               "type": "string",
               "canBeUsedToMatch": true,
-              "removed": true
+              "removed": false
             },
             {
               "id": "EXECUTION_ID",

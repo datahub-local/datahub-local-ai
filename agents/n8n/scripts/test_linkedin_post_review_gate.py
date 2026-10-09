@@ -128,3 +128,19 @@ def test_nothing_overwrites_the_failure_reason(label, document):
     assert "send_error_notification" in _targets(_connections(document), "set_error_cancelled"), (
         f"{label}: the cancelled path lost its notice"
     )
+
+
+@pytest.mark.parametrize("label,document", list(_copies(SHARING)))
+def test_publish_clears_a_stale_failure_reason(label, document):
+    """A publish must not leave an earlier failure's ERROR on the row.
+
+    Found while verifying this change: row 58 read STATUS=PUBLISHED with
+    ERROR=MAX_RETRIES_EXCEEDED still on it, because update_status_published_a
+    never wrote the column.
+    """
+    columns = _nodes(document)["update_status_published_a"]["parameters"]["columns"]
+    assert columns["value"].get("ERROR") == "", (
+        f"{label}: publish does not clear a stale ERROR"
+    )
+    entry = next(s for s in columns["schema"] if s["id"] == "ERROR")
+    assert entry["removed"] is False, f"{label}: ERROR is not writable on the publish node"

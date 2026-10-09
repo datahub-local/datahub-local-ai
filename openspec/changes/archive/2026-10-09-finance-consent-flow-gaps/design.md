@@ -136,6 +136,15 @@ the hour, which is why the evidence and not the principle is stated here.)
 `GET /sessions/{id}` answered `AUTHORIZED` with `valid_until` 2027-03-29. Same
 contradiction, same session-scoped fault; the response for an Enable Banking
 ticket, not a change to the advice.
+**2026-10-09 confirmation:** the pattern held a third time. The 10-06 13:43
+session was `AUTHORIZED` with `valid_until` 2027-04-04 yet answered `400`
+(`Error interacting with ASPSP`) to a balances probe on 10-09, and the schedule
+failed on 10-07 and 10-08 (the only success was a manual run two minutes after
+the 10-06 consent). A form re-link at 06:37 UTC cleared it — balances returned
+`200` and the superseded session read `CLOSED`, confirming decision 4's
+best-effort `DELETE` also fires on this path. So the drop recurs roughly a day
+after each renewal regardless of the mechanism, which is the ASPSP-side cause:
+detection, not prevention.
 
 *Alternative:* keep one "not OK → renew" message — rejected, it cannot express
 "retry once" for the case where Enable Banking really is down, and the 429 case

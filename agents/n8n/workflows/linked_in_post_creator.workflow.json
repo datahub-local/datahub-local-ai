@@ -815,11 +815,6 @@
               "node": "create_post_ai",
               "type": "ai_languageModel",
               "index": 1
-            },
-            {
-              "node": "classify_content",
-              "type": "ai_languageModel",
-              "index": 1
             }
           ]
         ]
@@ -838,11 +833,6 @@
       "ai_model": {
         "ai_languageModel": [
           [
-            {
-              "node": "classify_content",
-              "type": "ai_languageModel",
-              "index": 0
-            },
             {
               "node": "create_post_ai",
               "type": "ai_languageModel",
@@ -1054,11 +1044,6 @@
             "node": "create_post_ai",
             "type": "ai_languageModel",
             "index": 1
-          },
-          {
-            "node": "classify_content",
-            "type": "ai_languageModel",
-            "index": 1
           }
         ]
       ]
@@ -1077,11 +1062,6 @@
     "ai_model": {
       "ai_languageModel": [
         [
-          {
-            "node": "classify_content",
-            "type": "ai_languageModel",
-            "index": 0
-          },
           {
             "node": "create_post_ai",
             "type": "ai_languageModel",

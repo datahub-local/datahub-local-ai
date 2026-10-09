@@ -25,6 +25,12 @@ class FakeApi:
         self.calls.append((method, path, body))
         if method == "GET" and path.startswith("/api/v1/workflows?"):
             return {"data": [{"id": w["id"], "name": w["name"]} for w in self.store.values()]}
+        if method == "POST" and path.endswith("/activate"):
+            self.store[path.split("/")[-2]]["active"] = True
+            return {}
+        if method == "PUT":
+            self.store[path.rsplit("/", 1)[1]].update(body)
+            return {}
         if method == "POST":
             wid = f"new{len(self.store) + 1}"
             self.store[wid] = {"id": wid, "active": False, **body}
@@ -96,3 +102,45 @@ def test_body_needs_name():
 def test_body_needs_nodes():
     with pytest.raises(SystemExit):
         mod.create_workflow("u", "k", {"name": "x"}, do_write=False)
+
+
+def _live(nodes, connections):
+    return {
+        "id": "wf1",
+        "name": "Curator",
+        "active": True,
+        "nodes": nodes,
+        "connections": connections,
+        "settings": {},
+    }
+
+
+def _n(name):
+    return {"name": name, "type": "t", "typeVersion": 1, "position": [0, 0], "parameters": {}}
+
+
+def test_typed_connections_set_a_non_main_type(monkeypatch):
+    """A sub-node attaches over ai_languageModel, not main; a dict spec reaches it."""
+    fake = FakeApi(existing=[_live(
+        [_n("ai_model"), _n("judge_llm"), _n("judge_llm_backfill")],
+        {"ai_model": {"ai_languageModel": [[{"node": "judge_llm", "type": "ai_languageModel", "index": 0}]]}},
+    )])
+    monkeypatch.setattr(mod, "api", fake)
+
+    spec = {"workflow": "wf1", "connections": {"ai_model": {"ai_languageModel": [[
+        {"node": "judge_llm", "type": "ai_languageModel", "index": 0},
+        {"node": "judge_llm_backfill", "type": "ai_languageModel", "index": 0},
+    ]]}}}
+    mod.process("u", "k", spec, do_apply=True)
+
+    got = fake.store["wf1"]["connections"]["ai_model"]["ai_languageModel"][0]
+    assert [o["node"] for o in got] == ["judge_llm", "judge_llm_backfill"]
+
+
+def test_a_list_connection_spec_still_means_main(monkeypatch):
+    fake = FakeApi(existing=[_live([_n("a"), _n("b")], {"a": {"main": [[{"node": "b", "type": "main", "index": 0}]]}})])
+    monkeypatch.setattr(mod, "api", fake)
+
+    spec = {"workflow": "wf1", "connections": {"a": []}}
+    mod.process("u", "k", spec, do_apply=True)
+    assert fake.store["wf1"]["connections"]["a"]["main"] == []

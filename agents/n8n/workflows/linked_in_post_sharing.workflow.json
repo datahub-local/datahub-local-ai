@@ -2239,7 +2239,7 @@
             "conditions": [
               {
                 "id": "post-media-is-animated-or-agent",
-                "leftValue": "={{ (String($('select_article_to_post').item.json.ANIMATED || '').toUpperCase() === 'TRUE') || ['ANIMATED','AGENT'].includes($('select_article_to_post').item.json.POST_MEDIA) }}",
+                "leftValue": "={{['ANIMATED','AGENT'].includes(String($('select_article_to_post').item.json.POST_MEDIA || '').toUpperCase())}}",
                 "rightValue": "",
                 "operator": {
                   "type": "boolean",
@@ -5882,7 +5882,7 @@
           "conditions": [
             {
               "id": "post-media-is-animated-or-agent",
-              "leftValue": "={{ (String($('select_article_to_post').item.json.ANIMATED || '').toUpperCase() === 'TRUE') || ['ANIMATED','AGENT'].includes($('select_article_to_post').item.json.POST_MEDIA) }}",
+              "leftValue": "={{['ANIMATED','AGENT'].includes(String($('select_article_to_post').item.json.POST_MEDIA || '').toUpperCase())}}",
               "rightValue": "",
               "operator": {
                 "type": "boolean",

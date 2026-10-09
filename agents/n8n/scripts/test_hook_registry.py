@@ -115,10 +115,10 @@ def test_the_judge_reads_the_registry():
 def test_the_curator_carries_hook_and_visual_columns():
     for label, doc in _copies(CURATOR):
         admit = _node(doc, "admit_to_backlog")["parameters"]["jsCode"]
-        for column in ("HOOK", "VISUAL_FORM", "ANIMATED", "SCENES"):
+        for column in ("HOOK", "VISUAL_FORM", "POST_MEDIA", "SCENES"):
             assert f"{column}:" in admit, f"{label}: admit_to_backlog does not emit {column}"
         rows = _node(doc, "build_queue_rows")["parameters"]["jsCode"]
-        for column in ("'HOOK'", "'VISUAL_FORM'", "'ANIMATED'", "'SCENES'"):
+        for column in ("'HOOK'", "'VISUAL_FORM'", "'POST_MEDIA'", "'SCENES'"):
             assert column in rows, f"{label}: build_queue_rows omits {column}"
         assert "parse_hook_registry" in _node(doc, "parse_judge")["parameters"]["jsCode"]
         assert "parse_hook_registry" in _node(doc, "download_judge_prompt")["parameters"]["workflowInputs"]["value"]["template_vars"]
@@ -130,8 +130,8 @@ def test_sharing_drives_the_studio_from_the_row():
         assert "VISUAL_FORM" in studio["FORCE"], label
         assert "SCENES" in studio["SCENES"], label
         left = _node(doc, "switch_post_media")["parameters"]["conditions"]["conditions"][0]["leftValue"]
-        assert "ANIMATED" in left, f"{label}: the media switch must read the row's intent"
-        assert "POST_MEDIA" in left, f"{label}: a manual override must still win"
+        assert "POST_MEDIA" in left, f"{label}: the media switch must read the row's POST_MEDIA"
+        assert "item.json.ANIMATED" not in left, f"{label}: POST_MEDIA is the one media column now"
         creator = _node(doc, "execute_post_creator")["parameters"]["workflowInputs"]["value"]
         assert "HOOK" in creator, f"{label}: the creator must receive the row's hook"
 

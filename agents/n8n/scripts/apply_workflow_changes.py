@@ -35,7 +35,9 @@ Examples:
     #    "nodes": {"n": {"field": value}}, "settings": {"field": value},
     #    "addNodes": [ {full n8n node object} ],
     #    "removeNodes": ["some_node"],
-    #    "connections": {"src": [[{"node": "dst", "type": "main", "index": 0}]]}}
+    #    "connections": {"src": [[{"node": "dst", "type": "main", "index": 0}]]},
+    #    # a dict names the connection type; a list means main
+    #    "connections": {"ai_model": {"ai_languageModel": [[{"node": "chain2", "type": "ai_languageModel", "index": 0}]]}}}
     --changes /tmp/changes.json
 
     # create a workflow that does not exist yet (idempotent by name)
@@ -270,19 +272,24 @@ def process(url, key, spec, do_apply):
                     main[i] = [o for o in (branch or []) if o.get("node") != node]
         changes.append((node, "<removed>", "present", "removed"))
 
-    for src, main in spec.get("connections", {}).items():
+    for src, spec_conn in spec.get("connections", {}).items():
         if src not in by_name:
             sys.exit(f"connection source {src!r} is not a node in the workflow")
-        for branch in main:
-            for out in branch or []:
-                if out["node"] not in by_name:
-                    sys.exit(f"connection target {out['node']!r} is not a node in the workflow")
-        before = wf["connections"].get(src, {}).get("main")
-        if before == main:
-            print(f"  connections from {src!r} already as specified")
-            continue
-        wf["connections"].setdefault(src, {})["main"] = main
-        changes.append((src, "<connections>", summarize_main(before), summarize_main(main)))
+        # A list is the common case and means main; a dict names the connection
+        # type, because a sub-node attaches to its consumer over ai_languageModel
+        # rather than main and a main-only spec could not express it.
+        types = spec_conn if isinstance(spec_conn, dict) else {"main": spec_conn}
+        for ctype, branches in types.items():
+            for branch in branches:
+                for out in branch or []:
+                    if out["node"] not in by_name:
+                        sys.exit(f"connection target {out['node']!r} is not a node in the workflow")
+            before = wf["connections"].get(src, {}).get(ctype)
+            if before == branches:
+                print(f"  connections {ctype} from {src!r} already as specified")
+                continue
+            wf["connections"].setdefault(src, {})[ctype] = branches
+            changes.append((src, f"<connections:{ctype}>", summarize_main(before), summarize_main(branches)))
 
     for node_name, fields in spec.get("nodes", {}).items():
         if node_name not in by_name:
@@ -341,9 +348,10 @@ def process(url, key, spec, do_apply):
             ok = node_name not in after_nodes
             print(f"  removed node {node_name}: {'absent' if ok else 'STILL PRESENT'}")
             continue
-        if field == "<connections>":
-            got = summarize_main(after_wf["connections"].get(node_name, {}).get("main"))
-            print(f"  wrote connections {node_name}: {got}{'' if got == want else '  MISMATCH'}")
+        if field.startswith("<connections"):
+            ctype = field.split(":", 1)[1] if ":" in field else "main"
+            got = summarize_main(after_wf["connections"].get(node_name, {}).get(ctype))
+            print(f"  wrote connections {ctype} {node_name}: {got}{'' if got == want else '  MISMATCH'}")
             continue
         holder = after_wf.get("settings", {}) if node_name == "<settings>" else after_nodes[node_name]
         got = get_path(holder, field)

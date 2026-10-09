@@ -515,8 +515,8 @@ first lines take — format, length and closing stay the generator's own variety
 (`form` one of `FORCE`, `motion`, `scenes`) and `image`.
 
 The judge returns `hook` and a `visual` intent in the same call that reads the article;
-`admit_to_backlog` writes them as the `HOOK`, `VISUAL_FORM`, `ANIMATED` and `SCENES`
-columns. `LinkedIn Post Creator`'s `set_variety_directives` reads `HOOK` and maps it through
+`admit_to_backlog` writes them as the `HOOK`, `VISUAL_FORM`, `POST_MEDIA` and `SCENES`
+columns (`POST_MEDIA` is `ANIMATED` or `STATIC`). `LinkedIn Post Creator`'s `set_variety_directives` reads `HOOK` and maps it through
 the registry — it no longer re-picks a hook at random, and `classify_content` is retired. A
 list-shaped article (a roundup, a state-of — the `ROUNDUP` hook) declares `motion: true` and
 a scene count, so it is authored as one item per scene in the existing `animation_linkedin`
@@ -532,10 +532,11 @@ offline in `agents/n8n/scripts/test_hook_registry.py`.
 #### LinkedIn post media
 
 `LinkedIn Post Sharing` carries one media item per post, and which one is the **row's**
-decision: the judge's `ANIMATED` intent decides animated vs still, `VISUAL_FORM` forces the
-composer's form and `SCENES` carries a list's item count, while a manually set
-`content_queue.POST_MEDIA` of `ANIMATED` or `AGENT` still overrides that intent so a
-hand-set row keeps its behaviour. An animated row asks `Visual Studio` for
+decision: `content_queue.POST_MEDIA` of `ANIMATED` requests the animation and anything else
+(`STATIC` or blank) takes the still path; `VISUAL_FORM` forces the composer's form and
+`SCENES` carries a list's item count. `POST_MEDIA` is written by the curator from the
+judge's intent and stays human-editable, so a person can force either way by editing it —
+one media column, not two. An animated row asks `Visual Studio` for
 `animation_linkedin` and attaches the approved animation; a blank or `STATIC` row takes the
 `LinkedIn Image Creator` path exactly as before. The switch sits on the text
 approval's output, so both media kinds pass through the same publish node, which picks

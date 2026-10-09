@@ -1,0 +1,49 @@
+# Tasks
+
+## 1. Hook registry (`agents/n8n/datasets/hook_types.json`)
+
+- [x] 1.1 Author the registry: 15–20 hooks grouped by intent, each with `id`, `when` (eligibility), `opening` (the post's opening shape) and `visual` (`form` one of the `FORCE` values, `motion`, `scenes`), plus `image` (the raster composition device); verify the file parses and contains no doubled-curly-brace placeholder (it is fetched through `DownloadTemplate` with empty vars) — 19 hooks; parses; no placeholder
+- [x] 1.2 Cover the required families — argument, evidence, news, reference (`ROUNDUP` among them) and narrative — and verify every `visual.form` is a value `normalize_input` accepts — all 19 forms are in `FORCE`
+- [x] 1.3 Add `agents/n8n/scripts/test_hook_registry.py` asserting the registry parses, every `form` is a valid `FORCE`, and no hook id list is carried elsewhere (the `test_brand.py` shape); verify it fails if an id is duplicated into `image_motifs.json` — the hook map was removed from `image_motifs.json` and `parse_image_motifs` now reads the registry
+- [ ] 1.4 Commit and push the registry, since `DownloadTemplate` reads GitHub `main`; verify it is on `origin/main` before any live run — **not done: not pushed**
+
+## 2. Judge (`prompts/curator_judge.md`, `content_feed_curator.workflow.json`)
+
+- [x] 2.1 Rewrite `curator_judge.md` to select a `hook` from the registry and a `visual` intent (`form`, `motion`, `scenes`) in the same call, replacing the six-value prose enum; verify the prompt has no hard-coded hook ids and resolves `{{ HOOKS }}` — done; only the example `TRADE_OFF` remains
+- [x] 2.2 Inject `{{ HOOKS }}` into the judge from the registry (a workflow var built from the fetched dataset); verify a run renders the full id list and an unknown id returned by the model is rejected — `download_hook_registry` + `parse_hook_registry` feed `download_judge_prompt` and `parse_judge`
+- [x] 2.3 `parse_judge`: validate `hook` against the registry (not the inline `HOOKS` array) and validate the visual intent (`form` in `FORCE`, `motion` boolean, `scenes` a bounded integer, falling back to the hook's registry default); verify an out-of-registry hook falls back to empty as today
+- [x] 2.4 `admit_to_backlog` and `build_queue_rows`: add `HOOK`, `VISUAL_FORM`, `ANIMATED`, `SCENES` to the emitted row and the column list (now 22), and map them in `append_content_queue`; verify the append maps every new column to a sheet header — **the four sheet headers must be added to `content_queue` before the live append runs (a sheet change, not a repo change)**
+- [x] 2.5 Move `build_expire_rows`' TTL read from the `Hook: X.` prefix to the `HOOK` column (keeping the prefix as a fallback for old rows)
+- [ ] 2.6 Apply the curator workflow live with `--require-edge` guards on `parse_judge` and `admit_to_backlog`, re-read live, diff against the export, and publish; verify the four columns are written and the digest names the hook — **not done: no live apply**
+
+## 3. Post creator (`linked_in_post_creator.workflow.json`)
+
+- [x] 3.1 `set_variety_directives`: read `HOOK` from the row and map it to the registry's `opening`; keep the random `format`, `length` and `closing`
+- [x] 3.2 Retire `classify_content` and `download_post_classify_prompt`; `set_workflow_vars` now feeds the registry fetch and `set_variety_directives`
+- [x] 3.3 Pass `HOOK` through `main_trigger` to the creator (the row's value, not a re-derived one)
+- [ ] 3.4 Apply live with `--require-edge` on the creator entry, publish, and diff against live; verify `classify_content` is gone and the graph still has one terminal — **not done: no live apply**
+
+## 4. Sharing (`linked_in_post_sharing.workflow.json`)
+
+- [x] 4.1 Drive the media branch from the row's intent: `ANIMATED` (column) or a manual `POST_MEDIA` decides animated vs still; `FORCE` comes from `VISUAL_FORM`
+- [x] 4.2 Forward `SCENES` into the studio request for a roundup
+- [x] 4.3 Extend `scripts/test_linkedin_animated_media.py` (unchanged assertions still hold) and add the row-intent assertions in `test_hook_registry.py`
+- [ ] 4.4 Apply live with `--require-edge`, publish, re-read, and diff against live — **not done: no live apply**
+
+## 5. Visual Studio (`visual_studio.workflow.json`)
+
+- [x] 5.1 Accept an optional `SCENES` on the studio request (`normalize_input`, the form trigger) and include it in the authoring brief as "one item per scene, N scenes", leaving the composer's storyboard in charge when blank
+- [x] 5.2 Extend `scripts/test_visual_studio_graph.py` assertions via `test_hook_registry.py::test_visual_studio_accepts_a_scene_plan`
+- [ ] 5.3 Apply live with `--require-edge`, publish, re-read, and diff against live — **not done: no live apply**
+
+## 6. Verify
+
+- [x] 6.1 Run the `agents/n8n/scripts/` suite; verify all pass and the registry-drift test is included — 153 passed
+- [ ] 6.2 Manual acceptance, roundup: run the state-of article end to end and verify the row's `HOOK=ROUNDUP`, the studio received `FORCE=data`/`SCENES`, and the published GIF is a multi-scene sequence — **not done: no live run**
+- [ ] 6.3 Manual acceptance, argument row: verify the post opens on the classifier's hook (not a random one) and the media `FORCE` matches the registry default — **not done: no live run**
+- [ ] 6.4 Verify a manually set `POST_MEDIA` row still behaves as before, and a blank row falls back to the still image when no agent asset exists — **not done: no live run**
+
+## 7. Documentation
+
+- [x] 7.1 Update the `#### LinkedIn post media` section of `AGENTS.md` and add a `#### Post hooks and the visual intent` subsection: the registry, the hook/visual columns, the retirement of `classify_content` and `POST_MEDIA`-as-default
+- [x] 7.2 Record in `AGENTS.md` that the hook is decided once and where

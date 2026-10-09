@@ -503,19 +503,44 @@ Studio Test` uses it to hand back the assets it produced: each is written to
 later because `File Webhook` deletes rows whose `updatedAt` is older than that on every
 request.
 
+#### Post hooks and the visual intent
+
+A post's **hook** is decided once, by the curator's judge, and carried on the row. The
+single list is `agents/n8n/datasets/hook_types.json` (15–20 hooks grouped by intent —
+argument, evidence, news, reference, narrative), and it is the only copy: the judge prompt
+is injected the list as `{{ HOOKS }}`, the post generator reads the chosen hook's opening
+shape from it, and the LinkedIn Image Creator reads the chosen hook's raster composition
+device from it. Each hook declares `when` (eligibility), `opening` (the shape the post's
+first lines take — format, length and closing stay the generator's own variety), `visual`
+(`form` one of `FORCE`, `motion`, `scenes`) and `image`.
+
+The judge returns `hook` and a `visual` intent in the same call that reads the article;
+`admit_to_backlog` writes them as the `HOOK`, `VISUAL_FORM`, `ANIMATED` and `SCENES`
+columns. `LinkedIn Post Creator`'s `set_variety_directives` reads `HOOK` and maps it through
+the registry — it no longer re-picks a hook at random, and `classify_content` is retired. A
+list-shaped article (a roundup, a state-of — the `ROUNDUP` hook) declares `motion: true` and
+a scene count, so it is authored as one item per scene in the existing `animation_linkedin`
+type, with no new media kind. The registry and the prompts are read from GitHub `main`, so
+those halves are live on push; the workflow edits are live only after
+`scripts/apply_workflow_changes.py`. The single-source property and the wiring are asserted
+offline in `agents/n8n/scripts/test_hook_registry.py`.
+
 #### LinkedIn post media
 
 `LinkedIn Post Sharing` carries one media item per post, and which one is the **row's**
-decision: `content_queue.POST_MEDIA` of `ANIMATED` or `AGENT` asks `Visual Studio` for
-`animation_linkedin` and attaches the approved animation, while a blank or `STATIC` value
-takes the `LinkedIn Image Creator` path exactly as before. The switch sits on the text
+decision: the judge's `ANIMATED` intent decides animated vs still, `VISUAL_FORM` forces the
+composer's form and `SCENES` carries a list's item count, while a manually set
+`content_queue.POST_MEDIA` of `ANIMATED` or `AGENT` still overrides that intent so a
+hand-set row keeps its behaviour. An animated row asks `Visual Studio` for
+`animation_linkedin` and attaches the approved animation; a blank or `STATIC` row takes the
+`LinkedIn Image Creator` path exactly as before. The switch sits on the text
 approval's output, so both media kinds pass through the same publish node, which picks
 whichever conversion actually ran (`$('convert_animation').isExecuted ? … :
 $('convert_image')…`) — never a second publish node, and never a path that guesses.
 
-Both animated opt-ins now request the same type, because the deterministic path is retired
-and LinkedIn needs a GIF inside its cap; the opt-in only decides *whether* media is
-animated. Four things about the branch are deliberate:
+Both animated opt-ins request the same type, because the deterministic path is retired
+and LinkedIn needs a GIF inside its cap; the decision only sets *whether* media is
+animated and which form the composer is forced to. Four things about the branch are deliberate:
 
 - **It branches on the asset, not the run.** The studio reports its run `STATUS: PARTIAL`
   whenever a requested type is unavailable, so `check_animation_result` tests the asset's

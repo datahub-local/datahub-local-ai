@@ -210,7 +210,7 @@
           -928
         ],
         "parameters": {
-          "jsCode": "// Randomly pick variety directives so consecutive posts never share the same shape.\n// Duplicated entries act as weights.\nconst pick = (arr) => arr[Math.floor(Math.random() * arr.length)];\n\n// Content-aware hook eligibility. Some hook archetypes presuppose material that\n// isn't in every source: NEWS REACTION needs an actual announcement, HARD NUMBER\n// needs a concrete figure. classify_content inspects the source and flags both,\n// so a hook the content cannot support is never assigned (which would otherwise\n// force the writer off-source and get the post rejected by the reviewer).\nconst classification = $('classify_content').item.json.text || '';\nconst flag = (name) => new RegExp('\"' + name + '\"\\\\s*:\\\\s*true').test(classification);\nconst isNews = flag('is_news');\nconst hasHardNumber = flag('has_hard_number');\n\n// These four archetypes work on any content.\nconst hooks = [\n  'CONTRARIAN CLAIM: open with a blunt statement that challenges accepted practice',\n  'WAR STORY: open with a concrete incident or observation from production work',\n  'MISCONCEPTION: open by naming a common misconception and correcting it',\n  'TRADE-OFF: open by framing the underlying trade-off most people ignore',\n];\n// These two are only eligible when the source actually supports them.\nif (isNews) hooks.push('NEWS REACTION: open with your immediate, opinionated take on the announcement or release');\nif (hasHardNumber) hooks.push('HARD NUMBER: open with a specific figure, cost, or metric and why it matters');\n\nconst hook = pick(hooks);\n\nconst format = pick([\n  'PURE PROSE: no bullet points at all, 3-5 flowing paragraphs',\n  'PURE PROSE: no bullet points at all, 3-5 flowing paragraphs',\n  'PUNCHY: several very short paragraphs, at least two of them a single sentence',\n  'PUNCHY: several very short paragraphs, at least two of them a single sentence',\n  'ONE BULLET BLOCK: exactly one bullet list of 3-4 short items, with prose before and after',\n]);\n\n// The word target is a point inside [MIN_WORDS, MAX_WORDS], not a percentage of MAX.\n// A percentage of MAX can fall below MIN - 40% of 300 is 120 against a minimum of 180 -\n// and the directives are declared MANDATORY in the prompt, so the model follows the\n// contradiction down and writes short.\nconst MIN_WORDS = $('main_trigger').first().json.MIN_WORDS || 150;\nconst MAX_WORDS = $('main_trigger').first().json.MAX_WORDS || 200;\nconst span = Math.max(0, MAX_WORDS - MIN_WORDS);\nconst target = (frac) => Math.round(MIN_WORDS + span * frac);\n\nconst lengthBand = pick([\n  ['SHORT', 0.15],\n  ['MEDIUM', 0.5],\n  ['MEDIUM', 0.5],\n  ['FULL', 0.9],\n]);\nconst length = lengthBand[0] + ': aim for about ' + target(lengthBand[1]) +\n  ' words, never fewer than ' + MIN_WORDS + ' and never more than ' + MAX_WORDS;\n\nconst closing = pick([\n  'DIRECT QUESTION: end the body with one specific question to technical peers',\n  'DIRECT QUESTION: end the body with one specific question to technical peers',\n  'SHARED EXPERIENCE: end by inviting others to share how they handle it, phrased as a statement, no question mark',\n  'HOT TAKE: end the body on a blunt one-line statement, no question, no invitation',\n  'HOT TAKE: end the body on a blunt one-line statement, no question, no invitation',\n  'NONE: end when the argument is complete, with no closing question or invitation',\n]);\n\nconst VARIETY_DIRECTIVES = [\n  `- Hook — ${hook}.`,\n  `- Format — ${format}.`,\n  `- Length — ${length}.`,\n  `- Closing — ${closing}. The \"Source here\" line and hashtags always follow the body regardless.`,\n].join('\\n');\n\nreturn [{ json: { ...$input.first().json, VARIETY_DIRECTIVES } }];\n"
+          "jsCode": "// Randomly pick variety directives so consecutive posts never share the same shape.\n// Duplicated entries act as weights.\nconst pick = (arr) => arr[Math.floor(Math.random() * arr.length)];\n\n// The hook is the one the curator's judge classified from the article and stored on\n// the row; it is NOT re-picked here. The opening shape comes from the registry entry\n// for that id, so the hook the post opens on and the hook the visual was built for are\n// the same decision. When the row carries no hook (a hand-written row), the writer\n// chooses the shape that fits.\nconst reg = $('parse_hook_registry').first().json;\nconst BY_ID = reg.byId || {};\nconst hookId = String($('main_trigger').first().json.HOOK || '').trim().toUpperCase();\nconst entry = BY_ID[hookId] || null;\nconst hook = entry\n  ? hookId + ': ' + String(entry.opening || '')\n  : 'the opening shape that best fits the content';\n\nconst format = pick([\n  'PURE PROSE: no bullet points at all, 3-5 flowing paragraphs',\n  'PURE PROSE: no bullet points at all, 3-5 flowing paragraphs',\n  'PUNCHY: several very short paragraphs, at least two of them a single sentence',\n  'PUNCHY: several very short paragraphs, at least two of them a single sentence',\n  'ONE BULLET BLOCK: exactly one bullet list of 3-4 short items, with prose before and after',\n]);\n\n// The word target is a point inside [MIN_WORDS, MAX_WORDS], not a percentage of MAX.\n// A percentage of MAX can fall below MIN - 40% of 300 is 120 against a minimum of 180 -\n// and the directives are declared MANDATORY in the prompt, so the model follows the\n// contradiction down and writes short.\nconst MIN_WORDS = $('main_trigger').first().json.MIN_WORDS || 150;\nconst MAX_WORDS = $('main_trigger').first().json.MAX_WORDS || 200;\nconst span = Math.max(0, MAX_WORDS - MIN_WORDS);\nconst target = (frac) => Math.round(MIN_WORDS + span * frac);\n\nconst lengthBand = pick([\n  ['SHORT', 0.15],\n  ['MEDIUM', 0.5],\n  ['MEDIUM', 0.5],\n  ['FULL', 0.9],\n]);\nconst length = lengthBand[0] + ': aim for about ' + target(lengthBand[1]) +\n  ' words, never fewer than ' + MIN_WORDS + ' and never more than ' + MAX_WORDS;\n\nconst closing = pick([\n  'DIRECT QUESTION: end the body with one specific question to technical peers',\n  'DIRECT QUESTION: end the body with one specific question to technical peers',\n  'SHARED EXPERIENCE: end by inviting others to share how they handle it, phrased as a statement, no question mark',\n  'HOT TAKE: end the body on a blunt one-line statement, no question, no invitation',\n  'HOT TAKE: end the body on a blunt one-line statement, no question, no invitation',\n  'NONE: end when the argument is complete, with no closing question or invitation',\n]);\n\nconst VARIETY_DIRECTIVES = [\n  `- Hook — ${hook}.`,\n  `- Format — ${format}.`,\n  `- Length — ${length}.`,\n  `- Closing — ${closing}. The \"Source here\" line and hashtags always follow the body regardless.`,\n].join('\\n');\n\nreturn [{ json: { ...$input.first().json, VARIETY_DIRECTIVES } }];\n"
         }
       },
       {
@@ -475,6 +475,9 @@
               },
               {
                 "name": "FEEDBACK"
+              },
+              {
+                "name": "HOOK"
               }
             ]
           }
@@ -555,74 +558,6 @@
         }
       },
       {
-        "id": "76e77493-8cb9-41e8-9ea1-f73109c0375a",
-        "name": "download_post_classify_prompt",
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.2,
-        "position": [
-          -16672,
-          -928
-        ],
-        "parameters": {
-          "workflowId": {
-            "__rl": true,
-            "value": "qUfjfWLGEjV96ljf",
-            "mode": "list",
-            "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
-            "cachedResultName": "DownloadTemplate"
-          },
-          "workflowInputs": {
-            "mappingMode": "defineBelow",
-            "value": {
-              "template_name": "prompts/linkedin_post_classify.md",
-              "template_vars": "={{ {\n\"CONTENT\": $('main_trigger').item.json.CONTENT,\n} }}"
-            },
-            "matchingColumns": [],
-            "schema": [
-              {
-                "id": "template_name",
-                "displayName": "template_name",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string"
-              },
-              {
-                "id": "template_vars",
-                "displayName": "template_vars",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "object"
-              }
-            ],
-            "attemptToConvertTypes": false,
-            "convertFieldsToString": true
-          },
-          "options": {}
-        }
-      },
-      {
-        "id": "07a801d5-8405-4d47-bcf8-21db01ef4e04",
-        "name": "classify_content",
-        "type": "@n8n/n8n-nodes-langchain.chainLlm",
-        "typeVersion": 1.6,
-        "retryOnFail": true,
-        "maxTries": 5,
-        "waitBetweenTries": 5000,
-        "position": [
-          -16448,
-          -928
-        ],
-        "parameters": {
-          "promptType": "define",
-          "text": "={{ $('download_post_classify_prompt').item.json.output }}",
-          "needsFallback": true
-        }
-      },
-      {
         "id": "08ca09dd-4f72-4084-9422-9986a34f99e9",
         "name": "ai_model",
         "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
@@ -660,6 +595,69 @@
         "parameters": {
           "jsCode": "// n8n Code node — mode: \"Run Once for Each Item\"\n\nconst url = $('set_workflow_vars').item.json.URL;\nconst text = $json.text;\n\n// Pull the <output>...</output> block; fall back to the whole text if absent\nconst match = /<output>([\\s\\S]*?)<\\/output>/.exec(text);\nlet result = match ? match[1].trim() : text;\n\n// Apply the two replacements (function form = $-safe URLs)\nresult = result\n  .replace(/(Source here: ).*/g, (m, p1) => p1 + url)\n  .replace(/(.*): SOME_URL/g,   (m, p1) => p1 + ': ' + url);\n\nreturn { json: { ...$json, result } };"
         }
+      },
+      {
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "qUfjfWLGEjV96ljf",
+            "mode": "list",
+            "cachedResultName": "DownloadTemplate",
+            "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "template_name": "datasets/hook_types.json",
+              "template_vars": "={{ {} }}"
+            },
+            "matchingColumns": [],
+            "schema": [
+              {
+                "id": "template_name",
+                "displayName": "template_name",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string"
+              },
+              {
+                "id": "template_vars",
+                "displayName": "template_vars",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "object"
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true
+          },
+          "options": {}
+        },
+        "id": "d4b6f8a2-1c37-4e59-9b24-7a0f3d5c8e61",
+        "name": "download_hook_registry",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          -11040,
+          1900
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "// datasets/hook_types.json, parsed once. set_variety_directives reads byId to turn\n// the row's HOOK id into the opening shape the registry declares for it.\nconst raw = $json.output || '{}';\nlet cfg;\ntry {\n  cfg = JSON.parse(raw);\n} catch (e) {\n  throw new Error('datasets/hook_types.json is not valid JSON: ' + e.message);\n}\nconst arr = (v, d) => (Array.isArray(v) ? v : d);\nconst str = (v) => String(v == null ? '' : v);\nconst byId = {};\nfor (const h of arr(cfg.hooks, [])) {\n  if (h && h.id) byId[str(h.id).toUpperCase()] = h;\n}\nreturn [{ json: { byId } }];\n"
+        },
+        "id": "e5c7a9b3-2d48-4f6a-8c35-9b1e4f7a2d63",
+        "name": "parse_hook_registry",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -10880,
+          1900
+        ]
       }
     ],
     "connections": {
@@ -714,7 +712,7 @@
         "main": [
           [
             {
-              "node": "download_post_classify_prompt",
+              "node": "download_hook_registry",
               "type": "main",
               "index": 0
             }
@@ -837,28 +835,6 @@
           ]
         ]
       },
-      "download_post_classify_prompt": {
-        "main": [
-          [
-            {
-              "node": "classify_content",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "classify_content": {
-        "main": [
-          [
-            {
-              "node": "set_variety_directives",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
       "ai_model": {
         "ai_languageModel": [
           [
@@ -885,6 +861,28 @@
           [
             {
               "node": "if_enabled_check",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "download_hook_registry": {
+        "main": [
+          [
+            {
+              "node": "parse_hook_registry",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "parse_hook_registry": {
+        "main": [
+          [
+            {
+              "node": "set_variety_directives",
               "type": "main",
               "index": 0
             }
@@ -953,7 +951,7 @@
       "main": [
         [
           {
-            "node": "download_post_classify_prompt",
+            "node": "download_hook_registry",
             "type": "main",
             "index": 0
           }
@@ -1076,28 +1074,6 @@
         ]
       ]
     },
-    "download_post_classify_prompt": {
-      "main": [
-        [
-          {
-            "node": "classify_content",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "classify_content": {
-      "main": [
-        [
-          {
-            "node": "set_variety_directives",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "ai_model": {
       "ai_languageModel": [
         [
@@ -1124,6 +1100,28 @@
         [
           {
             "node": "if_enabled_check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "download_hook_registry": {
+      "main": [
+        [
+          {
+            "node": "parse_hook_registry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "parse_hook_registry": {
+      "main": [
+        [
+          {
+            "node": "set_variety_directives",
             "type": "main",
             "index": 0
           }
@@ -1346,7 +1344,7 @@
         -928
       ],
       "parameters": {
-        "jsCode": "// Randomly pick variety directives so consecutive posts never share the same shape.\n// Duplicated entries act as weights.\nconst pick = (arr) => arr[Math.floor(Math.random() * arr.length)];\n\n// Content-aware hook eligibility. Some hook archetypes presuppose material that\n// isn't in every source: NEWS REACTION needs an actual announcement, HARD NUMBER\n// needs a concrete figure. classify_content inspects the source and flags both,\n// so a hook the content cannot support is never assigned (which would otherwise\n// force the writer off-source and get the post rejected by the reviewer).\nconst classification = $('classify_content').item.json.text || '';\nconst flag = (name) => new RegExp('\"' + name + '\"\\\\s*:\\\\s*true').test(classification);\nconst isNews = flag('is_news');\nconst hasHardNumber = flag('has_hard_number');\n\n// These four archetypes work on any content.\nconst hooks = [\n  'CONTRARIAN CLAIM: open with a blunt statement that challenges accepted practice',\n  'WAR STORY: open with a concrete incident or observation from production work',\n  'MISCONCEPTION: open by naming a common misconception and correcting it',\n  'TRADE-OFF: open by framing the underlying trade-off most people ignore',\n];\n// These two are only eligible when the source actually supports them.\nif (isNews) hooks.push('NEWS REACTION: open with your immediate, opinionated take on the announcement or release');\nif (hasHardNumber) hooks.push('HARD NUMBER: open with a specific figure, cost, or metric and why it matters');\n\nconst hook = pick(hooks);\n\nconst format = pick([\n  'PURE PROSE: no bullet points at all, 3-5 flowing paragraphs',\n  'PURE PROSE: no bullet points at all, 3-5 flowing paragraphs',\n  'PUNCHY: several very short paragraphs, at least two of them a single sentence',\n  'PUNCHY: several very short paragraphs, at least two of them a single sentence',\n  'ONE BULLET BLOCK: exactly one bullet list of 3-4 short items, with prose before and after',\n]);\n\n// The word target is a point inside [MIN_WORDS, MAX_WORDS], not a percentage of MAX.\n// A percentage of MAX can fall below MIN - 40% of 300 is 120 against a minimum of 180 -\n// and the directives are declared MANDATORY in the prompt, so the model follows the\n// contradiction down and writes short.\nconst MIN_WORDS = $('main_trigger').first().json.MIN_WORDS || 150;\nconst MAX_WORDS = $('main_trigger').first().json.MAX_WORDS || 200;\nconst span = Math.max(0, MAX_WORDS - MIN_WORDS);\nconst target = (frac) => Math.round(MIN_WORDS + span * frac);\n\nconst lengthBand = pick([\n  ['SHORT', 0.15],\n  ['MEDIUM', 0.5],\n  ['MEDIUM', 0.5],\n  ['FULL', 0.9],\n]);\nconst length = lengthBand[0] + ': aim for about ' + target(lengthBand[1]) +\n  ' words, never fewer than ' + MIN_WORDS + ' and never more than ' + MAX_WORDS;\n\nconst closing = pick([\n  'DIRECT QUESTION: end the body with one specific question to technical peers',\n  'DIRECT QUESTION: end the body with one specific question to technical peers',\n  'SHARED EXPERIENCE: end by inviting others to share how they handle it, phrased as a statement, no question mark',\n  'HOT TAKE: end the body on a blunt one-line statement, no question, no invitation',\n  'HOT TAKE: end the body on a blunt one-line statement, no question, no invitation',\n  'NONE: end when the argument is complete, with no closing question or invitation',\n]);\n\nconst VARIETY_DIRECTIVES = [\n  `- Hook — ${hook}.`,\n  `- Format — ${format}.`,\n  `- Length — ${length}.`,\n  `- Closing — ${closing}. The \"Source here\" line and hashtags always follow the body regardless.`,\n].join('\\n');\n\nreturn [{ json: { ...$input.first().json, VARIETY_DIRECTIVES } }];\n"
+        "jsCode": "// Randomly pick variety directives so consecutive posts never share the same shape.\n// Duplicated entries act as weights.\nconst pick = (arr) => arr[Math.floor(Math.random() * arr.length)];\n\n// The hook is the one the curator's judge classified from the article and stored on\n// the row; it is NOT re-picked here. The opening shape comes from the registry entry\n// for that id, so the hook the post opens on and the hook the visual was built for are\n// the same decision. When the row carries no hook (a hand-written row), the writer\n// chooses the shape that fits.\nconst reg = $('parse_hook_registry').first().json;\nconst BY_ID = reg.byId || {};\nconst hookId = String($('main_trigger').first().json.HOOK || '').trim().toUpperCase();\nconst entry = BY_ID[hookId] || null;\nconst hook = entry\n  ? hookId + ': ' + String(entry.opening || '')\n  : 'the opening shape that best fits the content';\n\nconst format = pick([\n  'PURE PROSE: no bullet points at all, 3-5 flowing paragraphs',\n  'PURE PROSE: no bullet points at all, 3-5 flowing paragraphs',\n  'PUNCHY: several very short paragraphs, at least two of them a single sentence',\n  'PUNCHY: several very short paragraphs, at least two of them a single sentence',\n  'ONE BULLET BLOCK: exactly one bullet list of 3-4 short items, with prose before and after',\n]);\n\n// The word target is a point inside [MIN_WORDS, MAX_WORDS], not a percentage of MAX.\n// A percentage of MAX can fall below MIN - 40% of 300 is 120 against a minimum of 180 -\n// and the directives are declared MANDATORY in the prompt, so the model follows the\n// contradiction down and writes short.\nconst MIN_WORDS = $('main_trigger').first().json.MIN_WORDS || 150;\nconst MAX_WORDS = $('main_trigger').first().json.MAX_WORDS || 200;\nconst span = Math.max(0, MAX_WORDS - MIN_WORDS);\nconst target = (frac) => Math.round(MIN_WORDS + span * frac);\n\nconst lengthBand = pick([\n  ['SHORT', 0.15],\n  ['MEDIUM', 0.5],\n  ['MEDIUM', 0.5],\n  ['FULL', 0.9],\n]);\nconst length = lengthBand[0] + ': aim for about ' + target(lengthBand[1]) +\n  ' words, never fewer than ' + MIN_WORDS + ' and never more than ' + MAX_WORDS;\n\nconst closing = pick([\n  'DIRECT QUESTION: end the body with one specific question to technical peers',\n  'DIRECT QUESTION: end the body with one specific question to technical peers',\n  'SHARED EXPERIENCE: end by inviting others to share how they handle it, phrased as a statement, no question mark',\n  'HOT TAKE: end the body on a blunt one-line statement, no question, no invitation',\n  'HOT TAKE: end the body on a blunt one-line statement, no question, no invitation',\n  'NONE: end when the argument is complete, with no closing question or invitation',\n]);\n\nconst VARIETY_DIRECTIVES = [\n  `- Hook — ${hook}.`,\n  `- Format — ${format}.`,\n  `- Length — ${length}.`,\n  `- Closing — ${closing}. The \"Source here\" line and hashtags always follow the body regardless.`,\n].join('\\n');\n\nreturn [{ json: { ...$input.first().json, VARIETY_DIRECTIVES } }];\n"
       }
     },
     {
@@ -1611,6 +1609,9 @@
             },
             {
               "name": "FEEDBACK"
+            },
+            {
+              "name": "HOOK"
             }
           ]
         }
@@ -1691,74 +1692,6 @@
       }
     },
     {
-      "id": "76e77493-8cb9-41e8-9ea1-f73109c0375a",
-      "name": "download_post_classify_prompt",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        -16672,
-        -928
-      ],
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "qUfjfWLGEjV96ljf",
-          "mode": "list",
-          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
-          "cachedResultName": "DownloadTemplate"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "template_name": "prompts/linkedin_post_classify.md",
-            "template_vars": "={{ {\n\"CONTENT\": $('main_trigger').item.json.CONTENT,\n} }}"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "template_name",
-              "displayName": "template_name",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string"
-            },
-            {
-              "id": "template_vars",
-              "displayName": "template_vars",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "object"
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "07a801d5-8405-4d47-bcf8-21db01ef4e04",
-      "name": "classify_content",
-      "type": "@n8n/n8n-nodes-langchain.chainLlm",
-      "typeVersion": 1.6,
-      "retryOnFail": true,
-      "maxTries": 5,
-      "waitBetweenTries": 5000,
-      "position": [
-        -16448,
-        -928
-      ],
-      "parameters": {
-        "promptType": "define",
-        "text": "={{ $('download_post_classify_prompt').item.json.output }}",
-        "needsFallback": true
-      }
-    },
-    {
       "id": "08ca09dd-4f72-4084-9422-9986a34f99e9",
       "name": "ai_model",
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
@@ -1796,6 +1729,69 @@
       "parameters": {
         "jsCode": "// n8n Code node — mode: \"Run Once for Each Item\"\n\nconst url = $('set_workflow_vars').item.json.URL;\nconst text = $json.text;\n\n// Pull the <output>...</output> block; fall back to the whole text if absent\nconst match = /<output>([\\s\\S]*?)<\\/output>/.exec(text);\nlet result = match ? match[1].trim() : text;\n\n// Apply the two replacements (function form = $-safe URLs)\nresult = result\n  .replace(/(Source here: ).*/g, (m, p1) => p1 + url)\n  .replace(/(.*): SOME_URL/g,   (m, p1) => p1 + ': ' + url);\n\nreturn { json: { ...$json, result } };"
       }
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "qUfjfWLGEjV96ljf",
+          "mode": "list",
+          "cachedResultName": "DownloadTemplate",
+          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "template_name": "datasets/hook_types.json",
+            "template_vars": "={{ {} }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "template_name",
+              "displayName": "template_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "template_vars",
+              "displayName": "template_vars",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "id": "d4b6f8a2-1c37-4e59-9b24-7a0f3d5c8e61",
+      "name": "download_hook_registry",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -11040,
+        1900
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// datasets/hook_types.json, parsed once. set_variety_directives reads byId to turn\n// the row's HOOK id into the opening shape the registry declares for it.\nconst raw = $json.output || '{}';\nlet cfg;\ntry {\n  cfg = JSON.parse(raw);\n} catch (e) {\n  throw new Error('datasets/hook_types.json is not valid JSON: ' + e.message);\n}\nconst arr = (v, d) => (Array.isArray(v) ? v : d);\nconst str = (v) => String(v == null ? '' : v);\nconst byId = {};\nfor (const h of arr(cfg.hooks, [])) {\n  if (h && h.id) byId[str(h.id).toUpperCase()] = h;\n}\nreturn [{ json: { byId } }];\n"
+      },
+      "id": "e5c7a9b3-2d48-4f6a-8c35-9b1e4f7a2d63",
+      "name": "parse_hook_registry",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -10880,
+        1900
+      ]
     }
   ],
   "pinData": {},

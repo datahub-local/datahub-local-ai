@@ -202,7 +202,8 @@
               "EXTRA_PROMPT": "={{ $('select_article_to_post').item.json.EXTRA_PROMPT }}",
               "CONTENT": "={{ $('download_content').item.json.contentMkdown }}",
               "ENABLE_CHECK": "true",
-              "FEEDBACK": "={{ $('notification_retry_or_cancel').isExecuted && $('notification_retry_or_cancel').last().json.data.Feedback ? $('notification_retry_or_cancel').last().json.data.Feedback : '' }}"
+              "FEEDBACK": "={{ $('notification_retry_or_cancel').isExecuted && $('notification_retry_or_cancel').last().json.data.Feedback ? $('notification_retry_or_cancel').last().json.data.Feedback : '' }}",
+              "HOOK": "={{ $('select_article_to_post').item.json.HOOK || '' }}"
             },
             "matchingColumns": [],
             "schema": [
@@ -269,6 +270,16 @@
               {
                 "id": "FEEDBACK",
                 "displayName": "FEEDBACK",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "HOOK",
+                "displayName": "HOOK",
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
@@ -2046,7 +2057,7 @@
             "value": {
               "POST_CONTENT": "={{ $('execute_post_creator').item.json.text }}",
               "FEEDBACK": "={{ $('notification_retry_or_cancel_image').isExecuted && $('notification_retry_or_cancel_image').last().json.data.Feedback ? $('notification_retry_or_cancel_image').last().json.data.Feedback : '' }}",
-              "HOOK": "={{ $('select_article_to_post').item.json.EXTRA_PROMPT || \"\" }}"
+              "HOOK": "={{ $('select_article_to_post').item.json.HOOK || '' }}"
             },
             "matchingColumns": [
               "POST_CONTENT"
@@ -2228,7 +2239,7 @@
             "conditions": [
               {
                 "id": "post-media-is-animated-or-agent",
-                "leftValue": "={{ ['ANIMATED','AGENT'].includes($('select_article_to_post').item.json.POST_MEDIA) }}",
+                "leftValue": "={{ (String($('select_article_to_post').item.json.ANIMATED || '').toUpperCase() === 'TRUE') || ['ANIMATED','AGENT'].includes($('select_article_to_post').item.json.POST_MEDIA) }}",
                 "rightValue": "",
                 "operator": {
                   "type": "boolean",
@@ -2263,7 +2274,9 @@
             "value": {
               "CONTENT": "={{ $('execute_post_creator').item.json.text }}",
               "ASSET_TYPES": "animation_linkedin",
-              "FEEDBACK": "={{ $('notification_retry_or_cancel_animation').isExecuted ? ($('notification_retry_or_cancel_animation').last().json.data.Feedback || '') : '' }}"
+              "FEEDBACK": "={{ $('notification_retry_or_cancel_animation').isExecuted ? ($('notification_retry_or_cancel_animation').last().json.data.Feedback || '') : '' }}",
+              "FORCE": "={{ $('select_article_to_post').item.json.VISUAL_FORM || 'auto' }}",
+              "SCENES": "={{ $('select_article_to_post').item.json.SCENES || '' }}"
             },
             "matchingColumns": [],
             "schema": [
@@ -2290,6 +2303,26 @@
               {
                 "id": "FEEDBACK",
                 "displayName": "FEEDBACK",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "FORCE",
+                "displayName": "FORCE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "SCENES",
+                "displayName": "SCENES",
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
@@ -3812,7 +3845,8 @@
             "EXTRA_PROMPT": "={{ $('select_article_to_post').item.json.EXTRA_PROMPT }}",
             "CONTENT": "={{ $('download_content').item.json.contentMkdown }}",
             "ENABLE_CHECK": "true",
-            "FEEDBACK": "={{ $('notification_retry_or_cancel').isExecuted && $('notification_retry_or_cancel').last().json.data.Feedback ? $('notification_retry_or_cancel').last().json.data.Feedback : '' }}"
+            "FEEDBACK": "={{ $('notification_retry_or_cancel').isExecuted && $('notification_retry_or_cancel').last().json.data.Feedback ? $('notification_retry_or_cancel').last().json.data.Feedback : '' }}",
+            "HOOK": "={{ $('select_article_to_post').item.json.HOOK || '' }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -3879,6 +3913,16 @@
             {
               "id": "FEEDBACK",
               "displayName": "FEEDBACK",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "HOOK",
+              "displayName": "HOOK",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -5656,7 +5700,7 @@
           "value": {
             "POST_CONTENT": "={{ $('execute_post_creator').item.json.text }}",
             "FEEDBACK": "={{ $('notification_retry_or_cancel_image').isExecuted && $('notification_retry_or_cancel_image').last().json.data.Feedback ? $('notification_retry_or_cancel_image').last().json.data.Feedback : '' }}",
-            "HOOK": "={{ $('select_article_to_post').item.json.EXTRA_PROMPT || \"\" }}"
+            "HOOK": "={{ $('select_article_to_post').item.json.HOOK || '' }}"
           },
           "matchingColumns": [
             "POST_CONTENT"
@@ -5838,7 +5882,7 @@
           "conditions": [
             {
               "id": "post-media-is-animated-or-agent",
-              "leftValue": "={{ ['ANIMATED','AGENT'].includes($('select_article_to_post').item.json.POST_MEDIA) }}",
+              "leftValue": "={{ (String($('select_article_to_post').item.json.ANIMATED || '').toUpperCase() === 'TRUE') || ['ANIMATED','AGENT'].includes($('select_article_to_post').item.json.POST_MEDIA) }}",
               "rightValue": "",
               "operator": {
                 "type": "boolean",
@@ -5873,7 +5917,9 @@
           "value": {
             "CONTENT": "={{ $('execute_post_creator').item.json.text }}",
             "ASSET_TYPES": "animation_linkedin",
-            "FEEDBACK": "={{ $('notification_retry_or_cancel_animation').isExecuted ? ($('notification_retry_or_cancel_animation').last().json.data.Feedback || '') : '' }}"
+            "FEEDBACK": "={{ $('notification_retry_or_cancel_animation').isExecuted ? ($('notification_retry_or_cancel_animation').last().json.data.Feedback || '') : '' }}",
+            "FORCE": "={{ $('select_article_to_post').item.json.VISUAL_FORM || 'auto' }}",
+            "SCENES": "={{ $('select_article_to_post').item.json.SCENES || '' }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -5900,6 +5946,26 @@
             {
               "id": "FEEDBACK",
               "displayName": "FEEDBACK",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "FORCE",
+              "displayName": "FORCE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "SCENES",
+              "displayName": "SCENES",
               "required": false,
               "defaultMatch": false,
               "display": true,

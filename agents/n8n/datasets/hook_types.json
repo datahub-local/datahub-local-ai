@@ -1,0 +1,163 @@
+{
+  "_comment": "Single source of truth for post hooks. Every consumer reads this file: the curator judge chooses a hook and a visual intent from it (prompts/curator_judge.md is injected the list as {{ HOOKS }}), the post generator maps the chosen hook to its opening shape, and the LinkedIn media branch maps the hook's default visual intent to a form and an animation. There is deliberately no second copy of the hook list anywhere - test_hook_registry.py fails if one appears. Fetched through DownloadTemplate with an empty template_vars, so this file must contain no doubled-curly-brace placeholder, not even in a comment.",
+  "_comment_when": "when = eligibility. The judge may only choose a hook whose when is satisfied by the article; when in doubt it chooses a lower-commitment hook rather than forcing one.",
+  "_comment_opening": "opening = the shape the post's first lines must take. The generator's format, length and closing stay its own variety, so only the opening is prescribed here.",
+  "_comment_visual": "visual = the default authoring intent: form is one of FORCE in Visual Studio (auto, diagram, story, data, poster, image); motion asks for an animation rather than a still; scenes is the number of scenes for a list-shaped hook (0 means the composer's own storyboard decides). The judge may override any of these when the article warrants it, and the override travels with the hook.",
+  "_comment_image": "image = the raster composition device for LinkedIn Image Creator, keyed by hook. An unknown or empty hook gets the default device rather than a guess.",
+  "hooks": [
+    {
+      "id": "CONTRARIAN",
+      "group": "argument",
+      "when": "the article challenges accepted practice and the author can take a defensible counter-position",
+      "opening": "open with a blunt statement that challenges accepted practice",
+      "visual": { "form": "diagram", "motion": false, "scenes": 0 },
+      "image": "Split the frame in two. On one side the prevailing assumption sits as a solid, worn, desaturated object crossed out by one bold stroke; on the other the counterexample is lit in the accent and visibly working. The headline names the belief being overturned."
+    },
+    {
+      "id": "MISCONCEPTION",
+      "group": "argument",
+      "when": "the article corrects a belief the audience commonly holds",
+      "opening": "open by naming the common misconception and correcting it",
+      "visual": { "form": "diagram", "motion": false, "scenes": 0 },
+      "image": "Two panels side by side: MYTH on the left, dim, cracked or faded; REALITY on the right, lit, intact and accented. One crossing stroke or arrow moves from the myth to the reality. The headline states the correction."
+    },
+    {
+      "id": "TRADE_OFF",
+      "group": "argument",
+      "when": "the article frames a decision with a real cost on each side that the audience tends to ignore",
+      "opening": "open by framing the underlying trade-off most people ignore",
+      "visual": { "form": "diagram", "motion": false, "scenes": 0 },
+      "image": "A balance, beam or two-pan scale caught mid-tilt: one side rises dim while the other falls into the accent, and the heavier consequence is the lit one. The headline names what is being weighed."
+    },
+    {
+      "id": "PREDICTION",
+      "group": "argument",
+      "when": "the article's evidence supports a forward-looking call the author is willing to make",
+      "opening": "open with a specific prediction and the evidence behind it",
+      "visual": { "form": "poster", "motion": false, "scenes": 0 },
+      "image": "A horizon line splitting a dim present from an accented future, one marker on each side and a single arrow between them. The headline states the prediction."
+    },
+    {
+      "id": "HARD_NUMBER",
+      "group": "evidence",
+      "when": "the article contains a concrete figure the author can quote and react to",
+      "opening": "open with a specific figure, cost or metric and why it matters",
+      "visual": { "form": "data", "motion": true, "scenes": 0 },
+      "image": "One oversized figure fills most of the frame in the accent color, its unit beside it, and a small before-to-after mark stays subordinate to it. Everything else is minimal. The headline carries the same figure."
+    },
+    {
+      "id": "BENCHMARK",
+      "group": "evidence",
+      "when": "the article reports a measured comparison of two or more options",
+      "opening": "open with the measured result and what it settles",
+      "visual": { "form": "data", "motion": true, "scenes": 0 },
+      "image": "A short row of bars, one clearly the tallest and accented, with the losing bar dim and labelled. The headline states what was measured."
+    },
+    {
+      "id": "COST",
+      "group": "evidence",
+      "when": "the article gives a cost, saving or unit-economics figure worth reacting to",
+      "opening": "open with the cost figure and where it actually lands",
+      "visual": { "form": "data", "motion": true, "scenes": 0 },
+      "image": "A meter or till dial caught mid-count in the accent, its digits the loudest thing in frame, one dim secondary figure beside it. The headline carries the number."
+    },
+    {
+      "id": "NEWS_REACTION",
+      "group": "news",
+      "when": "the article centres on a datable announcement, release or event",
+      "opening": "open with your immediate, opinionated take on the announcement or release",
+      "visual": { "form": "poster", "motion": false, "scenes": 0 },
+      "image": "One just-landed object or dated marker, centre-frame and accented, with the frame still settling around it: motion lines, displaced dust, or a before/after split at the edge. The headline is the immediate verdict, not a description."
+    },
+    {
+      "id": "RELEASE",
+      "group": "news",
+      "when": "the article describes a new version or capability and its implications are arguable",
+      "opening": "open with the capability that changed and the implication to watch",
+      "visual": { "form": "poster", "motion": false, "scenes": 0 },
+      "image": "A new component slotting into an existing assembly, the new part accented and the old outline dim behind it. The headline names the capability."
+    },
+    {
+      "id": "VULNERABILITY",
+      "group": "news",
+      "when": "the article discloses a flaw, breach or exposure with a concrete lesson",
+      "opening": "open with the exposure and the control that would have stopped it",
+      "visual": { "form": "poster", "motion": false, "scenes": 0 },
+      "image": "A sealed surface with one accented breach and a dim control that was not fitted beside it. The headline names the exposure."
+    },
+    {
+      "id": "ROUNDUP",
+      "group": "reference",
+      "when": "the article surveys a field, a state-of or a set of items the reader will scan rather than read as one argument",
+      "opening": "open by naming the state of the field and what the list reveals",
+      "visual": { "form": "data", "motion": true, "scenes": 0 },
+      "image": "A ranked column of equal tiles, one accented near the top, the rest dim, each tile a single shape. The headline states the survey's finding, not its title."
+    },
+    {
+      "id": "COMPARISON",
+      "group": "reference",
+      "when": "the article puts two named options head to head",
+      "opening": "open by naming the two options and the axis that separates them",
+      "visual": { "form": "diagram", "motion": false, "scenes": 0 },
+      "image": "Two columns of matched rows, the winning cells accented on one side and dim on the other, a single verdict row at the foot. The headline names the axis."
+    },
+    {
+      "id": "LANDSCAPE",
+      "group": "reference",
+      "when": "the article maps the players, categories or layers of a market or stack",
+      "opening": "open with the shape of the landscape and where the gaps are",
+      "visual": { "form": "diagram", "motion": false, "scenes": 0 },
+      "image": "A hub with evenly spaced spokes, or a stacked set of bands, one band or spoke accented and the rest dim. The headline names the landscape."
+    },
+    {
+      "id": "CHECKLIST",
+      "group": "reference",
+      "when": "the article gives a set of steps or checks the reader can apply",
+      "opening": "open with the outcome the checklist protects and the first step",
+      "visual": { "form": "data", "motion": false, "scenes": 0 },
+      "image": "A short vertical stack of identical toggles, all but one flipped to the accent. The headline names the outcome the list protects."
+    },
+    {
+      "id": "ARCHITECTURE",
+      "group": "reference",
+      "when": "the article describes a design, pattern or component structure worth drawing",
+      "opening": "open with the design decision and the constraint it answers",
+      "visual": { "form": "diagram", "motion": false, "scenes": 0 },
+      "image": "A small left-to-right flow of labelled boxes, one box accented, with one labelled connector. The headline names the pattern."
+    },
+    {
+      "id": "WAR_STORY",
+      "group": "narrative",
+      "when": "the article reports a concrete production incident, failure or observation",
+      "opening": "open with a concrete incident or observation from production work",
+      "visual": { "form": "story", "motion": false, "scenes": 0 },
+      "image": "A left-to-right timeline of three moments from one incident: the state before, the failure or discovery, the fix. Only the pivotal middle moment carries the accent; the other two stay dim. Three stations, two arrows, nothing else."
+    },
+    {
+      "id": "POSTMORTEM",
+      "group": "narrative",
+      "when": "the article analyses a failure after the fact and names its cause",
+      "opening": "open with the failure and the root cause, not the symptom",
+      "visual": { "form": "story", "motion": false, "scenes": 0 },
+      "image": "A single broken link in an otherwise intact chain, the break accented and the rest dim, one callout naming the cause. The headline states the cause."
+    },
+    {
+      "id": "MIGRATION",
+      "group": "narrative",
+      "when": "the article tells a before-and-after move between two systems or states",
+      "opening": "open with the before state and the single decision that forced the move",
+      "visual": { "form": "diagram", "motion": false, "scenes": 0 },
+      "image": "Two panels, before on the left in muted warm tones with a visible tangle, after on the right clean and accented, one transformation arrow between them. The headline names the change."
+    },
+    {
+      "id": "LESSONS",
+      "group": "narrative",
+      "when": "the article distils experience into transferable lessons",
+      "opening": "open with the lesson and the experience that earned it",
+      "visual": { "form": "data", "motion": false, "scenes": 0 },
+      "image": "A short stack of worn index cards, the top card accented and the rest dim, one line of text on the top card only. The headline states the lesson."
+    }
+  ],
+  "_comment_default": "Used by the raster path when a hook is unknown or empty, so an image is still shaped rather than left to chance.",
+  "default_image": "One bold central comparison: the thing being left behind on one side, dim, and the successor on the other, lit in the accent, joined by one arrow. One idea only; do not split into more."
+}

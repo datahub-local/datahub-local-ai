@@ -520,7 +520,11 @@ columns. `LinkedIn Post Creator`'s `set_variety_directives` reads `HOOK` and map
 the registry — it no longer re-picks a hook at random, and `classify_content` is retired. A
 list-shaped article (a roundup, a state-of — the `ROUNDUP` hook) declares `motion: true` and
 a scene count, so it is authored as one item per scene in the existing `animation_linkedin`
-type, with no new media kind. The registry and the prompts are read from GitHub `main`, so
+type, with no new media kind. A queued row that predates the columns is re-judged by the
+curator itself (`select_unclassified_queue` → a bounded loop, 12 rows a run) so the
+backlog is backfilled over a few days and a row that slips through is repaired on the next
+run; an unreadable verdict leaves the row unclassified rather than recording a guess. The
+registry and the prompts are read from GitHub `main`, so
 those halves are live on push; the workflow edits are live only after
 `scripts/apply_workflow_changes.py`. The single-source property and the wiring are asserted
 offline in `agents/n8n/scripts/test_hook_registry.py`.

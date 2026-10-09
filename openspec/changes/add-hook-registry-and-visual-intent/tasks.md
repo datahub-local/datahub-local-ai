@@ -47,3 +47,12 @@
 
 - [x] 7.1 Update the `#### LinkedIn post media` section of `AGENTS.md` and add a `#### Post hooks and the visual intent` subsection: the registry, the hook/visual columns, the retirement of `classify_content` and `POST_MEDIA`-as-default
 - [x] 7.2 Record in `AGENTS.md` that the hook is decided once and where
+
+## 8. Self-heal the pre-column queue
+
+- [x] 8.1 Add the curator self-heal branch: `select_unclassified_queue` (queued `AUTO` rows with an empty `HOOK`) → `loop_backfill_queue` → `backfill_fetch_content` (Download Content by URL) → `backfill_judge_vars` → `download_judge_prompt_backfill` → `judge_llm_backfill` → `parse_judge_backfill` → `update_backfill_columns` (writes `HOOK`/`VISUAL_FORM`/`ANIMATED`/`SCENES` by `row_number`) → back to the loop
+- [x] 8.2 Bound it: `CAP = 12` rows per run, so a ~60-row backlog backfills over a few days instead of one spike; the branch is a no-op once every queued row is classified
+- [x] 8.3 An unparseable re-judge verdict leaves the row unclassified (no guess written); asserted in `test_hook_registry.py::test_the_curator_self_heals_unclassified_rows`
+- [ ] 8.4 Apply the curator live with `--require-edge` and publish; verify the first run writes the columns for the pre-column rows
+- [ ] 8.5 Verify the branch goes quiet: a second run re-judges nothing and costs no calls
+

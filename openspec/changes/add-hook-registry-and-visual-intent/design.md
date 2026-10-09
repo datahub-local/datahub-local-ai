@@ -122,6 +122,22 @@ path and stays inside the GIF cap. A true carousel is deferred.
 change; the publish node selects one asset, and multi-asset publishing is a larger
 surface than the visual-decision fix this change is about.
 
+### D7. The curator self-heals the queue it wrote before the columns existed
+
+A row admitted before the columns existed has no visual intent, so it would publish with
+the writer choosing the shape and no motion. The curator therefore re-judges queued `AUTO`
+rows whose `HOOK` is empty, a bounded number per run (`select_unclassified_queue` → a loop
+that fetches the article, runs the same judge prompt and writes the four columns), so the
+backlog is backfilled over a few days rather than in one spike of calls. Once every queued
+row is classified the selector returns nothing and the branch is a no-op.
+
+*Alternatives considered:* a deterministic backfill from the `Hook: X.` prefix — rejected
+because all six legacy hooks map 1:1 into the registry, so it is exact for the hook but
+cannot upgrade a coarse label to a new hook (a state-of article labelled `CONTRARIAN`
+never becomes the `ROUNDUP` sequence), which is the point of re-judging. A one-off backfill
+workflow — rejected in favour of the self-heal, so a row that slips through, or a column
+cleared by hand, is repaired on the next run.
+
 ## Risks / Trade-offs
 
 - **A longer hook list can confuse a small model.** → The registry's `when` field

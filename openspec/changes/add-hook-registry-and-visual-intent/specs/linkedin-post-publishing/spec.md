@@ -57,3 +57,22 @@ behaviour.
 
 - **WHEN** a row carries a manually declared media value
 - **THEN** it overrides the row's intent
+
+### Requirement: A queued row without a classified hook is re-judged
+
+A queued row that carries no hook SHALL be re-classified from its article by the curator,
+a bounded number per run, and its hook and visual intent SHALL be written to the row. A
+row whose re-judge verdict cannot be read MUST be left unclassified, so a later run retries
+it rather than recording a guess.
+
+#### Scenario: A pre-column row is backfilled
+
+- **WHEN** a queued row carries no hook
+- **THEN** its article is re-classified
+- **AND** the row's hook and visual intent are written to it
+
+#### Scenario: An unreadable verdict is not recorded
+
+- **WHEN** the re-judge verdict cannot be parsed
+- **THEN** the row is left unclassified
+- **AND** a later run retries it

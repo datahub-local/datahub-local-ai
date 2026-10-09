@@ -46,6 +46,10 @@ def _node(document, name):
     raise KeyError(name)
 
 
+def _targets(connections, source):
+    return [edge["node"] for branch in (connections.get(source) or {}).get("main", []) for edge in (branch or [])]
+
+
 def _registry():
     return json.loads(REGISTRY.read_text(encoding="utf-8"))
 
@@ -130,6 +134,18 @@ def test_sharing_drives_the_studio_from_the_row():
         assert "POST_MEDIA" in left, f"{label}: a manual override must still win"
         creator = _node(doc, "execute_post_creator")["parameters"]["workflowInputs"]["value"]
         assert "HOOK" in creator, f"{label}: the creator must receive the row's hook"
+
+
+def test_the_curator_self_heals_unclassified_rows():
+    """Rows admitted before the columns existed are re-judged, a bounded number per run."""
+    for label, doc in _copies(CURATOR):
+        names = {n["name"] for n in doc["nodes"]}
+        assert {"select_unclassified_queue", "loop_backfill_queue", "update_backfill_columns"} <= names, label
+        assert "parse_hook_registry" in _node(doc, "parse_judge_backfill")["parameters"]["jsCode"], label
+        read_targets = [e["node"] for e in doc["connections"]["read_articles_sheet"]["main"][0]]
+        assert "select_unclassified_queue" in read_targets, label
+        # the backfill loop must close: parse -> update -> loop
+        assert "loop_backfill_queue" in _targets(doc["connections"], "update_backfill_columns"), label
 
 
 def test_image_creator_reads_the_registry_for_the_hook():

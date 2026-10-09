@@ -81,6 +81,12 @@ def test_registry_declares_the_required_hooks():
         assert hook.get("image"), hook["id"]
 
 
+def test_registry_has_no_template_placeholder():
+    """DownloadTemplate scans the whole file for doubled curly braces and demands a
+    variable for each, even in a comment - a data file is fetched with empty vars."""
+    assert "{{" not in REGISTRY.read_text(encoding="utf-8")
+
+
 def test_roundup_is_a_multi_scene_motion_hook():
     """The state-of case: a list is one item per scene, animated."""
     roundup = next(h for h in _registry()["hooks"] if h["id"] == "ROUNDUP")

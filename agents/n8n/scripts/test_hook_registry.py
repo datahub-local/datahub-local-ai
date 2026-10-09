@@ -154,6 +154,16 @@ def test_the_curator_self_heals_unclassified_rows():
         assert "loop_backfill_queue" in _targets(doc["connections"], "update_backfill_columns"), label
 
 
+def test_the_backfill_chain_has_a_model_and_a_fallback():
+    """chainLlm needs both sub-nodes: the model at input 0 and the fallback at input 1."""
+    for label, doc in _copies(CURATOR):
+        conns = doc["connections"]
+        model = [e for e in conns["ai_model"]["ai_languageModel"][0] if e["node"] == "judge_llm_backfill"]
+        fallback = [e for e in conns["ai_model_fallback"]["ai_languageModel"][0] if e["node"] == "judge_llm_backfill"]
+        assert model and model[0]["index"] == 0, f"{label}: backfill model must be input 0"
+        assert fallback and fallback[0]["index"] == 1, f"{label}: backfill fallback must be input 1"
+
+
 def test_image_creator_reads_the_registry_for_the_hook():
     for label, doc in _copies(IMAGE):
         names = {n["name"] for n in doc["nodes"]}

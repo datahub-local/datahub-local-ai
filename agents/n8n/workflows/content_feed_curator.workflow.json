@@ -1310,7 +1310,7 @@
       },
       {
         "parameters": {
-          "jsCode": "// Mark the whole fetched Miniflux window read, not just the candidates that survived\n// the cap. 205 entries per run were being dropped by the cap and left unread, so they\n// were re-fetched the next run at full cost while only scoring worse on recency.\n// Hacker News candidates have no entry_id - there is nothing to mark.\nconst fetched = $('fetch_candidates')\n  .all()\n  .map((i) => i.json)\n  .filter((j) => j && j.source === 'miniflux' && j.entry_id);\nconst entryIds = [...new Set(fetched.map((j) => j.entry_id))];\nconsole.log('build_mark_read_payload: marking ' + entryIds.length + ' Miniflux entries read');\nif (entryIds.length === 0) return [{ json: { entry_ids: [], status: 'read', skipped: true } }];\nreturn [{ json: { entry_ids: entryIds, status: 'read', skipped: false } }];\n"
+          "jsCode": "// Mark the whole fetched Miniflux window read, not just the candidates that survived\n// the cap. 205 entries per run were being dropped by the cap and left unread, so they\n// were re-fetched the next run at full cost while only scoring worse on recency.\n// Hacker News candidates have no entry_id - there is nothing to mark.\nconst fetched = $('fetch_candidates')\n  .all()\n  .map((i) => i.json)\n  .filter((j) => j && j.source === 'miniflux' && j.entry_id);\nconst entryIds = [...new Set(fetched.map((j) => j.entry_id))];\nconsole.log('build_mark_read_payload: marking ' + entryIds.length + ' Miniflux entries read');\n// Nothing to mark (a same-day re-run, or a run where Miniflux returned nothing): return\n// no items so mark_entries_read is skipped - Miniflux rejects an empty entry_ids list\n// with \"the list of entries cannot be empty\", which aborts the whole run.\nif (entryIds.length === 0) return [];\nreturn [{ json: { entry_ids: entryIds, status: 'read' } }];\n"
         },
         "id": "697e4d8e-0f36-482b-a630-faf9c553b2a6",
         "name": "build_mark_read_payload",
@@ -2141,7 +2141,7 @@
             {
               "node": "judge_llm_backfill",
               "type": "ai_languageModel",
-              "index": 0
+              "index": 1
             }
           ]
         ]
@@ -2699,7 +2699,7 @@
           {
             "node": "judge_llm_backfill",
             "type": "ai_languageModel",
-            "index": 0
+            "index": 1
           }
         ]
       ]
@@ -4187,7 +4187,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Mark the whole fetched Miniflux window read, not just the candidates that survived\n// the cap. 205 entries per run were being dropped by the cap and left unread, so they\n// were re-fetched the next run at full cost while only scoring worse on recency.\n// Hacker News candidates have no entry_id - there is nothing to mark.\nconst fetched = $('fetch_candidates')\n  .all()\n  .map((i) => i.json)\n  .filter((j) => j && j.source === 'miniflux' && j.entry_id);\nconst entryIds = [...new Set(fetched.map((j) => j.entry_id))];\nconsole.log('build_mark_read_payload: marking ' + entryIds.length + ' Miniflux entries read');\nif (entryIds.length === 0) return [{ json: { entry_ids: [], status: 'read', skipped: true } }];\nreturn [{ json: { entry_ids: entryIds, status: 'read', skipped: false } }];\n"
+        "jsCode": "// Mark the whole fetched Miniflux window read, not just the candidates that survived\n// the cap. 205 entries per run were being dropped by the cap and left unread, so they\n// were re-fetched the next run at full cost while only scoring worse on recency.\n// Hacker News candidates have no entry_id - there is nothing to mark.\nconst fetched = $('fetch_candidates')\n  .all()\n  .map((i) => i.json)\n  .filter((j) => j && j.source === 'miniflux' && j.entry_id);\nconst entryIds = [...new Set(fetched.map((j) => j.entry_id))];\nconsole.log('build_mark_read_payload: marking ' + entryIds.length + ' Miniflux entries read');\n// Nothing to mark (a same-day re-run, or a run where Miniflux returned nothing): return\n// no items so mark_entries_read is skipped - Miniflux rejects an empty entry_ids list\n// with \"the list of entries cannot be empty\", which aborts the whole run.\nif (entryIds.length === 0) return [];\nreturn [{ json: { entry_ids: entryIds, status: 'read' } }];\n"
       },
       "id": "697e4d8e-0f36-482b-a630-faf9c553b2a6",
       "name": "build_mark_read_payload",

@@ -85,6 +85,33 @@ numbers, in your report.
 5. **Pages.** If the composition has more than one scene, give every scene a page
    indicator in the same bottom-right position (for example `2 / 3`) in the muted small
    type, so a viewer always knows where they are.
+6. **No collisions.** No two elements may overlap. A label, pill, caption or page
+   indicator must sit clear of every card, edge and other label. Work out each element's
+   **full box** — left, top, width *and height*, so the right and bottom edges too — from
+   the layout you wrote, reasoned about from your own values, not a browser measurement,
+   and assert no two boxes intersect. A moving element must be checked at the **start and
+   end** of its motion, not just once. A caption wider than the gap it sits in crosses a
+   card; shorten it, move it, or widen the gap. Fix every intersection before rendering.
+7. **A clean first frame.** At time zero nothing is on screen that the plan did not put
+   there. Every element must start hidden and appear only at its own reveal. The runtime
+   hides only `class="clip"` elements before their `data-start`; **an element it does not
+   own — an SVG edge, a rail, any decoration that is not a `.clip` — sits at its CSS state
+   until its tween starts, so a `gsap.fromTo(...)` that begins at a later time leaves it
+   visible at frame zero.** Give every such element its own `opacity: 0` in CSS (or make it
+   a `.clip`). State what is visible at t=0, and make it nothing but the intended opening.
+8. **Lay out with the box model, not with coordinates.** Build the diagram from normal
+   flow — flex or grid containers with `padding` and `gap`/`margin` — so every card and
+   label **sizes to its own content** and its text wraps inside it. Do **not** place a text
+   block, card or caption at a hand-computed `left`/`top` with a guessed width: that is the
+   one thing that makes a label wider than its gap. Absolute positioning is for a small
+   number of anchored marks only — a packet dot, an edge — and their position must derive
+   from the laid-out boxes, not from magic numbers. If two things collide, the fix is a
+   container, a gap or a wrap, not a smaller coordinate.
+9. **No overflow.** Every text block must fit its container with a margin on all four
+   sides — no line is clipped and no text crosses its own box edge. Reason about the
+   rendered text width against the box width at the type size you chose; if it does not
+   fit, wrap it, shrink the type, or widen the box. State the tightest block and its
+   margin.
 
 ## How to work
 

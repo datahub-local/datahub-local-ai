@@ -24,6 +24,10 @@ test("the guide requires a review before rendering", () => {
     "**Legibility.**",
     "**Pacing.**",
     "**Pages.**",
+    "**No collisions.**",
+    "**A clean first frame.**",
+    "**Lay out with the box model, not with coordinates.**",
+    "**No overflow.**",
   ]) {
     assert.ok(guide.includes(check), `review is missing the ${check} check`);
   }

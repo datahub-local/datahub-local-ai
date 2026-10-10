@@ -12,7 +12,7 @@ export const SESSION_ID_RE = /^(?!\.{1,2}$)[a-zA-Z0-9._-]{1,80}$/;
 
 // A produced artifact name. Deliberately narrower than session_id: only the names
 // this server writes are ever served.
-const ARTIFACT_NAME_RE = /^out\.(mp4|gif|webp|png)$/;
+const ARTIFACT_NAME_RE = /^out\.(mp4|gif|webp|png|svg)$/;
 
 export const DEFAULT_FORMAT = "mp4";
 
@@ -27,6 +27,7 @@ export const FORMATS = {
   gif: { ext: "gif", mime: "image/gif" },
   webp: { ext: "webp", mime: "image/webp" },
   png: { ext: "png", mime: "image/png" },
+  svg: { ext: "svg", mime: "image/svg+xml" },
 };
 
 export function isValidSessionId(value) {
@@ -135,6 +136,10 @@ export function transcodeArgs(format, { fps, width, frames, durationSeconds } = 
       ];
     case "png":
       return ["-y", "-i", "out.mp4", "-frames:v", "1", "out.png"];
+    case "svg":
+      // Authored directly by the composer as a self-contained animated SVG; there is
+      // no engine out.mp4 to derive it from, so nothing to transcode.
+      return null;
     default:
       return null;
   }

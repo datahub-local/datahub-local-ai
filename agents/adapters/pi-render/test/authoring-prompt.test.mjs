@@ -51,6 +51,18 @@ test("the review bounds the total to the brief's duration", () => {
   assert.match(guide, /must not exceed the\s+duration the brief\s+asks for/);
 });
 
+test("the review requires a final hold so a reader can finish", () => {
+  assert.match(guide, /End on a hold/);
+  assert.match(guide, /last frame must stay still/);
+  assert.match(guide, /State the total and the hold/);
+});
+
+test("the guide describes the SVG authoring mode", () => {
+  assert.match(guide, /If the brief asks for SVG/);
+  assert.match(guide, /out\.svg/);
+  assert.match(guide, /no script, no network/);
+});
+
 test("the review is reported", () => {
   assert.match(guide, /State the review, with its\s+numbers/);
   assert.match(guide, /then the review you performed/);

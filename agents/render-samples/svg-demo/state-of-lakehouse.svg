@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 776 970" width="776" height="970" role="img" aria-label="State of the Open Lakehouse, September 2026 — five trends">
+  <style>
+    :root {
+      --shell:#0E1116; --surface:#131a11; --raised:#182016;
+      --ink:#F4F2EC; --muted:rgba(244,242,236,0.72);
+      --accent:#7FAF5A; --accent-strong:#A3CF7A; --accent-deep:#5E8A3F;
+      --mono:"JetBrains Mono","DejaVu Sans Mono",monospace;
+      --text:"Space Grotesk","Roboto",system-ui,sans-serif;
+    }
+    .bg { fill: var(--shell); }
+    .title { font: 700 46px var(--text); fill: var(--ink); letter-spacing: .02em; }
+    .kicker { font: 500 15px var(--mono); fill: var(--accent); letter-spacing: .28em; text-transform: uppercase; }
+    .sub { font: 500 17px var(--mono); fill: var(--muted); }
+    .row-label { font: 500 20px var(--text); fill: var(--ink); }
+    .row-rank { font: 700 22px var(--mono); fill: var(--accent-strong); }
+    .row-val { font: 700 26px var(--mono); fill: var(--ink); }
+    .row-note { font: 400 13px var(--text); fill: var(--muted); }
+    .page { font: 500 14px var(--mono); fill: var(--muted); }
+    .footer { font: 500 15px var(--mono); fill: var(--accent); letter-spacing: .1em; }
+    .hair { stroke: rgba(244,242,236,0.10); stroke-width: 1; }
+
+    .card { fill: var(--surface); opacity: 0; transform: translateX(-26px); animation: slide 700ms cubic-bezier(.2,.8,.2,1) forwards; }
+    .bar  { transform-origin: left center; transform: scaleX(0); animation: grow 900ms cubic-bezier(.2,.8,.2,1) forwards; }
+    .rowtext { opacity: 0; animation: fade 600ms ease forwards; }
+    .accent-row .card { fill: var(--raised); stroke: var(--accent-deep); stroke-width: 1.5; }
+
+    @keyframes slide { to { opacity: 1; transform: translateX(0); } }
+    @keyframes fade  { to { opacity: 1; } }
+    @keyframes grow  { to { transform: scaleX(1); } }
+    @keyframes hold  { from,to { opacity: 1; } }
+
+    /* reveal in sequence, one scene per ~1.1s, then a 5s hold on the finished frame */
+    .s1 { animation-delay: 1.00s; }
+    .s2 { animation-delay: 2.10s; }
+    .s3 { animation-delay: 3.20s; }
+    .s4 { animation-delay: 4.30s; }
+    .s5 { animation-delay: 5.40s; }
+    .b1 { animation-delay: 1.35s; } .b2 { animation-delay: 2.45s; }
+    .b3 { animation-delay: 3.55s; } .b4 { animation-delay: 4.65s; } .b5 { animation-delay: 5.75s; }
+    .hold { animation: hold 5000ms linear 6.4s forwards; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .card,.bar,.rowtext { animation: none; opacity: 1; transform: none; }
+    }
+  </style>
+
+  <rect class="bg" x="0" y="0" width="776" height="970"/>
+
+  <g opacity="0" class="rowtext s1" style="animation-delay:.15s">
+    <text class="kicker" x="56" y="84">State of the field</text>
+    <text class="title" x="56" y="140">Open Lakehouse</text>
+    <text class="sub" x="56" y="172">September 2026 · five trends</text>
+    <line class="hair" x1="56" y1="200" x2="720" y2="200"/>
+  </g>
+
+  <!-- scene 1 -->
+  <g class="s1">
+    <rect class="card" x="48" y="232" width="680" height="112" rx="14"/>
+    <text class="row-rank" x="76" y="288">01</text>
+    <text class="row-label" x="128" y="288">Iceberg becomes the default table format</text>
+    <rect class="bar" x="128" y="304" width="540" height="8" rx="4" fill="var(--accent)"/>
+    <text class="row-note" x="128" y="330">Every major engine reads it; the format war is over.</text>
+  </g>
+
+  <!-- scene 2 -->
+  <g class="s2">
+    <rect class="card" x="48" y="360" width="680" height="112" rx="14"/>
+    <text class="row-rank" x="76" y="416">02</text>
+    <text class="row-label" x="128" y="416">The catalog layer consolidates</text>
+    <rect class="bar" x="128" y="432" width="470" height="8" rx="4" fill="var(--accent)"/>
+    <text class="row-note" x="128" y="458">REST catalogs replace bespoke metastores.</text>
+  </g>
+
+  <!-- scene 3 -->
+  <g class="s3">
+    <rect class="card" x="48" y="488" width="680" height="112" rx="14"/>
+    <text class="row-rank" x="76" y="544">03</text>
+    <text class="row-label" x="128" y="544">Object storage is the only storage</text>
+    <rect class="bar" x="128" y="560" width="400" height="8" rx="4" fill="var(--accent)"/>
+    <text class="row-note" x="128" y="586">Compute and storage fully separate.</text>
+  </g>
+
+  <!-- scene 4 (accented) -->
+  <g class="s4 accent-row">
+    <rect class="card" x="48" y="616" width="680" height="112" rx="14"/>
+    <text class="row-rank" x="76" y="672">04</text>
+    <text class="row-label" x="128" y="672">Deletion vectors end the rewrite tax</text>
+    <rect class="bar" x="128" y="688" width="300" height="8" rx="4" fill="var(--accent-strong)"/>
+    <text class="row-note" x="128" y="714">Row-level updates without full-file rewrites.</text>
+  </g>
+
+  <!-- scene 5 -->
+  <g class="s5">
+    <rect class="card" x="48" y="744" width="680" height="112" rx="14"/>
+    <text class="row-rank" x="76" y="800">05</text>
+    <text class="row-label" x="128" y="800">AI workloads move onto the lake</text>
+    <rect class="bar" x="128" y="816" width="230" height="8" rx="4" fill="var(--accent)"/>
+    <text class="row-note" x="128" y="842">Embeddings and training read the same tables.</text>
+  </g>
+
+  <g opacity="0" class="rowtext hold">
+    <text class="page" x="720" y="884" text-anchor="end">5 / 5</text>
+    <text class="footer" x="56" y="918">@alvsanand · alvsanand.com</text>
+  </g>
+</svg>

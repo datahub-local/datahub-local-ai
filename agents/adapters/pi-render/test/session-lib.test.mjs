@@ -34,7 +34,7 @@ test("safeSessionId accepts a path-safe id and rejects everything else", () => {
 });
 
 test("safeFormat keeps a known format and defaults an unknown one", () => {
-  for (const f of ["mp4", "gif", "webp", "png"]) assert.equal(safeFormat(f), f);
+  for (const f of ["mp4", "gif", "webp", "png", "svg"]) assert.equal(safeFormat(f), f);
   assert.equal(safeFormat("avi"), "mp4");
   assert.equal(safeFormat(undefined), "mp4");
 });
@@ -42,6 +42,7 @@ test("safeFormat keeps a known format and defaults an unknown one", () => {
 test("artifactName follows the format", () => {
   assert.equal(artifactName("mp4"), "out.mp4");
   assert.equal(artifactName("gif"), "out.gif");
+  assert.equal(artifactName("svg"), "out.svg");
   assert.equal(artifactName("nonsense"), "out.mp4");
 });
 
@@ -54,6 +55,7 @@ test("runDir is per session", () => {
 test("resolveArtifact serves only this server's files inside the run directory", () => {
   assert.equal(resolveArtifact(WORKSPACE, "run1", "out.mp4"), join(WORKSPACE, "runs", "run1", "out.mp4"));
   assert.equal(resolveArtifact(WORKSPACE, "run1", "out.gif"), join(WORKSPACE, "runs", "run1", "out.gif"));
+  assert.equal(resolveArtifact(WORKSPACE, "run1", "out.svg"), join(WORKSPACE, "runs", "run1", "out.svg"));
   // Traversal, unknown names and absolute paths resolve to null.
   assert.equal(resolveArtifact(WORKSPACE, "run1", "../out.mp4"), null);
   assert.equal(resolveArtifact(WORKSPACE, "run1", "out.txt"), null);
@@ -72,6 +74,7 @@ test("contentTypeFor matches the served artifact", () => {
 
 test("transcodeArgs only runs ffmpeg when the format is not mp4", () => {
   assert.equal(transcodeArgs("mp4", {}), null);
+  assert.equal(transcodeArgs("svg", {}), null, "an SVG is authored directly, not transcoded");
   const gif = transcodeArgs("gif", { fps: 8, width: 1080 });
   const gifLine = gif.join(" ");
   assert.ok(gifLine.includes("palettegen") && gifLine.includes("paletteuse"));

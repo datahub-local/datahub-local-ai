@@ -32,6 +32,7 @@
       "format": "mp4",
       "aspect": "16:9",
       "durationSeconds": 12,
+      "holdSeconds": 5,
       "available": true,
       "budget": {
         "fps": 30,
@@ -48,12 +49,25 @@
       "format": "gif",
       "aspect": "4:5",
       "durationSeconds": 9,
+      "holdSeconds": 5,
       "available": true,
       "budget": {
         "fps": 8,
         "frames": 48,
         "viewport": 776
       }
+    },
+    {
+      "id": "svg",
+      "brandKind": "diagrammatic",
+      "name": "Animated SVG",
+      "author": "agent",
+      "render": "static",
+      "format": "svg",
+      "aspect": "4:5",
+      "durationSeconds": 12,
+      "holdSeconds": 5,
+      "available": true
     }
   ]
 }

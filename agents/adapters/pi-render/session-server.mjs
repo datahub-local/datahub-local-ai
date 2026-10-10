@@ -312,7 +312,9 @@ http
       await mkdir(dir, { recursive: true });
       const prompt =
         `${brief}\n\n---\n\nWorking directory: ${dir}\n` +
-        `Write the composition to \`index.html\` here and render it to \`out.mp4\` in this same directory.\n\n${method}`;
+        (format === "svg"
+          ? `Author one self-contained animated SVG and write it to \`out.svg\` in this directory. Do not write index.html and do not render.\n\n${method}`
+          : `Write the composition to \`index.html\` here and render it to \`out.mp4\` in this same directory.\n\n${method}`);
 
       const response = await (queue = queue.catch(() => undefined).then(() =>
         runPi(

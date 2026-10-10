@@ -187,3 +187,6 @@ def test_visual_studio_accepts_a_scene_plan():
         assert "SCENES" in fields, f"{label}: the form must speak the same contract"
         inputs = {v["name"] for v in _node(doc, "main_trigger")["parameters"]["workflowInputs"]["values"]}
         assert "SCENES" in inputs, f"{label}: the sub-workflow trigger must accept SCENES"
+        assert "HOLD_SECONDS" in _node(doc, "parse_registry")["parameters"]["jsCode"], label
+        brief = _node(doc, "build_author_brief")["parameters"]["jsCode"]
+        assert "End on a hold" in brief and "HOLD_SECONDS" in brief, f"{label}: the brief must ask for a final hold"

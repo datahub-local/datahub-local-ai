@@ -11,6 +11,22 @@ Honour the brief: if it names a form, use it and do not substitute another; if i
 names a brand scheme, use only the colours and typefaces in its brand block. If the
 brief says to choose the form, pick the one that fits the content best.
 
+## If the brief asks for SVG
+
+Some requests want a **self-contained animated SVG** instead of a rendered video: the
+caller declares the `svg` format, and the working-directory line says to write
+`out.svg`. Then you author one SVG file, not a HyperFrames composition:
+
+- One `<svg>` with a `viewBox` at the requested size, the brand colours inline, and
+  animation as CSS `@keyframes` inside a `<style>` element or as SMIL. No external
+  stylesheet, no script, no network.
+- Reveal a few elements in sequence, each held long enough to read, and hold the last
+  frame for at least the seconds the brief asks for — the same pacing as a render.
+- Reference the brand typefaces by name with a system fallback, and keep the file
+  well-formed XML with every animated element ending visible.
+- `lint` and `render` do not apply. Validate the file is well-formed and ends on the
+  finished frame.
+
 ## What you have
 
 - Working directory: the path given below. Write `index.html` here; it is a volume,
@@ -62,7 +78,10 @@ numbers, in your report.
 4. **Pacing.** Each scene 2.5-3.5 seconds, each reveal 0.6-0.9 seconds, each element held
    at least 1.5 seconds before the next change. The whole composition must not exceed the
    duration the brief asks for: the file is sampled to that length, so a longer
-   composition loses its final scene. State the total.
+   composition loses its final scene. **End on a hold:** the brief asks for a final hold
+   (5 seconds unless it names another), so the last frame must stay still for at least
+   that long inside the total, and each scene's last frame should hold as long as the
+   frame budget allows — a reader needs time to finish. State the total and the hold.
 5. **Pages.** If the composition has more than one scene, give every scene a page
    indicator in the same bottom-right position (for example `2 / 3`) in the muted small
    type, so a viewer always knows where they are.

@@ -30,9 +30,17 @@ def registry():
     return json.loads(TYPES.read_text())
 
 
-def test_the_registry_declares_exactly_three_types(registry):
+def test_the_registry_declares_the_expected_types(registry):
     ids = [t["id"] for t in registry["types"]]
-    assert ids == ["image", "animation", "animation_linkedin"]
+    assert ids == ["image", "animation", "animation_linkedin", "svg"]
+
+
+def test_the_svg_type_is_composer_authored(registry):
+    entry = next(t for t in registry["types"] if t["id"] == "svg")
+    assert entry["author"] == "agent"
+    assert entry["format"] == "svg"
+    assert entry["available"] is True
+    assert entry.get("holdSeconds", 0) >= 5
 
 
 def test_no_retired_type_remains(registry):
@@ -63,6 +71,13 @@ def test_the_animation_types_are_composer_authored(registry):
         assert entry["format"] == fmt, tid
         assert entry["available"] is True, tid
         assert entry.get("durationSeconds", 0) > 0, f"{tid} declares no duration"
+
+
+def test_the_animation_types_declare_a_final_hold(registry):
+    """A reader needs time to finish the last frame; the composer holds it."""
+    for tid in ("animation", "animation_linkedin"):
+        entry = next(t for t in registry["types"] if t["id"] == tid)
+        assert entry.get("holdSeconds", 0) >= 5, f"{tid} must hold the last frame >= 5s"
 
 
 def test_the_linkedin_type_is_inside_the_platform_caps(registry):

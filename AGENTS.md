@@ -512,7 +512,10 @@ is injected the list as `{{ HOOKS }}`, the post generator reads the chosen hook'
 shape from it, and the LinkedIn Image Creator reads the chosen hook's raster composition
 device from it. Each hook declares `when` (eligibility), `opening` (the shape the post's
 first lines take — format, length and closing stay the generator's own variety), `visual`
-(`form` one of `FORCE`, `motion`, `scenes`) and `image`.
+(`form` one of `FORCE`, `motion`, `scenes`) and `image`. Every hook declares
+`motion: true`, so **animation is the default** and the judge chooses a still only when an
+article warrants one; the still-image path is the fallback and the manual
+`POST_MEDIA=STATIC` override.
 
 The judge returns `hook` and a `visual` intent in the same call that reads the article;
 `admit_to_backlog` writes them as the `HOOK`, `VISUAL_FORM`, `POST_MEDIA` and `SCENES`

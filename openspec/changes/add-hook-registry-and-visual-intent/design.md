@@ -78,13 +78,16 @@ Grouped by what the article gives the author, not by tone:
 Each entry carries `when` (eligibility), `opening` (the shape the post's first lines
 take; format, length and closing stay the generator's own variety), and `visual`
 (`form`, `motion`, `scenes`). `ROUNDUP` is the dremio
-case: `form: data`, `motion: true`, `scenes: <item count>` — one trend per scene.
+case: `form: data`, `motion: true`, `scenes: <item count>` — one trend per scene. Every
+hook declares `motion: true`, so animation is the default and the judge chooses a still
+only when an article warrants one; the still-image path stays as the fallback and the
+manual `POST_MEDIA=STATIC` override.
 
 ### D3. The judge decides once; the row carries the result
 
 The judge already reads the full article. It gains two outputs beside `hook`:
 `visual` (`form`, `motion`, `scenes`). `admit_to_backlog` writes `HOOK`,
-`VISUAL_FORM`, `ANIMATED`, `SCENES` as columns. `EXTRA_PROMPT` keeps the angle for
+`VISUAL_FORM`, `POST_MEDIA` and `SCENES` as columns. `EXTRA_PROMPT` keeps the angle for
 the generator but is no longer the hook's storage.
 
 *Alternatives considered:* a second classifier at publish time — rejected; it is a

@@ -154,6 +154,14 @@ def test_the_curator_self_heals_unclassified_rows():
         assert "loop_backfill_queue" in _targets(doc["connections"], "update_backfill_columns"), label
 
 
+def test_the_sheets_nodes_write_post_media_from_the_row():
+    """A rename that kept the old $json.ANIMATED expression wrote an empty POST_MEDIA."""
+    for label, doc in _copies(CURATOR):
+        for name in ("append_content_queue", "update_backfill_columns"):
+            value = _node(doc, name)["parameters"]["columns"]["value"]
+            assert value.get("POST_MEDIA") == "={{ $json.POST_MEDIA }}", f"{label}: {name} mapping"
+
+
 def test_the_backfill_chain_has_a_model_and_a_fallback():
     """chainLlm needs both sub-nodes: the model at input 0 and the fallback at input 1."""
     for label, doc in _copies(CURATOR):
@@ -177,3 +185,5 @@ def test_visual_studio_accepts_a_scene_plan():
         assert "req.SCENES" in _node(doc, "build_author_brief")["parameters"]["jsCode"], label
         fields = {f["fieldLabel"] for f in _node(doc, "form_trigger")["parameters"]["formFields"]["values"]}
         assert "SCENES" in fields, f"{label}: the form must speak the same contract"
+        inputs = {v["name"] for v in _node(doc, "main_trigger")["parameters"]["workflowInputs"]["values"]}
+        assert "SCENES" in inputs, f"{label}: the sub-workflow trigger must accept SCENES"

@@ -30,6 +30,9 @@
               },
               {
                 "name": "STYLE"
+              },
+              {
+                "name": "SCENES"
               }
             ]
           }
@@ -1218,6 +1221,9 @@
             },
             {
               "name": "STYLE"
+            },
+            {
+              "name": "SCENES"
             }
           ]
         }

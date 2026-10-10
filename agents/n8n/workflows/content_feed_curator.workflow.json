@@ -1016,7 +1016,7 @@
               "HOOK": "={{ $json.HOOK }}",
               "VISUAL_FORM": "={{ $json.VISUAL_FORM }}",
               "SCENES": "={{ $json.SCENES }}",
-              "POST_MEDIA": "={{ $json.ANIMATED }}"
+              "POST_MEDIA": "={{ $json.POST_MEDIA }}"
             },
             "matchingColumns": [],
             "schema": [
@@ -1702,7 +1702,7 @@
               "HOOK": "={{ $json.HOOK }}",
               "VISUAL_FORM": "={{ $json.VISUAL_FORM }}",
               "SCENES": "={{ $json.SCENES }}",
-              "POST_MEDIA": "={{ $json.ANIMATED }}"
+              "POST_MEDIA": "={{ $json.POST_MEDIA }}"
             },
             "matchingColumns": [
               "row_number"
@@ -3893,7 +3893,7 @@
             "HOOK": "={{ $json.HOOK }}",
             "VISUAL_FORM": "={{ $json.VISUAL_FORM }}",
             "SCENES": "={{ $json.SCENES }}",
-            "POST_MEDIA": "={{ $json.ANIMATED }}"
+            "POST_MEDIA": "={{ $json.POST_MEDIA }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -4579,7 +4579,7 @@
             "HOOK": "={{ $json.HOOK }}",
             "VISUAL_FORM": "={{ $json.VISUAL_FORM }}",
             "SCENES": "={{ $json.SCENES }}",
-            "POST_MEDIA": "={{ $json.ANIMATED }}"
+            "POST_MEDIA": "={{ $json.POST_MEDIA }}"
           },
           "matchingColumns": [
             "row_number"

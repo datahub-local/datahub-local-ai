@@ -10,7 +10,7 @@
       "group": "argument",
       "when": "the article challenges accepted practice and the author can take a defensible counter-position",
       "opening": "open with a blunt statement that challenges accepted practice",
-      "visual": { "form": "diagram", "motion": false, "scenes": 0 },
+      "visual": { "form": "diagram", "motion": true, "scenes": 0 },
       "image": "Split the frame in two. On one side the prevailing assumption sits as a solid, worn, desaturated object crossed out by one bold stroke; on the other the counterexample is lit in the accent and visibly working. The headline names the belief being overturned."
     },
     {
@@ -18,7 +18,7 @@
       "group": "argument",
       "when": "the article corrects a belief the audience commonly holds",
       "opening": "open by naming the common misconception and correcting it",
-      "visual": { "form": "diagram", "motion": false, "scenes": 0 },
+      "visual": { "form": "diagram", "motion": true, "scenes": 0 },
       "image": "Two panels side by side: MYTH on the left, dim, cracked or faded; REALITY on the right, lit, intact and accented. One crossing stroke or arrow moves from the myth to the reality. The headline states the correction."
     },
     {
@@ -26,7 +26,7 @@
       "group": "argument",
       "when": "the article frames a decision with a real cost on each side that the audience tends to ignore",
       "opening": "open by framing the underlying trade-off most people ignore",
-      "visual": { "form": "diagram", "motion": false, "scenes": 0 },
+      "visual": { "form": "diagram", "motion": true, "scenes": 0 },
       "image": "A balance, beam or two-pan scale caught mid-tilt: one side rises dim while the other falls into the accent, and the heavier consequence is the lit one. The headline names what is being weighed."
     },
     {
@@ -34,7 +34,7 @@
       "group": "argument",
       "when": "the article's evidence supports a forward-looking call the author is willing to make",
       "opening": "open with a specific prediction and the evidence behind it",
-      "visual": { "form": "poster", "motion": false, "scenes": 0 },
+      "visual": { "form": "poster", "motion": true, "scenes": 0 },
       "image": "A horizon line splitting a dim present from an accented future, one marker on each side and a single arrow between them. The headline states the prediction."
     },
     {
@@ -66,7 +66,7 @@
       "group": "news",
       "when": "the article centres on a datable announcement, release or event",
       "opening": "open with your immediate, opinionated take on the announcement or release",
-      "visual": { "form": "poster", "motion": false, "scenes": 0 },
+      "visual": { "form": "poster", "motion": true, "scenes": 0 },
       "image": "One just-landed object or dated marker, centre-frame and accented, with the frame still settling around it: motion lines, displaced dust, or a before/after split at the edge. The headline is the immediate verdict, not a description."
     },
     {
@@ -74,7 +74,7 @@
       "group": "news",
       "when": "the article describes a new version or capability and its implications are arguable",
       "opening": "open with the capability that changed and the implication to watch",
-      "visual": { "form": "poster", "motion": false, "scenes": 0 },
+      "visual": { "form": "poster", "motion": true, "scenes": 0 },
       "image": "A new component slotting into an existing assembly, the new part accented and the old outline dim behind it. The headline names the capability."
     },
     {
@@ -82,7 +82,7 @@
       "group": "news",
       "when": "the article discloses a flaw, breach or exposure with a concrete lesson",
       "opening": "open with the exposure and the control that would have stopped it",
-      "visual": { "form": "poster", "motion": false, "scenes": 0 },
+      "visual": { "form": "poster", "motion": true, "scenes": 0 },
       "image": "A sealed surface with one accented breach and a dim control that was not fitted beside it. The headline names the exposure."
     },
     {
@@ -98,7 +98,7 @@
       "group": "reference",
       "when": "the article puts two named options head to head",
       "opening": "open by naming the two options and the axis that separates them",
-      "visual": { "form": "diagram", "motion": false, "scenes": 0 },
+      "visual": { "form": "diagram", "motion": true, "scenes": 0 },
       "image": "Two columns of matched rows, the winning cells accented on one side and dim on the other, a single verdict row at the foot. The headline names the axis."
     },
     {
@@ -106,7 +106,7 @@
       "group": "reference",
       "when": "the article maps the players, categories or layers of a market or stack",
       "opening": "open with the shape of the landscape and where the gaps are",
-      "visual": { "form": "diagram", "motion": false, "scenes": 0 },
+      "visual": { "form": "diagram", "motion": true, "scenes": 0 },
       "image": "A hub with evenly spaced spokes, or a stacked set of bands, one band or spoke accented and the rest dim. The headline names the landscape."
     },
     {
@@ -114,7 +114,7 @@
       "group": "reference",
       "when": "the article gives a set of steps or checks the reader can apply",
       "opening": "open with the outcome the checklist protects and the first step",
-      "visual": { "form": "data", "motion": false, "scenes": 0 },
+      "visual": { "form": "data", "motion": true, "scenes": 0 },
       "image": "A short vertical stack of identical toggles, all but one flipped to the accent. The headline names the outcome the list protects."
     },
     {
@@ -122,7 +122,7 @@
       "group": "reference",
       "when": "the article describes a design, pattern or component structure worth drawing",
       "opening": "open with the design decision and the constraint it answers",
-      "visual": { "form": "diagram", "motion": false, "scenes": 0 },
+      "visual": { "form": "diagram", "motion": true, "scenes": 0 },
       "image": "A small left-to-right flow of labelled boxes, one box accented, with one labelled connector. The headline names the pattern."
     },
     {
@@ -130,7 +130,7 @@
       "group": "narrative",
       "when": "the article reports a concrete production incident, failure or observation",
       "opening": "open with a concrete incident or observation from production work",
-      "visual": { "form": "story", "motion": false, "scenes": 0 },
+      "visual": { "form": "story", "motion": true, "scenes": 0 },
       "image": "A left-to-right timeline of three moments from one incident: the state before, the failure or discovery, the fix. Only the pivotal middle moment carries the accent; the other two stay dim. Three stations, two arrows, nothing else."
     },
     {
@@ -138,7 +138,7 @@
       "group": "narrative",
       "when": "the article analyses a failure after the fact and names its cause",
       "opening": "open with the failure and the root cause, not the symptom",
-      "visual": { "form": "story", "motion": false, "scenes": 0 },
+      "visual": { "form": "story", "motion": true, "scenes": 0 },
       "image": "A single broken link in an otherwise intact chain, the break accented and the rest dim, one callout naming the cause. The headline states the cause."
     },
     {
@@ -146,7 +146,7 @@
       "group": "narrative",
       "when": "the article tells a before-and-after move between two systems or states",
       "opening": "open with the before state and the single decision that forced the move",
-      "visual": { "form": "diagram", "motion": false, "scenes": 0 },
+      "visual": { "form": "diagram", "motion": true, "scenes": 0 },
       "image": "Two panels, before on the left in muted warm tones with a visible tangle, after on the right clean and accented, one transformation arrow between them. The headline names the change."
     },
     {
@@ -154,7 +154,7 @@
       "group": "narrative",
       "when": "the article distils experience into transferable lessons",
       "opening": "open with the lesson and the experience that earned it",
-      "visual": { "form": "data", "motion": false, "scenes": 0 },
+      "visual": { "form": "data", "motion": true, "scenes": 0 },
       "image": "A short stack of worn index cards, the top card accented and the rest dim, one line of text on the top card only. The headline states the lesson."
     }
   ],

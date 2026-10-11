@@ -2276,7 +2276,8 @@
               "ASSET_TYPES": "animation_linkedin_video",
               "FEEDBACK": "={{ $('notification_retry_or_cancel_animation').isExecuted ? ($('notification_retry_or_cancel_animation').last().json.data.Feedback || '') : '' }}",
               "FORCE": "={{ $('select_article_to_post').item.json.VISUAL_FORM || 'auto' }}",
-              "SCENES": "={{ $('select_article_to_post').item.json.SCENES || '' }}"
+              "SCENES": "={{ $('select_article_to_post').item.json.SCENES || '' }}",
+              "SESSION_ID": "=lips-{{ $('select_article_to_post').item.json.row_number }}"
             },
             "matchingColumns": [],
             "schema": [
@@ -2323,6 +2324,16 @@
               {
                 "id": "SCENES",
                 "displayName": "SCENES",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "SESSION_ID",
+                "displayName": "SESSION_ID",
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
@@ -6276,7 +6287,8 @@
             "ASSET_TYPES": "animation_linkedin_video",
             "FEEDBACK": "={{ $('notification_retry_or_cancel_animation').isExecuted ? ($('notification_retry_or_cancel_animation').last().json.data.Feedback || '') : '' }}",
             "FORCE": "={{ $('select_article_to_post').item.json.VISUAL_FORM || 'auto' }}",
-            "SCENES": "={{ $('select_article_to_post').item.json.SCENES || '' }}"
+            "SCENES": "={{ $('select_article_to_post').item.json.SCENES || '' }}",
+            "SESSION_ID": "=lips-{{ $('select_article_to_post').item.json.row_number }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -6323,6 +6335,16 @@
             {
               "id": "SCENES",
               "displayName": "SCENES",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "SESSION_ID",
+              "displayName": "SESSION_ID",
               "required": false,
               "defaultMatch": false,
               "display": true,

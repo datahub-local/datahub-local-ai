@@ -103,6 +103,68 @@ export function contentTypeFor(name) {
   return "application/octet-stream";
 }
 
+// The file whose presence means a session has already been authored in. A later
+// turn in the same session is an edit of it, not a first authoring. An SVG and a
+// deck author a different artifact than a video, so the marker follows the format.
+export function compositionMarker(format) {
+  switch (safeFormat(format)) {
+    case "svg":
+      return "out.svg";
+    case "html":
+      return "out.html";
+    default:
+      return "index.html";
+  }
+}
+
+// The trailing instruction for a turn. The caller's brief carries the content and
+// any change; this is the mechanical part — where to write and whether the turn
+// authors or edits. An edit names the artifact already in the session so the
+// composer continues from it instead of starting over.
+export function turnInstruction({ format, isIteration } = {}) {
+  const f = safeFormat(format);
+  if (f === "svg") {
+    return isIteration
+      ? "`out.svg` in this directory is the animated SVG from an earlier turn in this session. Apply the request above to it in place - change what it names and keep the rest - and write `out.svg` again. Do not write index.html and do not render."
+      : "Author one self-contained animated SVG and write it to `out.svg` in this directory. Do not write index.html and do not render.";
+  }
+  if (f === "html") {
+    return isIteration
+      ? "`out.html` and `index.html` in this directory are the deck and its video from an earlier turn in this session. Apply the request above to both in place - change what it names and keep the rest - then re-render `out.mp4` so the video matches the deck."
+      : "Author one self-contained HTML deck and write it to `out.html` in this directory, then author a composition of the same plan to `index.html` here and render it to `out.mp4` so the video matches the deck.";
+  }
+  return isIteration
+    ? "`index.html` in this directory is the composition from an earlier turn in this session. Apply the request above to it in place - change what it names and keep the rest - then re-render `out.mp4` in this same directory."
+    : "Write the composition to `index.html` here and render it to `out.mp4` in this same directory.";
+}
+
+// Pi names a transcript `<ISO timestamp>_<session id>.jsonl`; the timestamp carries
+// no underscore, so the id is everything after the first one. Returns null for a
+// name this server did not write, so a foreign file is never swept.
+export function sessionIdFromTranscript(name) {
+  const match = /^[^_]+_(.+)\.jsonl$/.exec(String(name ?? ""));
+  return match ? match[1] : null;
+}
+
+// Expired run directories: older than the cutoff, and never the session in flight.
+export function expiredRunDirs(entries, { cutoffMs, keep } = {}) {
+  return entries
+    .filter((e) => Number.isFinite(e.mtimeMs) && e.mtimeMs < cutoffMs && e.name !== keep)
+    .map((e) => e.name);
+}
+
+// Expired transcripts: older than the cutoff, not the session in flight, and only
+// names this server wrote (an unattributable file is left alone).
+export function expiredTranscripts(entries, { cutoffMs, keep } = {}) {
+  return entries
+    .filter((e) => {
+      if (!Number.isFinite(e.mtimeMs) || e.mtimeMs >= cutoffMs) return false;
+      const id = sessionIdFromTranscript(e.name);
+      return id !== null && id !== keep;
+    })
+    .map((e) => e.name);
+}
+
 // The sampling rate for the converted animation. The caller's declared `frames`
 // over `durationSeconds` wins, so a type can be tuned entirely from data (a long,
 // slow clip at a low frame rate) without touching the image; otherwise the declared

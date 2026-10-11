@@ -240,3 +240,42 @@ def test_a_deck_run_fetches_both_artifacts(label, doc):
     # The deck and its video are two assets of one run.
     result = _code(doc, "agent_result")
     assert "'paired'" in result and "PAIRED_ASSET_TYPE" in result
+
+
+@pytest.mark.parametrize("label,doc", list(_copies()))
+def test_a_named_session_is_continued_and_a_blank_one_is_run_scoped(label, doc):
+    # SESSION_ID is part of the contract on every surface...
+    main_values = {v["name"] for v in _node(doc, "main_trigger")["parameters"]["workflowInputs"]["values"]}
+    form_fields = {f["fieldLabel"] for f in _node(doc, "form_trigger")["parameters"]["formFields"]["values"]}
+    assert "SESSION_ID" in main_values
+    assert "SESSION_ID" in form_fields
+    assert "SESSION_ID: v('SESSION_ID')" in _code(doc, "normalize_input")
+
+    body = _code(doc, "build_author_brief")
+    # ...a named session is used as given, and a blank one keeps the run-scoped id...
+    assert "safe(req.SESSION_ID) ||" in body
+    assert "safe(a.ASSET_TYPE) + '-' + safe(req.RUN_ID)" in body, "the run-scoped fallback must remain"
+    # ...and that resolved value is what the adapter is called with and what the
+    # artifact is addressed under, so a continuation fetches the same URL.
+    assert "session_id: sessionId" in body
+    assert "'/artifacts/' + sessionId" in body
+
+
+@pytest.mark.parametrize("label,doc", list(_copies()))
+def test_a_continuation_brief_differs_from_a_first_authoring(label, doc):
+    body = _code(doc, "build_author_brief")
+    assert "const isIteration = Boolean(String(req.SESSION_ID || '').trim());" in body
+    # A continuation keeps the work already in the session and applies only the change.
+    assert "This continues the composition already in this session" in body
+    assert "change below" in body
+    # A first authoring still plans before it builds.
+    assert "Plan first: state a short storyboard" in body
+    # Each authoring branch chooses between the two by isIteration.
+    assert body.count("isIteration ? opening") >= 2
+    assert "...opening," in body, "the SVG branch carries the continuation"
+
+
+@pytest.mark.parametrize("label,doc", list(_copies()))
+def test_the_recorded_request_carries_the_session(label, doc):
+    # The thread id is recorded, so a session's turns are joinable after the fact.
+    assert "SESSION_ID: req.SESSION_ID" in _code(doc, "run_record")

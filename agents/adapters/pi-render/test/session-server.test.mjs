@@ -18,12 +18,14 @@ let dir;
 let child;
 
 // A stand-in for Pi: it writes the two files the real agent writes, in its cwd
-// (the per-run directory), and reports on stdout.
+// (the per-run directory), and reports on stdout. It also records the prompt it was
+// handed, so the test can assert the author/edit instruction the server chose.
 const STUB_PI = `#!/usr/bin/env node
 const fs = require("node:fs");
 fs.writeFileSync("index.html", "<div>stub</div>");
 fs.writeFileSync("out.html", "<html>stub deck</html>");
 fs.writeFileSync("out.mp4", Buffer.from([0, 0, 0, 0x18, 0x66, 0x74, 0x79, 0x70]));
+fs.writeFileSync("prompt.txt", process.argv.at(-1) || "");
 process.stdout.write("rendered 1 frame");
 `;
 
@@ -127,6 +129,29 @@ test("a second run does not overwrite the first", async () => {
   const second = await fetch(`${base}/artifacts/run_b/out.mp4`);
   assert.equal(first.status, 200);
   assert.equal(second.status, 200);
+});
+
+test("the second turn in a session is an edit, not a fresh authoring", async () => {
+  // The server follows the directory, not the caller: after turn 1 wrote
+  // index.html, turn 2 must be told to edit it in place.
+  const turn = (content) =>
+    fetch(`${base}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ messages: [{ role: "user", content }], session_id: "run_iter" }),
+    });
+  assert.equal((await turn("make a card")).status, 200);
+  const firstPrompt = await readFile(join(dir, "workspace", "runs", "run_iter", "prompt.txt"), "utf8");
+  assert.ok(firstPrompt.includes("Write the composition to `index.html`"), "the first turn authors");
+  assert.ok(!firstPrompt.includes("earlier turn"), "the first turn claims no prior work");
+
+  assert.equal((await turn("make the headline bigger")).status, 200);
+  const secondPrompt = await readFile(join(dir, "workspace", "runs", "run_iter", "prompt.txt"), "utf8");
+  assert.ok(secondPrompt.includes("earlier turn"), "the second turn is an edit");
+  assert.ok(secondPrompt.includes("in place"), "the edit keeps the rest");
+  assert.ok(secondPrompt.includes("make the headline bigger"), "the change reaches the composer");
+  // The turn is still served from the same directory and the artifact is refreshed.
+  assert.equal((await fetch(`${base}/artifacts/run_iter/out.mp4`)).status, 200);
 });
 
 test("the artifact route refuses traversal and unknown names", async () => {

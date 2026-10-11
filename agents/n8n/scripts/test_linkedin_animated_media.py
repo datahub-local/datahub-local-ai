@@ -102,6 +102,22 @@ def test_animated_rows_call_the_studio_for_the_declared_type(label, document):
 
 
 @pytest.mark.parametrize("label,document", list(_copies(SHARING)))
+def test_the_animation_keeps_one_session_across_a_retry(label, document):
+    """A retry must edit the composition it already produced, not author a new one.
+
+    The session id is derived from the article, so it is the same on the first
+    request and on the retry (one call node serves both), and it must not depend on
+    the execution that produced the asset.
+    """
+    inputs = _nodes(document)["execute_visual_studio"]["parameters"]["workflowInputs"]
+    session = inputs["value"].get("SESSION_ID")
+    assert session, "the studio call must name a session so a retry continues it"
+    assert "$execution" not in session, "the id must not depend on the run"
+    assert "row_number" in session, "the id is derived from the article"
+    assert any(f.get("id") == "SESSION_ID" for f in inputs["schema"])
+
+
+@pytest.mark.parametrize("label,document", list(_copies(SHARING)))
 def test_the_media_switch_accepts_both_opt_ins(label, document):
     """AGENT must reach the studio; a blank or STATIC row must not."""
     conditions = _nodes(document)["switch_post_media"]["parameters"]["conditions"]["conditions"]

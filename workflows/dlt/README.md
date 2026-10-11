@@ -241,6 +241,43 @@ Every sync also reconciles the payee of rows it already imported onto
 `payee_clean`, so transactions landed before that key existed become matchable
 by the merchant rules; a payee a human renamed is left alone.
 
+## Retiring superseded identities (`--pipeline prune`)
+
+The sync only ever inserts, so a payment whose identity changed after it was
+imported keeps both rows in the budget. That happened once: the 2026-10-09
+identity change re-keyed transactions from a booking-date ordinal onto a hash,
+and because `imported_id` is the dedup key the sync then imported every
+re-keyed payment a second time (2026-10-11: `read 297, added 123, skipped 174`).
+
+`prune` removes exactly those rows and nothing else. It is a one-off migration,
+not part of the daily chain:
+
+```bash
+# 1. one row per payment in the curated layer, first
+uv run python -m dbt_runner --project finance --target homelab --select "silver.* gold.*"
+
+# 2. read-only plan - prints every candidate, writes nothing
+uv run python -m dlt_runner --pipeline prune --project finance --target homelab
+
+# 3. only after reading the plan
+FINANCE_PRUNE_APPLY=true uv run python -m dlt_runner --pipeline prune --project finance --target homelab
+```
+
+A candidate is a transaction whose `imported_id` starts with `enablebanking:`,
+whose stable id is positional in shape, and whose stable id no longer appears in
+`silver.finance.transactions`. Consequences worth knowing:
+
+- Running it before the dbt rebuild is a no-op, not a mistake: silver still holds
+  the positional ids, so the plan is empty. There is no ordering trap.
+- A payment whose only row is the positional one, because no fetch has covered
+  its booking date since the identity rule changed, is still in silver and is
+  kept (2026-10-11: 29 of them).
+- A genuine provider reference is not positional in shape and is never touched,
+  and neither is anything an operator wrote: only the pipeline's own prefix is
+  read.
+- An empty silver is a hard error, the one input that would make every
+  positional row a candidate.
+
 ## Environment variables
 
 | Variable                                                     | Default                                                   | Used by          |
@@ -265,5 +302,6 @@ by the merchant rules; a payee a human renamed is left alone.
 | `FINANCE_SYNC_WINDOW_DAYS`                                   | `60`                                                      | finance (sync)   |
 | `FINANCE_SYNC_FROM_DATE` / `FINANCE_SYNC_TO_DATE`            | — (full-history first run / today)                        | finance (sync)   |
 | `FINANCE_SYNC_DRY_RUN`                                       | `false` (`local` target is dry-run regardless)            | finance (sync)   |
+| `FINANCE_PRUNE_APPLY`                                        | `false` (every target, including `homelab`)               | finance (prune)  |
 | `FINANCE_ACTUAL_BASE_URL` / `FINANCE_ACTUAL_PASSWORD` / `FINANCE_ACTUAL_FILE` | — (finance-actual secret)            | finance (sync)   |
 | `FINANCE_ACTUAL_ACCOUNTS`                                    | — (`{"<alias>": "<Actual account>"}` JSON)                | finance (sync)   |

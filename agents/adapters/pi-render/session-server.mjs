@@ -22,9 +22,10 @@
 
 import http from "node:http";
 import { createReadStream } from "node:fs";
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { join } from "node:path";
 
 import {
   safeSessionId,
@@ -35,6 +36,10 @@ import {
   contentTypeFor,
   transcodeArgs,
   stageVendorAssets,
+  compositionMarker,
+  turnInstruction,
+  expiredRunDirs,
+  expiredTranscripts,
   DEFAULT_SESSION_WORKSPACE,
 } from "./session-lib.mjs";
 
@@ -48,6 +53,68 @@ const promptPath = "/opt/pi-render/prompts/authoring.md";
 // /workspace (only the Job path does), so the workspace must default under the PVC.
 // The caller can still override it.
 const workDir = process.env.SYMPOZIUM_WORKSPACE || DEFAULT_SESSION_WORKSPACE;
+
+// Session state is durable, so it has to expire: an abandoned thread would otherwise
+// keep its run directory and Pi transcript forever, and a render loop would fill the
+// PVC and then fail every turn. 0 (or a non-number) disables the sweep. The default
+// matches Visual Studio Prune's seven-day table-row window, so a run's row and its
+// files expire together.
+const retentionDays = Number(process.env.PI_RENDER_SESSION_TTL_DAYS ?? "7");
+const sweepIntervalMs = 60 * 60 * 1000;
+
+async function listEntries(dir) {
+  try {
+    const names = await readdir(dir);
+    const entries = await Promise.all(
+      names.map(async (name) => {
+        try {
+          const info = await stat(join(dir, name));
+          return { name, mtimeMs: info.mtimeMs };
+        } catch {
+          return null;
+        }
+      })
+    );
+    return entries.filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+// Best-effort: a failed unlink is logged and the turn carries on. `keep` is the
+// session in flight, which must never be swept under its own turn.
+async function sweepSessions(keep) {
+  if (!Number.isFinite(retentionDays) || retentionDays <= 0) return;
+  const cutoffMs = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
+  try {
+    for (const name of expiredRunDirs(await listEntries(join(workDir, "runs")), { cutoffMs, keep })) {
+      await rm(join(workDir, "runs", name), { recursive: true, force: true });
+      console.log(`sympozium pi render session: swept expired session ${name}`);
+    }
+    for (const name of expiredTranscripts(await listEntries(sessionDir), { cutoffMs, keep })) {
+      await rm(join(sessionDir, name), { force: true });
+      console.log(`sympozium pi render session: swept expired transcript ${name}`);
+    }
+    lastSweep = Date.now();
+  } catch (err) {
+    console.error(`sympozium pi render session: sweep failed: ${err?.message ?? err}`);
+  }
+}
+
+let lastSweep = Date.now();
+async function sweepIfDue(keep) {
+  if (Date.now() - lastSweep < sweepIntervalMs) return;
+  await sweepSessions(keep);
+}
+
+async function exists(path) {
+  try {
+    await stat(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function fail(message) {
   console.error(`sympozium pi render session: ${message}`);
@@ -70,6 +137,9 @@ const engine = "/usr/local/bin/hyperframes";
 await mkdir(`${process.env.HOME}/.pi/agent`, { recursive: true });
 await mkdir(sessionDir, { recursive: true });
 await mkdir(workDir, { recursive: true });
+
+// Reclaim anything already past the window before serving the first turn.
+await sweepSessions(undefined);
 
 await writeFile(
   `${process.env.HOME}/.pi/agent/models.json`,
@@ -307,20 +377,18 @@ http
         });
       }
 
-      // One directory per run: sequential turns must not overwrite each other's
-      // artifact, and the agent is told exactly where to write it.
+      // One directory per session: a reused session continues in place, and a fresh
+      // one is isolated so sequential turns never overwrite each other's artifact.
       const dir = resolveRunDir(workDir, sessionID);
       await mkdir(dir, { recursive: true });
       // The vendored GSAP resolves as a sibling of the composition; stage it before
       // the turn so the composer's `<script src="gsap.min.js">` is served.
       await stageVendorAssets(dir);
+      // The instruction follows the directory, not the caller: a session that already
+      // holds a composition is edited, so a declaration and a swept session agree.
+      const isIteration = await exists(join(dir, compositionMarker(format)));
       const prompt =
-        `${brief}\n\n---\n\nWorking directory: ${dir}\n` +
-        (format === "svg"
-          ? `Author one self-contained animated SVG and write it to \`out.svg\` in this directory. Do not write index.html and do not render.\n\n${method}`
-          : format === "html"
-          ? `Author one self-contained HTML deck and write it to \`out.html\` in this directory, then author a composition of the same plan to \`index.html\` here and render it to \`out.mp4\` so the video matches the deck.\n\n${method}`
-          : `Write the composition to \`index.html\` here and render it to \`out.mp4\` in this same directory.\n\n${method}`);
+        `${brief}\n\n---\n\nWorking directory: ${dir}\n${turnInstruction({ format, isIteration })}\n\n${method}`;
 
       const response = await (queue = queue.catch(() => undefined).then(() =>
         runPi(
@@ -344,6 +412,7 @@ http
       // Produce the caller's requested format from the engine's out.mp4, in the
       // same run directory, before answering.
       await transcode(dir, format, { fps, width, frames, durationSeconds });
+      await sweepIfDue(sessionID);
 
       if (stream) {
         writeSSE(res, {

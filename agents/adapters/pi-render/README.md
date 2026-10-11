@@ -285,6 +285,31 @@ The per-run directory is the point: turns are serialized, but a later run must n
 overwrite an earlier run's artifact before its caller has fetched it. `session-lib.mjs`
 holds the path and format rules, unit-tested under `test/`.
 
+### A session continues, and expires
+
+`session_id` is durable state, not just an address. Pi is spawned with `--session-id
+<id> --session-dir /tmp/pi-sessions`, and Pi resumes that transcript when the id
+exists, so a second turn with the same id carries the first turn's context. The run
+directory `runs/<id>/` persists too, on the same PVC.
+
+The server decides *what the turn is* from the directory, not from the caller: before
+a turn it checks for the session's composition — `index.html`, or `out.svg` for an SVG
+type and `out.html` for a deck. If it is there, the turn's instruction is to apply the
+request to that composition **in place** and re-render (`turnInstruction` in
+`session-lib.mjs`); if not, the turn authors one. A caller that names a swept or
+never-created session therefore degrades to a first authoring instead of being told to
+edit a file that is not there.
+
+Because state is durable it must also expire, or an abandoned thread keeps its
+directory and transcript forever and a render loop fills the PVC. On startup and
+throttled after each turn, the server removes `runs/<id>/` and
+`pi-sessions/*_<id>.jsonl` whose mtime is older than `PI_RENDER_SESSION_TTL_DAYS`
+(default 7, matching `Visual Studio Prune`'s row window; `0` disables it). The session
+in flight is never swept, a transcript name the server did not write is left alone, and
+a failed unlink is logged rather than failing the turn. The window is an image default:
+`AgentRuntime` has no `env` field, so the controller's fixed environment is the only
+source, and the variable is honoured the day a passthrough exists.
+
 ### The composer's guide is sandbox facts
 
 `prompts/authoring.md` names only what the brief cannot and the framework does not: the

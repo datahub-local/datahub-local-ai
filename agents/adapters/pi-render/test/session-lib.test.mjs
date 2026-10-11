@@ -14,6 +14,11 @@ import {
   transcodeArgs,
   outputFps,
   stageVendorAssets,
+  compositionMarker,
+  turnInstruction,
+  sessionIdFromTranscript,
+  expiredRunDirs,
+  expiredTranscripts,
   VENDOR_ASSETS,
   DEFAULT_SESSION_WORKSPACE,
 } from "../session-lib.mjs";
@@ -128,4 +133,76 @@ test("stageVendorAssets copies the served GSAP into the run directory", async ()
     await rm(vendor, { recursive: true, force: true });
     await rm(run, { recursive: true, force: true });
   }
+});
+
+test("compositionMarker follows the format's authored artifact", () => {
+  // The marker is what decides author vs edit: a later turn in the same session is
+  // an edit of whatever the first turn wrote.
+  assert.equal(compositionMarker("mp4"), "index.html");
+  assert.equal(compositionMarker("gif"), "index.html");
+  assert.equal(compositionMarker("png"), "index.html");
+  assert.equal(compositionMarker("svg"), "out.svg");
+  assert.equal(compositionMarker("html"), "out.html");
+  assert.equal(compositionMarker(undefined), "index.html");
+});
+
+test("turnInstruction names the existing composition only on an edit", () => {
+  for (const format of ["mp4", "gif", "webp", "png"]) {
+    const author = turnInstruction({ format, isIteration: false });
+    const edit = turnInstruction({ format, isIteration: true });
+    assert.ok(author.includes("Write the composition to `index.html`"), `${format}: author writes`);
+    assert.ok(!author.includes("earlier turn"), `${format}: author does not claim prior work`);
+    assert.ok(edit.includes("`index.html`") && edit.includes("earlier turn"), `${format}: edit names the composition`);
+    assert.ok(edit.includes("in place") && edit.includes("re-render"), `${format}: edit keeps the rest`);
+    assert.notEqual(author, edit);
+  }
+  const svgAuthor = turnInstruction({ format: "svg", isIteration: false });
+  const svgEdit = turnInstruction({ format: "svg", isIteration: true });
+  assert.ok(svgAuthor.includes("`out.svg`") && !svgAuthor.includes("earlier turn"));
+  assert.ok(svgEdit.includes("`out.svg`") && svgEdit.includes("earlier turn"));
+  assert.ok(svgEdit.includes("Do not write index.html"), "an SVG edit still refuses a composition");
+  const deckAuthor = turnInstruction({ format: "html", isIteration: false });
+  const deckEdit = turnInstruction({ format: "html", isIteration: true });
+  assert.ok(deckAuthor.includes("`out.html`") && !deckAuthor.includes("earlier turn"));
+  assert.ok(deckEdit.includes("`out.html`") && deckEdit.includes("earlier turn"));
+  // A missing flag is an author turn, never an accidental edit.
+  assert.equal(turnInstruction({ format: "mp4" }), turnInstruction({ format: "mp4", isIteration: false }));
+});
+
+test("sessionIdFromTranscript reads Pi's name and refuses a foreign one", () => {
+  assert.equal(
+    sessionIdFromTranscript("2026-10-05T17-59-46-584Z_diagram_agent-12128.jsonl"),
+    "diagram_agent-12128"
+  );
+  assert.equal(sessionIdFromTranscript("2026-10-11T08-00-00-000Z_animation_linkedin-12948.jsonl"), "animation_linkedin-12948");
+  assert.equal(sessionIdFromTranscript("notes.txt"), null);
+  assert.equal(sessionIdFromTranscript("no-underscore.jsonl"), null);
+  assert.equal(sessionIdFromTranscript(undefined), null);
+});
+
+test("expiredRunDirs sweeps only old directories and never the session in flight", () => {
+  const cutoffMs = 1_000_000;
+  const entries = [
+    { name: "old", mtimeMs: cutoffMs - 1 },
+    { name: "edge", mtimeMs: cutoffMs },
+    { name: "recent", mtimeMs: cutoffMs + 1 },
+    { name: "in-flight", mtimeMs: cutoffMs - 5000 },
+    { name: "unstattable", mtimeMs: NaN },
+  ];
+  assert.deepEqual(expiredRunDirs(entries, { cutoffMs, keep: "in-flight" }), ["old"]);
+  assert.deepEqual(expiredRunDirs(entries, { cutoffMs }), ["old", "in-flight"]);
+});
+
+test("expiredTranscripts sweeps only this server's old transcripts", () => {
+  const cutoffMs = 1_000_000;
+  const entries = [
+    { name: "2026-10-05T00-00-00-000Z_old.jsonl", mtimeMs: cutoffMs - 1 },
+    { name: "2026-10-11T00-00-00-000Z_recent.jsonl", mtimeMs: cutoffMs + 1 },
+    { name: "2026-10-05T00-00-00-000Z_in-flight.jsonl", mtimeMs: cutoffMs - 1 },
+    { name: "foreign.jsonl", mtimeMs: cutoffMs - 1 },
+    { name: "notes.txt", mtimeMs: cutoffMs - 1 },
+  ];
+  assert.deepEqual(expiredTranscripts(entries, { cutoffMs, keep: "in-flight" }), [
+    "2026-10-05T00-00-00-000Z_old.jsonl",
+  ]);
 });

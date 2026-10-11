@@ -448,9 +448,25 @@ byte-identical no-op when the site is unchanged.
 (comma-separated; blank means the registry's `default_types`; over
 `max_types_per_request` is reported as skipped, never silently dropped), `FEEDBACK`,
 `FORCE`, `SCENES` (an optional scene count; blank leaves the count to the composer's own
-storyboard) and `EXTRA_PROMPT` (optional free text appended to the brief after the
-content and the rules). The studio reads no caller state: everything it needs arrives on
-the trigger, and it writes only to the `visual_studio_table` DataTable.
+storyboard), `EXTRA_PROMPT` (optional free text appended to the brief after the
+content and the rules) and `SESSION_ID` (optional; see *A session is a thread*). The studio
+reads no caller state: everything it needs arrives on the trigger, and it writes only to the
+`visual_studio_table` DataTable.
+
+**A session is a thread, and a named one is an edit.** `SESSION_ID` is durable state, not
+just an address: the adapter spawns Pi with `--session-id` against a PVC-backed transcript
+directory, and `runs/<id>/` persists, so a turn that reuses an id continues the same
+transcript and directory. `build_author_brief` uses the caller's `SESSION_ID` verbatim and
+falls back to `<type>-<run id>` when it is blank, which keeps a first authoring isolated;
+when one is present the brief says it *continues* the composition already in the session and
+asks for the change (`EXTRA_PROMPT`, or a reviewer's `FEEDBACK`) to be applied to it, rather
+than planning a new one. The adapter decides author vs edit from the directory — it checks
+for `index.html` (or `out.svg`/`out.html` for those types) and picks the instruction — so a
+caller that names a swept session degrades to a first authoring instead of editing nothing.
+State expires: the session server sweeps `runs/<id>/` and `pi-sessions/*_<id>.jsonl` older
+than `PI_RENDER_SESSION_TTL_DAYS` (default 7, matching the prune window below; `0` disables)
+on startup and throttled after each turn, never the session in flight.
+`openspec/changes/add-visual-studio-iteration/` is the record.
 
 **FORCE and STYLE.** `FORCE` is `auto | diagram | story | data | poster | image`; `auto`
 lets the composer choose the form, anything else pins it, and a forced form is honoured or
@@ -605,9 +621,14 @@ Four things about the branch are deliberate:
   naming the article and the reason, then continues into the image branch *before* the
   image's own approval gate — so the substitute is reviewed as an image instead of silently
   replacing the animation.
-- **No frozen spec.** A post has one media asset, so nothing needs keeping in step, and a
-  rejection has to be free to re-author; the retry form's feedback is passed straight back
-  to the studio as `FEEDBACK`.
+- **A rejection continues the thread.** A post has one media asset, so nothing needs
+  keeping in step; the retry form's feedback is passed straight back to the studio as
+  `FEEDBACK`, and the animated branch names a session derived from the article
+  (`lips-<row_number>`), so the retry *edits* the composition the rejection named instead of
+  authoring a new one. This reverses the earlier "free to re-author" stance, which was
+  chosen when the composer could not see its own previous work; the cost of losing an
+  approved composition now outweighs the freedom, and a caller that genuinely wants a fresh
+  take sends no `SESSION_ID`. See *A session is a thread* above.
 - **The reviewer sees the motion**: the asset is uploaded to Slack before the double
   approval, and the approval names the studio run, the frame count and the content type.
 

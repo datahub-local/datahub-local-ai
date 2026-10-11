@@ -23,7 +23,8 @@
   thresholds (`2.5-3.5`, `0.6-0.9`, `1.5 second`), no page indicator, no composition-contract
   bullets and no SVG mode, and that the sandbox facts remain. Verified the new test fails
   against the previous guide.
-- [ ] 1.5 Rebuild the adapter image and pin the new digest (live/publish step).
+- [x] 1.5 Rebuilt and pinned by CI (`8f038f9`, digest `sha256:e050a9b7…`); ArgoCD rolled the
+  session Deployment to it (verified in 2.5).
 
 ## 2. Composer image (`agents/adapters/pi-render/Dockerfile`, `package.json`)
 
@@ -36,8 +37,13 @@
   `-studio`) and fails loudly naming any missing one.
 - [x] 2.4 Vendored `@hyperframes/shader-transitions@0.8.146` in `package.json`; the build
   verifies it resolves in the image.
-- [ ] 2.5 Verify the image still boots the session server and renders the sample (needs a
-  local image build; no Docker daemon here). **[UNVERIFIED]**
+- [x] 2.5 Verified live instead of a local build: CI published the image and pinned the
+  digest (`8f038f9`), the session Deployment rolled, the pod is `1/1 Running`, the
+  session server answers `<host>:8080/healthz` with `ok`, the full skill set
+  (`hyperframes-core`, `-animation`, `-keyframes`, `-registry`, `-creative`, `-studio`,
+  plus `media-use` and the others) is present under `/opt/hyperframes/skills/`, and
+  `gsap.min.js` is vendored at `/opt/hyperframes/vendor/`. Rendering a sample is left to
+  the live POST checks in section 8.
 
 ## 3. Motion rules (`agents/n8n/prompts/visual_motion_rules.md`)
 
@@ -50,8 +56,8 @@
   indicator, no pixel minimums, no product/article/dimension constant.
 - [x] 3.3 Verified it is plain markdown with no doubled-curly-brace placeholder
   (`DownloadTemplate` scans the whole text).
-- [ ] 3.4 Commit and push (needed before any live run; `DownloadTemplate` reads GitHub
-  `main`). Not committed here — no commit was requested.
+- [x] 3.4 Committed and pushed in `4de97ce` (on `origin/main`), which `DownloadTemplate`
+  reads as GitHub `main`.
 
 ## 4. Visual Studio workflow (`agents/n8n/workflows/visual_studio.workflow.json`)
 
@@ -75,8 +81,11 @@
   `EXTRA_PROMPT` and neither the hold line nor the review line; the deck fetch is wired;
   no animated type declares `holdSeconds`; the deck declares its pair. Verified each new
   assertion fails without its change.
-- [ ] 4.7 Apply live with `--require-edge` guards, publish, re-read `activeVersion`, diff
-  the export against live (live/apply step).
+- [x] 4.7 Applied live with `--require-edge` guards (`brand_tokens>download_registry`,
+  `fetch_artifact>agent_result`, `download_registry>parse_registry`), all satisfied. The PUT
+  published in place (`activeVersionId` moved to `e64b1570…`, `active: true` unchanged); the
+  re-read shows 29 nodes with `activeVersion` equal to the top level, and the export diffed
+  against live shows no parameter or connection differences.
 
 ## 5. Registry (`agents/n8n/datasets/visual_types.json`)
 
@@ -90,7 +99,8 @@
 - [x] 5.4 Extended `test_visual_studio_registry.py`: no video type declares `holdSeconds`;
   the deck declares both artifacts; every `author`/`render` is a known kind; the GIF stays
   inside the cap.
-- [ ] 5.5 Commit and push the registry (fetched from `main`). Not committed here.
+- [x] 5.5 Committed and pushed in `4de97ce` (on `origin/main`), which the studio fetches as
+  GitHub `main`.
 
 ## 6. LinkedIn publish (`agents/n8n/workflows/linked_in_post_sharing.workflow.json`)
 
@@ -108,9 +118,17 @@
 - [x] 6.4 Extended `test_linkedin_animated_media.py`: the publish decision selects on
   content type; a `video/mp4` asset resolves to the API video path; the still/GIF path and
   the approval nodes are unchanged; the video API nodes carry the credential. Verified the
-  assertions fail without the change.
-- [ ] 6.5 Apply live with `--require-edge` guards, publish, re-read, diff against live
-  (live/apply step).
+  assertions fail without the change. **Found and fixed while preparing the live apply:** the
+  committed export had dropped `switch_user_accept_image`'s rejection edge, leaving
+  `notification_retry_or_cancel_image` (and `switch_user_retry_image`) unreachable — a
+  rejected still image dead-ended. Restored the second output to the image retry form and
+  added `test_image_rejection_still_reaches_its_retry` and `test_no_node_is_orphaned` (both
+  fail on the pre-fix export, both copies checked).
+- [x] 6.5 Applied live with `--require-edge` guards (`switch_post_media>execute_visual_studio`,
+  `check_animation_result>if_animation_ok`, `convert_animation>notification_sent_animation`),
+  all satisfied. The PUT published in place (`active: true` unchanged); the re-read shows 47
+  nodes with the seven video nodes in `activeVersion` and `activeVersion` equal to the top
+  level, and the export diffed against live shows no parameter or connection differences.
 
 ## 7. Session reach (gate)
 
@@ -125,13 +143,30 @@
 
 - [x] 8.1 Ran the `agents/n8n/scripts/` suite (176 passed) and the adapter `node --test`
   suite (26 passed). No chart render needed (7.2 does not apply).
-- [ ] 8.2 `helmfile template` the `agents/sympozium/` chart — no chart change in this
-  change, so nothing to re-render. Not run.
-- [ ] 8.3 Live: POST one `animation_linkedin_video` request (live).
-- [ ] 8.4 Live: POST one `deck` request (live).
-- [ ] 8.5 Live: reject one animated asset and diff the two briefs (live).
-- [ ] 8.6 Measure the composer's turn length and input tokens (live).
-- [ ] 8.7 Live: verify a `video/mp4` asset publishes as a video post (live).
+- [x] 8.2 No chart change in this change, so the render gate has nothing new to cover;
+  `helmfile template` was not re-run here (CI runs it on every push under
+  `agents/sympozium/**`). The only chart-adjacent change this cycle is the adapter digest,
+  published by CI and rolled by ArgoCD.
+- [x] 8.3 Live: POSTed `ASSET_TYPES=animation_linkedin_video` to `/webhook/visual-studio`.
+  Execution 12927 succeeded (07:59:53→08:02:05Z); `download_visual_rules` and `visual_rules`
+  ran before `download_registry`; the asset is `STATUS: RENDERED`, `CONTENT_TYPE: video/mp4`,
+  h264 1080x1350, 30 fps, 300 frames, 10.0 s, and the report shows the motion grammar was
+  followed (idle loops, no frozen hold).
+- [x] 8.4 Live: POSTed `ASSET_TYPES=deck`. Execution 12932 succeeded (08:03:59→08:07:32Z);
+  `if_deck → fetch_paired_artifact → agent_result` ran and one composer turn returned two
+  assets — `deck` (`text/html`, out.html) and `deck_video` (`video/mp4`, 1280x720, 30 fps,
+  900 frames, 30 s).
+- [x] 8.5 Live: POSTed the same type with `FEEDBACK` set. The executed `build_author_brief`
+  output shows the brief tail as motion rules, then `Correction from a reviewer - fix this in
+  this attempt:` with the feedback verbatim, then the brand block — so a rejection reaches
+  the composer on the next turn.
+- [x] 8.6 Measured from the runs: `execute_author` 126.6 s for the video, 204.6 s for the
+  deck (whole executions 132.2 s and 213.0 s). Model usage from the LiteLLM spend log:
+  video run 16 calls, peak input 39,602 tokens, 520,614 total; deck run 13 calls, peak input
+  42,160 tokens, 402,625 total. Both peaks fit the 65,536 window with headroom, which is what
+  the per-`toolsAllow` budget was for.
+- [ ] 8.7 Live: verify a `video/mp4` asset publishes as a video post (left to the user; a
+  real public post).
 
 ## 9. Documentation
 

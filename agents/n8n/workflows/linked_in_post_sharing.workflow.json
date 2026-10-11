@@ -3117,6 +3117,13 @@
               "type": "main",
               "index": 0
             }
+          ],
+          [
+            {
+              "node": "notification_retry_or_cancel_image",
+              "type": "main",
+              "index": 0
+            }
           ]
         ]
       },
@@ -3679,6 +3686,13 @@
         [
           {
             "node": "if_video_publish",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "notification_retry_or_cancel_image",
             "type": "main",
             "index": 0
           }

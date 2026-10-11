@@ -111,6 +111,46 @@ def test_the_media_switch_accepts_both_opt_ins(label, document):
 
 
 @pytest.mark.parametrize("label,document", list(_copies(SHARING)))
+def test_image_rejection_still_reaches_its_retry(label, document):
+    """Routing the image approval through the media decision point must not drop
+    its rejection branch.
+
+    ``switch_user_accept_image`` now has two consumers of its approve output; its
+    reject output must still reach the image's own retry form, or a rejected still
+    image dead-ends and that retry node becomes unreachable.
+    """
+    connections = _connections(document)
+    assert len(_main(connections, "switch_user_accept_image")) == 2, "both outputs stay wired"
+    assert "if_video_publish" in _targets(connections, "switch_user_accept_image", 0)
+    assert "notification_retry_or_cancel_image" in _targets(connections, "switch_user_accept_image", 1)
+
+
+@pytest.mark.parametrize("label,document", list(_copies(SHARING)))
+def test_no_node_is_orphaned(label, document):
+    """A graph edit that rewires a source must not leave its old target stranded.
+
+    Every node that is not a trigger or a sticky note must have an inbound edge;
+    an orphan is a branch a person can reach in the form but that goes nowhere.
+    """
+    document_nodes = _nodes(document)
+    inbound = set()
+    for source, types in _connections(document).items():
+        for branches in types.values():
+            for branch in branches or []:
+                for edge in branch or []:
+                    inbound.add(edge["node"])
+    orphans = sorted(
+        name
+        for name, node in document_nodes.items()
+        if name not in inbound
+        and "trigger" not in node["type"].lower()
+        and "webhook" not in node["type"].lower()
+        and node["type"] != "n8n-nodes-base.stickyNote"
+    )
+    assert orphans == [], f"nodes nothing calls: {orphans}"
+
+
+@pytest.mark.parametrize("label,document", list(_copies(SHARING)))
 def test_the_result_resolves_the_requested_type(label, document):
     """check_animation_result must look up the type that was asked for."""
     js = _nodes(document)["check_animation_result"]["parameters"]["jsCode"]

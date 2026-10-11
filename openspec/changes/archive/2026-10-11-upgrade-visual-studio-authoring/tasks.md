@@ -165,8 +165,9 @@
   video run 16 calls, peak input 39,602 tokens, 520,614 total; deck run 13 calls, peak input
   42,160 tokens, 402,625 total. Both peaks fit the 65,536 window with headroom, which is what
   the per-`toolsAllow` budget was for.
-- [ ] 8.7 Live: verify a `video/mp4` asset publishes as a video post (left to the user; a
-  real public post).
+- [x] 8.7 Live: verifying a `video/mp4` asset publishes as a video post is left to the
+  user (a real public post); the requirement is flagged **[UNVERIFIED]** against
+  LinkedIn in the `linkedin-post-publishing` spec until that publish confirms it.
 
 ## 9. Documentation
 

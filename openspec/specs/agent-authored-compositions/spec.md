@@ -18,6 +18,13 @@ brief, where the composition is generated for that brief rather than selected fr
 fixed set of layouts or templates. The authored composition SHALL be the artifact of
 record: it is what is committed, reviewed and re-rendered.
 
+The **brief** SHALL be the deliverable of the workflow: it carries the source content,
+the requested form and style, the output frame, the shared motion rules and any
+correction or extra direction the caller supplies. The composer's own guide SHALL state
+only facts about its sandbox (the working directory, where the engine and its skills
+are, no network at render, how to run the render), and MUST NOT restate the composition
+contract or a method the framework already defines.
+
 The authoring turn SHALL plan before it builds: it states a short storyboard (the form,
 the style and the scenes) and then authors the composition to that plan. The storyboard
 is recorded with the run so a visual can be diagnosed, but nothing downstream parses or
@@ -37,6 +44,12 @@ transforms it.
 - **WHEN** a composition is authored
 - **THEN** a storyboard is stated before the composition is written
 - **AND** the storyboard is recorded with the run
+
+#### Scenario: The method is not restated in our guide
+- **WHEN** the composer's guide and the framework's shipped skills are both read
+- **THEN** the guide states sandbox facts only
+- **AND** the composition contract and the motion method are stated once, by the
+  framework
 
 ### Requirement: An authored composition is validated before it is rendered
 
@@ -119,46 +132,6 @@ ignores the brand, and it SHALL NOT be asked to invent a palette.
 - **THEN** both use the same palette and typefaces
 - **AND** neither is the only branded artefact
 
-### Requirement: An authored composition is reviewed before it is rendered
-
-Because the rendering engine's own checks do not detect a composition that fills only
-part of its frame or that changes too fast for a viewer, and the authoring agent cannot
-see images, the authoring turn SHALL review the composition against content,
-proportion, legibility and pacing before rendering it, and SHALL correct every miss.
-The review SHALL be reported with its measured values so it is checkable from the run
-record.
-
-#### Scenario: Frame proportion is checked
-- **WHEN** an authored composition is reviewed before rendering
-- **THEN** each scene's **visible content** is confirmed to fill the frame's height
-  rather than a band within it, measured on the content and not on a wrapper that
-  stretches to fill
-- **AND** a scene whose content does not fill the frame is corrected before rendering
-
-#### Scenario: A multi-scene composition is paginated
-- **WHEN** an authored composition has more than one scene
-- **THEN** every scene carries a page indicator in the same bottom-right position
-
-#### Scenario: Legibility is checked
-- **WHEN** an authored composition is reviewed before rendering
-- **THEN** type is confirmed to meet the minimum sizes for the rendered width
-- **AND** the composition passes the engine's layout and contrast checks
-
-#### Scenario: Pacing and total length are checked
-- **WHEN** an authored composition is reviewed before rendering
-- **THEN** each scene, reveal and hold is within the pacing bounds the guide states
-- **AND** the composition's total duration does not exceed the duration the brief asks
-  for
-
-#### Scenario: Content is checked
-- **WHEN** an authored composition is reviewed before rendering
-- **THEN** every string shown is traceable to the brief
-- **AND** no fact, number or name is introduced that the brief does not contain
-
-#### Scenario: The review is reported
-- **WHEN** the authoring turn reports what it produced
-- **THEN** the report states the review and its measured values
-
 ### Requirement: A workflow can request an authored composition and receive its artifact
 
 The authoring runtime SHALL accept a request that carries a brief and an output kind, author and render the composition, and return the rendered artifact to the caller over HTTP. Each request's artifact MUST be isolated from other requests, so a caller always receives the artifact authored for its own brief, and the request MUST identify its output unambiguously without exposing the runtime's filesystem. A request MAY name a session; one that names one SHALL be served in that session's directory and address its artifact under that identifier, so a later request continues the same work instead of authoring a new composition.
@@ -195,3 +168,71 @@ workflow's request and its completion.
 - **WHEN** the session renders an artifact
 - **THEN** its workspace is at least the engine's disk gate
 - **AND** the session is not reclaimed between the request and its completion
+
+### Requirement: The engine's checks gate the render and a caller may supply the review
+
+The authoring turn SHALL gate the render with the rendering engine's own checks
+(`lint` and `check`), correct every reported finding, and render only after the checks
+pass. The system MUST NOT maintain a separate, hand-authored review checklist in the
+composer's guide: the engine's checks are the automated gate, and any craft review is
+carried by the brief's motion rules or by a caller-supplied correction.
+
+#### Scenario: Engine findings are corrected
+- **WHEN** the engine's checks report a finding against an authored composition
+- **THEN** the composition is corrected
+- **AND** the render runs only after the checks pass
+
+#### Scenario: A composition that cannot pass
+- **WHEN** an authored composition still fails the engine's checks after correction
+- **THEN** the attempt is reported as a failure
+- **AND** no video is produced from it
+
+#### Scenario: No bespoke checklist in our guide
+- **WHEN** the composer's guide is read
+- **THEN** it carries no layout, proportion, legibility or pacing checklist
+- **AND** no page-indicator or frame-fill rule
+
+#### Scenario: A caller-supplied review reaches the composer
+- **WHEN** a request carries feedback or an extra prompt
+- **THEN** the brief carries it verbatim
+- **AND** the composer acts on it in the same turn it authors
+
+### Requirement: The composer carries the framework's full authoring capability
+
+The authoring image SHALL carry the rendering framework's complete authoring skill set
+at one pinned release — the animation rules and scene blueprints, keyframes, the
+registry, creative direction, the studio and the core contract — and SHALL NOT rely on
+the package manager's default distribution, which carries only a subset. The image
+SHALL include the framework's transition primitives locally, because the render runs
+with no network. The presence of every expected skill SHALL be asserted during the
+image build.
+
+#### Scenario: A motion rule is available
+- **WHEN** the composer needs the framework's motion knowledge
+- **THEN** the corresponding skill is present in the image
+- **AND** it was fetched at the same pinned release as the engine
+
+#### Scenario: A missing skill fails the build
+- **WHEN** the expected skill set is not present after the build step
+- **THEN** the build fails naming the missing skill
+- **AND** an image carrying a subset is not published
+
+#### Scenario: Effects need no network at author time
+- **WHEN** a brief names a scene transition
+- **THEN** the primitives are present locally
+- **AND** the render completes with outbound network disabled
+
+### Requirement: A re-author carries the reason it failed
+
+When an authored asset is rejected by a reviewer, the system SHALL carry the rejection
+text into the next authoring turn for that asset, so a correction is made against the
+reason rather than from the brief that already failed.
+
+#### Scenario: Rejection reaches the next turn
+- **WHEN** an authored asset is rejected and re-requested
+- **THEN** the brief for the new turn contains the rejection text
+- **AND** the composer's next attempt is authored against it
+
+#### Scenario: No rejection leaves the brief unchanged
+- **WHEN** an asset is authored for the first time
+- **THEN** the brief carries no feedback section

@@ -10,7 +10,9 @@ image post. A single decision point SHALL choose the path from the asset's own m
 type rather than from the requested type name. The node path handles images and
 animated images; a video SHALL be uploaded through the LinkedIn API directly, because
 the installed LinkedIn node supports only image and article posts. There SHALL be no
-path that publishes by guessing the media type.
+path that publishes by guessing the media type. The video upload path is
+**[UNVERIFIED]** against LinkedIn — it is recorded as designed and has not been
+exercised by a live public publish.
 
 #### Scenario: A video asset publishes as video
 - **WHEN** the approved asset's content type is `video/mp4`

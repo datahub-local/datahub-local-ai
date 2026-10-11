@@ -1,7 +1,7 @@
 # post-hook-taxonomy Specification
 
 ## Purpose
-TBD - created by archiving change add-hook-registry-and-visual-intent. Update Purpose after archive.
+The single registry of post hooks — each declaring when it is eligible, the opening shape it gives a post and the visual intent it carries — and the rule that a hook is chosen once, by the classifier, then read by the post generator and the media selector so the text and the visual are driven by the same decision.
 
 ## Requirements
 

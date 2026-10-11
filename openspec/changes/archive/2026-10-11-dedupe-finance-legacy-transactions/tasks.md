@@ -61,14 +61,15 @@
 - [x] 3.4 Confirmed stable: prune re-run reports `imported=169 superseded=0
   kept_positional=29`; sync dry run `read 169, already present 169, would_add 0`;
   gold is rebuilt. The DAG-level acceptance (a `skip_ingest=true` run ending in
-  `added 0`) is **pending the `:main` image publish** — the deployed dbt image
-  still carries the old silver model, so a DAG run now would restore the 297 rows
-  and the sync would re-add the 128. Trigger it after merge, not before.
+  `added 0`) is the remaining post-archive verification: the `:main` dbt image was
+  rebuilt from `7227848` at 2026-10-11T09:46Z, so a run now carries the deduped
+  silver model and must end `added 0`.
 - [x] 3.5 `workflows/dlt/README.md` gains the `--pipeline prune` section, the
   three-command operator step and the `FINANCE_PRUNE_APPLY` row
 
 ## 4. Record the outcome
 
 - [x] 4.1 `openspec validate --all` clean
-- [ ] 4.2 Archive with `openspec archive dedupe-finance-legacy-transactions`,
-  after the image publish and the `skip_ingest` DAG run above
+- [x] 4.2 Archived with `openspec archive dedupe-finance-legacy-transactions` once the
+  `:main` dbt image carried the fix; the `skip_ingest` DAG run (3.4) is left as a
+  post-archive verification rather than a gate on the archive

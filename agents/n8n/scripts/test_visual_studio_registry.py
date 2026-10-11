@@ -23,6 +23,11 @@ TYPES = ROOT / "datasets" / "visual_types.json"
 GIF_FRAME_CAP = 500
 GIF_PIXEL_CAP = 36152320
 
+# A clip is at least this long, and a multi-scene clip gives each scene at least
+# SCENE_SECONDS; the brief asks for max(durationSeconds, SCENES * secondsPerScene).
+VIDEO_FLOOR_SECONDS = 30
+SCENE_SECONDS = 10
+
 AUTHORS = {"image", "agent"}
 RENDERS = {"static", "video", "deck"}
 
@@ -107,7 +112,27 @@ def test_the_linkedin_video_type_is_the_feed_frame(registry):
     entry = next(t for t in registry["types"] if t["id"] == "animation_linkedin_video")
     assert entry["aspect"] == "4:5"
     assert entry["budget"]["fps"] == 30
-    assert entry["budget"]["frames"] > 0 and entry["durationSeconds"] > 0
+    assert entry["durationSeconds"] == VIDEO_FLOOR_SECONDS
+    assert entry["budget"]["frames"] == entry["durationSeconds"] * entry["budget"]["fps"]
+    assert entry["secondsPerScene"] == SCENE_SECONDS
+
+
+@pytest.mark.parametrize("tid", ["animation", "animation_linkedin_video", "deck"])
+def test_every_animated_video_declares_the_floor_and_a_scene_minimum(registry, tid):
+    """A clip runs at least the floor, and each named scene gets at least its minimum."""
+    entry = next(t for t in registry["types"] if t["id"] == tid)
+    assert entry["durationSeconds"] >= VIDEO_FLOOR_SECONDS, f"{tid} is shorter than the floor"
+    assert entry["secondsPerScene"] == SCENE_SECONDS, f"{tid} declares no per-scene minimum"
+    # Frames follow the declared rate, so extending a clip lengthens it instead of
+    # speeding it up.
+    assert entry["budget"]["frames"] == entry["durationSeconds"] * entry["budget"]["fps"], tid
+
+
+def test_the_gif_type_keeps_its_short_clip(registry):
+    """A per-scene floor would blow the platform pixel cap, so the GIF declares none."""
+    entry = next(t for t in registry["types"] if t["id"] == "animation_linkedin")
+    assert "secondsPerScene" not in entry
+    assert entry["durationSeconds"] < VIDEO_FLOOR_SECONDS
 
 
 def test_the_linkedin_gif_type_is_inside_the_platform_caps(registry):

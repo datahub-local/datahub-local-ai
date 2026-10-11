@@ -4,6 +4,7 @@
   "_comment_render": "render is one of: static (one raster file authored directly), video (the composer's render, encoded to the type's format), deck (one self-contained HTML presentation authored by the composer, which the same run also renders to video).",
   "_comment_budget": "budget.fps/frames/viewport size the composition the composer is briefed to author. A type may declare its own; the workflow passes the type's values to the composer.",
   "_comment_paired": "paired declares a second artifact the same run yields: the format of the extra file and the asset type it is returned as. Only a deck declares one.",
+  "_comment_duration": "durationSeconds is the clip's floor in seconds. secondsPerScene is the minimum each scene gets when the caller names a scene count, so the brief asks for max(durationSeconds, SCENES x secondsPerScene). A type that declares no secondsPerScene keeps its duration whatever the scene count. The GIF type declares none because a per-scene floor would push it past the platform's pixel cap.",
   "_comment_brandKind": "brandKind is diagrammatic or photographic. A photographic type is rendered from the brand's photographic art direction with no lettering; a diagrammatic type is rendered from the brand palette in the requested scheme, with lettering.",
   "_comment_default": "Requested types come from the caller's ASSET_TYPES parameter (comma-separated). When it is blank, default_types is used. max_types_per_request caps one request.",
   "budget": {
@@ -32,11 +33,12 @@
       "render": "video",
       "format": "mp4",
       "aspect": "16:9",
-      "durationSeconds": 12,
+      "durationSeconds": 30,
+      "secondsPerScene": 10,
       "available": true,
       "budget": {
         "fps": 30,
-        "frames": 360,
+        "frames": 900,
         "viewport": 1280
       }
     },
@@ -64,11 +66,12 @@
       "render": "video",
       "format": "mp4",
       "aspect": "4:5",
-      "durationSeconds": 10,
+      "durationSeconds": 30,
+      "secondsPerScene": 10,
       "available": true,
       "budget": {
         "fps": 30,
-        "frames": 300,
+        "frames": 900,
         "viewport": 1080
       }
     },
@@ -92,6 +95,7 @@
       "format": "html",
       "aspect": "16:9",
       "durationSeconds": 30,
+      "secondsPerScene": 10,
       "paired": {
         "format": "mp4",
         "assetType": "deck_video"

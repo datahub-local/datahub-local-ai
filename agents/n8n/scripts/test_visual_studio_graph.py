@@ -229,11 +229,26 @@ def test_the_brief_carries_the_rules_feedback_and_extra_prompt(label, doc):
 
 
 @pytest.mark.parametrize("label,doc", list(_copies()))
+def test_the_brief_gives_each_scene_a_minimum_and_keeps_the_declared_rate(label, doc):
+    # A clip is at least the type's declared floor, and a named scene count gives each
+    # scene at least the type's declared scene length; the frame count scales with the
+    # longer duration so the clip is longer rather than faster.
+    body = _code(doc, "build_author_brief")
+    assert "SCENE_SECONDS" in body
+    assert "Math.max(declaredSeconds, scenes * sceneSeconds)" in body
+    assert "declaredFrames * seconds / declaredSeconds" in body
+    registry = _code(doc, "parse_registry")
+    assert "secondsPerScene" in registry and "SCENE_SECONDS" in registry
+
+
+@pytest.mark.parametrize("label,doc", list(_copies()))
 def test_a_deck_run_fetches_both_artifacts(label, doc):
     body = _code(doc, "build_author_brief")
     assert "PAIRED_ARTIFACT_URL" in body
     assert "out.html" in body, "the deck brief does not name the deck file"
     assert "a.RENDER_MODE" in body and "'deck'" in body
+    # The deck honours a named scene count like every other animated video.
+    assert "...(isIteration ? opening : [deckPlanLine]),\n      sceneLine," in body
     node = _node(doc, "fetch_paired_artifact")
     assert "PAIRED_ARTIFACT_URL" in node["parameters"]["url"]
     assert node.get("onError") == "continueRegularOutput"

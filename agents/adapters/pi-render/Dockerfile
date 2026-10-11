@@ -70,7 +70,7 @@ COPY vendor/gsap.min.js ./vendor/gsap.min.js
 # lifecycle scripts disabled. It is pure JS — verified to install and run on this
 # image's Debian/glibc, not only on Alpine.
 RUN npm install --global --ignore-scripts --no-audit --no-fund \
-      @earendil-works/pi-coding-agent@0.84.4
+      @earendil-works/pi-coding-agent@0.99.2
 
 # Move the engine to a stable, documented path so the prompt and the entrypoint
 # do not depend on the build directory.

@@ -1,5 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
@@ -11,6 +13,8 @@ import {
   contentTypeFor,
   transcodeArgs,
   outputFps,
+  stageVendorAssets,
+  VENDOR_ASSETS,
   DEFAULT_SESSION_WORKSPACE,
 } from "../session-lib.mjs";
 
@@ -34,7 +38,7 @@ test("safeSessionId accepts a path-safe id and rejects everything else", () => {
 });
 
 test("safeFormat keeps a known format and defaults an unknown one", () => {
-  for (const f of ["mp4", "gif", "webp", "png", "svg"]) assert.equal(safeFormat(f), f);
+  for (const f of ["mp4", "gif", "webp", "png", "svg", "html"]) assert.equal(safeFormat(f), f);
   assert.equal(safeFormat("avi"), "mp4");
   assert.equal(safeFormat(undefined), "mp4");
 });
@@ -43,6 +47,7 @@ test("artifactName follows the format", () => {
   assert.equal(artifactName("mp4"), "out.mp4");
   assert.equal(artifactName("gif"), "out.gif");
   assert.equal(artifactName("svg"), "out.svg");
+  assert.equal(artifactName("html"), "out.html");
   assert.equal(artifactName("nonsense"), "out.mp4");
 });
 
@@ -56,6 +61,7 @@ test("resolveArtifact serves only this server's files inside the run directory",
   assert.equal(resolveArtifact(WORKSPACE, "run1", "out.mp4"), join(WORKSPACE, "runs", "run1", "out.mp4"));
   assert.equal(resolveArtifact(WORKSPACE, "run1", "out.gif"), join(WORKSPACE, "runs", "run1", "out.gif"));
   assert.equal(resolveArtifact(WORKSPACE, "run1", "out.svg"), join(WORKSPACE, "runs", "run1", "out.svg"));
+  assert.equal(resolveArtifact(WORKSPACE, "run1", "out.html"), join(WORKSPACE, "runs", "run1", "out.html"));
   // Traversal, unknown names and absolute paths resolve to null.
   assert.equal(resolveArtifact(WORKSPACE, "run1", "../out.mp4"), null);
   assert.equal(resolveArtifact(WORKSPACE, "run1", "out.txt"), null);
@@ -70,11 +76,13 @@ test("contentTypeFor matches the served artifact", () => {
   assert.equal(contentTypeFor("out.gif"), "image/gif");
   assert.equal(contentTypeFor("out.webp"), "image/webp");
   assert.equal(contentTypeFor("out.png"), "image/png");
+  assert.equal(contentTypeFor("out.html"), "text/html");
 });
 
 test("transcodeArgs only runs ffmpeg when the format is not mp4", () => {
   assert.equal(transcodeArgs("mp4", {}), null);
   assert.equal(transcodeArgs("svg", {}), null, "an SVG is authored directly, not transcoded");
+  assert.equal(transcodeArgs("html", {}), null, "a deck is authored directly, not transcoded");
   const gif = transcodeArgs("gif", { fps: 8, width: 1080 });
   const gifLine = gif.join(" ");
   assert.ok(gifLine.includes("palettegen") && gifLine.includes("paletteuse"));
@@ -102,4 +110,22 @@ test("a declared duration trims the input and sets the frame rate", () => {
   assert.ok(line.includes("-t 18"), "the input is trimmed to the declared duration");
   assert.ok(line.includes("fps=1.333"), "24 frames over 18s is 1.333 fps");
   assert.ok(line.includes("scale=1080:-2"));
+});
+
+test("stageVendorAssets copies the served GSAP into the run directory", async () => {
+  // An absolute /opt path 404s at render time; the composition references a sibling,
+  // so the asset must be staged next to it.
+  assert.deepEqual(VENDOR_ASSETS, ["gsap.min.js"]);
+  const vendor = await mkdtemp(join(tmpdir(), "pi-vendor-"));
+  const run = await mkdtemp(join(tmpdir(), "pi-run-"));
+  try {
+    await writeFile(join(vendor, "gsap.min.js"), "/* gsap */");
+    assert.deepEqual(await stageVendorAssets(run, vendor), ["gsap.min.js"]);
+    assert.equal(await readFile(join(run, "gsap.min.js"), "utf8"), "/* gsap */");
+    // A missing asset is best-effort, not fatal.
+    assert.deepEqual(await stageVendorAssets(run, join(vendor, "nope")), []);
+  } finally {
+    await rm(vendor, { recursive: true, force: true });
+    await rm(run, { recursive: true, force: true });
+  }
 });

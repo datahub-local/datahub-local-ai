@@ -99,6 +99,11 @@ echo "pi:        $(command -v pi || echo MISSING) ($(pi --version 2>/dev/null | 
 echo "prompt:    $prompt_path ($(wc -c < "$prompt_path") bytes)"
 echo "task:      $(printf '%s' "$TASK" | head -c 200)"
 
+# The vendored GSAP is served as a sibling of the composition (an absolute filesystem
+# path 404s at render time, hit live). Stage it in the workspace so the composer's
+# `<script src="gsap.min.js">` resolves.
+cp /opt/hyperframes/vendor/gsap.min.js "$PWD/gsap.min.js" 2>/dev/null || true
+
 # The caller's task is the brief; the file supplies the method. They are joined
 # here rather than in the prompt file so the file stays a reusable constant and the
 # brief arrives unmodified from the platform.

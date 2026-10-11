@@ -1,11 +1,12 @@
-// The composer cannot see images, and the engine's checks do not catch a composition
-// that fills only part of its frame or changes too fast to read. Live studio runs on
-// 2026-10-08 passed `hyperframes check` yet shipped a top-40%-only layout and a clip
-// that overran its requested duration; both were caught only by a human. A later run
-// (12645) satisfied the review's proportion check by measuring a `flex: 1` wrapper
-// while the visible content stayed in the top third, so the guide names the wrapper as
-// an invalid measure. This test keeps the review, its numbers and its conventions from
-// being dropped.
+// The composer's guide is sandbox facts only.
+//
+// It used to restate the HyperFrames composition contract, mandate a nine-point
+// pre-render review with hard-coded pacing numbers, require a final hold and a page
+// indicator. That harness competed with the framework's own skills — which the image
+// now ships in full — and its pacing rules mandated the frozen motion the framework
+// names as a cheap-motion tell. The guide now names only what the brief cannot state:
+// the working directory, the engine and its skills, the vendored GSAP, no network, and
+// how to run the render. This test keeps the method from coming back.
 
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -16,58 +17,57 @@ import { test } from "node:test";
 const here = dirname(fileURLToPath(import.meta.url));
 const guide = readFileSync(join(here, "..", "prompts", "authoring.md"), "utf8");
 
-test("the guide requires a review before rendering", () => {
-  assert.match(guide, /## Review before you render/);
-  for (const check of [
-    "**Content.**",
-    "**Proportion.**",
-    "**Legibility.**",
-    "**Pacing.**",
-    "**Pages.**",
-    "**No collisions.**",
-    "**A clean first frame.**",
-    "**Lay out with the box model, not with coordinates.**",
-    "**No overflow.**",
+test("the guide states the sandbox facts", () => {
+  assert.match(guide, /working directory/i);
+  assert.match(guide, /`hyperframes` is on `PATH`|hyperframes.*on .PATH/);
+  assert.match(guide, /\/opt\/hyperframes\/skills\//);
+  assert.match(guide, /gsap\.min\.js/);
+  assert.match(guide, /no network/i);
+  assert.match(guide, /foreground/);
+  assert.match(guide, /cannot see images|You cannot see images/);
+});
+
+test("the guide keeps the render command, its flags and the foreground rule", () => {
+  assert.match(guide, /hyperframes render/);
+  assert.match(guide, /--low-memory-mode/);
+  assert.match(guide, /render_cancelled_parent_exited|aborts? the moment/);
+});
+
+test("a turn that never renders is a stated failure", () => {
+  assert.match(guide, /must end in a render/);
+});
+
+test("the vendored GSAP is served, never referenced by absolute path or a CDN", () => {
+  assert.match(guide, /gsap\.min\.js/);
+  assert.match(guide, /CDN/);
+  // The absolute /opt path is what 404'd at render time; it must not come back.
+  assert.ok(
+    !/\/opt\/hyperframes\/vendor\/gsap\.min\.js/.test(guide),
+    "the guide references the vendored GSAP by absolute path again"
+  );
+});
+
+test("no composition-contract restatement survives", () => {
+  for (const forbidden of [
+    "data-composition-id",
+    "data-start",
+    "data-duration",
+    "__timelines",
+    "paused: true",
   ]) {
-    assert.ok(guide.includes(check), `review is missing the ${check} check`);
+    assert.ok(!guide.includes(forbidden), `the guide restates the contract: ${forbidden}`);
   }
 });
 
-test("the proportion check measures the visible content, not a wrapper", () => {
-  assert.match(guide, /visible content/);
-  assert.match(guide, /stretches to fill the height/);
-  assert.match(guide, /not the measure/);
-});
-
-test("multi-scene compositions carry a page indicator", () => {
-  assert.match(guide, /more than one scene/);
-  assert.match(guide, /bottom-right/);
-  assert.match(guide, /2 \/ 3/);
-});
-
-test("the review names the legibility minimums", () => {
-  for (const size of ["34px", "18px", "14px"]) {
-    assert.ok(guide.includes(size), `review is missing the ${size} minimum`);
+test("no review section and no pacing numbers survive", () => {
+  assert.ok(!/##\s*Review before you render/.test(guide), "the review section is back");
+  for (const number of ["2.5-3.5", "0.6-0.9", "1.5 second"]) {
+    assert.ok(!guide.includes(number), `the guide carries the pacing number ${number}`);
   }
+  assert.ok(!/End on a hold/.test(guide), "the frozen final hold is back");
+  assert.ok(!/page indicator/i.test(guide), "the page-indicator rule is back");
 });
 
-test("the review bounds the total to the brief's duration", () => {
-  assert.match(guide, /must not exceed the\s+duration the brief\s+asks for/);
-});
-
-test("the review requires a final hold so a reader can finish", () => {
-  assert.match(guide, /End on a hold/);
-  assert.match(guide, /last frame must stay still/);
-  assert.match(guide, /State the total and the hold/);
-});
-
-test("the guide describes the SVG authoring mode", () => {
-  assert.match(guide, /If the brief asks for SVG/);
-  assert.match(guide, /out\.svg/);
-  assert.match(guide, /no script, no network/);
-});
-
-test("the review is reported", () => {
-  assert.match(guide, /State the review, with its\s+numbers/);
-  assert.match(guide, /then the review you performed/);
+test("the SVG authoring mode is gone (the brief carries it)", () => {
+  assert.ok(!/out\.svg/.test(guide), "the SVG instructions are back in the guide");
 });

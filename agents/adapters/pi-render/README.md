@@ -275,30 +275,18 @@ The per-run directory is the point: turns are serialized, but a later run must n
 overwrite an earlier run's artifact before its caller has fetched it. `session-lib.mjs`
 holds the path and format rules, unit-tested under `test/`.
 
-### The authoring review (before render)
+### The composer's guide is sandbox facts
 
-`prompts/authoring.md` makes the agent review its composition before it renders it,
-because the engine's own `check` does not cover the two defects seen live on 2026-10-08
-(`LinkedIn Post Sharing`, row 49, `POST_MEDIA=AGENT`), which took three composer turns:
-
-- studio run `12622`: every scene's content sat in the top ~40 % of the 776×970 frame —
-  the padding and centering were on the outer `#s1`/`#s2` while the content lived in an
-  absolutely-positioned inner `.scene` that escaped them — and `hyperframes check`
-  reported 0 layout errors;
-- studio run `12625`: the same proportion defect, and it overran the requested 9 s by
-  building 10.5 s, so the GIF sample dropped most of the final scene;
-- studio run `12628`: accepted, after a human supplied proportion and never-overshoot
-  feedback;
-- studio run `12645`, the first with the review in place: it satisfied the proportion
-  check by measuring a `flex: 1` wrapper and reported "86 %", while the frames kept every
-  scene's content in the top third — so the rule now names the **visible content** as the
-  measure, and a multi-scene clip also carries a page indicator.
-
-The composer cannot see images, so the review is a checklist over the values the agent
-already knows — its own CSS and its scene durations — not visual inspection: content
-fidelity, frame proportion, legibility minimums, and pacing with a total no longer than
-the brief's duration. `test/authoring-prompt.test.mjs` keeps the section and its numbers
-from being dropped.
+`prompts/authoring.md` names only what the brief cannot and the framework does not: the
+working directory, `hyperframes` on `PATH`, the skills path, the vendored GSAP, no network
+at render, how to run the render, and that the composer cannot see images. The composition
+contract, the motion method, the pacing numbers and the pre-render review were removed on
+2026-10-11 (`openspec/changes/upgrade-visual-studio-authoring/`): they were our own harness
+competing with the framework's own skills, and their pacing rules mandated the frozen final
+frame the framework names as a cheap-motion tell. The framework's skills own the contract;
+`hyperframes lint` and `check` are the automated gate; the motion grammar lives in
+`agents/n8n/prompts/visual_motion_rules.md`, carried by the brief.
+`test/authoring-prompt.test.mjs` keeps the method and the review from coming back.
 
 ### Deploying it
 
@@ -398,6 +386,10 @@ descriptor exists to catch.
   breaks this image, and there is no upstream conformance run for it.
 - **No conformance suite has been run against it.** The upstream adapters pass one;
   this image has not, so treat it as experimental.
-- **`hyperframes-core` is not bundled.** The pinned package ships three skills
-  (`hyperframes`, `hyperframes-cli`, `media-use`); the composition contract is
-  stated in `prompts/authoring.md` instead of relying on a file that is not there.
+- **The full skill set is fetched from the repository at the pinned release.** The npm
+  package's `dist/skills/` ships three skills (`hyperframes`, `hyperframes-cli`,
+  `media-use`); the rest — including `hyperframes-core`, `hyperframes-animation`,
+  `hyperframes-keyframes`, `hyperframes-registry`, `hyperframes-creative` and
+  `hyperframes-studio` — are fetched from `heygen-com/hyperframes` at the same tag during
+  `docker build`, and the build fails if any is missing. This supersedes the earlier
+  "`hyperframes-core` is not bundled" limitation.

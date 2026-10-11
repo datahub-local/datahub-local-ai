@@ -19,9 +19,12 @@ WORKFLOWS = Path(__file__).resolve().parents[1] / "workflows"
 SHARING = WORKFLOWS / "linked_in_post_sharing.workflow.json"
 TYPES = WORKFLOWS.parent / "datasets" / "visual_types.json"
 
-ANIMATED_TYPE = "animation_linkedin"
+ANIMATED_TYPE = "animation_linkedin_video"
+GIF_TYPE = "animation_linkedin"
 AGENT_TYPE = "animation"
 PUBLISH = "send_2_linkedin_omImage"
+VIDEO_REGISTER = "linkedin_register_video"
+VIDEO_POST = "linkedin_post_video"
 
 
 def _copies(path):
@@ -82,16 +85,16 @@ def test_animated_rows_call_the_studio_for_the_declared_type(label, document):
     """The animation comes from the studio, asked for by type, with no frozen spec.
 
     Both animated opt-ins (ANIMATED and AGENT) are composer-authored, and LinkedIn
-    needs a GIF inside the platform cap, so both request the ``animation_linkedin``
-    type. The type is fixed here rather than following POST_MEDIA: the deterministic
-    path is retired, so the opt-in now only decides *whether* media is animated.
+    now publishes video, so both request the ``animation_linkedin_video`` type. The
+    type is fixed here rather than following POST_MEDIA: the deterministic path is
+    retired, so the opt-in now only decides *whether* media is animated.
     """
     connections = _connections(document)
     nodes = _nodes(document)
     assert "execute_visual_studio" in _targets(connections, "switch_post_media")
 
     values = nodes["execute_visual_studio"]["parameters"]["workflowInputs"]["value"]
-    assert values["ASSET_TYPES"] == ANIMATED_TYPE, "the LinkedIn branch must ask for the GIF type"
+    assert values["ASSET_TYPES"] == ANIMATED_TYPE, "the LinkedIn branch must ask for the video type"
     # No frozen spec: a post has one media asset, so nothing needs keeping in step,
     # and a retry has to be free to re-author.
     assert values.get("SPEC_JSON") in ("", None)
@@ -121,8 +124,11 @@ def test_animation_is_approved_before_it_is_published(label, document):
     assert _walk(connections, "execute_visual_studio") >= {"check_animation_result", "convert_animation",
                                                           "notification_sent_animation",
                                                           "notification_accept_animation",
-                                                          "switch_user_accept_animation", PUBLISH}
-    assert PUBLISH in _targets(connections, "switch_user_accept_animation")
+                                                          "switch_user_accept_animation",
+                                                          "if_video_publish", PUBLISH}
+    # One decision point after the approval chooses the path by the asset's media type.
+    assert "if_video_publish" in _targets(connections, "switch_user_accept_animation")
+    assert PUBLISH in _targets(connections, "if_video_publish")
     # And the gate's rejection goes to the animation's own retry form, not the image's.
     assert "notification_retry_or_cancel_animation" in _targets(connections, "switch_user_accept_animation")
 
@@ -168,10 +174,10 @@ def test_animation_retry_re_authors_and_cancel_does_not_publish(label, document)
     assert PUBLISH not in _walk(connections, "update_status_cancelled")
 
 
-def test_the_declared_type_is_inside_the_platform_caps():
-    """GIF, at most 500 frames, at most 36,152,320 pixels in total."""
+def test_the_gif_type_is_still_inside_the_platform_caps():
+    """The GIF type stays available and inside the cap: at most 500 frames, 36,152,320 pixels."""
     registry = json.loads(TYPES.read_text())
-    entry = next(t for t in registry["types"] if t["id"] == ANIMATED_TYPE)
+    entry = next(t for t in registry["types"] if t["id"] == GIF_TYPE)
     assert entry["render"] == "video"
     assert entry["format"] == "gif"
     assert entry["available"] is True
@@ -185,7 +191,7 @@ def test_the_declared_type_is_inside_the_platform_caps():
 
 
 def test_the_agent_types_are_declared():
-    """Both animation types are composer-authored; only LinkedIn carries the GIF cap."""
+    """The LinkedIn branch asks for the video type; the GIF type remains the capped fallback."""
     registry = json.loads(TYPES.read_text())
     entry = next(t for t in registry["types"] if t["id"] == AGENT_TYPE)
     assert entry["author"] == "agent"
@@ -193,12 +199,67 @@ def test_the_agent_types_are_declared():
     assert entry["available"] is True
     assert entry.get("durationSeconds", 0) > 0
 
-    linkedin = next(t for t in registry["types"] if t["id"] == ANIMATED_TYPE)
-    budget = linkedin["budget"]
+    video = next(t for t in registry["types"] if t["id"] == ANIMATED_TYPE)
+    assert video["author"] == "agent"
+    assert video["render"] == "video"
+    assert video["format"] == "mp4"
+    assert video["aspect"] == "4:5"
+    assert "holdSeconds" not in video
+
+    gif = next(t for t in registry["types"] if t["id"] == GIF_TYPE)
+    budget = gif["budget"]
     width = budget["viewport"]
     height = round(width * 5 / 4)
     assert budget["frames"] <= 500
     assert budget["frames"] * width * height <= 36152320
+
+
+@pytest.mark.parametrize("label,document", list(_copies(SHARING)))
+def test_the_publish_choice_is_the_asset_media_type(label, document):
+    """One decision point, keyed on the asset's own content type, not the type name."""
+    nodes = _nodes(document)
+    left = nodes["if_video_publish"]["parameters"]["conditions"]["conditions"][0]["leftValue"]
+    assert "convert_animation" in left and "CONTENT_TYPE" in left and "video/mp4" in left
+    # The image and GIF path is unchanged: the same node, chosen by the same binary.
+    expr = nodes[PUBLISH]["parameters"]["binaryPropertyName"]
+    assert "convert_animation" in expr and "convert_image" in expr
+    assert nodes[PUBLISH]["parameters"]["shareMediaCategory"] == "IMAGE"
+
+
+@pytest.mark.parametrize("label,document", list(_copies(SHARING)))
+def test_a_video_asset_takes_the_api_path(label, document):
+    """The node cannot upload video, so a video goes through the LinkedIn API directly."""
+    connections = _connections(document)
+    nodes = _nodes(document)
+    assert _walk(connections, "if_video_publish") >= {
+        "linkedin_video_register_request",
+        VIDEO_REGISTER,
+        "linkedin_video_upload",
+        "linkedin_video_post_body",
+        VIDEO_POST,
+        "linkedin_video_urn",
+        "send_published_notification_a",
+    }
+    # registerUpload, then the signed PUT, then ugcPosts as VIDEO.
+    assert "registerUpload" in nodes[VIDEO_REGISTER]["parameters"]["url"]
+    assert "uploadUrl" in nodes["linkedin_video_upload"]["parameters"]["url"]
+    assert "binaryData" == nodes["linkedin_video_upload"]["parameters"]["contentType"]
+    body = nodes["linkedin_video_post_body"]["parameters"]["jsCode"]
+    assert "shareMediaCategory: 'VIDEO'" in body
+    assert "ugcPosts" in nodes[VIDEO_POST]["parameters"]["url"]
+    # The published link resolves from whichever path ran.
+    assert "linkedin_video_urn" in nodes["send_published_notification_a"]["parameters"]["text"]
+    assert "linkedin_video_urn" in nodes["update_status_published_a"]["parameters"]["columns"]["value"]["LINKEDIN_URL"]
+
+
+@pytest.mark.parametrize("label,document", list(_copies(SHARING)))
+def test_the_video_api_nodes_carry_the_linkedin_credential(label, document):
+    """n8n refuses to publish a workflow with unconfigured nodes."""
+    nodes = _nodes(document)
+    for name in (VIDEO_REGISTER, VIDEO_POST):
+        creds = nodes[name].get("credentials") or {}
+        assert "linkedInOAuth2Api" in creds, f"{label}: {name} has no LinkedIn credential"
+        assert nodes[name]["parameters"]["authentication"] == "predefinedCredentialType"
 
 
 CREDENTIALS = {

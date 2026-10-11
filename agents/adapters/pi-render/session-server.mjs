@@ -34,6 +34,7 @@ import {
   resolveArtifact,
   contentTypeFor,
   transcodeArgs,
+  stageVendorAssets,
   DEFAULT_SESSION_WORKSPACE,
 } from "./session-lib.mjs";
 
@@ -310,10 +311,15 @@ http
       // artifact, and the agent is told exactly where to write it.
       const dir = resolveRunDir(workDir, sessionID);
       await mkdir(dir, { recursive: true });
+      // The vendored GSAP resolves as a sibling of the composition; stage it before
+      // the turn so the composer's `<script src="gsap.min.js">` is served.
+      await stageVendorAssets(dir);
       const prompt =
         `${brief}\n\n---\n\nWorking directory: ${dir}\n` +
         (format === "svg"
           ? `Author one self-contained animated SVG and write it to \`out.svg\` in this directory. Do not write index.html and do not render.\n\n${method}`
+          : format === "html"
+          ? `Author one self-contained HTML deck and write it to \`out.html\` in this directory, then author a composition of the same plan to \`index.html\` here and render it to \`out.mp4\` so the video matches the deck.\n\n${method}`
           : `Write the composition to \`index.html\` here and render it to \`out.mp4\` in this same directory.\n\n${method}`);
 
       const response = await (queue = queue.catch(() => undefined).then(() =>

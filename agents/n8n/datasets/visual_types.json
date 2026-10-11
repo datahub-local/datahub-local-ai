@@ -1,8 +1,9 @@
 {
   "_comment": "Artifact-type registry for the Visual Studio workflow. Downloaded through DownloadTemplate (template_name: datasets/visual_types.json) with an empty template_vars, so this file must contain no doubled-curly-brace placeholder anywhere, not even in a comment. It declares how each type is authored, rendered and formatted; the workflow routes on these fields and adding a type is a data change.",
   "_comment_author": "author is one of: image (content -> image prompt -> image model), agent (content -> the pi-render composer authors and renders a composition -> the artifact). The composer plans a storyboard and authors the composition in one turn; the type declares only the output frame (format, aspect, duration, budget).",
-  "_comment_render": "render is one of: static (one raster file), video (the composer's render, encoded to the type's format).",
+  "_comment_render": "render is one of: static (one raster file authored directly), video (the composer's render, encoded to the type's format), deck (one self-contained HTML presentation authored by the composer, which the same run also renders to video).",
   "_comment_budget": "budget.fps/frames/viewport size the composition the composer is briefed to author. A type may declare its own; the workflow passes the type's values to the composer.",
+  "_comment_paired": "paired declares a second artifact the same run yields: the format of the extra file and the asset type it is returned as. Only a deck declares one.",
   "_comment_brandKind": "brandKind is diagrammatic or photographic. A photographic type is rendered from the brand's photographic art direction with no lettering; a diagrammatic type is rendered from the brand palette in the requested scheme, with lettering.",
   "_comment_default": "Requested types come from the caller's ASSET_TYPES parameter (comma-separated). When it is blank, default_types is used. max_types_per_request caps one request.",
   "budget": {
@@ -32,7 +33,6 @@
       "format": "mp4",
       "aspect": "16:9",
       "durationSeconds": 12,
-      "holdSeconds": 5,
       "available": true,
       "budget": {
         "fps": 30,
@@ -43,18 +43,33 @@
     {
       "id": "animation_linkedin",
       "brandKind": "diagrammatic",
-      "name": "Animation (LinkedIn)",
+      "name": "Animation (LinkedIn, animated image)",
       "author": "agent",
       "render": "video",
       "format": "gif",
       "aspect": "4:5",
       "durationSeconds": 9,
-      "holdSeconds": 5,
       "available": true,
       "budget": {
         "fps": 8,
         "frames": 48,
         "viewport": 776
+      }
+    },
+    {
+      "id": "animation_linkedin_video",
+      "brandKind": "diagrammatic",
+      "name": "Animation (LinkedIn, video)",
+      "author": "agent",
+      "render": "video",
+      "format": "mp4",
+      "aspect": "4:5",
+      "durationSeconds": 10,
+      "available": true,
+      "budget": {
+        "fps": 30,
+        "frames": 300,
+        "viewport": 1080
       }
     },
     {
@@ -66,8 +81,27 @@
       "format": "svg",
       "aspect": "4:5",
       "durationSeconds": 12,
-      "holdSeconds": 5,
       "available": true
+    },
+    {
+      "id": "deck",
+      "brandKind": "diagrammatic",
+      "name": "Presentation",
+      "author": "agent",
+      "render": "deck",
+      "format": "html",
+      "aspect": "16:9",
+      "durationSeconds": 30,
+      "paired": {
+        "format": "mp4",
+        "assetType": "deck_video"
+      },
+      "available": true,
+      "budget": {
+        "fps": 30,
+        "frames": 900,
+        "viewport": 1280
+      }
     }
   ]
 }

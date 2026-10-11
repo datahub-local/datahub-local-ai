@@ -3,6 +3,7 @@
 // unit-tested with `node --test` without starting the HTTP server.
 
 import { basename, join, normalize, sep } from "node:path";
+import { copyFile } from "node:fs/promises";
 
 // The shape session-server.mjs accepts for session_id: a run identifier that is
 // safe as a single path segment. `.` and `..` are excluded even though the
@@ -12,7 +13,7 @@ export const SESSION_ID_RE = /^(?!\.{1,2}$)[a-zA-Z0-9._-]{1,80}$/;
 
 // A produced artifact name. Deliberately narrower than session_id: only the names
 // this server writes are ever served.
-const ARTIFACT_NAME_RE = /^out\.(mp4|gif|webp|png|svg)$/;
+const ARTIFACT_NAME_RE = /^out\.(mp4|gif|webp|png|svg|html)$/;
 
 export const DEFAULT_FORMAT = "mp4";
 
@@ -28,6 +29,9 @@ export const FORMATS = {
   webp: { ext: "webp", mime: "image/webp" },
   png: { ext: "png", mime: "image/png" },
   svg: { ext: "svg", mime: "image/svg+xml" },
+  // A deck is authored directly as one self-contained HTML file, and the same turn
+  // renders its paired out.mp4; there is nothing to transcode for the deck itself.
+  html: { ext: "html", mime: "text/html" },
 };
 
 export function isValidSessionId(value) {
@@ -53,6 +57,29 @@ export function artifactName(format) {
 // overwrite one another's artifact.
 export function runDir(workspace, sessionId) {
   return join(workspace, "runs", safeSessionId(sessionId));
+}
+
+// The vendored GSAP the composition loads. It lives in the image at
+// /opt/hyperframes/vendor/gsap.min.js, but the served document resolves a sibling
+// path: an absolute filesystem path 404s at render time (hit live). Staging it next
+// to the composition as gsap.min.js is what makes `<script src="gsap.min.js">` work.
+export const VENDOR_DIR = process.env.SYMPOZIUM_VENDOR_DIR || "/opt/hyperframes/vendor";
+export const VENDOR_ASSETS = ["gsap.min.js"];
+
+// Copy the vendored assets into a run directory before the composer runs. Best effort:
+// a missing asset is a render-time failure the composer reports, not a reason to fail
+// the turn. Returns the names staged.
+export async function stageVendorAssets(dir, vendorDir = VENDOR_DIR) {
+  const staged = [];
+  for (const name of VENDOR_ASSETS) {
+    try {
+      await copyFile(join(vendorDir, name), join(dir, name));
+      staged.push(name);
+    } catch {
+      // left out of staged; the composition fails loudly if it needs it
+    }
+  }
+  return staged;
 }
 
 // Resolve a fetch to an absolute path inside the run directory, or null when the
@@ -139,6 +166,10 @@ export function transcodeArgs(format, { fps, width, frames, durationSeconds } = 
     case "svg":
       // Authored directly by the composer as a self-contained animated SVG; there is
       // no engine out.mp4 to derive it from, so nothing to transcode.
+      return null;
+    case "html":
+      // The deck is authored directly and its paired out.mp4 is rendered by the
+      // composer in the same turn; the deck itself needs no transcode.
       return null;
     default:
       return null;

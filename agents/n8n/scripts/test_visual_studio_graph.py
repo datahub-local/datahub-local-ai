@@ -73,7 +73,11 @@ def test_the_agent_and_image_branches_are_wired(label, doc):
 def test_the_agent_branch_reaches_the_merge(label, doc):
     assert _targets(doc, "build_author_brief", 0) == ["execute_author"]
     assert _targets(doc, "execute_author", 0) == ["fetch_artifact"]
-    assert _targets(doc, "fetch_artifact", 0) == ["agent_result"]
+    # A deck yields a second artifact, so the fetch is gated on the render mode.
+    assert _targets(doc, "fetch_artifact", 0) == ["if_deck"]
+    assert _targets(doc, "if_deck", 0) == ["fetch_paired_artifact"]
+    assert _targets(doc, "if_deck", 1) == ["agent_result"]
+    assert _targets(doc, "fetch_paired_artifact", 0) == ["agent_result"]
     assert _targets(doc, "agent_result", 0) == ["merge_branches"]
 
 
@@ -118,10 +122,10 @@ def test_the_trigger_contract_carries_force_and_style(label, doc):
     assert "unknown FORCE" in code
 
     main_values = {v["name"] for v in _node(doc, "main_trigger")["parameters"]["workflowInputs"]["values"]}
-    assert {"CONTENT", "ASSET_TYPES", "FEEDBACK", "FORCE", "STYLE"} <= main_values
+    assert {"CONTENT", "ASSET_TYPES", "FEEDBACK", "FORCE", "STYLE", "EXTRA_PROMPT"} <= main_values
     assert "SPEC_JSON" not in main_values
     form_fields = {f["fieldLabel"] for f in _node(doc, "form_trigger")["parameters"]["formFields"]["values"]}
-    assert {"CONTENT", "ASSET_TYPES", "FEEDBACK", "FORCE", "STYLE"} <= form_fields
+    assert {"CONTENT", "ASSET_TYPES", "FEEDBACK", "FORCE", "STYLE", "EXTRA_PROMPT"} <= form_fields
     assert "SPEC_JSON" not in form_fields
 
 
@@ -198,3 +202,41 @@ def test_the_agent_result_is_content_not_a_reference(label, doc):
     # ("database:<id>"), not base64; reading it directly uploaded a 6-byte file.
     assert "getBinaryDataBuffer(0, 'data')" in code
     assert "bin.data" not in code
+
+
+@pytest.mark.parametrize("label,doc", list(_copies()))
+def test_the_motion_rules_are_fetched_once_and_reach_the_brief(label, doc):
+    # One committed copy of the grammar, fetched the way brand.json is, and appended
+    # to every brief; the workflow does not restate the rules in its own logic.
+    dl = _node(doc, "download_visual_rules")
+    name = dl["parameters"]["workflowInputs"]["value"]["template_name"]
+    assert name == "prompts/visual_motion_rules.md"
+    assert _targets(doc, "download_visual_rules", 0) == ["visual_rules"]
+    assert _targets(doc, "visual_rules", 0) == ["download_registry"]
+    body = _code(doc, "build_author_brief")
+    assert "visual_rules" in body and "RULES" in body
+
+
+@pytest.mark.parametrize("label,doc", list(_copies()))
+def test_the_brief_carries_the_rules_feedback_and_extra_prompt(label, doc):
+    body = _code(doc, "build_author_brief")
+    assert "req.FEEDBACK" in body, "the reviewer's correction does not reach the composer"
+    assert "req.EXTRA_PROMPT" in body, "the caller's extra direction does not reach the composer"
+    # The harness this change removes must not come back.
+    assert "holdLine" not in body and "End on a hold" not in body
+    assert "reviewLine" not in body and "Before rendering, review" not in body
+    assert "HOLD_SECONDS" not in body
+
+
+@pytest.mark.parametrize("label,doc", list(_copies()))
+def test_a_deck_run_fetches_both_artifacts(label, doc):
+    body = _code(doc, "build_author_brief")
+    assert "PAIRED_ARTIFACT_URL" in body
+    assert "out.html" in body, "the deck brief does not name the deck file"
+    assert "a.RENDER_MODE" in body and "'deck'" in body
+    node = _node(doc, "fetch_paired_artifact")
+    assert "PAIRED_ARTIFACT_URL" in node["parameters"]["url"]
+    assert node.get("onError") == "continueRegularOutput"
+    # The deck and its video are two assets of one run.
+    result = _code(doc, "agent_result")
+    assert "'paired'" in result and "PAIRED_ASSET_TYPE" in result

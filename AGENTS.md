@@ -389,11 +389,15 @@ Seven structural things worth knowing before editing an export:
 
 One workflow turns a source text into visual assets, driven by the type registry
 `agents/n8n/datasets/visual_types.json`. Adding a type is a change to that file, not a
-branch in the graph. Three types: `image` (authored by the Gemini image model, png),
-`animation` (authored by the composer agent, mp4) and `animation_linkedin` (authored by
-the composer agent, gif, inside LinkedIn's GIF cap). A type declares its `brandKind`
-(`diagrammatic` or `photographic`), its output format and the frame the composer is
-briefed to produce.
+branch in the graph. Six types: `image` (authored by the Gemini image model, png),
+`animation` (authored by the composer agent, mp4), `animation_linkedin` (authored by the
+composer agent, gif, inside LinkedIn's GIF cap), `animation_linkedin_video` (authored by
+the composer agent, mp4, at the feed's 4:5 aspect), `svg` (authored by the composer agent,
+a self-contained animated SVG) and `deck` (authored by the composer agent, a
+self-contained HTML presentation that the same run also renders to mp4). A type declares
+its `brandKind` (`diagrammatic` or `photographic`), its output format and the frame the
+composer is briefed to produce; no animated type declares a `holdSeconds`, because a
+frozen final frame is the cheap-motion tell the framework names.
 
 **Authoring is one composer turn.** For an agent type the request's `CONTENT` is a brief
 sent to the `pi-render` session, which plans a **storyboard** (form, style, scenes) and
@@ -403,6 +407,29 @@ kept on the asset as `STORYBOARD` in the run record, so a bad visual is diagnosa
 There is no typed content spec and no markup template: the old `spec_markup`/`spec_raster`/
 `spec_service` branches, the browser frame capture and the render service are all gone.
 The `image` type stays on Gemini — a different medium, not a fallback for an animation.
+A `deck` run returns two assets from that one turn: the deck (`out.html`) and its paired
+video (`out.mp4`), fetched by `fetch_paired_artifact` and emitted as `deck` +
+`deck_video`.
+
+**The composer's guide is sandbox facts; the brief is the work.**
+`agents/adapters/pi-render/prompts/authoring.md` states only what the brief cannot and the
+framework does not: the working directory, `hyperframes` on `PATH`, the skills path, the
+vendored GSAP, no network, how to run the render, and that the composer cannot see images.
+It must not regain a method section, a composition-contract restatement or a review
+checklist: the framework's own skills own the contract and `hyperframes lint`/`check` are
+the automated gate. The **brief carries the motion grammar**, from the one committed copy
+`agents/n8n/prompts/visual_motion_rules.md`, which `download_visual_rules` →
+`visual_rules` fetches the way `brand.json` is; changing the grammar is a prompt-file
+change, live on push, and it is not restated in the workflow. The brief also carries the
+request's `FEEDBACK` (a reviewer's correction) and `EXTRA_PROMPT` (the caller's free
+direction) verbatim, appended last, so a rejection reaches the composer on the next turn.
+The image **fetches the framework's full skill set at the pinned release** in `docker
+build` (`hyperframes-animation`, `-keyframes`, `-registry`, `-creative`, `-studio`,
+`-core`) — the npm dist ships only three — asserts each `SKILL.md` exists so a subset
+cannot ship quietly, and vendors `@hyperframes/shader-transitions` from the same release.
+Its egress policy admits 443, so the session reaches the registry at author time (verified
+`raw.githubusercontent.com` → 200 from the session pod, 2026-10-11); the vendored
+primitives remain the always-available effects surface.
 
 **The brand is one committed document.** `agents/n8n/datasets/brand.json` is the only copy
 of the palette and typefaces; every surface that describes a look reads it — the authoring
@@ -420,8 +447,10 @@ byte-identical no-op when the site is unchanged.
 `POST /webhook/visual-studio`, and a form all take `CONTENT` (required), `ASSET_TYPES`
 (comma-separated; blank means the registry's `default_types`; over
 `max_types_per_request` is reported as skipped, never silently dropped), `FEEDBACK`,
-`FORCE` and `STYLE`. The studio reads no caller state: everything it needs arrives on the
-trigger, and it writes only to the `visual_studio_table` DataTable.
+`FORCE`, `SCENES` (an optional scene count; blank leaves the count to the composer's own
+storyboard) and `EXTRA_PROMPT` (optional free text appended to the brief after the
+content and the rules). The studio reads no caller state: everything it needs arrives on
+the trigger, and it writes only to the `visual_studio_table` DataTable.
 
 **FORCE and STYLE.** `FORCE` is `auto | diagram | story | data | poster | image`; `auto`
 lets the composer choose the form, anything else pins it, and a forced form is honoured or
@@ -467,17 +496,24 @@ report, not the file, so the artifact is a second request: the authoring
 `POST /v1/chat/completions` carries a run-scoped `session_id` and an output `format`, the
 turn runs in `<workspace>/runs/<session_id>/`, and `GET /artifacts/<session_id>/out.<ext>`
 serves it (validated; traversal refused). The requested format is produced after the engine
-render with the image's `ffmpeg` — `animation_linkedin` declares `format: gif`. Rationale
-and the rollout are in `openspec/changes/add-agent-authored-assets/`.
+render with the image's `ffmpeg` — `animation_linkedin` declares `format: gif`,
+`animation_linkedin_video` declares `mp4`; a `deck` declares `format: html`, which is
+authored directly (no transcode) and whose paired `out.mp4` the composer renders in the
+same turn. The vendored GSAP is served as a sibling of the composition (`gsap.min.js`),
+staged into the run directory by the session server: an absolute `/opt` path 404s at
+render time. Rationale and the rollout are in
+`openspec/changes/add-agent-authored-assets/` and
+`openspec/changes/upgrade-visual-studio-authoring/`.
 
 **Failure and retention.** `settings.errorWorkflow` points at `Visual Studio Error`, which
 upserts a `STATUS=FAILED` row keyed by `RUN_ID` with the reason and posts to the
 `workflows` Slack channel; the studio's own graph has no Slack, no schedule, no GitHub
 node and one terminal node. A failed composer costs one asset, not the run:
-`execute_author` and `fetch_artifact` continue on error and `agent_result` turns the empty
-result into that asset's `ERROR`. `Visual Studio Prune` runs daily at 04:00 UTC and deletes
-rows whose system `createdAt` is older than 7 days, whatever their status, so the multi-MB
-`RESULT` payloads do not accumulate.
+`execute_author`, `fetch_artifact` and `fetch_paired_artifact` continue on error and
+`agent_result` turns the empty result into that asset's `ERROR` (for a deck, the deck is
+kept and the missing paired video is reported). `Visual Studio Prune` runs daily at 04:00
+UTC and deletes rows whose system `createdAt` is older than 7 days, whatever their status,
+so the multi-MB `RESULT` payloads do not accumulate.
 
 **Verification is manual — there is no CI coverage for n8n.** The claims above were checked
 by POSTing to the live webhook and by `--require-edge` graph checks. Read the live workflow
@@ -486,11 +522,12 @@ back after every apply and diff it against the export before believing a change 
 **The studio can be exercised without touching a pipeline.** `Visual Studio Test` holds its
 parameters in a Code node and ends in one item per asset — the summary plus the asset
 itself as binary — so it runs from the editor's *Execute workflow*, or by POSTing
-`/webhook/visual-studio-test` with any of `CONTENT`, `ASSET_TYPES`, `FEEDBACK`, `FORCE` or
-`STYLE`. Its default is the cheap path (one `image`, no composer turn); set
-`ASSET_TYPES=animation` or `animation_linkedin` to exercise the composer, and `FORCE` to
-pin the form. It computes `TOTAL_PIXELS` and `LINKEDIN_GIF_CAP_OK` for a GIF, which is how
-the platform's pixel cap can be checked by eye rather than by memory.
+`/webhook/visual-studio-test` with any of `CONTENT`, `ASSET_TYPES`, `FEEDBACK`, `FORCE`,
+`SCENES`, `STYLE` or `EXTRA_PROMPT`. Its default is the cheap path (one `image`, no
+composer turn); set `ASSET_TYPES=animation`, `animation_linkedin` or `deck` to exercise the
+composer, and `FORCE` to pin the form. It computes `TOTAL_PIXELS` and
+`LINKEDIN_GIF_CAP_OK` for a GIF, which is how the platform's pixel cap can be checked by
+eye rather than by memory.
 
 **A webhook whose path declares a parameter is served under its `webhookId`, and that URL
 is not the obvious one.** `File Webhook`'s path is `76a3521f-…/:fileId`, and the address
@@ -535,20 +572,31 @@ offline in `agents/n8n/scripts/test_hook_registry.py`.
 #### LinkedIn post media
 
 `LinkedIn Post Sharing` carries one media item per post, and which one is the **row's**
-decision: `content_queue.POST_MEDIA` of `ANIMATED` requests the animation and anything else
-(`STATIC` or blank) takes the still path; `VISUAL_FORM` forces the composer's form and
-`SCENES` carries a list's item count. `POST_MEDIA` is written by the curator from the
-judge's intent and stays human-editable, so a person can force either way by editing it —
-one media column, not two. An animated row asks `Visual Studio` for
-`animation_linkedin` and attaches the approved animation; a blank or `STATIC` row takes the
-`LinkedIn Image Creator` path exactly as before. The switch sits on the text
-approval's output, so both media kinds pass through the same publish node, which picks
-whichever conversion actually ran (`$('convert_animation').isExecuted ? … :
-$('convert_image')…`) — never a second publish node, and never a path that guesses.
+decision: `content_queue.POST_MEDIA` of `ANIMATED`/`AGENT` requests the animation and
+anything else (`STATIC` or blank) takes the still path; `VISUAL_FORM` forces the
+composer's form and `SCENES` carries a list's item count. `POST_MEDIA` is written by the
+curator from the judge's intent and stays human-editable, so a person can force either way
+by editing it — one media column, not two. An animated row asks `Visual Studio` for
+`animation_linkedin_video` (mp4, the feed's 4:5 aspect) and attaches the approved asset; a
+blank or `STATIC` row takes the `LinkedIn Image Creator` path exactly as before.
 
-Both animated opt-ins request the same type, because the deterministic path is retired
-and LinkedIn needs a GIF inside its cap; the decision only sets *whether* media is
-animated and which form the composer is forced to. Four things about the branch are deliberate:
+Both media kinds pass through the same **decision point**, `if_video_publish`, which sits
+on the text approval's output and reads the asset's own `CONTENT_TYPE`, never the
+requested type name: `video/mp4` takes the video path, anything else
+(`image/gif`, `image/png`) keeps the existing node path (`send_2_linkedin_omImage`, which
+still picks whichever conversion ran with `$('convert_animation').isExecuted ? … :
+$('convert_image')…`). **The installed `n8n-nodes-base.linkedIn` node cannot upload video**
+— its `shareMediaCategory` is `IMAGE`/`ARTICLE` only (verified in the live pod,
+2026-10-11) — so the video path is the LinkedIn API directly: `linkedin_register_video`
+(`POST /v2/assets?action=registerUpload`), `linkedin_video_upload` (the signed
+`uploadUrl`, used as-is with no credential), `linkedin_post_video`
+(`POST /v2/ugcPosts` as `shareMediaCategory: VIDEO`), reusing the same `linkedInOAuth2Api`
+credential; the post id is read from the `x-restli-id` response header and the published
+link resolves from whichever path ran. The video path is **[UNVERIFIED]** against LinkedIn
+until a live publish (task 8.7 of `upgrade-visual-studio-authoring`). The `animation_linkedin`
+GIF type stays available for a caller that wants the animated image.
+
+Four things about the branch are deliberate:
 
 - **It branches on the asset, not the run.** The studio reports its run `STATUS: PARTIAL`
   whenever a requested type is unavailable, so `check_animation_result` tests the asset's
@@ -563,12 +611,11 @@ animated and which form the composer is forced to. Four things about the branch 
 - **The reviewer sees the motion**: the asset is uploaded to Slack before the double
   approval, and the approval names the studio run, the frame count and the content type.
 
-The type's budget (8 fps, 48 frames, 776 px = 36,130,560 pixels) is what keeps the GIF
+The GIF type's budget (8 fps, 48 frames, 776 px = 36,130,560 pixels) is what keeps the GIF
 inside LinkedIn's documented cap of 500 frames or 36,152,320 pixels; frames and viewport
-are a trade — more frames read smoother but must shrink to stay under the cap. The type
-also declares `durationSeconds: 9`, which the workflow passes to the composer and to the
-server's transcode, so the playback pace is the type's, not the composer's. The budget and
-the branch's wiring are asserted offline in
+are a trade — more frames read smoother but must shrink to stay under the cap. No animated
+type declares a hold: the brief asks for an ambient idle, not a frozen final frame. The
+branch's wiring is asserted offline in
 `agents/n8n/scripts/test_linkedin_animated_media.py`, which also fails if a node that needs
 a credential has none or if the export has no published version.
 

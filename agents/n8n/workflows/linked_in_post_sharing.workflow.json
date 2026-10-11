@@ -1583,7 +1583,7 @@
             "mode": "list",
             "cachedResultName": "workflows"
           },
-          "text": "=Published Post ({{ $('select_article_to_post').item.json.URL }}) in LinkedIn (https://www.linkedin.com/feed/update/{{ $('send_2_linkedin_omImage').item.json.urn }})!",
+          "text": "=Published Post ({{ $('select_article_to_post').item.json.URL }}) in LinkedIn (https://www.linkedin.com/feed/update/{{ $('linkedin_video_urn').isExecuted ? $('linkedin_video_urn').item.json.urn : $('send_2_linkedin_omImage').item.json.urn }})!",
           "otherOptions": {
             "includeLinkToWorkflow": true
           }
@@ -1625,7 +1625,7 @@
               "UPDATE_DATE": "={{ (new Date()).toISOString() }}",
               "STATUS": "PUBLISHED",
               "row_number": "={{ $('select_article_to_post').item.json.row_number }}",
-              "LINKEDIN_URL": "=https://www.linkedin.com/feed/update/{{ $('send_2_linkedin_omImage').item.json.urn }}",
+              "LINKEDIN_URL": "=https://www.linkedin.com/feed/update/{{ $('linkedin_video_urn').isExecuted ? $('linkedin_video_urn').item.json.urn : $('send_2_linkedin_omImage').item.json.urn }}",
               "ERROR": ""
             },
             "matchingColumns": [
@@ -2273,7 +2273,7 @@
             "mappingMode": "defineBelow",
             "value": {
               "CONTENT": "={{ $('execute_post_creator').item.json.text }}",
-              "ASSET_TYPES": "animation_linkedin",
+              "ASSET_TYPES": "animation_linkedin_video",
               "FEEDBACK": "={{ $('notification_retry_or_cancel_animation').isExecuted ? ($('notification_retry_or_cancel_animation').last().json.data.Feedback || '') : '' }}",
               "FORCE": "={{ $('select_article_to_post').item.json.VISUAL_FORM || 'auto' }}",
               "SCENES": "={{ $('select_article_to_post').item.json.SCENES || '' }}"
@@ -2349,7 +2349,7 @@
           -1072
         ],
         "parameters": {
-          "jsCode": "// The studio's own run STATUS is PARTIAL whenever a requested type is unavailable, so the\n// asset's status is what this branches on. The LinkedIn branch asks the studio for the\n// composer-authored GIF type; both animated opt-ins (ANIMATED, AGENT) share it.\nconst r = $input.first().json || {};\nconst assets = r.ASSETS || [];\nconst req = $('select_article_to_post').first().json;\nconst want = 'animation_linkedin';\nconst a = assets.find((x) => x.ASSET_TYPE === want) || null;\nconst ok = Boolean(a && a.STATUS === 'RENDERED' && a.IMAGE);\nreturn [{ json: {\n  RUN_ID: r.RUN_ID || '',\n  RUN_STATUS: r.STATUS || '',\n  ASSET_TYPE: a ? a.ASSET_TYPE : '',\n  ASSET_STATUS: a ? a.STATUS : 'MISSING',\n  CONTENT_TYPE: a ? (a.CONTENT_TYPE || '') : '',\n  IMAGE: a && a.IMAGE ? a.IMAGE : '',\n  DURATION_MS: a ? (a.DURATION_MS || '') : '',\n  FRAME_COUNT: a ? (a.FRAME_COUNT || '') : '',\n  ERROR: ok ? '' : ('animated media unavailable: ' + ((a && (a.ERROR || a.STATUS)) || 'no asset returned')),\n} }];"
+          "jsCode": "// The studio's own run STATUS is PARTIAL whenever a requested type is unavailable, so the\n// asset's status is what this branches on. The LinkedIn branch asks the studio for the\n// composer-authored GIF type; both animated opt-ins (ANIMATED, AGENT) share it.\nconst r = $input.first().json || {};\nconst assets = r.ASSETS || [];\nconst req = $('select_article_to_post').first().json;\nconst want = 'animation_linkedin_video';\nconst a = assets.find((x) => x.ASSET_TYPE === want) || null;\nconst ok = Boolean(a && a.STATUS === 'RENDERED' && a.IMAGE);\nreturn [{ json: {\n  RUN_ID: r.RUN_ID || '',\n  RUN_STATUS: r.STATUS || '',\n  ASSET_TYPE: a ? a.ASSET_TYPE : '',\n  ASSET_STATUS: a ? a.STATUS : 'MISSING',\n  CONTENT_TYPE: a ? (a.CONTENT_TYPE || '') : '',\n  IMAGE: a && a.IMAGE ? a.IMAGE : '',\n  DURATION_MS: a ? (a.DURATION_MS || '') : '',\n  FRAME_COUNT: a ? (a.FRAME_COUNT || '') : '',\n  ERROR: ok ? '' : ('animated media unavailable: ' + ((a && (a.ERROR || a.STATUS)) || 'no asset returned')),\n} }];"
         }
       },
       {
@@ -2397,7 +2397,7 @@
           -1216
         ],
         "parameters": {
-          "jsCode": "const a = $input.first().json || {};\nconst url = String(a.IMAGE || '');\nif (!url.startsWith('data:')) throw new Error('no animation data URL to publish');\nconst i = url.indexOf(',');\nconst ext = a.CONTENT_TYPE === 'image/gif' ? 'gif' : (a.CONTENT_TYPE === 'image/webp' ? 'webp' : 'png');\nreturn [{ json: { CONTENT_TYPE: a.CONTENT_TYPE, ASSET_TYPE: a.ASSET_TYPE, RUN_ID: a.RUN_ID,\n  DURATION_MS: a.DURATION_MS, FRAME_COUNT: a.FRAME_COUNT },\n  binary: { data: { data: Buffer.from(url.slice(i + 1), 'base64'), mimeType: a.CONTENT_TYPE,\n    fileName: 'animated_infographic.' + ext, fileExtension: ext } } }];"
+          "jsCode": "const a = $input.first().json || {};\nconst url = String(a.IMAGE || '');\nif (!url.startsWith('data:')) throw new Error('no animation data URL to publish');\nconst i = url.indexOf(',');\nconst ext = a.CONTENT_TYPE === 'video/mp4' ? 'mp4'\n  : (a.CONTENT_TYPE === 'image/gif' ? 'gif'\n  : (a.CONTENT_TYPE === 'image/webp' ? 'webp' : 'png'));\nreturn [{ json: { CONTENT_TYPE: a.CONTENT_TYPE, ASSET_TYPE: a.ASSET_TYPE, RUN_ID: a.RUN_ID,\n  DURATION_MS: a.DURATION_MS, FRAME_COUNT: a.FRAME_COUNT },\n  binary: { data: { data: Buffer.from(url.slice(i + 1), 'base64'), mimeType: a.CONTENT_TYPE,\n    fileName: 'animated_infographic.' + ext, fileExtension: ext } } }];"
         }
       },
       {
@@ -2669,6 +2669,195 @@
             "name": "Slack account"
           }
         }
+      },
+      {
+        "id": "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+        "name": "if_video_publish",
+        "notes": "The publish decision is the asset's own content type, not the requested type name. The installed n8n LinkedIn node cannot upload video (IMAGE/ARTICLE only), so a video asset takes the API path and an image or GIF keeps the node path.",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          10624,
+          -1456
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 2
+            },
+            "combinator": "and",
+            "conditions": [
+              {
+                "id": "publish-media-is-video",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                },
+                "leftValue": "={{ $('convert_animation').isExecuted && $('convert_animation').item.json.CONTENT_TYPE === 'video/mp4' }}",
+                "rightValue": ""
+              }
+            ]
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "2b3c4d5e-6f70-4b8c-9d0e-1f2a3b4c5d6e",
+        "name": "linkedin_video_register_request",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          10784,
+          -1456
+        ],
+        "parameters": {
+          "jsCode": "// Build the registerUpload request from the approved asset. A video post goes\n// through the LinkedIn API directly because the n8n LinkedIn node cannot upload\n// video; nothing here guesses a value.\nconst a = $('convert_animation').first().json || {};\nconst registerRequest = {\n  registerUploadRequest: {\n    recipes: ['urn:li:digitalmediaRecipe:feedshare-video'],\n    owner: 'urn:li:person:ZK1zEXWkav',\n    serviceRelationships: [{ relationshipType: 'OWNER', identifier: 'urn:li:userGeneratedContent' }],\n  },\n};\nreturn [{ json: { REGISTER_BODY: JSON.stringify(registerRequest), CONTENT_TYPE: a.CONTENT_TYPE || 'video/mp4' } }];\n"
+        }
+      },
+      {
+        "id": "3c4d5e6f-7081-4c9d-8e1f-2a3b4c5d6e7f",
+        "name": "linkedin_register_video",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          10944,
+          -1456
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.linkedin.com/v2/assets?action=registerUpload",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "linkedInOAuth2Api",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "X-Restli-Protocol-Version",
+                "value": "2.0.0"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ $json.REGISTER_BODY }}",
+          "options": {}
+        },
+        "credentials": {
+          "linkedInOAuth2Api": {
+            "id": "dNaa8BbpK1D8IDZZ",
+            "name": "LinkedIn account"
+          }
+        }
+      },
+      {
+        "id": "4d5e6f70-8192-4d9e-9f2a-3b4c5d6e7f80",
+        "name": "linkedin_video_upload",
+        "notes": "The signed upload URL is used as-is and carries no credential.",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          11104,
+          -1456
+        ],
+        "parameters": {
+          "method": "PUT",
+          "url": "={{ $json.value.uploadMechanism['com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest'].uploadUrl }}",
+          "authentication": "none",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "={{ $('convert_animation').item.json.CONTENT_TYPE || 'video/mp4' }}"
+              }
+            ]
+          },
+          "sendBody": true,
+          "contentType": "binaryData",
+          "inputDataFieldName": "={{ $('convert_animation').item.binary.data }}",
+          "options": {
+            "timeout": 600000
+          }
+        }
+      },
+      {
+        "id": "5e6f7081-92a3-4e9f-8f3a-4b5c6d7e8f90",
+        "name": "linkedin_video_post_body",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          11264,
+          -1456
+        ],
+        "parameters": {
+          "jsCode": "// The ugcPosts body for the video the register step returned. Commentary is\n// escaped the way the LinkedIn node escapes it (LinkedIn's \"little text\" rule),\n// so a reserved character in the post cannot make the API reject it.\nconst reg = $('linkedin_register_video').first().json.value || {};\nconst asset = reg.asset;\nif (!asset) throw new Error('registerUpload returned no asset');\nconst text = String($('execute_post_creator').first().json.text || '');\nconst commentary = text.replace(/[(*)\\[\\]{}<>@|~_]/gm, (c) => '\\\\' + c);\nconst body = {\n  author: 'urn:li:person:ZK1zEXWkav',\n  lifecycleState: 'PUBLISHED',\n  specificContent: { 'com.linkedin.ugc.ShareContent': {\n    shareCommentary: { text: commentary },\n    shareMediaCategory: 'VIDEO',\n    media: [{ status: 'READY', media: asset }],\n  } },\n  visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' },\n};\nreturn [{ json: { POST_BODY: JSON.stringify(body), ASSET: asset } }];\n"
+        }
+      },
+      {
+        "id": "6f708192-a3b4-4f80-9a4b-5c6d7e8f9012",
+        "name": "linkedin_post_video",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          11424,
+          -1456
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.linkedin.com/v2/ugcPosts",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "linkedInOAuth2Api",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "X-Restli-Protocol-Version",
+                "value": "2.0.0"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ $json.POST_BODY }}",
+          "options": {
+            "response": {
+              "response": {
+                "fullResponse": true
+              }
+            }
+          }
+        },
+        "credentials": {
+          "linkedInOAuth2Api": {
+            "id": "dNaa8BbpK1D8IDZZ",
+            "name": "LinkedIn account"
+          }
+        }
+      },
+      {
+        "id": "708192a3-b4c5-4081-ab5c-6d7e8f901234",
+        "name": "linkedin_video_urn",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          11776,
+          -1456
+        ],
+        "parameters": {
+          "jsCode": "// ugcPosts returns 201 with the new post's id in the x-restli-id header, so the\n// header is captured (fullResponse) and a missing id fails loudly rather than\n// recording an empty link.\nconst r = $input.first().json || {};\nconst h = r.headers || {};\nconst urn = h['x-restli-id'] || h['X-Restli-Id'] || '';\nif (!urn) throw new Error('LinkedIn returned no post id: ' + JSON.stringify(r).slice(0, 300));\nreturn [{ json: { urn: urn } }];\n"
+        }
       }
     ],
     "connections": {
@@ -2924,14 +3113,7 @@
         "main": [
           [
             {
-              "node": "send_2_linkedin_omImage",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "notification_retry_or_cancel_image",
+              "node": "if_video_publish",
               "type": "main",
               "index": 0
             }
@@ -3117,7 +3299,7 @@
         "main": [
           [
             {
-              "node": "send_2_linkedin_omImage",
+              "node": "if_video_publish",
               "type": "main",
               "index": 0
             }
@@ -3143,6 +3325,90 @@
           [
             {
               "node": "update_status_cancelled",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "if_video_publish": {
+        "main": [
+          [
+            {
+              "node": "linkedin_video_register_request",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "send_2_linkedin_omImage",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "linkedin_video_register_request": {
+        "main": [
+          [
+            {
+              "node": "linkedin_register_video",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "linkedin_register_video": {
+        "main": [
+          [
+            {
+              "node": "linkedin_video_upload",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "linkedin_video_upload": {
+        "main": [
+          [
+            {
+              "node": "linkedin_video_post_body",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "linkedin_video_post_body": {
+        "main": [
+          [
+            {
+              "node": "linkedin_post_video",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "linkedin_post_video": {
+        "main": [
+          [
+            {
+              "node": "linkedin_video_urn",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "linkedin_video_urn": {
+        "main": [
+          [
+            {
+              "node": "send_published_notification_a",
               "type": "main",
               "index": 0
             }
@@ -3412,14 +3678,7 @@
       "main": [
         [
           {
-            "node": "send_2_linkedin_omImage",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "notification_retry_or_cancel_image",
+            "node": "if_video_publish",
             "type": "main",
             "index": 0
           }
@@ -3605,7 +3864,7 @@
       "main": [
         [
           {
-            "node": "send_2_linkedin_omImage",
+            "node": "if_video_publish",
             "type": "main",
             "index": 0
           }
@@ -3631,6 +3890,90 @@
         [
           {
             "node": "update_status_cancelled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if_video_publish": {
+      "main": [
+        [
+          {
+            "node": "linkedin_video_register_request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "send_2_linkedin_omImage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "linkedin_video_register_request": {
+      "main": [
+        [
+          {
+            "node": "linkedin_register_video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "linkedin_register_video": {
+      "main": [
+        [
+          {
+            "node": "linkedin_video_upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "linkedin_video_upload": {
+      "main": [
+        [
+          {
+            "node": "linkedin_video_post_body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "linkedin_video_post_body": {
+      "main": [
+        [
+          {
+            "node": "linkedin_post_video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "linkedin_post_video": {
+      "main": [
+        [
+          {
+            "node": "linkedin_video_urn",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "linkedin_video_urn": {
+      "main": [
+        [
+          {
+            "node": "send_published_notification_a",
             "type": "main",
             "index": 0
           }
@@ -5226,7 +5569,7 @@
           "mode": "list",
           "cachedResultName": "workflows"
         },
-        "text": "=Published Post ({{ $('select_article_to_post').item.json.URL }}) in LinkedIn (https://www.linkedin.com/feed/update/{{ $('send_2_linkedin_omImage').item.json.urn }})!",
+        "text": "=Published Post ({{ $('select_article_to_post').item.json.URL }}) in LinkedIn (https://www.linkedin.com/feed/update/{{ $('linkedin_video_urn').isExecuted ? $('linkedin_video_urn').item.json.urn : $('send_2_linkedin_omImage').item.json.urn }})!",
         "otherOptions": {
           "includeLinkToWorkflow": true
         }
@@ -5268,7 +5611,7 @@
             "UPDATE_DATE": "={{ (new Date()).toISOString() }}",
             "STATUS": "PUBLISHED",
             "row_number": "={{ $('select_article_to_post').item.json.row_number }}",
-            "LINKEDIN_URL": "=https://www.linkedin.com/feed/update/{{ $('send_2_linkedin_omImage').item.json.urn }}",
+            "LINKEDIN_URL": "=https://www.linkedin.com/feed/update/{{ $('linkedin_video_urn').isExecuted ? $('linkedin_video_urn').item.json.urn : $('send_2_linkedin_omImage').item.json.urn }}",
             "ERROR": ""
           },
           "matchingColumns": [
@@ -5916,7 +6259,7 @@
           "mappingMode": "defineBelow",
           "value": {
             "CONTENT": "={{ $('execute_post_creator').item.json.text }}",
-            "ASSET_TYPES": "animation_linkedin",
+            "ASSET_TYPES": "animation_linkedin_video",
             "FEEDBACK": "={{ $('notification_retry_or_cancel_animation').isExecuted ? ($('notification_retry_or_cancel_animation').last().json.data.Feedback || '') : '' }}",
             "FORCE": "={{ $('select_article_to_post').item.json.VISUAL_FORM || 'auto' }}",
             "SCENES": "={{ $('select_article_to_post').item.json.SCENES || '' }}"
@@ -5992,7 +6335,7 @@
         -1072
       ],
       "parameters": {
-        "jsCode": "// The studio's own run STATUS is PARTIAL whenever a requested type is unavailable, so the\n// asset's status is what this branches on. The LinkedIn branch asks the studio for the\n// composer-authored GIF type; both animated opt-ins (ANIMATED, AGENT) share it.\nconst r = $input.first().json || {};\nconst assets = r.ASSETS || [];\nconst req = $('select_article_to_post').first().json;\nconst want = 'animation_linkedin';\nconst a = assets.find((x) => x.ASSET_TYPE === want) || null;\nconst ok = Boolean(a && a.STATUS === 'RENDERED' && a.IMAGE);\nreturn [{ json: {\n  RUN_ID: r.RUN_ID || '',\n  RUN_STATUS: r.STATUS || '',\n  ASSET_TYPE: a ? a.ASSET_TYPE : '',\n  ASSET_STATUS: a ? a.STATUS : 'MISSING',\n  CONTENT_TYPE: a ? (a.CONTENT_TYPE || '') : '',\n  IMAGE: a && a.IMAGE ? a.IMAGE : '',\n  DURATION_MS: a ? (a.DURATION_MS || '') : '',\n  FRAME_COUNT: a ? (a.FRAME_COUNT || '') : '',\n  ERROR: ok ? '' : ('animated media unavailable: ' + ((a && (a.ERROR || a.STATUS)) || 'no asset returned')),\n} }];"
+        "jsCode": "// The studio's own run STATUS is PARTIAL whenever a requested type is unavailable, so the\n// asset's status is what this branches on. The LinkedIn branch asks the studio for the\n// composer-authored GIF type; both animated opt-ins (ANIMATED, AGENT) share it.\nconst r = $input.first().json || {};\nconst assets = r.ASSETS || [];\nconst req = $('select_article_to_post').first().json;\nconst want = 'animation_linkedin_video';\nconst a = assets.find((x) => x.ASSET_TYPE === want) || null;\nconst ok = Boolean(a && a.STATUS === 'RENDERED' && a.IMAGE);\nreturn [{ json: {\n  RUN_ID: r.RUN_ID || '',\n  RUN_STATUS: r.STATUS || '',\n  ASSET_TYPE: a ? a.ASSET_TYPE : '',\n  ASSET_STATUS: a ? a.STATUS : 'MISSING',\n  CONTENT_TYPE: a ? (a.CONTENT_TYPE || '') : '',\n  IMAGE: a && a.IMAGE ? a.IMAGE : '',\n  DURATION_MS: a ? (a.DURATION_MS || '') : '',\n  FRAME_COUNT: a ? (a.FRAME_COUNT || '') : '',\n  ERROR: ok ? '' : ('animated media unavailable: ' + ((a && (a.ERROR || a.STATUS)) || 'no asset returned')),\n} }];"
       }
     },
     {
@@ -6040,7 +6383,7 @@
         -1216
       ],
       "parameters": {
-        "jsCode": "const a = $input.first().json || {};\nconst url = String(a.IMAGE || '');\nif (!url.startsWith('data:')) throw new Error('no animation data URL to publish');\nconst i = url.indexOf(',');\nconst ext = a.CONTENT_TYPE === 'image/gif' ? 'gif' : (a.CONTENT_TYPE === 'image/webp' ? 'webp' : 'png');\nreturn [{ json: { CONTENT_TYPE: a.CONTENT_TYPE, ASSET_TYPE: a.ASSET_TYPE, RUN_ID: a.RUN_ID,\n  DURATION_MS: a.DURATION_MS, FRAME_COUNT: a.FRAME_COUNT },\n  binary: { data: { data: Buffer.from(url.slice(i + 1), 'base64'), mimeType: a.CONTENT_TYPE,\n    fileName: 'animated_infographic.' + ext, fileExtension: ext } } }];"
+        "jsCode": "const a = $input.first().json || {};\nconst url = String(a.IMAGE || '');\nif (!url.startsWith('data:')) throw new Error('no animation data URL to publish');\nconst i = url.indexOf(',');\nconst ext = a.CONTENT_TYPE === 'video/mp4' ? 'mp4'\n  : (a.CONTENT_TYPE === 'image/gif' ? 'gif'\n  : (a.CONTENT_TYPE === 'image/webp' ? 'webp' : 'png'));\nreturn [{ json: { CONTENT_TYPE: a.CONTENT_TYPE, ASSET_TYPE: a.ASSET_TYPE, RUN_ID: a.RUN_ID,\n  DURATION_MS: a.DURATION_MS, FRAME_COUNT: a.FRAME_COUNT },\n  binary: { data: { data: Buffer.from(url.slice(i + 1), 'base64'), mimeType: a.CONTENT_TYPE,\n    fileName: 'animated_infographic.' + ext, fileExtension: ext } } }];"
       }
     },
     {
@@ -6311,6 +6654,195 @@
           "id": "DszMmPE7WwOjHQjz",
           "name": "Slack account"
         }
+      }
+    },
+    {
+      "id": "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+      "name": "if_video_publish",
+      "notes": "The publish decision is the asset's own content type, not the requested type name. The installed n8n LinkedIn node cannot upload video (IMAGE/ARTICLE only), so a video asset takes the API path and an image or GIF keeps the node path.",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        10624,
+        -1456
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "publish-media-is-video",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $('convert_animation').isExecuted && $('convert_animation').item.json.CONTENT_TYPE === 'video/mp4' }}",
+              "rightValue": ""
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "2b3c4d5e-6f70-4b8c-9d0e-1f2a3b4c5d6e",
+      "name": "linkedin_video_register_request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        10784,
+        -1456
+      ],
+      "parameters": {
+        "jsCode": "// Build the registerUpload request from the approved asset. A video post goes\n// through the LinkedIn API directly because the n8n LinkedIn node cannot upload\n// video; nothing here guesses a value.\nconst a = $('convert_animation').first().json || {};\nconst registerRequest = {\n  registerUploadRequest: {\n    recipes: ['urn:li:digitalmediaRecipe:feedshare-video'],\n    owner: 'urn:li:person:ZK1zEXWkav',\n    serviceRelationships: [{ relationshipType: 'OWNER', identifier: 'urn:li:userGeneratedContent' }],\n  },\n};\nreturn [{ json: { REGISTER_BODY: JSON.stringify(registerRequest), CONTENT_TYPE: a.CONTENT_TYPE || 'video/mp4' } }];\n"
+      }
+    },
+    {
+      "id": "3c4d5e6f-7081-4c9d-8e1f-2a3b4c5d6e7f",
+      "name": "linkedin_register_video",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        10944,
+        -1456
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.linkedin.com/v2/assets?action=registerUpload",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "linkedInOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Restli-Protocol-Version",
+              "value": "2.0.0"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.REGISTER_BODY }}",
+        "options": {}
+      },
+      "credentials": {
+        "linkedInOAuth2Api": {
+          "id": "dNaa8BbpK1D8IDZZ",
+          "name": "LinkedIn account"
+        }
+      }
+    },
+    {
+      "id": "4d5e6f70-8192-4d9e-9f2a-3b4c5d6e7f80",
+      "name": "linkedin_video_upload",
+      "notes": "The signed upload URL is used as-is and carries no credential.",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        11104,
+        -1456
+      ],
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ $json.value.uploadMechanism['com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest'].uploadUrl }}",
+        "authentication": "none",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "={{ $('convert_animation').item.json.CONTENT_TYPE || 'video/mp4' }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "={{ $('convert_animation').item.binary.data }}",
+        "options": {
+          "timeout": 600000
+        }
+      }
+    },
+    {
+      "id": "5e6f7081-92a3-4e9f-8f3a-4b5c6d7e8f90",
+      "name": "linkedin_video_post_body",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        11264,
+        -1456
+      ],
+      "parameters": {
+        "jsCode": "// The ugcPosts body for the video the register step returned. Commentary is\n// escaped the way the LinkedIn node escapes it (LinkedIn's \"little text\" rule),\n// so a reserved character in the post cannot make the API reject it.\nconst reg = $('linkedin_register_video').first().json.value || {};\nconst asset = reg.asset;\nif (!asset) throw new Error('registerUpload returned no asset');\nconst text = String($('execute_post_creator').first().json.text || '');\nconst commentary = text.replace(/[(*)\\[\\]{}<>@|~_]/gm, (c) => '\\\\' + c);\nconst body = {\n  author: 'urn:li:person:ZK1zEXWkav',\n  lifecycleState: 'PUBLISHED',\n  specificContent: { 'com.linkedin.ugc.ShareContent': {\n    shareCommentary: { text: commentary },\n    shareMediaCategory: 'VIDEO',\n    media: [{ status: 'READY', media: asset }],\n  } },\n  visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' },\n};\nreturn [{ json: { POST_BODY: JSON.stringify(body), ASSET: asset } }];\n"
+      }
+    },
+    {
+      "id": "6f708192-a3b4-4f80-9a4b-5c6d7e8f9012",
+      "name": "linkedin_post_video",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        11424,
+        -1456
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.linkedin.com/v2/ugcPosts",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "linkedInOAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Restli-Protocol-Version",
+              "value": "2.0.0"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.POST_BODY }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "credentials": {
+        "linkedInOAuth2Api": {
+          "id": "dNaa8BbpK1D8IDZZ",
+          "name": "LinkedIn account"
+        }
+      }
+    },
+    {
+      "id": "708192a3-b4c5-4081-ab5c-6d7e8f901234",
+      "name": "linkedin_video_urn",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        11776,
+        -1456
+      ],
+      "parameters": {
+        "jsCode": "// ugcPosts returns 201 with the new post's id in the x-restli-id header, so the\n// header is captured (fullResponse) and a missing id fails loudly rather than\n// recording an empty link.\nconst r = $input.first().json || {};\nconst h = r.headers || {};\nconst urn = h['x-restli-id'] || h['X-Restli-Id'] || '';\nif (!urn) throw new Error('LinkedIn returned no post id: ' + JSON.stringify(r).slice(0, 300));\nreturn [{ json: { urn: urn } }];\n"
       }
     }
   ],

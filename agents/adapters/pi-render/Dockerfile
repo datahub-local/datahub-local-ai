@@ -78,6 +78,31 @@ RUN mkdir -p /opt/hyperframes /opt/pi-render/prompts \
     && cp -r /opt/hyperframes/node_modules/hyperframes/dist/skills/. /opt/hyperframes/skills/ \
     && test -f /opt/hyperframes/skills/hyperframes/SKILL.md
 
+# The npm dist ships only three skills (hyperframes, hyperframes-cli, media-use). The
+# framework's full authoring set — the animation rules and scene blueprints, keyframes,
+# the registry, creative direction, the studio and the core contract — lives in the
+# repository's skills/ tree, so it is fetched here at the same pinned release. The
+# build has network; the render does not. Keep HYPERFRAMES_VERSION in step with the
+# hyperframes pin in package.json (asserted in test/dockerfile.test.mjs).
+ARG HYPERFRAMES_VERSION=0.8.146
+RUN curl -fsSL \
+        "https://codeload.github.com/heygen-com/hyperframes/tar.gz/refs/tags/v${HYPERFRAMES_VERSION}" \
+        -o /tmp/hyperframes-src.tgz \
+    && tar -xzf /tmp/hyperframes-src.tgz -C /tmp --wildcards --no-anchored 'skills/*' \
+        --transform 's#^hyperframes-[^/]*/##' \
+    && cp -r /tmp/skills/. /opt/hyperframes/skills/ \
+    && rm -rf /tmp/hyperframes-src.tgz /tmp/skills \
+    && for skill in hyperframes hyperframes-cli hyperframes-core hyperframes-animation \
+         hyperframes-keyframes hyperframes-registry hyperframes-creative hyperframes-studio; do \
+         test -f "/opt/hyperframes/skills/$skill/SKILL.md" \
+           || { echo "missing skill in the image: $skill" >&2; exit 1; }; \
+       done
+
+# The transition primitives are a runtime dependency of the image, vendored at build
+# from the same pinned release, so a scene transition needs no author-time network.
+RUN cd /opt/hyperframes \
+    && node -e "require.resolve('@hyperframes/shader-transitions')"
+
 # The authoring instruction is a prompt file, never inlined in the entrypoint: the
 # repository's rule is that prompts are files, read at run time, so the text is
 # reviewable on its own and not buried in shell. Copied world-readable: the agent

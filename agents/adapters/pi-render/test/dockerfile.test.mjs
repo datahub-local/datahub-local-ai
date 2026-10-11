@@ -40,3 +40,23 @@ test("the adapter installs HyperFrames from its own manifest", () => {
   assert.match(dockerfile, /COPY vendor\/gsap\.min\.js/);
   assert.ok(pkg.dependencies.hyperframes, "the toolchain manifest has no hyperframes dependency");
 });
+
+test("the image fetches the framework's full skill set at the pinned release", () => {
+  // The npm dist ships three skills; the rest come from the repository's skills/ tree.
+  assert.ok(
+    pkg.dependencies["@hyperframes/shader-transitions"],
+    "the transition primitives are not a vendored dependency"
+  );
+  assert.match(dockerfile, /codeload\.github\.com\/heygen-com\/hyperframes/);
+  assert.match(dockerfile, /--wildcards[^\n]*skills\/\*/);
+  const arg = dockerfile.match(/ARG HYPERFRAMES_VERSION=([\d.]+)/);
+  assert.ok(arg, "the Dockerfile does not pin the skill-fetch release");
+  // One release for the engine, the skills and the primitives.
+  assert.equal(arg[1], pkg.dependencies.hyperframes);
+  assert.equal(arg[1], pkg.dependencies["@hyperframes/shader-transitions"]);
+  for (const skill of ["hyperframes-core", "hyperframes-animation", "hyperframes-keyframes"]) {
+    assert.ok(dockerfile.includes(skill), `the build does not assert the ${skill} skill`);
+  }
+  // A missing skill must fail the build, not ship a subset quietly.
+  assert.match(dockerfile, /missing skill in the image/);
+});

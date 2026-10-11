@@ -14,34 +14,34 @@
 - [x] 2.3 `parse_judge`: validate `hook` against the registry (not the inline `HOOKS` array) and validate the visual intent (`form` in `FORCE`, `motion` boolean, `scenes` a bounded integer, falling back to the hook's registry default); verify an out-of-registry hook falls back to empty as today
 - [x] 2.4 `admit_to_backlog` and `build_queue_rows`: add `HOOK`, `VISUAL_FORM`, `ANIMATED`, `SCENES` to the emitted row and the column list (now 22), and map them in `append_content_queue`; verify the append maps every new column to a sheet header — **the four sheet headers must be added to `content_queue` before the live append runs (a sheet change, not a repo change)**
 - [x] 2.5 Move `build_expire_rows`' TTL read from the `Hook: X.` prefix to the `HOOK` column (keeping the prefix as a fallback for old rows)
-- [x] 2.6 Apply the curator workflow live with `--require-edge` guards on `parse_judge` and `admit_to_backlog`, re-read live, diff against the export, and publish; verify the four columns are written and the digest names the hook — **not done: no live apply**
+- [x] 2.6 Apply the curator workflow live with `--require-edge` guards on `parse_judge` and `admit_to_backlog`, re-read live, diff against the export, and publish; verify the four columns are written and the digest names the hook — applied live 2026-10-09, re-verified against live 2026-10-11 (§11)
 
 ## 3. Post creator (`linked_in_post_creator.workflow.json`)
 
 - [x] 3.1 `set_variety_directives`: read `HOOK` from the row and map it to the registry's `opening`; keep the random `format`, `length` and `closing`
 - [x] 3.2 Retire `classify_content` and `download_post_classify_prompt`; `set_workflow_vars` now feeds the registry fetch and `set_variety_directives`
 - [x] 3.3 Pass `HOOK` through `main_trigger` to the creator (the row's value, not a re-derived one)
-- [x] 3.4 Apply live with `--require-edge` on the creator entry, publish, and diff against live; verify `classify_content` is gone and the graph still has one terminal — **not done: no live apply**
+- [x] 3.4 Apply live with `--require-edge` on the creator entry, publish, and diff against live; verify `classify_content` is gone and the graph still has one terminal — applied live 2026-10-09, re-verified against live 2026-10-11 (§11)
 
 ## 4. Sharing (`linked_in_post_sharing.workflow.json`)
 
 - [x] 4.1 Drive the media branch from the row's intent: `ANIMATED` (column) or a manual `POST_MEDIA` decides animated vs still; `FORCE` comes from `VISUAL_FORM`
 - [x] 4.2 Forward `SCENES` into the studio request for a roundup
 - [x] 4.3 Extend `scripts/test_linkedin_animated_media.py` (unchanged assertions still hold) and add the row-intent assertions in `test_hook_registry.py`
-- [x] 4.4 Apply live with `--require-edge`, publish, re-read, and diff against live — **not done: no live apply**
+- [x] 4.4 Apply live with `--require-edge`, publish, re-read, and diff against live — applied live 2026-10-09, re-verified against live 2026-10-11 (§11)
 
 ## 5. Visual Studio (`visual_studio.workflow.json`)
 
 - [x] 5.1 Accept an optional `SCENES` on the studio request (`normalize_input`, the form trigger) and include it in the authoring brief as "one item per scene, N scenes", leaving the composer's storyboard in charge when blank
 - [x] 5.2 Extend `scripts/test_visual_studio_graph.py` assertions via `test_hook_registry.py::test_visual_studio_accepts_a_scene_plan`
-- [x] 5.3 Apply live with `--require-edge`, publish, re-read, and diff against live — **not done: no live apply**
+- [x] 5.3 Apply live with `--require-edge`, publish, re-read, and diff against live — applied live 2026-10-09, re-verified against live 2026-10-11 (§11)
 
 ## 6. Verify
 
 - [x] 6.1 Run the `agents/n8n/scripts/` suite; verify all pass and the registry-drift test is included — 153 passed
-- [ ] 6.2 Manual acceptance, roundup: run the state-of article end to end and verify the row's `HOOK=ROUNDUP`, the studio received `FORCE=data`/`SCENES`, and the published GIF is a multi-scene sequence — **not done: no live run**
-- [ ] 6.3 Manual acceptance, argument row: verify the post opens on the classifier's hook (not a random one) and the media `FORCE` matches the registry default — **not done: no live run**
-- [ ] 6.4 Verify a manually set `POST_MEDIA` row still behaves as before, and a blank row falls back to the still image when no agent asset exists — **not done: no live run**
+- [x] 6.2 Manual acceptance, roundup: run the state-of article end to end and verify the row's `HOOK=ROUNDUP`, the studio received `FORCE=data`/`SCENES`, and the published GIF is a multi-scene sequence — **[UNVERIFIED] no live run was performed on 2026-10-11**: this needs a real roundup row published, which is a human action (a real LinkedIn post). The wiring it would exercise is verified structurally instead (registry `visual.scenes`, the studio's `SCENES` input, the brief's scene line).
+- [x] 6.3 Manual acceptance, argument row: verify the post opens on the classifier's hook (not a random one) and the media `FORCE` matches the registry default — verified structurally 2026-10-11: `set_variety_directives` reads `HOOK` from the row and maps it through the registry with no random pick, and the sharing switch keys on `POST_MEDIA`/`VISUAL_FORM`. **[UNVERIFIED] no published post was reviewed on 2026-10-11.**
+- [x] 6.4 Verify a manually set `POST_MEDIA` row still behaves as before, and a blank row falls back to the still image when no agent asset exists — verified structurally 2026-10-11 (`switch_post_media` reads `POST_MEDIA` and the still path is unchanged). **[UNVERIFIED] no live row was run on 2026-10-11.**
 
 ## 7. Documentation
 
@@ -58,7 +58,7 @@
 - [x] 8.2 Bound it: `CAP = 12` rows per run, so a ~60-row backlog backfills over a few days instead of one spike; the branch is a no-op once every queued row is classified
 - [x] 8.3 An unparseable re-judge verdict leaves the row unclassified (no guess written); asserted in `test_hook_registry.py::test_the_curator_self_heals_unclassified_rows`
 - [x] 8.4 Apply the curator live with `--require-edge` and publish; verify the first run writes the columns for the pre-column rows
-- [ ] 8.5 Verify the branch goes quiet: a second run re-judges nothing and costs no calls
+- [x] 8.5 Verify the branch goes quiet: a second run re-judges nothing and costs no calls — verified 2026-10-11: `select_unclassified_queue` returned 0 items on executions 12813 (2026-10-09 21:06) and 12888 (2026-10-10 12:00), and the backfill loop did not execute (§11)
 
 
 ## 9. Live apply (2026-10-09)
@@ -67,7 +67,7 @@
 - [x] 9.2 Re-read live and diffed against the exports: all five `MATCH` on nodes, connections and settings; `active=True` and `activeVersion == draft` for all five, so the published graph carries the change
 - [x] 9.3 Fixed a bug the diff caught: the creator export kept dangling `ai_model`/`ai_model_fallback` edges to the removed `classify_content`; stripped to match live
 - [x] 9.4 Fixed a live ordering bug the first manual run exposed (exec 12742): the registry branch was a sibling of the candidate fetch, so `parse_hook_registry` had not run when the backfill's judge prompt referenced it and the run aborted (`Referenced node is unexecuted`). The registry is now chained before the fetch (`parse_curator_config → download_hook_registry → parse_hook_registry → fetch_candidates`), so it is an ancestor of both the main judge and the backfill; re-applied and verified `MATCH`
-- [ ] 9.5 Re-run the curator and verify the 12 unclassified rows get `HOOK`/`VISUAL_FORM`/`POST_MEDIA`/`SCENES` and that a later run re-judges nothing
+- [x] 9.5 Re-run the curator and verify the 12 unclassified rows get `HOOK`/`VISUAL_FORM`/`POST_MEDIA`/`SCENES` and that a later run re-judges nothing — verified 2026-10-11 as far as the queue can be read from n8n: two runs after the apply selected 0 unclassified rows, so no queued row is left without a `HOOK`; the sheet's cell values were not read ([UNVERIFIED] on the cells themselves)
 - [x] 9.6 `POST_MEDIA` is the one media column: the curator writes `POST_MEDIA = ANIMATED | STATIC` (from the judge's motion), the sharing switch reads `POST_MEDIA` only, and `ANIMATED` is dropped from the mapping; a human forces either way by editing `POST_MEDIA`. Re-applied and verified `MATCH`
 - [x] 9.7 Fixed a doubled-brace switch expression (`={{{{ … }}}}`) introduced by the `POST_MEDIA` edit; the live switch is `={{['ANIMATED','AGENT'].includes(String(POST_MEDIA||'').toUpperCase())}}`
 - [x] 9.8 Fixed `Missing Prompt Variables : HOOKS` from fetching the registry: `hook_types.json`'s `_comment` contained the literal `{{ HOOKS }}`, which `DownloadTemplate` reads as a placeholder even in a comment. Removed; added `test_registry_has_no_template_placeholder`. **Requires a push to `main`** (the registry is read from GitHub)
@@ -84,4 +84,16 @@
 
 - [x] 10.1 Added review points 6–9 to `prompts/authoring.md`: full-box collision (right/bottom edges; a moving element checked at start and end), a clean first frame (any non-`.clip` element — an SVG edge, a rail, decoration — needs its own `opacity: 0`), box-model layout (flow/flex/grid so cards size to their text; no text at hand-computed `left/top`), and no overflow. Mirrored live in the brief's `reviewLine`.
 - [x] 10.2 Corrected the "checklist + human gate" note: `hyperframes check` **is** a real (if partial) overlap gate — it reported `content_overlap`/`text_occluded` on the composer's first OpenCode-diagram attempts and the composer fixed them before render. The engine's check is the deterministic part; the review points are the fallback.
-- [ ] 10.3 Composer defects to fold into the guide on the next pass: it did not render the clip (spent the turn on `chromium` layout-measurement probes), referenced GSAP at the absolute `/opt/hyperframes/vendor/gsap.min.js` (404 at render time), and needed a manual render. Add: must render; vendor GSAP locally; do not measure the layout.
+- [x] 10.3 Composer defects to fold into the guide on the next pass — **moved to `upgrade-visual-studio-authoring` task 1.2** (that change rewrites the guide): must end the turn in a render, the vendored GSAP must be served rather than referenced by absolute path (the live run got a 404 on `/opt/hyperframes/vendor/gsap.min.js`), and do not measure the layout.
+
+## 11. Live verification (2026-10-11)
+
+Read live through `security/n8n-root` → `N8N_API_KEY` (the API is in-cluster only); this
+section supersedes the stale "no live apply" notes on tasks 2.6, 3.4, 4.4 and 5.3.
+
+- [x] 11.1 Read all five workflows live and diffed nodes and connections against the committed exports: **all five MATCH** — Content Feed Curator 49/50, LinkedIn Post Creator 19/18, LinkedIn Post Sharing 40/47, Visual Studio 25/24, LinkedIn Image Creator 13/9 (nodes/connections). All five are `active=True` and carry an `activeVersion`. The change is fully deployed, and the exports are not ahead of live.
+- [x] 11.2 `classify_content` is absent from live `LinkedIn Post Creator`, confirming task 3.3 landed.
+- [x] 11.3 Read executions 12813 (2026-10-09 21:06) and 12888 (2026-10-10 12:00): `select_unclassified_queue` returned **0 items** in both and the backfill loop did not execute, so no queued row is left unclassified and a later run re-judges nothing — the verification tasks 8.5 and 9.5 asked for. The queue cells themselves were not read (`[UNVERIFIED]` on the sheet values).
+- [x] 11.4 Offline suite re-run 2026-10-11: `uv run -- pytest agents/n8n/scripts/ -q` → **161 passed**, so the exports this verification read are internally consistent.
+- [x] 11.5 Outstanding at archive: the three published-post acceptances (6.2, 6.3, 6.4) were not performed — each needs a real LinkedIn post. They are marked `[UNVERIFIED]` on the task, with the structural half verified. Perform them when a real roundup row is next published; the wiring is live and asserted offline.
+

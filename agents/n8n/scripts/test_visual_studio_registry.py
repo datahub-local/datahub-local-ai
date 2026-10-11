@@ -1,9 +1,13 @@
-"""Guard the three-type visual registry.
+"""Guard the visual registry.
 
 Authoring is one composer turn, so the registry no longer declares a content-spec
 template or a markup template: it declares how each type is authored and the frame
 the composer is briefed to produce. Those are data, so they are asserted here,
 offline, against the committed registry.
+
+Two properties this change adds are asserted here: no animated type may mandate a
+frozen frame (a hold during which nothing moves), and a deck type declares the paired
+video the same run yields.
 """
 
 import json
@@ -19,6 +23,9 @@ TYPES = ROOT / "datasets" / "visual_types.json"
 GIF_FRAME_CAP = 500
 GIF_PIXEL_CAP = 36152320
 
+AUTHORS = {"image", "agent"}
+RENDERS = {"static", "video", "deck"}
+
 RETIRED = {
     "hero_static", "infographic_static", "diagram_animated", "diagram_animated_linkedin",
     "animated_svg", "motion_clip", "diagram_video", "diagram_agent",
@@ -32,7 +39,20 @@ def registry():
 
 def test_the_registry_declares_the_expected_types(registry):
     ids = [t["id"] for t in registry["types"]]
-    assert ids == ["image", "animation", "animation_linkedin", "svg"]
+    assert ids == [
+        "image",
+        "animation",
+        "animation_linkedin",
+        "animation_linkedin_video",
+        "svg",
+        "deck",
+    ]
+
+
+def test_every_type_declares_a_known_author_and_render(registry):
+    for t in registry["types"]:
+        assert t["author"] in AUTHORS, f"{t['id']} has an unknown author {t['author']}"
+        assert t["render"] in RENDERS, f"{t['id']} has an unknown render {t['render']}"
 
 
 def test_the_svg_type_is_composer_authored(registry):
@@ -40,7 +60,6 @@ def test_the_svg_type_is_composer_authored(registry):
     assert entry["author"] == "agent"
     assert entry["format"] == "svg"
     assert entry["available"] is True
-    assert entry.get("holdSeconds", 0) >= 5
 
 
 def test_no_retired_type_remains(registry):
@@ -64,7 +83,11 @@ def test_the_image_type_is_a_gemini_raster(registry):
 
 
 def test_the_animation_types_are_composer_authored(registry):
-    for tid, fmt in (("animation", "mp4"), ("animation_linkedin", "gif")):
+    for tid, fmt in (
+        ("animation", "mp4"),
+        ("animation_linkedin", "gif"),
+        ("animation_linkedin_video", "mp4"),
+    ):
         entry = next(t for t in registry["types"] if t["id"] == tid)
         assert entry["author"] == "agent", tid
         assert entry["render"] == "video", tid
@@ -73,14 +96,21 @@ def test_the_animation_types_are_composer_authored(registry):
         assert entry.get("durationSeconds", 0) > 0, f"{tid} declares no duration"
 
 
-def test_the_animation_types_declare_a_final_hold(registry):
-    """A reader needs time to finish the last frame; the composer holds it."""
-    for tid in ("animation", "animation_linkedin"):
-        entry = next(t for t in registry["types"] if t["id"] == tid)
-        assert entry.get("holdSeconds", 0) >= 5, f"{tid} must hold the last frame >= 5s"
+def test_no_animated_type_mandates_a_frozen_frame(registry):
+    """Nothing may require the frame to stop; the brief asks for an ambient idle."""
+    for t in registry["types"]:
+        if t["render"] == "video":
+            assert "holdSeconds" not in t, f"{t['id']} mandates a frozen final frame"
 
 
-def test_the_linkedin_type_is_inside_the_platform_caps(registry):
+def test_the_linkedin_video_type_is_the_feed_frame(registry):
+    entry = next(t for t in registry["types"] if t["id"] == "animation_linkedin_video")
+    assert entry["aspect"] == "4:5"
+    assert entry["budget"]["fps"] == 30
+    assert entry["budget"]["frames"] > 0 and entry["durationSeconds"] > 0
+
+
+def test_the_linkedin_gif_type_is_inside_the_platform_caps(registry):
     entry = next(t for t in registry["types"] if t["id"] == "animation_linkedin")
     assert entry["aspect"] == "4:5"
     budget = entry["budget"]
@@ -88,6 +118,15 @@ def test_the_linkedin_type_is_inside_the_platform_caps(registry):
     height = round(width * 5 / 4)
     assert budget["frames"] <= GIF_FRAME_CAP
     assert budget["frames"] * width * height <= GIF_PIXEL_CAP
+
+
+def test_the_deck_type_declares_its_paired_video(registry):
+    entry = next(t for t in registry["types"] if t["id"] == "deck")
+    assert entry["author"] == "agent"
+    assert entry["render"] == "deck"
+    assert entry["format"] == "html"
+    assert entry["paired"]["format"] == "mp4"
+    assert entry["paired"]["assetType"], "the paired asset has no type name"
 
 
 def test_default_types_are_declared(registry):

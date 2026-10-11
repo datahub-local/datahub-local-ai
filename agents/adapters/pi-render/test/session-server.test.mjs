@@ -22,6 +22,7 @@ let child;
 const STUB_PI = `#!/usr/bin/env node
 const fs = require("node:fs");
 fs.writeFileSync("index.html", "<div>stub</div>");
+fs.writeFileSync("out.html", "<html>stub deck</html>");
 fs.writeFileSync("out.mp4", Buffer.from([0, 0, 0, 0x18, 0x66, 0x74, 0x79, 0x70]));
 process.stdout.write("rendered 1 frame");
 `;
@@ -45,9 +46,12 @@ before(async () => {
   const home = join(dir, "home");
   const workspace = join(dir, "workspace");
   const bin = join(dir, "bin");
+  const vendor = join(dir, "vendor");
   await mkdir(home, { recursive: true });
   await mkdir(workspace, { recursive: true });
   await mkdir(bin, { recursive: true });
+  await mkdir(vendor, { recursive: true });
+  await writeFile(join(vendor, "gsap.min.js"), "/* staged gsap */");
   const pi = join(bin, "pi");
   await writeFile(pi, STUB_PI);
   await chmod(pi, 0o755);
@@ -57,6 +61,7 @@ before(async () => {
       PATH: `${bin}:${process.env.PATH}`,
       HOME: home,
       SYMPOZIUM_WORKSPACE: workspace,
+      SYMPOZIUM_VENDOR_DIR: vendor,
       SYMPOZIUM_SESSION_PORT: String(port),
       SYMPOZIUM_HARNESS_CONTRACT_VERSION: "v1alpha2",
       MODEL_NAME: "stub",
@@ -88,6 +93,28 @@ test("an authoring turn writes into its own run directory and returns its artifa
   assert.equal(art.headers.get("content-type"), "video/mp4");
   const bytes = Buffer.from(await art.arrayBuffer());
   assert.deepEqual([...bytes], [0, 0, 0, 0x18, 0x66, 0x74, 0x79, 0x70]);
+});
+
+test("the vendored GSAP is staged beside the composition", async () => {
+  // `<script src="gsap.min.js">` resolves as a sibling; an absolute /opt path 404s.
+  const staged = await readFile(join(dir, "workspace", "runs", "run_a", "gsap.min.js"), "utf8");
+  assert.equal(staged, "/* staged gsap */");
+});
+
+test("a deck turn serves the deck and its paired video", async () => {
+  const res = await fetch(`${base}/v1/chat/completions`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "make a deck" }], session_id: "run_deck", format: "html" }),
+  });
+  assert.equal(res.status, 200);
+  const deck = await fetch(`${base}/artifacts/run_deck/out.html`);
+  assert.equal(deck.status, 200);
+  assert.equal(deck.headers.get("content-type"), "text/html");
+  assert.equal(await deck.text(), "<html>stub deck</html>");
+  const video = await fetch(`${base}/artifacts/run_deck/out.mp4`);
+  assert.equal(video.status, 200);
+  assert.equal(video.headers.get("content-type"), "video/mp4");
 });
 
 test("a second run does not overwrite the first", async () => {

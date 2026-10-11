@@ -99,10 +99,19 @@ jobs:
       # Installed from the release tarball rather than a third-party action, and
       # unpinned like azure/setup-helm above: renovate.json ignores **/.github/**,
       # so a pinned version here would go stale without anything noticing.
+      #
+      # The API call is authenticated: unauthenticated runner IPs share 60 req/hr
+      # and the 403 left `version` empty, which turned into a 404 on the tarball
+      # and an "unexpected end of file" from tar (2026-10-11).
       - name: Set up helmfile
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          version=$(curl -fsSL https://api.github.com/repos/helmfile/helmfile/releases/latest \
+          set -euo pipefail
+          version=$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" \
+            https://api.github.com/repos/helmfile/helmfile/releases/latest \
             | jq -r .tag_name | sed 's/^v//')
+          test -n "$version"
           curl -fsSL "https://github.com/helmfile/helmfile/releases/download/v${version}/helmfile_${version}_linux_amd64.tar.gz" \
             | sudo tar -xz -C /usr/local/bin helmfile
           helmfile version

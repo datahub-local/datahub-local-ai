@@ -528,8 +528,21 @@ node and one terminal node. A failed composer costs one asset, not the run:
 `execute_author`, `fetch_artifact` and `fetch_paired_artifact` continue on error and
 `agent_result` turns the empty result into that asset's `ERROR` (for a deck, the deck is
 kept and the missing paired video is reported). `Visual Studio Prune` runs daily at 04:00
-UTC and deletes rows whose system `createdAt` is older than 7 days, whatever their status,
-so the multi-MB `RESULT` payloads do not accumulate.
+UTC and deletes rows whose system `createdAt` is older than **2 days**, whatever their
+status, and rows of `TemporalFiles` whose `updatedAt` is older than an hour — the same
+rule `File Webhook` applies on request, and the reason a quiet week cannot leave its rows
+behind. Two days, not seven, because a run's `RESULT` holds the asset as a base64 data
+URL and one deck row was 18 MB.
+
+That artifact is why the workflows whose payload *is* the artifact set
+`saveDataSuccessExecution: "none"` — `Visual Studio`, `Visual Studio Test`,
+`LinkedIn Post Sharing` and `Visual Studio Prune` (whose `deleteRows` returns the rows it
+deleted). Without it n8n persists a copy of every rendered asset per successful run:
+measured, `Visual Studio Test` alone was 511 MB across 46 runs and `Visual Studio` 377 MB
+across 92, against a 1 GB `execution_data`. `saveDataErrorExecution` is left at its
+default, so a failure still records everything needed to diagnose it. The same bytes are
+therefore stored twice at most — the run row and n8n's binary store — instead of three
+times. `agents/n8n/scripts/test_storage_retention.py` holds both bounds.
 
 **Verification is manual — there is no CI coverage for n8n.** The claims above were checked
 by POSTing to the live webhook and by `--require-edge` graph checks. Read the live workflow

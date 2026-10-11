@@ -1,22 +1,10 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "0bffbaf7-d899-4dbe-a072-138794e1e34a",
+    "versionId": "0bac1826-1572-4913-b5c1-8bd0cfa7f5f1",
     "workflowId": "PaeHFdCsdoVbQx11",
     "nodes": [
       {
-        "parameters": {
-          "promptType": "define",
-          "text": "={{ $('download_post_prompt').item.json.output }}",
-          "needsFallback": true,
-          "messages": {
-            "messageValues": [
-              {
-                "message": "={{ $('download_post_system_prompt').item.json.output }}"
-              }
-            ]
-          }
-        },
         "id": "aedd481c-fff5-417a-a202-f697005601a6",
         "name": "create_post_ai",
         "type": "@n8n/n8n-nodes-langchain.chainLlm",
@@ -28,14 +16,21 @@
         "position": [
           -15552,
           -992
-        ]
-      },
-      {
+        ],
         "parameters": {
           "promptType": "define",
-          "text": "={{ $('download_post_review_prompt').item.json.output }}",
-          "needsFallback": true
-        },
+          "text": "={{ $('download_post_prompt').item.json.output }}",
+          "needsFallback": true,
+          "messages": {
+            "messageValues": [
+              {
+                "message": "={{ $('download_post_system_prompt').item.json.output }}"
+              }
+            ]
+          }
+        }
+      },
+      {
         "id": "4fcc2aad-e372-45ce-a595-1ff7af6ee2ad",
         "name": "check_rules_llm",
         "type": "@n8n/n8n-nodes-langchain.chainLlm",
@@ -46,9 +41,22 @@
         "position": [
           -14528,
           -912
-        ]
+        ],
+        "parameters": {
+          "promptType": "define",
+          "text": "={{ $('download_post_review_prompt').item.json.output }}",
+          "needsFallback": true
+        }
       },
       {
+        "id": "d36aa02f-3279-4793-bf0c-28d0fa4298b1",
+        "name": "switch_check_rules_llm",
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.2,
+        "position": [
+          -13952,
+          -816
+        ],
         "parameters": {
           "rules": {
             "values": [
@@ -101,17 +109,17 @@
           "options": {
             "fallbackOutput": "extra"
           }
-        },
-        "id": "d36aa02f-3279-4793-bf0c-28d0fa4298b1",
-        "name": "switch_check_rules_llm",
-        "type": "n8n-nodes-base.switch",
-        "typeVersion": 3.2,
-        "position": [
-          -13952,
-          -816
-        ]
+        }
       },
       {
+        "id": "907dc5e4-349f-4b7b-a0db-a23ed12f1fff",
+        "name": "set_error_max_tries",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          -13728,
+          -752
+        ],
         "parameters": {
           "assignments": {
             "assignments": [
@@ -124,17 +132,17 @@
             ]
           },
           "options": {}
-        },
-        "id": "907dc5e4-349f-4b7b-a0db-a23ed12f1fff",
-        "name": "set_error_max_tries",
+        }
+      },
+      {
+        "id": "9c1913df-41ee-4b51-82e4-f1a0eed82c64",
+        "name": "set_workflow_vars",
         "type": "n8n-nodes-base.set",
         "typeVersion": 3.4,
         "position": [
-          -13728,
-          -752
-        ]
-      },
-      {
+          -16896,
+          -880
+        ],
         "parameters": {
           "assignments": {
             "assignments": [
@@ -190,20 +198,9 @@
           },
           "includeOtherFields": true,
           "options": {}
-        },
-        "id": "9c1913df-41ee-4b51-82e4-f1a0eed82c64",
-        "name": "set_workflow_vars",
-        "type": "n8n-nodes-base.set",
-        "typeVersion": 3.4,
-        "position": [
-          -16896,
-          -880
-        ]
+        }
       },
       {
-        "parameters": {
-          "jsCode": "// Randomly pick variety directives so consecutive posts never share the same shape.\n// Duplicated entries act as weights.\nconst pick = (arr) => arr[Math.floor(Math.random() * arr.length)];\n\n// The hook is the one the curator's judge classified from the article and stored on\n// the row; it is NOT re-picked here. The opening shape comes from the registry entry\n// for that id, so the hook the post opens on and the hook the visual was built for are\n// the same decision. When the row carries no hook (a hand-written row), the writer\n// chooses the shape that fits.\nconst reg = $('parse_hook_registry').first().json;\nconst BY_ID = reg.byId || {};\nconst hookId = String($('main_trigger').first().json.HOOK || '').trim().toUpperCase();\nconst entry = BY_ID[hookId] || null;\nconst hook = entry\n  ? hookId + ': ' + String(entry.opening || '')\n  : 'the opening shape that best fits the content';\n\nconst format = pick([\n  'PURE PROSE: no bullet points at all, 3-5 flowing paragraphs',\n  'PURE PROSE: no bullet points at all, 3-5 flowing paragraphs',\n  'PUNCHY: several very short paragraphs, at least two of them a single sentence',\n  'PUNCHY: several very short paragraphs, at least two of them a single sentence',\n  'ONE BULLET BLOCK: exactly one bullet list of 3-4 short items, with prose before and after',\n]);\n\n// The word target is a point inside [MIN_WORDS, MAX_WORDS], not a percentage of MAX.\n// A percentage of MAX can fall below MIN - 40% of 300 is 120 against a minimum of 180 -\n// and the directives are declared MANDATORY in the prompt, so the model follows the\n// contradiction down and writes short.\nconst MIN_WORDS = $('main_trigger').first().json.MIN_WORDS || 150;\nconst MAX_WORDS = $('main_trigger').first().json.MAX_WORDS || 200;\nconst span = Math.max(0, MAX_WORDS - MIN_WORDS);\nconst target = (frac) => Math.round(MIN_WORDS + span * frac);\n\nconst lengthBand = pick([\n  ['SHORT', 0.15],\n  ['MEDIUM', 0.5],\n  ['MEDIUM', 0.5],\n  ['FULL', 0.9],\n]);\nconst length = lengthBand[0] + ': aim for about ' + target(lengthBand[1]) +\n  ' words, never fewer than ' + MIN_WORDS + ' and never more than ' + MAX_WORDS;\n\nconst closing = pick([\n  'DIRECT QUESTION: end the body with one specific question to technical peers',\n  'DIRECT QUESTION: end the body with one specific question to technical peers',\n  'SHARED EXPERIENCE: end by inviting others to share how they handle it, phrased as a statement, no question mark',\n  'HOT TAKE: end the body on a blunt one-line statement, no question, no invitation',\n  'HOT TAKE: end the body on a blunt one-line statement, no question, no invitation',\n  'NONE: end when the argument is complete, with no closing question or invitation',\n]);\n\nconst VARIETY_DIRECTIVES = [\n  `- Hook — ${hook}.`,\n  `- Format — ${format}.`,\n  `- Length — ${length}.`,\n  `- Closing — ${closing}. The \"Source here\" line and hashtags always follow the body regardless.`,\n].join('\\n');\n\nreturn [{ json: { ...$input.first().json, VARIETY_DIRECTIVES } }];\n"
-        },
         "id": "dd1dfb5f-278f-463a-abce-4b97ebb7c81a",
         "name": "set_variety_directives",
         "type": "n8n-nodes-base.code",
@@ -211,9 +208,20 @@
         "position": [
           -16224,
           -880
-        ]
+        ],
+        "parameters": {
+          "jsCode": "// Randomly pick variety directives so consecutive posts never share the same shape.\n// Duplicated entries act as weights.\nconst pick = (arr) => arr[Math.floor(Math.random() * arr.length)];\n\n// The hook is the one the curator's judge classified from the article and stored on\n// the row; it is NOT re-picked here. The opening shape comes from the registry entry\n// for that id, so the hook the post opens on and the hook the visual was built for are\n// the same decision. When the row carries no hook (a hand-written row), the writer\n// chooses the shape that fits.\nconst reg = $('parse_hook_registry').first().json;\nconst BY_ID = reg.byId || {};\nconst hookId = String($('main_trigger').first().json.HOOK || '').trim().toUpperCase();\nconst entry = BY_ID[hookId] || null;\nconst hook = entry\n  ? hookId + ': ' + String(entry.opening || '')\n  : 'the opening shape that best fits the content';\n\nconst format = pick([\n  'PURE PROSE: no bullet points at all, 3-5 flowing paragraphs',\n  'PURE PROSE: no bullet points at all, 3-5 flowing paragraphs',\n  'PUNCHY: several very short paragraphs, at least two of them a single sentence',\n  'PUNCHY: several very short paragraphs, at least two of them a single sentence',\n  'ONE BULLET BLOCK: exactly one bullet list of 3-4 short items, with prose before and after',\n]);\n\n// The word target is a point inside [MIN_WORDS, MAX_WORDS], not a percentage of MAX.\n// A percentage of MAX can fall below MIN - 40% of 300 is 120 against a minimum of 180 -\n// and the directives are declared MANDATORY in the prompt, so the model follows the\n// contradiction down and writes short.\nconst MIN_WORDS = $('main_trigger').first().json.MIN_WORDS || 150;\nconst MAX_WORDS = $('main_trigger').first().json.MAX_WORDS || 200;\nconst span = Math.max(0, MAX_WORDS - MIN_WORDS);\nconst target = (frac) => Math.round(MIN_WORDS + span * frac);\n\nconst lengthBand = pick([\n  ['SHORT', 0.15],\n  ['MEDIUM', 0.5],\n  ['MEDIUM', 0.5],\n  ['FULL', 0.9],\n]);\nconst length = lengthBand[0] + ': aim for about ' + target(lengthBand[1]) +\n  ' words, never fewer than ' + MIN_WORDS + ' and never more than ' + MAX_WORDS;\n\nconst closing = pick([\n  'DIRECT QUESTION: end the body with one specific question to technical peers',\n  'DIRECT QUESTION: end the body with one specific question to technical peers',\n  'SHARED EXPERIENCE: end by inviting others to share how they handle it, phrased as a statement, no question mark',\n  'HOT TAKE: end the body on a blunt one-line statement, no question, no invitation',\n  'HOT TAKE: end the body on a blunt one-line statement, no question, no invitation',\n  'NONE: end when the argument is complete, with no closing question or invitation',\n]);\n\nconst VARIETY_DIRECTIVES = [\n  `- Hook — ${hook}.`,\n  `- Format — ${format}.`,\n  `- Length — ${length}.`,\n  `- Closing — ${closing}. The \"Source here\" line and hashtags always follow the body regardless.`,\n].join('\\n');\n\nreturn [{ json: { ...$input.first().json, VARIETY_DIRECTIVES } }];\n"
+        }
       },
       {
+        "id": "55f8def3-33b7-4715-87c4-1d01803bb358",
+        "name": "set_output",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          -13728,
+          -1024
+        ],
         "parameters": {
           "assignments": {
             "assignments": [
@@ -232,17 +240,17 @@
             ]
           },
           "options": {}
-        },
-        "id": "55f8def3-33b7-4715-87c4-1d01803bb358",
-        "name": "set_output",
-        "type": "n8n-nodes-base.set",
-        "typeVersion": 3.4,
-        "position": [
-          -13728,
-          -1024
-        ]
+        }
       },
       {
+        "id": "0aa35d43-7472-4ebe-b5e6-bc0213d3be0d",
+        "name": "download_post_prompt",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          -16000,
+          -880
+        ],
         "parameters": {
           "workflowId": {
             "__rl": true,
@@ -282,17 +290,17 @@
             "convertFieldsToString": true
           },
           "options": {}
-        },
-        "id": "0aa35d43-7472-4ebe-b5e6-bc0213d3be0d",
-        "name": "download_post_prompt",
+        }
+      },
+      {
+        "id": "4dfca31e-e087-47e5-a40a-31f8d481010e",
+        "name": "download_post_system_prompt",
         "type": "n8n-nodes-base.executeWorkflow",
         "typeVersion": 1.2,
         "position": [
-          -16000,
-          -880
-        ]
-      },
-      {
+          -15776,
+          -992
+        ],
         "parameters": {
           "workflowId": {
             "__rl": true,
@@ -332,17 +340,17 @@
             "convertFieldsToString": true
           },
           "options": {}
-        },
-        "id": "4dfca31e-e087-47e5-a40a-31f8d481010e",
-        "name": "download_post_system_prompt",
+        }
+      },
+      {
+        "id": "6549c8a4-f260-407b-9e20-df8f5c4800fb",
+        "name": "download_post_review_prompt",
         "type": "n8n-nodes-base.executeWorkflow",
         "typeVersion": 1.2,
         "position": [
-          -15776,
-          -992
-        ]
-      },
-      {
+          -14752,
+          -912
+        ],
         "parameters": {
           "workflowId": {
             "__rl": true,
@@ -382,17 +390,17 @@
             "convertFieldsToString": true
           },
           "options": {}
-        },
-        "id": "6549c8a4-f260-407b-9e20-df8f5c4800fb",
-        "name": "download_post_review_prompt",
+        }
+      },
+      {
+        "id": "eca73597-562f-4bff-bbf0-520daa48a3f1",
+        "name": "download_post_rules_prompt",
         "type": "n8n-nodes-base.executeWorkflow",
         "typeVersion": 1.2,
         "position": [
-          -14752,
-          -912
-        ]
-      },
-      {
+          -17120,
+          -880
+        ],
         "parameters": {
           "workflowId": {
             "__rl": true,
@@ -431,17 +439,17 @@
             "convertFieldsToString": true
           },
           "options": {}
-        },
-        "id": "eca73597-562f-4bff-bbf0-520daa48a3f1",
-        "name": "download_post_rules_prompt",
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.2,
-        "position": [
-          -17120,
-          -880
-        ]
+        }
       },
       {
+        "id": "d0893749-0b1d-40a2-89c9-d77865da1eb9",
+        "name": "main_trigger",
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          -17344,
+          -880
+        ],
         "parameters": {
           "workflowInputs": {
             "values": [
@@ -473,20 +481,9 @@
               }
             ]
           }
-        },
-        "id": "d0893749-0b1d-40a2-89c9-d77865da1eb9",
-        "name": "main_trigger",
-        "type": "n8n-nodes-base.executeWorkflowTrigger",
-        "typeVersion": 1.1,
-        "position": [
-          -17344,
-          -880
-        ]
+        }
       },
       {
-        "parameters": {
-          "jsCode": "for (const item of $input.all()) {\n  const { text } = item.json;\n\n  const output = text.includes('<output>') && text.includes('</output>')\n    ? text.split('<output>')[1].split('</output>')[0]\n    : 'false';\n\n  // The gate's reason for rejecting this draft. download_post_prompt puts it in\n  // the next attempt's Reviewer Feedback block, and set_error_max_tries reports\n  // it, so it is flattened to one line for both the prompt and the sheet cell.\n  const explanation = text.includes('<explanation>') && text.includes('</explanation>')\n    ? text.split('<explanation>')[1].split('</explanation>')[0].replace(/\\s+/g, ' ').trim()\n    : '';\n\n  item.json.output = output;\n  item.json.explanation = explanation;\n}\n\nreturn $input.all();"
-        },
         "id": "f2e0538b-696e-49d4-9312-696c1433fc58",
         "name": "parse_llm_check_output",
         "type": "n8n-nodes-base.code",
@@ -494,9 +491,20 @@
         "position": [
           -14176,
           -912
-        ]
+        ],
+        "parameters": {
+          "jsCode": "for (const item of $input.all()) {\n  const { text } = item.json;\n\n  const output = text.includes('<output>') && text.includes('</output>')\n    ? text.split('<output>')[1].split('</output>')[0]\n    : 'false';\n\n  // The gate's reason for rejecting this draft. download_post_prompt puts it in\n  // the next attempt's Reviewer Feedback block, and set_error_max_tries reports\n  // it, so it is flattened to one line for both the prompt and the sheet cell.\n  const explanation = text.includes('<explanation>') && text.includes('</explanation>')\n    ? text.split('<explanation>')[1].split('</explanation>')[0].replace(/\\s+/g, ' ').trim()\n    : '';\n\n  item.json.output = output;\n  item.json.explanation = explanation;\n}\n\nreturn $input.all();"
+        }
       },
       {
+        "id": "d4767c7e-0170-4a2e-9638-7c749d3c5811",
+        "name": "if_enabled_check",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          -14976,
+          -992
+        ],
         "parameters": {
           "conditions": {
             "options": {
@@ -521,17 +529,17 @@
           },
           "looseTypeValidation": true,
           "options": {}
-        },
-        "id": "d4767c7e-0170-4a2e-9638-7c749d3c5811",
-        "name": "if_enabled_check",
-        "type": "n8n-nodes-base.if",
-        "typeVersion": 2.2,
-        "position": [
-          -14976,
-          -992
-        ]
+        }
       },
       {
+        "id": "500e2c45-a17f-46ee-8a97-68a57492b087",
+        "name": "ai_model_fallback",
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.3,
+        "position": [
+          -15416,
+          -776
+        ],
         "parameters": {
           "model": {
             "__rl": true,
@@ -543,14 +551,6 @@
             "maxRetries": 5
           }
         },
-        "id": "500e2c45-a17f-46ee-8a97-68a57492b087",
-        "name": "ai_model_fallback",
-        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-        "typeVersion": 1.3,
-        "position": [
-          -15416,
-          -776
-        ],
         "credentials": {
           "openAiApi": {
             "id": "LitellmN8nAcct01",
@@ -559,6 +559,14 @@
         }
       },
       {
+        "id": "08ca09dd-4f72-4084-9422-9986a34f99e9",
+        "name": "ai_model",
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.3,
+        "position": [
+          -15544,
+          -776
+        ],
         "parameters": {
           "model": {
             "__rl": true,
@@ -570,14 +578,6 @@
             "maxRetries": 5
           }
         },
-        "id": "08ca09dd-4f72-4084-9422-9986a34f99e9",
-        "name": "ai_model",
-        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-        "typeVersion": 1.3,
-        "position": [
-          -15544,
-          -776
-        ],
         "credentials": {
           "openAiApi": {
             "id": "LitellmN8nAcct01",
@@ -586,9 +586,6 @@
         }
       },
       {
-        "parameters": {
-          "jsCode": "// n8n Code node — mode: \"Run Once for Each Item\"\n\nconst url = $('set_workflow_vars').item.json.URL;\nconst text = $json.text;\n\n// Pull the <output>...</output> block; fall back to the whole text if absent\nconst match = /<output>([\\s\\S]*?)<\\/output>/.exec(text);\nlet result = match ? match[1].trim() : text;\n\n// Apply the two replacements (function form = $-safe URLs)\nresult = result\n  .replace(/(Source here: ).*/g, (m, p1) => p1 + url)\n  .replace(/(.*): SOME_URL/g,   (m, p1) => p1 + ': ' + url);\n\nreturn { json: { ...$json, result } };"
-        },
         "id": "b45f5127-085e-46b8-9243-225837a738cb",
         "name": "parse_llm_output",
         "type": "n8n-nodes-base.code",
@@ -596,9 +593,20 @@
         "position": [
           -15200,
           -992
-        ]
+        ],
+        "parameters": {
+          "jsCode": "// n8n Code node — mode: \"Run Once for Each Item\"\n\nconst url = $('set_workflow_vars').item.json.URL;\nconst text = $json.text;\n\n// Pull the <output>...</output> block; fall back to the whole text if absent\nconst match = /<output>([\\s\\S]*?)<\\/output>/.exec(text);\nlet result = match ? match[1].trim() : text;\n\n// Apply the two replacements (function form = $-safe URLs)\nresult = result\n  .replace(/(Source here: ).*/g, (m, p1) => p1 + url)\n  .replace(/(.*): SOME_URL/g,   (m, p1) => p1 + ': ' + url);\n\nreturn { json: { ...$json, result } };"
+        }
       },
       {
+        "id": "d4b6f8a2-1c37-4e59-9b24-7a0f3d5c8e61",
+        "name": "download_hook_registry",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          -16672,
+          -880
+        ],
         "parameters": {
           "workflowId": {
             "__rl": true,
@@ -638,20 +646,9 @@
             "convertFieldsToString": true
           },
           "options": {}
-        },
-        "id": "d4b6f8a2-1c37-4e59-9b24-7a0f3d5c8e61",
-        "name": "download_hook_registry",
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.2,
-        "position": [
-          -16672,
-          -880
-        ]
+        }
       },
       {
-        "parameters": {
-          "jsCode": "// datasets/hook_types.json, parsed once. set_variety_directives reads byId to turn\n// the row's HOOK id into the opening shape the registry declares for it.\nconst raw = $json.output || '{}';\nlet cfg;\ntry {\n  cfg = JSON.parse(raw);\n} catch (e) {\n  throw new Error('datasets/hook_types.json is not valid JSON: ' + e.message);\n}\nconst arr = (v, d) => (Array.isArray(v) ? v : d);\nconst str = (v) => String(v == null ? '' : v);\nconst byId = {};\nfor (const h of arr(cfg.hooks, [])) {\n  if (h && h.id) byId[str(h.id).toUpperCase()] = h;\n}\nreturn [{ json: { byId } }];\n"
-        },
         "id": "e5c7a9b3-2d48-4f6a-8c35-9b1e4f7a2d63",
         "name": "parse_hook_registry",
         "type": "n8n-nodes-base.code",
@@ -659,7 +656,10 @@
         "position": [
           -16448,
           -880
-        ]
+        ],
+        "parameters": {
+          "jsCode": "// datasets/hook_types.json, parsed once. set_variety_directives reads byId to turn\n// the row's HOOK id into the opening shape the registry declares for it.\nconst raw = $json.output || '{}';\nlet cfg;\ntry {\n  cfg = JSON.parse(raw);\n} catch (e) {\n  throw new Error('datasets/hook_types.json is not valid JSON: ' + e.message);\n}\nconst arr = (v, d) => (Array.isArray(v) ? v : d);\nconst str = (v) => String(v == null ? '' : v);\nconst byId = {};\nfor (const h of arr(cfg.hooks, [])) {\n  if (h && h.id) byId[str(h.id).toUpperCase()] = h;\n}\nreturn [{ json: { byId } }];\n"
+        }
       }
     ],
     "connections": {
@@ -884,13 +884,13 @@
     },
     "nodeGroups": [],
     "authors": "no name",
-    "name": "Version 0bffbaf7",
-    "description": "",
-    "autosaved": true,
-    "createdAt": "2026-10-09T21:15:44.942Z",
-    "updatedAt": "2026-10-09T21:15:46.937Z"
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "createdAt": "2026-10-10T06:03:20.980Z",
+    "updatedAt": "2026-10-10T06:03:20.980Z"
   },
-  "activeVersionId": "0bffbaf7-d899-4dbe-a072-138794e1e34a",
+  "activeVersionId": "0bac1826-1572-4913-b5c1-8bd0cfa7f5f1",
   "connections": {
     "create_post_ai": {
       "main": [
@@ -1121,18 +1121,6 @@
   "nodeGroups": [],
   "nodes": [
     {
-      "parameters": {
-        "promptType": "define",
-        "text": "={{ $('download_post_prompt').item.json.output }}",
-        "needsFallback": true,
-        "messages": {
-          "messageValues": [
-            {
-              "message": "={{ $('download_post_system_prompt').item.json.output }}"
-            }
-          ]
-        }
-      },
       "id": "aedd481c-fff5-417a-a202-f697005601a6",
       "name": "create_post_ai",
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
@@ -1144,14 +1132,21 @@
       "position": [
         -15552,
         -992
-      ]
-    },
-    {
+      ],
       "parameters": {
         "promptType": "define",
-        "text": "={{ $('download_post_review_prompt').item.json.output }}",
-        "needsFallback": true
-      },
+        "text": "={{ $('download_post_prompt').item.json.output }}",
+        "needsFallback": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "={{ $('download_post_system_prompt').item.json.output }}"
+            }
+          ]
+        }
+      }
+    },
+    {
       "id": "4fcc2aad-e372-45ce-a595-1ff7af6ee2ad",
       "name": "check_rules_llm",
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
@@ -1162,9 +1157,22 @@
       "position": [
         -14528,
         -912
-      ]
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('download_post_review_prompt').item.json.output }}",
+        "needsFallback": true
+      }
     },
     {
+      "id": "d36aa02f-3279-4793-bf0c-28d0fa4298b1",
+      "name": "switch_check_rules_llm",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -13952,
+        -816
+      ],
       "parameters": {
         "rules": {
           "values": [
@@ -1217,17 +1225,17 @@
         "options": {
           "fallbackOutput": "extra"
         }
-      },
-      "id": "d36aa02f-3279-4793-bf0c-28d0fa4298b1",
-      "name": "switch_check_rules_llm",
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 3.2,
-      "position": [
-        -13952,
-        -816
-      ]
+      }
     },
     {
+      "id": "907dc5e4-349f-4b7b-a0db-a23ed12f1fff",
+      "name": "set_error_max_tries",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -13728,
+        -752
+      ],
       "parameters": {
         "assignments": {
           "assignments": [
@@ -1240,17 +1248,17 @@
           ]
         },
         "options": {}
-      },
-      "id": "907dc5e4-349f-4b7b-a0db-a23ed12f1fff",
-      "name": "set_error_max_tries",
+      }
+    },
+    {
+      "id": "9c1913df-41ee-4b51-82e4-f1a0eed82c64",
+      "name": "set_workflow_vars",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        -13728,
-        -752
-      ]
-    },
-    {
+        -16896,
+        -880
+      ],
       "parameters": {
         "assignments": {
           "assignments": [
@@ -1306,20 +1314,9 @@
         },
         "includeOtherFields": true,
         "options": {}
-      },
-      "id": "9c1913df-41ee-4b51-82e4-f1a0eed82c64",
-      "name": "set_workflow_vars",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        -16896,
-        -880
-      ]
+      }
     },
     {
-      "parameters": {
-        "jsCode": "// Randomly pick variety directives so consecutive posts never share the same shape.\n// Duplicated entries act as weights.\nconst pick = (arr) => arr[Math.floor(Math.random() * arr.length)];\n\n// The hook is the one the curator's judge classified from the article and stored on\n// the row; it is NOT re-picked here. The opening shape comes from the registry entry\n// for that id, so the hook the post opens on and the hook the visual was built for are\n// the same decision. When the row carries no hook (a hand-written row), the writer\n// chooses the shape that fits.\nconst reg = $('parse_hook_registry').first().json;\nconst BY_ID = reg.byId || {};\nconst hookId = String($('main_trigger').first().json.HOOK || '').trim().toUpperCase();\nconst entry = BY_ID[hookId] || null;\nconst hook = entry\n  ? hookId + ': ' + String(entry.opening || '')\n  : 'the opening shape that best fits the content';\n\nconst format = pick([\n  'PURE PROSE: no bullet points at all, 3-5 flowing paragraphs',\n  'PURE PROSE: no bullet points at all, 3-5 flowing paragraphs',\n  'PUNCHY: several very short paragraphs, at least two of them a single sentence',\n  'PUNCHY: several very short paragraphs, at least two of them a single sentence',\n  'ONE BULLET BLOCK: exactly one bullet list of 3-4 short items, with prose before and after',\n]);\n\n// The word target is a point inside [MIN_WORDS, MAX_WORDS], not a percentage of MAX.\n// A percentage of MAX can fall below MIN - 40% of 300 is 120 against a minimum of 180 -\n// and the directives are declared MANDATORY in the prompt, so the model follows the\n// contradiction down and writes short.\nconst MIN_WORDS = $('main_trigger').first().json.MIN_WORDS || 150;\nconst MAX_WORDS = $('main_trigger').first().json.MAX_WORDS || 200;\nconst span = Math.max(0, MAX_WORDS - MIN_WORDS);\nconst target = (frac) => Math.round(MIN_WORDS + span * frac);\n\nconst lengthBand = pick([\n  ['SHORT', 0.15],\n  ['MEDIUM', 0.5],\n  ['MEDIUM', 0.5],\n  ['FULL', 0.9],\n]);\nconst length = lengthBand[0] + ': aim for about ' + target(lengthBand[1]) +\n  ' words, never fewer than ' + MIN_WORDS + ' and never more than ' + MAX_WORDS;\n\nconst closing = pick([\n  'DIRECT QUESTION: end the body with one specific question to technical peers',\n  'DIRECT QUESTION: end the body with one specific question to technical peers',\n  'SHARED EXPERIENCE: end by inviting others to share how they handle it, phrased as a statement, no question mark',\n  'HOT TAKE: end the body on a blunt one-line statement, no question, no invitation',\n  'HOT TAKE: end the body on a blunt one-line statement, no question, no invitation',\n  'NONE: end when the argument is complete, with no closing question or invitation',\n]);\n\nconst VARIETY_DIRECTIVES = [\n  `- Hook — ${hook}.`,\n  `- Format — ${format}.`,\n  `- Length — ${length}.`,\n  `- Closing — ${closing}. The \"Source here\" line and hashtags always follow the body regardless.`,\n].join('\\n');\n\nreturn [{ json: { ...$input.first().json, VARIETY_DIRECTIVES } }];\n"
-      },
       "id": "dd1dfb5f-278f-463a-abce-4b97ebb7c81a",
       "name": "set_variety_directives",
       "type": "n8n-nodes-base.code",
@@ -1327,9 +1324,20 @@
       "position": [
         -16224,
         -880
-      ]
+      ],
+      "parameters": {
+        "jsCode": "// Randomly pick variety directives so consecutive posts never share the same shape.\n// Duplicated entries act as weights.\nconst pick = (arr) => arr[Math.floor(Math.random() * arr.length)];\n\n// The hook is the one the curator's judge classified from the article and stored on\n// the row; it is NOT re-picked here. The opening shape comes from the registry entry\n// for that id, so the hook the post opens on and the hook the visual was built for are\n// the same decision. When the row carries no hook (a hand-written row), the writer\n// chooses the shape that fits.\nconst reg = $('parse_hook_registry').first().json;\nconst BY_ID = reg.byId || {};\nconst hookId = String($('main_trigger').first().json.HOOK || '').trim().toUpperCase();\nconst entry = BY_ID[hookId] || null;\nconst hook = entry\n  ? hookId + ': ' + String(entry.opening || '')\n  : 'the opening shape that best fits the content';\n\nconst format = pick([\n  'PURE PROSE: no bullet points at all, 3-5 flowing paragraphs',\n  'PURE PROSE: no bullet points at all, 3-5 flowing paragraphs',\n  'PUNCHY: several very short paragraphs, at least two of them a single sentence',\n  'PUNCHY: several very short paragraphs, at least two of them a single sentence',\n  'ONE BULLET BLOCK: exactly one bullet list of 3-4 short items, with prose before and after',\n]);\n\n// The word target is a point inside [MIN_WORDS, MAX_WORDS], not a percentage of MAX.\n// A percentage of MAX can fall below MIN - 40% of 300 is 120 against a minimum of 180 -\n// and the directives are declared MANDATORY in the prompt, so the model follows the\n// contradiction down and writes short.\nconst MIN_WORDS = $('main_trigger').first().json.MIN_WORDS || 150;\nconst MAX_WORDS = $('main_trigger').first().json.MAX_WORDS || 200;\nconst span = Math.max(0, MAX_WORDS - MIN_WORDS);\nconst target = (frac) => Math.round(MIN_WORDS + span * frac);\n\nconst lengthBand = pick([\n  ['SHORT', 0.15],\n  ['MEDIUM', 0.5],\n  ['MEDIUM', 0.5],\n  ['FULL', 0.9],\n]);\nconst length = lengthBand[0] + ': aim for about ' + target(lengthBand[1]) +\n  ' words, never fewer than ' + MIN_WORDS + ' and never more than ' + MAX_WORDS;\n\nconst closing = pick([\n  'DIRECT QUESTION: end the body with one specific question to technical peers',\n  'DIRECT QUESTION: end the body with one specific question to technical peers',\n  'SHARED EXPERIENCE: end by inviting others to share how they handle it, phrased as a statement, no question mark',\n  'HOT TAKE: end the body on a blunt one-line statement, no question, no invitation',\n  'HOT TAKE: end the body on a blunt one-line statement, no question, no invitation',\n  'NONE: end when the argument is complete, with no closing question or invitation',\n]);\n\nconst VARIETY_DIRECTIVES = [\n  `- Hook — ${hook}.`,\n  `- Format — ${format}.`,\n  `- Length — ${length}.`,\n  `- Closing — ${closing}. The \"Source here\" line and hashtags always follow the body regardless.`,\n].join('\\n');\n\nreturn [{ json: { ...$input.first().json, VARIETY_DIRECTIVES } }];\n"
+      }
     },
     {
+      "id": "55f8def3-33b7-4715-87c4-1d01803bb358",
+      "name": "set_output",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -13728,
+        -1024
+      ],
       "parameters": {
         "assignments": {
           "assignments": [
@@ -1348,17 +1356,17 @@
           ]
         },
         "options": {}
-      },
-      "id": "55f8def3-33b7-4715-87c4-1d01803bb358",
-      "name": "set_output",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        -13728,
-        -1024
-      ]
+      }
     },
     {
+      "id": "0aa35d43-7472-4ebe-b5e6-bc0213d3be0d",
+      "name": "download_post_prompt",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -16000,
+        -880
+      ],
       "parameters": {
         "workflowId": {
           "__rl": true,
@@ -1398,17 +1406,17 @@
           "convertFieldsToString": true
         },
         "options": {}
-      },
-      "id": "0aa35d43-7472-4ebe-b5e6-bc0213d3be0d",
-      "name": "download_post_prompt",
+      }
+    },
+    {
+      "id": "4dfca31e-e087-47e5-a40a-31f8d481010e",
+      "name": "download_post_system_prompt",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        -16000,
-        -880
-      ]
-    },
-    {
+        -15776,
+        -992
+      ],
       "parameters": {
         "workflowId": {
           "__rl": true,
@@ -1448,17 +1456,17 @@
           "convertFieldsToString": true
         },
         "options": {}
-      },
-      "id": "4dfca31e-e087-47e5-a40a-31f8d481010e",
-      "name": "download_post_system_prompt",
+      }
+    },
+    {
+      "id": "6549c8a4-f260-407b-9e20-df8f5c4800fb",
+      "name": "download_post_review_prompt",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        -15776,
-        -992
-      ]
-    },
-    {
+        -14752,
+        -912
+      ],
       "parameters": {
         "workflowId": {
           "__rl": true,
@@ -1498,17 +1506,17 @@
           "convertFieldsToString": true
         },
         "options": {}
-      },
-      "id": "6549c8a4-f260-407b-9e20-df8f5c4800fb",
-      "name": "download_post_review_prompt",
+      }
+    },
+    {
+      "id": "eca73597-562f-4bff-bbf0-520daa48a3f1",
+      "name": "download_post_rules_prompt",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        -14752,
-        -912
-      ]
-    },
-    {
+        -17120,
+        -880
+      ],
       "parameters": {
         "workflowId": {
           "__rl": true,
@@ -1547,17 +1555,17 @@
           "convertFieldsToString": true
         },
         "options": {}
-      },
-      "id": "eca73597-562f-4bff-bbf0-520daa48a3f1",
-      "name": "download_post_rules_prompt",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        -17120,
-        -880
-      ]
+      }
     },
     {
+      "id": "d0893749-0b1d-40a2-89c9-d77865da1eb9",
+      "name": "main_trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -17344,
+        -880
+      ],
       "parameters": {
         "workflowInputs": {
           "values": [
@@ -1589,20 +1597,9 @@
             }
           ]
         }
-      },
-      "id": "d0893749-0b1d-40a2-89c9-d77865da1eb9",
-      "name": "main_trigger",
-      "type": "n8n-nodes-base.executeWorkflowTrigger",
-      "typeVersion": 1.1,
-      "position": [
-        -17344,
-        -880
-      ]
+      }
     },
     {
-      "parameters": {
-        "jsCode": "for (const item of $input.all()) {\n  const { text } = item.json;\n\n  const output = text.includes('<output>') && text.includes('</output>')\n    ? text.split('<output>')[1].split('</output>')[0]\n    : 'false';\n\n  // The gate's reason for rejecting this draft. download_post_prompt puts it in\n  // the next attempt's Reviewer Feedback block, and set_error_max_tries reports\n  // it, so it is flattened to one line for both the prompt and the sheet cell.\n  const explanation = text.includes('<explanation>') && text.includes('</explanation>')\n    ? text.split('<explanation>')[1].split('</explanation>')[0].replace(/\\s+/g, ' ').trim()\n    : '';\n\n  item.json.output = output;\n  item.json.explanation = explanation;\n}\n\nreturn $input.all();"
-      },
       "id": "f2e0538b-696e-49d4-9312-696c1433fc58",
       "name": "parse_llm_check_output",
       "type": "n8n-nodes-base.code",
@@ -1610,9 +1607,20 @@
       "position": [
         -14176,
         -912
-      ]
+      ],
+      "parameters": {
+        "jsCode": "for (const item of $input.all()) {\n  const { text } = item.json;\n\n  const output = text.includes('<output>') && text.includes('</output>')\n    ? text.split('<output>')[1].split('</output>')[0]\n    : 'false';\n\n  // The gate's reason for rejecting this draft. download_post_prompt puts it in\n  // the next attempt's Reviewer Feedback block, and set_error_max_tries reports\n  // it, so it is flattened to one line for both the prompt and the sheet cell.\n  const explanation = text.includes('<explanation>') && text.includes('</explanation>')\n    ? text.split('<explanation>')[1].split('</explanation>')[0].replace(/\\s+/g, ' ').trim()\n    : '';\n\n  item.json.output = output;\n  item.json.explanation = explanation;\n}\n\nreturn $input.all();"
+      }
     },
     {
+      "id": "d4767c7e-0170-4a2e-9638-7c749d3c5811",
+      "name": "if_enabled_check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -14976,
+        -992
+      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -1637,17 +1645,17 @@
         },
         "looseTypeValidation": true,
         "options": {}
-      },
-      "id": "d4767c7e-0170-4a2e-9638-7c749d3c5811",
-      "name": "if_enabled_check",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        -14976,
-        -992
-      ]
+      }
     },
     {
+      "id": "500e2c45-a17f-46ee-8a97-68a57492b087",
+      "name": "ai_model_fallback",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -15416,
+        -776
+      ],
       "parameters": {
         "model": {
           "__rl": true,
@@ -1659,14 +1667,6 @@
           "maxRetries": 5
         }
       },
-      "id": "500e2c45-a17f-46ee-8a97-68a57492b087",
-      "name": "ai_model_fallback",
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-      "typeVersion": 1.3,
-      "position": [
-        -15416,
-        -776
-      ],
       "credentials": {
         "openAiApi": {
           "id": "LitellmN8nAcct01",
@@ -1675,6 +1675,14 @@
       }
     },
     {
+      "id": "08ca09dd-4f72-4084-9422-9986a34f99e9",
+      "name": "ai_model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -15544,
+        -776
+      ],
       "parameters": {
         "model": {
           "__rl": true,
@@ -1686,14 +1694,6 @@
           "maxRetries": 5
         }
       },
-      "id": "08ca09dd-4f72-4084-9422-9986a34f99e9",
-      "name": "ai_model",
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-      "typeVersion": 1.3,
-      "position": [
-        -15544,
-        -776
-      ],
       "credentials": {
         "openAiApi": {
           "id": "LitellmN8nAcct01",
@@ -1702,9 +1702,6 @@
       }
     },
     {
-      "parameters": {
-        "jsCode": "// n8n Code node — mode: \"Run Once for Each Item\"\n\nconst url = $('set_workflow_vars').item.json.URL;\nconst text = $json.text;\n\n// Pull the <output>...</output> block; fall back to the whole text if absent\nconst match = /<output>([\\s\\S]*?)<\\/output>/.exec(text);\nlet result = match ? match[1].trim() : text;\n\n// Apply the two replacements (function form = $-safe URLs)\nresult = result\n  .replace(/(Source here: ).*/g, (m, p1) => p1 + url)\n  .replace(/(.*): SOME_URL/g,   (m, p1) => p1 + ': ' + url);\n\nreturn { json: { ...$json, result } };"
-      },
       "id": "b45f5127-085e-46b8-9243-225837a738cb",
       "name": "parse_llm_output",
       "type": "n8n-nodes-base.code",
@@ -1712,9 +1709,20 @@
       "position": [
         -15200,
         -992
-      ]
+      ],
+      "parameters": {
+        "jsCode": "// n8n Code node — mode: \"Run Once for Each Item\"\n\nconst url = $('set_workflow_vars').item.json.URL;\nconst text = $json.text;\n\n// Pull the <output>...</output> block; fall back to the whole text if absent\nconst match = /<output>([\\s\\S]*?)<\\/output>/.exec(text);\nlet result = match ? match[1].trim() : text;\n\n// Apply the two replacements (function form = $-safe URLs)\nresult = result\n  .replace(/(Source here: ).*/g, (m, p1) => p1 + url)\n  .replace(/(.*): SOME_URL/g,   (m, p1) => p1 + ': ' + url);\n\nreturn { json: { ...$json, result } };"
+      }
     },
     {
+      "id": "d4b6f8a2-1c37-4e59-9b24-7a0f3d5c8e61",
+      "name": "download_hook_registry",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -16672,
+        -880
+      ],
       "parameters": {
         "workflowId": {
           "__rl": true,
@@ -1754,20 +1762,9 @@
           "convertFieldsToString": true
         },
         "options": {}
-      },
-      "id": "d4b6f8a2-1c37-4e59-9b24-7a0f3d5c8e61",
-      "name": "download_hook_registry",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        -16672,
-        -880
-      ]
+      }
     },
     {
-      "parameters": {
-        "jsCode": "// datasets/hook_types.json, parsed once. set_variety_directives reads byId to turn\n// the row's HOOK id into the opening shape the registry declares for it.\nconst raw = $json.output || '{}';\nlet cfg;\ntry {\n  cfg = JSON.parse(raw);\n} catch (e) {\n  throw new Error('datasets/hook_types.json is not valid JSON: ' + e.message);\n}\nconst arr = (v, d) => (Array.isArray(v) ? v : d);\nconst str = (v) => String(v == null ? '' : v);\nconst byId = {};\nfor (const h of arr(cfg.hooks, [])) {\n  if (h && h.id) byId[str(h.id).toUpperCase()] = h;\n}\nreturn [{ json: { byId } }];\n"
-      },
       "id": "e5c7a9b3-2d48-4f6a-8c35-9b1e4f7a2d63",
       "name": "parse_hook_registry",
       "type": "n8n-nodes-base.code",
@@ -1775,7 +1772,10 @@
       "position": [
         -16448,
         -880
-      ]
+      ],
+      "parameters": {
+        "jsCode": "// datasets/hook_types.json, parsed once. set_variety_directives reads byId to turn\n// the row's HOOK id into the opening shape the registry declares for it.\nconst raw = $json.output || '{}';\nlet cfg;\ntry {\n  cfg = JSON.parse(raw);\n} catch (e) {\n  throw new Error('datasets/hook_types.json is not valid JSON: ' + e.message);\n}\nconst arr = (v, d) => (Array.isArray(v) ? v : d);\nconst str = (v) => String(v == null ? '' : v);\nconst byId = {};\nfor (const h of arr(cfg.hooks, [])) {\n  if (h && h.id) byId[str(h.id).toUpperCase()] = h;\n}\nreturn [{ json: { byId } }];\n"
+      }
     }
   ],
   "pinData": {},
@@ -1798,6 +1798,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 0,
-  "updatedAt": "2026-10-09T21:15:44.921Z",
-  "versionId": "0bffbaf7-d899-4dbe-a072-138794e1e34a"
+  "updatedAt": "2026-10-10T06:03:20.963Z",
+  "versionId": "0bac1826-1572-4913-b5c1-8bd0cfa7f5f1"
 }

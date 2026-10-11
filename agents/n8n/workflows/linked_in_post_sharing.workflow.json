@@ -6890,7 +6890,8 @@
     "errorWorkflow": "yOLSrRQsp4rv1Wjv",
     "timeSavedMode": "fixed",
     "binaryMode": "separate",
-    "availableInMCP": false
+    "availableInMCP": false,
+    "saveDataSuccessExecution": "none"
   },
   "shared": [
     {

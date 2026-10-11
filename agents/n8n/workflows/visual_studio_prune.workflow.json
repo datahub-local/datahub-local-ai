@@ -46,7 +46,35 @@
               {
                 "keyName": "createdAt",
                 "condition": "lt",
-                "keyValue": "={{ new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString() }}"
+                "keyValue": "={{ new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() }}"
+              }
+            ]
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "prune-temporal-files",
+        "name": "delete_expired_files",
+        "type": "n8n-nodes-base.dataTable",
+        "typeVersion": 1.1,
+        "position": [
+          460,
+          0
+        ],
+        "parameters": {
+          "operation": "deleteRows",
+          "dataTableId": {
+            "__rl": true,
+            "mode": "name",
+            "value": "TemporalFiles"
+          },
+          "filters": {
+            "conditions": [
+              {
+                "keyName": "updatedAt",
+                "condition": "lt",
+                "keyValue": "={{ $now.minus({ hours: 1 }).toISO() }}"
               }
             ]
           },
@@ -60,6 +88,17 @@
           [
             {
               "node": "delete_expired",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "delete_expired": {
+        "main": [
+          [
+            {
+              "node": "delete_expired_files",
               "type": "main",
               "index": 0
             }
@@ -82,6 +121,17 @@
         [
           {
             "node": "delete_expired",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "delete_expired": {
+      "main": [
+        [
+          {
+            "node": "delete_expired_files",
             "type": "main",
             "index": 0
           }
@@ -138,7 +188,35 @@
             {
               "keyName": "createdAt",
               "condition": "lt",
-              "keyValue": "={{ new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString() }}"
+              "keyValue": "={{ new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() }}"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "prune-temporal-files",
+      "name": "delete_expired_files",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        460,
+        0
+      ],
+      "parameters": {
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "TemporalFiles"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "updatedAt",
+              "condition": "lt",
+              "keyValue": "={{ $now.minus({ hours: 1 }).toISO() }}"
             }
           ]
         },
@@ -150,7 +228,8 @@
   "settings": {
     "errorWorkflow": "fejq5nN6LP3F820w",
     "executionOrder": "v1",
-    "availableInMCP": false
+    "availableInMCP": false,
+    "saveDataSuccessExecution": "none"
   },
   "shared": [
     {

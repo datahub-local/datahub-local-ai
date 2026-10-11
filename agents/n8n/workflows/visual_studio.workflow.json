@@ -2195,7 +2195,7 @@
     "errorWorkflow": "EMS2Q6tKrho3dTi8",
     "saveExecutionProgress": false,
     "saveDataErrorExecution": "all",
-    "saveDataSuccessExecution": "all"
+    "saveDataSuccessExecution": "none"
   },
   "shared": [
     {

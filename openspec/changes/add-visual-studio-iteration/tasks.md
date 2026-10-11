@@ -62,19 +62,26 @@
 - [x] 5.2 No chart change in this change (see 2.4), so there is nothing new for the render
   gate; `helmfile template` was not re-run here and CI renders the chart on every push under
   `agents/sympozium/**`.
-- [ ] 5.3 Rebuild and pin the adapter image; confirm the session pod rolls and the sweep
-  logs on startup. Blocked: no Docker daemon locally, so the image builds from CI on push.
-  **[UNVERIFIED until built]**
-- [ ] 5.4 Live: POST one authoring request with a fresh `SESSION_ID`, then a second turn
-  with the same id and a change; confirm the same run directory is reused, `index.html`
-  changed, the artifact re-rendered and the transcript spanning both turns.
-- [ ] 5.5 Live: confirm a thread older than the window is swept, and that a turn on a swept
-  id authors fresh rather than failing. Needs the same image as 5.3 (the sweep is in it);
-  a directory planted with an old mtime makes the sweep observable without waiting a week.
-- [ ] 5.6 Apply the two workflow changes live with `--require-edge` guards, publish, re-read
-  `activeVersion` and diff the export against live. Held until the adapter image carrying
-  the edit instruction is rolled, so the LinkedIn thread id does not reuse a directory on an
-  image that would re-author into it.
+- [x] 5.3 Built by CI and pinned in `bedd064` (`sha256:0c295807…`), rolled by ArgoCD; the
+  pod is `Ready` and `sympozium-pi-render-session` in the image contains `turnInstruction`.
+  The startup sweep ran (no removals on a fresh pod, as expected).
+- [x] 5.4 Live, end to end through the studio. Turn 1 (execution 12963) authored
+  `runs/e2e-thread-1/index.html` (18,049 B) and `out.mp4` (2,842,992 B) under the named
+  session id. Turn 2 (execution 12967) with the same `SESSION_ID` and an
+  `EXTRA_PROMPT` change ran on the same directory: `index.html` 18,049 → 18,428 B (md5
+  680e313e… → 06edeff4…), `out.mp4` re-rendered (md5 dec38024… → 1caf0966…, 300 frames,
+  10 s), one transcript for both turns (51 → 73 lines, 220,176 → 300,068 B), and the turn-1
+  fonts/assets left in place. The brief carried the continuation line and the change and no
+  "Plan first:"; the composer reported *"Applied both changes in place and re-rendered"* and
+  listed only the two requested edits. (A first attempt, execution 12959, landed while the
+  image was rolling and failed with `ECONNREFUSED`; it was cleaned and re-run.)
+- [x] 5.5 Live: planted `runs/sweep-old/` and `2020-01-01T00-00-00-000Z_sweep-old.jsonl` with
+  a 2020 mtime beside a recent pair; a pod restart logged
+  `swept expired session sweep-old` and `swept expired transcript 2020-01-01T00-00-00-000Z_sweep-old.jsonl`
+  and left the recent directory and transcript untouched.
+- [x] 5.6 Applied live with `--require-edge` guards, all satisfied. The PUTs published in
+  place (`active: true` unchanged, `activeVersion` equal to the top level); the export diffed
+  against live shows no parameter or connection differences for either workflow.
 
 ## 6. Documentation
 

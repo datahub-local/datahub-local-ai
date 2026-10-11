@@ -242,6 +242,16 @@ def test_the_brief_gives_each_scene_a_minimum_and_keeps_the_declared_rate(label,
 
 
 @pytest.mark.parametrize("label,doc", list(_copies()))
+def test_a_multi_scene_request_opens_on_a_title_scene(label, doc):
+    # A declared sequence is introduced by a title scene that names the subject, so
+    # the clip carries the declared count plus the title; a count of one is unchanged.
+    body = _code(doc, "build_author_brief")
+    assert "scenes > 1" in body, f"{label}: the title scene must be gated on a multi-scene count"
+    assert "title scene that names the subject" in body, label
+    assert "(scenes + 1)" in body, f"{label}: the clip must carry the title beside the declared scenes"
+
+
+@pytest.mark.parametrize("label,doc", list(_copies()))
 def test_a_deck_run_fetches_both_artifacts(label, doc):
     body = _code(doc, "build_author_brief")
     assert "PAIRED_ARTIFACT_URL" in body

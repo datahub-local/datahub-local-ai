@@ -81,7 +81,7 @@
       {
         "parameters": {
           "respondWith": "json",
-          "responseBody": "={{ { \"error\": \"File not found\", \"fileId\": $('Set Vars1').first().json.ImageId } }}",
+          "responseBody": "={{ { \"error\": \"File not found\", \"fileId\": $('Set Vars').first().json.ImageId } }}",
           "options": {
             "responseCode": 404
           }
@@ -493,7 +493,7 @@
       ],
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ { \"error\": \"File not found\", \"fileId\": $('Set Vars1').first().json.ImageId } }}",
+        "responseBody": "={{ { \"error\": \"File not found\", \"fileId\": $('Set Vars').first().json.ImageId } }}",
         "options": {
           "responseCode": 404
         }

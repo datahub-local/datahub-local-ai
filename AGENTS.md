@@ -258,6 +258,20 @@ on a workflow export, so it is review and this rule. When adding a workflow,
 state in the PR which of the three categories it is and how its failure
 surfaces.
 
+**A workflow edit is not done until it is tidy.** Two halves, and only the first is
+automatable. `agents/n8n/scripts/test_workflow_invariants.py` holds the objective part,
+parametrized over every export: both copies of the graph agree, node names are unique and
+non-empty, no node is left with no connection in either direction, no two nodes share a
+position, every literal `$('node')` reference resolves, and every literal
+`executeWorkflow`/`errorWorkflow` target is a workflow the repository has. Each of those
+has bitten: a rename left `file_webhook`'s 404 branch reading `$('Set Vars1')` for months,
+and a graph edit left the LinkedIn image approval's rejection edge dangling. The
+judgement half is yours: node names that read the same way as their neighbours, grouping
+and stickies, and spacing in the editor — a fixed box size would fail a legitimate layout,
+so only exact-duplicate positions are an error. Tidy the export *and* the live instance:
+apply, read back, and diff (above), because a tidy export that nothing applied is a tidy
+file and an untidy graph.
+
 **Always ask before applying workflow changes to the live instance.** Editing
 the JSON here is cheap and reviewable; writing it back is not. `PUT
 /api/v1/workflows/{id}` replaces the nodes and connections of a running

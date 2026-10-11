@@ -118,6 +118,22 @@ def test_the_animation_keeps_one_session_across_a_retry(label, document):
 
 
 @pytest.mark.parametrize("label,document", list(_copies(SHARING)))
+def test_the_studio_scene_count_is_sent_as_a_string(label, document):
+    """The sub-workflow's trigger declares its inputs as strings and validates them.
+
+    The curator writes SCENES with ``String(...)``, but the sheet column is numeric, so
+    the read returns a number. Execution 12971 failed at the call boundary with
+    ``Invalid input for 'SCENES' [item 0]: 'SCENES' expects a string but we got '5'`` —
+    before the studio's own ``normalize_input`` could stringify it. The mapping must
+    coerce, or any row with a real scene count breaks the call. (The webhook and form
+    paths are not schema-validated, which is why only this caller hit it.)
+    """
+    inputs = _nodes(document)["execute_visual_studio"]["parameters"]["workflowInputs"]
+    scenes = inputs["value"]["SCENES"]
+    assert "String(" in scenes, f"SCENES must be coerced to a string, got {scenes!r}"
+
+
+@pytest.mark.parametrize("label,document", list(_copies(SHARING)))
 def test_the_media_switch_accepts_both_opt_ins(label, document):
     """AGENT must reach the studio; a blank or STATIC row must not."""
     conditions = _nodes(document)["switch_post_media"]["parameters"]["conditions"]["conditions"]
@@ -150,7 +166,7 @@ def test_no_node_is_orphaned(label, document):
     """
     document_nodes = _nodes(document)
     inbound = set()
-    for source, types in _connections(document).items():
+    for types in _connections(document).values():
         for branches in types.values():
             for branch in branches or []:
                 for edge in branch or []:

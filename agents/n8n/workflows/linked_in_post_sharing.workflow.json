@@ -2276,7 +2276,7 @@
               "ASSET_TYPES": "animation_linkedin_video",
               "FEEDBACK": "={{ $('notification_retry_or_cancel_animation').isExecuted ? ($('notification_retry_or_cancel_animation').last().json.data.Feedback || '') : '' }}",
               "FORCE": "={{ $('select_article_to_post').item.json.VISUAL_FORM || 'auto' }}",
-              "SCENES": "={{ $('select_article_to_post').item.json.SCENES || '' }}",
+              "SCENES": "={{ String($('select_article_to_post').item.json.SCENES || '') }}",
               "SESSION_ID": "=lips-{{ $('select_article_to_post').item.json.row_number }}"
             },
             "matchingColumns": [],
@@ -2781,7 +2781,6 @@
         "parameters": {
           "method": "PUT",
           "url": "={{ $json.value.uploadMechanism['com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest'].uploadUrl }}",
-          "authentication": "none",
           "sendHeaders": true,
           "headerParameters": {
             "parameters": [
@@ -6287,7 +6286,7 @@
             "ASSET_TYPES": "animation_linkedin_video",
             "FEEDBACK": "={{ $('notification_retry_or_cancel_animation').isExecuted ? ($('notification_retry_or_cancel_animation').last().json.data.Feedback || '') : '' }}",
             "FORCE": "={{ $('select_article_to_post').item.json.VISUAL_FORM || 'auto' }}",
-            "SCENES": "={{ $('select_article_to_post').item.json.SCENES || '' }}",
+            "SCENES": "={{ String($('select_article_to_post').item.json.SCENES || '') }}",
             "SESSION_ID": "=lips-{{ $('select_article_to_post').item.json.row_number }}"
           },
           "matchingColumns": [],
@@ -6792,7 +6791,6 @@
       "parameters": {
         "method": "PUT",
         "url": "={{ $json.value.uploadMechanism['com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest'].uploadUrl }}",
-        "authentication": "none",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [

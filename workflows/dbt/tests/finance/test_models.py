@@ -35,6 +35,33 @@ class TestSilverTransactions:
         assert "DECIMAL(18, 2)" in self.sql
 
 
+class TestSilverTransactionsDedup:
+    def setup_method(self):
+        self.sql = (MODELS_DIR / "silver" / "transactions.sql").read_text()
+
+    def test_ranks_rows_within_one_payment(self):
+        assert "ROW_NUMBER()" in self.sql
+        assert "PARTITION BY" in self.sql
+        assert "payment_rank = 1" in self.sql
+
+    def test_prefers_the_non_positional_identity(self):
+        # the ordinal a bank renumbers and the hash minted for the same payment are
+        # two rows; only the hash may survive
+        assert "finance_is_positional_id" in self.sql
+        assert "CASE WHEN" in self.sql
+
+    def test_latest_row_wins_between_equal_identities(self):
+        assert "_ingested_at DESC" in self.sql
+
+
+def test_positional_id_macro_dispatches_per_engine():
+    macro = (PROJECT_DIR / "macros" / "finance_cross_engine.sql").read_text()
+    assert "finance_is_positional_id" in macro
+    assert "trino__finance_is_positional_id" in macro
+    assert "duckdb__finance_is_positional_id" in macro
+    assert r"\d{4}-\d{2}-\d{2}\.\d+" in macro
+
+
 class TestSilverAccounts:
     def setup_method(self):
         self.sql = (MODELS_DIR / "silver" / "accounts.sql").read_text()

@@ -24,6 +24,11 @@ TRANSACTION_ROWS = [
     ("enablebanking", "acct_a", "S1", "2026-01-15", "2026-01-14", -12.34, "EUR",
      "SAMPLE SHOP", "Sample Shop SL", None, None, "ES0000000000000000000000", None,
      "Openbank", "{}", "2026-01-16T06:00:00+00:00"),
+    # the same payment under the positional ordinal the bank first returned: the
+    # ordinal is not an identity, so silver must keep the row above and drop this one
+    ("enablebanking", "acct_a", "2026-01-15.0", "2026-01-15", "2026-01-14", -12.34, "EUR",
+     "SAMPLE SHOP", "Sample Shop SL", None, None, "ES0000000000000000000000", None,
+     "Openbank", '{"entry_reference": "2026-01-15.0"}', "2026-02-10T06:00:00+00:00"),
     # inflow: falls back to the debtor name
     ("enablebanking", "acct_a", "S2", "2026-01-20", None, 100.00, "EUR",
      "SALARY", None, "Sample Employer", None, "ES1111111111111111111111", None,
@@ -160,6 +165,17 @@ class TestSilver:
             "SELECT DISTINCT iban_masked FROM silver.finance.transactions"
         ).fetchall()
         assert row == [("****0000",)]
+
+    def test_legacy_ordinal_row_collapses_into_the_hash_row(self, con):
+        # seeded as a pair: "S1" (no ordinal shape) and "2026-01-15.0"
+        identities = [
+            r[0] for r in con.execute(
+                "SELECT stable_id FROM silver.finance.transactions"
+            ).fetchall()
+        ]
+        assert "S1" in identities
+        assert "2026-01-15.0" not in identities
+        assert len(identities) == 4
 
     def test_balances_latest_snapshot_wins(self, con):
         rows = con.execute(

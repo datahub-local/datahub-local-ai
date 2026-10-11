@@ -94,6 +94,8 @@ class BudgetClient(Protocol):
 
     def existing_imported_ids(self) -> set[str]: ...
 
+    def imported_transactions(self) -> list: ...
+
     def reconcile_payees(self, rows: list[dict]) -> int: ...
 
     def ensure_account(self, name: str) -> None: ...
@@ -127,6 +129,8 @@ class BudgetClient(Protocol):
     ) -> object: ...
 
     def run_rules(self, transactions: list) -> None: ...
+
+    def delete(self, transaction: object) -> None: ...
 
     def commit(self) -> None: ...
 
@@ -280,6 +284,24 @@ class _ActualPaymentClient:
             )
         ).all()
         return {row for row in rows if row}
+
+    def imported_transactions(self) -> list:
+        """The transactions this pipeline imported, tombstones excluded.
+
+        Used by the prune step to find rows whose identity was superseded; only
+        the ``enablebanking:`` prefix is considered, so nothing an operator wrote
+        in the budget is ever in scope.
+        """
+        rows = self._actual.session.exec(
+            self._select(self._Transactions).where(
+                self._Transactions.financial_id.startswith(IMPORTED_ID_PREFIX)
+            )
+        ).all()
+        return [row for row in rows if row.financial_id and not row.tombstone]
+
+    def delete(self, transaction: object) -> None:
+        # Actual has no hard delete: actualpy's model marks tombstone=1.
+        transaction.delete()
 
     def reconcile_payees(self, rows: list[dict]) -> int:
         from actual.database import Transactions

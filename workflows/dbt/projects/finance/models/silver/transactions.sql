@@ -9,7 +9,34 @@
    categorise every row separately, never reusing a merchant. The card template's
    merchant is therefore extracted first; anything that does not match the template
    falls back to the raw label. This is a text heuristic over one bank's wording, so it
-   is kept here in Silver (presentation), never in the adapter (wire format). #}
+   is kept here in Silver (presentation), never in the adapter (wire format).
+
+   One row per payment. A bank whose reference is a booking-date-scoped ordinal
+   (the adapter's shape rule) has had two identities for the same payment at
+   different times - the ordinal it first landed under, and the hash minted after
+   the identity rule changed - so both rows are in bronze and both would reach
+   this layer. They are ranked on the payment key the hash itself is built from
+   and the non-positional row wins; a positional row survives only when it is the
+   only copy of that payment, which is the case for anything booked before the
+   re-fetch window. #}
+WITH ranked AS (
+    SELECT
+        t.*,
+        ROW_NUMBER() OVER (
+            PARTITION BY
+                t.provider,
+                t.account_id,
+                t.booking_date,
+                t.amount,
+                t.currency,
+                COALESCE(t.remittance_info, ''),
+                COALESCE(NULLIF(trim(t.creditor_name), ''), NULLIF(trim(t.debtor_name), ''))
+            ORDER BY
+                CASE WHEN {{ finance_is_positional_id("t.stable_id") }} THEN 1 ELSE 0 END,
+                t._ingested_at DESC
+        ) AS payment_rank
+    FROM {{ source('finance', 'raw_transactions') }} AS t
+)
 SELECT
     t.provider,
     t.account_id,
@@ -38,6 +65,7 @@ SELECT
     t.remittance_info,
     a.iban_masked,
     t._ingested_at
-FROM {{ source('finance', 'raw_transactions') }} AS t
+FROM ranked AS t
 LEFT JOIN {{ ref('accounts') }} AS a
     ON a.account_id = t.account_id
+WHERE t.payment_rank = 1

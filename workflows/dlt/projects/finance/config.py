@@ -200,3 +200,13 @@ def sync_to_date() -> str | None:
 def sync_dry_run() -> bool:
     """When true, stop before ``actual.commit()`` and only log the counts."""
     return env("FINANCE_SYNC_DRY_RUN", "false").lower() in ("1", "true", "yes")
+
+
+def prune_apply() -> bool:
+    """When true, the prune pipeline tombstones the superseded budget rows.
+
+    Off by default on every target, unlike the sync: the sync re-runs daily and a
+    dry run is a convenience, while prune is a one-off destructive operation and
+    must be asked for explicitly.
+    """
+    return env("FINANCE_PRUNE_APPLY", "false").lower() in ("1", "true", "yes")

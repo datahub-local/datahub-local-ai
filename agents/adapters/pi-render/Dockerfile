@@ -70,7 +70,7 @@ COPY vendor/gsap.min.js ./vendor/gsap.min.js
 # lifecycle scripts disabled. It is pure JS — verified to install and run on this
 # image's Debian/glibc, not only on Alpine.
 RUN npm install --global --ignore-scripts --no-audit --no-fund \
-      @earendil-works/pi-coding-agent@0.99.2
+    @earendil-works/pi-coding-agent@1.1.0
 
 # Move the engine to a stable, documented path so the prompt and the entrypoint
 # do not depend on the build directory.
@@ -93,17 +93,17 @@ RUN mkdir -p /opt/hyperframes /opt/pi-render/prompts \
 RUN HYPERFRAMES_VERSION="$(jq -r '.dependencies.hyperframes' package.json | sed 's/^[~^]//')" \
     && test -n "$HYPERFRAMES_VERSION" \
     && curl -fsSL \
-        "https://codeload.github.com/heygen-com/hyperframes/tar.gz/refs/tags/v${HYPERFRAMES_VERSION}" \
-        -o /tmp/hyperframes-src.tgz \
+    "https://codeload.github.com/heygen-com/hyperframes/tar.gz/refs/tags/v${HYPERFRAMES_VERSION}" \
+    -o /tmp/hyperframes-src.tgz \
     && tar -xzf /tmp/hyperframes-src.tgz -C /tmp --wildcards --no-anchored 'skills/*' \
-        --transform 's#^hyperframes-[^/]*/##' \
+    --transform 's#^hyperframes-[^/]*/##' \
     && cp -r /tmp/skills/. /opt/hyperframes/skills/ \
     && rm -rf /tmp/hyperframes-src.tgz /tmp/skills \
     && for skill in hyperframes hyperframes-cli hyperframes-core hyperframes-animation \
-         hyperframes-keyframes hyperframes-registry hyperframes-creative hyperframes-studio; do \
-         test -f "/opt/hyperframes/skills/$skill/SKILL.md" \
-           || { echo "missing skill in the image: $skill" >&2; exit 1; }; \
-       done
+    hyperframes-keyframes hyperframes-registry hyperframes-creative hyperframes-studio; do \
+    test -f "/opt/hyperframes/skills/$skill/SKILL.md" \
+    || { echo "missing skill in the image: $skill" >&2; exit 1; }; \
+    done
 
 # The transition primitives are a runtime dependency of the image, vendored at build
 # from the same pinned release, so a scene transition needs no author-time network.

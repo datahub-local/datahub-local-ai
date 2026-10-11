@@ -25,11 +25,16 @@ FROM node:22-bookworm-slim
 #
 # jq is not optional either: the adapter contract builds the result payload with
 # it (`jq --arg`, so LLM output cannot forge a result structure).
+#
+# curl is for the build only: the npm dist ships three skills, so the full skill
+# set is fetched from the engine's repository at the pinned tag below. The node
+# slim base purges the curl it installs for its own build, so it is re-added here.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
     ffmpeg \
     jq \
     ca-certificates \
+    curl \
     fonts-dejavu-core \
     fontconfig \
     libgbm1 \
@@ -82,10 +87,12 @@ RUN mkdir -p /opt/hyperframes /opt/pi-render/prompts \
 # framework's full authoring set — the animation rules and scene blueprints, keyframes,
 # the registry, creative direction, the studio and the core contract — lives in the
 # repository's skills/ tree, so it is fetched here at the same pinned release. The
-# build has network; the render does not. Keep HYPERFRAMES_VERSION in step with the
-# hyperframes pin in package.json (asserted in test/dockerfile.test.mjs).
-ARG HYPERFRAMES_VERSION=0.8.146
-RUN curl -fsSL \
+# release tag is read from package.json's `hyperframes` pin, so the engine version has
+# one source (Renovate maintains it) and cannot drift from the skill fetch. The build
+# has network; the render does not.
+RUN HYPERFRAMES_VERSION="$(jq -r '.dependencies.hyperframes' package.json | sed 's/^[~^]//')" \
+    && test -n "$HYPERFRAMES_VERSION" \
+    && curl -fsSL \
         "https://codeload.github.com/heygen-com/hyperframes/tar.gz/refs/tags/v${HYPERFRAMES_VERSION}" \
         -o /tmp/hyperframes-src.tgz \
     && tar -xzf /tmp/hyperframes-src.tgz -C /tmp --wildcards --no-anchored 'skills/*' \

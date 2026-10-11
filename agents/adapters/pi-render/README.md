@@ -46,6 +46,16 @@ Deliberately **not** carried over: `git`. Upstream's Pi image has it because Pi 
 a repo-cloning tool; nothing in this adapter or the authoring loop calls it, and a
 tool nothing uses is a surface to keep patched for no reason.
 
+**The two version pins are maintained by Renovate, not by hand.** The engine is pinned
+once, in `package.json` (`hyperframes`, with `@hyperframes/shader-transitions` on the
+same release), and the Dockerfile reads that pin for the skill fetch. The agent loop is
+pinned in the Dockerfile (`@earendil-works/pi-coding-agent@0.84.4`) and is extracted
+there by a `customManagers` regex in the root `renovate.json`. All three are grouped
+into one `pi-render toolchain` PR, so the engine and the skills it fetches cannot move
+apart. That extraction needs the Dockerfile to stop being ignored, so `renovate.json`
+also disables the built-in `dockerfile` manager: a Dockerfile edit does not start
+proposing `node` / `debian` / `uv` bumps.
+
 Everything else is upstream's, unchanged: the contract check, the credential
 checks, the provider config, the `v1alpha1` result protocol, the bounded output and
 the `/ipc/control/skip` handling.

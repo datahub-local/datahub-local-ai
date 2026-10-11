@@ -47,13 +47,28 @@ test("the image fetches the framework's full skill set at the pinned release", (
     pkg.dependencies["@hyperframes/shader-transitions"],
     "the transition primitives are not a vendored dependency"
   );
+  // The fetch runs at build time, so the tool that fetches must be installed: the
+  // node slim base purges its own curl and shipped an image with none.
+  assert.match(dockerfile, /^\s*curl\s*\\$/m, "curl is not installed, so the skill fetch cannot run");
   assert.match(dockerfile, /codeload\.github\.com\/heygen-com\/hyperframes/);
   assert.match(dockerfile, /--wildcards[^\n]*skills\/\*/);
-  const arg = dockerfile.match(/ARG HYPERFRAMES_VERSION=([\d.]+)/);
-  assert.ok(arg, "the Dockerfile does not pin the skill-fetch release");
-  // One release for the engine, the skills and the primitives.
-  assert.equal(arg[1], pkg.dependencies.hyperframes);
-  assert.equal(arg[1], pkg.dependencies["@hyperframes/shader-transitions"]);
+  // One release for the engine and its primitives, maintained by Renovate in
+  // package.json; the skill fetch reads that pin instead of keeping a second copy.
+  assert.equal(
+    pkg.dependencies.hyperframes,
+    pkg.dependencies["@hyperframes/shader-transitions"],
+    "the engine and the transition primitives are on different releases"
+  );
+  assert.match(
+    dockerfile,
+    /\.dependencies\.hyperframes/,
+    "the skill fetch does not read the pinned release from package.json"
+  );
+  assert.match(dockerfile, /refs\/tags\/v\$\{HYPERFRAMES_VERSION\}/);
+  assert.ok(
+    !/ARG HYPERFRAMES_VERSION=/.test(dockerfile),
+    "a second hyperframes pin came back in the Dockerfile"
+  );
   for (const skill of ["hyperframes-core", "hyperframes-animation", "hyperframes-keyframes"]) {
     assert.ok(dockerfile.includes(skill), `the build does not assert the ${skill} skill`);
   }

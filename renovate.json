@@ -8,10 +8,39 @@
   "automergeStrategy": "squash",
   "forkProcessing": "enabled",
   "ignorePaths": [
-    "**/.github/**",
-    "**/Dockerfile"
+    "**/.github/**"
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "The pi-render adapter pins its global pi-coding-agent install in the Dockerfile",
+      "fileMatch": [
+        "(^|/)agents/adapters/pi-render/Dockerfile$"
+      ],
+      "matchStrings": [
+        "@earendil-works/pi-coding-agent@(?<currentValue>\\d+\\.\\d+\\.\\d+[^\\s@]*)"
+      ],
+      "datasourceTemplate": "npm",
+      "depNameTemplate": "@earendil-works/pi-coding-agent"
+    }
   ],
   "packageRules": [
+    {
+      "description": "Dockerfiles are read only by the custom manager above: the engine version is pinned once in package.json, and base-image and apt churn is not wanted here.",
+      "matchManagers": [
+        "dockerfile"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "The pi-render engine, its transition primitives and the agent loop move together.",
+      "groupName": "pi-render toolchain",
+      "matchPackageNames": [
+        "hyperframes",
+        "@hyperframes/shader-transitions",
+        "@earendil-works/pi-coding-agent"
+      ]
+    },
     {
       "matchDatasources": [
         "pypi"

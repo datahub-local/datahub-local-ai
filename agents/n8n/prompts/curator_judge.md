@@ -34,9 +34,10 @@ An article can be well written, popular and on-topic and still fail this. A laun
   - Good: `Their vending machine solves provisioning by moving the approval bottleneck, not removing it.`
   - Bad: `Can discuss the trade-offs of this new approach.`
 - `evidence` — max 20 words quoting or naming the specific detail that justifies your `postability`. If you cannot point at one, the score is not above 3.
-- `visual` — the visual intent for this article, taken from the hook's default above unless the article warrants otherwise:
-  - `form` — one of `auto`, `diagram`, `story`, `data`, `poster`, `image`. Use the hook's default unless the content clearly needs another.
-  - `motion` — true to ask for an animated asset, false for a still.
+- `visual` — the visual intent for this article. The post's media is always animated; a still image is only the fallback when the visual author fails, so there is no motion flag to set.
+  - `form` — the composition shape. Use the hook's default unless the content clearly needs another; the forms are:
+
+{{ FORMS }}
   - `scenes` — for a list-shaped hook, the number of distinct items the article presents (a roundup of 5 trends is 5); 0 to leave the scene count to the visual author.
 
 Be strict: only the top few scored reach the queue, and when in doubt score lower.
@@ -45,7 +46,7 @@ Be strict: only the top few scored reach the queue, and when in doubt score lowe
 
 Return ONLY this, no prose, no markdown fences:
 
-<output>{"postability": 0, "blocked": false, "hook": "TRADE_OFF", "angle": "...", "evidence": "...", "visual": {"form": "diagram", "motion": false, "scenes": 0}}</output>
+<output>{"postability": 0, "blocked": false, "hook": "TRADE_OFF", "angle": "...", "evidence": "...", "visual": {"form": "diagram", "scenes": 0}}</output>
 
 ## Article
 

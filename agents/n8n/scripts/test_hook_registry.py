@@ -76,7 +76,7 @@ def test_registry_declares_the_required_hooks():
         assert hook.get("opening"), hook["id"]
         visual = hook["visual"]
         assert visual["form"] in forms, f"{hook['id']} names a form the studio does not accept"
-        assert isinstance(visual["motion"], bool)
+        assert "motion" not in visual, f"{hook['id']} declares a motion flag; media is always animated"
         assert isinstance(visual["scenes"], int) and visual["scenes"] >= 0
         assert hook.get("image"), hook["id"]
 
@@ -87,10 +87,65 @@ def test_registry_has_no_template_placeholder():
     assert "{{" not in REGISTRY.read_text(encoding="utf-8")
 
 
-def test_roundup_is_a_multi_scene_motion_hook():
-    """The state-of case: a list is one item per scene, animated."""
-    roundup = next(h for h in _registry()["hooks"] if h["id"] == "ROUNDUP")
-    assert roundup["visual"]["motion"] is True
+def test_every_admitted_row_is_animated():
+    """The media is always animated; a still is only the visual author's fallback.
+
+    The judge used to return a ``motion`` flag and the registry declared a per-hook
+    default, so a static row was a classification outcome. Animated is now
+    unconditional: the curator writes ``POST_MEDIA=ANIMATED`` for every admitted row
+    and nothing reads a motion flag. A hand-edited ``STATIC`` cell still overrides,
+    which is what keeps the still path reachable when an animation cannot be produced.
+    """
+    for label, doc in _copies(CURATOR):
+        judge = _node(doc, "parse_judge")["parameters"]["jsCode"]
+        backfill = _node(doc, "parse_judge_backfill")["parameters"]["jsCode"]
+        admit = _node(doc, "admit_to_backlog")["parameters"]["jsCode"]
+        assert "visual_motion" not in judge, f"{label}: parse_judge still reads a motion flag"
+        assert "motion" not in judge, f"{label}: parse_judge still reads a motion flag"
+        assert "motion" not in backfill, f"{label}: parse_judge_backfill still reads a motion flag"
+        assert "POST_MEDIA: 'ANIMATED'" in admit, f"{label}: admit_to_backlog does not force ANIMATED"
+        assert "POST_MEDIA: 'ANIMATED'" in backfill, f"{label}: backfill does not force ANIMATED"
+
+    reg = _registry()
+    for hook in reg["hooks"]:
+        assert "motion" not in hook["visual"], f"{hook['id']} still declares a motion flag"
+
+    prompt = (PROMPTS / "curator_judge.md").read_text(encoding="utf-8")
+    assert '"motion"' not in prompt, "the judge prompt still asks for a motion flag"
+
+
+def test_the_form_vocabulary_is_one_file():
+    """The studio enum, the curator's two FORMS arrays and ``prompts/visual_forms.md``
+    are one vocabulary; a value added to one and not the others is silently clamped."""
+    text = (PROMPTS / "visual_forms.md").read_text(encoding="utf-8")
+    defined = set(re.findall(r"^- `([a-z]+)`: .+", text, re.MULTILINE))
+    assert defined, "the vocabulary file defines no forms"
+    forms = _forms()
+    assert forms - {"auto"} == defined, f"studio enum {sorted(forms)} vs vocabulary {sorted(defined)}"
+    for label, doc in _copies(CURATOR):
+        for name in ("parse_judge", "parse_judge_backfill"):
+            code = _node(doc, name)["parameters"]["jsCode"]
+            match = re.search(r"const FORMS = \[([^\]]*)\]", code)
+            assert match, f"{label}: {name} has no FORMS list"
+            listed = {x.strip().strip("'\"") for x in match.group(1).split(",") if x.strip()}
+            assert listed == forms, f"{label}: {name} FORMS differ from the studio enum"
+
+
+def test_the_judge_selects_from_the_vocabulary():
+    """The judge overrides a hook's default form, so it must read the same definitions
+    the composer builds from; both judge prompts carry the fetched file as ``{{ FORMS }}``."""
+    prompt = (PROMPTS / "curator_judge.md").read_text(encoding="utf-8")
+    assert "{{ FORMS }}" in prompt, "the judge prompt is not injected the vocabulary"
+    for label, doc in _copies(CURATOR):
+        for name in ("download_judge_prompt", "download_judge_prompt_backfill"):
+            value = _node(doc, name)["parameters"]["workflowInputs"]["value"]["template_vars"]
+            assert "download_visual_forms" in value and "FORMS" in value, f"{label}: {name}"
+
+
+def test_a_benchmark_and_a_cost_plot_a_chart():
+    by_id = {h["id"]: h for h in _registry()["hooks"]}
+    for hook in ("BENCHMARK", "COST"):
+        assert by_id[hook]["visual"]["form"] == "chart", hook
 
 
 def test_the_hook_list_is_not_carried_twice():

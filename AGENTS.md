@@ -482,9 +482,12 @@ than `PI_RENDER_SESSION_TTL_DAYS` (default 7, matching the prune window below; `
 on startup and throttled after each turn, never the session in flight.
 `openspec/changes/add-visual-studio-iteration/` is the record.
 
-**FORCE and STYLE.** `FORCE` is `auto | diagram | story | data | poster | image`; `auto`
-lets the composer choose the form, anything else pins it, and a forced form is honoured or
-reported, never silently replaced. `STYLE` names a brand scheme (`dark | light`). `FORCE`
+**FORCE and STYLE.** `FORCE` is `auto | diagram | story | data | poster | code | chart | timeline | quote | ui`;
+`auto` lets the composer choose the form, anything else pins it, and a forced form is honoured or
+reported, never silently replaced. The vocabulary is one committed file, `prompts/visual_forms.md`,
+fetched by the studio (into the brief) and by the curator (into the judge prompt as `{{ FORMS }}`),
+so the judge that overrides a hook's default and the composer that builds it read the same
+definitions. `STYLE` names a brand scheme (`dark | light`). `FORCE`
 is validated in `normalize_input`, which is where a fixed enum belongs; `STYLE` is resolved
 and validated in `brand_tokens`, because the scheme names are data in `brand.json` and a
 hardcoded default would be a second copy of that decision. An unknown value in either
@@ -592,16 +595,16 @@ is injected the list as `{{ HOOKS }}`, the post generator reads the chosen hook'
 shape from it, and the LinkedIn Image Creator reads the chosen hook's raster composition
 device from it. Each hook declares `when` (eligibility), `opening` (the shape the post's
 first lines take — format, length and closing stay the generator's own variety), `visual`
-(`form` one of `FORCE`, `motion`, `scenes`) and `image`. Every hook declares
-`motion: true`, so **animation is the default** and the judge chooses a still only when an
-article warrants one; the still-image path is the fallback and the manual
-`POST_MEDIA=STATIC` override.
+(`form` one of `FORCE`, `scenes`) and `image`. **Animation is unconditional**: no hook
+declares a motion flag and the judge has none to set, so every admitted row is
+`POST_MEDIA=ANIMATED`; the still-image path is only the fallback when the visual author
+fails, and the manual `POST_MEDIA=STATIC` override.
 
 The judge returns `hook` and a `visual` intent in the same call that reads the article;
 `admit_to_backlog` writes them as the `HOOK`, `VISUAL_FORM`, `POST_MEDIA` and `SCENES`
 columns (`POST_MEDIA` is `ANIMATED` or `STATIC`). `LinkedIn Post Creator`'s `set_variety_directives` reads `HOOK` and maps it through
 the registry — it no longer re-picks a hook at random, and `classify_content` is retired. A
-list-shaped article (a roundup, a state-of — the `ROUNDUP` hook) declares `motion: true` and
+list-shaped article (a roundup, a state-of — the `ROUNDUP` hook) declares
 a scene count, so it is authored as one item per scene in the existing `animation_linkedin`
 type, with no new media kind. A queued row that predates the columns is re-judged by the
 curator itself (`select_unclassified_queue` → a bounded loop, 12 rows a run) so the

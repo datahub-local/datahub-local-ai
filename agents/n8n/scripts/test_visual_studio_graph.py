@@ -10,6 +10,7 @@ top level and inside ``activeVersion``, and a fix applied to one copy is a live 
 """
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -117,8 +118,9 @@ def test_the_trigger_contract_carries_force_and_style(label, doc):
     assert "FORCE" in code and "STYLE" in code
     assert "SPEC_JSON" not in code
     # FORCE is an enum and an unknown value fails naming it.
-    for value in ("auto", "diagram", "story", "data", "poster", "image"):
+    for value in ("auto", "diagram", "story", "data", "poster", "code", "chart", "timeline", "quote", "ui"):
         assert f"'{value}'" in code, f"FORCE enum is missing {value}"
+    assert "'image'" not in code, "the raster medium is not a composition form"
     assert "unknown FORCE" in code
 
     main_values = {v["name"] for v in _node(doc, "main_trigger")["parameters"]["workflowInputs"]["values"]}
@@ -149,6 +151,36 @@ def test_the_brief_carries_force_style_brand_and_frame(label, doc):
     assert "durationSeconds" in body and "frames" in body
     assert "storyboard" in body.lower(), "the brief must ask the composer to plan first"
     assert _node(doc, "execute_author")["parameters"]["jsonBody"] == "={{ $json.AUTHOR_BODY }}"
+
+
+@pytest.mark.parametrize("label,doc", list(_copies()))
+def test_the_form_vocabulary_is_fetched_and_reaches_the_brief(label, doc):
+    """One committed copy of the vocabulary, fetched the way the motion rules are.
+
+    A form name is our word, not the framework's: ``data`` and ``poster`` mean nothing
+    to the composer unless the brief defines them. ``prompts/visual_forms.md`` is the
+    one copy, appended to every brief; the workflow does not restate the definitions.
+    """
+    dl = _node(doc, "download_visual_forms")
+    name = dl["parameters"]["workflowInputs"]["value"]["template_name"]
+    assert name == "prompts/visual_forms.md"
+    assert _targets(doc, "download_visual_forms", 0) == ["visual_forms"]
+    assert _targets(doc, "visual_forms", 0) == ["download_registry"]
+    body = _code(doc, "build_author_brief")
+    assert "visual_forms" in body and "FORMS" in body
+    assert "vocab" in body, "the brief does not append the vocabulary"
+
+
+def test_the_form_enum_matches_the_vocabulary():
+    """The enum minus ``auto`` (which only means "no pin") is exactly the file's forms."""
+    text = (ROOT / "prompts" / "visual_forms.md").read_text(encoding="utf-8")
+    defined = set(re.findall(r"^- `([a-z]+)`: .+", text, re.MULTILINE))
+    assert defined, "the vocabulary file defines no forms"
+    for label, doc in _copies():
+        match = re.search(r"const FORCES = \[([^\]]*)\]", _code(doc, "normalize_input"))
+        assert match, f"{label}: normalize_input has no FORCES enum"
+        enum = {x.strip().strip("'\"") for x in match.group(1).split(",") if x.strip()}
+        assert enum - {"auto"} == defined, f"{label}: enum {sorted(enum)} vs vocabulary {sorted(defined)}"
 
 
 @pytest.mark.parametrize("label,doc", list(_copies()))
@@ -212,7 +244,7 @@ def test_the_motion_rules_are_fetched_once_and_reach_the_brief(label, doc):
     name = dl["parameters"]["workflowInputs"]["value"]["template_name"]
     assert name == "prompts/visual_motion_rules.md"
     assert _targets(doc, "download_visual_rules", 0) == ["visual_rules"]
-    assert _targets(doc, "visual_rules", 0) == ["download_registry"]
+    assert _targets(doc, "visual_rules", 0) == ["download_visual_forms"]
     body = _code(doc, "build_author_brief")
     assert "visual_rules" in body and "RULES" in body
 

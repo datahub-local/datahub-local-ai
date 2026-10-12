@@ -365,7 +365,7 @@
             "mode": "list",
             "cachedResultName": "workflows"
           },
-          "text": "=Error Publishing Post ({{ $('select_article_to_post').item.json.URL }}) in LinkedIn: {{ $json.ERROR }} (exec {{ $execution.id }})",
+          "text": "={{ $json.ERROR === 'CANCELLED' ? 'Post Canceled' : ('Error Publishing Post in LinkedIn: ' + $json.ERROR) }} ({{ $('select_article_to_post').item.json.URL }}) (exec {{ $execution.id }})",
           "otherOptions": {
             "includeLinkToWorkflow": true
           }
@@ -4375,7 +4375,7 @@
           "mode": "list",
           "cachedResultName": "workflows"
         },
-        "text": "=Error Publishing Post ({{ $('select_article_to_post').item.json.URL }}) in LinkedIn: {{ $json.ERROR }} (exec {{ $execution.id }})",
+        "text": "={{ $json.ERROR === 'CANCELLED' ? 'Post Canceled' : ('Error Publishing Post in LinkedIn: ' + $json.ERROR) }} ({{ $('select_article_to_post').item.json.URL }}) (exec {{ $execution.id }})",
         "otherOptions": {
           "includeLinkToWorkflow": true
         }

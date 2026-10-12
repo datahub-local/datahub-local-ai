@@ -1,7 +1,7 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "5ddd7813-2fcf-4f75-bf77-f28f04dcea78",
+    "versionId": "55cf3b01-13b0-464b-96c4-9c91f9640461",
     "workflowId": "2pSrRNmYR2jkX1JG",
     "nodes": [
       {
@@ -682,16 +682,28 @@
         }
       },
       {
-        "id": "c2b8d4f3-5e6a-4b7c-9d0e-1f2a3b4c5d6e",
-        "name": "visual_rules",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
+        "id": "e4d0f6b5-7a8c-4d9e-8f1a-3b4c5d6e7f80",
+        "name": "fetch_paired_artifact",
+        "notes": "The deck's paired video, fetched after the deck. Continued on error for the same reason as fetch_artifact: agent_result keeps the deck and reports the missing pair rather than failing the run.",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "onError": "continueRegularOutput",
         "position": [
-          2128,
-          560
+          1344,
+          -520
         ],
         "parameters": {
-          "jsCode": "// prompts/visual_motion_rules.md is the one copy of the motion grammar. It is\n// fetched once and handed to build_author_brief, which appends it to every brief.\nreturn [{ json: { RULES: String($json.output || '') } }];\n"
+          "method": "GET",
+          "url": "={{ $('build_author_brief').item.json.PAIRED_ARTIFACT_URL }}",
+          "options": {
+            "response": {
+              "response": {
+                "responseFormat": "file",
+                "outputPropertyName": "paired"
+              }
+            },
+            "timeout": 120000
+          }
         }
       },
       {
@@ -729,28 +741,16 @@
         }
       },
       {
-        "id": "e4d0f6b5-7a8c-4d9e-8f1a-3b4c5d6e7f80",
-        "name": "fetch_paired_artifact",
-        "notes": "The deck's paired video, fetched after the deck. Continued on error for the same reason as fetch_artifact: agent_result keeps the deck and reports the missing pair rather than failing the run.",
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.4,
-        "onError": "continueRegularOutput",
+        "id": "c2b8d4f3-5e6a-4b7c-9d0e-1f2a3b4c5d6e",
+        "name": "visual_rules",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
         "position": [
-          1344,
-          -520
+          2128,
+          560
         ],
         "parameters": {
-          "method": "GET",
-          "url": "={{ $('build_author_brief').item.json.PAIRED_ARTIFACT_URL }}",
-          "options": {
-            "response": {
-              "response": {
-                "responseFormat": "file",
-                "outputPropertyName": "paired"
-              }
-            },
-            "timeout": 120000
-          }
+          "jsCode": "// prompts/visual_motion_rules.md is the one copy of the motion grammar. It is\n// fetched once and handed to build_author_brief, which appends it to every brief.\nreturn [{ json: { RULES: String($json.output || '') } }];\n"
         }
       }
     ],
@@ -1046,11 +1046,11 @@
           ]
         ]
       },
-      "visual_rules": {
+      "fetch_paired_artifact": {
         "main": [
           [
             {
-              "node": "download_registry",
+              "node": "agent_result",
               "type": "main",
               "index": 0
             }
@@ -1075,11 +1075,11 @@
           ]
         ]
       },
-      "fetch_paired_artifact": {
+      "visual_rules": {
         "main": [
           [
             {
-              "node": "agent_result",
+              "node": "download_registry",
               "type": "main",
               "index": 0
             }
@@ -1092,10 +1092,10 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-10-10T17:35:07.868Z",
-    "updatedAt": "2026-10-10T17:35:07.868Z"
+    "createdAt": "2026-10-11T20:39:00.065Z",
+    "updatedAt": "2026-10-11T20:39:00.065Z"
   },
-  "activeVersionId": "5ddd7813-2fcf-4f75-bf77-f28f04dcea78",
+  "activeVersionId": "55cf3b01-13b0-464b-96c4-9c91f9640461",
   "connections": {
     "main_trigger": {
       "main": [
@@ -1388,11 +1388,11 @@
         ]
       ]
     },
-    "visual_rules": {
+    "fetch_paired_artifact": {
       "main": [
         [
           {
-            "node": "download_registry",
+            "node": "agent_result",
             "type": "main",
             "index": 0
           }
@@ -1417,11 +1417,11 @@
         ]
       ]
     },
-    "fetch_paired_artifact": {
+    "visual_rules": {
       "main": [
         [
           {
-            "node": "agent_result",
+            "node": "download_registry",
             "type": "main",
             "index": 0
           }
@@ -2114,16 +2114,28 @@
       }
     },
     {
-      "id": "c2b8d4f3-5e6a-4b7c-9d0e-1f2a3b4c5d6e",
-      "name": "visual_rules",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "id": "e4d0f6b5-7a8c-4d9e-8f1a-3b4c5d6e7f80",
+      "name": "fetch_paired_artifact",
+      "notes": "The deck's paired video, fetched after the deck. Continued on error for the same reason as fetch_artifact: agent_result keeps the deck and reports the missing pair rather than failing the run.",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "onError": "continueRegularOutput",
       "position": [
-        2128,
-        560
+        1344,
+        -520
       ],
       "parameters": {
-        "jsCode": "// prompts/visual_motion_rules.md is the one copy of the motion grammar. It is\n// fetched once and handed to build_author_brief, which appends it to every brief.\nreturn [{ json: { RULES: String($json.output || '') } }];\n"
+        "method": "GET",
+        "url": "={{ $('build_author_brief').item.json.PAIRED_ARTIFACT_URL }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "paired"
+            }
+          },
+          "timeout": 120000
+        }
       }
     },
     {
@@ -2161,28 +2173,16 @@
       }
     },
     {
-      "id": "e4d0f6b5-7a8c-4d9e-8f1a-3b4c5d6e7f80",
-      "name": "fetch_paired_artifact",
-      "notes": "The deck's paired video, fetched after the deck. Continued on error for the same reason as fetch_artifact: agent_result keeps the deck and reports the missing pair rather than failing the run.",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "onError": "continueRegularOutput",
+      "id": "c2b8d4f3-5e6a-4b7c-9d0e-1f2a3b4c5d6e",
+      "name": "visual_rules",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
-        1344,
-        -520
+        2128,
+        560
       ],
       "parameters": {
-        "method": "GET",
-        "url": "={{ $('build_author_brief').item.json.PAIRED_ARTIFACT_URL }}",
-        "options": {
-          "response": {
-            "response": {
-              "responseFormat": "file",
-              "outputPropertyName": "paired"
-            }
-          },
-          "timeout": 120000
-        }
+        "jsCode": "// prompts/visual_motion_rules.md is the one copy of the motion grammar. It is\n// fetched once and handed to build_author_brief, which appends it to every brief.\nreturn [{ json: { RULES: String($json.output || '') } }];\n"
       }
     }
   ],
@@ -2209,6 +2209,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 2,
-  "updatedAt": "2026-10-10T17:35:07.852Z",
-  "versionId": "5ddd7813-2fcf-4f75-bf77-f28f04dcea78"
+  "updatedAt": "2026-10-11T20:39:00.046Z",
+  "versionId": "55cf3b01-13b0-464b-96c4-9c91f9640461"
 }

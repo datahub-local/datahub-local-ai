@@ -22,5 +22,5 @@
 
 ## 5. Acceptance
 
-- [ ] 5.1 [UNVERIFIED] Run the curator once and confirm every appended row carries `POST_MEDIA=ANIMATED`
+- [x] 5.1 Verified 2026-10-12 from live execution 13079 (12:00 UTC): both appended rows carry `POST_MEDIA=ANIMATED` (`BENCHMARK`/`VISUAL_FORM data`/`SCENES 0` and `LANDSCAPE`/`diagram`/`SCENES 4`). The manual run 13095 ran the curator's new `download_visual_forms` and fetched the vocabulary (1230 chars)
 - [ ] 5.2 [UNVERIFIED] Confirm a live `LinkedIn Post Sharing` run requests the animated type and that a forced animation failure still falls back to the image path

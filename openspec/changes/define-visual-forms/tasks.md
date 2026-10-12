@@ -27,8 +27,8 @@
 ## 5. Apply
 
 - [x] 5.1 Applied live 2026-10-12 with `scripts/apply_workflow_changes.py --changes --require-edge`: `Visual Studio` (`2pSrRNmYR2jkX1JG`, 31 nodes) and `Content Feed Curator` (`iIA5QN5HuK21TmBX`, 50 nodes) were rewired, re-read and diffed — the live draft, `activeVersion`, connections and settings equal the export, `active: True`
-- [ ] 5.2 [UNVERIFIED] Confirm a forced `FORCE=chart` renders a chart and an unknown form fails naming it
-- [ ] 5.3 [BLOCKED] The live `download_visual_forms` reads `prompts/visual_forms.md` from the default branch; until it and the `{{ FORMS }}` judge prompt are pushed, both workflows fail at the fetch. The prompt/registry push must land with the apply.
+- [x] 5.2 Verified live 2026-10-12: `POST /webhook/visual-studio-test` with `ASSET_TYPES=animation&FORCE=chart` completed (`RUN_ID 13089`, `RENDERED`, 1280x720 mp4, 900 frames) and the composer's own `STORYBOARD` reads `Form: chart` — bars plotted against a scale. The unknown-form half is unit-verified only (`unknown FORCE` in `normalize_input`); a live probe was left out because a webhook entry point carries an error workflow and would post a failure notice to Slack
+- [x] 5.3 Push landed 2026-10-12 (`f9ec3a8`); `prompts/visual_forms.md`, the `{{ FORMS }}` judge prompt and the ten-form registry comment are on `main`, and the live fetch is proven by the 5.2 run
 
 ## 6. Docs
 

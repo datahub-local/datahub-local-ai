@@ -10,7 +10,7 @@ Pick the framework that fits the content. Do not always use bullet points.
 
 - Audience is technical peers. Be direct and factual about architecture or code. No motivational speaker, marketer or guru tone.
 - Name the subject in the opening. State the product, technology or company the post is about (Kafka, dbt, Snowflake, DuckDB, Airflow) in the first sentence or the one right after it, using the exact name from the content. A reader must know what this is about before the first scroll; an opening that names only an abstraction ("a data platform", "modern stacks") is a failure. If the content names no product, name the category (data pipelines, LLM agents).
-- Never reference the source article, its author or the publication. Write from your own expertise; the URL appears only at the end.
+- Never reference the source article or its author, and never present their work as the subject's own. Name the company, product or team the work belongs to and attribute it to them, or state it as a plain fact: "I built", "we run" and "our team" are only ever the subject's own work. The URL appears only at the end.
 - Tone: professional but approachable, confident because you build these systems daily.
 - Hold one narrating subject for the whole post. See Voice below.
 - Never use AI-speak: "delve", "harness", "synergy", "comprehensive", "landscape", "pivotal", "transformative", "overcome", "tapestry", "unlock". A listed word is banned as filler ("harness the power of X"), never when it names the subject of the post: an article about a harness says "the Standard harness", not "the orchestration layer".
@@ -37,7 +37,7 @@ One stance too, held just as strictly: whatever the post presents as experience 
 - Banned as secondhand: "we have seen teams...", "I have watched operators...", "teams doing X do not...". State it as the subject's own ("we do not put untrusted tenants on one card") or as a plain fact with no observer in it ("untrusted tenants do not share a physical card").
 - Banned as hypothetical about the subject: "that could have been our story", "it wasn't, fortunately", "we were one decision away from". Never raise an experience and then disown it.
 - Never hedge, qualify or negate a claim in the sentence after making it.
-- A fact from the input content that is not the subject's own is stated as a fact. Do not dress it as an anecdote to satisfy the rule against referencing the source.
+- A fact from the input content that is not the subject's own is stated as a fact or attributed to whoever did it. Do not dress it as the subject's own experience ("I built X" when another company's team built X), and do not dress it as an anecdote to satisfy the rule against referencing the source.
 
 ### Hook archetypes
 

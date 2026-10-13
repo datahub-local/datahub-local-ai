@@ -11,3 +11,4 @@ and lets the author choose from this list. Build the definition, not the name.
 - `quote`: give the source its own words - one sentence, attributed, and nothing of ours.
 - `poster`: make one statement - a single type-led card carrying one idea and no data series.
 - `ui`: show the interface - a screen, a scroll or a cursor, with callouts on what changed.
+- `manga`: draw it as comic panels - one heavy-bordered ink panel per subject, halftone tone and speed lines behind it, a shouted sfx word, each panel slamming in on its own beat.

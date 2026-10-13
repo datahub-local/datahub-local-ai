@@ -384,6 +384,20 @@ Seven structural things worth knowing before editing an export:
   `DownloadTemplate`, so this class of fix is live on push; a node change is not,
   which is how the export half of that fix was reverted by the nightly backup
   before it had been applied.
+- **The subject owns the judgment; the source owns the work.** `LinkedIn Post
+  Creator` is handed a third-party article and told to write from the poster's
+  expertise, so a first fix that only asked it to *name* the company failed: on
+  2026-10-12 a Spotify engineering post still drafted as "I built two [Portal]
+  AiKA Modes" and "a Java monorepo I was working in", with Spotify named in the
+  same paragraph (execution 13154, row 71). Naming a product and claiming its
+  work are independent, and three other rules push the other way — L5 "from your
+  own experience", L14 "confident because you build these systems daily", L35
+  "whatever the post presents as experience belongs to that subject" — so the
+  split has to be stated in those rules and not only in the attribution one. The
+  pair is `prompts/linkedin_post_rules.md` (drafter) and
+  `prompts/linkedin_post_review.md` (gate), live on push. The composer is not
+  affected: it is briefed with the post text and renders it impersonally, which
+  is why the video can read truer than the post it came from.
 - **A `PUT` edits the draft; only publishing changes what runs, and publishing
   validates every node.** Adding the animated-media branch left live's top-level
   graph at 40 nodes while `activeVersion` still held 29 — the schedule would have

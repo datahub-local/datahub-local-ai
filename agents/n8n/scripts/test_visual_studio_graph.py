@@ -118,7 +118,7 @@ def test_the_trigger_contract_carries_force_and_style(label, doc):
     assert "FORCE" in code and "STYLE" in code
     assert "SPEC_JSON" not in code
     # FORCE is an enum and an unknown value fails naming it.
-    for value in ("auto", "diagram", "story", "data", "poster", "code", "chart", "timeline", "quote", "ui"):
+    for value in ("auto", "diagram", "story", "data", "poster", "code", "chart", "timeline", "quote", "ui", "manga"):
         assert f"'{value}'" in code, f"FORCE enum is missing {value}"
     assert "'image'" not in code, "the raster medium is not a composition form"
     assert "unknown FORCE" in code

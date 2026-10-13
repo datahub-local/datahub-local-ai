@@ -35,14 +35,17 @@ above is the work; this file is only a map of the sandbox you run in.
 
    **Your turn must end in a render.** A run that spends its whole turn on layout probes
    and never renders is a failure, whatever else it produced.
-3. Report what you produced: the file paths, and the duration and frame count that
+3. Write the `*.motion.json` sidecar the brief asks for, then run `hyperframes check` and
+   fix every finding it reports. It launches its own Chrome, so run it once, not per
+   revision, and never with `--samples`. A check that could not run says so — report
+   that, not a pass.
+4. Report what you produced: the file paths, and the duration and frame count that
    `ffprobe` gives for `out.mp4`.
 
 **You cannot see images.** Do not take screenshots, do not open the page in a browser,
 and do not write scripts to measure or inspect the layout — the snapshots are not
-returned to you, and the time spent is wasted. `hyperframes check` prints a text report
-and is optional; run it at most once, only after lint is clean, and do not act on a run
-that fails to produce one.
+returned to you, and the time spent is wasted. The `*.motion.json` sidecar is a
+declaration, not a probe: write it, and `check` reads it.
 
 Work within the memory you have. Prefer a composition that renders reliably over an
 elaborate one: keep the timeline short, avoid many large simultaneous elements, and

@@ -249,6 +249,21 @@ def test_the_motion_rules_are_fetched_once_and_reach_the_brief(label, doc):
     assert "visual_rules" in body and "RULES" in body
 
 
+def test_the_motion_rules_require_the_sidecar_and_the_hatch_discipline():
+    # `check` verifies motion only when a *.motion.json sidecar exists, and the overflow
+    # hatch silences the clipping findings for every descendant of the element carrying
+    # it. Both were absent from the manga run on 2026-10-13: fifteen panels carried
+    # data-layout-allow-overflow, no sidecar existed, and check passed a clip whose
+    # panels never reached the screen. Measured, not assumed -- the hatch on a container
+    # removes its child's container_overflow finding from the same composition.
+    text = (ROOT / "prompts" / "visual_motion_rules.md").read_text(encoding="utf-8")
+    assert "motion.json" in text
+    for assertion in ("appearsBy", "staysInFrame", "keepsMoving"):
+        assert assertion in text, f"the rules do not name the {assertion} assertion"
+    assert "data-layout-allow-overflow" in text
+    assert "overflow: hidden" in text
+
+
 @pytest.mark.parametrize("label,doc", list(_copies()))
 def test_the_brief_carries_the_rules_feedback_and_extra_prompt(label, doc):
     body = _code(doc, "build_author_brief")

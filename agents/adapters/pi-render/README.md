@@ -323,6 +323,27 @@ frame the framework names as a cheap-motion tell. The framework's skills own the
 `agents/n8n/prompts/visual_motion_rules.md`, carried by the brief.
 `test/authoring-prompt.test.mjs` keeps the method and the review from coming back.
 
+### Why the guide requires a motion sidecar
+
+`check` verifies motion only when the composition ships a `*.motion.json` sidecar. With
+none it reports `motion: {enabled: false, samples: 0}` and the composition passes — the
+audit does not run. On 2026-10-13 a manga clip shipped with fifteen panels teleported
+off-canvas for their whole hold and no sidecar, so the one gate that would have named it
+never ran, and `check` passed a video whose panels never reached the screen.
+
+Its second blind spot was self-inflicted. `data-layout-allow-overflow` was on all fifteen
+panels — the clipping containers — and the hatch silences the clipping findings for every
+descendant of the element carrying it. Measured on one composition: with the hatch on the
+container, no layout findings at all; remove the attribute and the child's
+`container_overflow` appears. Mark the travelling element, never the box that clips.
+
+Both halves are rules in `agents/n8n/prompts/visual_motion_rules.md`, which the brief
+carries and which is live on push. `prompts/authoring.md` step 3 is the image's half, so
+it lands on the next adapters build. The `staysInFrame` assertion reads a box from the
+moment the element is half-opaque, so an entrance travelling in from off-canvas is
+flagged unless it is still under that opacity outside the canvas — verified, and the
+reason the rule states it.
+
 ### Deploying it
 
 **The worked manifests are in [`deploy/`](deploy/) — start there.** It holds the

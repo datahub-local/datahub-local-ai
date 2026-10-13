@@ -37,6 +37,17 @@ test("a turn that never renders is a stated failure", () => {
   assert.match(guide, /must end in a render/);
 });
 
+test("the guide requires check and names the sidecar it reads", () => {
+  // check verifies motion only when the composition ships a *.motion.json sidecar, so
+  // the guide has to ask for one and to require check rather than call it optional.
+  assert.match(guide, /motion\.json/);
+  assert.match(guide, /hyperframes check/);
+  assert.match(guide, /declaration, not a probe/);
+  // check launches its own Chrome; the memory caution survives.
+  assert.match(guide, /--samples/);
+  assert.ok(!/is optional/.test(guide), "check is optional again");
+});
+
 test("the vendored GSAP is served, never referenced by absolute path or a CDN", () => {
   assert.match(guide, /gsap\.min\.js/);
   assert.match(guide, /CDN/);

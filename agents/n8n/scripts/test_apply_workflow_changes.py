@@ -159,3 +159,47 @@ def test_the_read_back_does_not_report_a_false_mismatch(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "MISMATCH" not in out, out
     assert "wrote connections main a: 0->b" in out, out
+
+
+def _with_parameter(name, field, value):
+    node = _n(name)
+    node["parameters"] = {field: value}
+    return node
+
+
+def test_a_parameter_missing_its_prefix_warns(monkeypatch, capsys):
+    """get_path returns None for a path that does not exist, so a spec writing 'jsCode'
+    instead of 'parameters.jsCode' wrote a stray top-level key on the node -- and the
+    read-back then verified that same key, so it reported success. Hit live on
+    2026-10-14 while applying the continuation fix."""
+    fake = FakeApi(existing=[_live([_with_parameter("build_author_brief", "jsCode", "old")], {})])
+    monkeypatch.setattr(mod, "api", fake)
+
+    spec = {"workflow": "wf1", "nodes": {"build_author_brief": {"jsCode": "new"}}}
+    mod.process("u", "k", spec, do_apply=False)
+
+    out = capsys.readouterr().out
+    assert "WARNING" in out, out
+    assert "parameters.jsCode" in out, out
+
+
+def test_a_field_that_resolves_nowhere_warns(monkeypatch, capsys):
+    fake = FakeApi(existing=[_live([_n("n")], {})])
+    monkeypatch.setattr(mod, "api", fake)
+
+    spec = {"workflow": "wf1", "nodes": {"n": {"jsCodee": "x"}}}
+    mod.process("u", "k", spec, do_apply=False)
+    assert "resolves nowhere" in capsys.readouterr().out
+
+
+def test_a_real_node_field_does_not_warn(monkeypatch, capsys):
+    """Setting onError where the node has none is legitimate, not a mistyped parameter."""
+    fake = FakeApi(existing=[_live([_n("n")], {})])
+    monkeypatch.setattr(mod, "api", fake)
+
+    spec = {"workflow": "wf1", "nodes": {"n": {"onError": "continueRegularOutput"}}}
+    mod.process("u", "k", spec, do_apply=False)
+
+    out = capsys.readouterr().out
+    assert "WARNING" not in out, out
+    assert "onError" in out, out

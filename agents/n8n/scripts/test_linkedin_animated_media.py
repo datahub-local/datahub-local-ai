@@ -248,17 +248,18 @@ def test_animation_retry_re_authors_and_cancel_does_not_publish(label, document)
 
 @pytest.mark.parametrize("label,document", list(_copies(SHARING)))
 def test_a_cancelled_post_is_not_reported_as_an_error(label, document):
-    """The cancel and the error paths share one Slack node.
+    """The cancel is the only path that posts; a failure raises instead.
 
-    Cancel writes ``ERROR=CANCELLED`` and the error path writes the failure, so the
-    node has to name the cancel: a cancelled post reported as an error reads as a
-    failure that never happened.
+    Cancel writes ``ERROR=CANCELLED``, so the notice has to name the cancel: a
+    cancelled post reported as an error reads as a failure that never happened.
+    A real failure must not go through this node at all -- it raises, so n8n
+    records the run as an error and keeps it.
     """
     connections = _connections(document)
     for retry in ("switch_user_retry", "switch_user_retry_image", "switch_user_retry_animation"):
         assert _targets(connections, retry, 1) == ["update_status_cancelled"], retry
     assert _targets(connections, "set_error_cancelled") == ["send_error_notification"]
-    assert _targets(connections, "update_status_error") == ["send_error_notification"]
+    assert _targets(connections, "update_status_error") == ["stop_and_error"]
     text = _nodes(document)["send_error_notification"]["parameters"]["text"]
     assert "CANCELLED" in text, "the notification does not distinguish a cancel"
     assert "Canceled" in text, "a cancelled post is still reported as an error"

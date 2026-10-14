@@ -485,12 +485,16 @@ DataTable, and the rendered asset goes to object storage.
 just an address: the adapter spawns Pi with `--session-id` against a PVC-backed transcript
 directory, and `runs/<id>/` persists, so a turn that reuses an id continues the same
 transcript and directory. `build_author_brief` uses the caller's `SESSION_ID` verbatim and
-falls back to `<type>-<run id>` when it is blank, which keeps a first authoring isolated;
-when one is present the brief says it *continues* the composition already in the session and
-asks for the change (`EXTRA_PROMPT`, or a reviewer's `FEEDBACK`) to be applied to it, rather
-than planning a new one. The adapter decides author vs edit from the directory — it checks
-for `index.html` (or `out.svg`/`out.html` for those types) and picks the instruction — so a
-caller that names a swept session degrades to a first authoring instead of editing nothing.
+falls back to `<type>-<run id>` when it is blank, which keeps a first authoring isolated.
+Whether a turn authors or edits is **only** the adapter's call: it checks for `index.html`
+(or `out.svg`/`out.html` for those types) and picks the instruction, so a caller that names
+a swept session degrades to a first authoring instead of editing nothing, and a caller that
+names a brand-new one is not told to keep a composition that does not exist. The brief
+itself never claims one — it did until 2026-10-14, inferring a continuation from
+`SESSION_ID` alone, which contradicted the adapter for exactly those two cases: run 13356
+named an empty `manga-cncf` and the brief said "apply the change below to it and keep
+everything else", while the adapter said first authoring, and the composer reported a
+restructure of a composition that was never there.
 State expires: the session server sweeps `runs/<id>/` and `pi-sessions/*_<id>.jsonl` older
 than `PI_RENDER_SESSION_TTL_DAYS` (default 7, matching the prune window below; `0` disables)
 on startup and throttled after each turn, never the session in flight.

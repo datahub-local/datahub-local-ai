@@ -21,6 +21,10 @@ import {
   expiredTranscripts,
   VENDOR_ASSETS,
   DEFAULT_SESSION_WORKSPACE,
+  isUploadKeyAllowed,
+  signS3Request,
+  amzDate,
+  UPLOAD_PREFIX,
 } from "../session-lib.mjs";
 
 const WORKSPACE = "/tmp/aivideo";
@@ -205,4 +209,117 @@ test("expiredTranscripts sweeps only this server's old transcripts", () => {
   assert.deepEqual(expiredTranscripts(entries, { cutoffMs, keep: "in-flight" }), [
     "2026-10-05T00-00-00-000Z_old.jsonl",
   ]);
+});
+
+// --- S3 upload -------------------------------------------------------------------
+//
+// The signature is what lets the session server write the artifact itself, so that no
+// workflow ever carries the bytes and `saveDataSuccessExecution` can be on. It is
+// hand-rolled because n8n cannot sign (`Module 'crypto' is disallowed` in a Code node)
+// and the adapter must not gain a dependency for sixty lines.
+
+test("a key may only be written under the upload prefix", () => {
+  assert.equal(UPLOAD_PREFIX, "visual-studio/");
+  assert.ok(isUploadKeyAllowed("visual-studio/13356-animation.mp4"));
+  assert.ok(isUploadKeyAllowed("visual-studio/nested/deck.html"));
+  for (const bad of [
+    "other-prefix/x.mp4",
+    "visual-studio/",
+    "",
+    "visual-studio/../secret",
+    "visual-studio/a//b.mp4",
+    "visual-studio/a b.mp4",
+    "visual-studiox/y.mp4",
+    undefined,
+    null,
+  ]) {
+    assert.equal(isUploadKeyAllowed(bad), false, `accepted ${String(bad)}`);
+  }
+});
+
+test("signing refuses to run without a destination or a credential", () => {
+  assert.match(signS3Request({}).error, /required/);
+  assert.match(signS3Request({ url: "http://x/y", region: "homelab" }).error, /required/);
+  assert.match(
+    signS3Request({ url: "http://x/y", accessKey: "a", secretKey: "b" }).error,
+    /required/,
+  );
+});
+
+test("the canonical request is the one botocore builds for the same request", () => {
+  // Independently produced by botocore's S3SigV4Auth (the same AWSRequest, with
+  // X-Amz-Content-SHA256 set and a pinned timestamp) on 2026-10-14. A canonical
+  // request that differs from the reference by one character still signs, and the
+  // failure only appears as SignatureDoesNotMatch against a live endpoint.
+  const signed = signS3Request({
+    url: "http://localhost:3900/datahub-local-temp/visual-studio/probe.txt",
+    body: Buffer.from("hello"),
+    accessKey: "AKIDEXAMPLE",
+    secretKey: "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
+    region: "homelab",
+    now: "20261014T120000Z",
+  });
+  assert.equal(
+    signed.canonicalRequest,
+    "PUT\n" +
+      "/datahub-local-temp/visual-studio/probe.txt\n" +
+      "\n" +
+      "host:localhost:3900\n" +
+      "x-amz-content-sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824\n" +
+      "x-amz-date:20261014T120000Z\n" +
+      "\n" +
+      "host;x-amz-content-sha256;x-amz-date\n" +
+      "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+  );
+  assert.equal(
+    signed.stringToSign,
+    "AWS4-HMAC-SHA256\n20261014T120000Z\n20261014/homelab/s3/aws4_request\n" +
+      "630ef49748871a546f5355509dbe927fca0571d10ee9e2e5f33a1442c3bf91fd",
+  );
+});
+
+test("the signature is the one Garage accepts", () => {
+  // Pinned from this implementation, which was exercised live on 2026-10-14 against
+  // Garage from a pod holding the S3 credential: the same headers returned
+  // PUT 200, GET 200 with the exact body, DELETE 204. This is a regression guard on
+  // the key derivation; the live PUT is the algorithm's real check.
+  const signed = signS3Request({
+    url: "http://localhost:3900/datahub-local-temp/visual-studio/probe.txt",
+    body: Buffer.from("hello"),
+    accessKey: "AKIDEXAMPLE",
+    secretKey: "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
+    region: "homelab",
+    now: "20261014T120000Z",
+  });
+  assert.equal(signed.signature, "1ed3fd3c79583d110e6b02a08d4e0ce2d01e7bffbd1f759e96e5b9d72c1499a5");
+  assert.match(signed.headers.authorization, /^AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE\/20261014\/homelab\/s3\/aws4_request, /);
+  assert.match(signed.headers.authorization, /SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature=/);
+  assert.equal(signed.headers["x-amz-date"], "20261014T120000Z");
+  assert.equal(signed.scope, "20261014/homelab/s3/aws4_request");
+});
+
+test("the signed host carries a non-default port", () => {
+  // Garage's S3 endpoint is :3900, and the Host header is signed as sent. Signing
+  // `hostname` instead of `host` would drop the port and fail against a live bucket.
+  const signed = signS3Request({
+    url: "http://datahub-local-core-data-garage.data.svc.cluster.local:3900/b/k",
+    accessKey: "a",
+    secretKey: "b",
+    region: "homelab",
+    now: "20261014T120000Z",
+  });
+  assert.match(signed.canonicalRequest, /host:datahub-local-core-data-garage\.data\.svc\.cluster\.local:3900/);
+});
+
+test("a fixed time signs the same bytes twice, and amzDate is the AWS shape", () => {
+  const args = {
+    url: "http://x:3900/b/k",
+    accessKey: "a",
+    secretKey: "b",
+    region: "homelab",
+    now: "20261014T120000Z",
+  };
+  assert.equal(signS3Request(args).signature, signS3Request(args).signature);
+  assert.equal(amzDate("20261014T120000Z"), "20261014T120000Z");
+  assert.equal(amzDate(new Date("2026-10-14T12:00:00.000Z")), "20261014T120000Z");
 });

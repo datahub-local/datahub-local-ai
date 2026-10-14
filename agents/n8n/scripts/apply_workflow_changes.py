@@ -141,6 +141,18 @@ def parse_settings(items):
     return out
 
 
+# The fields a node carries directly. A `--set` path that names none of these and does
+# not start with `parameters.` is almost always a parameter missing its prefix, and
+# set_path would then write a stray top-level key n8n ignores -- which the read-back
+# happily verifies, because it reads the same path it wrote.
+NODE_FIELDS = frozenset({
+    "id", "name", "type", "typeVersion", "position", "parameters", "credentials",
+    "disabled", "notes", "notesInFlow", "onError", "alwaysOutputData", "executeOnce",
+    "retryOnFail", "maxTries", "waitBetweenTries", "continueOnFail", "webhookId",
+    "extends", "pinData",
+})
+
+
 def get_path(obj, path):
     for part in path.split("."):
         if not isinstance(obj, dict) or part not in obj:
@@ -297,6 +309,19 @@ def process(url, key, spec, do_apply):
         node = by_name[node_name]
         for field, value in fields.items():
             before = get_path(node, field)
+            if before is None and not field.startswith("parameters.") and field not in NODE_FIELDS:
+                params = node.get("parameters") if isinstance(node.get("parameters"), dict) else {}
+                if field in params:
+                    print(
+                        f"  WARNING {node_name}.{field!r} does not exist on the node, but "
+                        f"{node_name}.parameters.{field!r} does -- write 'parameters.{field}' "
+                        f"or this writes a top-level field n8n ignores and the read-back confirms"
+                    )
+                else:
+                    print(
+                        f"  WARNING {node_name}.{field!r} resolves nowhere on the node or in "
+                        f"its parameters; a mistyped path writes a stray top-level key"
+                    )
             if before == value:
                 print(f"  {node_name}.{field} already {value!r}")
                 continue

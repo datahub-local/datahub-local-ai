@@ -278,5 +278,23 @@
       "comparison-matrix",
       "before-after-sequence"
     ]
+  },
+  {
+    "id": "retro-16bit",
+    "icon": "🕹️",
+    "name": "16-Bit Retro / Pixel Art",
+    "description": "16-bit console aesthetic: chunky pixel art on a coarse grid, a small palette, hard-edged HUD frames, dithered shading and bitmap lettering, with each element snapping in on its own beat. Best for nostalgic, playful and game-culture topics. Colours always come from the brand's dark or light scheme, never from this style.",
+    "compatible_types": [
+      "title-slide-hero-layout",
+      "kpi-dashboard-slide",
+      "chevron-process-slide",
+      "icon-set-grid",
+      "linear-data-flow",
+      "node-edge-graph",
+      "comparison-matrix",
+      "before-after-sequence",
+      "tech-stack-pyramid",
+      "logo-generator"
+    ]
   }
 ]

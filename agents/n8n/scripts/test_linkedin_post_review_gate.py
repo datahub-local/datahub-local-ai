@@ -108,11 +108,38 @@ def test_gate_failure_reports_its_reason(label, document):
 
 @pytest.mark.parametrize("label,document", list(_copies(SHARING)))
 def test_failure_notice_names_the_article_and_the_reason(label, document):
-    """The notice must not be the "Error Publishing Post ()" it used to be."""
-    text = _nodes(document)["send_error_notification"]["parameters"]["text"]
-    assert "select_article_to_post" in text, f"{label}: notice does not name the article"
-    assert "$execution.url" not in text, f"{label}: empty $execution.url is still in the notice"
-    assert "$json.ERROR" in text, f"{label}: notice does not carry the reason"
+    """The notice must not be the "Error Publishing Post ()" it used to be.
+
+    The failure notice is the error workflow's now, so what it prints is the
+    message this path throws -- the reason and the article have to travel in it.
+    """
+    text = _nodes(document)["stop_and_error"]["parameters"]["errorMessage"]
+    assert "select_article_to_post" in text, f"{label}: the reason does not name the article"
+    assert "$json.ERROR" in text, f"{label}: the throw does not carry the reason"
+
+
+@pytest.mark.parametrize("label,document", list(_copies(SHARING)))
+def test_a_caught_failure_raises_so_n8n_keeps_the_run(label, document):
+    """A run that ends "success" is one n8n deletes.
+
+    This workflow saves no successful data (the payload is the published asset),
+    so a failure the graph handled itself ended as success: the row was removed,
+    the error workflow was never dispatched -- n8n dispatches it only for a run
+    that is not a success -- and the "(exec N)" the notice named resolved to
+    nothing. Execution 13326 on 2026-10-14 is the case: the row was gone while
+    the notice pointed at it. Throwing is what makes the run an error, and an
+    error is the one n8n keeps.
+    """
+    nodes = _nodes(document)
+    thrown = nodes["stop_and_error"]
+    assert thrown["type"] == "n8n-nodes-base.stopAndError", f"{label}: the failure path does not raise"
+    assert not (_connections(document).get("stop_and_error") or {}), (
+        f"{label}: the throw is not the end of the branch"
+    )
+    settings = document.get("settings") or {}
+    assert settings.get("saveDataErrorExecution") != "none", (
+        f"{label}: a raised failure would be discarded as well"
+    )
 
 
 @pytest.mark.parametrize("label,document", list(_copies(SHARING)))
@@ -120,8 +147,8 @@ def test_nothing_overwrites_the_failure_reason(label, document):
     """set_error_error replaced the sub-workflow's ERROR with the literal "ERROR"."""
     assert "set_error_error" not in _nodes(document), f"{label}: set_error_error is back"
     assert "set_error_error" not in _connections(document), f"{label}: graph still references it"
-    assert _targets(_connections(document), "update_status_error") == ["send_error_notification"], (
-        f"{label}: update_status_error must reach the notice directly"
+    assert _targets(_connections(document), "update_status_error") == ["stop_and_error"], (
+        f"{label}: update_status_error must reach the throw directly"
     )
 
     # The cancelled path sets its own ERROR and still needs the notice.

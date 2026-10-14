@@ -131,40 +131,23 @@ WHEN a requested type is declared but not producible in the current environment,
 - **THEN** it is reported unavailable with a reason
 - **AND** the requested image is still produced
 
-### Requirement: Every run is recorded for later retrieval
-
-The system SHALL record one row per run in a `visual_studio_table` DataTable, keyed by an auto-generated `RUN_ID` (the execution id), carrying the request parameters — including the session identifier when one was supplied — and the full result: every asset with its status, content and any error, so a caller can fetch a run's outcome over HTTP after the fact. The run's response SHALL carry the same outcome. A recorded row SHALL be retained for a bounded window of two days and then pruned, so the table cannot grow without limit; within that window the row SHALL remain self-sufficient, so a caller can still reconstruct every asset the run produced.
-
-#### Scenario: Run recorded
-
-- **WHEN** a run finishes
-- **THEN** exactly one row is recorded with the run id, the request and every asset's outcome
-- **AND** the response carries the same asset set
-
-#### Scenario: Result fetched later
-
-- **WHEN** a caller reads the run row by `RUN_ID` within the retention window
-- **THEN** it can reconstruct every asset the run produced, including its content
-
-#### Scenario: A thread is joinable
-
-- **WHEN** a run carried a `SESSION_ID`
-- **THEN** its recorded request carries that identifier
-- **AND** every run in one session can be read together by that identifier
-
-#### Scenario: An expired run is pruned
-
-- **WHEN** a recorded row is older than the retention window
-- **THEN** it is deleted from the table
-- **AND** a row inside the window is left alone
-
 ### Requirement: Model output is data, not commands
 
-The system's own writes SHALL be limited to the `visual_studio_table` DataTable; it MUST NOT write to any repository. A brief delivered to a model SHALL be treated as data: no model-authored string may be executed as a command. The composition a composer authors is the intended artifact, not a command to run.
+The system's own writes SHALL be limited to object storage and the `TemporalFiles`
+DataTable; it MUST NOT write to any repository. A brief delivered to a model SHALL be
+treated as data: no model-authored string may be executed as a command. The composition a
+composer authors is the intended artifact, not a command to run.
 
 #### Scenario: Model output is data
+
 - **WHEN** a brief or an image prompt is handled
 - **THEN** it is never executed as a command
+
+#### Scenario: No run row is written
+
+- **WHEN** any of the studio's workflows runs
+- **THEN** it writes no DataTable row for the run itself
+- **AND** the rendered asset is written to object storage instead
 
 ### Requirement: Studio assets follow the brand for their kind
 
@@ -271,3 +254,34 @@ curate a block list of its own; the catalogue is the framework's.
 - **WHEN** a brief names a transition or an effect
 - **THEN** the authored asset uses it
 - **AND** the workflow carried no list of its own
+
+### Requirement: A rendered asset is stored outside the response
+
+The system SHALL write each rendered asset to object storage and SHALL carry the object
+key in the run's response, so the caller can fetch the bytes and no row is needed to name
+them. A failed write SHALL fail the run rather than report a key for an object that does
+not exist. The stored objects SHALL be pruned on a bounded window, so the bucket cannot
+grow without limit.
+
+#### Scenario: The asset is stored and named
+
+- **WHEN** a run produces an asset
+- **THEN** its bytes are written to `datahub-local-temp` under a key derived from the run id and the asset type
+- **AND** the response carries that key and the byte count
+
+#### Scenario: A failed write fails the run
+
+- **WHEN** the asset cannot be written
+- **THEN** the run fails, and no key is reported
+
+#### Scenario: A run with nothing to store
+
+- **WHEN** every asset of a run failed
+- **THEN** the run still responds, with each asset's error
+- **AND** it reports no key
+
+#### Scenario: Stored objects expire
+
+- **WHEN** a stored object is older than the retention window
+- **THEN** it is deleted from the bucket
+- **AND** an object inside the window is left alone

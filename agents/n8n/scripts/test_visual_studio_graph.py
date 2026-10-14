@@ -122,7 +122,7 @@ def test_the_trigger_contract_carries_force_and_style(label, doc):
     assert "FORCE" in code and "STYLE" in code
     assert "SPEC_JSON" not in code
     # FORCE is an enum and an unknown value fails naming it.
-    for value in ("auto", "diagram", "story", "data", "poster", "code", "chart", "timeline", "quote", "ui", "manga"):
+    for value in ("auto", "diagram", "story", "data", "poster", "code", "chart", "timeline", "quote", "ui", "manga", "retro"):
         assert f"'{value}'" in code, f"FORCE enum is missing {value}"
     assert "'image'" not in code, "the raster medium is not a composition form"
     assert "unknown FORCE" in code
@@ -311,7 +311,7 @@ def test_a_deck_run_fetches_both_artifacts(label, doc):
     assert "out.html" in body, "the deck brief does not name the deck file"
     assert "a.RENDER_MODE" in body and "'deck'" in body
     # The deck honours a named scene count like every other animated video.
-    assert "...(isIteration ? opening : [deckPlanLine]),\n      sceneLine," in body
+    assert "deckPlanLine,\n      sceneLine," in body
     node = _node(doc, "fetch_paired_artifact")
     assert "PAIRED_ARTIFACT_URL" in node["parameters"]["url"]
     assert node.get("onError") == "continueRegularOutput"
@@ -340,17 +340,39 @@ def test_a_named_session_is_continued_and_a_blank_one_is_run_scoped(label, doc):
 
 
 @pytest.mark.parametrize("label,doc", list(_copies()))
-def test_a_continuation_brief_differs_from_a_first_authoring(label, doc):
+def test_the_adapter_owns_author_vs_edit_and_the_brief_never_claims_it(label, doc):
+    # A brief that says "this continues the composition already in this session" is a
+    # claim about the session directory, and the brief cannot see it. Naming a session
+    # is not the same as that session holding work: run 13356 named a brand-new session
+    # and was told to "apply the change below to it and keep everything else" against an
+    # empty directory, while the adapter -- which does check -- said first authoring.
     body = _code(doc, "build_author_brief")
-    assert "const isIteration = Boolean(String(req.SESSION_ID || '').trim());" in body
-    # A continuation keeps the work already in the session and applies only the change.
-    assert "This continues the composition already in this session" in body
-    assert "change below" in body
-    # A first authoring still plans before it builds.
-    assert "Plan first: state a short storyboard" in body
-    # Each authoring branch chooses between the two by isIteration.
-    assert body.count("isIteration ? opening") >= 2
-    assert "...opening," in body, "the SVG branch carries the continuation"
+    assert "isIteration" not in body, "the brief must not infer author-vs-edit from SESSION_ID"
+    assert "const opening" not in body and "...opening," not in body
+    assert "This continues the composition already in this session" not in body
+    # Every authoring branch still plans, so a first authoring is unchanged.
+    assert "planLine,\n      form," in body, "the video branch must still plan"
+    assert "deckPlanLine,\n      sceneLine," in body, "the deck branch must still plan"
+    # The session resolution itself is untouched: a named session is used as given and
+    # a blank one is scoped to the run.
+    assert "safe(req.SESSION_ID) ||" in body
+    assert "safe(a.ASSET_TYPE) + '-' + safe(req.RUN_ID)" in body
+
+
+@pytest.mark.parametrize("label,doc", list(_copies()))
+def test_the_adapter_is_what_tells_a_turn_to_author_or_edit(label, doc):
+    # The other half of the contract: the instruction the composer is handed does
+    # distinguish the two, and it is chosen from the directory marker.
+    lib = (Path(__file__).resolve().parents[2] / "adapters" / "pi-render" / "session-lib.mjs").read_text()
+    assert "export function compositionMarker(format)" in lib
+    assert "case \"svg\":" in lib and "return \"out.svg\";" in lib
+    assert "return \"index.html\";" in lib
+    assert "export function turnInstruction({ format, isIteration } = {})" in lib
+    assert "are the deck and its video from an earlier turn in this session" in lib
+    assert "is the composition from an earlier turn in this session" in lib
+    server = (Path(__file__).resolve().parents[2] / "adapters" / "pi-render" / "session-server.mjs").read_text()
+    assert "exists(join(dir, compositionMarker(format)))" in server, \
+        "the adapter must decide author-vs-edit from the directory, not the request"
 
 
 @pytest.mark.parametrize("label,doc", list(_copies()))

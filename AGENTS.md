@@ -478,8 +478,8 @@ byte-identical no-op when the site is unchanged.
 `FORCE`, `SCENES` (an optional scene count; blank leaves the count to the composer's own
 storyboard), `EXTRA_PROMPT` (optional free text appended to the brief after the
 content and the rules) and `SESSION_ID` (optional; see *A session is a thread*). The studio
-reads no caller state: everything it needs arrives on the trigger, and it writes only to the
-`visual_studio_table` DataTable.
+reads no caller state: everything it needs arrives on the trigger, it writes nothing to a
+DataTable, and the rendered asset goes to object storage.
 
 **A session is a thread, and a named one is an edit.** `SESSION_ID` is durable state, not
 just an address: the adapter spawns Pi with `--session-id` against a PVC-backed transcript
@@ -509,12 +509,9 @@ fails loudly, naming it.
 
 **Creating it on a fresh instance**, in order:
 
-    # 1. the run table, idempotent by table name
+    # 1. the workflow itself (--create prints the new id)
     export N8N_URL=http://datahub-local-core-automation-n8n.automation.svc.cluster.local
     export N8N_API_KEY=...          # mount security/n8n-root; do not read it into a shell
-    python3 scripts/setup_data_tables.py --apply
-
-    # 2. the workflow itself (--create prints the new id)
     OV=$(python3 scripts/apply_workflow_changes.py --print-pod-overrides)
     kubectl -n security run n8n-apply --restart=Never --image=python:3.12-alpine \
       --override-type=strategic --overrides="$OV" --command -- sleep 7200
@@ -522,7 +519,7 @@ fails loudly, naming it.
     kubectl -n security cp workflows/visual_studio.workflow.json n8n-apply:/tmp/vs.json
     kubectl -n security exec n8n-apply -- python3 /tmp/s.py --create /tmp/vs.json
 
-    # 3. every later edit is field-level and guarded by the graph
+    # 2. every later edit is field-level and guarded by the graph
     kubectl -n security exec n8n-apply -- python3 /tmp/s.py --workflow 'Visual Studio' \
       --require-edge 'parse_registry>if_agent' --set 'some_node:field=value' --apply
 
@@ -553,39 +550,35 @@ render time. Rationale and the rollout are in
 `openspec/changes/upgrade-visual-studio-authoring/`.
 
 **Failure and retention.** `settings.errorWorkflow` points at `Visual Studio Error`, which
-upserts a `STATUS=FAILED` row keyed by `RUN_ID` with the reason and posts to the
-`workflows` Slack channel; the studio's own graph has no Slack, no schedule, no GitHub
-node and one terminal node. A failed composer costs one asset, not the run:
-`execute_author`, `fetch_artifact` and `fetch_paired_artifact` continue on error and
-`agent_result` turns the empty result into that asset's `ERROR` (for a deck, the deck is
-kept and the missing paired video is reported). `Visual Studio Prune` runs daily at 04:00
-UTC and deletes rows whose system `createdAt` is older than **2 days**, whatever their
-status, rows of `TemporalFiles` whose `updatedAt` is older than an hour — the same rule
-`File Webhook` applies on request, and the reason a quiet week cannot leave its rows
-behind — and the bucket objects under `visual-studio/` on the same two days.
+posts the reason to the `workflows` Slack channel and removes the run's temp files; the
+studio's own graph has no Slack, no schedule, no GitHub node and one terminal node. A
+failed composer costs one asset, not the run: `execute_author`, `fetch_artifact` and
+`fetch_paired_artifact` continue on error and `agent_result` turns the empty result into
+that asset's `ERROR` (for a deck, the deck is kept and the missing paired video is
+reported). `Visual Studio Prune` runs daily at 04:00 UTC and deletes rows of
+`TemporalFiles` whose `updatedAt` is older than an hour — the same rule `File Webhook`
+applies on request, and the reason a quiet week cannot leave its rows behind — and the
+bucket objects under `visual-studio/` older than **two days**.
 
-**The asset lives in Garage, and the row names it.** `prepare_uploads` writes each
+**The asset lives in Garage and nothing writes a run row.** `prepare_uploads` writes each
 rendered asset to `datahub-local-temp` at `visual-studio/<RUN_ID>-<ASSET_TYPE>.<ext>`, and
-`run_record` puts that key, its byte count and the storyboard in `RESULT` — never the
-base64 data URL. Until 2026-10-13 it carried the bytes, and `visual_studio_table` reached
-**202.5 MB against its 200 MB cap with only 12 rows**, four of them 32-34 MB, so every run
-failed at `record_run` *after* authoring and rendering correctly. Four things are
-load-bearing. The studio's **response** is built by `set_result` from `merge_branches`,
-not from the row, so the caller still receives the asset — `LinkedIn Post Sharing` reads
-`ASSETS[].IMAGE` and throws without a data URL. `upload_assets` has **no `onError`**:
-`continueRegularOutput` forwards its input unchanged, so a failed upload would hand
-`run_record` a key for an object that was never written. `run_record` reads the keys from
-`prepare_uploads`, because the S3 node's own output is `{success: true}` and does not pass
-the key through. And `list_assets` lists the prefix **`visual-studio/` with its trailing
-slash**: the S3 node's `file:getAll` sets a `/` delimiter, so with `visual-studio` the
-key's own slash makes it a CommonPrefix and the object is never listed (measured against
-the live node: 0 items, then 2).
-
-`record_failed` in `Visual Studio Error` carried `onError: continueRegularOutput`, so the
-failure above was invisible twice over: the row write failed, the error workflow reported
-`success`, and no `FAILED` row existed for the run. It now states `stopWorkflow` — the API
-rejects an explicit `null`, and a merely absent key is indistinguishable from one that was
-never set.
+`set_result` carries that key, its byte count and the resolved `SESSION_ID` in the
+response. There is no `visual_studio_table`: it reached **202.5 MB against its 200 MB cap
+with only 12 rows**, four of them 32-34 MB, because the row carried each asset as a base64
+data URL, so every run failed at `record_run` *after* authoring and rendering correctly —
+and when the row was emptied the table was deleted, because nothing had ever read a row.
+The response is built by `set_result` from `merge_branches`, which is why the caller still
+receives the asset: `LinkedIn Post Sharing` reads `ASSETS[].IMAGE` and throws without a
+data URL. Four things are load-bearing. `upload_assets` has **no `onError`** —
+`continueRegularOutput` forwards its input unchanged, so a failed upload would report a key
+for an object that was never written. `set_result` reads the keys from `prepare_uploads`,
+because the S3 node's own output is `{success: true}` and does not pass the key through.
+`list_assets` lists the prefix **`visual-studio/` with its trailing slash**: the S3 node's
+`file:getAll` sets a `/` delimiter, so with `visual-studio` the key's own slash makes it a
+CommonPrefix and the object is never listed (measured against the live node: 0 items, then
+2). And the error workflow writes no row either — its `record_failed` carried
+`onError: continueRegularOutput`, which hid its own failure the same day: the write hit the
+size limit, the workflow reported `success`, and no `FAILED` row existed for the run.
 
 That artifact is why the workflows whose payload *is* the artifact set
 `saveDataSuccessExecution: "none"` — `Visual Studio`, `Visual Studio Test`,
@@ -594,7 +587,7 @@ deleted). Without it n8n persists a copy of every rendered asset per successful 
 measured, `Visual Studio Test` alone was 511 MB across 46 runs and `Visual Studio` 377 MB
 across 92, against a 1 GB `execution_data`. `saveDataErrorExecution` is left at its
 default, so a failure still records everything needed to diagnose it. The same bytes are
-therefore stored twice at most — the run row and n8n's binary store — instead of three
+therefore stored twice at most — object storage and n8n's binary store — instead of three
 times. `agents/n8n/scripts/test_storage_retention.py` holds both bounds.
 
 **Verification is manual — there is no CI coverage for n8n.** The claims above were checked

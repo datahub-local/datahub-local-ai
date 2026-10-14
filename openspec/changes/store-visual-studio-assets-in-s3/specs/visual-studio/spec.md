@@ -1,65 +1,71 @@
 # Spec Delta
 
-## MODIFIED Requirements
+## REMOVED Requirements
 
 ### Requirement: Every run is recorded for later retrieval
 
-The system SHALL record one row per run in a `visual_studio_table` DataTable, keyed by an
-auto-generated `RUN_ID` (the execution id), carrying the request parameters — including
-the session identifier when one was supplied — and every asset's outcome: its status, its
-storyboard, any error, and the **object key** its bytes were written to. The row SHALL NOT
-carry the asset's bytes: they SHALL be written to object storage
-(`datahub-local-temp`) under a key derived from the run id and the asset type, and the
-key SHALL be recorded in the row. The run's response SHALL carry the same outcome *with*
-the asset, so an in-run consumer needs no second fetch. A recorded row and the objects it
-names SHALL be retained for a bounded window of two days and then pruned together, so
-neither the table nor the bucket can grow without limit; within that window a caller can
-reconstruct every asset the run produced from the key the row carries.
+**Reason**: The row had no reader. A run's outcome is returned to the caller in the
+response, which `set_result` builds from `merge_branches` and not from any row, and the
+asset's bytes now live in object storage — so the three nodes that wrote a row were the
+whole of its use. It also cost the studio a run: `visual_studio_table` reached **202.5 MB
+against its 200 MB cap with only 12 rows**, four of them 32-34 MB, and every run failed at
+`record_run` *after* authoring and rendering correctly.
 
-#### Scenario: Run recorded
+**Migration**: A caller reads the outcome from the response, which now carries what the
+row used to: the object key each asset was written to (`ASSETS[].S3_KEY`, `S3_BYTES`) and
+the resolved `SESSION_ID`. The object is at
+`visual-studio/<RUN_ID>-<ASSET_TYPE>.<ext>` in `datahub-local-temp`, pruned on a two-day
+window. A thread is continued by sending the `SESSION_ID` the response reports.
 
-- **WHEN** a run finishes
-- **THEN** exactly one row is recorded with the run id, the request and every asset's outcome
-- **AND** the row names the object each asset was written to
-- **AND** the response carries the same asset set, including its content
+## MODIFIED Requirements
 
-#### Scenario: The asset is not in the row
+### Requirement: Model output is data, not commands
 
-- **WHEN** a row is read back
-- **THEN** it carries no base64 data URL for any asset
-- **AND** the bytes are present in object storage under the key the row names
+The system's own writes SHALL be limited to object storage and the `TemporalFiles`
+DataTable; it MUST NOT write to any repository. A brief delivered to a model SHALL be
+treated as data: no model-authored string may be executed as a command. The composition a
+composer authors is the intended artifact, not a command to run.
 
-#### Scenario: Result fetched later
+#### Scenario: Model output is data
 
-- **WHEN** a caller reads the run row by `RUN_ID` within the retention window
-- **THEN** it can locate every asset the run produced by the key the row carries
-- **AND** the object is still present in the bucket
+- **WHEN** a brief or an image prompt is handled
+- **THEN** it is never executed as a command
 
-#### Scenario: A failed upload fails the run
+#### Scenario: No run row is written
 
-- **WHEN** an asset cannot be written to object storage
-- **THEN** the run fails rather than recording a key for an object that was never written
+- **WHEN** any of the studio's workflows runs
+- **THEN** it writes no DataTable row for the run itself
+- **AND** the rendered asset is written to object storage instead
 
-#### Scenario: An empty run records no key
+## ADDED Requirements
+
+### Requirement: A rendered asset is stored outside the response
+
+The system SHALL write each rendered asset to object storage and SHALL carry the object
+key in the run's response, so the caller can fetch the bytes and no row is needed to name
+them. A failed write SHALL fail the run rather than report a key for an object that does
+not exist. The stored objects SHALL be pruned on a bounded window, so the bucket cannot
+grow without limit.
+
+#### Scenario: The asset is stored and named
+
+- **WHEN** a run produces an asset
+- **THEN** its bytes are written to `datahub-local-temp` under a key derived from the run id and the asset type
+- **AND** the response carries that key and the byte count
+
+#### Scenario: A failed write fails the run
+
+- **WHEN** the asset cannot be written
+- **THEN** the run fails, and no key is reported
+
+#### Scenario: A run with nothing to store
 
 - **WHEN** every asset of a run failed
-- **THEN** the row is still recorded, with each asset's error
-- **AND** it carries no object key
+- **THEN** the run still responds, with each asset's error
+- **AND** it reports no key
 
-#### Scenario: A thread is joinable
+#### Scenario: Stored objects expire
 
-- **WHEN** a run carried a `SESSION_ID`
-- **THEN** its recorded request carries that identifier
-- **AND** every run in one session can be read together by that identifier
-
-#### Scenario: An expired run is pruned
-
-- **WHEN** a recorded row is older than the retention window
-- **THEN** it is deleted from the table
-- **AND** the objects it named are deleted from the bucket on the same window
-- **AND** a row and an object inside the window are left alone
-
-#### Scenario: The failure path is not silent
-
-- **WHEN** the error workflow cannot record a failed run
-- **THEN** that failure is reported rather than swallowed by the error path itself
+- **WHEN** a stored object is older than the retention window
+- **THEN** it is deleted from the bucket
+- **AND** an object inside the window is left alone

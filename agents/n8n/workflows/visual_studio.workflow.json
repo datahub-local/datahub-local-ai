@@ -403,41 +403,6 @@
         }
       },
       {
-        "id": "5c3e5e8d-ae80-41b4-9a70-0ed23273c131",
-        "name": "run_record",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          4160,
-          -160
-        ],
-        "parameters": {
-          "jsCode": "// The run row. RESULT carries each asset's STORYBOARD and the object key its bytes were\n// written to, never the bytes themselves: the artifact is a base64 data URL, and four\n// such rows filled visual_studio_table to its 200 MB cap on 2026-10-13, which failed\n// every later run at record_run. The response is built by set_result from merge_branches,\n// so the caller still receives the asset itself.\nconst items = $('merge_branches').all().map((i) => i.json);\nconst req = $('normalize_input').first().json;\nconst brand = $('brand_tokens').first().json;\nconst stored = new Map();\ntry {\n  for (const i of $('prepare_uploads').all()) {\n    if (i.json && i.json.S3_KEY) stored.set(i.json.ASSET_TYPE, i.json);\n  }\n} catch (e) {\n  // upload_assets is skipped when there was nothing to store, which is a legitimate\n  // run: the assets still report their own ERROR below.\n}\nconst errors = items.filter((i) => i.ERROR).map((i) => i.ASSET_TYPE + ': ' + i.ERROR);\nconst slim = items.map((a) => {\n  const s = stored.get(a.ASSET_TYPE) || {};\n  return Object.assign({}, a, { IMAGE: '', S3_KEY: s.S3_KEY || '', S3_BYTES: s.S3_BYTES || 0 });\n});\nreturn [{ json: {\n  RUN_ID: req.RUN_ID,\n  STATUS: errors.length === 0 ? 'COMPLETE' : (items.some((i) => !i.ERROR) ? 'PARTIAL' : 'FAILED'),\n  REQUEST: JSON.stringify({ ASSET_TYPES: req.ASSET_TYPES, FORCE: req.FORCE, STYLE: brand.STYLE,\n                            FEEDBACK: req.FEEDBACK, EXTRA_PROMPT: req.EXTRA_PROMPT,\n                            SESSION_ID: req.SESSION_ID, CONTENT_LENGTH: req.CONTENT.length }),\n  RESULT: JSON.stringify(slim),\n  ASSET_COUNT: String(items.length),\n  ERROR: errors.join(' | ').slice(0, 2000),\n} }];\n"
-        }
-      },
-      {
-        "id": "a5360d2c-01bd-41d5-8cdc-0e30b830f9a9",
-        "name": "record_run",
-        "type": "n8n-nodes-base.dataTable",
-        "typeVersion": 1.1,
-        "position": [
-          4384,
-          -160
-        ],
-        "parameters": {
-          "dataTableId": {
-            "__rl": true,
-            "mode": "name",
-            "value": "visual_studio_table"
-          },
-          "columns": {
-            "mappingMode": "autoMapInputData",
-            "value": {}
-          },
-          "options": {}
-        }
-      },
-      {
         "id": "6407cf3b-1d85-49d3-983c-21f2d02f9ef0",
         "name": "set_result",
         "type": "n8n-nodes-base.code",
@@ -447,7 +412,7 @@
           -160
         ],
         "parameters": {
-          "jsCode": "const items = $('merge_branches').all().map((i) => i.json);\nconst req = $('normalize_input').first().json;\nreturn [{ json: {\n  RUN_ID: req.RUN_ID,\n  STATUS: items.some((i) => i.ERROR) ? (items.every((i) => i.ERROR) ? 'FAILED' : 'PARTIAL') : 'COMPLETE',\n  ASSETS: items,\n} }];"
+          "jsCode": "// The run's outcome, built from the merged assets. The row that used to record it is\n// gone: nothing read it, and the asset's bytes live in Garage, so the object key and the\n// resolved session id are carried here instead. The caller needs the key to fetch the\n// bytes and the session id to continue the thread, and neither should be reconstructed\n// from the run id -- that would be a second copy of two derivations.\nconst items = $('merge_branches').all().map((i) => i.json);\nconst req = $('normalize_input').first().json;\nconst stored = new Map();\ntry {\n  for (const i of $('prepare_uploads').all()) {\n    if (i.json && i.json.S3_KEY) stored.set(i.json.ASSET_TYPE, i.json);\n  }\n} catch (e) {\n  // upload_assets is skipped when there was nothing to store, which is a legitimate\n  // run: the assets still report their own ERROR.\n}\n// build_author_brief resolves the session id and only runs on the agent branch, so a\n// raster run falls back to the caller's own value.\nlet sessionId = String(req.SESSION_ID || '');\ntry {\n  sessionId = String($('build_author_brief').first().json.SESSION_ID || sessionId);\n} catch (e) {}\nconst assets = items.map((a) => {\n  const s = stored.get(a.ASSET_TYPE) || {};\n  return Object.assign({}, a, { S3_KEY: s.S3_KEY || '', S3_BYTES: s.S3_BYTES || 0 });\n});\nreturn [{ json: {\n  RUN_ID: req.RUN_ID,\n  SESSION_ID: sessionId,\n  STATUS: items.some((i) => i.ERROR) ? (items.every((i) => i.ERROR) ? 'FAILED' : 'PARTIAL') : 'COMPLETE',\n  ASSETS: assets,\n} }];\n"
         }
       },
       {
@@ -1010,28 +975,6 @@
           ]
         ]
       },
-      "run_record": {
-        "main": [
-          [
-            {
-              "node": "record_run",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "record_run": {
-        "main": [
-          [
-            {
-              "node": "set_result",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
       "ai_model": {
         "ai_languageModel": [
           [],
@@ -1228,7 +1171,7 @@
         "main": [
           [
             {
-              "node": "run_record",
+              "node": "set_result",
               "type": "main",
               "index": 0
             }
@@ -1390,28 +1333,6 @@
         [
           {
             "node": "prepare_uploads",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "run_record": {
-      "main": [
-        [
-          {
-            "node": "record_run",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "record_run": {
-      "main": [
-        [
-          {
-            "node": "set_result",
             "type": "main",
             "index": 0
           }
@@ -1614,7 +1535,7 @@
       "main": [
         [
           {
-            "node": "run_record",
+            "node": "set_result",
             "type": "main",
             "index": 0
           }
@@ -2028,41 +1949,6 @@
       }
     },
     {
-      "id": "5c3e5e8d-ae80-41b4-9a70-0ed23273c131",
-      "name": "run_record",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        4160,
-        -160
-      ],
-      "parameters": {
-        "jsCode": "// The run row. RESULT carries each asset's STORYBOARD and the object key its bytes were\n// written to, never the bytes themselves: the artifact is a base64 data URL, and four\n// such rows filled visual_studio_table to its 200 MB cap on 2026-10-13, which failed\n// every later run at record_run. The response is built by set_result from merge_branches,\n// so the caller still receives the asset itself.\nconst items = $('merge_branches').all().map((i) => i.json);\nconst req = $('normalize_input').first().json;\nconst brand = $('brand_tokens').first().json;\nconst stored = new Map();\ntry {\n  for (const i of $('prepare_uploads').all()) {\n    if (i.json && i.json.S3_KEY) stored.set(i.json.ASSET_TYPE, i.json);\n  }\n} catch (e) {\n  // upload_assets is skipped when there was nothing to store, which is a legitimate\n  // run: the assets still report their own ERROR below.\n}\nconst errors = items.filter((i) => i.ERROR).map((i) => i.ASSET_TYPE + ': ' + i.ERROR);\nconst slim = items.map((a) => {\n  const s = stored.get(a.ASSET_TYPE) || {};\n  return Object.assign({}, a, { IMAGE: '', S3_KEY: s.S3_KEY || '', S3_BYTES: s.S3_BYTES || 0 });\n});\nreturn [{ json: {\n  RUN_ID: req.RUN_ID,\n  STATUS: errors.length === 0 ? 'COMPLETE' : (items.some((i) => !i.ERROR) ? 'PARTIAL' : 'FAILED'),\n  REQUEST: JSON.stringify({ ASSET_TYPES: req.ASSET_TYPES, FORCE: req.FORCE, STYLE: brand.STYLE,\n                            FEEDBACK: req.FEEDBACK, EXTRA_PROMPT: req.EXTRA_PROMPT,\n                            SESSION_ID: req.SESSION_ID, CONTENT_LENGTH: req.CONTENT.length }),\n  RESULT: JSON.stringify(slim),\n  ASSET_COUNT: String(items.length),\n  ERROR: errors.join(' | ').slice(0, 2000),\n} }];\n"
-      }
-    },
-    {
-      "id": "a5360d2c-01bd-41d5-8cdc-0e30b830f9a9",
-      "name": "record_run",
-      "type": "n8n-nodes-base.dataTable",
-      "typeVersion": 1.1,
-      "position": [
-        4384,
-        -160
-      ],
-      "parameters": {
-        "dataTableId": {
-          "__rl": true,
-          "mode": "name",
-          "value": "visual_studio_table"
-        },
-        "columns": {
-          "mappingMode": "autoMapInputData",
-          "value": {}
-        },
-        "options": {}
-      }
-    },
-    {
       "id": "6407cf3b-1d85-49d3-983c-21f2d02f9ef0",
       "name": "set_result",
       "type": "n8n-nodes-base.code",
@@ -2072,7 +1958,7 @@
         -160
       ],
       "parameters": {
-        "jsCode": "const items = $('merge_branches').all().map((i) => i.json);\nconst req = $('normalize_input').first().json;\nreturn [{ json: {\n  RUN_ID: req.RUN_ID,\n  STATUS: items.some((i) => i.ERROR) ? (items.every((i) => i.ERROR) ? 'FAILED' : 'PARTIAL') : 'COMPLETE',\n  ASSETS: items,\n} }];"
+        "jsCode": "// The run's outcome, built from the merged assets. The row that used to record it is\n// gone: nothing read it, and the asset's bytes live in Garage, so the object key and the\n// resolved session id are carried here instead. The caller needs the key to fetch the\n// bytes and the session id to continue the thread, and neither should be reconstructed\n// from the run id -- that would be a second copy of two derivations.\nconst items = $('merge_branches').all().map((i) => i.json);\nconst req = $('normalize_input').first().json;\nconst stored = new Map();\ntry {\n  for (const i of $('prepare_uploads').all()) {\n    if (i.json && i.json.S3_KEY) stored.set(i.json.ASSET_TYPE, i.json);\n  }\n} catch (e) {\n  // upload_assets is skipped when there was nothing to store, which is a legitimate\n  // run: the assets still report their own ERROR.\n}\n// build_author_brief resolves the session id and only runs on the agent branch, so a\n// raster run falls back to the caller's own value.\nlet sessionId = String(req.SESSION_ID || '');\ntry {\n  sessionId = String($('build_author_brief').first().json.SESSION_ID || sessionId);\n} catch (e) {}\nconst assets = items.map((a) => {\n  const s = stored.get(a.ASSET_TYPE) || {};\n  return Object.assign({}, a, { S3_KEY: s.S3_KEY || '', S3_BYTES: s.S3_BYTES || 0 });\n});\nreturn [{ json: {\n  RUN_ID: req.RUN_ID,\n  SESSION_ID: sessionId,\n  STATUS: items.some((i) => i.ERROR) ? (items.every((i) => i.ERROR) ? 'FAILED' : 'PARTIAL') : 'COMPLETE',\n  ASSETS: assets,\n} }];\n"
       }
     },
     {

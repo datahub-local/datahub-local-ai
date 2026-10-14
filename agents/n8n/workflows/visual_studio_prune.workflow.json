@@ -25,35 +25,6 @@
         }
       },
       {
-        "id": "a91c5e77-3f06-4b2d-8c15-7e6b2d04f9a8",
-        "name": "delete_expired",
-        "type": "n8n-nodes-base.dataTable",
-        "typeVersion": 1.1,
-        "position": [
-          240,
-          0
-        ],
-        "parameters": {
-          "resource": "row",
-          "operation": "deleteRows",
-          "dataTableId": {
-            "__rl": true,
-            "mode": "name",
-            "value": "visual_studio_table"
-          },
-          "filters": {
-            "conditions": [
-              {
-                "keyName": "createdAt",
-                "condition": "lt",
-                "keyValue": "={{ new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() }}"
-              }
-            ]
-          },
-          "options": {}
-        }
-      },
-      {
         "id": "prune-temporal-files",
         "name": "delete_expired_files",
         "type": "n8n-nodes-base.dataTable",
@@ -148,17 +119,6 @@
         "main": [
           [
             {
-              "node": "delete_expired",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "delete_expired": {
-        "main": [
-          [
-            {
               "node": "delete_expired_files",
               "type": "main",
               "index": 0
@@ -211,17 +171,6 @@
   "activeVersionId": "75f74277-439c-40fc-98f0-070371ff6317",
   "connections": {
     "schedule_trigger": {
-      "main": [
-        [
-          {
-            "node": "delete_expired",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "delete_expired": {
       "main": [
         [
           {
@@ -291,35 +240,6 @@
             }
           ]
         }
-      }
-    },
-    {
-      "id": "a91c5e77-3f06-4b2d-8c15-7e6b2d04f9a8",
-      "name": "delete_expired",
-      "type": "n8n-nodes-base.dataTable",
-      "typeVersion": 1.1,
-      "position": [
-        240,
-        0
-      ],
-      "parameters": {
-        "resource": "row",
-        "operation": "deleteRows",
-        "dataTableId": {
-          "__rl": true,
-          "mode": "name",
-          "value": "visual_studio_table"
-        },
-        "filters": {
-          "conditions": [
-            {
-              "keyName": "createdAt",
-              "condition": "lt",
-              "keyValue": "={{ new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() }}"
-            }
-          ]
-        },
-        "options": {}
       }
     },
     {

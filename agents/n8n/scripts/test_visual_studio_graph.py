@@ -89,12 +89,11 @@ def test_the_raster_branch_reaches_the_merge(label, doc):
     assert _targets(doc, "generate_image", 0) == ["raster_result"]
     assert _targets(doc, "raster_result", 0) == ["merge_branches"]
     assert _targets(doc, "ready_pass", 0) == ["merge_branches"]
-    # The merged assets are stored in Garage before the run row is built, so the row
-    # can carry the object key instead of the base64 bytes.
+    # The merged assets are stored in Garage before the response is built, so the
+    # response can name the object each asset was written to.
     assert _targets(doc, "merge_branches", 0) == ["prepare_uploads"]
     assert _targets(doc, "prepare_uploads", 0) == ["upload_assets"]
-    assert _targets(doc, "upload_assets", 0) == ["run_record"]
-    assert _targets(doc, "run_record", 0) == ["record_run"]
+    assert _targets(doc, "upload_assets", 0) == ["set_result"]
 
 
 @pytest.mark.parametrize("label,doc", list(_copies()))
@@ -189,13 +188,15 @@ def test_the_form_enum_matches_the_vocabulary():
 
 
 @pytest.mark.parametrize("label,doc", list(_copies()))
-def test_the_storyboard_is_recorded(label, doc):
+def test_the_storyboard_reaches_the_response(label, doc):
     # The composer states a storyboard first; agent_result keeps its report as
-    # STORYBOARD and run_record carries it in RESULT, so a bad visual is diagnosable.
+    # STORYBOARD and set_result returns the assets, so a bad visual is diagnosable from
+    # the response. No run row carries it: nothing read one, so the table is gone.
     assert "STORYBOARD" in _code(doc, "agent_result")
     assert "execute_author" in _code(doc, "agent_result")
-    assert "STORYBOARD" in _code(doc, "run_record")
-    assert "SPEC_GIVEN" not in _code(doc, "run_record")
+    assert "ASSETS" in _code(doc, "set_result")
+    assert "SPEC_GIVEN" not in _code(doc, "set_result")
+    assert [n for n in doc["nodes"] if n["type"] == "n8n-nodes-base.dataTable"] == []
 
 
 @pytest.mark.parametrize("label,doc", list(_copies()))
@@ -353,6 +354,10 @@ def test_a_continuation_brief_differs_from_a_first_authoring(label, doc):
 
 
 @pytest.mark.parametrize("label,doc", list(_copies()))
-def test_the_recorded_request_carries_the_session(label, doc):
-    # The thread id is recorded, so a session's turns are joinable after the fact.
-    assert "SESSION_ID: req.SESSION_ID" in _code(doc, "run_record")
+def test_the_response_carries_the_resolved_session(label, doc):
+    # The row that carried the request is gone, so the response carries the resolved
+    # session id: a caller that sent none cannot otherwise learn the id its thread was
+    # scoped to, and continuing that thread needs it.
+    code = _code(doc, "set_result")
+    assert "SESSION_ID: sessionId" in code
+    assert "build_author_brief" in code and "SESSION_ID" in code

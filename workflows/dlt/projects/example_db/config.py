@@ -8,16 +8,31 @@ from __future__ import annotations
 
 import os
 
-from dlt_runner.config import VALID_TARGETS as VALID_TARGETS
-from dlt_runner.config import configure_iceberg_env as configure_iceberg_env
-from dlt_runner.config import duckdb_path as duckdb_path
-from dlt_runner.config import env as env
-from dlt_runner.config import polaris_uri as polaris_uri
-from dlt_runner.config import s3_credentials as s3_credentials
-from dlt_runner.config import s3_endpoint as s3_endpoint
-from dlt_runner.config import temp_bucket as temp_bucket
-from dlt_runner.config import trino_url as trino_url
-from dlt_runner.config import validate_target as validate_target
+from dlt_runner.config import (
+    VALID_TARGETS,
+    configure_iceberg_env,
+    duckdb_path,
+    env,
+    polaris_uri,
+    s3_credentials,
+    s3_endpoint,
+    temp_bucket,
+    trino_url,
+    validate_target,
+)
+
+__all__ = [
+    "VALID_TARGETS",
+    "configure_iceberg_env",
+    "duckdb_path",
+    "env",
+    "polaris_uri",
+    "s3_credentials",
+    "s3_endpoint",
+    "temp_bucket",
+    "trino_url",
+    "validate_target",
+]
 
 # Medallion catalog -> Apache Polaris catalog name (matches the dbt Trino catalogs).
 CATALOG_WAREHOUSES = {

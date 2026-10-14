@@ -136,7 +136,7 @@ class TestRawInvoicesKafkaBehaviour:
         m1 = _make_msg(SAMPLE_INVOICE, offset=0)
         m2 = _make_msg(INVOICE_2, offset=1)
         # Two idle then message resets counter, then 3 more idle to stop
-        records, consumer = _collect([None, None, m1, None, m2, None, None, None])
+        records, _ = _collect([None, None, m1, None, m2, None, None, None])
         assert len(records) == 2
 
     def test_consumer_committed_after_each_message(self):

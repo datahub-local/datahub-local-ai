@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+from itertools import pairwise
 
 from utils import DEFAULT_TARGET
 
@@ -118,7 +119,7 @@ def test_task_chain_order():
         "dbt_gold_finance",
         "dlt_sync_actual",
     ]
-    for upstream, downstream in zip(order, order[1:]):
+    for upstream, downstream in pairwise(order):
         assert downstream in {
             d.task_id for d in dag.get_task(upstream).downstream_list
         }, f"{upstream} -> {downstream}"

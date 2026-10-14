@@ -8,7 +8,8 @@
     "node": ">=22"
   },
   "dependencies": {
-    "hyperframes": "0.8.148",
-    "@hyperframes/shader-transitions": "0.8.148"
+    "@aws-sdk/client-s3": "3.1152.0",
+    "@hyperframes/shader-transitions": "0.8.158",
+    "hyperframes": "0.8.158"
   }
 }

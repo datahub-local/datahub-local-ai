@@ -580,19 +580,24 @@ because the S3 node's own output is `{success: true}` and does not pass the key 
 `list_assets` lists the prefix **`visual-studio/` with its trailing slash**: the S3 node's
 `file:getAll` sets a `/` delimiter, so with `visual-studio` the key's own slash makes it a
 CommonPrefix and the object is never listed (measured against the live node: 0 items, then
-2). And the error workflow writes no row either — its `record_failed` carried
-`onError: continueRegularOutput`, which hid its own failure the same day: the write hit the
-size limit, the workflow reported `success`, and no `FAILED` row existed for the run.
+2). The error workflow writes no row either; the node that used to write one
+(`record_failed`) carried `onError: continueRegularOutput` and hid its own failure the same
+day — the write hit the size limit, the workflow reported `success`, and no `FAILED` row
+existed for the run. Both nodes are gone with the table.
 
 That artifact is why the workflows whose payload *is* the artifact set
 `saveDataSuccessExecution: "none"` — `Visual Studio`, `Visual Studio Test`,
-`LinkedIn Post Sharing` and `Visual Studio Prune` (whose `deleteRows` returns the rows it
-deleted). Without it n8n persists a copy of every rendered asset per successful run:
-measured, `Visual Studio Test` alone was 511 MB across 46 runs and `Visual Studio` 377 MB
-across 92, against a 1 GB `execution_data`. `saveDataErrorExecution` is left at its
-default, so a failure still records everything needed to diagnose it. The same bytes are
-therefore stored twice at most — object storage and n8n's binary store — instead of three
-times. `agents/n8n/scripts/test_storage_retention.py` holds both bounds.
+`LinkedIn Post Sharing` and `Visual Studio Prune`. Without it n8n persists a copy of every
+rendered asset per successful run: measured, `Visual Studio Test` alone was 511 MB across 46
+runs and `Visual Studio` 377 MB across 92, against a 1 GB `execution_data`. `saveDataErrorExecution`
+is left at its default, so a failure still records everything needed to diagnose it. Note
+that n8n persists *binary* data too, in Postgres, not only the JSON payload: measured on
+2026-10-14, `binary_data` is **249 MB across 903 rows** and `execution_data` **1060 MB across
+1405 rows**, in a 1335 MB database — so a run that carries an asset as binary costs the
+asset's size as surely as one that carries it as a data URL. With `none` a successful run
+stores its asset once, in Garage. `agents/n8n/scripts/test_storage_retention.py` holds both
+bounds, and `openspec/changes/upload-assets-from-the-producer/` is where that invariant is
+being made total.
 
 **Verification is manual — there is no CI coverage for n8n.** The claims above were checked
 by POSTing to the live webhook and by `--require-edge` graph checks. Read the live workflow

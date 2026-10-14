@@ -1,7 +1,6 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from airflow import DAG
-
 from utils.dbt import DbtTaskConfig, create_dbt_task
 
 default_args = {
@@ -17,7 +16,7 @@ with DAG(
     default_args=default_args,
     description="Monte Carlo π estimate via dbt (Trino) — pure compute, no ingest/export",
     schedule=None,
-    start_date=datetime(2025, 1, 1),
+    start_date=datetime(2025, 1, 1, tzinfo=UTC),
     catchup=False,
     tags=["dbt"],
 ) as dag:

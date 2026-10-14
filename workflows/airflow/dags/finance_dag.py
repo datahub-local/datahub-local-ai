@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from airflow import DAG
 from airflow.sdk import Param, task
-
 from utils.dbt import DbtTaskConfig, create_dbt_task
 from utils.dlt import DltTaskConfig, SecretEnvVarRef, create_dlt_task
 
@@ -67,7 +66,7 @@ with DAG(
     # (spec 005 §4.2.1), so the run sits next to a morning re-link instead of
     # always landing after it.
     schedule="0 13 * * *",
-    start_date=datetime(2025, 1, 1),
+    start_date=datetime(2025, 1, 1, tzinfo=UTC),
     catchup=False,
     tags=["dlt"],
     params={

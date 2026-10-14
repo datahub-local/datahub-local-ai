@@ -4,7 +4,6 @@
 
 import { basename, join, normalize, sep } from "node:path";
 import { copyFile } from "node:fs/promises";
-import { createHash, createHmac } from "node:crypto";
 
 // The shape session-server.mjs accepts for session_id: a run identifier that is
 // safe as a single path segment. `.` and `..` are excluded even though the
@@ -239,14 +238,19 @@ export function transcodeArgs(format, { fps, width, frames, durationSeconds } = 
   }
 }
 
-// --- S3 upload ------------------------------------------------------------------
+// --- S3 upload policy -----------------------------------------------------------
 //
 // The session server writes the artifact it rendered straight to object storage, so
 // no workflow ever carries the bytes: a workflow that records its own executions
 // would otherwise persist the asset as node output, which is the whole reason
-// `saveDataSuccessExecution` was off on the studio. n8n cannot sign this request --
-// a Code node answers `Module 'crypto' is disallowed` -- so the signature is made
-// here, in code the model never writes to.
+// `saveDataSuccessExecution` was off the studio.
+//
+// Only the *policy* lives here. The request itself is signed and sent by
+// `@aws-sdk/client-s3` in session-server.mjs: hand-rolling SigV4 was verified against
+// botocore and live against Garage, but the SDK does it, the retries and the
+// streaming for less code, and it was measured working against this Garage with its
+// defaults. This file keeps importing node builtins only -- the CI job runs these
+// tests with no `npm ci`, so anything needing a dependency cannot live here.
 
 // The only prefix a run may write under. The prune lists this prefix, and a
 // destination outside it is refused rather than trusted: this process holds a live
@@ -256,72 +260,11 @@ export const UPLOAD_PREFIX = "visual-studio/";
 export function isUploadKeyAllowed(key) {
   const s = String(key ?? "");
   if (!s.startsWith(UPLOAD_PREFIX) || s.length <= UPLOAD_PREFIX.length) return false;
-  // A flat object name below the prefix: no traversal, no empty segment, no space.
-  return !s.includes("..") && !s.includes("//") && !/\s/.test(s);
-}
-
-function sha256Hex(data) {
-  return createHash("sha256").update(data).digest("hex");
-}
-
-function hmac(key, data) {
-  return createHmac("sha256", key).update(data).digest();
-}
-
-// `20260114T120000Z`, or a string passed straight through so a test can pin it.
-export function amzDate(when = new Date()) {
-  if (typeof when === "string") return when;
-  return when.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
-}
-
-// Sorted by encoded key, each part encoded -- `&` in a query value would otherwise
-// split the canonical request.
-function canonicalQuery(url) {
-  const pairs = [...url.searchParams.entries()].map(([k, v]) => [encodeURIComponent(k), encodeURIComponent(v)]);
-  pairs.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
-  return pairs.map(([k, v]) => `${k}=${v}`).join("&");
-}
-
-// A signed S3 request, `putObject` by default. Returns the headers to send plus the
-// intermediate steps, so a rejected live request can be read against its canonical
-// request instead of guessed at. The body's *hash* is what is signed, so a 60 MB
-// artifact costs no extra signature work.
-export function signS3Request({
-  url,
-  body = Buffer.alloc(0),
-  accessKey,
-  secretKey,
-  region,
-  service = "s3",
-  method = "PUT",
-  now,
-} = {}) {
-  if (!url || !accessKey || !secretKey || !region) {
-    return { error: "url, accessKey, secretKey and region are all required" };
-  }
-  const u = new URL(url);
-  const payloadHash = sha256Hex(body);
-  const date = amzDate(now);
-  const dateStamp = date.slice(0, 8);
-  const signedHeaders = "host;x-amz-content-sha256;x-amz-date";
-  // The host is signed as it will be sent, so a non-default port belongs in it:
-  // this is the URL's `host`, not its `hostname`.
-  const canonicalHeaders = `host:${u.host}\nx-amz-content-sha256:${payloadHash}\nx-amz-date:${date}\n`;
-  const canonicalRequest = [method, u.pathname, canonicalQuery(u), canonicalHeaders, signedHeaders, payloadHash].join("\n");
-  const scope = `${dateStamp}/${region}/${service}/aws4_request`;
-  const stringToSign = ["AWS4-HMAC-SHA256", date, scope, sha256Hex(canonicalRequest)].join("\n");
-  const signingKey = hmac(hmac(hmac(hmac(`AWS4${secretKey}`, dateStamp), region), service), "aws4_request");
-  const signature = createHmac("sha256", signingKey).update(stringToSign).digest("hex");
-  return {
-    headers: {
-      "x-amz-content-sha256": payloadHash,
-      "x-amz-date": date,
-      authorization: `AWS4-HMAC-SHA256 Credential=${accessKey}/${scope}, SignedHeaders=${signedHeaders}, Signature=${signature}`,
-    },
-    signature,
-    canonicalRequest,
-    stringToSign,
-    scope,
-    payloadHash,
-  };
+  const name = s.slice(UPLOAD_PREFIX.length);
+  // A *flat* object name below the prefix. The prune lists the prefix with a '/'
+  // delimiter, so a key with a further slash comes back as a CommonPrefix rather
+  // than an object and is never deleted -- it would sit in the bucket forever.
+  // Measured on the live S3 node: the prefix must carry its slash, and a nested
+  // key is invisible to the same listing.
+  return !name.includes("/") && !name.includes("..") && !/\s/.test(name);
 }

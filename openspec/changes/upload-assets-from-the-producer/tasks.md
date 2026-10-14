@@ -2,12 +2,12 @@
 
 ## 1. Adapter: the session server uploads
 
-- [x] 1.1 `session-lib.mjs`: a pure `signS3Request` — canonical request, signed headers, `x-amz-content-sha256`, the `amzDate` shape and a key-prefix guard. Verified two ways: its canonical request and string-to-sign match **botocore's `S3SigV4Auth`** for the same pinned request, and the headers it produces were exercised **live against Garage** from a pod holding the credential — `PUT 200`, `GET 200` with the exact body, `DELETE 204`. The published AWS `get-vanilla` vector is the wrong reference for S3: it does not sign `x-amz-content-sha256`, so it is deliberately not used
-- [ ] 1.2 `session-lib.mjs`: `uploadArtifact()` — PUT the finished file to the destination the request names, bounded retries, returns `{key, bytes}` or an error. Refuses a key outside `visual-studio/`
+- [x] 1.1 `session-lib.mjs`: `UPLOAD_PREFIX` and `isUploadKeyAllowed` — the destination policy, node builtins only. A key must sit directly under `visual-studio/`: a further slash comes back as a CommonPrefix from the prune's `/`-delimited listing and is never deleted. `signS3Request` and its vectors were written, verified live against Garage, then **removed** — see `design.md`, the AWS SDK does the signing
+- [ ] 1.2 `session-server.mjs`: `@aws-sdk/client-s3` (`3.1152.0`, path-style, region `homelab`) PUTs the finished artifact to the destination the request names and returns `{key, bytes}` or the reason it failed. Measured against this Garage with the SDK's defaults: `PUT ok`, `GET ok`, `DELETE ok`
 - [ ] 1.3 `session-server.mjs`: after a turn, upload the artifact the run produced; put the key and byte count in the response, or the failure's reason
 - [ ] 1.4 `session-server.mjs`: a blank destination means no upload (a local-first run keeps working); a configured destination that fails fails the turn's report, never a silent success
 - [ ] 1.5 Env: `PI_RENDER_S3_ENDPOINT`, `_REGION`, `_BUCKET`, and the key from a mounted secret; nothing hardcoded
-- [ ] 1.6 Tests in `agents/adapters/pi-render/test/`: vectors, prefix refusal, and a failure that is reported rather than swallowed
+- [x] 1.6 Tests in `agents/adapters/pi-render/test/`: the prefix and nested-key refusals, and a test that `session-lib.mjs` imports only `node:` builtins — the CI job installs nothing, so a dependency there fails as a module-not-found that reads like a broken test
 
 ## 2. Cluster: reach and credential
 

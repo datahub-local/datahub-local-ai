@@ -96,6 +96,7 @@ def _dbt_build(select: str) -> None:
         env={**os.environ},
         capture_output=True,
         text=True,
+        check=False,
     )
     assert proc.returncode == 0, proc.stdout + proc.stderr
 

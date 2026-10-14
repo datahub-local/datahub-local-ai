@@ -13,11 +13,12 @@ from __future__ import annotations
 import csv
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from string import Template
 
 import dlt
+
 from dlt_runner.llm import call_llm
 
 from . import config
@@ -110,7 +111,7 @@ def products(new_descriptions: list[dict], base_url: str, api_key: str, model_id
                 "category":          cat.get("category", "OTHER"),
                 "subcategory":       cat.get("subcategory", "")[:30],
                 "is_weighted":       cat.get("is_weighted", False),
-                "categorized_at":    datetime.now(timezone.utc).isoformat(),
+                "categorized_at":    datetime.now(UTC).isoformat(),
                 "llm_model":         model_id,
             }
 

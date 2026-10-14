@@ -1,24 +1,24 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, Mapping
+from typing import Any
 
 from airflow.providers.cncf.kubernetes.operators.job import KubernetesJobOperator
 from kubernetes.client import V1EnvVar, V1PodSecurityContext, V1ResourceRequirements
-
 from utils import (
+    DBT_IMAGE,
     DEFAULT_STARTUP_TIMEOUT_SECONDS,
     DEFAULT_TARGET,
-    DBT_IMAGE,
     IMAGE_PULL_POLICY,
     NAMESPACE,
     SERVICE_ACCOUNT_NAME,
-    SecretEnvVarRef,
     ConfigMapEnvVarRef,
-    _validate_name,
-    _on_task_start,
+    SecretEnvVarRef,
     _on_task_end,
     _on_task_failure,
+    _on_task_start,
+    _validate_name,
     build_pod_env_vars,
     build_pod_resources,
 )

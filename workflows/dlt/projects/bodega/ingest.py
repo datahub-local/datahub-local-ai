@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 
 import dlt
 from confluent_kafka import Consumer, KafkaError
@@ -44,7 +44,7 @@ def raw_invoices(bootstrap_servers: str, topic: str, group_id: str = "bodega-dlt
     consumer = Consumer(kafka_config)
     consumer.subscribe([topic])
 
-    ingested_at = datetime.now(timezone.utc).isoformat()
+    ingested_at = datetime.now(UTC).isoformat()
     idle_rounds, max_idle, poll_timeout = 0, 3, 10.0
     try:
         while idle_rounds < max_idle:
@@ -85,7 +85,10 @@ def raw_invoices(bootstrap_servers: str, topic: str, group_id: str = "bodega-dlt
 
 
 def _exclusive_end(to_date: str) -> str:
-    return (datetime.strptime(to_date, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+    # A calendar date, not an instant: no timezone belongs on it, and adding one
+    # would be an arbitrary choice. Parsed as a date so there is no naive datetime
+    # to reason about at all.
+    return (date.fromisoformat(to_date) + timedelta(days=1)).isoformat()
 
 
 def _delete_stale_local(duckdb_path: str, from_date: str, to_date: str, batch_timestamp: str) -> None:

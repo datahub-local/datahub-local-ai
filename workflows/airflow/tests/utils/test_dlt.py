@@ -1,6 +1,6 @@
 import pytest
 from airflow.exceptions import AirflowException
-
+from utils.dbt import SecretEnvVarRef
 from utils.dlt import (
     DLT_IMAGE,
     DltTaskConfig,
@@ -8,7 +8,6 @@ from utils.dlt import (
     build_dlt_env_vars,
     create_dlt_task,
 )
-from utils.dbt import SecretEnvVarRef
 
 
 def test_build_dlt_arguments():

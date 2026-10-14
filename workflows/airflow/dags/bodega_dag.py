@@ -1,8 +1,7 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from airflow import DAG
 from airflow.sdk import Param
-
 from utils.dbt import DbtTaskConfig, SecretEnvVarRef, create_dbt_task
 from utils.dlt import DltTaskConfig, create_dlt_task
 from utils.n8n import N8nTaskConfig, create_n8n_task
@@ -54,7 +53,7 @@ with DAG(
     default_args=default_args,
     description="bodega pipeline: dlt ingest → dbt silver → dlt enrich → dbt gold",
     schedule="0 8 * * *",
-    start_date=datetime(2025, 1, 1),
+    start_date=datetime(2025, 1, 1, tzinfo=UTC),
     catchup=False,
     tags=["dbt", "dlt", "n8n"],
     params={

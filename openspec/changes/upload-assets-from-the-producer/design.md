@@ -56,10 +56,24 @@ pruned on a two-day window. This is an accepted risk rather than an eliminated o
 `MEMORY.md` records that the alternative — a presigned URL — is unavailable only because
 n8n cannot sign. If n8n ever gains a signer, that becomes the better design.
 
-**SigV4 lives in the adapter, with no new dependency.** The image is Node and the
-signature is ~60 lines. It is implemented as a pure function in `session-lib.mjs`, unit
-tested against published vectors, and then verified by a live PUT before the workflow
-depends on it. This is the highest-risk piece of the change and it is gated on both.
+**The request is signed and sent by the AWS SDK, not by hand.** The first version of this
+change hand-rolled SigV4 in `session-lib.mjs` and verified it two ways — its canonical
+request and string-to-sign against botocore's `S3SigV4Auth`, and the headers it produced
+against Garage live (`PUT 200`, `GET 200`, `DELETE 204`). It worked. It was still the
+wrong call: `@aws-sdk/client-s3` does the signing, the streaming PUT, the retries and the
+error classification for less code than the signer alone, and it was **measured working
+against this Garage with its defaults** (path-style, region `homelab`, `PUT ok | GET ok`
+with the exact body, `DELETE ok`, no checksum workaround needed) — so the hand-rolled
+version and its vectors were removed rather than kept alongside it. The repository's
+`renovate.json` already manages this `package.json`, the image is built in CI and consumed
+by an auto-pinned digest, so the dependency costs a CI round trip and nothing manual.
+
+**The SDK cannot live in `session-lib.mjs`.** That file's tests run in CI under
+`node --test` with **no `npm ci`**, because it imports only node builtins — so anything
+needing a dependency breaks that job, and it breaks as a module-not-found that reads like
+a broken test rather than a misplaced dependency. The signing and the PUT therefore live
+in `session-server.mjs`; what stays in the pure module is the policy, and a test asserts
+the builtins-only property so a future dependency cannot be added there by accident.
 
 **A failed upload fails the run.** The response reports the failure and no key, so no
 caller can be handed a key for an object that was never written — the same rule
@@ -96,6 +110,22 @@ The obstacle is that a cross-repo write tool is a larger change than a scoped ke
 credential it removes — a write-only key on a two-day temp bucket — is the smaller risk of
 the two. Reopen this if the scope of that key ever needs to widen beyond
 `datahub-local-temp`.
+
+## Other security-sensitive code, reviewed
+
+Because the trigger for using the SDK was "would this suffer an attack", the rest of the
+repository's security-sensitive code was reviewed for the same pattern — hand-rolled
+where a maintained library belongs:
+
+| Surface | What it uses | Verdict |
+|---|---|---|
+| Enable Banking auth (`workflows/dlt/projects/finance/providers/enablebanking.py`) | **PyJWT** `RS256` and **httpx** | already a library; `mint_jwt` is 12 lines of claims |
+| Slack delivery hook (`agents/sympozium/files/deliver-slack.py`) | stdlib `urllib.request` over HTTPS | stdlib, TLS verified by default, no `ssl`/`verify` override anywhere |
+| Artifact serving (`session-server.mjs` + `resolveArtifact`) | session-id allowlist, artifact-name allowlist, `basename` equality, `normalize` + prefix check | the safe pattern; a framework's defaults would not be stricter |
+| `fetch-artifact.mjs` | `md5` of the fetched bytes | an integrity check on a developer fetch, not a security boundary |
+
+Nothing there needs replacing. The one genuine hand-rolled-crypto case in the repository
+was this change's own signer, and it is gone.
 
 ## The still path cannot be byte-free
 

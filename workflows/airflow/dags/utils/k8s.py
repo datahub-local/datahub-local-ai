@@ -5,7 +5,6 @@ from dataclasses import dataclass
 
 from kubernetes import client, config
 from kubernetes.client import ApiClient
-
 from utils import _current_namespace
 
 

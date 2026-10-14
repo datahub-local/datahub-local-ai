@@ -2,7 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   safeSessionId,
@@ -22,10 +23,10 @@ import {
   VENDOR_ASSETS,
   DEFAULT_SESSION_WORKSPACE,
   isUploadKeyAllowed,
-  signS3Request,
-  amzDate,
   UPLOAD_PREFIX,
 } from "../session-lib.mjs";
+
+const here = dirname(fileURLToPath(import.meta.url));
 
 const WORKSPACE = "/tmp/aivideo";
 
@@ -211,17 +212,17 @@ test("expiredTranscripts sweeps only this server's old transcripts", () => {
   ]);
 });
 
-// --- S3 upload -------------------------------------------------------------------
+// --- S3 upload policy ------------------------------------------------------------
 //
-// The signature is what lets the session server write the artifact itself, so that no
-// workflow ever carries the bytes and `saveDataSuccessExecution` can be on. It is
-// hand-rolled because n8n cannot sign (`Module 'crypto' is disallowed` in a Code node)
-// and the adapter must not gain a dependency for sixty lines.
+// The session server writes the artifact itself, so no workflow carries the bytes and
+// `saveDataSuccessExecution` can be on. The request is signed and sent by the AWS SDK
+// in the server; what lives here is the policy that decides whether a destination may
+// be written at all.
 
 test("a key may only be written under the upload prefix", () => {
   assert.equal(UPLOAD_PREFIX, "visual-studio/");
   assert.ok(isUploadKeyAllowed("visual-studio/13356-animation.mp4"));
-  assert.ok(isUploadKeyAllowed("visual-studio/nested/deck.html"));
+  assert.ok(isUploadKeyAllowed("visual-studio/13356-deck.mp4"));
   for (const bad of [
     "other-prefix/x.mp4",
     "visual-studio/",
@@ -237,89 +238,25 @@ test("a key may only be written under the upload prefix", () => {
   }
 });
 
-test("signing refuses to run without a destination or a credential", () => {
-  assert.match(signS3Request({}).error, /required/);
-  assert.match(signS3Request({ url: "http://x/y", region: "homelab" }).error, /required/);
-  assert.match(
-    signS3Request({ url: "http://x/y", accessKey: "a", secretKey: "b" }).error,
-    /required/,
-  );
+test("a nested key is refused because the prune could never delete it", () => {
+  // The prune lists `visual-studio/` with a '/' delimiter, so `visual-studio/nested/x`
+  // comes back as a CommonPrefix and not as an object: the listing never names it and
+  // the delete never reaches it. Allowing one would be a permanent object in a bucket
+  // whose whole retention story is a two-day window.
+  assert.equal(isUploadKeyAllowed("visual-studio/nested/deck.html"), false);
+  assert.equal(isUploadKeyAllowed("visual-studio/a/b/c.mp4"), false);
 });
 
-test("the canonical request is the one botocore builds for the same request", () => {
-  // Independently produced by botocore's S3SigV4Auth (the same AWSRequest, with
-  // X-Amz-Content-SHA256 set and a pinned timestamp) on 2026-10-14. A canonical
-  // request that differs from the reference by one character still signs, and the
-  // failure only appears as SignatureDoesNotMatch against a live endpoint.
-  const signed = signS3Request({
-    url: "http://localhost:3900/datahub-local-temp/visual-studio/probe.txt",
-    body: Buffer.from("hello"),
-    accessKey: "AKIDEXAMPLE",
-    secretKey: "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
-    region: "homelab",
-    now: "20261014T120000Z",
-  });
-  assert.equal(
-    signed.canonicalRequest,
-    "PUT\n" +
-      "/datahub-local-temp/visual-studio/probe.txt\n" +
-      "\n" +
-      "host:localhost:3900\n" +
-      "x-amz-content-sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824\n" +
-      "x-amz-date:20261014T120000Z\n" +
-      "\n" +
-      "host;x-amz-content-sha256;x-amz-date\n" +
-      "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
-  );
-  assert.equal(
-    signed.stringToSign,
-    "AWS4-HMAC-SHA256\n20261014T120000Z\n20261014/homelab/s3/aws4_request\n" +
-      "630ef49748871a546f5355509dbe927fca0571d10ee9e2e5f33a1442c3bf91fd",
-  );
-});
-
-test("the signature is the one Garage accepts", () => {
-  // Pinned from this implementation, which was exercised live on 2026-10-14 against
-  // Garage from a pod holding the S3 credential: the same headers returned
-  // PUT 200, GET 200 with the exact body, DELETE 204. This is a regression guard on
-  // the key derivation; the live PUT is the algorithm's real check.
-  const signed = signS3Request({
-    url: "http://localhost:3900/datahub-local-temp/visual-studio/probe.txt",
-    body: Buffer.from("hello"),
-    accessKey: "AKIDEXAMPLE",
-    secretKey: "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
-    region: "homelab",
-    now: "20261014T120000Z",
-  });
-  assert.equal(signed.signature, "1ed3fd3c79583d110e6b02a08d4e0ce2d01e7bffbd1f759e96e5b9d72c1499a5");
-  assert.match(signed.headers.authorization, /^AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE\/20261014\/homelab\/s3\/aws4_request, /);
-  assert.match(signed.headers.authorization, /SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature=/);
-  assert.equal(signed.headers["x-amz-date"], "20261014T120000Z");
-  assert.equal(signed.scope, "20261014/homelab/s3/aws4_request");
-});
-
-test("the signed host carries a non-default port", () => {
-  // Garage's S3 endpoint is :3900, and the Host header is signed as sent. Signing
-  // `hostname` instead of `host` would drop the port and fail against a live bucket.
-  const signed = signS3Request({
-    url: "http://datahub-local-core-data-garage.data.svc.cluster.local:3900/b/k",
-    accessKey: "a",
-    secretKey: "b",
-    region: "homelab",
-    now: "20261014T120000Z",
-  });
-  assert.match(signed.canonicalRequest, /host:datahub-local-core-data-garage\.data\.svc\.cluster\.local:3900/);
-});
-
-test("a fixed time signs the same bytes twice, and amzDate is the AWS shape", () => {
-  const args = {
-    url: "http://x:3900/b/k",
-    accessKey: "a",
-    secretKey: "b",
-    region: "homelab",
-    now: "20261014T120000Z",
-  };
-  assert.equal(signS3Request(args).signature, signS3Request(args).signature);
-  assert.equal(amzDate("20261014T120000Z"), "20261014T120000Z");
-  assert.equal(amzDate(new Date("2026-10-14T12:00:00.000Z")), "20261014T120000Z");
+test("this module depends on nothing but node builtins", async () => {
+  // The CI job for this directory runs `node --test` with no `npm ci`, which is why the
+  // S3 request is signed and sent in session-server.mjs rather than here: the SDK is a
+  // dependency, and anything that needs one cannot live in a file these tests import.
+  // A bare import would fail that job, and the failure would look like a broken test
+  // rather than a misplaced dependency.
+  const source = await readFile(join(here, "..", "session-lib.mjs"), "utf8");
+  const imports = [...source.matchAll(/^import[^;]*from\s+"([^"]+)"/gm)].map((m) => m[1]);
+  assert.ok(imports.length > 0, "no imports found; the pattern is stale");
+  for (const spec of imports) {
+    assert.ok(spec.startsWith("node:"), `${spec} is not a node builtin`);
+  }
 });

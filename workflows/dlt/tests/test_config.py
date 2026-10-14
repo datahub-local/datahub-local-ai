@@ -5,8 +5,9 @@ Pipeline-specific config (EXPORTS, Postgres DSN, export paths) is tested against
 """
 import os
 
-from dlt_runner import config as shared_config
 from example_db import config
+
+from dlt_runner import config as shared_config
 
 
 class TestCatalogMapping:

@@ -9,7 +9,7 @@ sys.path.append(os.path.dirname(SCRIPT_DIR))
 print(f"Added {os.path.dirname(SCRIPT_DIR)} to sys.path")
 ###############################
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from airflow import DAG
 from airflow.sdk import task
@@ -42,7 +42,7 @@ with DAG(
     default_args=default_args,
     description="Example ingestion DAG: raw -> bronze",
     schedule=None,
-    start_date=datetime(2025, 1, 1),
+    start_date=datetime(2025, 1, 1, tzinfo=UTC),
     catchup=False,
 ) as dag:
 

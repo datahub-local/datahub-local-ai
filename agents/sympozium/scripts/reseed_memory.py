@@ -50,7 +50,7 @@ def live_seeds(configmap: str) -> list[str] | None:
     result = subprocess.run(
         ["kubectl", "get", "cm", "-n", NAMESPACE, configmap,
          "-o", r"jsonpath={.data.MEMORY\.md}"],
-        capture_output=True, text=True,
+        capture_output=True, text=True, check=False,
     )
     if result.returncode != 0:
         return None

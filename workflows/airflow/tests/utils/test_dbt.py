@@ -1,6 +1,5 @@
 import pytest
 from airflow.exceptions import AirflowException
-
 from utils.dbt import (
     ConfigMapEnvVarRef,
     DbtTaskConfig,

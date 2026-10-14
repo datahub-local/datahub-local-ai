@@ -20,7 +20,6 @@
         "name": "record_failed",
         "type": "n8n-nodes-base.dataTable",
         "typeVersion": 1.1,
-        "onError": "continueRegularOutput",
         "position": [
           240,
           0
@@ -113,7 +112,8 @@
             ]
           },
           "options": {}
-        }
+        },
+        "onError": "stopWorkflow"
       },
       {
         "id": "b5e7f2a9-1c48-4d63-8e02-9f6a3c5b7d14",
@@ -263,7 +263,6 @@
       "name": "record_failed",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
-      "onError": "continueRegularOutput",
       "position": [
         240,
         0
@@ -356,7 +355,8 @@
           ]
         },
         "options": {}
-      }
+      },
+      "onError": "stopWorkflow"
     },
     {
       "id": "b5e7f2a9-1c48-4d63-8e02-9f6a3c5b7d14",

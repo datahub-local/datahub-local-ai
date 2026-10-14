@@ -349,7 +349,7 @@ def process(url, key, spec, do_apply):
             print(f"  removed node {node_name}: {'absent' if ok else 'STILL PRESENT'}")
             continue
         if field.startswith("<connections"):
-            ctype = field.split(":", 1)[1] if ":" in field else "main"
+            ctype = field[len("<connections:"):-1]
             got = summarize_main(after_wf["connections"].get(node_name, {}).get(ctype))
             print(f"  wrote connections {ctype} {node_name}: {got}{'' if got == want else '  MISMATCH'}")
             continue
@@ -399,7 +399,11 @@ def main():
         if isinstance(bodies, dict):
             bodies = [bodies]
     elif args.changes:
-        raw = sys.stdin.read() if args.changes == "-" else open(args.changes).read()
+        if args.changes == "-":
+            raw = sys.stdin.read()
+        else:
+            with open(args.changes) as fh:
+                raw = fh.read()
         specs = json.loads(raw)
         if isinstance(specs, dict):
             specs = [specs]

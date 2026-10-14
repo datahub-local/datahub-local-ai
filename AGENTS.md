@@ -560,10 +560,32 @@ node and one terminal node. A failed composer costs one asset, not the run:
 `agent_result` turns the empty result into that asset's `ERROR` (for a deck, the deck is
 kept and the missing paired video is reported). `Visual Studio Prune` runs daily at 04:00
 UTC and deletes rows whose system `createdAt` is older than **2 days**, whatever their
-status, and rows of `TemporalFiles` whose `updatedAt` is older than an hour — the same
-rule `File Webhook` applies on request, and the reason a quiet week cannot leave its rows
-behind. Two days, not seven, because a run's `RESULT` holds the asset as a base64 data
-URL and one deck row was 18 MB.
+status, rows of `TemporalFiles` whose `updatedAt` is older than an hour — the same rule
+`File Webhook` applies on request, and the reason a quiet week cannot leave its rows
+behind — and the bucket objects under `visual-studio/` on the same two days.
+
+**The asset lives in Garage, and the row names it.** `prepare_uploads` writes each
+rendered asset to `datahub-local-temp` at `visual-studio/<RUN_ID>-<ASSET_TYPE>.<ext>`, and
+`run_record` puts that key, its byte count and the storyboard in `RESULT` — never the
+base64 data URL. Until 2026-10-13 it carried the bytes, and `visual_studio_table` reached
+**202.5 MB against its 200 MB cap with only 12 rows**, four of them 32-34 MB, so every run
+failed at `record_run` *after* authoring and rendering correctly. Four things are
+load-bearing. The studio's **response** is built by `set_result` from `merge_branches`,
+not from the row, so the caller still receives the asset — `LinkedIn Post Sharing` reads
+`ASSETS[].IMAGE` and throws without a data URL. `upload_assets` has **no `onError`**:
+`continueRegularOutput` forwards its input unchanged, so a failed upload would hand
+`run_record` a key for an object that was never written. `run_record` reads the keys from
+`prepare_uploads`, because the S3 node's own output is `{success: true}` and does not pass
+the key through. And `list_assets` lists the prefix **`visual-studio/` with its trailing
+slash**: the S3 node's `file:getAll` sets a `/` delimiter, so with `visual-studio` the
+key's own slash makes it a CommonPrefix and the object is never listed (measured against
+the live node: 0 items, then 2).
+
+`record_failed` in `Visual Studio Error` carried `onError: continueRegularOutput`, so the
+failure above was invisible twice over: the row write failed, the error workflow reported
+`success`, and no `FAILED` row existed for the run. It now states `stopWorkflow` — the API
+rejects an explicit `null`, and a merely absent key is indistinguishable from one that was
+never set.
 
 That artifact is why the workflows whose payload *is* the artifact set
 `saveDataSuccessExecution: "none"` — `Visual Studio`, `Visual Studio Test`,

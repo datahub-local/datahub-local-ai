@@ -412,7 +412,7 @@
           -160
         ],
         "parameters": {
-          "jsCode": "const items = $('merge_branches').all().map((i) => i.json);\nconst req = $('normalize_input').first().json;\nconst brand = $('brand_tokens').first().json;\nconst errors = items.filter((i) => i.ERROR).map((i) => i.ASSET_TYPE + ': ' + i.ERROR);\nreturn [{ json: {\n  RUN_ID: req.RUN_ID,\n  STATUS: errors.length === 0 ? 'COMPLETE' : (items.some((i) => !i.ERROR) ? 'PARTIAL' : 'FAILED'),\n  REQUEST: JSON.stringify({ ASSET_TYPES: req.ASSET_TYPES, FORCE: req.FORCE, STYLE: brand.STYLE,\n                            FEEDBACK: req.FEEDBACK, EXTRA_PROMPT: req.EXTRA_PROMPT,\n                            SESSION_ID: req.SESSION_ID, CONTENT_LENGTH: req.CONTENT.length }),\n  // RESULT carries each asset's STORYBOARD, so a bad visual is diagnosable.\n  RESULT: JSON.stringify(items),\n  ASSET_COUNT: String(items.length),\n  ERROR: errors.join(' | ').slice(0, 2000),\n} }];\n"
+          "jsCode": "// The run row. RESULT carries each asset's STORYBOARD and the object key its bytes were\n// written to, never the bytes themselves: the artifact is a base64 data URL, and four\n// such rows filled visual_studio_table to its 200 MB cap on 2026-10-13, which failed\n// every later run at record_run. The response is built by set_result from merge_branches,\n// so the caller still receives the asset itself.\nconst items = $('merge_branches').all().map((i) => i.json);\nconst req = $('normalize_input').first().json;\nconst brand = $('brand_tokens').first().json;\nconst stored = new Map();\ntry {\n  for (const i of $('prepare_uploads').all()) {\n    if (i.json && i.json.S3_KEY) stored.set(i.json.ASSET_TYPE, i.json);\n  }\n} catch (e) {\n  // upload_assets is skipped when there was nothing to store, which is a legitimate\n  // run: the assets still report their own ERROR below.\n}\nconst errors = items.filter((i) => i.ERROR).map((i) => i.ASSET_TYPE + ': ' + i.ERROR);\nconst slim = items.map((a) => {\n  const s = stored.get(a.ASSET_TYPE) || {};\n  return Object.assign({}, a, { IMAGE: '', S3_KEY: s.S3_KEY || '', S3_BYTES: s.S3_BYTES || 0 });\n});\nreturn [{ json: {\n  RUN_ID: req.RUN_ID,\n  STATUS: errors.length === 0 ? 'COMPLETE' : (items.some((i) => !i.ERROR) ? 'PARTIAL' : 'FAILED'),\n  REQUEST: JSON.stringify({ ASSET_TYPES: req.ASSET_TYPES, FORCE: req.FORCE, STYLE: brand.STYLE,\n                            FEEDBACK: req.FEEDBACK, EXTRA_PROMPT: req.EXTRA_PROMPT,\n                            SESSION_ID: req.SESSION_ID, CONTENT_LENGTH: req.CONTENT.length }),\n  RESULT: JSON.stringify(slim),\n  ASSET_COUNT: String(items.length),\n  ERROR: errors.join(' | ').slice(0, 2000),\n} }];\n"
         }
       },
       {
@@ -816,6 +816,47 @@
         "parameters": {
           "jsCode": "// prompts/visual_forms.md is the one copy of the form vocabulary. It is fetched\n// once and handed to build_author_brief, which appends it to every brief.\nreturn [{ json: { FORMS: String($json.output || '') } }];\n"
         }
+      },
+      {
+        "parameters": {
+          "jsCode": "// One item per rendered asset, with the base64 data URL turned into binary so the S3\n// node can upload it, and the object key the run row will carry instead of the bytes.\n// The prune lists the prefix 'visual-studio/' and the S3 node's file:getAll sets a '/'\n// delimiter, so the key must not add another one: with the prefix left as\n// 'visual-studio' the key's own slash makes it a CommonPrefix and it is never listed.\n// A run where every asset failed has nothing to store and returns none.\nconst items = $('merge_branches').all().map((i) => i.json);\nconst runId = String($('normalize_input').first().json.RUN_ID || '').replace(/[^A-Za-z0-9_-]/g, '');\nconst EXT = { 'video/mp4': 'mp4', 'image/gif': 'gif', 'image/webp': 'webp', 'image/png': 'png',\n              'image/svg+xml': 'svg', 'text/html': 'html' };\nconst out = [];\nfor (const a of items) {\n  const url = String(a.IMAGE || '');\n  const comma = url.indexOf(',');\n  if (!url.startsWith('data:') || comma < 0) continue;\n  const mime = url.slice(5, url.indexOf(';', 5));\n  const ext = EXT[mime] || 'bin';\n  const name = String(a.ASSET_TYPE || 'asset').replace(/[^A-Za-z0-9._-]/g, '');\n  const key = 'visual-studio/' + runId + '-' + name + '.' + ext;\n  const buffer = Buffer.from(url.slice(comma + 1), 'base64');\n  out.push({\n    json: { S3_KEY: key, S3_BYTES: buffer.length, CONTENT_TYPE: mime, ASSET_TYPE: a.ASSET_TYPE },\n    binary: { data: await this.helpers.prepareBinaryData(buffer, key, mime) },\n  });\n}\nreturn out;\n"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "id": "prepare-uploads",
+        "name": "prepare_uploads",
+        "position": [
+          3936,
+          64
+        ]
+      },
+      {
+        "parameters": {
+          "resource": "file",
+          "operation": "upload",
+          "bucketName": "datahub-local-temp",
+          "binaryData": true,
+          "fileName": "={{ $json.S3_KEY }}",
+          "binaryPropertyName": "data",
+          "additionalFields": {},
+          "tagsUi": {
+            "tagsValues": []
+          }
+        },
+        "type": "n8n-nodes-base.s3",
+        "typeVersion": 1,
+        "position": [
+          4160,
+          64
+        ],
+        "id": "upload-assets",
+        "name": "upload_assets",
+        "credentials": {
+          "s3": {
+            "id": "ZwoiEY6W4mSYnTmW",
+            "name": "Garage"
+          }
+        }
       }
     ],
     "connections": {
@@ -962,7 +1003,7 @@
         "main": [
           [
             {
-              "node": "run_record",
+              "node": "prepare_uploads",
               "type": "main",
               "index": 0
             }
@@ -1171,6 +1212,28 @@
             }
           ]
         ]
+      },
+      "prepare_uploads": {
+        "main": [
+          [
+            {
+              "node": "upload_assets",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "upload_assets": {
+        "main": [
+          [
+            {
+              "node": "run_record",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
       }
     },
     "nodeGroups": [],
@@ -1326,7 +1389,7 @@
       "main": [
         [
           {
-            "node": "run_record",
+            "node": "prepare_uploads",
             "type": "main",
             "index": 0
           }
@@ -1530,6 +1593,28 @@
         [
           {
             "node": "download_registry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "prepare_uploads": {
+      "main": [
+        [
+          {
+            "node": "upload_assets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "upload_assets": {
+      "main": [
+        [
+          {
+            "node": "run_record",
             "type": "main",
             "index": 0
           }
@@ -1952,7 +2037,7 @@
         -160
       ],
       "parameters": {
-        "jsCode": "const items = $('merge_branches').all().map((i) => i.json);\nconst req = $('normalize_input').first().json;\nconst brand = $('brand_tokens').first().json;\nconst errors = items.filter((i) => i.ERROR).map((i) => i.ASSET_TYPE + ': ' + i.ERROR);\nreturn [{ json: {\n  RUN_ID: req.RUN_ID,\n  STATUS: errors.length === 0 ? 'COMPLETE' : (items.some((i) => !i.ERROR) ? 'PARTIAL' : 'FAILED'),\n  REQUEST: JSON.stringify({ ASSET_TYPES: req.ASSET_TYPES, FORCE: req.FORCE, STYLE: brand.STYLE,\n                            FEEDBACK: req.FEEDBACK, EXTRA_PROMPT: req.EXTRA_PROMPT,\n                            SESSION_ID: req.SESSION_ID, CONTENT_LENGTH: req.CONTENT.length }),\n  // RESULT carries each asset's STORYBOARD, so a bad visual is diagnosable.\n  RESULT: JSON.stringify(items),\n  ASSET_COUNT: String(items.length),\n  ERROR: errors.join(' | ').slice(0, 2000),\n} }];\n"
+        "jsCode": "// The run row. RESULT carries each asset's STORYBOARD and the object key its bytes were\n// written to, never the bytes themselves: the artifact is a base64 data URL, and four\n// such rows filled visual_studio_table to its 200 MB cap on 2026-10-13, which failed\n// every later run at record_run. The response is built by set_result from merge_branches,\n// so the caller still receives the asset itself.\nconst items = $('merge_branches').all().map((i) => i.json);\nconst req = $('normalize_input').first().json;\nconst brand = $('brand_tokens').first().json;\nconst stored = new Map();\ntry {\n  for (const i of $('prepare_uploads').all()) {\n    if (i.json && i.json.S3_KEY) stored.set(i.json.ASSET_TYPE, i.json);\n  }\n} catch (e) {\n  // upload_assets is skipped when there was nothing to store, which is a legitimate\n  // run: the assets still report their own ERROR below.\n}\nconst errors = items.filter((i) => i.ERROR).map((i) => i.ASSET_TYPE + ': ' + i.ERROR);\nconst slim = items.map((a) => {\n  const s = stored.get(a.ASSET_TYPE) || {};\n  return Object.assign({}, a, { IMAGE: '', S3_KEY: s.S3_KEY || '', S3_BYTES: s.S3_BYTES || 0 });\n});\nreturn [{ json: {\n  RUN_ID: req.RUN_ID,\n  STATUS: errors.length === 0 ? 'COMPLETE' : (items.some((i) => !i.ERROR) ? 'PARTIAL' : 'FAILED'),\n  REQUEST: JSON.stringify({ ASSET_TYPES: req.ASSET_TYPES, FORCE: req.FORCE, STYLE: brand.STYLE,\n                            FEEDBACK: req.FEEDBACK, EXTRA_PROMPT: req.EXTRA_PROMPT,\n                            SESSION_ID: req.SESSION_ID, CONTENT_LENGTH: req.CONTENT.length }),\n  RESULT: JSON.stringify(slim),\n  ASSET_COUNT: String(items.length),\n  ERROR: errors.join(' | ').slice(0, 2000),\n} }];\n"
       }
     },
     {
@@ -2355,6 +2440,47 @@
       ],
       "parameters": {
         "jsCode": "// prompts/visual_forms.md is the one copy of the form vocabulary. It is fetched\n// once and handed to build_author_brief, which appends it to every brief.\nreturn [{ json: { FORMS: String($json.output || '') } }];\n"
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// One item per rendered asset, with the base64 data URL turned into binary so the S3\n// node can upload it, and the object key the run row will carry instead of the bytes.\n// The prune lists the prefix 'visual-studio/' and the S3 node's file:getAll sets a '/'\n// delimiter, so the key must not add another one: with the prefix left as\n// 'visual-studio' the key's own slash makes it a CommonPrefix and it is never listed.\n// A run where every asset failed has nothing to store and returns none.\nconst items = $('merge_branches').all().map((i) => i.json);\nconst runId = String($('normalize_input').first().json.RUN_ID || '').replace(/[^A-Za-z0-9_-]/g, '');\nconst EXT = { 'video/mp4': 'mp4', 'image/gif': 'gif', 'image/webp': 'webp', 'image/png': 'png',\n              'image/svg+xml': 'svg', 'text/html': 'html' };\nconst out = [];\nfor (const a of items) {\n  const url = String(a.IMAGE || '');\n  const comma = url.indexOf(',');\n  if (!url.startsWith('data:') || comma < 0) continue;\n  const mime = url.slice(5, url.indexOf(';', 5));\n  const ext = EXT[mime] || 'bin';\n  const name = String(a.ASSET_TYPE || 'asset').replace(/[^A-Za-z0-9._-]/g, '');\n  const key = 'visual-studio/' + runId + '-' + name + '.' + ext;\n  const buffer = Buffer.from(url.slice(comma + 1), 'base64');\n  out.push({\n    json: { S3_KEY: key, S3_BYTES: buffer.length, CONTENT_TYPE: mime, ASSET_TYPE: a.ASSET_TYPE },\n    binary: { data: await this.helpers.prepareBinaryData(buffer, key, mime) },\n  });\n}\nreturn out;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "id": "prepare-uploads",
+      "name": "prepare_uploads",
+      "position": [
+        3936,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "upload",
+        "bucketName": "datahub-local-temp",
+        "binaryData": true,
+        "fileName": "={{ $json.S3_KEY }}",
+        "binaryPropertyName": "data",
+        "additionalFields": {},
+        "tagsUi": {
+          "tagsValues": []
+        }
+      },
+      "type": "n8n-nodes-base.s3",
+      "typeVersion": 1,
+      "position": [
+        4160,
+        64
+      ],
+      "id": "upload-assets",
+      "name": "upload_assets",
+      "credentials": {
+        "s3": {
+          "id": "ZwoiEY6W4mSYnTmW",
+          "name": "Garage"
+        }
       }
     }
   ],

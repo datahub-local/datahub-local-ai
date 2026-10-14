@@ -80,6 +80,67 @@
           },
           "options": {}
         }
+      },
+      {
+        "parameters": {
+          "resource": "file",
+          "operation": "getAll",
+          "bucketName": "datahub-local-temp",
+          "returnAll": true,
+          "options": {
+            "folderKey": "visual-studio/"
+          }
+        },
+        "type": "n8n-nodes-base.s3",
+        "typeVersion": 1,
+        "position": [
+          680,
+          0
+        ],
+        "id": "prune-list-assets",
+        "name": "list_assets",
+        "credentials": {
+          "s3": {
+            "id": "ZwoiEY6W4mSYnTmW",
+            "name": "Garage"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "// The bucket objects are pruned on the same two-day window as the run rows, so an asset\n// never outlives its record. LastModified is the object's own clock; a listing entry\n// without a parsable one is kept rather than deleted blind.\nconst cutoff = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).getTime();\nreturn $input.all().filter((i) => {\n  const t = new Date(i.json.LastModified || 0).getTime();\n  return isFinite(t) && t > 0 && t < cutoff;\n}).map((i) => ({ json: { Key: i.json.Key, LastModified: i.json.LastModified } }));\n"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "id": "prune-filter-old-assets",
+        "name": "filter_old_assets",
+        "position": [
+          900,
+          0
+        ]
+      },
+      {
+        "parameters": {
+          "resource": "file",
+          "operation": "delete",
+          "bucketName": "datahub-local-temp",
+          "fileKey": "={{ $json.Key }}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.s3",
+        "typeVersion": 1,
+        "position": [
+          1120,
+          0
+        ],
+        "id": "prune-delete-assets",
+        "name": "delete_assets",
+        "credentials": {
+          "s3": {
+            "id": "ZwoiEY6W4mSYnTmW",
+            "name": "Garage"
+          }
+        }
       }
     ],
     "connections": {
@@ -99,6 +160,39 @@
           [
             {
               "node": "delete_expired_files",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "delete_expired_files": {
+        "main": [
+          [
+            {
+              "node": "list_assets",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "list_assets": {
+        "main": [
+          [
+            {
+              "node": "filter_old_assets",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "filter_old_assets": {
+        "main": [
+          [
+            {
+              "node": "delete_assets",
               "type": "main",
               "index": 0
             }
@@ -132,6 +226,39 @@
         [
           {
             "node": "delete_expired_files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "delete_expired_files": {
+      "main": [
+        [
+          {
+            "node": "list_assets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "list_assets": {
+      "main": [
+        [
+          {
+            "node": "filter_old_assets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "filter_old_assets": {
+      "main": [
+        [
+          {
+            "node": "delete_assets",
             "type": "main",
             "index": 0
           }
@@ -221,6 +348,67 @@
           ]
         },
         "options": {}
+      }
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "getAll",
+        "bucketName": "datahub-local-temp",
+        "returnAll": true,
+        "options": {
+          "folderKey": "visual-studio/"
+        }
+      },
+      "type": "n8n-nodes-base.s3",
+      "typeVersion": 1,
+      "position": [
+        680,
+        0
+      ],
+      "id": "prune-list-assets",
+      "name": "list_assets",
+      "credentials": {
+        "s3": {
+          "id": "ZwoiEY6W4mSYnTmW",
+          "name": "Garage"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// The bucket objects are pruned on the same two-day window as the run rows, so an asset\n// never outlives its record. LastModified is the object's own clock; a listing entry\n// without a parsable one is kept rather than deleted blind.\nconst cutoff = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).getTime();\nreturn $input.all().filter((i) => {\n  const t = new Date(i.json.LastModified || 0).getTime();\n  return isFinite(t) && t > 0 && t < cutoff;\n}).map((i) => ({ json: { Key: i.json.Key, LastModified: i.json.LastModified } }));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "id": "prune-filter-old-assets",
+      "name": "filter_old_assets",
+      "position": [
+        900,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "operation": "delete",
+        "bucketName": "datahub-local-temp",
+        "fileKey": "={{ $json.Key }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.s3",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        0
+      ],
+      "id": "prune-delete-assets",
+      "name": "delete_assets",
+      "credentials": {
+        "s3": {
+          "id": "ZwoiEY6W4mSYnTmW",
+          "name": "Garage"
+        }
       }
     }
   ],

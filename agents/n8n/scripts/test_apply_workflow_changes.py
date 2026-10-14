@@ -144,3 +144,18 @@ def test_a_list_connection_spec_still_means_main(monkeypatch):
     spec = {"workflow": "wf1", "connections": {"a": []}}
     mod.process("u", "k", spec, do_apply=True)
     assert fake.store["wf1"]["connections"]["a"]["main"] == []
+
+
+def test_the_read_back_does_not_report_a_false_mismatch(monkeypatch, capsys):
+    """The read-back parsed the type as 'main>' out of '<connections:main>', so every
+    connections change reported MISMATCH against a graph that had been written
+    correctly -- a verification step that lies is worse than none."""
+    fake = FakeApi(existing=[_live([_n("a"), _n("b")], {"a": {"main": []}})])
+    monkeypatch.setattr(mod, "api", fake)
+
+    spec = {"workflow": "wf1", "connections": {"a": [[{"node": "b", "type": "main", "index": 0}]]}}
+    mod.process("u", "k", spec, do_apply=True)
+
+    out = capsys.readouterr().out
+    assert "MISMATCH" not in out, out
+    assert "wrote connections main a: 0->b" in out, out

@@ -89,7 +89,12 @@ def test_the_raster_branch_reaches_the_merge(label, doc):
     assert _targets(doc, "generate_image", 0) == ["raster_result"]
     assert _targets(doc, "raster_result", 0) == ["merge_branches"]
     assert _targets(doc, "ready_pass", 0) == ["merge_branches"]
-    assert _targets(doc, "merge_branches", 0) == ["run_record"]
+    # The merged assets are stored in Garage before the run row is built, so the row
+    # can carry the object key instead of the base64 bytes.
+    assert _targets(doc, "merge_branches", 0) == ["prepare_uploads"]
+    assert _targets(doc, "prepare_uploads", 0) == ["upload_assets"]
+    assert _targets(doc, "upload_assets", 0) == ["run_record"]
+    assert _targets(doc, "run_record", 0) == ["record_run"]
 
 
 @pytest.mark.parametrize("label,doc", list(_copies()))

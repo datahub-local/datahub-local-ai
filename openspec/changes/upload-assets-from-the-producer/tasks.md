@@ -142,7 +142,7 @@
       `parameters.jsCode` created a stray top-level key and the read-back then verified it
       as success. Hit while applying the continuation fix on 2026-10-14. Two warnings and
       three tests; verified against the live workflow
-- [ ] 7.5 `AGENTS.md`: the storage paragraph, the invariant, the credential's accepted risk,
+- [x] 7.5 `AGENTS.md`: the storage paragraph, the invariant, the credential's accepted risk,
       and the fresh-instance procedure
 - [ ] 7.6 Full suites green: `pytest agents/n8n/scripts/`, `pytest agents/sympozium/tests/`,
       `node --test agents/adapters/pi-render/test/*.test.mjs`, the MCP repo's

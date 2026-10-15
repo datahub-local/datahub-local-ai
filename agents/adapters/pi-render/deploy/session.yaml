@@ -25,7 +25,7 @@ spec:
     # A full digest, not the org prefix: this list is matched by string prefix, so
     # `ghcr.io/datahub-local` would admit every repository under that org.
     allowedRegistries:
-      - ghcr.io/datahub-local/datahub-local-ai-pi-render-adapter@sha256:2955216bd279cce17d0d9e7fbf85410adf181f398871e3276917c6878a2b7a13
+      - ghcr.io/datahub-local/datahub-local-ai-pi-render-adapter@sha256:1602f80145715f58bf961b91c74a4074341d215bdb6672a31e9d60fef7613a90
 ---
 apiVersion: sympozium.ai/v1alpha1
 kind: AgentRuntime
@@ -35,7 +35,7 @@ metadata:
   labels:
     sympozium.ai/spike: "true"
 spec:
-  image: ghcr.io/datahub-local/datahub-local-ai-pi-render-adapter@sha256:2955216bd279cce17d0d9e7fbf85410adf181f398871e3276917c6878a2b7a13
+  image: ghcr.io/datahub-local/datahub-local-ai-pi-render-adapter@sha256:1602f80145715f58bf961b91c74a4074341d215bdb6672a31e9d60fef7613a90
   # v1alpha2 is the session contract, and it is what selects the Deployment path
   # rather than the Job path.
   contractVersion: v1alpha2

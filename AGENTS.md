@@ -562,7 +562,9 @@ that asset's `ERROR` (for a deck, the deck is kept and the missing paired video 
 reported). `Visual Studio Prune` runs daily at 04:00 UTC and deletes rows of
 `TemporalFiles` whose `updatedAt` is older than an hour — the same rule `File Webhook`
 applies on request, and the reason a quiet week cannot leave its rows behind — and the
-bucket objects under `visual-studio/` older than **two days**.
+bucket objects under `visual-studio/` older than **two days** — the delete is proven by
+probe, while a 04:00 run *meeting* a stale object is still unobserved, because S3 sets
+`LastModified` itself and a stale one cannot be staged.
 
 **The asset lives in Garage and nothing writes a run row.** An **agent** asset is stored by
 the `utils` MCP server, not by the workflow: `store_artifact` (and `store_paired_artifact`

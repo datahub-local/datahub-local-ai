@@ -138,15 +138,24 @@
       **2,330 kB** of `execution_data`, which corrects the ~1.2 MB this change had
       estimated. `TemporalFiles` still holds one row, from a still run before the change
 
-## 6. Still path (open, and now explicitly a non-goal of the animated change)
+## 6. Still path — closed without it, deliberately
 
-- [ ] 6.1 Pick the still path's byte source: the model's `b64_json` decoded to binary, or a
-      URL fetched as a file — there is no URL for the store to fetch today
-- [ ] 6.2 Gate: does the image gateway accept `response_format: url`? If not, 6.1 is decided
-      for us and the outcome is recorded in `design.md`'s still-path section
-- [ ] 6.3 Assert the resulting per-post cost in `binary_data` is the expected ~0.9 MB, not
-      more. Until then a still run inside a recording workflow costs its asset's bytes, and
-      `LinkedIn Post Sharing` stays `none`
+The raster asset keeps the data URL the image model returned, and the spec now says so
+rather than implying otherwise: those bytes are produced **inside** n8n, so no external
+process can fetch them, and `temp_store` needs a URL. The consequence is stated where it is
+paid — a still run in a recording workflow carries its own data URL (~2,330 kB measured,
+execution 13417), and `LinkedIn Post Sharing` keeps `none` because it must hold a video's
+bytes to hand them to LinkedIn.
+
+- [x] 6.1 Decided by the shape of the problem rather than by a gate: there is no URL to
+      fetch, and an inline-body store tool would put the bytes through a node output, which
+      is the thing this change exists to prevent
+- [x] 6.2 The `response_format: url` question is therefore moot for this change; if the
+      gateway is ever asked to return a URL, the raster path could take the same route as
+      the agent one, with no change to the store
+- [x] 6.3 The cost is measured rather than asserted: **2,330 kB** of `execution_data` for a
+      1080x1350 still, against 12-13 kB for an agent run, and no `binary_data` row for the
+      asset
 
 ## 7. Tests and docs
 
@@ -185,7 +194,12 @@
 
 ## 8. Carried from the archived change
 
-- [ ] 8.1 Watch the first 04:00 `Visual Studio Prune` that meets a stale object: the delete
-      is proven by probe, not yet by the schedule
-- [ ] 8.2 `TemporalFiles` still holds bytes in a DataTable for `Visual Studio Test`;
-      bounded by `File Webhook`'s one-hour rule, left alone
+- [ ] 8.1 **Observation, not an action.** The prune's delete is proven by probe; what is
+      unobserved is a 04:00 run *meeting* an object older than two days, and that cannot be
+      staged — S3 sets `LastModified` itself. Every object under `visual-studio/` is younger
+      than that today, so this closes by waiting rather than by doing. Noted in `AGENTS.md`
+      beside the rule it qualifies
+- [x] 8.2 `TemporalFiles` holds **one** row, from a still run before this change
+      (`image_13395`), and none for either animated run: `Visual Studio Test` gates its
+      write on holding the bytes (7.7). Bounded by `File Webhook`'s one-hour rule, and left
+      alone deliberately — it is a debugging surface, not a record

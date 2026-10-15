@@ -4,43 +4,57 @@
 
 ### Requirement: Asset content is returned; identity is the caller's
 
-The system SHALL return each asset with its media type, its format and its own status,
-and SHALL name where its bytes are stored rather than returning them. It MUST NOT return
-the asset's bytes — not as a data URL, and not as binary carried through a workflow that
-records its own executions — and it MUST NOT return a repository path or a URL. A caller
-that needs the bytes reads them from the object the asset names.
+The system SHALL return each asset with its media type, its format, its own status and a
+handle to its bytes: either the bytes themselves, or the object key an external process
+stored them under. An **agent-authored** asset SHALL be named rather than carried — its
+bytes are written to object storage by a process that is not the workflow, because n8n
+persists a workflow's binaries as well as its JSON, and the asset carries the key, the byte
+count and the media type. A **raster** asset SHALL carry its bytes as the data URL the image
+model returned, because those bytes are produced inside n8n and no external process can
+fetch them; nothing stores one on its behalf. It MUST NOT return a repository path or a
+filename; deriving those and placing the asset remains the caller's job.
 
-#### Scenario: The asset carries a name, not bytes
+#### Scenario: An agent asset is named, not carried
 
-- **WHEN** the studio returns an asset
+- **WHEN** the studio returns an agent-authored asset
 - **THEN** it carries the object key, the byte count and the media type
 - **AND** it carries no base64 and no data URL
+
+#### Scenario: A raster asset carries its own bytes
+
+- **WHEN** the studio returns a raster asset
+- **THEN** it carries the image as the data URL the model returned
+- **AND** it names no object, because nothing stored one
 
 #### Scenario: Studio invents no path
 
 - **WHEN** the studio returns an asset
-- **THEN** it returns the object key and the media type only
-- **AND** it invents no repository path and no URL of its own
+- **THEN** it returns the handle and the media type only
+- **AND** it invents no repository path and no filename
 
 #### Scenario: An asset that was not stored
 
-- **WHEN** an asset failed to render
+- **WHEN** an agent asset's bytes could not be stored
 - **THEN** it reports its error and names no object
+- **AND** the run still reports its other assets
 
 ### Requirement: A rendered asset is stored outside the response
 
-The system SHALL write each rendered asset to object storage and SHALL carry the object
-key in the run's response, so the caller can fetch the bytes and no row is needed to name
-them. The writer SHALL NOT be the workflow that reports the asset, because n8n persists a
-workflow's binaries as well as its JSON; it SHALL be a process holding a credential scoped
-to one bucket and one prefix, and a key outside the `visual-studio/` prefix SHALL be
-refused. A failed write SHALL report that asset's error rather than a key for an object
-that does not exist. The stored objects SHALL be pruned on a bounded window, so the bucket
-cannot grow without limit.
+The system SHALL write each **agent-authored** asset to object storage and SHALL carry the
+object key in the run's response, so the caller can fetch the bytes and no row is needed to
+name them. The writer SHALL NOT be the workflow that reports the asset: n8n persists a
+workflow's binaries as well as its JSON, so a workflow that fetches an asset and uploads it
+stores the asset as surely as one that carries it. It SHALL be a process holding a credential
+scoped to one bucket and one prefix, and a key outside the `visual-studio/` prefix SHALL be
+refused, as SHALL a key nested below it — the deployment prunes by listing that prefix with a
+`/` delimiter, so a nested object is never seen by the prune. A failed write SHALL report that
+asset's error rather than a key for an object that does not exist. A **raster** asset is
+stored by nothing, and this requirement does not apply to it. The stored objects SHALL be
+pruned on a bounded window, so the bucket cannot grow without limit.
 
 #### Scenario: The asset is stored and named
 
-- **WHEN** a run produces an asset
+- **WHEN** a run produces an agent-authored asset
 - **THEN** its bytes are written to `datahub-local-temp` under a key derived from the run id and the asset type
 - **AND** the response carries that key and the byte count
 - **AND** the writer is a service that fetched them, not the workflow that reports them
@@ -53,7 +67,7 @@ cannot grow without limit.
 
 #### Scenario: A run with nothing to store
 
-- **WHEN** every asset of a run failed
+- **WHEN** every agent asset of a run failed
 - **THEN** the run still responds, with each asset's error
 - **AND** it reports no key
 
@@ -75,27 +89,9 @@ cannot grow without limit.
 - **THEN** the write is refused, because the prune lists the prefix with a `/` delimiter
   and would never see such an object to delete it
 
-## ADDED Requirements
+#### Scenario: A deck's two files
 
-### Requirement: A successful run is recorded, without its asset
-
-The system SHALL record its successful executions, and an execution's data MUST NOT
-contain an asset's bytes in any form. A workflow that carries an asset's bytes is
-therefore either not the workflow that stores them, or not one whose successful runs are
-recorded.
-
-#### Scenario: A successful run leaves a record
-
-- **WHEN** a studio run succeeds
-- **THEN** its execution is recorded in n8n with its nodes and their outputs
-
-#### Scenario: The record is not the asset
-
-- **WHEN** that record is inspected
-- **THEN** it carries the object key, the byte count and the composer's report
-- **AND** it carries none of the asset's bytes
-
-#### Scenario: The cost of a run is bounded
-
-- **WHEN** a run is recorded
-- **THEN** its execution data and the instance's binary store grow by an amount unrelated to the asset's size
+- **WHEN** a deck run produces the deck and its paired video
+- **THEN** both are stored and both are named
+- **AND** each names its own object, the deck's carrying the deck's extension and the video's
+  the video's

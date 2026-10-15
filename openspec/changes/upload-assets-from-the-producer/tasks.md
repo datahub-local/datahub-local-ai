@@ -150,9 +150,11 @@
       three tests; verified against the live workflow
 - [x] 7.5 `AGENTS.md`: the storage paragraph, the invariant, the credential's accepted risk,
       and the fresh-instance procedure
-- [ ] 7.6 Full suites green: `pytest agents/n8n/scripts/`, `pytest agents/sympozium/tests/`,
-      `node --test agents/adapters/pi-render/test/*.test.mjs`, the MCP repo's
-      `pytest`/`ruff`, `openspec validate --all`
+- [x] 7.6 Full suites green: 393 `pytest` in this repository, `ruff check agents/`, 41 node
+      tests run with nothing installed exactly as CI does, 449 `pytest` and `ruff` in the
+      MCP repository, `openspec validate --all` 15/15. Live re-read after every apply:
+      all three workflows diff clean against their exports — node sets, every edge, every
+      `jsCode`, the settings, and the draft against `activeVersion`
 
 ## 8. Carried from the archived change
 

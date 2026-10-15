@@ -161,6 +161,27 @@ def test_the_read_back_does_not_report_a_false_mismatch(monkeypatch, capsys):
     assert "wrote connections main a: 0->b" in out, out
 
 
+def test_an_index_only_connection_change_shows_in_the_plan(monkeypatch, capsys):
+    """The plan read the before and after as identical when only the target's input
+    index changed, so a fix of the edge looked already applied -- and an edge onto an
+    input the node does not have is a branch that runs and emits nothing."""
+    fake = FakeApi(existing=[_live(
+        [_n("if_raster"), _n("ready_pass")],
+        {"if_raster": {"main": [[], [{"node": "ready_pass", "type": "main", "index": 2}]]}},
+    )])
+    monkeypatch.setattr(mod, "api", fake)
+
+    spec = {"workflow": "wf1", "connections": {"if_raster": [
+        [],
+        [{"node": "ready_pass", "type": "main", "index": 0}],
+    ]}}
+    mod.process("u", "k", spec, do_apply=True)
+
+    out = capsys.readouterr().out
+    assert "1->ready_pass@2" in out, out
+    assert fake.store["wf1"]["connections"]["if_raster"]["main"][1][0]["index"] == 0
+
+
 def _with_parameter(name, field, value):
     node = _n(name)
     node["parameters"] = {field: value}

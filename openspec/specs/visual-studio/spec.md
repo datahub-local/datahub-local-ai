@@ -58,14 +58,18 @@ The workflow SHALL expose the same parameter contract on every trigger — a sub
 call, an HTTP API webhook and a form — taking `CONTENT` (the source text, required),
 `ASSET_TYPES`, `FEEDBACK`, `FORCE` and `STYLE`, and MAY also take `SCENES`,
 `EXTRA_PROMPT` and `SESSION_ID`. `FORCE` SHALL be one of `auto`, `diagram`, `story`,
-`data`, `poster` or `image`, and `STYLE` SHALL name a brand scheme. `SCENES` SHALL be an
-optional positive integer requesting a sequence, and when it is blank the composer's own
-storyboard SHALL decide the scene count. `EXTRA_PROMPT` SHALL be optional free text
-appended to the brief after the content and the rules. `SESSION_ID` SHALL be an optional
-session identifier: when it is present the run SHALL continue that session, and when it
-is blank the run SHALL use an identifier scoped to the run so the request is isolated.
-The workflow MUST NOT read caller state from a table or sheet to decide what to produce;
-everything it needs arrives on the trigger.
+`data`, `poster`, `code`, `chart`, `timeline`, `quote`, `ui`, `manga` or `retro`, and
+`STYLE` SHALL name a brand scheme. `SCENES` SHALL be an optional positive integer requesting a sequence, and
+when it is blank the composer's own storyboard SHALL decide the scene count.
+`EXTRA_PROMPT` SHALL be optional free text appended to the brief after the content and
+the rules. `SESSION_ID` SHALL be an optional session identifier: when it is present the
+run SHALL continue that session, and when it is blank the run SHALL use an identifier
+scoped to the run so the request is isolated. The workflow MUST NOT read caller state
+from a table or sheet to decide what to produce; everything it needs arrives on the
+trigger.
+
+`image` is not a form: it is the raster authoring medium, selected by the requested
+asset type, and a still is the fallback when the composer fails.
 
 #### Scenario: Same contract on every surface
 - **WHEN** the same parameters arrive via the API webhook, the form or a sub-workflow call
@@ -258,14 +262,28 @@ does not define.
 
 An authoring request SHALL be able to declare how many scenes the authored visual
 should carry, and the brief delivered to the composer SHALL state that the content
-be rendered as one item per scene. When the request declares no scene count, the
-composer SHALL choose its own storyboard.
+be rendered as one item per scene. WHEN the request declares more than one scene,
+the brief SHALL also ask for an opening title scene that names the subject, placed
+before the declared scenes, so the authored visual carries the declared count plus
+the title. WHEN the request declares exactly one scene, the brief SHALL NOT ask for
+a title scene. When the request declares no scene count, the composer SHALL choose
+its own storyboard.
 
 #### Scenario: A declared scene count is honoured
 
 - **WHEN** a request declares a scene count
-- **THEN** the brief asks for one item per scene
-- **AND** the authored visual carries that many scenes
+- **THEN** the brief asks for that many items, one per scene
+
+#### Scenario: A multi-scene count opens on a title scene
+
+- **WHEN** a request declares a scene count greater than one
+- **THEN** the brief also asks for an opening title scene that names the subject
+- **AND** the authored visual carries the declared count plus the title
+
+#### Scenario: A single-scene count has no title scene
+
+- **WHEN** a request declares a scene count of one
+- **THEN** the brief asks for no title scene
 
 #### Scenario: No scene count leaves the storyboard to the composer
 
@@ -340,3 +358,29 @@ pruned on a bounded window, so the bucket cannot grow without limit.
 - **THEN** both are stored and both are named
 - **AND** each names its own object, the deck's carrying the deck's extension and the video's
   the video's
+
+### Requirement: The form vocabulary is one file
+
+The system SHALL define its visual forms, and what each one asks the composer to
+build, in a single committed vocabulary. The composer's brief SHALL carry it, and the
+classification that chooses a hook and MAY override the hook's default form SHALL read
+the same vocabulary. A workflow MUST NOT restate the definitions in its own logic, and
+the `FORCE` enum SHALL name exactly the vocabulary's forms plus `auto`.
+
+#### Scenario: A forced form arrives with its definition
+
+- **WHEN** a request pins a form with `FORCE`
+- **THEN** the brief names that form and carries the vocabulary that defines it
+- **AND** the definition is the one committed copy, not restated by the workflow
+
+#### Scenario: The judge overrides with a defined form
+
+- **WHEN** the classification overrides a hook's default form
+- **THEN** it chooses from the vocabulary it was injected
+- **AND** the chosen form is one the studio accepts
+
+#### Scenario: The enum and the vocabulary agree
+
+- **WHEN** the `FORCE` enum is declared
+- **THEN** it is the vocabulary's forms plus `auto`
+- **AND** a form the vocabulary does not define is rejected

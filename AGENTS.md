@@ -262,10 +262,17 @@ surfaces.
 automatable. `agents/n8n/scripts/test_workflow_invariants.py` holds the objective part,
 parametrized over every export: both copies of the graph agree, node names are unique and
 non-empty, no node is left with no connection in either direction, no two nodes share a
-position, every literal `$('node')` reference resolves, and every literal
-`executeWorkflow`/`errorWorkflow` target is a workflow the repository has. Each of those
-has bitten: a rename left `file_webhook`'s 404 branch reading `$('Set Vars1')` for months,
-and a graph edit left the LinkedIn image approval's rejection edge dangling. The
+position, every literal `$('node')` reference resolves, every literal
+`executeWorkflow`/`errorWorkflow` target is a workflow the repository has, and no `main`
+edge lands on an input index the target node does not have. Each of those has bitten: a
+rename left `file_webhook`'s 404 branch reading `$('Set Vars1')` for months,
+a graph edit left the LinkedIn image approval's rejection edge dangling, and
+`if_raster`'s never-authored output was wired to a one-input `noOp` at index 2
+(`visual_studio`, found 2026-10-15) — n8n pads the inputs a node was not given with `[]`,
+so that node ran, read input 0, found nothing and emitted nothing, which took the whole
+chain with it: `merge_branches` never fired, `set_result` never ran, the studio answered
+with no items at all, and the caller's run ended `success` with no fallback and no error.
+An edge onto an input that does not exist is silent in every direction. The
 judgement half is yours: node names that read the same way as their neighbours, grouping
 and stickies, and spacing in the editor — a fixed box size would fail a legitimate layout,
 so only exact-duplicate positions are an error. Tidy the export *and* the live instance:
@@ -500,7 +507,7 @@ than `PI_RENDER_SESSION_TTL_DAYS` (default 7, matching the prune window below; `
 on startup and throttled after each turn, never the session in flight.
 `openspec/changes/add-visual-studio-iteration/` is the record.
 
-**FORCE and STYLE.** `FORCE` is `auto | diagram | story | data | poster | code | chart | timeline | quote | ui`;
+**FORCE and STYLE.** `FORCE` is `auto | diagram | story | data | poster | code | chart | timeline | quote | ui | manga | retro`;
 `auto` lets the composer choose the form, anything else pins it, and a forced form is honoured or
 reported, never silently replaced. The vocabulary is one committed file, `prompts/visual_forms.md`,
 fetched by the studio (into the brief) and by the curator (into the judge prompt as `{{ FORMS }}`),
@@ -637,8 +644,11 @@ back after every apply and diff it against the export before believing a change 
 **The studio can be exercised without touching a pipeline.** `Visual Studio Test` holds its
 parameters in a Code node and ends in one item per asset — the summary plus the asset
 itself as binary — so it runs from the editor's *Execute workflow*, or by POSTing
-`/webhook/visual-studio-test` with any of `CONTENT`, `ASSET_TYPES`, `FEEDBACK`, `FORCE`,
-`SCENES`, `STYLE` or `EXTRA_PROMPT`. Its default is the cheap path (one `image`, no
+`/webhook/visual-studio-test` with any of `CONTENT`, `ASSET_TYPES`, `FEEDBACK`, `FORCE` or
+`STYLE`. Its `params` and `call_studio` nodes carry no `SCENES` and no `EXTRA_PROMPT`, so a
+scene count cannot be passed through it: send that request to the studio's own
+`POST /webhook/visual-studio`, which takes the full contract. Its default is the cheap path
+(one `image`, no
 composer turn); set `ASSET_TYPES=animation`, `animation_linkedin` or `deck` to exercise the
 composer, and `FORCE` to pin the form. It computes `TOTAL_PIXELS` and
 `LINKEDIN_GIF_CAP_OK` for a GIF, which is how the platform's pixel cap can be checked by
@@ -707,8 +717,10 @@ $('convert_image')…`). **The installed `n8n-nodes-base.linkedIn` node cannot u
 `uploadUrl`, used as-is with no credential), `linkedin_post_video`
 (`POST /v2/ugcPosts` as `shareMediaCategory: VIDEO`), reusing the same `linkedInOAuth2Api`
 credential; the post id is read from the `x-restli-id` response header and the published
-link resolves from whichever path ran. The video path is **[UNVERIFIED]** against LinkedIn
-until a live publish (task 8.7 of `upgrade-visual-studio-authoring`). The `animation_linkedin`
+link resolves from whichever path ran. The video path is **verified against LinkedIn**: a
+live publish on 2026-10-15 (execution 13429, task 8.7 of `upgrade-visual-studio-authoring`)
+answered `201` from `linkedin_post_video` with `urn:li:ugcPost:7516401811025719298` read
+back out of `x-restli-id`. The `animation_linkedin`
 GIF type stays available for a caller that wants the animated image.
 
 Four things about the branch are deliberate:

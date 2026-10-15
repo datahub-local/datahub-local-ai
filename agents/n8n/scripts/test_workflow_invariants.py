@@ -125,6 +125,42 @@ def test_every_node_reference_resolves(path):
         assert not broken, f"{label}: reference to a node that does not exist: {broken}"
 
 
+# The only node types in these exports that declare more than one input, and so may
+# legitimately be addressed on an index above 0. An export carries no input count per
+# node, so this is the one place the test has to know a node type rather than read one.
+#
+# It matters because n8n pads the inputs a node was not given with `[]`: an edge to an
+# input the target does not have still runs, the node executes reading input 0, and the
+# data is unreachable -- no error, no output. That is how `if_raster`'s second output was
+# wired to `ready_pass` at index 2 (a one-input `noOp`), which made the studio's
+# unresolvable-type branch return no items at all: the caller's `execute_visual_studio`
+# emitted nothing, its guard never ran and the run ended `success` (2026-10-15).
+MULTI_INPUT_TYPES = frozenset({
+    "n8n-nodes-base.merge",
+    "n8n-nodes-base.compareDatasets",
+})
+
+
+@pytest.mark.parametrize("path", EXPORTS, ids=lambda p: p.name)
+def test_no_edge_targets_an_input_the_node_does_not_have(path):
+    """A `main` edge onto an input index above 0 is legal only for a multi-input node.
+
+    `ai_*` edges are left alone: a sub-node slot is addressed on an index above 0 by
+    design (a chain node's model input is its second input), and enumerating every
+    LangChain type to say so would be a list that drifts for no gain.
+    """
+    for label, nodes, connections in _copies(path):
+        types = {n["name"]: n["type"] for n in nodes}
+        misplaced = [
+            f"{source} -> {edge['node']} ({types.get(edge['node'], '?')}) index={edge.get('index')}"
+            for source, kinds in connections.items()
+            for branch in kinds.get("main") or []
+            for edge in branch or []
+            if edge.get("index") and types.get(edge["node"]) not in MULTI_INPUT_TYPES
+        ]
+        assert not misplaced, f"{label}: edge onto an input the target does not have: {misplaced}"
+
+
 @pytest.mark.parametrize("path", EXPORTS, ids=lambda p: p.name)
 def test_every_called_workflow_exists_in_the_repository(path):
     """A sub-workflow or error handler that is not committed is one the backup cannot restore."""

@@ -878,7 +878,7 @@
             {
               "node": "ready_pass",
               "type": "main",
-              "index": 2
+              "index": 0
             }
           ]
         ]
@@ -1222,7 +1222,7 @@
           {
             "node": "ready_pass",
             "type": "main",
-            "index": 2
+            "index": 0
           }
         ]
       ]

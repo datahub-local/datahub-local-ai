@@ -182,11 +182,22 @@ def find_workflow(url, key, ref):
 
 
 def summarize_main(main):
-    """[[{node: a}], [{node: b}]] -> '0->a | 1->b'"""
+    """[[{node: a}], [{node: b, index: 2}]] -> '0->a | 1->b@2'
+
+    The target's input index is part of the connection, and an index-only change is
+    exactly the kind a fix makes -- a correct write whose before and after read the
+    same, which is how an edge onto an input the node does not have looked applied.
+    """
     if main is None:
         return "<none>"
+
+    def target(out):
+        index = out.get("index") or 0
+        name = out.get("node", "?")
+        return f"{name}@{index}" if index else name
+
     return " | ".join(
-        f"{bi}->{','.join(o.get('node', '?') for o in (branch or [])) or '(nothing)'}"
+        f"{bi}->{','.join(target(o) for o in (branch or [])) or '(nothing)'}"
         for bi, branch in enumerate(main)
     )
 

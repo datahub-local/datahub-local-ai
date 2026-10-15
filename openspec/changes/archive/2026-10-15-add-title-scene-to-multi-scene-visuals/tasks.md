@@ -15,4 +15,4 @@
 
 ## 4. Acceptance
 
-- [ ] 4.1 [UNVERIFIED] Run a multi-scene request (e.g. `SCENES=4`) through the studio and confirm the authored visual opens on a title scene and carries five scenes
+- [x] 4.1 Verified live 2026-10-15 via `POST /webhook/visual-studio` with `ASSET_TYPES=animation&SCENES=4`: studio run 13443 (`COMPLETE`, `RENDERED`, mp4 1280x720, 40.0s / 1200 frames) whose `STORYBOARD` opens on scene 0 `Title - "The data platform loop"` and carries five scenes, the declared four plus the title. The request went to the studio's own webhook because `Visual Studio Test`'s `params` and `call_studio` nodes carry no `SCENES`, so `/webhook/visual-studio-test` cannot pass one

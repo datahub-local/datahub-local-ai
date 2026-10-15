@@ -9,7 +9,7 @@ The single registry of post hooks — each declaring when it is eligible, the op
 
 The system SHALL define its post hooks in a single declarative registry, and each
 hook MUST declare when it is eligible, the opening shape it gives the post and a
-default visual intent (`form`, `motion`, `scenes`). Every consumer of a hook — the classifier, the post generator and the
+default visual intent (`form`, `scenes`). Every consumer of a hook — the classifier, the post generator and the
 media selector — SHALL read that one registry, and MUST NOT carry its own copy of
 the hook list. Adding or changing a hook MUST be a registry change, not a change
 to a workflow.
@@ -44,24 +44,6 @@ or randomly reassign it.
 - **THEN** the intent used is the one returned with the hook
 - **AND** it is not inferred from a coarser signal
 
-### Requirement: A hook declares a default visual intent
-
-Each hook SHALL declare a default visual form (one the authoring system accepts),
-whether it wants motion, and a scene count where its shape is a sequence. The
-classification MAY override the default when the content warrants it, and an
-override MUST be carried with the hook rather than recomputed.
-
-#### Scenario: A sequence hook defaults to motion
-
-- **WHEN** an article is classified with a list-shaped hook
-- **THEN** its default visual intent declares motion
-- **AND** its scene count reflects the number of items the article presents
-
-#### Scenario: An override travels with the hook
-
-- **WHEN** the classification overrides a hook's default form for a given article
-- **THEN** the overridden value is the one the media selector receives
-
 ### Requirement: A list-shaped article renders as a sequence
 
 A list-shaped hook (a roundup, a state-of, a landscape) SHALL be rendered as a
@@ -73,3 +55,28 @@ than a new media kind.
 - **WHEN** a list-shaped article is rendered
 - **THEN** the visual carries one item per scene
 - **AND** the item count is the scene count the classification declared
+
+### Requirement: A hook's visual intent declares a form and a scene count
+
+Each hook SHALL declare a default visual form (one the authoring system accepts)
+and a scene count where its shape is a sequence. The visual intent SHALL NOT carry a
+motion flag: the post's media is animated for every hook. The classification MAY
+override the default form or the scene count when the content warrants it, and an
+override MUST be carried with the hook rather than recomputed.
+
+#### Scenario: A sequence hook declares a scene count
+
+- **WHEN** an article is classified with a list-shaped hook
+- **THEN** its default visual intent carries a scene count
+- **AND** the scene count reflects the number of items the article presents
+
+#### Scenario: A hook carries no motion flag
+
+- **WHEN** a hook's default visual intent is declared
+- **THEN** it declares a form and a scene count
+- **AND** it declares no motion flag
+
+#### Scenario: An override travels with the hook
+
+- **WHEN** the classification overrides a hook's default form for a given article
+- **THEN** the overridden value is the one the media selector receives

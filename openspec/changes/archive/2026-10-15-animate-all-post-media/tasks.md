@@ -23,4 +23,5 @@
 ## 5. Acceptance
 
 - [x] 5.1 Verified 2026-10-12 from live execution 13079 (12:00 UTC): both appended rows carry `POST_MEDIA=ANIMATED` (`BENCHMARK`/`VISUAL_FORM data`/`SCENES 0` and `LANDSCAPE`/`diagram`/`SCENES 4`). The manual run 13095 ran the curator's new `download_visual_forms` and fetched the vocabulary (1230 chars)
-- [ ] 5.2 [UNVERIFIED] Confirm a live `LinkedIn Post Sharing` run requests the animated type and that a forced animation failure still falls back to the image path
+- [x] 5.2 Verified live 2026-10-15 from execution 13429: `switch_post_media` routed an ANIMATED row to `execute_visual_studio` with `ASSET_TYPES animation_linkedin_video` (`FORCE diagram`, `SESSION_ID lips-74`), studio run 13437 answered `COMPLETE` / `RENDERED` (mp4, 1080x1350, 900 frames) and `check_animation_result` passed on `if_animation_ok` output 0. The same run then proved the video publish the archived `upgrade-visual-studio-authoring` left `[UNVERIFIED]` (its task 8.7): `linkedin_post_video` answered 201 and `linkedin_video_urn` captured `urn:li:ugcPost:7516401811025719298` from the `x-restli-id` header
+- [ ] 5.3 [UNVERIFIED] Confirm a forced animation failure falls back to the image path live (half 1 above only proves the success branch)

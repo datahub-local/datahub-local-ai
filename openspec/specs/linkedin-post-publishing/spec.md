@@ -92,9 +92,10 @@ A run that ends without an accepted draft SHALL publish nothing, SHALL record an
 ### Requirement: The queue carries the classified hook and visual intent
 
 The queue SHALL carry, per article, the hook the classification returned and the
-visual intent that came with it — the form, whether motion is wanted and any scene
-count — as fields of the row. A later reader MUST NOT recover the hook from prose
-the generator was given.
+visual intent that came with it — the form and any scene count — as fields of the row.
+The media kind SHALL NOT be part of the classified intent: an admitted row's media is
+animated, and a still image is only the fallback when the animated asset cannot be
+produced. A later reader MUST NOT recover the hook from prose the generator was given.
 
 #### Scenario: Hook is a field
 
@@ -105,7 +106,8 @@ the generator was given.
 #### Scenario: Intent is a field
 
 - **WHEN** an article is admitted to the queue
-- **THEN** its visual form and whether it is animated are stored on the row
+- **THEN** its visual form and any scene count are stored on the row
+- **AND** no motion flag is stored or read
 
 ### Requirement: The generated post follows the row's hook
 
@@ -122,28 +124,6 @@ closing) MAY still vary between posts.
 
 - **WHEN** the same article is drafted twice
 - **THEN** both drafts use the row's hook
-
-### Requirement: The post's media is selected from the row's intent
-
-The post's media kind and its forced visual form SHALL be selected from the row's
-visual intent, so a human cell is not the default decision. A manually declared
-media value on a row SHALL override the intent, so a hand-set row keeps its
-behaviour.
-
-#### Scenario: Intent selects the media
-
-- **WHEN** a row declares motion and a visual form
-- **THEN** the animated type is requested with that form forced
-
-#### Scenario: A static intent does not request animation
-
-- **WHEN** a row declares no motion
-- **THEN** the still-image path is used
-
-#### Scenario: A manual override still wins
-
-- **WHEN** a row carries a manually declared media value
-- **THEN** it overrides the row's intent
 
 ### Requirement: A queued row without a classified hook is re-judged
 
@@ -241,3 +221,30 @@ credential of its own.
 - **WHEN** the named object cannot be read
 - **THEN** the publish fails with that reason
 - **AND** it does not publish an empty or substituted media item
+
+### Requirement: A post's media is animated unless a row overrides it
+
+An admitted row's media SHALL be animated: the curator SHALL write the media field as
+animated for every row it admits and for every row it backfills, and a classification
+MUST NOT select a still. The forced visual form and any scene count SHALL be selected
+from the row's intent, so a human cell is not the default decision. A manually declared
+media value on a row SHALL override the animated default, so a hand-set row keeps its
+behaviour, and a still image SHALL be the fallback when the animated asset cannot be
+produced.
+
+#### Scenario: An admitted row is animated
+
+- **WHEN** a row is admitted to the queue
+- **THEN** its media field is animated
+- **AND** the animated type is requested with the row's forced form
+
+#### Scenario: A manual override still wins
+
+- **WHEN** a row carries a manually declared media value
+- **THEN** it overrides the animated default
+
+#### Scenario: A failed animation falls back to a still
+
+- **WHEN** the animated asset cannot be produced for a row
+- **THEN** the still-image path is used
+- **AND** the post is not blocked

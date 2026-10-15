@@ -187,6 +187,30 @@ There is no automated test for an n8n workflow in this repository. Verification 
 5. Wire `settings.errorWorkflow` to `Article Content Writer Error`, verify it clears and notifies, then activate the schedule.
 6. Rollback: deactivate the workflow (schedule stops), set the live row back to `QUEUE`; revert the `alvsanand` commit if one was published in error. No cluster state is involved.
 
+## Live measurements (2026-10-15)
+
+`Article Creator` created live and exercised through a temporary webhook probe that was deleted
+afterwards, so these are readings and not inferences.
+
+- **`DownloadTemplate` reads the prompts from `main`.** The first probe answered 404 at its
+  `download_template` node because `prompts/article_writer.md` existed only locally: the file
+  is fetched by the `github` node from the backup repository, so a prompt is inert until it is
+  pushed. That is the documented "prompt files are live on push" property, and it is also why
+  the categories file behind the `CATEGORIES` check needs the same push.
+- **The model obeys the budget.** `MAX_WORDS=5` produced a 5-word draft and no rejection, so
+  the over-budget branch is not reachable by shrinking the budget; forcing it needs the draft
+  to be pushed past the bound (an `EXTRA_PROMPT` asking for 250 words against `MAX_WORDS=50`
+  gave `OVER_BUDGET: 331 words against MAX_WORDS=50`).
+- **The count is the reviewer's count.** `WORD_COUNT` matched an independent count over the
+  same text with the markers stripped, in both the 216-word and the 331-word draft, so the
+  number in the rejection is not a second estimate.
+- **The marker contract is load-bearing, not tidy.** One of three live `image,svg` drafts came
+  back with `<!-- asset:image -->` only. A requested type whose marker the model omits must
+  still be placed and committed (D12), which is the half task 4.9 exists for.
+- **`MAX_WORDS` missing fails loudly.** An omitted `MAX_WORDS` ended the sub-execution `error`
+  at `parse_article` rather than drafting against a guessed bound; the caller's
+  `executeWorkflow` node failed with it, which is the propagation D7 relies on.
+
 ## Open Questions
 
 - Whether the image review should be skipped when a re-run is only a text tweak (currently no).

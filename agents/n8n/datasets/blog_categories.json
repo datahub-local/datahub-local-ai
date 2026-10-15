@@ -1,0 +1,10 @@
+{
+  "_comment": "The categories an article_queue row may declare, fetched by the Article Content Writer the way the studio fetches datasets/visual_types.json. An entry's CATEGORIES is a comma-separated list of these names and nothing else, so the blog's taxonomy stays one list instead of one per draft. A row that needs a new category adds it here, in the same commit as the row.",
+  "_comment_no_placeholders": "Never write a doubled-curly-brace placeholder anywhere in this file, not even inside a comment: DownloadTemplate scans the whole downloaded text for them and routes to stop_and_error for any name it was not passed, and this file is fetched with an empty template_vars.",
+  "categories": [
+    "General",
+    "Learning",
+    "OSS",
+    "Datahub.local"
+  ]
+}

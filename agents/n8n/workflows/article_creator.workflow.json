@@ -1,0 +1,848 @@
+{
+  "active": true,
+  "activeVersion": {
+    "versionId": "ba0ff2ca-1aec-485c-9343-c596acf35847",
+    "workflowId": "nPBkIpeObC1Om0LH",
+    "nodes": [
+      {
+        "id": "21668eec-5b4e-4520-80c1-706618ebe5e2",
+        "name": "main_trigger",
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          -17344,
+          -880
+        ],
+        "parameters": {
+          "workflowInputs": {
+            "values": [
+              {
+                "name": "TOPIC"
+              },
+              {
+                "name": "DESCRIPTION"
+              },
+              {
+                "name": "URL"
+              },
+              {
+                "name": "CONTENT"
+              },
+              {
+                "name": "MAX_WORDS",
+                "type": "number"
+              },
+              {
+                "name": "ASSET_TYPES"
+              },
+              {
+                "name": "EXTRA_PROMPT"
+              },
+              {
+                "name": "FEEDBACK"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "8b05e041-9f40-4e74-a32a-4ec5057f7684",
+        "name": "set_workflow_vars",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          -17120,
+          -880
+        ],
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "0f2b7c31-8f4a-4a2c-9d5e-1a7b6c3d2e10",
+                "name": "MODEL",
+                "value": "opencode-go/deepseek-v4.1-flash",
+                "type": "string"
+              },
+              {
+                "id": "7c4e9a22-3d15-4c8b-b0f6-2e5a8d9c1b34",
+                "name": "MODEL_FALLBACK",
+                "value": "opencode-go/glm-5.3-flash",
+                "type": "string"
+              },
+              {
+                "id": "b072d171-1af0-407c-8b16-ee61278bbd52",
+                "name": "ERROR",
+                "value": "",
+                "type": "string"
+              }
+            ]
+          },
+          "includeOtherFields": true,
+          "options": {}
+        }
+      },
+      {
+        "id": "0ca99bd7-06a7-432e-a0c6-af85f386fee1",
+        "name": "download_article_prompt",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          -16896,
+          -880
+        ],
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "qUfjfWLGEjV96ljf",
+            "mode": "list",
+            "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
+            "cachedResultName": "DownloadTemplate"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "template_name": "prompts/article_writer.md",
+              "template_vars": "={{ {\n\"TOPIC\": $('main_trigger').first().json.TOPIC,\n\"DESCRIPTION\": $('main_trigger').first().json.DESCRIPTION,\n\"URL\": $('main_trigger').first().json.URL || \"\",\n\"MAX_WORDS\": $('main_trigger').first().json.MAX_WORDS,\n\"ASSET_TYPES\": $('main_trigger').first().json.ASSET_TYPES || \"\",\n\"EXTRA_PROMPT\": $('main_trigger').first().json.EXTRA_PROMPT || \"\",\n\"CONTENT\": $('main_trigger').first().json.CONTENT || \"\",\n\"FEEDBACK\": $('main_trigger').first().json.FEEDBACK || \"\",\n} }}"
+            },
+            "matchingColumns": [],
+            "schema": [
+              {
+                "id": "template_name",
+                "displayName": "template_name",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string"
+              },
+              {
+                "id": "template_vars",
+                "displayName": "template_vars",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "object"
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "df25c640-319c-493c-b0df-b9ac01f0d448",
+        "name": "download_system_prompt",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          -16672,
+          -992
+        ],
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "qUfjfWLGEjV96ljf",
+            "mode": "list",
+            "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
+            "cachedResultName": "DownloadTemplate"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "template_name": "prompts/article_writer_system.md",
+              "template_vars": "={{ {} }}"
+            },
+            "matchingColumns": [],
+            "schema": [
+              {
+                "id": "template_name",
+                "displayName": "template_name",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string"
+              },
+              {
+                "id": "template_vars",
+                "displayName": "template_vars",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "object"
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "33284e9b-40ab-4e97-a604-277598c7f834",
+        "name": "create_article_ai",
+        "type": "@n8n/n8n-nodes-langchain.chainLlm",
+        "typeVersion": 1.6,
+        "alwaysOutputData": false,
+        "retryOnFail": true,
+        "maxTries": 5,
+        "waitBetweenTries": 5000,
+        "position": [
+          -16448,
+          -992
+        ],
+        "parameters": {
+          "promptType": "define",
+          "text": "={{ $('download_article_prompt').item.json.output }}",
+          "needsFallback": true,
+          "messages": {
+            "messageValues": [
+              {
+                "message": "={{ $('download_system_prompt').item.json.output }}"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "1ddafc37-25e0-4dd3-bfd8-c93d7c5af347",
+        "name": "parse_article",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -16000,
+          -992
+        ],
+        "parameters": {
+          "jsCode": "// The two things the caller needs out of the model's answer: the H1, which the row\n// stores as ARTICLE_TITLE and the entry point turns into the frozen slug, and the body,\n// which carries one `<!-- asset:<type> -->` marker per requested asset. The word budget\n// is checked here rather than trusted to the model: a mandatory count in a format is a\n// count that gets invented when the real one is missing, and this is also the change's\n// own acceptance case for an over-budget draft.\n//\n// MAX_WORDS is required. The entry point resolves the row's budget and the 1200 default,\n// so a value missing here is a caller bug: fail loudly rather than guess a bound.\nconst req = $('set_workflow_vars').first().json;\nconst max = Number(req.MAX_WORDS);\nif (!isFinite(max) || max <= 0) throw new Error('MAX_WORDS is required and must be a positive number');\nconst raw = String($json.text || '');\nconst block = /<article>([\\s\\S]*?)<\\/article>/.exec(raw);\nconst inner = (block ? block[1] : raw).trim();\nconst HEAD = /^#\\s+(.+?)\\s*$/;\nlet title = '';\nconst body = [];\nfor (const line of inner.split('\\n')) {\n  if (!title && !body.length && HEAD.test(line.trim())) {\n    title = line.trim().replace(HEAD, '$1');\n    continue;\n  }\n  body.push(line);\n}\nconst text = body.join('\\n').trim();\n// A marker is an instruction to the publishing step, not prose the reader counts.\nconst words = text.replace(/<!--[\\s\\S]*?-->/g, ' ').split(/\\s+/).filter(Boolean).length;\nlet error = '';\nif (!text) error = 'EMPTY_DRAFT: the model returned no article body';\nelse if (!title) error = 'EMPTY_TITLE: the draft has no H1 title';\nelse if (words > max) error = 'OVER_BUDGET: ' + words + ' words against MAX_WORDS=' + max;\nreturn { json: { TITLE: title, TEXT: text, WORD_COUNT: words, ERROR: error } };\n"
+        }
+      },
+      {
+        "id": "f06b0cdb-0ca0-475f-bce7-d9b4d8e10eb6",
+        "name": "set_output",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          -15776,
+          -992
+        ],
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "2b0bc19a-ed15-45a0-9022-a59e2c9e56d1",
+                "name": "text",
+                "value": "={{ $('parse_article').item.json.TEXT }}",
+                "type": "string"
+              },
+              {
+                "id": "3c1d2e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f",
+                "name": "title",
+                "value": "={{ $('parse_article').item.json.TITLE }}",
+                "type": "string"
+              },
+              {
+                "id": "4d2e3f50-6b7c-4d8e-9f01-1b2c3d4e5f60",
+                "name": "word_count",
+                "value": "={{ $('parse_article').item.json.WORD_COUNT }}",
+                "type": "number"
+              },
+              {
+                "id": "5e3f4061-7c8d-4e9f-a012-2c3d4e5f6071",
+                "name": "ERROR",
+                "value": "={{ $('parse_article').item.json.ERROR }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "d5e56f92-2855-4e67-b9a9-c60e6bb1fc50",
+        "name": "ai_model",
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.3,
+        "position": [
+          -16672,
+          -776
+        ],
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "mode": "id",
+            "value": "={{ $('set_workflow_vars').item.json.MODEL }}"
+          },
+          "builtInTools": {},
+          "options": {
+            "maxRetries": 5
+          }
+        },
+        "credentials": {
+          "openAiApi": {
+            "id": "LitellmN8nAcct01",
+            "name": "LiteLLM account"
+          }
+        }
+      },
+      {
+        "id": "720198e0-9bcd-4ac3-92e0-b81eccc3eea8",
+        "name": "ai_model_fallback",
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.3,
+        "position": [
+          -16448,
+          -776
+        ],
+        "parameters": {
+          "model": {
+            "__rl": true,
+            "mode": "id",
+            "value": "={{ $('set_workflow_vars').item.json.MODEL_FALLBACK }}"
+          },
+          "builtInTools": {},
+          "options": {
+            "maxRetries": 5
+          }
+        },
+        "credentials": {
+          "openAiApi": {
+            "id": "LitellmN8nAcct01",
+            "name": "LiteLLM account"
+          }
+        }
+      }
+    ],
+    "connections": {
+      "main_trigger": {
+        "main": [
+          [
+            {
+              "node": "set_workflow_vars",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "set_workflow_vars": {
+        "main": [
+          [
+            {
+              "node": "download_article_prompt",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "download_article_prompt": {
+        "main": [
+          [
+            {
+              "node": "download_system_prompt",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "download_system_prompt": {
+        "main": [
+          [
+            {
+              "node": "create_article_ai",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "create_article_ai": {
+        "main": [
+          [
+            {
+              "node": "parse_article",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "parse_article": {
+        "main": [
+          [
+            {
+              "node": "set_output",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "ai_model": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "create_article_ai",
+              "type": "ai_languageModel",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "ai_model_fallback": {
+        "ai_languageModel": [
+          [
+            {
+              "node": "create_article_ai",
+              "type": "ai_languageModel",
+              "index": 1
+            }
+          ]
+        ]
+      }
+    },
+    "nodeGroups": [],
+    "authors": "no name",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "createdAt": "2026-10-15T20:14:57.530Z",
+    "updatedAt": "2026-10-15T20:14:57.530Z"
+  },
+  "activeVersionId": "ba0ff2ca-1aec-485c-9343-c596acf35847",
+  "connections": {
+    "main_trigger": {
+      "main": [
+        [
+          {
+            "node": "set_workflow_vars",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "set_workflow_vars": {
+      "main": [
+        [
+          {
+            "node": "download_article_prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "download_article_prompt": {
+      "main": [
+        [
+          {
+            "node": "download_system_prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "download_system_prompt": {
+      "main": [
+        [
+          {
+            "node": "create_article_ai",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "create_article_ai": {
+      "main": [
+        [
+          {
+            "node": "parse_article",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "parse_article": {
+      "main": [
+        [
+          {
+            "node": "set_output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ai_model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "create_article_ai",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ai_model_fallback": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "create_article_ai",
+            "type": "ai_languageModel",
+            "index": 1
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2026-10-15T20:14:57.530Z",
+  "id": "nPBkIpeObC1Om0LH",
+  "isArchived": false,
+  "meta": null,
+  "name": "Article Creator",
+  "nodeGroups": [],
+  "nodes": [
+    {
+      "id": "21668eec-5b4e-4520-80c1-706618ebe5e2",
+      "name": "main_trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -17344,
+        -880
+      ],
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "TOPIC"
+            },
+            {
+              "name": "DESCRIPTION"
+            },
+            {
+              "name": "URL"
+            },
+            {
+              "name": "CONTENT"
+            },
+            {
+              "name": "MAX_WORDS",
+              "type": "number"
+            },
+            {
+              "name": "ASSET_TYPES"
+            },
+            {
+              "name": "EXTRA_PROMPT"
+            },
+            {
+              "name": "FEEDBACK"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "8b05e041-9f40-4e74-a32a-4ec5057f7684",
+      "name": "set_workflow_vars",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -17120,
+        -880
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0f2b7c31-8f4a-4a2c-9d5e-1a7b6c3d2e10",
+              "name": "MODEL",
+              "value": "opencode-go/deepseek-v4.1-flash",
+              "type": "string"
+            },
+            {
+              "id": "7c4e9a22-3d15-4c8b-b0f6-2e5a8d9c1b34",
+              "name": "MODEL_FALLBACK",
+              "value": "opencode-go/glm-5.3-flash",
+              "type": "string"
+            },
+            {
+              "id": "b072d171-1af0-407c-8b16-ee61278bbd52",
+              "name": "ERROR",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "0ca99bd7-06a7-432e-a0c6-af85f386fee1",
+      "name": "download_article_prompt",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -16896,
+        -880
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "qUfjfWLGEjV96ljf",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
+          "cachedResultName": "DownloadTemplate"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "template_name": "prompts/article_writer.md",
+            "template_vars": "={{ {\n\"TOPIC\": $('main_trigger').first().json.TOPIC,\n\"DESCRIPTION\": $('main_trigger').first().json.DESCRIPTION,\n\"URL\": $('main_trigger').first().json.URL || \"\",\n\"MAX_WORDS\": $('main_trigger').first().json.MAX_WORDS,\n\"ASSET_TYPES\": $('main_trigger').first().json.ASSET_TYPES || \"\",\n\"EXTRA_PROMPT\": $('main_trigger').first().json.EXTRA_PROMPT || \"\",\n\"CONTENT\": $('main_trigger').first().json.CONTENT || \"\",\n\"FEEDBACK\": $('main_trigger').first().json.FEEDBACK || \"\",\n} }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "template_name",
+              "displayName": "template_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "template_vars",
+              "displayName": "template_vars",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "df25c640-319c-493c-b0df-b9ac01f0d448",
+      "name": "download_system_prompt",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -16672,
+        -992
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "qUfjfWLGEjV96ljf",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
+          "cachedResultName": "DownloadTemplate"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "template_name": "prompts/article_writer_system.md",
+            "template_vars": "={{ {} }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "template_name",
+              "displayName": "template_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "template_vars",
+              "displayName": "template_vars",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "33284e9b-40ab-4e97-a604-277598c7f834",
+      "name": "create_article_ai",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.6,
+      "alwaysOutputData": false,
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "position": [
+        -16448,
+        -992
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('download_article_prompt').item.json.output }}",
+        "needsFallback": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "={{ $('download_system_prompt').item.json.output }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "1ddafc37-25e0-4dd3-bfd8-c93d7c5af347",
+      "name": "parse_article",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -16000,
+        -992
+      ],
+      "parameters": {
+        "jsCode": "// The two things the caller needs out of the model's answer: the H1, which the row\n// stores as ARTICLE_TITLE and the entry point turns into the frozen slug, and the body,\n// which carries one `<!-- asset:<type> -->` marker per requested asset. The word budget\n// is checked here rather than trusted to the model: a mandatory count in a format is a\n// count that gets invented when the real one is missing, and this is also the change's\n// own acceptance case for an over-budget draft.\n//\n// MAX_WORDS is required. The entry point resolves the row's budget and the 1200 default,\n// so a value missing here is a caller bug: fail loudly rather than guess a bound.\nconst req = $('set_workflow_vars').first().json;\nconst max = Number(req.MAX_WORDS);\nif (!isFinite(max) || max <= 0) throw new Error('MAX_WORDS is required and must be a positive number');\nconst raw = String($json.text || '');\nconst block = /<article>([\\s\\S]*?)<\\/article>/.exec(raw);\nconst inner = (block ? block[1] : raw).trim();\nconst HEAD = /^#\\s+(.+?)\\s*$/;\nlet title = '';\nconst body = [];\nfor (const line of inner.split('\\n')) {\n  if (!title && !body.length && HEAD.test(line.trim())) {\n    title = line.trim().replace(HEAD, '$1');\n    continue;\n  }\n  body.push(line);\n}\nconst text = body.join('\\n').trim();\n// A marker is an instruction to the publishing step, not prose the reader counts.\nconst words = text.replace(/<!--[\\s\\S]*?-->/g, ' ').split(/\\s+/).filter(Boolean).length;\nlet error = '';\nif (!text) error = 'EMPTY_DRAFT: the model returned no article body';\nelse if (!title) error = 'EMPTY_TITLE: the draft has no H1 title';\nelse if (words > max) error = 'OVER_BUDGET: ' + words + ' words against MAX_WORDS=' + max;\nreturn { json: { TITLE: title, TEXT: text, WORD_COUNT: words, ERROR: error } };\n"
+      }
+    },
+    {
+      "id": "f06b0cdb-0ca0-475f-bce7-d9b4d8e10eb6",
+      "name": "set_output",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -15776,
+        -992
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2b0bc19a-ed15-45a0-9022-a59e2c9e56d1",
+              "name": "text",
+              "value": "={{ $('parse_article').item.json.TEXT }}",
+              "type": "string"
+            },
+            {
+              "id": "3c1d2e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f",
+              "name": "title",
+              "value": "={{ $('parse_article').item.json.TITLE }}",
+              "type": "string"
+            },
+            {
+              "id": "4d2e3f50-6b7c-4d8e-9f01-1b2c3d4e5f60",
+              "name": "word_count",
+              "value": "={{ $('parse_article').item.json.WORD_COUNT }}",
+              "type": "number"
+            },
+            {
+              "id": "5e3f4061-7c8d-4e9f-a012-2c3d4e5f6071",
+              "name": "ERROR",
+              "value": "={{ $('parse_article').item.json.ERROR }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "d5e56f92-2855-4e67-b9a9-c60e6bb1fc50",
+      "name": "ai_model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -16672,
+        -776
+      ],
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('set_workflow_vars').item.json.MODEL }}"
+        },
+        "builtInTools": {},
+        "options": {
+          "maxRetries": 5
+        }
+      },
+      "credentials": {
+        "openAiApi": {
+          "id": "LitellmN8nAcct01",
+          "name": "LiteLLM account"
+        }
+      }
+    },
+    {
+      "id": "720198e0-9bcd-4ac3-92e0-b81eccc3eea8",
+      "name": "ai_model_fallback",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -16448,
+        -776
+      ],
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $('set_workflow_vars').item.json.MODEL_FALLBACK }}"
+        },
+        "builtInTools": {},
+        "options": {
+          "maxRetries": 5
+        }
+      },
+      "credentials": {
+        "openAiApi": {
+          "id": "LitellmN8nAcct01",
+          "name": "LiteLLM account"
+        }
+      }
+    }
+  ],
+  "pinData": null,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "timeSavedMode": "fixed",
+    "availableInMCP": false
+  },
+  "shared": [
+    {
+      "role": "workflow:owner",
+      "workflowId": "nPBkIpeObC1Om0LH",
+      "projectId": "zcGU09G6dy4Oah3l",
+      "createdAt": "2026-10-15T20:14:57.530Z",
+      "updatedAt": "2026-10-15T20:14:57.530Z"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2026-10-15T20:16:01.982Z",
+  "versionId": "ba0ff2ca-1aec-485c-9343-c596acf35847"
+}

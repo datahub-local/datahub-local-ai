@@ -315,6 +315,16 @@ the script or the export, so `kubectl cp` them in (an `exec -i` stdin stream
 drops past ~8 KB, which silently truncates a `--changes` file), and the pod dies
 on `sleep` — recreate it rather than trusting an existing `n8n-apply`.
 
+**The API accepts no `settings.binaryMode`, on `POST` or on `PUT`** — the field is
+UI-only, so a create body copied from an export that carries it lands without it,
+and `--set-setting binaryMode=separate` reports `MISMATCH` because the value is
+read back from the response. Measured 2026-10-15 on `Article Creator`: `POST`
+stored `{executionOrder, callerPolicy, timeSavedMode, availableInMCP}` from a body
+naming five, and the `PUT` that followed changed nothing. The `Visual Studio` and
+`LinkedIn Post Creator` exports carry it because both were edited in the UI; a
+workflow created through the API does not, and a create body should leave it out
+rather than promise a setting the API will drop.
+
 Pair every change with `--require-edge 'src>dst'`. A change is argued from the
 graph — "these two nodes sit downstream of a per-item stream" — and the graph
 is exactly what may have moved since; a mismatch aborts before writing. This is

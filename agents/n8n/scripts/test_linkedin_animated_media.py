@@ -193,7 +193,8 @@ def test_the_result_resolves_the_requested_type(label, document):
 def test_animation_is_approved_before_it_is_published(label, document):
     """Reachability: the studio's result only reaches the publish node via the gate."""
     connections = _connections(document)
-    assert _walk(connections, "execute_visual_studio") >= {"check_animation_result", "convert_animation",
+    assert _walk(connections, "execute_visual_studio") >= {"check_animation_result", "presign_animation",
+                                                          "animation_url", "download_animation",
                                                           "notification_sent_animation",
                                                           "notification_accept_animation",
                                                           "switch_user_accept_animation",
@@ -230,7 +231,7 @@ def test_a_failed_animation_falls_back_to_the_image_and_says_so(label, document)
 def test_the_publish_node_accepts_either_media(label, document):
     """One publish node, whose binary resolves on whichever path ran."""
     expr = _nodes(document)[PUBLISH]["parameters"]["binaryPropertyName"]
-    assert "convert_animation" in expr and "convert_image" in expr
+    assert "download_animation" in expr and "convert_image" in expr
     assert "isExecuted" in expr, "a node that did not run cannot be referenced directly"
 
 
@@ -310,10 +311,14 @@ def test_the_publish_choice_is_the_asset_media_type(label, document):
     """One decision point, keyed on the asset's own content type, not the type name."""
     nodes = _nodes(document)
     left = nodes["if_video_publish"]["parameters"]["conditions"]["conditions"][0]["leftValue"]
-    assert "convert_animation" in left and "CONTENT_TYPE" in left and "video/mp4" in left
+    # The media type is read from the check, not from the download: a file response
+    # carries no JSON of its own, so asking the download node would always fall through
+    # to the image path.
+    assert "download_animation" in left and "check_animation_result" in left
+    assert "CONTENT_TYPE" in left and "video/mp4" in left
     # The image and GIF path is unchanged: the same node, chosen by the same binary.
     expr = nodes[PUBLISH]["parameters"]["binaryPropertyName"]
-    assert "convert_animation" in expr and "convert_image" in expr
+    assert "download_animation" in expr and "convert_image" in expr
     assert nodes[PUBLISH]["parameters"]["shareMediaCategory"] == "IMAGE"
 
 
@@ -395,3 +400,22 @@ def test_the_export_has_a_published_version():
         "and nothing it triggers would run"
     )
     assert data.get("active"), "the export says the workflow is inactive"
+
+
+@pytest.mark.parametrize("label,document", list(_copies(SHARING)))
+def test_the_animation_is_located_by_key_and_downloaded(label, document):
+    """The studio no longer carries the render, so the publish path signs and fetches it.
+
+    A data URL here would mean the studio had gone back to carrying a 60 MB asset in
+    its own execution record, and the store call would have no reason to exist.
+    """
+    nodes = _nodes(document)
+    js = nodes["check_animation_result"]["parameters"]["jsCode"]
+    assert "S3_KEY" in js and "a.IMAGE" not in js
+    assert "temp_retrieve" in nodes["presign_animation"]["parameters"]["jsonBody"]
+    assert "check_animation_result" in nodes["presign_animation"]["parameters"]["jsonBody"]
+    assert "URL" in nodes["animation_url"]["parameters"]["jsCode"]
+    download = nodes["download_animation"]
+    assert download["type"] == "n8n-nodes-base.httpRequest"
+    assert download["parameters"]["options"]["response"]["response"]["outputPropertyName"] == "data"
+    assert "$json.URL" in download["parameters"]["url"]

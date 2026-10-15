@@ -556,48 +556,65 @@ render time. Rationale and the rollout are in
 **Failure and retention.** `settings.errorWorkflow` points at `Visual Studio Error`, which
 posts the reason to the `workflows` Slack channel and removes the run's temp files; the
 studio's own graph has no Slack, no schedule, no GitHub node and one terminal node. A
-failed composer costs one asset, not the run: `execute_author`, `fetch_artifact` and
-`fetch_paired_artifact` continue on error and `agent_result` turns the empty result into
+failed composer costs one asset, not the run: `execute_author`, `store_artifact` and
+`store_paired_artifact` continue on error and `agent_result` turns the empty result into
 that asset's `ERROR` (for a deck, the deck is kept and the missing paired video is
 reported). `Visual Studio Prune` runs daily at 04:00 UTC and deletes rows of
 `TemporalFiles` whose `updatedAt` is older than an hour — the same rule `File Webhook`
 applies on request, and the reason a quiet week cannot leave its rows behind — and the
 bucket objects under `visual-studio/` older than **two days**.
 
-**The asset lives in Garage and nothing writes a run row.** `prepare_uploads` writes each
-rendered asset to `datahub-local-temp` at `visual-studio/<RUN_ID>-<ASSET_TYPE>.<ext>`, and
-`set_result` carries that key, its byte count and the resolved `SESSION_ID` in the
-response. There is no `visual_studio_table`: it reached **202.5 MB against its 200 MB cap
-with only 12 rows**, four of them 32-34 MB, because the row carried each asset as a base64
-data URL, so every run failed at `record_run` *after* authoring and rendering correctly —
-and when the row was emptied the table was deleted, because nothing had ever read a row.
-The response is built by `set_result` from `merge_branches`, which is why the caller still
-receives the asset: `LinkedIn Post Sharing` reads `ASSETS[].IMAGE` and throws without a
-data URL. Four things are load-bearing. `upload_assets` has **no `onError`** —
-`continueRegularOutput` forwards its input unchanged, so a failed upload would report a key
-for an object that was never written. `set_result` reads the keys from `prepare_uploads`,
-because the S3 node's own output is `{success: true}` and does not pass the key through.
-`list_assets` lists the prefix **`visual-studio/` with its trailing slash**: the S3 node's
-`file:getAll` sets a `/` delimiter, so with `visual-studio` the key's own slash makes it a
-CommonPrefix and the object is never listed (measured against the live node: 0 items, then
-2). The error workflow writes no row either; the node that used to write one
-(`record_failed`) carried `onError: continueRegularOutput` and hid its own failure the same
-day — the write hit the size limit, the workflow reported `success`, and no `FAILED` row
-existed for the run. Both nodes are gone with the table.
+**The asset lives in Garage and nothing writes a run row.** An **agent** asset is stored by
+the `utils` MCP server, not by the workflow: `store_artifact` (and `store_paired_artifact`
+for a deck) call `temp_store` with the session's own `/artifacts/...` URL and the key
+`visual-studio/<RUN_ID>-<ASSET_TYPE>.<ext>`, and answer with the key and the byte count.
+The bytes go from the session's HTTP route to Garage without passing through n8n at all,
+which is the only shape that works here — a session pod **cannot be given a credential**
+(`AgentRuntime.spec` has no `env`, `HarnessSession.spec` has four fields, and the Agent's
+`env`/`volumes`/`volumeMounts` are AgentRun-only, verified by rebuilding the pod), and a
+workflow that fetches and uploads stores the asset as surely as one that carries it
+(measured: +6 `binary_data` rows and ~1 MB for one still run). `agent_result` parses the
+answer into `S3_KEY`/`S3_BYTES` and `set_result` carries them, plus the resolved
+`SESSION_ID`. There is no `visual_studio_table`: it reached **202.5 MB against its 200 MB
+cap with only 12 rows**, four of them 32-34 MB, because the row carried each asset as a
+base64 data URL, so every run failed at `record_run` *after* authoring and rendering
+correctly — and when the row was emptied the table was deleted, because nothing had ever
+read a row. `LinkedIn Post Sharing` reads the key and fetches the bytes through a signed
+URL, which is what `temp_retrieve` is for.
 
-That artifact is why the workflows whose payload *is* the artifact set
-`saveDataSuccessExecution: "none"` — `Visual Studio`, `Visual Studio Test`,
-`LinkedIn Post Sharing` and `Visual Studio Prune`. Without it n8n persists a copy of every
-rendered asset per successful run: measured, `Visual Studio Test` alone was 511 MB across 46
-runs and `Visual Studio` 377 MB across 92, against a 1 GB `execution_data`. `saveDataErrorExecution`
+Three things are load-bearing for the **raster** (still) path, which is unchanged and is
+the one place a run still costs its asset's bytes. `prepare_uploads`/`upload_assets` still
+handle it — they skip any asset with no data URL, which is exactly why they now see only
+the raster asset — and `set_result` prefers an asset's own key (`a.S3_KEY || s.S3_KEY`), so
+the raster upload cannot blank out a key the store already reported. `upload_assets` has
+**no `onError`**: `continueRegularOutput` forwards its input unchanged, so a failed upload
+would report a key for an object that was never written. And `list_assets` lists the prefix
+**`visual-studio/` with its trailing slash**: the S3 node's `file:getAll` sets a `/`
+delimiter, so with `visual-studio` the key's own slash makes it a CommonPrefix and the
+object is never listed (measured against the live node: 0 items, then 2). The same
+delimiter is why the store refuses a nested key. The error workflow writes no row either;
+the node that used to write one (`record_failed`) carried `onError:
+continueRegularOutput` and hid its own failure the same day — the write hit the size limit,
+the workflow reported `success`, and no `FAILED` row existed for the run. Both nodes are
+gone with the table.
+
+**`Visual Studio` records its runs again, and the others must not.** `saveDataSuccessExecution`
+is `all` on the studio — the point of moving the bytes out — and `none` on
+`Visual Studio Test`, `LinkedIn Post Sharing` and `Visual Studio Prune`, whose payload still
+*is* an asset (the test workflow's binary, the downloaded video it hands to LinkedIn, the
+rows `deleteRows` returns). Without `none` n8n persists a copy of every rendered asset per
+successful run: measured, `Visual Studio Test` alone was 511 MB across 46 runs and
+`Visual Studio` 377 MB across 92, against a 1 GB `execution_data`. `saveDataErrorExecution`
 is left at its default, so a failure still records everything needed to diagnose it. Note
 that n8n persists *binary* data too, in Postgres, not only the JSON payload: measured on
 2026-10-14, `binary_data` is **249 MB across 903 rows** and `execution_data` **1060 MB across
 1405 rows**, in a 1335 MB database — so a run that carries an asset as binary costs the
-asset's size as surely as one that carries it as a data URL. With `none` a successful run
-stores its asset once, in Garage. `agents/n8n/scripts/test_storage_retention.py` holds both
-bounds, and `openspec/changes/upload-assets-from-the-producer/` is where that invariant is
-being made total.
+asset's size as surely as one that carries it as a data URL. Recording is safe on the studio
+only while its graph carries no bytes, which is what
+`agents/n8n/scripts/test_storage_retention.py` asserts: it splits the workflows that may
+record from those that must not, and fails if a data URL or a `fetch_artifact` returns to
+the studio. `openspec/changes/upload-assets-from-the-producer/` is the record, including the
+three measurements that closed the other shapes.
 
 **Verification is manual — there is no CI coverage for n8n.** The claims above were checked
 by POSTing to the live webhook and by `--require-edge` graph checks. Read the live workflow
@@ -741,6 +758,21 @@ What stays this repository's concern:
 | `homelab-facts`    | `mcp-homelab-facts`    | `agents/sympozium/config/homelab_facts/`, rendered by `templates/mcp-configmaps.yaml`                                                                      |
 | `semantic`         | `mcp-semantic`         | `config/semantic/registry.yaml`, a symlink to `workflows/dbt/semantic/bodega.yaml`                                                                         |
 | `semantic-finance` | `mcp-semantic-finance` | `config/semantic-finance/registry.yaml`, a symlink to `workflows/dbt/semantic/finance.yaml` (scopes `silver.finance,gold.finance`, `toolsPrefix: finance`) |
+| `utils`            | none — a Secret        | the temp bucket's endpoint, region, bucket and prefix, plus the key, from `mcp-utils-s3` |
+
+**`utils` is the one server here that writes, and it exists so that no workflow carries an
+asset's bytes.** Two tools: `temp_store(source_url, key)` fetches a URL and writes it to
+`datahub-local-temp`, and `temp_retrieve(key)` signs a short-lived download URL. It is
+called over HTTP by n8n rather than by an agent — the `MCPServer` object is rendered like
+every other server's, but no persona mounts it, so no agent's prompt pays for it. Three
+things make it safe rather than merely convenient, and all three are enforced in
+`mcp_runner/s3.py` rather than trusted from the caller: the Garage key is read+write on
+**one bucket** and nothing else, a key outside the one prefix this deployment owns is
+refused, and a **nested** key is refused because the prune lists the prefix with a `/`
+delimiter and would never see such an object to delete. It takes its configuration from
+`envSecret` (`mcp-utils-s3`), the one `envFrom` in `mcpservers.yaml` — the values carry the
+image and the prefix is in the Secret, so no address is baked into a workflow: n8n reads
+`$env.MCP_UTILS_URL`, set beside `PI_RENDER_URL` in `datahub-local-core`'s n8n values.
 
 The semantic ConfigMap carries **one** key: `registry.yaml`, the metric
 contract. Everything describing the warehouse — table names, which columns are

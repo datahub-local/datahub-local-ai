@@ -1,62 +1,132 @@
 # Tasks
 
-## 1. Adapter: the session server uploads
+## 1. The temp-bucket server (`datahub-local-ai-mcp`)
 
-- [x] 1.1 `session-lib.mjs`: `UPLOAD_PREFIX` and `isUploadKeyAllowed` — the destination policy, node builtins only. A key must sit directly under `visual-studio/`: a further slash comes back as a CommonPrefix from the prune's `/`-delimited listing and is never deleted. `signS3Request` and its vectors were written, verified live against Garage, then **removed** — see `design.md`, the AWS SDK does the signing
-- [x] 1.2 `session-server.mjs`: `@aws-sdk/client-s3` (`3.1152.0`, path-style, region `homelab`) PUTs the finished artifact to the destination the request names and returns `{key, bytes}` or the reason it failed. Measured against this Garage with the SDK's defaults: `PUT ok`, `GET ok`, `DELETE ok`
-- [x] 1.3 `session-server.mjs`: after a turn, upload the artifact the run produced; put the key and byte count in the response, or the failure's reason
-- [x] 1.4 `session-server.mjs`: a blank destination means no upload (a local-first run keeps working); a configured destination that fails fails the turn's report, never a silent success
-- [x] 1.5 Env: `PI_RENDER_S3_ENDPOINT`, `_REGION`, `_BUCKET` read in the server, credentials from the SDK's own env; nothing hardcoded. The mount itself is 2.2
-- [x] 1.7 `artifactUploads` in `session-lib.mjs`: the destination decision as a pure function — primary plus the deck's paired video, both prefix-checked — so the choice is tested with nothing installed while the PUT is the server's
-- [x] 1.6 Tests in `agents/adapters/pi-render/test/`: the prefix and nested-key refusals, and a test that `session-lib.mjs` imports only `node:` builtins — the CI job installs nothing, so a dependency there fails as a module-not-found that reads like a broken test
+- [x] 1.1 `mcp_runner/s3.py`: `TempBucket` over `boto3` — path-style, the deployment's
+      endpoint/region/bucket/prefix, `put_stream` (streamed, not held in memory),
+      `head` and `presign_get` clamped to S3's seven-day maximum. The SDK signs; SigV4 is
+      not reimplemented here
+- [x] 1.2 The key policy lives in the client, not in the caller: a key outside the
+      configured prefix is refused, and so is a nested one — the deployment prunes by
+      listing the prefix with a `/` delimiter, so a nested object is never deleted
+- [x] 1.3 Every destination value is read from the environment with **no default**, and
+      all missing ones are named in one failure: a guessed endpoint or bucket writes to
+      somewhere nobody prunes and reports a key no reader can resolve
+- [x] 1.4 `servers/utils/tools/temp.py`: `temp_store(source_url, key, content_type?)`
+      streams the fetch to a spooled file, refuses a non-200, refuses a body over the cap,
+      and **refuses a zero-byte source** — an empty asset is a failed render, not a stored
+      object
+- [x] 1.5 `temp_retrieve(key, expires_seconds?)`: a signed URL, the size from a `HEAD` and
+      the media type. The URL is credential-bearing while it lasts, and the description
+      says so
+- [x] 1.6 The answers are one line of `key=value` pairs and every failure is one line
+      beginning `ERROR:`, so a workflow parses them rather than matching prose
+- [x] 1.7 Budgets in `config.py`'s sizing table (`temp_store` 1024, `temp_retrieve` 1536 —
+      a signed URL is the longer line), which the table refuses to start without
+- [x] 1.8 Tests: the key policy, the refusals before any fetch, the declared-length cap, an
+      empty body, a missing object, the seven-day clamp, and that the answer is one
+      parseable line. `boto3` is faked for its *effects* — the object exists holding the
+      bytes that were fetched
+- [x] 1.9 `boto3` joins the dependency union, `servers/utils/` is picked up by the
+      parameterised Dockerfile and by both CI lists, and the README carries the server and
+      why it is the one server here that holds a credential
+- [x] 1.10 Verified live: the server stored a real 60,629,049-byte render from the session
+      and the signed URL returned it with the **same md5** (`dad4822b8499…`)
 
-## 2. Cluster: reach and credential
+## 2. Cluster: deployment, credential and reach
 
-- [ ] 2.1 Add an egress rule on the session pod for TCP 3900 to the `data` namespace, beside the existing two additive policies
-- [ ] 2.2 Mount the Garage credential on the session (env from a secret) and render it from the chart's values, not inline
-- [ ] 2.3 Create the live Garage key: write on `datahub-local-temp` only, no bucket creation; record the key id in `MEMORY.md`, never the secret
-- [ ] 2.4 Verify from inside the session pod that a PUT to the exact key shape succeeds and a PUT to another bucket is refused
-- [ ] 2.5 `helmfile template` renders clean, and the pod starts with the credential mounted
+- [x] 2.1 `sympozium_mcp_servers.utils` in the values: the image, `toolsPrefix: utils`, no
+      observability env and no Kubernetes reader
+- [x] 2.2 `envSecret` in `mcpservers.yaml` — one `envFrom`, so a server that needs a
+      credential takes it from one Secret rather than a key-per-knob list in the chart
+- [x] 2.3 The live Garage key is read+write on `datahub-local-temp` **only** and lives in
+      the Secret `mcp-utils-s3`; the key id is recorded in `MEMORY.md`, never the secret.
+      Widened from write-only because `temp_retrieve` signs with the same key and Garage
+      refuses a signed GET made with a key that cannot read
+- [x] 2.4 The session's callers policy admits `mcpserver` / `<release>-mcp-utils` on 8080,
+      named by instance rather than by `mcpserver` generally: the artifacts are readable by
+      the caller and by this one server, and by nothing else
+- [x] 2.5 `helmfile template` renders clean and the pod runs: `serving server=utils
+      tools=2`, `1/1 Running`
+- [x] 2.6 `MCP_UTILS_URL` on the n8n deployment in `datahub-local-core`, beside
+      `PI_RENDER_URL` — the workflow reads it as `$env.MCP_UTILS_URL` rather than baking an
+      address into an export
 
 ## 3. Studio graph
 
-- [ ] 3.1 `build_author_brief`: emit the destination (`S3_KEY`, bucket) into `AUTHOR_BODY`, keeping the existing `visual-studio/<RUN_ID>-<ASSET_TYPE>.<ext>` shape and the paired key for a deck
-- [ ] 3.2 `agent_result`: drop the base64 data URL entirely; read `S3_KEY`/`S3_BYTES` from the author response and keep the composer's report as `STORYBOARD`
-- [ ] 3.3 Remove `fetch_artifact` and `fetch_paired_artifact`, and rewire the artist branch to the upload's own result
-- [ ] 3.4 The raster branch keeps a binary-to-S3 step (its bytes are made inside n8n) and stops emitting a data URL
-- [ ] 3.5 `merge_branches -> prepare_uploads -> upload_assets` is removed for the animated path; `set_result` keeps its shape
-- [ ] 3.6 `--require-edge` guards on each step, applied live, then re-read and diffed; `activeVersion` carries the same graph
+- [x] 3.1 `build_author_brief`: emits `ARTIFACT_KEY`, `PAIRED_ARTIFACT_KEY` and
+      `STORE_URL` beside the URLs it already computed, keeping the
+      `visual-studio/<RUN_ID>-<ASSET_TYPE>.<ext>` shape
+- [x] 3.2 `agent_result`: no data URL and no binary read; it parses each store answer
+      (`key=… bytes=…`) into `S3_KEY`/`S3_BYTES`, keeps the composer's report as
+      `STORYBOARD`, and reports a failed store as **that asset's** ERROR
+- [x] 3.3 `store_artifact` and `store_paired_artifact` (HTTP → `temp_store`) replace
+      `fetch_artifact` and `fetch_paired_artifact`, keeping their `onError`, their notes
+      and their positions
+- [x] 3.4 `set_result` prefers an asset's own key, so the raster path's upload cannot blank
+      a key the store already reported
+- [x] 3.5 The raster branch is unchanged: `prepare_uploads`/`upload_assets` still see only
+      its data URL, and it is the one place a still run costs its bytes
+- [x] 3.6 Applied live with `--require-edge` on all six premises, re-read and diffed: draft
+      and `activeVersion` both 31 nodes, `saveDataSuccessExecution: all`, still active
 
 ## 4. Publish path
 
-- [ ] 4.1 `check_animation_result` branches on the asset's `S3_KEY` and `STATUS`, not on `IMAGE`
-- [ ] 4.2 `linked_in_post_sharing`: an S3 download node (`Garage` credential, `datahub-local-temp`, key from the asset) feeding `convert_animation`, which becomes a naming step
-- [ ] 4.3 The still path: `linked_in_image_creator` stops building `omImage` as a data URL and returns the image as binary; `convert_image` becomes a naming step
-- [ ] 4.4 No node in the publish path holds an asset as a data URL, asserted by test
-- [ ] 4.5 Applied live with `--require-edge`, re-read and diffed, both copies
+- [x] 4.1 `check_animation_result` accepts the asset on `S3_KEY` and `STATUS`, and carries
+      the key
+- [x] 4.2 `presign_animation` (HTTP → `temp_retrieve`) and `animation_url` (the signed URL,
+      split the way a caller does) feed `download_animation`, which fetches the URL as
+      binary `data` under the name the four downstream nodes already reference
+- [x] 4.3 The media type is read from `check_animation_result`, not from the download: a
+      file response carries no JSON of its own, so asking the download node would always
+      fall through to the image path
+- [x] 4.4 No node in the publish path holds an asset as a data URL, asserted by test
+- [x] 4.5 Applied live with `--require-edge`, re-read and diffed: draft and `activeVersion`
+      both 50 nodes, still active
 
 ## 5. Recording
 
-- [ ] 5.1 Set `saveDataSuccessExecution` to `all` on `Visual Studio`, `Visual Studio Test`, `Visual Studio Prune` and `LinkedIn Post Sharing`
-- [ ] 5.2 **Measure the bound**: one image run and one composer run, with `execution_data` and `binary_data` before and after. A composer run must move neither by an asset's size
+- [x] 5.1 `saveDataSuccessExecution: all` on `Visual Studio`; it stays `none` on
+      `Visual Studio Test`, `LinkedIn Post Sharing` and `Visual Studio Prune`, whose
+      payload still is an asset
+- [ ] 5.2 **Measure the bound**: one composer run with `execution_data` and `binary_data`
+      before and after. The run must move neither by an asset's size — the studio's
+      execution is recorded and holds no bytes
 - [ ] 5.3 Record the measured numbers in this change, and the invariant in `AGENTS.md`
 
-## 6. Still path
+## 6. Still path (open, and now explicitly a non-goal of the animated change)
 
-- [ ] 6.1 Pick the still path's byte source: the model's `b64_json` decoded to binary, or a URL fetched as a file
-- [ ] 6.2 Gate: does the image gateway accept `response_format: url`? If not, 6.1 is decided for us and the outcome is recorded in `design.md`'s still-path section
-- [ ] 6.3 Assert the resulting per-post cost in `binary_data` is the expected ~0.9 MB, not more
+- [ ] 6.1 Pick the still path's byte source: the model's `b64_json` decoded to binary, or a
+      URL fetched as a file — there is no URL for the store to fetch today
+- [ ] 6.2 Gate: does the image gateway accept `response_format: url`? If not, 6.1 is decided
+      for us and the outcome is recorded in `design.md`'s still-path section
+- [ ] 6.3 Assert the resulting per-post cost in `binary_data` is the expected ~0.9 MB, not
+      more. Until then a still run inside a recording workflow costs its asset's bytes, and
+      `LinkedIn Post Sharing` stays `none`
 
 ## 7. Tests and docs
 
-- [ ] 7.1 `test_storage_retention.py`: rewritten — no workflow emits an asset as a data URL; the success-data setting is on the four; the invariant is stated as an assertion rather than a comment
-- [ ] 7.2 `test_visual_studio_graph.py`: the destination reaches the request; no data URL is built; the raster branch still stores
-- [ ] 7.3 `test_linkedin_animated_media.py`: the publish path reads the key and the credential is wired
-- [x] 7.4 `apply_workflow_changes.py`: warn when a node field does not resolve — `get_path` returns `None` for a mistyped path, so a spec writing `jsCode` instead of `parameters.jsCode` created a stray top-level key and the read-back then verified it as success. Hit while applying the continuation fix on 2026-10-14. Two warnings (a parameter missing its prefix; a path that resolves nowhere) and three tests; verified against the live workflow, where the first now fires on `build_author_brief:jsCode` and a real node field stays quiet
-- [ ] 7.5 `AGENTS.md`: the storage paragraph, the invariant, the credential's accepted risk, and the fresh-instance procedure
-- [ ] 7.6 Full suites green: `pytest agents/n8n/scripts/`, `pytest agents/sympozium/tests/`, `node --test agents/adapters/pi-render/test/*.test.mjs`, `ruff`, `openspec validate --all`
+- [x] 7.1 `test_storage_retention.py`: the workflows whose payload is an asset must not
+      persist a successful one; the studio must record; and the studio's graph must carry
+      no bytes, which is what makes recording safe
+- [x] 7.2 `test_visual_studio_graph.py`: the agent branch reaches the store nodes, the
+      result names an object rather than carrying one, and a deck stores both artifacts
+- [x] 7.3 `test_linkedin_animated_media.py`: the publish path presigns and downloads, the
+      media type comes from the check, and no data URL is required
+- [x] 7.4 `apply_workflow_changes.py`: warn when a node field does not resolve — `get_path`
+      returns `None` for a mistyped path, so a spec writing `jsCode` instead of
+      `parameters.jsCode` created a stray top-level key and the read-back then verified it
+      as success. Hit while applying the continuation fix on 2026-10-14. Two warnings and
+      three tests; verified against the live workflow
+- [ ] 7.5 `AGENTS.md`: the storage paragraph, the invariant, the credential's accepted risk,
+      and the fresh-instance procedure
+- [ ] 7.6 Full suites green: `pytest agents/n8n/scripts/`, `pytest agents/sympozium/tests/`,
+      `node --test agents/adapters/pi-render/test/*.test.mjs`, the MCP repo's
+      `pytest`/`ruff`, `openspec validate --all`
 
 ## 8. Carried from the archived change
 
-- [ ] 8.1 Watch the first 04:00 `Visual Studio Prune` that meets a stale object: the delete is proven by probe, not yet by the schedule
-- [ ] 8.2 `TemporalFiles` still holds bytes in a DataTable for `Visual Studio Test`; bounded by `File Webhook`'s one-hour rule, left alone
+- [ ] 8.1 Watch the first 04:00 `Visual Studio Prune` that meets a stale object: the delete
+      is proven by probe, not yet by the schedule
+- [ ] 8.2 `TemporalFiles` still holds bytes in a DataTable for `Visual Studio Test`;
+      bounded by `File Webhook`'s one-hour rule, left alone

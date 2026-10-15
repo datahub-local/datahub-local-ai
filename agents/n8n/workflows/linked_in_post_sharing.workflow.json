@@ -1567,7 +1567,7 @@
           "person": "ZK1zEXWkav",
           "text": "={{ $('execute_post_creator').item.json.text }}",
           "shareMediaCategory": "IMAGE",
-          "binaryPropertyName": "={{ $('convert_animation').isExecuted ? $('convert_animation').item.binary.data : $('convert_image').item.binary.data }}",
+          "binaryPropertyName": "={{ $('download_animation').isExecuted ? $('download_animation').item.binary.data : $('convert_image').item.binary.data }}",
           "additionalFields": {
             "visibility": "PUBLIC"
           }
@@ -2374,7 +2374,7 @@
           -928
         ],
         "parameters": {
-          "jsCode": "// The studio's own run STATUS is PARTIAL whenever a requested type is unavailable, so the\n// asset's status is what this branches on. The LinkedIn branch asks the studio for the\n// composer-authored GIF type; both animated opt-ins (ANIMATED, AGENT) share it.\nconst r = $input.first().json || {};\nconst assets = r.ASSETS || [];\nconst req = $('select_article_to_post').first().json;\nconst want = 'animation_linkedin_video';\nconst a = assets.find((x) => x.ASSET_TYPE === want) || null;\nconst ok = Boolean(a && a.STATUS === 'RENDERED' && a.IMAGE);\nreturn [{ json: {\n  RUN_ID: r.RUN_ID || '',\n  RUN_STATUS: r.STATUS || '',\n  ASSET_TYPE: a ? a.ASSET_TYPE : '',\n  ASSET_STATUS: a ? a.STATUS : 'MISSING',\n  CONTENT_TYPE: a ? (a.CONTENT_TYPE || '') : '',\n  IMAGE: a && a.IMAGE ? a.IMAGE : '',\n  DURATION_MS: a ? (a.DURATION_MS || '') : '',\n  FRAME_COUNT: a ? (a.FRAME_COUNT || '') : '',\n  ERROR: ok ? '' : ('animated media unavailable: ' + ((a && (a.ERROR || a.STATUS)) || 'no asset returned')),\n} }];"
+          "jsCode": "// The studio's own run STATUS is PARTIAL whenever a requested type is unavailable, so the\n// asset's status is what this branches on. The LinkedIn branch asks the studio for the\n// composer-authored video type; both animated opt-ins (ANIMATED, AGENT) share it.\n// The asset is located by its object key rather than by a data URL: the studio stores\n// the render in the temp bucket through the utils MCP server and never carries its\n// bytes, which is what keeps a 60 MB asset out of the studio's execution record.\nconst r = $input.first().json || {};\nconst assets = r.ASSETS || [];\nconst req = $('select_article_to_post').first().json;\nconst want = 'animation_linkedin_video';\nconst a = assets.find((x) => x.ASSET_TYPE === want) || null;\nconst ok = Boolean(a && a.STATUS === 'RENDERED' && a.S3_KEY);\nreturn [{ json: {\n  RUN_ID: r.RUN_ID || '',\n  RUN_STATUS: r.STATUS || '',\n  ASSET_TYPE: a ? a.ASSET_TYPE : '',\n  ASSET_STATUS: a ? a.STATUS : 'MISSING',\n  CONTENT_TYPE: a ? (a.CONTENT_TYPE || '') : '',\n  S3_KEY: a && a.S3_KEY ? a.S3_KEY : '',\n  DURATION_MS: a ? (a.DURATION_MS || '') : '',\n  FRAME_COUNT: a ? (a.FRAME_COUNT || '') : '',\n  ERROR: ok ? '' : ('animated media unavailable: ' + ((a && (a.ERROR || a.STATUS)) || 'no asset returned')),\n} }];"
         }
       },
       {
@@ -2414,15 +2414,24 @@
       },
       {
         "id": "an000000-0000-4000-8000-000000000005",
-        "name": "convert_animation",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
+        "name": "download_animation",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
         "position": [
           11040,
           -1200
         ],
         "parameters": {
-          "jsCode": "const a = $input.first().json || {};\nconst url = String(a.IMAGE || '');\nif (!url.startsWith('data:')) throw new Error('no animation data URL to publish');\nconst i = url.indexOf(',');\nconst ext = a.CONTENT_TYPE === 'video/mp4' ? 'mp4'\n  : (a.CONTENT_TYPE === 'image/gif' ? 'gif'\n  : (a.CONTENT_TYPE === 'image/webp' ? 'webp' : 'png'));\nreturn [{ json: { CONTENT_TYPE: a.CONTENT_TYPE, ASSET_TYPE: a.ASSET_TYPE, RUN_ID: a.RUN_ID,\n  DURATION_MS: a.DURATION_MS, FRAME_COUNT: a.FRAME_COUNT },\n  binary: { data: { data: Buffer.from(url.slice(i + 1), 'base64'), mimeType: a.CONTENT_TYPE,\n    fileName: 'animated_infographic.' + ext, fileExtension: ext } } }];"
+          "url": "={{ $json.URL }}",
+          "options": {
+            "response": {
+              "response": {
+                "responseFormat": "file",
+                "outputPropertyName": "data"
+              }
+            },
+            "timeout": 600000
+          }
         }
       },
       {
@@ -2437,7 +2446,7 @@
         ],
         "parameters": {
           "resource": "file",
-          "binaryPropertyName": "={{ $('convert_animation').item.binary.data }}",
+          "binaryPropertyName": "={{ $('download_animation').item.binary.data }}",
           "options": {
             "channelId": "C08RQNXQV3P"
           }
@@ -2722,7 +2731,7 @@
                   "operation": "true",
                   "singleValue": true
                 },
-                "leftValue": "={{ $('convert_animation').isExecuted && $('convert_animation').item.json.CONTENT_TYPE === 'video/mp4' }}",
+                "leftValue": "={{ $('download_animation').isExecuted && $('check_animation_result').item.json.CONTENT_TYPE === 'video/mp4' }}",
                 "rightValue": ""
               }
             ]
@@ -2837,7 +2846,7 @@
           -1296
         ],
         "parameters": {
-          "jsCode": "// Build the registerUpload request from the approved asset. A video post goes\n// through the LinkedIn API directly because the n8n LinkedIn node cannot upload\n// video; nothing here guesses a value.\nconst a = $('convert_animation').first().json || {};\nconst registerRequest = {\n  registerUploadRequest: {\n    recipes: ['urn:li:digitalmediaRecipe:feedshare-video'],\n    owner: 'urn:li:person:ZK1zEXWkav',\n    serviceRelationships: [{ relationshipType: 'OWNER', identifier: 'urn:li:userGeneratedContent' }],\n  },\n};\nreturn [{ json: { REGISTER_BODY: JSON.stringify(registerRequest), CONTENT_TYPE: a.CONTENT_TYPE || 'video/mp4' } }];\n"
+          "jsCode": "// Build the registerUpload request from the approved asset. A video post goes\n// through the LinkedIn API directly because the n8n LinkedIn node cannot upload\n// video; nothing here guesses a value.\n// The metadata comes from the check, not from the download: a file response\n// carries no JSON of its own, so reading it there would silently fall back.\nconst a = $('check_animation_result').first().json || {};\nconst registerRequest = {\n  registerUploadRequest: {\n    recipes: ['urn:li:digitalmediaRecipe:feedshare-video'],\n    owner: 'urn:li:person:ZK1zEXWkav',\n    serviceRelationships: [{ relationshipType: 'OWNER', identifier: 'urn:li:userGeneratedContent' }],\n  },\n};\nreturn [{ json: { REGISTER_BODY: JSON.stringify(registerRequest), CONTENT_TYPE: a.CONTENT_TYPE || 'video/mp4' } }];\n"
         }
       },
       {
@@ -2858,13 +2867,13 @@
             "parameters": [
               {
                 "name": "Content-Type",
-                "value": "={{ $('convert_animation').item.json.CONTENT_TYPE || 'video/mp4' }}"
+                "value": "={{ $('check_animation_result').item.json.CONTENT_TYPE || 'video/mp4' }}"
               }
             ]
           },
           "sendBody": true,
           "contentType": "binaryData",
-          "inputDataFieldName": "={{ $('convert_animation').item.binary.data }}",
+          "inputDataFieldName": "={{ $('download_animation').item.binary.data }}",
           "options": {
             "timeout": 600000
           }
@@ -2882,6 +2891,48 @@
         "parameters": {
           "jsCode": "// ugcPosts returns 201 with the new post's id in the x-restli-id header, so the\n// header is captured (fullResponse) and a missing id fails loudly rather than\n// recording an empty link.\nconst r = $input.first().json || {};\nconst h = r.headers || {};\nconst urn = h['x-restli-id'] || h['X-Restli-Id'] || '';\nif (!urn) throw new Error('LinkedIn returned no post id: ' + JSON.stringify(r).slice(0, 300));\nreturn [{ json: { urn: urn } }];\n"
         }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "={{ ($env.MCP_UTILS_URL || '') + '/mcp' }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'temp_retrieve', arguments: { key: $('check_animation_result').item.json.S3_KEY } } }) }}",
+          "options": {
+            "timeout": 120000
+          }
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "name": "presign_animation",
+        "position": [
+          10368,
+          -1200
+        ],
+        "id": "2c3ce260-0000-4000-8000-000000000000"
+      },
+      {
+        "parameters": {
+          "jsCode": "// The signed download URL the temp-bucket server answered with, so the bytes can be\n// fetched without this workflow holding a bucket credential at all. The answer is one\n// line of key=value pairs, split the way a caller does rather than matched as prose; a\n// failure is a line beginning ERROR: and is raised here so the run reports it rather\n// than uploading something else.\nconst resp = $input.first().json || {};\nconst content = resp.result && resp.result.content;\nconst text = content && content[0] && content[0].text;\nif (typeof text !== 'string') throw new Error('the temp-bucket server answered no text');\nif (text.indexOf('ERROR:') === 0) throw new Error(text.slice(0, 500));\nconst pairs = {};\nfor (const part of text.trim().split(/\\s+/)) {\n  const eq = part.indexOf('=');\n  if (eq > 0) pairs[part.slice(0, eq)] = part.slice(eq + 1);\n}\nif (!pairs.url) throw new Error('no signed url in: ' + text.slice(0, 300));\nreturn [{ json: {\n  URL: pairs.url, KEY: pairs.key || '', BYTES: Number(pairs.bytes || 0),\n  CONTENT_TYPE: pairs['content-type'] || '', EXPIRES: Number(pairs.expires || 0),\n} }];\n"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "name": "animation_url",
+        "position": [
+          10752,
+          -1200
+        ],
+        "id": "132acab1-0000-4000-8000-000000000000"
       }
     ],
     "connections": {
@@ -3224,7 +3275,7 @@
           ]
         ]
       },
-      "convert_animation": {
+      "download_animation": {
         "main": [
           [
             {
@@ -3250,7 +3301,7 @@
         "main": [
           [
             {
-              "node": "convert_animation",
+              "node": "presign_animation",
               "type": "main",
               "index": 0
             }
@@ -3440,6 +3491,28 @@
           [
             {
               "node": "send_published_notification_a",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "presign_animation": {
+        "main": [
+          [
+            {
+              "node": "animation_url",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "animation_url": {
+        "main": [
+          [
+            {
+              "node": "download_animation",
               "type": "main",
               "index": 0
             }
@@ -3796,7 +3869,7 @@
         ]
       ]
     },
-    "convert_animation": {
+    "download_animation": {
       "main": [
         [
           {
@@ -3822,7 +3895,7 @@
       "main": [
         [
           {
-            "node": "convert_animation",
+            "node": "presign_animation",
             "type": "main",
             "index": 0
           }
@@ -4012,6 +4085,28 @@
         [
           {
             "node": "send_published_notification_a",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "presign_animation": {
+      "main": [
+        [
+          {
+            "node": "animation_url",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "animation_url": {
+      "main": [
+        [
+          {
+            "node": "download_animation",
             "type": "main",
             "index": 0
           }
@@ -5591,7 +5686,7 @@
         "person": "ZK1zEXWkav",
         "text": "={{ $('execute_post_creator').item.json.text }}",
         "shareMediaCategory": "IMAGE",
-        "binaryPropertyName": "={{ $('convert_animation').isExecuted ? $('convert_animation').item.binary.data : $('convert_image').item.binary.data }}",
+        "binaryPropertyName": "={{ $('download_animation').isExecuted ? $('download_animation').item.binary.data : $('convert_image').item.binary.data }}",
         "additionalFields": {
           "visibility": "PUBLIC"
         }
@@ -6398,7 +6493,7 @@
         -928
       ],
       "parameters": {
-        "jsCode": "// The studio's own run STATUS is PARTIAL whenever a requested type is unavailable, so the\n// asset's status is what this branches on. The LinkedIn branch asks the studio for the\n// composer-authored GIF type; both animated opt-ins (ANIMATED, AGENT) share it.\nconst r = $input.first().json || {};\nconst assets = r.ASSETS || [];\nconst req = $('select_article_to_post').first().json;\nconst want = 'animation_linkedin_video';\nconst a = assets.find((x) => x.ASSET_TYPE === want) || null;\nconst ok = Boolean(a && a.STATUS === 'RENDERED' && a.IMAGE);\nreturn [{ json: {\n  RUN_ID: r.RUN_ID || '',\n  RUN_STATUS: r.STATUS || '',\n  ASSET_TYPE: a ? a.ASSET_TYPE : '',\n  ASSET_STATUS: a ? a.STATUS : 'MISSING',\n  CONTENT_TYPE: a ? (a.CONTENT_TYPE || '') : '',\n  IMAGE: a && a.IMAGE ? a.IMAGE : '',\n  DURATION_MS: a ? (a.DURATION_MS || '') : '',\n  FRAME_COUNT: a ? (a.FRAME_COUNT || '') : '',\n  ERROR: ok ? '' : ('animated media unavailable: ' + ((a && (a.ERROR || a.STATUS)) || 'no asset returned')),\n} }];"
+        "jsCode": "// The studio's own run STATUS is PARTIAL whenever a requested type is unavailable, so the\n// asset's status is what this branches on. The LinkedIn branch asks the studio for the\n// composer-authored video type; both animated opt-ins (ANIMATED, AGENT) share it.\n// The asset is located by its object key rather than by a data URL: the studio stores\n// the render in the temp bucket through the utils MCP server and never carries its\n// bytes, which is what keeps a 60 MB asset out of the studio's execution record.\nconst r = $input.first().json || {};\nconst assets = r.ASSETS || [];\nconst req = $('select_article_to_post').first().json;\nconst want = 'animation_linkedin_video';\nconst a = assets.find((x) => x.ASSET_TYPE === want) || null;\nconst ok = Boolean(a && a.STATUS === 'RENDERED' && a.S3_KEY);\nreturn [{ json: {\n  RUN_ID: r.RUN_ID || '',\n  RUN_STATUS: r.STATUS || '',\n  ASSET_TYPE: a ? a.ASSET_TYPE : '',\n  ASSET_STATUS: a ? a.STATUS : 'MISSING',\n  CONTENT_TYPE: a ? (a.CONTENT_TYPE || '') : '',\n  S3_KEY: a && a.S3_KEY ? a.S3_KEY : '',\n  DURATION_MS: a ? (a.DURATION_MS || '') : '',\n  FRAME_COUNT: a ? (a.FRAME_COUNT || '') : '',\n  ERROR: ok ? '' : ('animated media unavailable: ' + ((a && (a.ERROR || a.STATUS)) || 'no asset returned')),\n} }];"
       }
     },
     {
@@ -6438,15 +6533,24 @@
     },
     {
       "id": "an000000-0000-4000-8000-000000000005",
-      "name": "convert_animation",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "name": "download_animation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
       "position": [
         11040,
         -1200
       ],
       "parameters": {
-        "jsCode": "const a = $input.first().json || {};\nconst url = String(a.IMAGE || '');\nif (!url.startsWith('data:')) throw new Error('no animation data URL to publish');\nconst i = url.indexOf(',');\nconst ext = a.CONTENT_TYPE === 'video/mp4' ? 'mp4'\n  : (a.CONTENT_TYPE === 'image/gif' ? 'gif'\n  : (a.CONTENT_TYPE === 'image/webp' ? 'webp' : 'png'));\nreturn [{ json: { CONTENT_TYPE: a.CONTENT_TYPE, ASSET_TYPE: a.ASSET_TYPE, RUN_ID: a.RUN_ID,\n  DURATION_MS: a.DURATION_MS, FRAME_COUNT: a.FRAME_COUNT },\n  binary: { data: { data: Buffer.from(url.slice(i + 1), 'base64'), mimeType: a.CONTENT_TYPE,\n    fileName: 'animated_infographic.' + ext, fileExtension: ext } } }];"
+        "url": "={{ $json.URL }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          },
+          "timeout": 600000
+        }
       }
     },
     {
@@ -6461,7 +6565,7 @@
       ],
       "parameters": {
         "resource": "file",
-        "binaryPropertyName": "={{ $('convert_animation').item.binary.data }}",
+        "binaryPropertyName": "={{ $('download_animation').item.binary.data }}",
         "options": {
           "channelId": "C08RQNXQV3P"
         }
@@ -6746,7 +6850,7 @@
                 "operation": "true",
                 "singleValue": true
               },
-              "leftValue": "={{ $('convert_animation').isExecuted && $('convert_animation').item.json.CONTENT_TYPE === 'video/mp4' }}",
+              "leftValue": "={{ $('download_animation').isExecuted && $('check_animation_result').item.json.CONTENT_TYPE === 'video/mp4' }}",
               "rightValue": ""
             }
           ]
@@ -6861,7 +6965,7 @@
         -1296
       ],
       "parameters": {
-        "jsCode": "// Build the registerUpload request from the approved asset. A video post goes\n// through the LinkedIn API directly because the n8n LinkedIn node cannot upload\n// video; nothing here guesses a value.\nconst a = $('convert_animation').first().json || {};\nconst registerRequest = {\n  registerUploadRequest: {\n    recipes: ['urn:li:digitalmediaRecipe:feedshare-video'],\n    owner: 'urn:li:person:ZK1zEXWkav',\n    serviceRelationships: [{ relationshipType: 'OWNER', identifier: 'urn:li:userGeneratedContent' }],\n  },\n};\nreturn [{ json: { REGISTER_BODY: JSON.stringify(registerRequest), CONTENT_TYPE: a.CONTENT_TYPE || 'video/mp4' } }];\n"
+        "jsCode": "// Build the registerUpload request from the approved asset. A video post goes\n// through the LinkedIn API directly because the n8n LinkedIn node cannot upload\n// video; nothing here guesses a value.\n// The metadata comes from the check, not from the download: a file response\n// carries no JSON of its own, so reading it there would silently fall back.\nconst a = $('check_animation_result').first().json || {};\nconst registerRequest = {\n  registerUploadRequest: {\n    recipes: ['urn:li:digitalmediaRecipe:feedshare-video'],\n    owner: 'urn:li:person:ZK1zEXWkav',\n    serviceRelationships: [{ relationshipType: 'OWNER', identifier: 'urn:li:userGeneratedContent' }],\n  },\n};\nreturn [{ json: { REGISTER_BODY: JSON.stringify(registerRequest), CONTENT_TYPE: a.CONTENT_TYPE || 'video/mp4' } }];\n"
       }
     },
     {
@@ -6882,13 +6986,13 @@
           "parameters": [
             {
               "name": "Content-Type",
-              "value": "={{ $('convert_animation').item.json.CONTENT_TYPE || 'video/mp4' }}"
+              "value": "={{ $('check_animation_result').item.json.CONTENT_TYPE || 'video/mp4' }}"
             }
           ]
         },
         "sendBody": true,
         "contentType": "binaryData",
-        "inputDataFieldName": "={{ $('convert_animation').item.binary.data }}",
+        "inputDataFieldName": "={{ $('download_animation').item.binary.data }}",
         "options": {
           "timeout": 600000
         }
@@ -6906,6 +7010,48 @@
       "parameters": {
         "jsCode": "// ugcPosts returns 201 with the new post's id in the x-restli-id header, so the\n// header is captured (fullResponse) and a missing id fails loudly rather than\n// recording an empty link.\nconst r = $input.first().json || {};\nconst h = r.headers || {};\nconst urn = h['x-restli-id'] || h['X-Restli-Id'] || '';\nif (!urn) throw new Error('LinkedIn returned no post id: ' + JSON.stringify(r).slice(0, 300));\nreturn [{ json: { urn: urn } }];\n"
       }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.MCP_UTILS_URL || '') + '/mcp' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'temp_retrieve', arguments: { key: $('check_animation_result').item.json.S3_KEY } } }) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "name": "presign_animation",
+      "position": [
+        10368,
+        -1200
+      ],
+      "id": "dce21ec9-0000-4000-8000-000000000000"
+    },
+    {
+      "parameters": {
+        "jsCode": "// The signed download URL the temp-bucket server answered with, so the bytes can be\n// fetched without this workflow holding a bucket credential at all. The answer is one\n// line of key=value pairs, split the way a caller does rather than matched as prose; a\n// failure is a line beginning ERROR: and is raised here so the run reports it rather\n// than uploading something else.\nconst resp = $input.first().json || {};\nconst content = resp.result && resp.result.content;\nconst text = content && content[0] && content[0].text;\nif (typeof text !== 'string') throw new Error('the temp-bucket server answered no text');\nif (text.indexOf('ERROR:') === 0) throw new Error(text.slice(0, 500));\nconst pairs = {};\nfor (const part of text.trim().split(/\\s+/)) {\n  const eq = part.indexOf('=');\n  if (eq > 0) pairs[part.slice(0, eq)] = part.slice(eq + 1);\n}\nif (!pairs.url) throw new Error('no signed url in: ' + text.slice(0, 300));\nreturn [{ json: {\n  URL: pairs.url, KEY: pairs.key || '', BYTES: Number(pairs.bytes || 0),\n  CONTENT_TYPE: pairs['content-type'] || '', EXPIRES: Number(pairs.expires || 0),\n} }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "name": "animation_url",
+      "position": [
+        10752,
+        -1200
+      ],
+      "id": "7a56f434-0000-4000-8000-000000000000"
     }
   ],
   "pinData": {},

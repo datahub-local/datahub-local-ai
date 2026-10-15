@@ -29,29 +29,27 @@ that needs the bytes reads them from the object the asset names.
 
 ### Requirement: A rendered asset is stored outside the response
 
-The system SHALL have each rendered asset written to object storage by the producer that
-holds its bytes, before the run reports it, and SHALL carry the object key in the run's
-response. No execution n8n records SHALL contain an asset's bytes, as JSON or as binary.
-A failed write SHALL fail the run rather than report a key for an object that does not
-exist, and a producer SHALL NOT write outside the `visual-studio/` prefix. The stored
-objects SHALL be pruned on a bounded window, so the bucket cannot grow without limit.
+The system SHALL write each rendered asset to object storage and SHALL carry the object
+key in the run's response, so the caller can fetch the bytes and no row is needed to name
+them. The writer SHALL NOT be the workflow that reports the asset, because n8n persists a
+workflow's binaries as well as its JSON; it SHALL be a process holding a credential scoped
+to one bucket and one prefix, and a key outside the `visual-studio/` prefix SHALL be
+refused. A failed write SHALL report that asset's error rather than a key for an object
+that does not exist. The stored objects SHALL be pruned on a bounded window, so the bucket
+cannot grow without limit.
 
 #### Scenario: The asset is stored and named
 
 - **WHEN** a run produces an asset
 - **THEN** its bytes are written to `datahub-local-temp` under a key derived from the run id and the asset type
 - **AND** the response carries that key and the byte count
-- **AND** the writer is the producer that holds the bytes, not the workflow that reports them
+- **AND** the writer is a service that fetched them, not the workflow that reports them
 
 #### Scenario: A failed write fails the run
 
 - **WHEN** the asset cannot be written
-- **THEN** the run fails, and no key is reported
-
-#### Scenario: Nothing is written outside the prefix
-
-- **WHEN** a destination outside `visual-studio/` is requested
-- **THEN** the write is refused
+- **THEN** that asset carries the failure as its error, and no key is reported for it
+- **AND** the run reports itself FAILED when that was its only asset, and PARTIAL otherwise
 
 #### Scenario: A run with nothing to store
 
@@ -64,6 +62,18 @@ objects SHALL be pruned on a bounded window, so the bucket cannot grow without l
 - **WHEN** a stored object is older than the retention window
 - **THEN** it is deleted from the bucket
 - **AND** an object inside the window is left alone
+
+#### Scenario: A zero-byte render is not stored
+
+- **WHEN** the source answers `200` with an empty body
+- **THEN** nothing is written and that asset carries the failure
+- **AND** no key is reported for an empty object
+
+#### Scenario: A nested key is refused
+
+- **WHEN** a destination with a further `/` below the prefix is requested
+- **THEN** the write is refused, because the prune lists the prefix with a `/` delimiter
+  and would never see such an object to delete it
 
 ## ADDED Requirements
 

@@ -1,13 +1,21 @@
 """Guard the n8n storage bounds.
 
-The studio's rendered artifact travels as a base64 data URL, so the same bytes reach the
-execution payload and n8n's binary store. These assert, offline against the committed
-exports, that the bounds that keep that from growing without limit are still in place:
+A rendered artifact must not reach an execution payload or n8n's binary store, because
+n8n persists binaries as well as JSON: measured on 2026-10-14, ``binary_data`` held
+249 MB across 903 rows and ``execution_data`` 1060 MB across 1405 rows in a 1335 MB
+database. Two mechanisms keep that true, and both are asserted here offline against the
+committed exports:
 
-  * the rendered asset is written to object storage and pruned on a short window,
-  * ``TemporalFiles`` is pruned with it,
+  * the studio no longer carries the render at all - the temp-bucket MCP server fetches
+    it from the session and stores it, so the studio records its runs and the asset
+    reaches object storage exactly once,
+  * every workflow whose payload *is* still the bytes - or a row carrying them - keeps
+    ``saveDataSuccessExecution: none``,
+
+and around those:
+
+  * the rendered asset is pruned on a short window and ``TemporalFiles`` with it,
   * nothing writes a run row any more,
-  * the workflows whose payload *is* the artifact do not persist successful payloads,
   * the dead workflows stay deleted.
 
 Both copies of each export are checked -- the exports carry their nodes twice, at the
@@ -25,16 +33,21 @@ PRUNE = WORKFLOWS / "visual_studio_prune.workflow.json"
 STUDIO = WORKFLOWS / "visual_studio.workflow.json"
 ERROR_WF = WORKFLOWS / "visual_studio_error.workflow.json"
 
-# The workflows whose node output carries a rendered artifact (a base64 data URL), so
-# their successful executions are the ones that filled execution_data: measured
-# 511 MB for Visual Studio Test, 377 MB for Visual Studio, 96 MB for LinkedIn Post
-# Sharing, 44 MB for the Prune (deleteRows returns the rows it deleted).
+# The workflows whose node output still carries a rendered artifact, or a row holding
+# one, so their successful executions are the ones that filled execution_data: measured
+# 511 MB for Visual Studio Test, 96 MB for LinkedIn Post Sharing, 44 MB for the Prune
+# (deleteRows returns the rows it deleted). Visual Studio is deliberately absent - it
+# holds an object key now, which is what lets it record - and the still-image path keeps
+# its own small data URL, so a still run does cost its asset's bytes here.
 ARTIFACT_WORKFLOWS = [
-    "visual_studio",
     "visual_studio_test",
     "linked_in_post_sharing",
     "visual_studio_prune",
 ]
+
+# The workflows that may record a successful run. Recording is safe only while the graph
+# carries no bytes, which the test below this one holds.
+RECORDING_WORKFLOWS = ["visual_studio"]
 
 # Inactive and referenced by nothing, checked across every export's executeWorkflow
 # workflowId and settings.errorWorkflow.
@@ -89,6 +102,37 @@ def test_artifact_workflows_do_not_persist_successful_payloads(name):
     )
     # The failure path is the one that needs the payload.
     assert settings.get("saveDataErrorExecution", "all") != "none", f"{name}: errors must still be recorded"
+
+
+@pytest.mark.parametrize("name", RECORDING_WORKFLOWS)
+def test_the_studio_records_its_runs_because_it_carries_no_bytes(name):
+    settings = json.loads((WORKFLOWS / f"{name}.workflow.json").read_text())["settings"]
+    assert settings.get("saveDataSuccessExecution") == "all", (
+        f"{name}: the point of moving the bytes out was to be able to record a run"
+    )
+    assert settings.get("saveDataErrorExecution", "all") != "none", f"{name}: errors must still be recorded"
+
+
+@pytest.mark.parametrize("label,document", list(_copies(STUDIO)))
+def test_the_studio_carries_no_artifact_bytes(label, document):
+    """What makes recording safe: nothing on this graph holds the render.
+
+    Every path that once did is gone - the fetch that pulled the file into the
+    execution, the base64 data URL in the asset, the upload that read it back. If any
+    returns, ``saveDataSuccessExecution: all`` above turns a 60 MB asset into 60 MB of
+    execution_data per run, which is the failure this whole change exists to remove.
+    """
+    nodes = _nodes(document)
+    for gone in ("fetch_artifact", "fetch_paired_artifact"):
+        assert gone not in nodes, f"{label}: {gone} is back, and it carries the bytes"
+    code = nodes["agent_result"]["parameters"]["jsCode"]
+    assert "S3_KEY" in code and "S3_BYTES" in code
+    assert "getBinaryDataBuffer" not in code and "data:'" not in code
+    for name in ("store_artifact", "store_paired_artifact"):
+        params = nodes[name]["parameters"]
+        assert nodes[name]["type"] == "n8n-nodes-base.httpRequest", f"{label}: {name} is not the store call"
+        assert "temp_store" in params["jsonBody"], f"{label}: {name} does not call temp_store"
+        assert params["options"]["timeout"] > 0, f"{label}: {name} has no timeout for a 60 MB transfer"
 
 
 @pytest.mark.parametrize("name", DEAD_WORKFLOWS)

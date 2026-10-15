@@ -168,3 +168,61 @@ this document records it rather than claiming otherwise.
   approved asset without a data URL anywhere.
 - The full test suites pass, the adapter's SigV4 has vectors, `openspec validate --all`
   passes, and `AGENTS.md` records the invariant and the credential's accepted risk.
+
+## The pivot: the bytes move through a service (2026-10-15)
+
+This change was written around **shape A — the producer uploads**, and that shape is
+impossible on this platform. Three measurements, in the order they were taken, closed
+every route that did not need a new service:
+
+1. **A session pod cannot be given env or a volume.** `AgentRuntime.spec` has no `env`
+   field (`capabilities, celln, cellnLimits, cellnProfileRef, conformance,
+   contractVersion, image, model, resources, session, supportOwner`), `HarnessSession.spec`
+   has `agentRef, desiredState, idleTimeout, runtimeRef`, and `Agent.spec.session` is
+   `port`/`protocol`. `Agent.spec.agents.default.env` and `spec.volumes`/`volumeMounts`
+   read as the answer — the CRD describes them as reaching "the agent-runner container of
+   every AgentRun" — and they do not reach a session: the chart carried them, the app
+   synced, the pod was deleted so the controller rebuilt it, and the fresh pod still had no
+   env and only the `tmp` mount. Its one secret channel is `authRefs[].secret`, which sets a
+   fixed set of provider env names. The knobs were reverted rather than left dead, and the
+   session's own uploader code in `agents/adapters/pi-render/` is dormant because nothing
+   can send it a destination that it could use.
+2. **n8n as the courier stores the bytes.** `Visual Studio Test` at
+   `saveDataSuccessExecution: all`, one still run: `binary_data` 900 → **906** rows and
+   ~1 MB more payload. So "the workflow fetches and uploads" is not a way around the
+   problem, it is the problem.
+3. **An n8n Code node cannot do it in one node.** `require('@aws-sdk/client-s3')` works —
+   the SDK is in the image and the task runner allows it — but the sandbox has no `fetch`
+   and no `process.env`, so a node cannot fetch the artifact and PUT it without the bytes
+   becoming a node output.
+
+**Shape C — a trusted service with its own credential — is what this change implements.**
+The bytes go from the session's own HTTP route to Garage without passing through n8n at
+all: `temp_store` is called with the session's `/artifacts/...` URL and answers with the
+key and the size. The properties that make it safe rather than merely convenient:
+
+- **The sandbox holds no credential.** Nothing was added to the session pod. The store
+  runs in a different pod, admitted to the session's port by the callers policy.
+- **The key is scoped to one bucket and one prefix.** `read` is needed as well as `write`
+  because `temp_retrieve` signs with the same key and Garage refuses a signed GET made with
+  a key that cannot read; everything else is refused. The prefix rule is enforced in the
+  server, because the prune's `/`-delimited listing is what makes a nested key
+  undeletable.
+- **The bytes are bounded in the server**, not by the caller: a fetch timeout, a size cap
+  checked against the declared length before the body is read, a spooled file rather than
+  memory, and a zero-byte body refused outright.
+- **A failure is a value.** `temp_store` answers `ERROR: …` and `agent_result` turns it
+  into that asset's `ERROR`, so a failed store costs one asset rather than the run.
+
+The rejected alternative that keeps coming back is **a presigned URL minted by n8n**: it is
+impossible (`crypto` is disallowed in a Code node), and with this change it is also
+unnecessary, since the signing happens in the server that holds the key.
+
+### What shape A's code becomes
+
+The adapter's uploader (`session-server.mjs` calling `@aws-sdk/client-s3`, and the pure
+`artifactUploads` destination decision in `session-lib.mjs`) was written, tested and
+deployed before the credential channel was measured to be closed. It is dormant: no caller
+sends `s3_key`, so it uploads nothing and the pod holds no credential for it to use. It is
+kept for now as the record of a measured dead end, and it should be removed with the next
+adapter change rather than left as a second, unreachable way to write to the bucket.

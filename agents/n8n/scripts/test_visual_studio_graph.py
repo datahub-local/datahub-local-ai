@@ -73,12 +73,14 @@ def test_the_agent_and_image_branches_are_wired(label, doc):
 @pytest.mark.parametrize("label,doc", list(_copies()))
 def test_the_agent_branch_reaches_the_merge(label, doc):
     assert _targets(doc, "build_author_brief", 0) == ["execute_author"]
-    assert _targets(doc, "execute_author", 0) == ["fetch_artifact"]
-    # A deck yields a second artifact, so the fetch is gated on the render mode.
-    assert _targets(doc, "fetch_artifact", 0) == ["if_deck"]
-    assert _targets(doc, "if_deck", 0) == ["fetch_paired_artifact"]
+    # The artifact is stored by the temp-bucket server rather than fetched into this
+    # execution: the workflow holds the object key, never the bytes.
+    assert _targets(doc, "execute_author", 0) == ["store_artifact"]
+    # A deck yields a second artifact, so the store is gated on the render mode.
+    assert _targets(doc, "store_artifact", 0) == ["if_deck"]
+    assert _targets(doc, "if_deck", 0) == ["store_paired_artifact"]
     assert _targets(doc, "if_deck", 1) == ["agent_result"]
-    assert _targets(doc, "fetch_paired_artifact", 0) == ["agent_result"]
+    assert _targets(doc, "store_paired_artifact", 0) == ["agent_result"]
     assert _targets(doc, "agent_result", 0) == ["merge_branches"]
 
 
@@ -204,7 +206,7 @@ def test_a_failed_composer_is_continued_and_handled(label, doc):
     # continueRegularOutput makes a failure invisible unless a downstream node
     # consumes the empty result, so both halves are required.
     assert _node(doc, "execute_author").get("onError") == "continueRegularOutput"
-    assert _node(doc, "fetch_artifact").get("onError") == "continueRegularOutput"
+    assert _node(doc, "store_artifact").get("onError") == "continueRegularOutput"
     code = _code(doc, "agent_result")
     assert "STATUS: 'ERROR'" in code
     assert "PI_RENDER_URL" in code
@@ -232,14 +234,21 @@ def test_a_transient_empty_agent_turn_is_retried(label, doc):
 
 
 @pytest.mark.parametrize("label,doc", list(_copies()))
-def test_the_agent_result_is_content_not_a_reference(label, doc):
+def test_the_agent_result_names_an_object_rather_than_carrying_it(label, doc):
+    # The render used to travel as a base64 data URL, which put a 60 MB asset into the
+    # execution payload *and* into n8n's binary store - measured, `binary_data` grew by
+    # six rows and a megabyte for a single still run with success data on. The
+    # temp-bucket server stores the render and answers with the key and its size, so the
+    # asset names an object. Reading a binary here again would undo that, and this
+    # instance keeps binaries out of band anyway: binary.data is a reference
+    # ("database:<id>"), so reading it directly once uploaded a 6-byte file.
     code = _code(doc, "agent_result")
-    assert "IMAGE: 'data:'" in code
-    assert "ARTIFACT_URL" not in code
-    # This instance stores binaries out of band, so binary.data is a reference
-    # ("database:<id>"), not base64; reading it directly uploaded a 6-byte file.
-    assert "getBinaryDataBuffer(0, 'data')" in code
-    assert "bin.data" not in code
+    assert "S3_KEY" in code and "S3_BYTES" in code
+    assert "getBinaryDataBuffer" not in code
+    assert "data:'" not in code
+    assert "temp_store" not in code, "the store is a node of its own, not built in here"
+    # A store that failed is this asset's ERROR, not the run's.
+    assert "STATUS: 'ERROR'" in code and "PI_RENDER_URL" in code and "MCP_UTILS_URL" in code
 
 
 @pytest.mark.parametrize("label,doc", list(_copies()))
@@ -305,19 +314,21 @@ def test_a_multi_scene_request_opens_on_a_title_scene(label, doc):
 
 
 @pytest.mark.parametrize("label,doc", list(_copies()))
-def test_a_deck_run_fetches_both_artifacts(label, doc):
+def test_a_deck_run_stores_both_artifacts(label, doc):
     body = _code(doc, "build_author_brief")
-    assert "PAIRED_ARTIFACT_URL" in body
+    assert "PAIRED_ARTIFACT_URL" in body and "PAIRED_ARTIFACT_KEY" in body
     assert "out.html" in body, "the deck brief does not name the deck file"
     assert "a.RENDER_MODE" in body and "'deck'" in body
     # The deck honours a named scene count like every other animated video.
     assert "deckPlanLine,\n      sceneLine," in body
-    node = _node(doc, "fetch_paired_artifact")
-    assert "PAIRED_ARTIFACT_URL" in node["parameters"]["url"]
+    node = _node(doc, "store_paired_artifact")
+    assert "PAIRED_ARTIFACT_URL" in node["parameters"]["jsonBody"]
+    assert "PAIRED_ARTIFACT_KEY" in node["parameters"]["jsonBody"]
     assert node.get("onError") == "continueRegularOutput"
-    # The deck and its video are two assets of one run.
+    # The deck and its video are two assets of one run, each with its own key.
     result = _code(doc, "agent_result")
-    assert "'paired'" in result and "PAIRED_ASSET_TYPE" in result
+    assert "PAIRED_ASSET_TYPE" in result and "store_paired_artifact" in result
+    assert "PAIRED_ARTIFACT_URL" in result
 
 
 @pytest.mark.parametrize("label,doc", list(_copies()))

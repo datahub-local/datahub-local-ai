@@ -1,7 +1,7 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "75f74277-439c-40fc-98f0-070371ff6317",
+    "versionId": "8041987e-8c3b-48ef-ba83-4f120bb5cee2",
     "workflowId": "qktMbzjLCMOk3tSJ",
     "nodes": [
       {
@@ -53,6 +53,14 @@
         }
       },
       {
+        "id": "prune-list-assets",
+        "name": "list_assets",
+        "type": "n8n-nodes-base.s3",
+        "typeVersion": 1,
+        "position": [
+          680,
+          0
+        ],
         "parameters": {
           "resource": "file",
           "operation": "getAll",
@@ -62,14 +70,6 @@
             "folderKey": "visual-studio/"
           }
         },
-        "type": "n8n-nodes-base.s3",
-        "typeVersion": 1,
-        "position": [
-          680,
-          0
-        ],
-        "id": "prune-list-assets",
-        "name": "list_assets",
         "credentials": {
           "s3": {
             "id": "ZwoiEY6W4mSYnTmW",
@@ -78,19 +78,27 @@
         }
       },
       {
-        "parameters": {
-          "jsCode": "// The bucket objects are pruned on the same two-day window as the run rows, so an asset\n// never outlives its record. LastModified is the object's own clock; a listing entry\n// without a parsable one is kept rather than deleted blind.\nconst cutoff = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).getTime();\nreturn $input.all().filter((i) => {\n  const t = new Date(i.json.LastModified || 0).getTime();\n  return isFinite(t) && t > 0 && t < cutoff;\n}).map((i) => ({ json: { Key: i.json.Key, LastModified: i.json.LastModified } }));\n"
-        },
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
         "id": "prune-filter-old-assets",
         "name": "filter_old_assets",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
         "position": [
           900,
           0
-        ]
+        ],
+        "parameters": {
+          "jsCode": "// The bucket objects are pruned on the same two-day window as the run rows, so an asset\n// never outlives its record. LastModified is the object's own clock; a listing entry\n// without a parsable one is kept rather than deleted blind.\nconst cutoff = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).getTime();\nreturn $input.all().filter((i) => {\n  const t = new Date(i.json.LastModified || 0).getTime();\n  return isFinite(t) && t > 0 && t < cutoff;\n}).map((i) => ({ json: { Key: i.json.Key, LastModified: i.json.LastModified } }));\n"
+        }
       },
       {
+        "id": "prune-delete-assets",
+        "name": "delete_assets",
+        "type": "n8n-nodes-base.s3",
+        "typeVersion": 1,
+        "position": [
+          1120,
+          0
+        ],
         "parameters": {
           "resource": "file",
           "operation": "delete",
@@ -98,14 +106,6 @@
           "fileKey": "={{ $json.Key }}",
           "options": {}
         },
-        "type": "n8n-nodes-base.s3",
-        "typeVersion": 1,
-        "position": [
-          1120,
-          0
-        ],
-        "id": "prune-delete-assets",
-        "name": "delete_assets",
         "credentials": {
           "s3": {
             "id": "ZwoiEY6W4mSYnTmW",
@@ -165,10 +165,10 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-10-11T17:13:57.127Z",
-    "updatedAt": "2026-10-11T17:13:57.127Z"
+    "createdAt": "2026-10-14T07:45:20.667Z",
+    "updatedAt": "2026-10-14T07:45:20.667Z"
   },
-  "activeVersionId": "75f74277-439c-40fc-98f0-070371ff6317",
+  "activeVersionId": "8041987e-8c3b-48ef-ba83-4f120bb5cee2",
   "connections": {
     "schedule_trigger": {
       "main": [
@@ -271,6 +271,14 @@
       }
     },
     {
+      "id": "prune-list-assets",
+      "name": "list_assets",
+      "type": "n8n-nodes-base.s3",
+      "typeVersion": 1,
+      "position": [
+        680,
+        0
+      ],
       "parameters": {
         "resource": "file",
         "operation": "getAll",
@@ -280,14 +288,6 @@
           "folderKey": "visual-studio/"
         }
       },
-      "type": "n8n-nodes-base.s3",
-      "typeVersion": 1,
-      "position": [
-        680,
-        0
-      ],
-      "id": "prune-list-assets",
-      "name": "list_assets",
       "credentials": {
         "s3": {
           "id": "ZwoiEY6W4mSYnTmW",
@@ -296,19 +296,27 @@
       }
     },
     {
-      "parameters": {
-        "jsCode": "// The bucket objects are pruned on the same two-day window as the run rows, so an asset\n// never outlives its record. LastModified is the object's own clock; a listing entry\n// without a parsable one is kept rather than deleted blind.\nconst cutoff = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).getTime();\nreturn $input.all().filter((i) => {\n  const t = new Date(i.json.LastModified || 0).getTime();\n  return isFinite(t) && t > 0 && t < cutoff;\n}).map((i) => ({ json: { Key: i.json.Key, LastModified: i.json.LastModified } }));\n"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
       "id": "prune-filter-old-assets",
       "name": "filter_old_assets",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         900,
         0
-      ]
+      ],
+      "parameters": {
+        "jsCode": "// The bucket objects are pruned on the same two-day window as the run rows, so an asset\n// never outlives its record. LastModified is the object's own clock; a listing entry\n// without a parsable one is kept rather than deleted blind.\nconst cutoff = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).getTime();\nreturn $input.all().filter((i) => {\n  const t = new Date(i.json.LastModified || 0).getTime();\n  return isFinite(t) && t > 0 && t < cutoff;\n}).map((i) => ({ json: { Key: i.json.Key, LastModified: i.json.LastModified } }));\n"
+      }
     },
     {
+      "id": "prune-delete-assets",
+      "name": "delete_assets",
+      "type": "n8n-nodes-base.s3",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        0
+      ],
       "parameters": {
         "resource": "file",
         "operation": "delete",
@@ -316,14 +324,6 @@
         "fileKey": "={{ $json.Key }}",
         "options": {}
       },
-      "type": "n8n-nodes-base.s3",
-      "typeVersion": 1,
-      "position": [
-        1120,
-        0
-      ],
-      "id": "prune-delete-assets",
-      "name": "delete_assets",
       "credentials": {
         "s3": {
           "id": "ZwoiEY6W4mSYnTmW",
@@ -360,6 +360,6 @@
   },
   "tags": [],
   "triggerCount": 1,
-  "updatedAt": "2026-10-11T17:13:57.111Z",
-  "versionId": "75f74277-439c-40fc-98f0-070371ff6317"
+  "updatedAt": "2026-10-14T07:45:20.667Z",
+  "versionId": "8041987e-8c3b-48ef-ba83-4f120bb5cee2"
 }

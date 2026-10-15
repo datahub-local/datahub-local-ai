@@ -151,8 +151,8 @@
         "type": "n8n-nodes-base.dataTable",
         "typeVersion": 1.1,
         "position": [
-          520,
-          96
+          632,
+          16
         ],
         "parameters": {
           "dataTableId": {
@@ -218,7 +218,7 @@
           96
         ],
         "parameters": {
-          "jsCode": "// Turn each asset into a clickable download URL. The bytes live in the TemporalFiles\n// DataTable and are served by the File Webhook, which deletes rows older than 1 hour.\n// The served shape is /webhook/<webhookId>/<path-with-param>, verified 2026-10-01\n// (a one-segment URL, /webhook/<webhookId>/<fileId>, returns 404).\nconst BASE = 'https://automation-n8n.homelab.alvsanand.com/webhook/76a3521f-8ce6-41e5-9741-a1a0d22736ff/76a3521f-8ce6-41e5-9741-a1a0d22736ff/';\nconst items = $('unpack_assets').all();\n\nreturn items.map((it) => {\n  const json = Object.assign({}, it.json);\n  delete json.DATA_BASE64;\n  json.FILE_NAME = json.ASSET_TYPE + '.' + json.FILE_EXT;\n  json.DOWNLOAD_URL = BASE + encodeURIComponent(json.FILE_ID);\n  json.DOWNLOAD_NOTE = 'link expires about an hour after the run';\n  return { json, binary: it.binary };\n});\n"
+          "jsCode": "// Turn each asset into a clickable download URL. The bytes live in the TemporalFiles\n// DataTable and are served by the File Webhook, which deletes rows older than 1 hour.\n// The served shape is /webhook/<webhookId>/<path-with-param>, verified 2026-10-01\n// (a one-segment URL, /webhook/<webhookId>/<fileId>, returns 404).\n//\n// An asset the temp-bucket server stored has no bytes here at all, so it gets no link:\n// the webhook serves rows of TemporalFiles, and a row written with an empty dataBase64\n// is a link to nothing. Its handle is the object key, which the summary reports.\nconst BASE = 'https://automation-n8n.homelab.alvsanand.com/webhook/76a3521f-8ce6-41e5-9741-a1a0d22736ff/76a3521f-8ce6-41e5-9741-a1a0d22736ff/';\nconst items = $('unpack_assets').all();\n\nreturn items.map((it) => {\n  const json = Object.assign({}, it.json);\n  delete json.DATA_BASE64;\n  json.FILE_NAME = json.ASSET_TYPE + '.' + json.FILE_EXT;\n  json.DOWNLOAD_URL = json.S3_KEY ? '' : BASE + encodeURIComponent(json.FILE_ID);\n  json.DOWNLOAD_NOTE = json.S3_KEY\n    ? 'stored by the temp-bucket server; fetch it with temp_retrieve on ' + json.S3_KEY\n    : 'link expires about an hour after the run';\n  return { json, binary: it.binary };\n});\n"
         }
       },
       {
@@ -233,6 +233,41 @@
         "parameters": {
           "jsCode": "// One item for the HTTP response, so every asset's link arrives together: responseMode\n// lastNode answers with the first item only, which hid all but the first asset.\nconst items = $('download_url').all();\nconst first = items[0].json;\nreturn [{\n  json: {\n    RUN_ID: first.RUN_ID,\n    RUN_STATUS: first.RUN_STATUS,\n    ASSET_COUNT: items.length,\n    ASSETS: items.map((i) => i.json)\n  }\n}];\n"
         }
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "loose",
+              "version": 2
+            },
+            "combinator": "and",
+            "conditions": [
+              {
+                "id": "has-bytes",
+                "leftValue": "={{ $json.DATA_BASE64 }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "string",
+                  "operation": "notEmpty",
+                  "singleValue": true
+                }
+              }
+            ]
+          },
+          "looseTypeValidation": true,
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "name": "if_has_bytes",
+        "position": [
+          520,
+          96
+        ],
+        "id": "e8c49524-d99b-421f-ba58-73d53f97ffb9"
       }
     ],
     "connections": {
@@ -284,7 +319,7 @@
         "main": [
           [
             {
-              "node": "save_file",
+              "node": "if_has_bytes",
               "type": "main",
               "index": 0
             }
@@ -307,6 +342,24 @@
           [
             {
               "node": "summary",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "if_has_bytes": {
+        "main": [
+          [
+            {
+              "node": "save_file",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "download_url",
               "type": "main",
               "index": 0
             }
@@ -372,7 +425,7 @@
       "main": [
         [
           {
-            "node": "save_file",
+            "node": "if_has_bytes",
             "type": "main",
             "index": 0
           }
@@ -395,6 +448,24 @@
         [
           {
             "node": "summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if_has_bytes": {
+      "main": [
+        [
+          {
+            "node": "save_file",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "download_url",
             "type": "main",
             "index": 0
           }
@@ -556,8 +627,8 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
       "position": [
-        520,
-        96
+        632,
+        16
       ],
       "parameters": {
         "dataTableId": {
@@ -623,7 +694,7 @@
         96
       ],
       "parameters": {
-        "jsCode": "// Turn each asset into a clickable download URL. The bytes live in the TemporalFiles\n// DataTable and are served by the File Webhook, which deletes rows older than 1 hour.\n// The served shape is /webhook/<webhookId>/<path-with-param>, verified 2026-10-01\n// (a one-segment URL, /webhook/<webhookId>/<fileId>, returns 404).\nconst BASE = 'https://automation-n8n.homelab.alvsanand.com/webhook/76a3521f-8ce6-41e5-9741-a1a0d22736ff/76a3521f-8ce6-41e5-9741-a1a0d22736ff/';\nconst items = $('unpack_assets').all();\n\nreturn items.map((it) => {\n  const json = Object.assign({}, it.json);\n  delete json.DATA_BASE64;\n  json.FILE_NAME = json.ASSET_TYPE + '.' + json.FILE_EXT;\n  json.DOWNLOAD_URL = BASE + encodeURIComponent(json.FILE_ID);\n  json.DOWNLOAD_NOTE = 'link expires about an hour after the run';\n  return { json, binary: it.binary };\n});\n"
+        "jsCode": "// Turn each asset into a clickable download URL. The bytes live in the TemporalFiles\n// DataTable and are served by the File Webhook, which deletes rows older than 1 hour.\n// The served shape is /webhook/<webhookId>/<path-with-param>, verified 2026-10-01\n// (a one-segment URL, /webhook/<webhookId>/<fileId>, returns 404).\n//\n// An asset the temp-bucket server stored has no bytes here at all, so it gets no link:\n// the webhook serves rows of TemporalFiles, and a row written with an empty dataBase64\n// is a link to nothing. Its handle is the object key, which the summary reports.\nconst BASE = 'https://automation-n8n.homelab.alvsanand.com/webhook/76a3521f-8ce6-41e5-9741-a1a0d22736ff/76a3521f-8ce6-41e5-9741-a1a0d22736ff/';\nconst items = $('unpack_assets').all();\n\nreturn items.map((it) => {\n  const json = Object.assign({}, it.json);\n  delete json.DATA_BASE64;\n  json.FILE_NAME = json.ASSET_TYPE + '.' + json.FILE_EXT;\n  json.DOWNLOAD_URL = json.S3_KEY ? '' : BASE + encodeURIComponent(json.FILE_ID);\n  json.DOWNLOAD_NOTE = json.S3_KEY\n    ? 'stored by the temp-bucket server; fetch it with temp_retrieve on ' + json.S3_KEY\n    : 'link expires about an hour after the run';\n  return { json, binary: it.binary };\n});\n"
       }
     },
     {
@@ -638,6 +709,41 @@
       "parameters": {
         "jsCode": "// One item for the HTTP response, so every asset's link arrives together: responseMode\n// lastNode answers with the first item only, which hid all but the first asset.\nconst items = $('download_url').all();\nconst first = items[0].json;\nreturn [{\n  json: {\n    RUN_ID: first.RUN_ID,\n    RUN_STATUS: first.RUN_STATUS,\n    ASSET_COUNT: items.length,\n    ASSETS: items.map((i) => i.json)\n  }\n}];\n"
       }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "has-bytes",
+              "leftValue": "={{ $json.DATA_BASE64 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "name": "if_has_bytes",
+      "position": [
+        520,
+        96
+      ],
+      "id": "5073c69b-71d5-42d5-94d5-b697cd5161ee"
     }
   ],
   "pinData": {},

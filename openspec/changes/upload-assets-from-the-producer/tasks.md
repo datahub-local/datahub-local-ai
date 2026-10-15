@@ -150,6 +150,12 @@
       three tests; verified against the live workflow
 - [x] 7.5 `AGENTS.md`: the storage paragraph, the invariant, the credential's accepted risk,
       and the fresh-instance procedure
+- [x] 7.7 `Visual Studio Test` gates its `TemporalFiles` write on holding the bytes. An
+      agent asset arrives with a key and none, so the row the webhook serves would have
+      been written with an empty `dataBase64` and the summary would have offered a link to
+      nothing — this workflow is the way the studio is exercised by hand, so it is the
+      first place a person meets the new asset shape. `if_has_bytes` keeps the write for
+      what it does hold, and `download_url` reports the key instead of a link
 - [x] 7.6 Full suites green: 393 `pytest` in this repository, `ruff check agents/`, 41 node
       tests run with nothing installed exactly as CI does, 449 `pytest` and `ruff` in the
       MCP repository, `openspec validate --all` 15/15. Live re-read after every apply:

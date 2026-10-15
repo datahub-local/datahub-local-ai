@@ -31,6 +31,7 @@ import pytest
 WORKFLOWS = Path(__file__).resolve().parents[1] / "workflows"
 PRUNE = WORKFLOWS / "visual_studio_prune.workflow.json"
 STUDIO = WORKFLOWS / "visual_studio.workflow.json"
+TEST_WF = WORKFLOWS / "visual_studio_test.workflow.json"
 ERROR_WF = WORKFLOWS / "visual_studio_error.workflow.json"
 
 # The workflows whose node output still carries a rendered artifact, or a row holding
@@ -219,3 +220,20 @@ def test_the_error_workflow_writes_no_row_and_still_notifies():
         assert [n for n in document["nodes"] if n["type"] == "n8n-nodes-base.dataTable"] == []
         assert _targets(document, "error_trigger", 0) == ["cleanup_run"]
         assert _targets(document, "cleanup_run", 0) == ["notify_failed"]
+
+
+@pytest.mark.parametrize("label,document", list(_copies(TEST_WF)))
+def test_the_test_workflow_serves_a_link_only_for_an_asset_it_holds(label, document):
+    """A stored asset has no bytes here, and a TemporalFiles row with none is a link to nothing.
+
+    This workflow is the way the studio is exercised by hand, so it is the first place a
+    person meets the new asset shape. An agent asset arrives with a key and no bytes; the
+    gate keeps the empty row from being written and the dead link from being offered, and
+    the summary reports the key instead.
+    """
+    assert _targets(document, "unpack_assets", 0) == ["if_has_bytes"]
+    assert _targets(document, "if_has_bytes", 0) == ["save_file"], "the bytes it does hold must still be served"
+    assert _targets(document, "if_has_bytes", 1) == ["download_url"]
+    code = _nodes(document)["download_url"]["parameters"]["jsCode"]
+    assert "json.S3_KEY ? '' :" in code, "a stored asset must not be given a download link"
+    assert "S3_KEY" in _nodes(document)["unpack_assets"]["parameters"]["jsCode"]

@@ -23,6 +23,7 @@ import {
   VENDOR_ASSETS,
   DEFAULT_SESSION_WORKSPACE,
   isUploadKeyAllowed,
+  artifactUploads,
   UPLOAD_PREFIX,
 } from "../session-lib.mjs";
 
@@ -259,4 +260,39 @@ test("this module depends on nothing but node builtins", async () => {
   for (const spec of imports) {
     assert.ok(spec.startsWith("node:"), `${spec} is not a node builtin`);
   }
+});
+
+test("a turn uploads what it produced to the destinations it was given", () => {
+  const video = artifactUploads({ format: "mp4", key: "visual-studio/13356-animation.mp4" });
+  assert.deepEqual(video.uploads, [
+    { file: "out.mp4", key: "visual-studio/13356-animation.mp4", contentType: "video/mp4" },
+  ]);
+  // A deck is two files from one turn: the HTML and the video it rendered.
+  const deck = artifactUploads({
+    format: "html",
+    key: "visual-studio/13356-deck.html",
+    pairedKey: "visual-studio/13356-deck.mp4",
+  });
+  assert.deepEqual(deck.uploads.map((u) => u.file), ["out.html", "out.mp4"]);
+  assert.equal(deck.uploads[1].contentType, "video/mp4");
+  // A caller that names no destination stores nothing and is answered as before.
+  assert.deepEqual(artifactUploads({ format: "mp4" }).uploads, []);
+  assert.deepEqual(artifactUploads({}).uploads, []);
+});
+
+test("a destination outside the prefix is refused, not uploaded", () => {
+  // The key arrives from the request and this process holds a live credential, so a
+  // key that is not under the prefix is an error rather than something to write.
+  const bad = artifactUploads({ format: "mp4", key: "other-bucket/evil.mp4" });
+  assert.match(bad.error, /refusing to write/);
+  assert.equal(bad.uploads, undefined);
+  const nested = artifactUploads({ format: "mp4", key: "visual-studio/nested/x.mp4" });
+  assert.match(nested.error, /refusing to write/);
+  // The paired destination is checked too, not just the primary one.
+  const paired = artifactUploads({
+    format: "html",
+    key: "visual-studio/ok.html",
+    pairedKey: "elsewhere/evil.mp4",
+  });
+  assert.match(paired.error, /refusing to write/);
 });

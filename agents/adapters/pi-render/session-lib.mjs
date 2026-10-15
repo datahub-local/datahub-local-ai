@@ -268,3 +268,28 @@ export function isUploadKeyAllowed(key) {
   // key is invisible to the same listing.
   return !name.includes("/") && !name.includes("..") && !/\s/.test(name);
 }
+
+// What a finished turn must write, given the format it produced and the destinations
+// the caller named. Pure, so the decision is tested with nothing installed; the PUT
+// itself is the server's.
+//
+// A deck is two files from one turn -- the HTML and the video the same turn rendered --
+// so a caller that names a destination for the deck names one for the video as well.
+export function artifactUploads({ format, key, pairedKey } = {}) {
+  const f = safeFormat(format);
+  const uploads = [];
+  if (key) {
+    if (!isUploadKeyAllowed(key)) {
+      return { error: `refusing to write ${key} outside ${UPLOAD_PREFIX}` };
+    }
+    const name = artifactName(f);
+    uploads.push({ file: name, key, contentType: contentTypeFor(name) });
+  }
+  if (f === "html" && pairedKey) {
+    if (!isUploadKeyAllowed(pairedKey)) {
+      return { error: `refusing to write ${pairedKey} outside ${UPLOAD_PREFIX}` };
+    }
+    uploads.push({ file: "out.mp4", key: pairedKey, contentType: contentTypeFor("out.mp4") });
+  }
+  return { uploads };
+}

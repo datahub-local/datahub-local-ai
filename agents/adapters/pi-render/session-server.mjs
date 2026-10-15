@@ -31,6 +31,7 @@ import {
   safeSessionId,
   safeFormat,
   artifactName,
+  artifactUploads,
   runDir as resolveRunDir,
   resolveArtifact,
   contentTypeFor,
@@ -278,6 +279,63 @@ function runPi(prompt, sessionID, onOutput, signal, cwd = workDir) {
   });
 }
 
+// The artifact this process rendered is written straight to object storage, so no
+// workflow ever carries its bytes: n8n persists an execution's node outputs, and a
+// workflow whose payload is the asset would store the asset as well as the object.
+//
+// The SDK is imported lazily and only when a destination was named. The CI job that
+// runs this directory's tests spawns this file with nothing installed, so a top-level
+// import of a dependency would fail there as a module-not-found.
+let storagePromise = null;
+
+function storageClient() {
+  if (!storagePromise) {
+    storagePromise = import("@aws-sdk/client-s3").then(
+      (mod) => ({
+        put: mod.PutObjectCommand,
+        client: new mod.S3Client({
+          endpoint: process.env.PI_RENDER_S3_ENDPOINT,
+          region: process.env.PI_RENDER_S3_REGION || "homelab",
+          // Garage serves S3 path-style on its own endpoint, not as subdomains.
+          forcePathStyle: true,
+        }),
+      }),
+      (err) => {
+        storagePromise = null;
+        throw err;
+      }
+    );
+  }
+  return storagePromise;
+}
+
+// One result per destination: the key, the byte count, and -- when it failed -- the
+// reason, so a caller is never handed a key for an object that was not written.
+async function uploadArtifacts(dir, uploads) {
+  const bucket = process.env.PI_RENDER_S3_BUCKET;
+  const endpoint = process.env.PI_RENDER_S3_ENDPOINT;
+  const results = [];
+  for (const u of uploads) {
+    if (!endpoint || !bucket) {
+      results.push({
+        key: u.key,
+        bytes: 0,
+        error: "no object storage configured: set PI_RENDER_S3_ENDPOINT and PI_RENDER_S3_BUCKET",
+      });
+      continue;
+    }
+    try {
+      const { put, client } = await storageClient();
+      const body = await readFile(join(dir, u.file));
+      await client.send(new put({ Bucket: bucket, Key: u.key, Body: body, ContentType: u.contentType }));
+      results.push({ key: u.key, bytes: body.length, contentType: u.contentType });
+    } catch (err) {
+      results.push({ key: u.key, bytes: 0, error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+  return results;
+}
+
 // A bounded child process (ffmpeg) whose failure names its stderr, so a transcode
 // problem is legible rather than a bare exit code.
 function runCommand(command, args, cwd) {
@@ -357,6 +415,8 @@ http
       const request = await readJSON(req);
       const brief = promptFrom(request.messages);
       const sessionID = safeSessionId(request.session_id);
+      const s3Key = typeof request.s3_key === "string" ? request.s3_key : "";
+      const s3PairedKey = typeof request.s3_key_paired === "string" ? request.s3_key_paired : "";
       const format = safeFormat(request.format);
       const fps = Number(request.fps);
       const width = Number(request.width);
@@ -412,6 +472,15 @@ http
       // Produce the caller's requested format from the engine's out.mp4, in the
       // same run directory, before answering.
       await transcode(dir, format, { fps, width, frames, durationSeconds });
+
+      // The destinations the caller named, if any. A turn with no destination stores
+      // nothing here and is answered exactly as before; a named destination that
+      // cannot be written is reported per artifact, never dropped.
+      const planned = artifactUploads({ format, key: s3Key, pairedKey: s3PairedKey });
+      const artifacts = planned.error
+        ? [{ key: s3Key, bytes: 0, error: planned.error }]
+        : await uploadArtifacts(dir, planned.uploads);
+
       await sweepIfDue(sessionID);
 
       if (stream) {
@@ -421,6 +490,7 @@ http
           created: Math.floor(Date.now() / 1000),
           model: process.env.MODEL_NAME,
           choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+          artifacts,
         });
         if (!res.writableEnded) res.end("data: [DONE]\n\n");
         return;
@@ -431,6 +501,7 @@ http
         created: Math.floor(Date.now() / 1000),
         model: process.env.MODEL_NAME,
         choices: [{ index: 0, message: { role: "assistant", content: response }, finish_reason: "stop" }],
+        artifacts,
       });
       res.writeHead(200, { "content-type": "application/json", "content-length": Buffer.byteLength(body) }).end(body);
     } catch (err) {

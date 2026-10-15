@@ -3,10 +3,11 @@
 ## 1. Adapter: the session server uploads
 
 - [x] 1.1 `session-lib.mjs`: `UPLOAD_PREFIX` and `isUploadKeyAllowed` — the destination policy, node builtins only. A key must sit directly under `visual-studio/`: a further slash comes back as a CommonPrefix from the prune's `/`-delimited listing and is never deleted. `signS3Request` and its vectors were written, verified live against Garage, then **removed** — see `design.md`, the AWS SDK does the signing
-- [ ] 1.2 `session-server.mjs`: `@aws-sdk/client-s3` (`3.1152.0`, path-style, region `homelab`) PUTs the finished artifact to the destination the request names and returns `{key, bytes}` or the reason it failed. Measured against this Garage with the SDK's defaults: `PUT ok`, `GET ok`, `DELETE ok`
-- [ ] 1.3 `session-server.mjs`: after a turn, upload the artifact the run produced; put the key and byte count in the response, or the failure's reason
-- [ ] 1.4 `session-server.mjs`: a blank destination means no upload (a local-first run keeps working); a configured destination that fails fails the turn's report, never a silent success
-- [ ] 1.5 Env: `PI_RENDER_S3_ENDPOINT`, `_REGION`, `_BUCKET`, and the key from a mounted secret; nothing hardcoded
+- [x] 1.2 `session-server.mjs`: `@aws-sdk/client-s3` (`3.1152.0`, path-style, region `homelab`) PUTs the finished artifact to the destination the request names and returns `{key, bytes}` or the reason it failed. Measured against this Garage with the SDK's defaults: `PUT ok`, `GET ok`, `DELETE ok`
+- [x] 1.3 `session-server.mjs`: after a turn, upload the artifact the run produced; put the key and byte count in the response, or the failure's reason
+- [x] 1.4 `session-server.mjs`: a blank destination means no upload (a local-first run keeps working); a configured destination that fails fails the turn's report, never a silent success
+- [x] 1.5 Env: `PI_RENDER_S3_ENDPOINT`, `_REGION`, `_BUCKET` read in the server, credentials from the SDK's own env; nothing hardcoded. The mount itself is 2.2
+- [x] 1.7 `artifactUploads` in `session-lib.mjs`: the destination decision as a pure function — primary plus the deck's paired video, both prefix-checked — so the choice is tested with nothing installed while the PUT is the server's
 - [x] 1.6 Tests in `agents/adapters/pi-render/test/`: the prefix and nested-key refusals, and a test that `session-lib.mjs` imports only `node:` builtins — the CI job installs nothing, so a dependency there fails as a module-not-found that reads like a broken test
 
 ## 2. Cluster: reach and credential

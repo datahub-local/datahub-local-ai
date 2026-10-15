@@ -196,6 +196,79 @@ Two reference-shape facts, read off the installed nodes rather than guessed, and
 
 Consequence: the human steps in section 1 are no longer a precondition for authoring anything, only for running it.
 
+## Entry point: node plan
+
+The remaining authoring work for `Article Content Writer`, fixed here so the graph is not
+re-invented node by node. Every shape it needs already exists in `linked_in_post_sharing`
+(read, claim, `sendAndWait` double approval, the Retry/Cancel form, cancel branches, the
+publish-time row update) or in `visual_studio_test` (the DataTable write and the download
+URL), so the build is a clone-and-rewire rather than new node types.
+
+Order and wiring:
+
+1. `click_trigger` (manual) and `schedule_trigger` (schedule) → `read_article_queue`
+   (Google Sheets, `documentId` unchanged, `sheetName` by name `article_queue`).
+2. `select_article_to_queue` (Code) — the D15 predicate, lowest `row_number` first, and a row
+   already `IN_PROGRESS` with a live execution is skipped (D14).
+3. `update_status_in_progress` (Sheets update by `row_number`) — writes `STATUS` and
+   `EXECUTION_ID = $execution.id` **before** any model call, which is what makes the claim
+   single-flight and lets the error workflow find the row.
+4. `if_has_link` (If) → `download_content` (HTTP GET, `onError: continueRegularOutput`) and
+   both its outputs → `set_link_flags` (Code) — one item always, carrying `LINK_USED` and the
+   fetched text, so an unreachable link continues from topic and description and records that
+   the link was not used. The flag is set by this node, never read from `$json.error`, because
+   a non-AI node forwards its input unchanged on failure.
+5. `execute_article_creator` (Execute Workflow → `nPBkIpeObC1Om0LH`) with `MAX_WORDS`
+   `toNumber() || 1200`, `ASSET_TYPES` from the row, `SESSION_ID` `blog-<ENTRY_ID>` and
+   `FEEDBACK` from the retry form when it ran.
+6. `check_subworkflow_error` (Switch on `ERROR` empty) → error branch to
+   `stop_and_error`; success branch continues.
+7. `store_draft` (DataTable append, table by name `article_drafts`) →
+   `convert_to_file` (`convertToFile`) → `upload_draft_file` (Slack file) →
+   `update_article_drafted` (Sheets: `ARTICLE_TITLE`, `ARTICLE_REF`, `ARTICLE_ROUND`,
+   `ARTICLE_STATUS=DRAFT`, `STATUS=WAITING_APPROVAL`).
+8. `notify_article_review` (Slack `sendAndWait`, `approvalType: double`, message naming the
+   entry, the round and the uploaded file) → `switch_user_accept` → approved:
+   `execute_visual_studio`; rejected: `notification_retry_or_cancel` (`sendAndWait`
+   `customForm`, Retry/Cancel + Feedback) → `switch_user_retry` → Retry returns to step 5
+   with the feedback, Cancel → `update_status_cancelled` + `set_error_cancelled`.
+9. `execute_visual_studio` (Execute Workflow → `2pSrRNmYR2jkX1JG`) with
+   `CONTENT` = the draft body, `ASSET_TYPES` = the row's list (the `image` hero always in it),
+   `SESSION_ID` = `blog-<ENTRY_ID>`, `FEEDBACK` = the asset's own feedback when one is being
+   retried. `FORCE`/`STYLE`/`SCENES` stay blank.
+10. `split_assets` (Code) — one item per `ASSETS[]` entry, carrying `ASSET_TYPE`, `STATUS`,
+    `ERROR`, `CONTENT_TYPE`, `S3_KEY` and `FORMAT`; an entry whose `STATUS` is not `RENDERED`
+    keeps its reason and takes no review.
+11. `store_assets` (DataTable append, table by name `article_assets`, keyed `ENTRY_ID` +
+    `ASSET_TYPE`) → per asset, `fetch_asset_bytes`: the raster `image` type reads its inline
+    data URL, an agent type asks the utils server for a signed URL (`temp_retrieve`) and
+    downloads it — the shape `linked_in_post_sharing`'s video branch already uses. Both
+    converge on `upload_asset_file` (Slack file) → `notify_asset_review` (`sendAndWait`
+    double) → `switch_asset_accept` → rejected: the asset's own feedback →
+    `notification_retry_or_cancel_asset` (`sendAndWait` `customForm`) → Retry re-enters step 9
+    for that one type, Cancel retires that asset only.
+12. `all_assets_approved` (If over the asset rows) → publish:
+    `get_posts_dir` (GitHub `GET /repos/alvsanand/alvsanand/contents/docs/blog/posts`) →
+    `derive_slug` (Code, frozen on the first draft: reuse `ARTICLE_REF`'s stored slug when one
+    exists) → `build_commit_files` (Code: front matter, the asset references replacing their
+    `<!-- asset:<id> -->` markers with a default position for any marker the draft omitted,
+    one item per file) → `create_blobs` (HTTP, one POST per item) → `create_tree` →
+    `create_commit` → `patch_ref` → `record_published` (Sheets: `PUBLISHED_URL`, `COMMIT_REF`,
+    `PUBLISHED_AT`, `STATUS=PUBLISHED`, each asset row's committed path) →
+    `send_published_notification` (Slack).
+13. `Article Content Writer` sets `settings.errorWorkflow` to `Article Content Writer Error`;
+    the sub-workflows set none. The schedule stays inactive until 6.2–6.5 pass (6.6).
+
+Traps to carry into the build, all already paid for elsewhere in the repository:
+
+- The draft reaches Slack as an uploaded file: `sendAndWait` text truncates around 3000
+  characters and a 1200-word draft is several times that.
+- `binaryMode` cannot be set through the API, so it stays out of the create body.
+- Each DataTable and Sheet reference uses `mode: "name"` until the page and the tables exist,
+  then the gid/table id can be read back and swapped in one edit.
+- `saveDataErrorExecution` stays at its default; the raster hero's data URL (measured
+  943,620 bytes for one 928x1152 png) is the only asset byte this workflow ever carries.
+
 ## Live measurements (2026-10-15)
 
 `Article Creator` created live and exercised through a temporary webhook probe that was deleted

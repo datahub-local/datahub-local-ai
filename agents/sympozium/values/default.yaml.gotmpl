@@ -55,6 +55,14 @@ sympozium_pi_render:
     limits:
       cpu: "3"
       memory: 6Gi
+  objectStore:
+    secret: pi-render-s3
+    endpoint: http://datahub-local-core-data-garage.data.svc.cluster.local:3900
+    region: homelab
+    bucket: datahub-local-temp
+    mountPath: /etc/pi-render-s3
+    namespace: data
+    port: 3900
   model:
     provider: openrouter
     name: opencode-go/deepseek-v4.1-flash

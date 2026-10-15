@@ -4108,3 +4108,38 @@ Two things that are easy to get wrong on a second server:
   binds each model's table from the live warehouse scopes, so with no
   `silver.finance`/`gold.finance` tables it resolves nothing and reports that on
   first use. That is loud and per-server; the bodega registry is unaffected.
+
+## The session writes its own artifact, and the knobs that let it (2026-10-15)
+
+`sympozium_pi_render.objectStore` and the `pi-render-s3` Secret exist so the composer
+session can PUT the file it rendered straight to Garage. The reason is an invariant
+rather than a preference: **an execution n8n saves may carry an asset's coordinates and
+never its bytes.** n8n persists binaries as well as JSON — measured on this instance,
+`binary_data` is 249 MB across 903 rows and `execution_data` 1060 MB across 1405 rows in a
+1335 MB database — so a workflow that fetches the asset and uploads it stores a copy on
+the way past, and `saveDataSuccessExecution` has to stay off for it. With the producer
+uploading, the workflow only ever holds the key. The change and its alternatives are in
+`openspec/changes/upload-assets-from-the-producer/`.
+
+- **`objectStore.endpoint|region|bucket` are cluster facts and live in the values**;
+  `secret` names the Secret and `mountPath` where it is mounted. The credentials are in
+  the Secret and nowhere else, so each value has one source.
+- **The channel is the `Agent` CRD's `agents.default.env` plus `spec.volumes` /
+  `spec.volumeMounts`.** Nothing else reaches a session pod: `AgentRuntime.spec` has no
+  `env` field at all (`capabilities, celln, cellnLimits, cellnProfileRef, conformance,
+  contractVersion, image, model, resources, session, supportOwner`) and `HarnessSession`
+  has only `agentRef, desiredState, idleTimeout, runtimeRef`. The SDK reads the mounted
+  file through `AWS_SHARED_CREDENTIALS_FILE`, which is the one env value that is not a
+  secret, so it can sit in the CRD.
+- **The key is write-only on one bucket.** `GK74a98794024bf313ed887c9e` has
+  `permissions: {read: false, write: true, owner: false}` on `datahub-local-temp` —
+  verified: PUT 200, GET **403 AccessDenied**, a PUT to another bucket refused. It is
+  readable by the composer, which runs in the same pod with a shell, and that is accepted
+  rather than eliminated: the blast radius is junk in a temp bucket pruned every two
+  days. Reopen the presigned-URL design if the key ever needs to widen.
+- **The egress rule is additive.** The controller's own session policy allows
+  `{53, 443, 8080, 9473}` to any destination; `-model-egress` adds 4000 and 3900 to
+  `data`, so nothing is replaced and the sandbox gains no reach beyond Garage's S3 port.
+- **A key must sit flat under `visual-studio/`.** The prune lists that prefix with a `/`
+  delimiter, so a nested key returns as a CommonPrefix instead of an object and is never
+  deleted — it would sit in the bucket forever. The adapter refuses one.

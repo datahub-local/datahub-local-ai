@@ -69,6 +69,19 @@ spec:
       baseURL: {{ $s.model.baseURL | quote }}
       model: {{ $s.model.name | quote }}
       runTimeout: 30m
+      env:
+        PI_RENDER_S3_ENDPOINT: {{ $s.objectStore.endpoint | quote }}
+        PI_RENDER_S3_REGION: {{ $s.objectStore.region | quote }}
+        PI_RENDER_S3_BUCKET: {{ $s.objectStore.bucket | quote }}
+        AWS_SHARED_CREDENTIALS_FILE: {{ printf "%s/credentials" $s.objectStore.mountPath | quote }}
+  volumes:
+    - name: pi-render-s3
+      secret:
+        secretName: {{ $s.objectStore.secret | quote }}
+  volumeMounts:
+    - name: pi-render-s3
+      mountPath: {{ $s.objectStore.mountPath | quote }}
+      readOnly: true
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -157,5 +170,12 @@ spec:
               kubernetes.io/metadata.name: {{ $s.model.namespace }}
       ports:
         - port: {{ $s.model.port }}
+          protocol: TCP
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $s.objectStore.namespace }}
+      ports:
+        - port: {{ $s.objectStore.port }}
           protocol: TCP
 {{- end }}

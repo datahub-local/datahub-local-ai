@@ -226,3 +226,25 @@ deployed before the credential channel was measured to be closed. It is dormant:
 sends `s3_key`, so it uploads nothing and the pod holds no credential for it to use. It is
 kept for now as the record of a measured dead end, and it should be removed with the next
 adapter change rather than left as a second, unreachable way to write to the bucket.
+
+### The upload chain could not stay, and that was measured rather than reasoned
+
+The smallest-looking change to the studio was to leave `prepare_uploads`/`upload_assets`
+where they were. They convert a data URL into binary for the S3 node and skip anything
+without one, so after `agent_result` stopped building data URLs they would simply see the
+raster asset and nothing else — the raster path preserved, the agent path stored by the
+service, no graph surgery. It reads as obviously safe.
+
+It is not, and the run said so in one line: **`No item to return was found`** (execution
+13401). With an agent-only run — which is what every real run is — `prepare_uploads`
+emitted **zero items**, so `upload_assets` and `set_result` never ran and the webhook had
+nothing to answer with. A node that filters its input is a node that can empty a chain, and
+"it only skips what it does not need" is exactly the reasoning that hides it.
+
+So the chain is gone: `merge_branches` feeds `set_result` directly, the studio holds no S3
+node at all, and the raster asset keeps the data URL the image model returned. That is a
+deliberate asymmetry rather than an omission — those bytes are made *inside* n8n, so no
+store can fetch them, and nothing read the raster asset's key: the LinkedIn image path takes
+its bytes from the image creator's `omImage`. The cost is that a still run inside a
+recording workflow carries its own ~1.2 MB of `execution_data`, where an agent run carries
+none, and `test_storage_retention.py` states that rather than leaving it implied.

@@ -582,17 +582,23 @@ correctly — and when the row was emptied the table was deleted, because nothin
 read a row. `LinkedIn Post Sharing` reads the key and fetches the bytes through a signed
 URL, which is what `temp_retrieve` is for.
 
-Three things are load-bearing for the **raster** (still) path, which is unchanged and is
-the one place a run still costs its asset's bytes. `prepare_uploads`/`upload_assets` still
-handle it — they skip any asset with no data URL, which is exactly why they now see only
-the raster asset — and `set_result` prefers an asset's own key (`a.S3_KEY || s.S3_KEY`), so
-the raster upload cannot blank out a key the store already reported. `upload_assets` has
-**no `onError`**: `continueRegularOutput` forwards its input unchanged, so a failed upload
-would report a key for an object that was never written. And `list_assets` lists the prefix
-**`visual-studio/` with its trailing slash**: the S3 node's `file:getAll` sets a `/`
-delimiter, so with `visual-studio` the key's own slash makes it a CommonPrefix and the
-object is never listed (measured against the live node: 0 items, then 2). The same
-delimiter is why the store refuses a nested key. The error workflow writes no row either;
+**The studio now holds no S3 node at all**, and the raster path is why that is a decision
+rather than an omission. `prepare_uploads`/`upload_assets` were left in place at first,
+on the reasoning that they skip any asset without a data URL — which, once an agent asset
+stopped carrying one, is every agent asset, leaving them to handle the raster asset alone.
+That reasoning is wrong and the run said so in one line: with an agent-only run
+`prepare_uploads` emitted **zero items**, `upload_assets` and `set_result` never ran, and
+the webhook answered `No item to return was found` (execution 13401). A node that filters
+its input can empty a chain, so the chain is gone: `merge_branches` feeds `set_result`
+directly. A raster asset keeps the data URL the image model returned — those bytes are made
+*inside* n8n, so no store can fetch them, and nothing read its key: the LinkedIn image path
+takes its bytes from the image creator's `omImage`. A still run therefore costs its own
+~1.2 MB of `execution_data` where an agent run costs none. Two traps survive in
+`Visual Studio Prune`, which still uses the S3 node: `list_assets` lists the prefix
+**`visual-studio/` with its trailing slash**, because `file:getAll` sets a `/` delimiter and
+with `visual-studio` the key's own slash makes it a CommonPrefix, so the object is never
+listed (measured against the live node: 0 items, then 2) — the same delimiter is why the
+store refuses a nested key. The error workflow writes no row either;
 the node that used to write one (`record_failed`) carried `onError:
 continueRegularOutput` and hid its own failure the same day — the write hit the size limit,
 the workflow reported `success`, and no `FAILED` row existed for the run. Both nodes are

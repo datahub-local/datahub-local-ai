@@ -4109,37 +4109,47 @@ Two things that are easy to get wrong on a second server:
   `silver.finance`/`gold.finance` tables it resolves nothing and reports that on
   first use. That is loud and per-server; the bodega registry is unaffected.
 
-## The session writes its own artifact, and the knobs that let it (2026-10-15)
+## The session cannot be given a credential, and what that rules out (2026-10-15)
 
-`sympozium_pi_render.objectStore` and the `pi-render-s3` Secret exist so the composer
-session can PUT the file it rendered straight to Garage. The reason is an invariant
-rather than a preference: **an execution n8n saves may carry an asset's coordinates and
-never its bytes.** n8n persists binaries as well as JSON — measured on this instance,
-`binary_data` is 249 MB across 903 rows and `execution_data` 1060 MB across 1405 rows in a
-1335 MB database — so a workflow that fetches the asset and uploads it stores a copy on
-the way past, and `saveDataSuccessExecution` has to stay off for it. With the producer
-uploading, the workflow only ever holds the key. The change and its alternatives are in
+The goal was an invariant rather than a preference: **an execution n8n saves may carry an
+asset's coordinates and never its bytes.** n8n persists binaries as well as JSON, so a
+workflow that fetches a rendered asset and uploads it stores a copy on the way past, and
+`saveDataSuccessExecution` has to stay off for it. The change and its alternatives are in
 `openspec/changes/upload-assets-from-the-producer/`.
 
-- **`objectStore.endpoint|region|bucket` are cluster facts and live in the values**;
-  `secret` names the Secret and `mountPath` where it is mounted. The credentials are in
-  the Secret and nowhere else, so each value has one source.
-- **The channel is the `Agent` CRD's `agents.default.env` plus `spec.volumes` /
-  `spec.volumeMounts`.** Nothing else reaches a session pod: `AgentRuntime.spec` has no
-  `env` field at all (`capabilities, celln, cellnLimits, cellnProfileRef, conformance,
-  contractVersion, image, model, resources, session, supportOwner`) and `HarnessSession`
-  has only `agentRef, desiredState, idleTimeout, runtimeRef`. The SDK reads the mounted
-  file through `AWS_SHARED_CREDENTIALS_FILE`, which is the one env value that is not a
-  secret, so it can sit in the CRD.
-- **The key is write-only on one bucket.** `GK74a98794024bf313ed887c9e` has
-  `permissions: {read: false, write: true, owner: false}` on `datahub-local-temp` —
-  verified: PUT 200, GET **403 AccessDenied**, a PUT to another bucket refused. It is
-  readable by the composer, which runs in the same pod with a shell, and that is accepted
-  rather than eliminated: the blast radius is junk in a temp bucket pruned every two
-  days. Reopen the presigned-URL design if the key ever needs to widen.
-- **The egress rule is additive.** The controller's own session policy allows
-  `{53, 443, 8080, 9473}` to any destination; `-model-egress` adds 4000 and 3900 to
-  `data`, so nothing is replaced and the sandbox gains no reach beyond Garage's S3 port.
-- **A key must sit flat under `visual-studio/`.** The prune lists that prefix with a `/`
-  delimiter, so a nested key returns as a CommonPrefix instead of an object and is never
-  deleted — it would sit in the bucket forever. The adapter refuses one.
+Three things were measured on 2026-10-15, and together they close the obvious routes:
+
+- **A session pod cannot be given env or a volume.** `AgentRuntime.spec` has no `env`
+  field at all (`capabilities, celln, cellnLimits, cellnProfileRef, conformance,
+  contractVersion, image, model, resources, session, supportOwner`), `HarnessSession.spec`
+  has only `agentRef, desiredState, idleTimeout, runtimeRef`, and `Agent.spec.session` is
+  `port`/`protocol`. `Agent.spec.agents.default.env` and `spec.volumes`/`volumeMounts` look
+  like the answer — the CRD describes them as reaching "the agent-runner container of every
+  AgentRun" — and they do **not** reach a session: the chart carried them, the app synced,
+  the pod was deleted so the controller rebuilt it, and the fresh pod still had no env and
+  only the `tmp` mount. Its only secret channel is `authRefs[].secret`, which sets a fixed
+  set of provider env names. **The chart knobs were reverted rather than left dead.**
+- **n8n as the courier stores the bytes.** `Visual Studio Test` was set to
+  `saveDataSuccessExecution: all` and run once on the still path: `binary_data` went from
+  900 rows to **906** and its payload grew by ~1 MB. So the bytes land in n8n even when
+  they travel as binary, which is what the invariant forbids. (Same day, the same setting
+  was restored to `none`.)
+- **An n8n Code node cannot move the bytes itself.** It can `require('@aws-sdk/client-s3')`
+  — the SDK is present in the image and the task runner allows it — but the sandbox has no
+  `fetch` and no `process.env`, so one node cannot fetch the artifact and PUT it without
+  the bytes becoming a node output. (`crypto` is disallowed; that is why n8n cannot sign a
+  presigned URL either.)
+
+What is left is a **carrier whose own execution is not saved**: a small workflow, called by
+the studio, that fetches and uploads and returns the key, with
+`saveDataSuccessExecution: none`. The studio then holds coordinates only and can record its
+successful runs. `LinkedIn Post Sharing` and the image creator must keep `none` regardless
+— they hold the bytes to publish them, and that is the one place a copy in n8n is
+unavoidable.
+
+Pieces already in place for that: the Garage key `GK74a98794024bf313ed887c9e` is
+**write-only** on `datahub-local-temp` (`permissions: {read: false, write: true, owner:
+false}` — verified PUT 200, GET **403 AccessDenied**, another bucket refused) and lives in
+the Secret `pi-render-s3` in `automation`, which is currently mounted nowhere. A key must
+sit **flat** under `visual-studio/`: the prune lists that prefix with a `/` delimiter, so a
+nested key returns as a CommonPrefix instead of an object and is never deleted.

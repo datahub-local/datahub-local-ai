@@ -1541,20 +1541,6 @@
         }
       },
       {
-        "id": "28a628e2-dc66-49d0-b786-caf27fce9b7f",
-        "name": "stop_and_error",
-        "type": "n8n-nodes-base.stopAndError",
-        "typeVersion": 1,
-        "position": [
-          11392,
-          -1632
-        ],
-        "parameters": {
-          "errorType": "errorMessage",
-          "errorMessage": "={{ $json.ERROR || $json.error || 'post failed' }} ({{ $('select_article_to_post').item.json.URL }})"
-        }
-      },
-      {
         "id": "7331acf8-870a-42eb-8579-dcd40443bc14",
         "name": "send_2_linkedin_omImage",
         "type": "n8n-nodes-base.linkedIn",
@@ -3075,7 +3061,7 @@
         "main": [
           [
             {
-              "node": "stop_and_error",
+              "node": "send_error_notification",
               "type": "main",
               "index": 0
             }
@@ -3647,7 +3633,7 @@
       "main": [
         [
           {
-            "node": "stop_and_error",
+            "node": "send_error_notification",
             "type": "main",
             "index": 0
           }
@@ -5562,20 +5548,6 @@
           "id": "pGARJmt50qz64xOo",
           "name": "Google Sheets account"
         }
-      }
-    },
-    {
-      "id": "939bb31c-0d9b-49cf-945b-3013c366c509",
-      "name": "stop_and_error",
-      "type": "n8n-nodes-base.stopAndError",
-      "typeVersion": 1,
-      "position": [
-        11392,
-        -1632
-      ],
-      "parameters": {
-        "errorType": "errorMessage",
-        "errorMessage": "={{ $json.ERROR || $json.error || 'post failed' }} ({{ $('select_article_to_post').item.json.URL }})"
       }
     },
     {

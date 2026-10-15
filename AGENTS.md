@@ -619,8 +619,13 @@ asset's size as surely as one that carries it as a data URL. Recording is safe o
 only while its graph carries no bytes, which is what
 `agents/n8n/scripts/test_storage_retention.py` asserts: it splits the workflows that may
 record from those that must not, and fails if a data URL or a `fetch_artifact` returns to
-the studio. `openspec/changes/upload-assets-from-the-producer/` is the record, including the
-three measurements that closed the other shapes.
+the studio. **Measured 2026-10-15, execution 13406**: a run that produced a 9,326,134-byte
+asset recorded a **13 kB** payload holding the key — where run 13356 recorded 80,838,754
+characters for the same asset as a data URL — and `binary_data` gained no row for it. The
+four binary rows a studio run does add are its `DownloadTemplate` children fetching the
+config files, ~10 kB in total, which is a pre-existing cost of that fetch.
+`openspec/changes/upload-assets-from-the-producer/` is the record, including the three
+measurements that closed the other shapes.
 
 **Verification is manual — there is no CI coverage for n8n.** The claims above were checked
 by POSTing to the live webhook and by `--require-edge` graph checks. Read the live workflow

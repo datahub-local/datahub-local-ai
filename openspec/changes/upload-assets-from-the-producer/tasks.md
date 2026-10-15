@@ -113,10 +113,16 @@
 - [x] 5.1 `saveDataSuccessExecution: all` on `Visual Studio`; it stays `none` on
       `Visual Studio Test`, `LinkedIn Post Sharing` and `Visual Studio Prune`, whose
       payload still is an asset
-- [ ] 5.2 **Measure the bound**: one composer run with `execution_data` and `binary_data`
-      before and after. The run must move neither by an asset's size — the studio's
-      execution is recorded and holds no bytes
-- [ ] 5.3 Record the measured numbers in this change, and the invariant in `AGENTS.md`
+- [x] 5.2 **Measured, 2026-10-15, execution 13406** (`Visual Studio`, `ASSET_TYPES=animation_linkedin_video`,
+      399 s, `STATUS: COMPLETE`). The studio's own recorded payload is **13 kB** for an asset of
+      **9,326,134 bytes** — against run 13356's **80,838,754 characters** for the same asset as a
+      data URL. `binary_data` gained **no row for the asset**; the four rows a studio run does
+      add are its `DownloadTemplate` children fetching `brand.json`, `visual_motion_rules.md`,
+      `visual_forms.md` and `visual_types.json` as binary, 1.2–4.4 kB each, ~10 kB a run — a
+      pre-existing cost of the config fetch, unchanged by this work and bounded by its own size.
+      The object was then fetched back through `temp_retrieve`: 200, 9,326,134 bytes,
+      `video/mp4`, md5 `daeff23fc1c6`
+- [x] 5.3 The numbers are above and in `AGENTS.md`'s storage paragraph
 
 ## 6. Still path (open, and now explicitly a non-goal of the animated change)
 

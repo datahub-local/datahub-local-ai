@@ -14,6 +14,15 @@ sympozium_mcp_servers:
     ingressServiceLabel: exported_service
     ingressServiceStripPattern: (-[0-9a-f]{16,})?@[a-z]+$
 
+  utils:
+    enabled: true
+    image: ghcr.io/datahub-local/mcp-utils
+    tag: main
+    toolsPrefix: utils
+    observabilityEnv: false
+    kubernetesReader: false
+    envSecret: mcp-utils-s3
+
   semantic:
     enabled: true
     image: ghcr.io/datahub-local/mcp-semantic

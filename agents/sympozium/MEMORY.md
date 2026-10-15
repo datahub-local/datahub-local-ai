@@ -4140,16 +4140,42 @@ Three things were measured on 2026-10-15, and together they close the obvious ro
   the bytes becoming a node output. (`crypto` is disallowed; that is why n8n cannot sign a
   presigned URL either.)
 
-What is left is a **carrier whose own execution is not saved**: a small workflow, called by
-the studio, that fetches and uploads and returns the key, with
-`saveDataSuccessExecution: none`. The studio then holds coordinates only and can record its
-successful runs. `LinkedIn Post Sharing` and the image creator must keep `none` regardless
-— they hold the bytes to publish them, and that is the one place a copy in n8n is
-unavoidable.
+The resolution is neither of those: **the bytes move through a service, not through a
+workflow.** `datahub-local-ai-mcp` gained a third server, `utils`, with two tools —
+`temp_store(source_url, key)` fetches a URL and writes it to the bucket, and
+`temp_retrieve(key)` signs a short-lived download URL. The workflow calls `temp_store`
+with the session's own `/artifacts/...` URL and receives `key=<object> bytes=<size>
+content-type=<type>`; it never holds the file. That is what lets the studio record a
+successful run again.
 
-Pieces already in place for that: the Garage key `GK74a98794024bf313ed887c9e` is
-**write-only** on `datahub-local-temp` (`permissions: {read: false, write: true, owner:
-false}` — verified PUT 200, GET **403 AccessDenied**, another bucket refused) and lives in
-the Secret `pi-render-s3` in `automation`, which is currently mounted nowhere. A key must
-sit **flat** under `visual-studio/`: the prune lists that prefix with a `/` delimiter, so a
-nested key returns as a CommonPrefix instead of an object and is never deleted.
+The pieces, and where each decision lives:
+
+- **`sympozium_mcp_servers.utils`** in the values: the image, `toolsPrefix: utils`, no
+  observability env and no Kubernetes reader (it reads neither), and
+  `envSecret: mcp-utils-s3`. The `envSecret` knob is new in `mcpservers.yaml` and is the
+  whole of it: one `envFrom` so a server that needs a credential takes it from one Secret
+  rather than a key-per-knob list in the chart.
+- **The Secret is `mcp-utils-s3`** in `automation`, holding `TEMP_S3_ENDPOINT`,
+  `TEMP_S3_REGION`, `TEMP_BUCKET`, `TEMP_PREFIX` and the two AWS values. The first four
+  are deployment facts the server has no default for: a guessed endpoint or bucket writes
+  to somewhere nobody prunes. `TEMP_PREFIX` is `visual-studio/`, the one prefix this
+  deployment owns.
+- **The key is `GK74a98794024bf313ed887c9e`, read+write on `datahub-local-temp` alone**
+  (`permissions: {read: true, write: true, owner: false}` — widened from write-only on
+  2026-10-15, because `temp_retrieve` signs with the same key and Garage refuses a signed
+  GET made with a key that cannot read). Verified: PUT 200, and a PUT to another bucket
+  refused. It is held by this one server and by nothing else — in particular **not by the
+  session pod**, which is why the sandbox cannot write to the bucket at all.
+- **The session's callers policy admits `mcpserver` / `<release>-mcp-utils`** on 8080, so
+  the server can fetch a finished artifact. Named by instance rather than by `mcpserver`
+  generally: the artifacts are readable by the caller and by this one server.
+- **A key must sit flat under the prefix.** The prune lists `visual-studio/` with a `/`
+  delimiter, so a nested key returns as a CommonPrefix instead of an object and is never
+  deleted. The rule is enforced in the server (`mcp_runner/s3.py`), not in the caller.
+
+The carrier was rejected on measurement rather than on taste: one still-path run with
+`saveDataSuccessExecution: all` took `binary_data` from 900 rows to **906** and grew its
+payload by ~1 MB, so a workflow that fetches and uploads stores the asset as surely as one
+that carries it in JSON. `LinkedIn Post Sharing` and the image creator keep `none`
+regardless — they hold the bytes to publish them, and that is the one copy in n8n that is
+unavoidable.

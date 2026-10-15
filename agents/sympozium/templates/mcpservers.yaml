@@ -195,6 +195,11 @@ spec:
                   optional: true
 {{-       end }}
 {{-     end }}
+{{-     if $server.envSecret }}
+          envFrom:
+            - secretRef:
+                name: {{ $server.envSecret | quote }}
+{{-     end }}
           ports:
             - name: http
               containerPort: 8080

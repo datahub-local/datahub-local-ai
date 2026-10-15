@@ -132,6 +132,14 @@ spec:
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: n8n
+        # The temp-bucket server fetches a finished artifact from this session and
+        # stores it, which is what keeps the bytes out of the workflow that asked
+        # for it. Named by instance rather than by `mcpserver`: the artifacts are
+        # readable by the caller and by this one server, and by nothing else.
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: mcpserver
+              app.kubernetes.io/instance: {{ printf "%s-mcp-utils" $.Values.release_name }}
       ports:
         - port: 8080
           protocol: TCP

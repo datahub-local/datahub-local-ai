@@ -187,6 +187,15 @@ There is no automated test for an n8n workflow in this repository. Verification 
 5. Wire `settings.errorWorkflow` to `Article Content Writer Error`, verify it clears and notifies, then activate the schedule.
 6. Rollback: deactivate the workflow (schedule stops), set the live row back to `QUEUE`; revert the `alvsanand` commit if one was published in error. No cluster state is involved.
 
+## Gate findings (authoring)
+ 
+Two reference-shape facts, read off the installed nodes rather than guessed, and both came out of a blocker: the entry point's sheet page and the two Data Tables do not exist yet, so an export that could only name them by numeric id could not be authored at all.
+
+- **A Google Sheet can be addressed by name.** `Google/Sheet/v2`'s `sheetName` resource locator supports `{__rl: true, mode: "name", value: "<title>"}`, and the node's own builder hint says a title placed in `list` or `id` mode cannot resolve. The LinkedIn exports use `mode: "list"` with the gid because they were built against a live page. Neither name nor gid is stable-forever, but the name is the one the change itself specifies for the page, so the exports use it until the page exists and a gid can be read.
+- **A Data Table can be addressed by name too.** `DataTable`'s `dataTableId` locator declares modes `list` and `name` (`common/fields.js`). So `article_drafts` and `article_assets` can be wired before either table is created.
+
+Consequence: the human steps in section 1 are no longer a precondition for authoring anything, only for running it.
+
 ## Live measurements (2026-10-15)
 
 `Article Creator` created live and exercised through a temporary webhook probe that was deleted

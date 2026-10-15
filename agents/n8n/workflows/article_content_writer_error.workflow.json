@@ -1,0 +1,401 @@
+{
+  "connections": {
+    "error_trigger": {
+      "main": [
+        [
+          {
+            "node": "set_workflow_vars",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "set_workflow_vars": {
+      "main": [
+        [
+          {
+            "node": "if_workflow_id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if_workflow_id": {
+      "main": [
+        [
+          {
+            "node": "read_article_queue_error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "read_article_queue_error": {
+      "main": [
+        [
+          {
+            "node": "select_row_with_error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "select_row_with_error": {
+      "main": [
+        [
+          {
+            "node": "if_row_found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if_row_found": {
+      "main": [
+        [
+          {
+            "node": "update_row_error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "set_error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "update_row_error": {
+      "main": [
+        [
+          {
+            "node": "set_error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "set_error": {
+      "main": [
+        [
+          {
+            "node": "send_error_notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "name": "Article Content Writer Error",
+  "nodes": [
+    {
+      "id": "c1a00001-0001-4001-8001-000000000001",
+      "name": "error_trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        320,
+        -144
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "c1a00001-0001-4001-8001-000000000002",
+      "name": "set_workflow_vars",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        528,
+        -144
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "4aedb9d3-9e5c-4788-8c8d-a88e0c3008a8",
+              "name": "workflowId",
+              "value": "={{ $json.execution.parentExecutionId | $json.execution.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "c1a00001-0001-4001-8001-000000000003",
+      "name": "if_workflow_id",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        752,
+        -144
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ca5ec2a2-2500-423f-87af-e857881437c5",
+              "leftValue": "={{ $json.workflowId }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "c1a00001-0001-4001-8001-000000000004",
+      "name": "read_article_queue_error",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        976,
+        -144
+      ],
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI",
+          "mode": "list",
+          "cachedResultName": "content_planner",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "article_queue",
+          "mode": "name",
+          "cachedResultName": "article_queue"
+        },
+        "options": {
+          "dataLocationOnSheet": {
+            "values": {
+              "rangeDefinition": "detectAutomatically",
+              "readRowsUntil": "firstEmptyRow"
+            }
+          }
+        }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "pGARJmt50qz64xOo",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "c1a00001-0001-4001-8001-000000000005",
+      "name": "select_row_with_error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        -144
+      ],
+      "parameters": {
+        "jsCode": "// The row the failed run claimed, matched by the execution id the entry point wrote\n// when it claimed it. When nothing matches, one item still leaves here carrying\n// NO_ROW, because otherwise the Sheet update, the Slack notice and the whole error\n// path would each run zero times and the failure would be invisible -- which is the\n// class of bug this workflow exists for: n8n logs no line at all for a failed\n// execution at log_level info, so nobody would ever hear about it.\nconst wfId = String($('set_workflow_vars').first().json.workflowId || '');\nconst rows = $input.all().map((i) => i.json);\nconst hit = rows.find((r) => String(r.EXECUTION_ID || '').trim() === wfId) || null;\nif (hit) return [{ json: Object.assign({}, hit, { NO_ROW: false }) }];\nconsole.warn('no article_queue row carries EXECUTION_ID ' + wfId);\nreturn [{ json: { NO_ROW: true, row_number: '', ENTRY_ID: '', TOPIC: '' } }];\n"
+      }
+    },
+    {
+      "id": "c1a00001-0001-4001-8001-000000000006",
+      "name": "if_row_found",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1424,
+        -144
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "row-found",
+              "leftValue": "={{ !$json.NO_ROW }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "c1a00001-0001-4001-8001-000000000007",
+      "name": "update_row_error",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        1648,
+        -272
+      ],
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI",
+          "mode": "list",
+          "cachedResultName": "content_planner",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "article_queue",
+          "mode": "name",
+          "cachedResultName": "article_queue"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "row_number": "={{ $('select_row_with_error').item.json.row_number }}",
+            "STATUS": "ERROR",
+            "ERROR": "={{ $('error_trigger').item.json.execution.error.message }}",
+            "UPDATE_DATE": "={{ (new Date()).toISOString() }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "STATUS",
+              "displayName": "STATUS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "ERROR",
+              "displayName": "ERROR",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "UPDATE_DATE",
+              "displayName": "UPDATE_DATE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "pGARJmt50qz64xOo",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "c1a00001-0001-4001-8001-000000000008",
+      "name": "set_error",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1872,
+        -144
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6a77a0ee-e904-467b-9f9f-e04aa3ddf203",
+              "name": "ERROR",
+              "value": "={{ $('error_trigger').item.json.execution.error.message }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "c1a00001-0001-4001-8001-000000000009",
+      "name": "send_error_notification",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        2096,
+        -144
+      ],
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C08RQNXQV3P",
+          "mode": "list",
+          "cachedResultName": "workflows"
+        },
+        "text": "=Article Content Writer failed{{ $json.row_number ? ' on row ' + $json.row_number : '' }}{{ $json.TOPIC ? ' - ' + $json.TOPIC : '' }}: {{ $json.ERROR }} | run: {{ $('error_trigger').item.json.execution.url }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": true
+        }
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "DszMmPE7WwOjHQjz",
+          "name": "Slack account"
+        }
+      }
+    }
+  ],
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  }
+}

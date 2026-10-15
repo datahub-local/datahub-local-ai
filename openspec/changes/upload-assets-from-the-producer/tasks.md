@@ -150,6 +150,13 @@
       three tests; verified against the live workflow
 - [x] 7.5 `AGENTS.md`: the storage paragraph, the invariant, the credential's accepted risk,
       and the fresh-instance procedure
+- [x] 7.8 `$env.MCP_UTILS_URL` verified inside an **HTTP Request** node's expression, which
+      is the one part of the publish path that could not be reached without a live post.
+      A probe workflow with the same node type and the same expression shape
+      (`{{ ($env.MCP_UTILS_URL || '') + '/mcp' }}` plus a `JSON.stringify` body) called
+      `temp_retrieve` and got the signed URL back, so the variable resolves there exactly
+      as it does in the Code nodes that already used `$env`. The probe was deleted; it is
+      live-only and never entered an export
 - [x] 7.7 `Visual Studio Test` gates its `TemporalFiles` write on holding the bytes. An
       agent asset arrives with a key and none, so the row the webhook serves would have
       been written with an empty `dataBase64` and the summary would have offered a link to

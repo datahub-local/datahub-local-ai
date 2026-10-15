@@ -593,7 +593,8 @@ its input can empty a chain, so the chain is gone: `merge_branches` feeds `set_r
 directly. A raster asset keeps the data URL the image model returned — those bytes are made
 *inside* n8n, so no store can fetch them, and nothing read its key: the LinkedIn image path
 takes its bytes from the image creator's `omImage`. A still run therefore costs its own
-~1.2 MB of `execution_data` where an agent run costs none. Two traps survive in
+data URL in `execution_data` where an agent run costs none — **2,330 kB measured** on
+2026-10-15 (execution 13417, a 1080x1350 PNG), against the 12-13 kB an agent run records. Two traps survive in
 `Visual Studio Prune`, which still uses the S3 node: `list_assets` lists the prefix
 **`visual-studio/` with its trailing slash**, because `file:getAll` sets a `/` delimiter and
 with `visual-studio` the key's own slash makes it a CommonPrefix, so the object is never

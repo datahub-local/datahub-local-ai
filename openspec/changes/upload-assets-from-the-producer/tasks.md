@@ -123,6 +123,20 @@
       The object was then fetched back through `temp_retrieve`: 200, 9,326,134 bytes,
       `video/mp4`, md5 `daeff23fc1c6`
 - [x] 5.3 The numbers are above and in `AGENTS.md`'s storage paragraph
+- [x] 5.4 **The two paths that had no coverage at all, run 2026-10-15.** A **deck**
+      (execution 13423, 212 s) returned **two** assets — `deck` at
+      `visual-studio/13423-deck.html`, 9,185 bytes, `text/html`, and `deck_video` at
+      `visual-studio/13423-deck.mp4`, 1,960,348 bytes, `video/mp4`, both named and neither
+      carrying bytes — and both fetched back through `temp_retrieve` at exactly those
+      sizes. This is the first time the paired store has ever executed. Reading the old
+      graph, its `agent_result` took its input from the paired fetch, whose binary is under
+      `paired`, and then tested for `data`, so it looks like it could only have reported an
+      ERROR for the primary asset; that is a reading of the code rather than a measurement,
+      which is why this run mattered. A **still** run (execution 13417, 27 s) returned its
+      raster asset with `IMAGE: data:image/png;base64,…` and reached `set_result` — the
+      regression that removing the upload chain could have caused — at a measured
+      **2,330 kB** of `execution_data`, which corrects the ~1.2 MB this change had
+      estimated. `TemporalFiles` still holds one row, from a still run before the change
 
 ## 6. Still path (open, and now explicitly a non-goal of the animated change)
 

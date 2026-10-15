@@ -246,5 +246,6 @@ node at all, and the raster asset keeps the data URL the image model returned. T
 deliberate asymmetry rather than an omission — those bytes are made *inside* n8n, so no
 store can fetch them, and nothing read the raster asset's key: the LinkedIn image path takes
 its bytes from the image creator's `omImage`. The cost is that a still run inside a
-recording workflow carries its own ~1.2 MB of `execution_data`, where an agent run carries
-none, and `test_storage_retention.py` states that rather than leaving it implied.
+recording workflow carries its own data URL in `execution_data` where an agent run carries
+none — 2,330 kB measured (execution 13417) against 12-13 kB — and
+`test_storage_retention.py` states that rather than leaving it implied.

@@ -22,9 +22,6 @@ import {
   expiredTranscripts,
   VENDOR_ASSETS,
   DEFAULT_SESSION_WORKSPACE,
-  isUploadKeyAllowed,
-  artifactUploads,
-  UPLOAD_PREFIX,
 } from "../session-lib.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -213,86 +210,16 @@ test("expiredTranscripts sweeps only this server's old transcripts", () => {
   ]);
 });
 
-// --- S3 upload policy ------------------------------------------------------------
-//
-// The session server writes the artifact itself, so no workflow carries the bytes and
-// `saveDataSuccessExecution` can be on. The request is signed and sent by the AWS SDK
-// in the server; what lives here is the policy that decides whether a destination may
-// be written at all.
-
-test("a key may only be written under the upload prefix", () => {
-  assert.equal(UPLOAD_PREFIX, "visual-studio/");
-  assert.ok(isUploadKeyAllowed("visual-studio/13356-animation.mp4"));
-  assert.ok(isUploadKeyAllowed("visual-studio/13356-deck.mp4"));
-  for (const bad of [
-    "other-prefix/x.mp4",
-    "visual-studio/",
-    "",
-    "visual-studio/../secret",
-    "visual-studio/a//b.mp4",
-    "visual-studio/a b.mp4",
-    "visual-studiox/y.mp4",
-    undefined,
-    null,
-  ]) {
-    assert.equal(isUploadKeyAllowed(bad), false, `accepted ${String(bad)}`);
-  }
-});
-
-test("a nested key is refused because the prune could never delete it", () => {
-  // The prune lists `visual-studio/` with a '/' delimiter, so `visual-studio/nested/x`
-  // comes back as a CommonPrefix and not as an object: the listing never names it and
-  // the delete never reaches it. Allowing one would be a permanent object in a bucket
-  // whose whole retention story is a two-day window.
-  assert.equal(isUploadKeyAllowed("visual-studio/nested/deck.html"), false);
-  assert.equal(isUploadKeyAllowed("visual-studio/a/b/c.mp4"), false);
-});
-
 test("this module depends on nothing but node builtins", async () => {
-  // The CI job for this directory runs `node --test` with no `npm ci`, which is why the
-  // S3 request is signed and sent in session-server.mjs rather than here: the SDK is a
-  // dependency, and anything that needs one cannot live in a file these tests import.
-  // A bare import would fail that job, and the failure would look like a broken test
-  // rather than a misplaced dependency.
+  // The CI job for this directory runs `node --test` with no `npm ci`, so anything
+  // needing a dependency cannot live in a file these tests import: a bare import would
+  // fail that job, and the failure would look like a broken test rather than a misplaced
+  // dependency. The one dependency this directory had - the S3 client, for an upload the
+  // platform cannot supply a credential for - is gone.
   const source = await readFile(join(here, "..", "session-lib.mjs"), "utf8");
   const imports = [...source.matchAll(/^import[^;]*from\s+"([^"]+)"/gm)].map((m) => m[1]);
   assert.ok(imports.length > 0, "no imports found; the pattern is stale");
   for (const spec of imports) {
     assert.ok(spec.startsWith("node:"), `${spec} is not a node builtin`);
   }
-});
-
-test("a turn uploads what it produced to the destinations it was given", () => {
-  const video = artifactUploads({ format: "mp4", key: "visual-studio/13356-animation.mp4" });
-  assert.deepEqual(video.uploads, [
-    { file: "out.mp4", key: "visual-studio/13356-animation.mp4", contentType: "video/mp4" },
-  ]);
-  // A deck is two files from one turn: the HTML and the video it rendered.
-  const deck = artifactUploads({
-    format: "html",
-    key: "visual-studio/13356-deck.html",
-    pairedKey: "visual-studio/13356-deck.mp4",
-  });
-  assert.deepEqual(deck.uploads.map((u) => u.file), ["out.html", "out.mp4"]);
-  assert.equal(deck.uploads[1].contentType, "video/mp4");
-  // A caller that names no destination stores nothing and is answered as before.
-  assert.deepEqual(artifactUploads({ format: "mp4" }).uploads, []);
-  assert.deepEqual(artifactUploads({}).uploads, []);
-});
-
-test("a destination outside the prefix is refused, not uploaded", () => {
-  // The key arrives from the request and this process holds a live credential, so a
-  // key that is not under the prefix is an error rather than something to write.
-  const bad = artifactUploads({ format: "mp4", key: "other-bucket/evil.mp4" });
-  assert.match(bad.error, /refusing to write/);
-  assert.equal(bad.uploads, undefined);
-  const nested = artifactUploads({ format: "mp4", key: "visual-studio/nested/x.mp4" });
-  assert.match(nested.error, /refusing to write/);
-  // The paired destination is checked too, not just the primary one.
-  const paired = artifactUploads({
-    format: "html",
-    key: "visual-studio/ok.html",
-    pairedKey: "elsewhere/evil.mp4",
-  });
-  assert.match(paired.error, /refusing to write/);
 });

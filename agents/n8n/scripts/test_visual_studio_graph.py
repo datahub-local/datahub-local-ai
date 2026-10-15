@@ -91,11 +91,13 @@ def test_the_raster_branch_reaches_the_merge(label, doc):
     assert _targets(doc, "generate_image", 0) == ["raster_result"]
     assert _targets(doc, "raster_result", 0) == ["merge_branches"]
     assert _targets(doc, "ready_pass", 0) == ["merge_branches"]
-    # The merged assets are stored in Garage before the response is built, so the
-    # response can name the object each asset was written to.
-    assert _targets(doc, "merge_branches", 0) == ["prepare_uploads"]
-    assert _targets(doc, "prepare_uploads", 0) == ["upload_assets"]
-    assert _targets(doc, "upload_assets", 0) == ["set_result"]
+    # The merged assets go straight to the response. Nothing in this graph uploads: an
+    # agent asset is stored by the temp-bucket server and arrives here already named, and
+    # a raster asset keeps the data URL it was made with, so a chain that converted the
+    # one into binary for an S3 node had nothing left to hand on.
+    assert _targets(doc, "merge_branches", 0) == ["set_result"]
+    names = {n["name"] for n in doc["nodes"]}
+    assert "prepare_uploads" not in names and "upload_assets" not in names
 
 
 @pytest.mark.parametrize("label,doc", list(_copies()))

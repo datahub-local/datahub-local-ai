@@ -1,5 +1,17 @@
 # Tasks
 
+## 0. Reverted: the producer uploads
+
+- [x] 0.1 The adapter's uploader is **removed**. `session-server.mjs` no longer reads
+      `s3_key`/`s3_key_paired`, calls `@aws-sdk/client-s3` or reports `artifacts`;
+      `session-lib.mjs` no longer carries `UPLOAD_PREFIX`, `isUploadKeyAllowed` or
+      `artifactUploads`; `@aws-sdk/client-s3` is out of `package.json` and the lockfile.
+      It was written, tested (48 tests) and deployed before the credential channel was
+      measured to be closed, and it was left dormant for one step as the record of that
+      dead end. It is a second, unreachable way to write to the bucket, and the policy it
+      enforced now lives where it is actually used: `mcp_runner/s3.py` in the MCP
+      repository. Adapter tests: 41, all green
+
 ## 1. The temp-bucket server (`datahub-local-ai-mcp`)
 
 - [x] 1.1 `mcp_runner/s3.py`: `TempBucket` over `boto3` — path-style, the deployment's
@@ -32,6 +44,11 @@
       why it is the one server here that holds a credential
 - [x] 1.10 Verified live: the server stored a real 60,629,049-byte render from the session
       and the signed URL returned it with the **same md5** (`dad4822b8499…`)
+- [x] 1.11 The CI gate that would have caught a latent lint failure: `uv.lock` is
+      gitignored in that repository, so CI re-resolves and picked up ruff 0.17.0, which
+      reports a pre-existing unused `# noqa: DTZ007` in `servers/semantic/query.py` as
+      RUF100. Fixed there (two commits: the directive, then the comment that itself
+      contained the `# noqa:` sequence ruff parses)
 
 ## 2. Cluster: deployment, credential and reach
 
@@ -65,8 +82,15 @@
       and their positions
 - [x] 3.4 `set_result` prefers an asset's own key, so the raster path's upload cannot blank
       a key the store already reported
-- [x] 3.5 The raster branch is unchanged: `prepare_uploads`/`upload_assets` still see only
-      its data URL, and it is the one place a still run costs its bytes
+- [x] 3.5 `prepare_uploads` and `upload_assets` are **removed from the studio**, and
+      `merge_branches` feeds `set_result` directly. Keeping them looked like the small
+      change — they skip any asset without a data URL, which after 3.2 is every agent
+      asset — and it broke the run: with nothing left to convert, `prepare_uploads`
+      emitted **zero items**, `upload_assets` and `set_result` never ran, and the webhook
+      answered `No item to return was found` (execution 13401). A raster asset keeps the
+      data URL the image model returned, because those bytes are made inside n8n and no
+      store can fetch them; nothing read its key, and the LinkedIn image path takes its
+      bytes from the image creator's `omImage`, not from the studio's copy
 - [x] 3.6 Applied live with `--require-edge` on all six premises, re-read and diffed: draft
       and `activeVersion` both 31 nodes, `saveDataSuccessExecution: all`, still active
 

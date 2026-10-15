@@ -412,7 +412,7 @@
           -160
         ],
         "parameters": {
-          "jsCode": "// The run's outcome, built from the merged assets. The row that used to record it is\n// gone: nothing read it, and the asset's bytes live in Garage, so the object key and the\n// resolved session id are carried here instead. The caller needs the key to fetch the\n// bytes and the session id to continue the thread, and neither should be reconstructed\n// from the run id -- that would be a second copy of two derivations.\nconst items = $('merge_branches').all().map((i) => i.json);\nconst req = $('normalize_input').first().json;\nconst stored = new Map();\ntry {\n  for (const i of $('prepare_uploads').all()) {\n    if (i.json && i.json.S3_KEY) stored.set(i.json.ASSET_TYPE, i.json);\n  }\n} catch (e) {\n  // upload_assets is skipped when there was nothing to store, which is a legitimate\n  // run: the assets still report their own ERROR.\n}\n// build_author_brief resolves the session id and only runs on the agent branch, so a\n// raster run falls back to the caller's own value.\nlet sessionId = String(req.SESSION_ID || '');\ntry {\n  sessionId = String($('build_author_brief').first().json.SESSION_ID || sessionId);\n} catch (e) {}\nconst assets = items.map((a) => {\n  const s = stored.get(a.ASSET_TYPE) || {};\n  // An agent asset carries its own key from the store; a raster asset is uploaded by\n  // prepare_uploads below, which only ever sees the data URL the raster path still uses.\n  return Object.assign({}, a, {\n    S3_KEY: a.S3_KEY || s.S3_KEY || '', S3_BYTES: a.S3_BYTES || s.S3_BYTES || 0 });\n});\nreturn [{ json: {\n  RUN_ID: req.RUN_ID,\n  SESSION_ID: sessionId,\n  STATUS: items.some((i) => i.ERROR) ? (items.every((i) => i.ERROR) ? 'FAILED' : 'PARTIAL') : 'COMPLETE',\n  ASSETS: assets,\n} }];\n"
+          "jsCode": "// The run's outcome, built from the merged assets. The row that used to record it is\n// gone: nothing read it, and an agent asset's bytes live in Garage, so the object key and\n// the resolved session id are carried here instead. The caller needs the key to fetch the\n// bytes and the session id to continue the thread, and neither should be reconstructed\n// from the run id -- that would be a second copy of two derivations.\n//\n// A raster asset is the one that still carries its bytes, as the data URL the image model\n// returned: those bytes are made inside n8n, so no store can fetch them, and nothing reads\n// its key. That is why this graph uploads nothing itself any more - and why a still run\n// costs its own ~1.2 MB of execution_data, where an agent run costs none.\nconst items = $('merge_branches').all().map((i) => i.json);\nconst req = $('normalize_input').first().json;\n// build_author_brief resolves the session id and only runs on the agent branch, so a\n// raster run falls back to the caller's own value.\nlet sessionId = String(req.SESSION_ID || '');\ntry {\n  sessionId = String($('build_author_brief').first().json.SESSION_ID || sessionId);\n} catch (e) {}\nreturn [{ json: {\n  RUN_ID: req.RUN_ID,\n  SESSION_ID: sessionId,\n  STATUS: items.some((i) => i.ERROR) ? (items.every((i) => i.ERROR) ? 'FAILED' : 'PARTIAL') : 'COMPLETE',\n  ASSETS: items,\n} }];\n"
         }
       },
       {
@@ -796,47 +796,6 @@
         "parameters": {
           "jsCode": "// prompts/visual_forms.md is the one copy of the form vocabulary. It is fetched\n// once and handed to build_author_brief, which appends it to every brief.\nreturn [{ json: { FORMS: String($json.output || '') } }];\n"
         }
-      },
-      {
-        "id": "prepare-uploads",
-        "name": "prepare_uploads",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          3936,
-          64
-        ],
-        "parameters": {
-          "jsCode": "// One item per rendered asset, with the base64 data URL turned into binary so the S3\n// node can upload it, and the object key the run row will carry instead of the bytes.\n// The prune lists the prefix 'visual-studio/' and the S3 node's file:getAll sets a '/'\n// delimiter, so the key must not add another one: with the prefix left as\n// 'visual-studio' the key's own slash makes it a CommonPrefix and it is never listed.\n// A run where every asset failed has nothing to store and returns none.\nconst items = $('merge_branches').all().map((i) => i.json);\nconst runId = String($('normalize_input').first().json.RUN_ID || '').replace(/[^A-Za-z0-9_-]/g, '');\nconst EXT = { 'video/mp4': 'mp4', 'image/gif': 'gif', 'image/webp': 'webp', 'image/png': 'png',\n              'image/svg+xml': 'svg', 'text/html': 'html' };\nconst out = [];\nfor (const a of items) {\n  const url = String(a.IMAGE || '');\n  const comma = url.indexOf(',');\n  if (!url.startsWith('data:') || comma < 0) continue;\n  const mime = url.slice(5, url.indexOf(';', 5));\n  const ext = EXT[mime] || 'bin';\n  const name = String(a.ASSET_TYPE || 'asset').replace(/[^A-Za-z0-9._-]/g, '');\n  const key = 'visual-studio/' + runId + '-' + name + '.' + ext;\n  const buffer = Buffer.from(url.slice(comma + 1), 'base64');\n  out.push({\n    json: { S3_KEY: key, S3_BYTES: buffer.length, CONTENT_TYPE: mime, ASSET_TYPE: a.ASSET_TYPE },\n    binary: { data: await this.helpers.prepareBinaryData(buffer, key, mime) },\n  });\n}\nreturn out;\n"
-        }
-      },
-      {
-        "id": "upload-assets",
-        "name": "upload_assets",
-        "type": "n8n-nodes-base.s3",
-        "typeVersion": 1,
-        "position": [
-          4160,
-          64
-        ],
-        "parameters": {
-          "resource": "file",
-          "operation": "upload",
-          "bucketName": "datahub-local-temp",
-          "binaryData": true,
-          "fileName": "={{ $json.S3_KEY }}",
-          "binaryPropertyName": "data",
-          "additionalFields": {},
-          "tagsUi": {
-            "tagsValues": []
-          }
-        },
-        "credentials": {
-          "s3": {
-            "id": "ZwoiEY6W4mSYnTmW",
-            "name": "Garage"
-          }
-        }
       }
     ],
     "connections": {
@@ -983,7 +942,7 @@
         "main": [
           [
             {
-              "node": "prepare_uploads",
+              "node": "set_result",
               "type": "main",
               "index": 0
             }
@@ -1172,28 +1131,6 @@
             }
           ]
         ]
-      },
-      "prepare_uploads": {
-        "main": [
-          [
-            {
-              "node": "upload_assets",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "upload_assets": {
-        "main": [
-          [
-            {
-              "node": "set_result",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
       }
     },
     "nodeGroups": [],
@@ -1349,7 +1286,7 @@
       "main": [
         [
           {
-            "node": "prepare_uploads",
+            "node": "set_result",
             "type": "main",
             "index": 0
           }
@@ -1533,28 +1470,6 @@
         [
           {
             "node": "download_registry",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "prepare_uploads": {
-      "main": [
-        [
-          {
-            "node": "upload_assets",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "upload_assets": {
-      "main": [
-        [
-          {
-            "node": "set_result",
             "type": "main",
             "index": 0
           }
@@ -1977,7 +1892,7 @@
         -160
       ],
       "parameters": {
-        "jsCode": "// The run's outcome, built from the merged assets. The row that used to record it is\n// gone: nothing read it, and the asset's bytes live in Garage, so the object key and the\n// resolved session id are carried here instead. The caller needs the key to fetch the\n// bytes and the session id to continue the thread, and neither should be reconstructed\n// from the run id -- that would be a second copy of two derivations.\nconst items = $('merge_branches').all().map((i) => i.json);\nconst req = $('normalize_input').first().json;\nconst stored = new Map();\ntry {\n  for (const i of $('prepare_uploads').all()) {\n    if (i.json && i.json.S3_KEY) stored.set(i.json.ASSET_TYPE, i.json);\n  }\n} catch (e) {\n  // upload_assets is skipped when there was nothing to store, which is a legitimate\n  // run: the assets still report their own ERROR.\n}\n// build_author_brief resolves the session id and only runs on the agent branch, so a\n// raster run falls back to the caller's own value.\nlet sessionId = String(req.SESSION_ID || '');\ntry {\n  sessionId = String($('build_author_brief').first().json.SESSION_ID || sessionId);\n} catch (e) {}\nconst assets = items.map((a) => {\n  const s = stored.get(a.ASSET_TYPE) || {};\n  // An agent asset carries its own key from the store; a raster asset is uploaded by\n  // prepare_uploads below, which only ever sees the data URL the raster path still uses.\n  return Object.assign({}, a, {\n    S3_KEY: a.S3_KEY || s.S3_KEY || '', S3_BYTES: a.S3_BYTES || s.S3_BYTES || 0 });\n});\nreturn [{ json: {\n  RUN_ID: req.RUN_ID,\n  SESSION_ID: sessionId,\n  STATUS: items.some((i) => i.ERROR) ? (items.every((i) => i.ERROR) ? 'FAILED' : 'PARTIAL') : 'COMPLETE',\n  ASSETS: assets,\n} }];\n"
+        "jsCode": "// The run's outcome, built from the merged assets. The row that used to record it is\n// gone: nothing read it, and an agent asset's bytes live in Garage, so the object key and\n// the resolved session id are carried here instead. The caller needs the key to fetch the\n// bytes and the session id to continue the thread, and neither should be reconstructed\n// from the run id -- that would be a second copy of two derivations.\n//\n// A raster asset is the one that still carries its bytes, as the data URL the image model\n// returned: those bytes are made inside n8n, so no store can fetch them, and nothing reads\n// its key. That is why this graph uploads nothing itself any more - and why a still run\n// costs its own ~1.2 MB of execution_data, where an agent run costs none.\nconst items = $('merge_branches').all().map((i) => i.json);\nconst req = $('normalize_input').first().json;\n// build_author_brief resolves the session id and only runs on the agent branch, so a\n// raster run falls back to the caller's own value.\nlet sessionId = String(req.SESSION_ID || '');\ntry {\n  sessionId = String($('build_author_brief').first().json.SESSION_ID || sessionId);\n} catch (e) {}\nreturn [{ json: {\n  RUN_ID: req.RUN_ID,\n  SESSION_ID: sessionId,\n  STATUS: items.some((i) => i.ERROR) ? (items.every((i) => i.ERROR) ? 'FAILED' : 'PARTIAL') : 'COMPLETE',\n  ASSETS: items,\n} }];\n"
       }
     },
     {
@@ -2360,47 +2275,6 @@
       ],
       "parameters": {
         "jsCode": "// prompts/visual_forms.md is the one copy of the form vocabulary. It is fetched\n// once and handed to build_author_brief, which appends it to every brief.\nreturn [{ json: { FORMS: String($json.output || '') } }];\n"
-      }
-    },
-    {
-      "id": "prepare-uploads",
-      "name": "prepare_uploads",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        3936,
-        64
-      ],
-      "parameters": {
-        "jsCode": "// One item per rendered asset, with the base64 data URL turned into binary so the S3\n// node can upload it, and the object key the run row will carry instead of the bytes.\n// The prune lists the prefix 'visual-studio/' and the S3 node's file:getAll sets a '/'\n// delimiter, so the key must not add another one: with the prefix left as\n// 'visual-studio' the key's own slash makes it a CommonPrefix and it is never listed.\n// A run where every asset failed has nothing to store and returns none.\nconst items = $('merge_branches').all().map((i) => i.json);\nconst runId = String($('normalize_input').first().json.RUN_ID || '').replace(/[^A-Za-z0-9_-]/g, '');\nconst EXT = { 'video/mp4': 'mp4', 'image/gif': 'gif', 'image/webp': 'webp', 'image/png': 'png',\n              'image/svg+xml': 'svg', 'text/html': 'html' };\nconst out = [];\nfor (const a of items) {\n  const url = String(a.IMAGE || '');\n  const comma = url.indexOf(',');\n  if (!url.startsWith('data:') || comma < 0) continue;\n  const mime = url.slice(5, url.indexOf(';', 5));\n  const ext = EXT[mime] || 'bin';\n  const name = String(a.ASSET_TYPE || 'asset').replace(/[^A-Za-z0-9._-]/g, '');\n  const key = 'visual-studio/' + runId + '-' + name + '.' + ext;\n  const buffer = Buffer.from(url.slice(comma + 1), 'base64');\n  out.push({\n    json: { S3_KEY: key, S3_BYTES: buffer.length, CONTENT_TYPE: mime, ASSET_TYPE: a.ASSET_TYPE },\n    binary: { data: await this.helpers.prepareBinaryData(buffer, key, mime) },\n  });\n}\nreturn out;\n"
-      }
-    },
-    {
-      "id": "upload-assets",
-      "name": "upload_assets",
-      "type": "n8n-nodes-base.s3",
-      "typeVersion": 1,
-      "position": [
-        4160,
-        64
-      ],
-      "parameters": {
-        "resource": "file",
-        "operation": "upload",
-        "bucketName": "datahub-local-temp",
-        "binaryData": true,
-        "fileName": "={{ $json.S3_KEY }}",
-        "binaryPropertyName": "data",
-        "additionalFields": {},
-        "tagsUi": {
-          "tagsValues": []
-        }
-      },
-      "credentials": {
-        "s3": {
-          "id": "ZwoiEY6W4mSYnTmW",
-          "name": "Garage"
-        }
       }
     }
   ],

@@ -158,28 +158,24 @@ def test_the_studio_writes_no_run_row(label, document):
     for gone in ("run_record", "record_run"):
         assert gone not in _nodes(document), f"{label}: {gone} is back"
 
-    upload = _nodes(document)["upload_assets"]
-    assert upload["type"] == "n8n-nodes-base.s3"
-    assert upload["parameters"]["operation"] == "upload"
-    assert upload["parameters"]["bucketName"] == "datahub-local-temp"
-    assert upload["parameters"]["binaryData"] is True
-    # continueRegularOutput forwards the input unchanged, so a failed upload would still
-    # hand the response a key for an object that was never written. Let it fail the run.
-    assert "onError" not in upload, "a failed upload would be reported as a stored object"
-
-    assert _targets(document, "merge_branches", 0) == ["prepare_uploads"]
-    assert _targets(document, "prepare_uploads", 0) == ["upload_assets"]
-    assert _targets(document, "upload_assets", 0) == ["set_result"]
+    # This graph writes nothing to the bucket any more, so it holds no S3 node at all:
+    # an agent asset is stored by the temp-bucket server and a raster asset keeps its
+    # data URL. The upload that used to sit here converted the data URL into binary for
+    # `upload_assets`, and with the agent assets no longer carrying one it had nothing
+    # left to hand on - a run ended at `prepare_uploads` with zero items and the webhook
+    # answered `No item to return was found`.
+    assert [n["name"] for n in document["nodes"] if n["type"] == "n8n-nodes-base.s3"] == []
+    assert _targets(document, "merge_branches", 0) == ["set_result"]
 
 
 @pytest.mark.parametrize("label,document", list(_copies(STUDIO)))
 def test_the_response_carries_the_asset_and_its_key(label, document):
-    # LinkedIn Post Sharing reads ASSETS[].IMAGE and throws without a data URL; the row
-    # that used to name the object is gone, so the key travels in the response too.
+    # The merged assets are the response: an agent asset arrives already named by the
+    # store, and the resolved session id travels with it. Nothing is re-derived here,
+    # which would be a second copy of the key the store already reported.
     code = _nodes(document)["set_result"]["parameters"]["jsCode"]
     assert "const items = $('merge_branches').all()" in code
-    assert "ASSETS: assets" in code
-    assert "S3_KEY" in code and "S3_BYTES" in code
+    assert "ASSETS: items" in code
     assert "SESSION_ID: sessionId" in code, "a caller cannot learn the resolved session"
 
 

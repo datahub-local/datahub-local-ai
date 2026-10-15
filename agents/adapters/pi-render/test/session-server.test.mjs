@@ -67,8 +67,6 @@ before(async () => {
       SYMPOZIUM_SESSION_PORT: String(port),
       SYMPOZIUM_HARNESS_CONTRACT_VERSION: "v1alpha2",
       MODEL_NAME: "stub",
-      PI_RENDER_S3_ENDPOINT: "",
-      PI_RENDER_S3_BUCKET: "",
       MODEL_BASE_URL: "http://127.0.0.1:1/v1",
       OPENAI_API_KEY: "stub",
     },
@@ -161,57 +159,4 @@ test("the artifact route refuses traversal and unknown names", async () => {
   assert.equal((await fetch(`${base}/artifacts/run_a/index.html`)).status, 404);
   assert.equal((await fetch(`${base}/artifacts/run_a/out.txt`)).status, 404);
   assert.equal((await fetch(`${base}/artifacts/nope/out.mp4`)).status, 404);
-});
-
-test("a named destination with no storage configured is reported, not skipped", async () => {
-  // The caller asked for the artifact to be stored and it was not, so the response says
-  // so per artifact. A key with no object behind it is worse than a failure: the
-  // workflow would report an asset that can never be fetched.
-  const res = await fetch(`${base}/v1/chat/completions`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      messages: [{ role: "user", content: "make a card" }],
-      session_id: "run_s3_unconfigured",
-      s3_key: "visual-studio/run_s3_unconfigured.mp4",
-    }),
-  });
-  assert.equal(res.status, 200);
-  const body = await res.json();
-  assert.equal(body.artifacts.length, 1);
-  assert.equal(body.artifacts[0].key, "visual-studio/run_s3_unconfigured.mp4");
-  assert.equal(body.artifacts[0].bytes, 0);
-  assert.match(body.artifacts[0].error, /no object storage configured/);
-  // The artifact is still on the volume and still served: a run with nowhere to store
-  // it is a local-first run, not a lost one.
-  const art = await fetch(`${base}/artifacts/run_s3_unconfigured/out.mp4`);
-  assert.equal(art.status, 200);
-});
-
-test("a destination outside the prefix is refused rather than written", async () => {
-  const res = await fetch(`${base}/v1/chat/completions`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      messages: [{ role: "user", content: "make a card" }],
-      session_id: "run_s3_refused",
-      s3_key: "elsewhere/evil.mp4",
-    }),
-  });
-  const body = await res.json();
-  assert.equal(body.artifacts[0].bytes, 0);
-  assert.match(body.artifacts[0].error, /refusing to write/);
-});
-
-test("a turn that names no destination reports no artifacts", async () => {
-  const res = await fetch(`${base}/v1/chat/completions`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      messages: [{ role: "user", content: "make a card" }],
-      session_id: "run_s3_none",
-    }),
-  });
-  const body = await res.json();
-  assert.deepEqual(body.artifacts, []);
 });

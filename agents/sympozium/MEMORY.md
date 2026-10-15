@@ -4115,7 +4115,7 @@ The goal was an invariant rather than a preference: **an execution n8n saves may
 asset's coordinates and never its bytes.** n8n persists binaries as well as JSON, so a
 workflow that fetches a rendered asset and uploads it stores a copy on the way past, and
 `saveDataSuccessExecution` has to stay off for it. The change and its alternatives are in
-`openspec/changes/upload-assets-from-the-producer/`.
+`openspec/changes/archive/2026-10-15-upload-assets-from-the-producer/`.
 
 Three things were measured on 2026-10-15, and together they close the obvious routes:
 

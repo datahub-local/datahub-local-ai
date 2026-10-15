@@ -627,7 +627,7 @@ asset recorded a **13 kB** payload holding the key — where run 13356 recorded 
 characters for the same asset as a data URL — and `binary_data` gained no row for it. The
 four binary rows a studio run does add are its `DownloadTemplate` children fetching the
 config files, ~10 kB in total, which is a pre-existing cost of that fetch.
-`openspec/changes/upload-assets-from-the-producer/` is the record, including the three
+`openspec/changes/archive/2026-10-15-upload-assets-from-the-producer/` is the record, including the three
 measurements that closed the other shapes.
 
 **Verification is manual — there is no CI coverage for n8n.** The claims above were checked

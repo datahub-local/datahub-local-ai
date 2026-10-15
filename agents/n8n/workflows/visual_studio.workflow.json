@@ -1,7 +1,7 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "5668fc2a-b4af-4aa9-a51a-6edf33316f06",
+    "versionId": "57753c7c-f6bd-4f93-8ba8-03bb96a5a7c2",
     "workflowId": "2pSrRNmYR2jkX1JG",
     "nodes": [
       {
@@ -783,19 +783,27 @@
         }
       },
       {
-        "parameters": {
-          "jsCode": "// One item per rendered asset, with the base64 data URL turned into binary so the S3\n// node can upload it, and the object key the run row will carry instead of the bytes.\n// The prune lists the prefix 'visual-studio/' and the S3 node's file:getAll sets a '/'\n// delimiter, so the key must not add another one: with the prefix left as\n// 'visual-studio' the key's own slash makes it a CommonPrefix and it is never listed.\n// A run where every asset failed has nothing to store and returns none.\nconst items = $('merge_branches').all().map((i) => i.json);\nconst runId = String($('normalize_input').first().json.RUN_ID || '').replace(/[^A-Za-z0-9_-]/g, '');\nconst EXT = { 'video/mp4': 'mp4', 'image/gif': 'gif', 'image/webp': 'webp', 'image/png': 'png',\n              'image/svg+xml': 'svg', 'text/html': 'html' };\nconst out = [];\nfor (const a of items) {\n  const url = String(a.IMAGE || '');\n  const comma = url.indexOf(',');\n  if (!url.startsWith('data:') || comma < 0) continue;\n  const mime = url.slice(5, url.indexOf(';', 5));\n  const ext = EXT[mime] || 'bin';\n  const name = String(a.ASSET_TYPE || 'asset').replace(/[^A-Za-z0-9._-]/g, '');\n  const key = 'visual-studio/' + runId + '-' + name + '.' + ext;\n  const buffer = Buffer.from(url.slice(comma + 1), 'base64');\n  out.push({\n    json: { S3_KEY: key, S3_BYTES: buffer.length, CONTENT_TYPE: mime, ASSET_TYPE: a.ASSET_TYPE },\n    binary: { data: await this.helpers.prepareBinaryData(buffer, key, mime) },\n  });\n}\nreturn out;\n"
-        },
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
         "id": "prepare-uploads",
         "name": "prepare_uploads",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
         "position": [
           3936,
           64
-        ]
+        ],
+        "parameters": {
+          "jsCode": "// One item per rendered asset, with the base64 data URL turned into binary so the S3\n// node can upload it, and the object key the run row will carry instead of the bytes.\n// The prune lists the prefix 'visual-studio/' and the S3 node's file:getAll sets a '/'\n// delimiter, so the key must not add another one: with the prefix left as\n// 'visual-studio' the key's own slash makes it a CommonPrefix and it is never listed.\n// A run where every asset failed has nothing to store and returns none.\nconst items = $('merge_branches').all().map((i) => i.json);\nconst runId = String($('normalize_input').first().json.RUN_ID || '').replace(/[^A-Za-z0-9_-]/g, '');\nconst EXT = { 'video/mp4': 'mp4', 'image/gif': 'gif', 'image/webp': 'webp', 'image/png': 'png',\n              'image/svg+xml': 'svg', 'text/html': 'html' };\nconst out = [];\nfor (const a of items) {\n  const url = String(a.IMAGE || '');\n  const comma = url.indexOf(',');\n  if (!url.startsWith('data:') || comma < 0) continue;\n  const mime = url.slice(5, url.indexOf(';', 5));\n  const ext = EXT[mime] || 'bin';\n  const name = String(a.ASSET_TYPE || 'asset').replace(/[^A-Za-z0-9._-]/g, '');\n  const key = 'visual-studio/' + runId + '-' + name + '.' + ext;\n  const buffer = Buffer.from(url.slice(comma + 1), 'base64');\n  out.push({\n    json: { S3_KEY: key, S3_BYTES: buffer.length, CONTENT_TYPE: mime, ASSET_TYPE: a.ASSET_TYPE },\n    binary: { data: await this.helpers.prepareBinaryData(buffer, key, mime) },\n  });\n}\nreturn out;\n"
+        }
       },
       {
+        "id": "upload-assets",
+        "name": "upload_assets",
+        "type": "n8n-nodes-base.s3",
+        "typeVersion": 1,
+        "position": [
+          4160,
+          64
+        ],
         "parameters": {
           "resource": "file",
           "operation": "upload",
@@ -808,14 +816,6 @@
             "tagsValues": []
           }
         },
-        "type": "n8n-nodes-base.s3",
-        "typeVersion": 1,
-        "position": [
-          4160,
-          64
-        ],
-        "id": "upload-assets",
-        "name": "upload_assets",
         "credentials": {
           "s3": {
             "id": "ZwoiEY6W4mSYnTmW",
@@ -1184,10 +1184,10 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-10-13T20:20:36.983Z",
-    "updatedAt": "2026-10-13T20:20:36.983Z"
+    "createdAt": "2026-10-14T20:03:02.897Z",
+    "updatedAt": "2026-10-14T20:03:02.897Z"
   },
-  "activeVersionId": "5668fc2a-b4af-4aa9-a51a-6edf33316f06",
+  "activeVersionId": "57753c7c-f6bd-4f93-8ba8-03bb96a5a7c2",
   "connections": {
     "main_trigger": {
       "main": [
@@ -2329,19 +2329,27 @@
       }
     },
     {
-      "parameters": {
-        "jsCode": "// One item per rendered asset, with the base64 data URL turned into binary so the S3\n// node can upload it, and the object key the run row will carry instead of the bytes.\n// The prune lists the prefix 'visual-studio/' and the S3 node's file:getAll sets a '/'\n// delimiter, so the key must not add another one: with the prefix left as\n// 'visual-studio' the key's own slash makes it a CommonPrefix and it is never listed.\n// A run where every asset failed has nothing to store and returns none.\nconst items = $('merge_branches').all().map((i) => i.json);\nconst runId = String($('normalize_input').first().json.RUN_ID || '').replace(/[^A-Za-z0-9_-]/g, '');\nconst EXT = { 'video/mp4': 'mp4', 'image/gif': 'gif', 'image/webp': 'webp', 'image/png': 'png',\n              'image/svg+xml': 'svg', 'text/html': 'html' };\nconst out = [];\nfor (const a of items) {\n  const url = String(a.IMAGE || '');\n  const comma = url.indexOf(',');\n  if (!url.startsWith('data:') || comma < 0) continue;\n  const mime = url.slice(5, url.indexOf(';', 5));\n  const ext = EXT[mime] || 'bin';\n  const name = String(a.ASSET_TYPE || 'asset').replace(/[^A-Za-z0-9._-]/g, '');\n  const key = 'visual-studio/' + runId + '-' + name + '.' + ext;\n  const buffer = Buffer.from(url.slice(comma + 1), 'base64');\n  out.push({\n    json: { S3_KEY: key, S3_BYTES: buffer.length, CONTENT_TYPE: mime, ASSET_TYPE: a.ASSET_TYPE },\n    binary: { data: await this.helpers.prepareBinaryData(buffer, key, mime) },\n  });\n}\nreturn out;\n"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
       "id": "prepare-uploads",
       "name": "prepare_uploads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         3936,
         64
-      ]
+      ],
+      "parameters": {
+        "jsCode": "// One item per rendered asset, with the base64 data URL turned into binary so the S3\n// node can upload it, and the object key the run row will carry instead of the bytes.\n// The prune lists the prefix 'visual-studio/' and the S3 node's file:getAll sets a '/'\n// delimiter, so the key must not add another one: with the prefix left as\n// 'visual-studio' the key's own slash makes it a CommonPrefix and it is never listed.\n// A run where every asset failed has nothing to store and returns none.\nconst items = $('merge_branches').all().map((i) => i.json);\nconst runId = String($('normalize_input').first().json.RUN_ID || '').replace(/[^A-Za-z0-9_-]/g, '');\nconst EXT = { 'video/mp4': 'mp4', 'image/gif': 'gif', 'image/webp': 'webp', 'image/png': 'png',\n              'image/svg+xml': 'svg', 'text/html': 'html' };\nconst out = [];\nfor (const a of items) {\n  const url = String(a.IMAGE || '');\n  const comma = url.indexOf(',');\n  if (!url.startsWith('data:') || comma < 0) continue;\n  const mime = url.slice(5, url.indexOf(';', 5));\n  const ext = EXT[mime] || 'bin';\n  const name = String(a.ASSET_TYPE || 'asset').replace(/[^A-Za-z0-9._-]/g, '');\n  const key = 'visual-studio/' + runId + '-' + name + '.' + ext;\n  const buffer = Buffer.from(url.slice(comma + 1), 'base64');\n  out.push({\n    json: { S3_KEY: key, S3_BYTES: buffer.length, CONTENT_TYPE: mime, ASSET_TYPE: a.ASSET_TYPE },\n    binary: { data: await this.helpers.prepareBinaryData(buffer, key, mime) },\n  });\n}\nreturn out;\n"
+      }
     },
     {
+      "id": "upload-assets",
+      "name": "upload_assets",
+      "type": "n8n-nodes-base.s3",
+      "typeVersion": 1,
+      "position": [
+        4160,
+        64
+      ],
       "parameters": {
         "resource": "file",
         "operation": "upload",
@@ -2354,14 +2362,6 @@
           "tagsValues": []
         }
       },
-      "type": "n8n-nodes-base.s3",
-      "typeVersion": 1,
-      "position": [
-        4160,
-        64
-      ],
-      "id": "upload-assets",
-      "name": "upload_assets",
       "credentials": {
         "s3": {
           "id": "ZwoiEY6W4mSYnTmW",
@@ -2393,6 +2393,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 2,
-  "updatedAt": "2026-10-13T20:20:36.979Z",
-  "versionId": "5668fc2a-b4af-4aa9-a51a-6edf33316f06"
+  "updatedAt": "2026-10-14T20:03:02.885Z",
+  "versionId": "57753c7c-f6bd-4f93-8ba8-03bb96a5a7c2"
 }

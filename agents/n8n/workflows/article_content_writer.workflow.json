@@ -1,4 +1,7 @@
 {
+  "active": false,
+  "activeVersion": null,
+  "activeVersionId": null,
   "connections": {
     "click_trigger": {
       "main": [
@@ -859,7 +862,12 @@
       ]
     }
   },
+  "createdAt": "2026-10-16T03:27:31.927Z",
+  "id": "sKsjxDDW40TATaS6",
+  "isArchived": false,
+  "meta": null,
   "name": "Article Content Writer",
+  "nodeGroups": [],
   "nodes": [
     {
       "id": "fcad63ce-6a10-4abd-86b1-b55e527be398",
@@ -1439,6 +1447,7 @@
       "name": "download_content",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
+      "onError": "continueRegularOutput",
       "position": [
         1568,
         96
@@ -1449,8 +1458,7 @@
         "options": {
           "timeout": 300000
         }
-      },
-      "onError": "continueRegularOutput"
+      }
     },
     {
       "id": "629fbc4a-9d99-43c3-9f71-ae39553240e1",
@@ -1753,6 +1761,7 @@
     {
       "id": "97e21ae0-7d58-4abd-bd4b-5c527eb8ec94",
       "name": "upload_draft_file",
+      "webhookId": "8165e346-456c-4973-aa81-03828ea21386",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
@@ -2048,6 +2057,7 @@
     {
       "id": "68544fc4-f830-46d4-b5b1-03362b0169da",
       "name": "notify_article_review",
+      "webhookId": "2c94b122-8570-4d66-a642-52fa99d219c7",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
@@ -2413,6 +2423,7 @@
     {
       "id": "6dab328e-4e20-4212-bbac-134b2b4ea414",
       "name": "notification_retry_or_cancel",
+      "webhookId": "d7a913ef-28f8-4eab-aef2-0097636c5e1e",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
@@ -2927,6 +2938,7 @@
     {
       "id": "4526d827-a41c-4e7c-8cf4-500fd93b7c5f",
       "name": "send_cancelled_notification",
+      "webhookId": "6456fda0-9ce2-4ecd-8d55-38c9e8dd7b33",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
@@ -3315,6 +3327,7 @@
     {
       "id": "fedd0284-2e16-4271-91ac-f3089b004e65",
       "name": "upload_asset_file",
+      "webhookId": "3e336bb7-d679-4cb2-a72c-69c114b32a32",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
@@ -3339,6 +3352,7 @@
     {
       "id": "8ea004c5-4666-4fc6-9870-b3a856a80c8e",
       "name": "notify_asset_review",
+      "webhookId": "2fa363e4-f232-43e9-b478-fbc4a808fd4c",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
@@ -3573,6 +3587,7 @@
     {
       "id": "668f13e0-9f89-43d4-ad27-d00a879c7f85",
       "name": "notification_retry_or_cancel_asset",
+      "webhookId": "d2e30117-9489-4956-9a8e-9f421ffe6805",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
@@ -3825,6 +3840,7 @@
     {
       "id": "d881c418-bd3c-40bc-a278-eaac2def7fba",
       "name": "send_asset_cancelled_notification",
+      "webhookId": "ff68a9e7-af99-4143-bb13-86cd52b0da3f",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
@@ -4291,6 +4307,7 @@
       "name": "patch_ref",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
+      "onError": "continueErrorOutput",
       "position": [
         4704,
         576
@@ -4321,8 +4338,7 @@
           "id": "x1DjxYsMLFm3vUiv",
           "name": "GitHub account"
         }
-      },
-      "onError": "continueErrorOutput"
+      }
     },
     {
       "id": "e7a3464b-5cfd-4fe8-aa58-9eb69c214f32",
@@ -4903,6 +4919,7 @@
     {
       "id": "878003b0-a9b9-4def-b646-e2a70224b24d",
       "name": "send_published_notification",
+      "webhookId": "bc54171c-558a-4e38-849d-89a476286acb",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
@@ -4930,11 +4947,27 @@
       }
     }
   ],
+  "pinData": null,
   "settings": {
+    "executionTimeout": 3600,
     "executionOrder": "v1",
     "callerPolicy": "workflowsFromSameOwner",
-    "executionTimeout": 3600,
     "timeSavedMode": "fixed",
-    "availableInMCP": false
-  }
+    "availableInMCP": false,
+    "errorWorkflow": "33uWLrAzZMm4SOP8"
+  },
+  "shared": [
+    {
+      "role": "workflow:owner",
+      "workflowId": "sKsjxDDW40TATaS6",
+      "projectId": "zcGU09G6dy4Oah3l",
+      "createdAt": "2026-10-16T03:27:31.927Z",
+      "updatedAt": "2026-10-16T03:27:31.927Z"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2026-10-16T03:27:37.776Z",
+  "versionId": "8881c5e6-f618-49a4-b375-55003ec570de"
 }

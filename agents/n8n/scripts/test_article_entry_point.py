@@ -209,8 +209,13 @@ def test_the_only_continue_regular_output_is_normalised_downstream():
     assert "LINK_USED" in _js("set_link_flags")
 
 
-def test_the_schedule_is_declared_and_the_handler_is_wired_later():
-    # 6.6 keeps the schedule inactive; 5.2 sets settings.errorWorkflow once the handler exists
-    # live, so the export leaves it unset rather than naming an id that does not exist yet.
+def test_the_schedule_is_declared_and_the_handler_is_this_repositorys():
+    # 6.6 keeps the schedule inactive until every path has been exercised; the workflow is
+    # created inactive, so that is a live state, not a field in this body.
     assert any(n["type"] == "n8n-nodes-base.scheduleTrigger" for n in _doc()["nodes"])
-    assert "errorWorkflow" not in _doc()["settings"]
+    handler = json.loads((WORKFLOWS / "article_content_writer_error.workflow.json").read_text(encoding="utf-8"))
+    assert _doc()["settings"]["errorWorkflow"] == handler["id"], (
+        "the entry point's handler must be the workflow this repository carries"
+    )
+    # The handler does not report to itself.
+    assert "errorWorkflow" not in handler["settings"]

@@ -187,8 +187,7 @@ def test_one_commit_sequence_with_a_guarded_fast_forward_retry():
     assert _targets("check_ref_retry") == ["record_published"]
 
 
-def test_the_row_categories_are_checked_before_anything_is_drafted():
-    # The one taxonomy copy is fetched, not restated in the node, and an unreadable file fails
+def test_the_row_categories_are_checked_before_anything_is_drafted():    # The one taxonomy copy is fetched, not restated in the node, and an unreadable file fails
     # the run rather than skipping the check.
     download = _nodes()["download_blog_categories"]["parameters"]["workflowInputs"]["value"]
     assert download["template_name"] == "datasets/blog_categories.json"
@@ -219,3 +218,19 @@ def test_the_schedule_is_declared_and_the_handler_is_this_repositorys():
     )
     # The handler does not report to itself.
     assert "errorWorkflow" not in handler["settings"]
+
+def test_the_link_outcome_is_recorded_and_not_only_carried():
+    # The spec asks the run to record that the link content was not used, so the flag lands on
+    # the draft row rather than living only in this execution.
+    draft = _nodes()["store_draft"]["parameters"]["columns"]["value"]
+    assert draft["LINK_USED"] == "={{ $('set_link_flags').item.json.LINK_USED }}"
+
+
+def test_an_overlapping_trigger_skips_a_fresh_claim_and_recovers_a_stale_one():
+    # Two runs must not work the same entry. Nothing can ask n8n whether an execution is alive,
+    # so the claim's own UPDATE_DATE is the observable: fresh means someone is on it, stale
+    # means the run died and the entry becomes actionable again.
+    code = _js("pick_candidate")
+    assert "STALE_CLAIM_HOURS" in code
+    assert "Date.now() - claimedAt" in code
+    assert "return false" in code

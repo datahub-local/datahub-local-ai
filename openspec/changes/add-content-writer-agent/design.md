@@ -205,6 +205,13 @@ Two reference-shape facts, read off the installed nodes rather than guessed, and
   `/api/v1/dataTable` are 404, so the hyphenated path is the one, and `/api/v1/projects` is 403
   on this license (`feat:projectRole:admin`), which is why the table's own `projectId` has to be
   read from a table rather than listed.
+- **A claim's liveness is observable only as a timestamp.** An audit of the spec against the
+  graph found two gaps: the link outcome was carried in one execution and never recorded, and a
+  mid-flight row was *resumed* by every later trigger, which is the overlapping-trigger case the
+  spec forbids. `pick_candidate` now skips a claimed row whose `UPDATE_DATE` is younger than four
+  hours and picks it up when it is older, so an overlapping trigger modifies nothing and a died
+  run is recovered. The hours are a constant in the code rather than a column, because nobody
+  tunes them per row.
 - **A Data Table filter condition is `eq` / `neq` / `lt` / `isNotEmpty`**, not `notEqual`. Read
   off `DataTable/common/methods.js` after an invalid condition was written into a filter here;
   the values are load options, so nothing validates them offline and an invalid one would fail

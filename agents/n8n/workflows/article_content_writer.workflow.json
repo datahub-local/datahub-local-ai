@@ -870,7 +870,7 @@
   "nodeGroups": [],
   "nodes": [
     {
-      "id": "fcad63ce-6a10-4abd-86b1-b55e527be398",
+      "id": "f717db1f-fec1-434f-9769-cfa7b7a668fa",
       "name": "click_trigger",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
@@ -881,7 +881,7 @@
       "parameters": {}
     },
     {
-      "id": "93e07d38-250f-459c-a531-bd7811460187",
+      "id": "42e74dd5-0c94-49d3-80c0-0c0fa50771d8",
       "name": "schedule_trigger",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
@@ -901,7 +901,7 @@
       }
     },
     {
-      "id": "47a5481d-eb65-4194-b8f9-5c48f4e0731a",
+      "id": "4ad22de8-cb14-4576-aeea-12afb9afc7d4",
       "name": "read_article_queue",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
@@ -940,7 +940,7 @@
       }
     },
     {
-      "id": "a7aa4047-71b6-4bc3-9031-9e158ca4e93f",
+      "id": "e9a64722-1f43-4740-a62f-f7c467ec7f98",
       "name": "pick_candidate",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -949,11 +949,11 @@
         0
       ],
       "parameters": {
-        "jsCode": "// The one entry this run works on (D8), chosen from the sheet alone so the asset read below\n// can be filtered on it. QUEUE first, then the oldest mid-flight claim: a run that died while\n// Slack waited is picked up before a new row is started, so a stuck entry cannot starve behind\n// fresh work. Half-finished work is never inferred from whichever field looks untouched - that\n// is what select_article_to_queue decides next, from the asset rows.\nconst rows = $input.all()\n  .map((i) => ({ ...i.json, row_number: Number(i.json.row_number || 0) }))\n  .filter((r) => r.row_number && String(r.ENTRY_ID || '').trim());\nconst status = (r) => String(r.STATUS || '').trim().toUpperCase();\nconst fresh = rows.filter((r) => status(r) === 'QUEUE').sort((a, b) => a.row_number - b.row_number);\nconst resumable = rows\n  .filter((r) => status(r) === 'IN_PROGRESS' && String(r.ARTICLE_STATUS || '').trim().toUpperCase() !== 'CANCELLED')\n  .sort((a, b) => a.row_number - b.row_number);\nconst row = fresh[0] || resumable[0];\nif (!row) {\n  console.log('article_queue holds nothing actionable (' + rows.length + ' rows read)');\n  return [];\n}\nif (!String(row.TOPIC || '').trim() && !String(row.DESCRIPTION || '').trim()) {\n  throw new Error('article_queue row ' + row.row_number + ' has neither TOPIC nor DESCRIPTION');\n}\nreturn [{ json: { ...row, ARTICLE_ROUND: Number(row.ARTICLE_ROUND || 0), MAX_WORDS: Number(row.MAX_WORDS || 0) || 1200 } }];\n"
+        "jsCode": "// The one entry this run works on (D8), chosen from the sheet alone so the asset read below\n// can be filtered on it. QUEUE first, then the oldest mid-flight claim: a run that died while\n// Slack waited is picked up before a new row is started, so a stuck entry cannot starve behind\n// fresh work. Half-finished work is never inferred from whichever field looks untouched - that\n// is what select_article_to_queue decides next, from the asset rows.\nconst rows = $input.all()\n  .map((i) => ({ ...i.json, row_number: Number(i.json.row_number || 0) }))\n  .filter((r) => r.row_number && String(r.ENTRY_ID || '').trim());\nconst status = (r) => String(r.STATUS || '').trim().toUpperCase();\nconst fresh = rows.filter((r) => status(r) === 'QUEUE').sort((a, b) => a.row_number - b.row_number);\n// A claimed row is skipped while it could still belong to a live run, and picked up once\n// it is stale: there is no way to ask n8n whether an execution is alive, so the row's own\n// UPDATE_DATE is the observable, and every phase writes it as it goes. Four hours is the\n// window, which is longer than any review is waited on and shorter than a shift.\nconst STALE_CLAIM_HOURS = 4;\nconst resumable = rows\n  .filter((r) => {\n    if (status(r) !== 'IN_PROGRESS' || String(r.ARTICLE_STATUS || '').trim().toUpperCase() === 'CANCELLED') return false;\n    const claimedAt = Date.parse(r.UPDATE_DATE || '');\n    return isFinite(claimedAt) && (Date.now() - claimedAt) / 3600000 >= STALE_CLAIM_HOURS;\n  })\n  .sort((a, b) => a.row_number - b.row_number);\nconst row = fresh[0] || resumable[0];\nif (!row) {\n  console.log('article_queue holds nothing actionable (' + rows.length + ' rows read)');\n  return [];\n}\nif (!String(row.TOPIC || '').trim() && !String(row.DESCRIPTION || '').trim()) {\n  throw new Error('article_queue row ' + row.row_number + ' has neither TOPIC nor DESCRIPTION');\n}\nreturn [{ json: { ...row, ARTICLE_ROUND: Number(row.ARTICLE_ROUND || 0), MAX_WORDS: Number(row.MAX_WORDS || 0) || 1200 } }];\n"
       }
     },
     {
-      "id": "6fa16d64-072d-485f-849e-b096889adc0c",
+      "id": "ba5d6c4d-79e7-41b3-a108-355aa42ed193",
       "name": "download_blog_categories",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
@@ -1003,7 +1003,7 @@
       }
     },
     {
-      "id": "ad7768fa-cd9f-4e08-aaf9-1dc74f425f4c",
+      "id": "442d24b8-fedc-4379-ad21-9b3150661818",
       "name": "validate_categories",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -1016,7 +1016,7 @@
       }
     },
     {
-      "id": "f9ca8085-a0ad-4c9a-ab6b-75b5062db173",
+      "id": "1dfd1e3d-064b-4469-bbe2-26f38f14072a",
       "name": "read_asset_rows_for_entry",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
@@ -1045,7 +1045,7 @@
       }
     },
     {
-      "id": "e2333c63-8b9d-49c9-bb10-0f36f751e558",
+      "id": "1409c38b-6c32-46df-a0b6-761575b00f2c",
       "name": "select_article_to_queue",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -1058,7 +1058,7 @@
       }
     },
     {
-      "id": "3bd9f910-3bb4-40f5-98e5-dfe444d83acc",
+      "id": "abfe575f-3e59-4ae5-85e9-bb6f6e6646ce",
       "name": "update_status_in_progress",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
@@ -1325,7 +1325,7 @@
       }
     },
     {
-      "id": "62845620-b8fb-42b7-9aad-38da2c800dc6",
+      "id": "37845f68-039f-4e61-a383-de4efd738e55",
       "name": "switch_phase",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
@@ -1408,7 +1408,7 @@
       }
     },
     {
-      "id": "b785ad72-e2f6-4062-afa2-7fbf9dd45e55",
+      "id": "13469286-297f-431f-b6f3-50e6fb9c53e5",
       "name": "if_has_link",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -1443,7 +1443,7 @@
       }
     },
     {
-      "id": "1075ed8f-e027-48be-94f8-f4116e601fda",
+      "id": "ae4c4557-2b79-4fea-b391-13d6bc2221ca",
       "name": "download_content",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -1461,7 +1461,7 @@
       }
     },
     {
-      "id": "629fbc4a-9d99-43c3-9f71-ae39553240e1",
+      "id": "85353750-b1b8-4655-a978-3976374b8461",
       "name": "set_link_flags",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -1474,7 +1474,7 @@
       }
     },
     {
-      "id": "14dac504-4682-457c-bdac-3333ccef4b39",
+      "id": "9c447b8d-b08c-4046-bcd3-f1b4fbae89a5",
       "name": "execute_article_creator",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
@@ -1591,7 +1591,7 @@
       }
     },
     {
-      "id": "f1dc68f5-48f8-4f37-8be5-ebf88c720276",
+      "id": "a2cab6eb-523a-4421-9821-4e40d77fa0cb",
       "name": "check_draft_error",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -1626,7 +1626,7 @@
       }
     },
     {
-      "id": "a3d7150c-a7bb-4a74-9d9a-fb1d0c3c7dce",
+      "id": "8daecfe5-a44f-4450-ade2-e770ca73e0ca",
       "name": "fail_draft",
       "type": "n8n-nodes-base.stopAndError",
       "typeVersion": 1,
@@ -1640,7 +1640,7 @@
       }
     },
     {
-      "id": "797f3f31-e392-4bd6-9eb1-659ea8be77bd",
+      "id": "3558b1f7-c168-4c01-a3f8-bd9c331a087a",
       "name": "derive_slug",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -1653,7 +1653,7 @@
       }
     },
     {
-      "id": "a2f179f2-b16a-4147-8e8d-dba41f82aa47",
+      "id": "3a014547-9ad0-4cea-9d3d-7501187790ff",
       "name": "store_draft",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
@@ -1685,7 +1685,8 @@
             "ROUND": "={{ $json.ARTICLE_ROUND + 1 }}",
             "TITLE": "={{ $json.DRAFT_TITLE }}",
             "SLUG": "={{ $json.SLUG }}",
-            "ARTICLE_TEXT": "={{ $('execute_article_creator').item.json.text }}"
+            "ARTICLE_TEXT": "={{ $('execute_article_creator').item.json.text }}",
+            "LINK_USED": "={{ $('set_link_flags').item.json.LINK_USED }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -1738,6 +1739,16 @@
               "type": "string",
               "readOnly": false,
               "removed": false
+            },
+            {
+              "id": "LINK_USED",
+              "displayName": "LINK_USED",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
             }
           ],
           "attemptToConvertTypes": false,
@@ -1746,7 +1757,7 @@
       }
     },
     {
-      "id": "9d535555-41cf-4630-8766-0ea79e6f5f98",
+      "id": "cbf52ee1-b373-4b84-bea9-f5e32c06fc76",
       "name": "draft_to_file",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -1759,9 +1770,8 @@
       }
     },
     {
-      "id": "97e21ae0-7d58-4abd-bd4b-5c527eb8ec94",
+      "id": "c0bce3ab-066c-4d3e-8f62-7b55452abec4",
       "name": "upload_draft_file",
-      "webhookId": "8165e346-456c-4973-aa81-03828ea21386",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
@@ -1781,10 +1791,11 @@
           "id": "DszMmPE7WwOjHQjz",
           "name": "Slack account"
         }
-      }
+      },
+      "webhookId": "32164694-e2a5-4efa-88ea-b263f45ebd32"
     },
     {
-      "id": "1008512e-c43f-4e65-a2b5-493614b7c595",
+      "id": "628ee304-68c7-49bc-9980-a0711d5f950b",
       "name": "update_article_drafted",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
@@ -2055,9 +2066,8 @@
       }
     },
     {
-      "id": "68544fc4-f830-46d4-b5b1-03362b0169da",
+      "id": "c3d83da4-d849-45cf-8f04-52bca3afae56",
       "name": "notify_article_review",
-      "webhookId": "2c94b122-8570-4d66-a642-52fa99d219c7",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
@@ -2088,10 +2098,11 @@
           "id": "DszMmPE7WwOjHQjz",
           "name": "Slack account"
         }
-      }
+      },
+      "webhookId": "3f7c1f91-3461-45ab-abe1-7ef62d631dc9"
     },
     {
-      "id": "ff0b5d21-f84f-426f-9fa8-0159d0cd65c6",
+      "id": "5c49415c-40e6-4ee6-9f97-3656525167cb",
       "name": "switch_article_accept",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
@@ -2154,7 +2165,7 @@
       }
     },
     {
-      "id": "e623b691-0eb0-4593-a4e1-8e3128bc0f9d",
+      "id": "6ff716ba-91dc-4a68-9404-4a3057a97944",
       "name": "update_article_approved",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
@@ -2421,9 +2432,8 @@
       }
     },
     {
-      "id": "6dab328e-4e20-4212-bbac-134b2b4ea414",
+      "id": "a633338c-e1ad-4089-8888-8cb6c89254e6",
       "name": "notification_retry_or_cancel",
-      "webhookId": "d7a913ef-28f8-4eab-aef2-0097636c5e1e",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
@@ -2476,10 +2486,11 @@
           "id": "DszMmPE7WwOjHQjz",
           "name": "Slack account"
         }
-      }
+      },
+      "webhookId": "8e382aa5-d93b-4d3b-9458-ac427cdcbe3b"
     },
     {
-      "id": "38ec0025-6362-48c4-a6ce-1a68427f4285",
+      "id": "d40a91c2-6036-4c74-b40b-d01a6d2a73dc",
       "name": "switch_article_retry",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
@@ -2540,7 +2551,7 @@
       }
     },
     {
-      "id": "5bfcb325-aee6-4208-9b69-1f5454e6414b",
+      "id": "170b5b11-c8eb-4841-a90f-8fbe7e434314",
       "name": "update_status_cancelled",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
@@ -2807,7 +2818,7 @@
       }
     },
     {
-      "id": "8ea0b10d-5439-4f63-8a86-0cbb6fc94ba1",
+      "id": "aca9ab4c-458e-48d2-90b0-729a5e099871",
       "name": "retire_asset_rows",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
@@ -2936,9 +2947,8 @@
       }
     },
     {
-      "id": "4526d827-a41c-4e7c-8cf4-500fd93b7c5f",
+      "id": "64b69e0c-b07d-4a68-a96e-f82210416c8b",
       "name": "send_cancelled_notification",
-      "webhookId": "6456fda0-9ce2-4ecd-8d55-38c9e8dd7b33",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
@@ -2963,10 +2973,11 @@
           "id": "DszMmPE7WwOjHQjz",
           "name": "Slack account"
         }
-      }
+      },
+      "webhookId": "cb1e06be-288a-4149-940e-789b7479c14f"
     },
     {
-      "id": "dcc509b9-4e30-485d-b271-ba7afa4c9fd2",
+      "id": "39ceb194-b82e-443e-8f43-8152c1657812",
       "name": "read_draft_for_assets",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
@@ -2995,7 +3006,7 @@
       }
     },
     {
-      "id": "1694a1d3-46ed-4a4e-8bea-627c52062092",
+      "id": "10c1c3ca-68f8-4f8b-b665-0f6479066092",
       "name": "execute_visual_studio",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
@@ -3032,7 +3043,7 @@
       }
     },
     {
-      "id": "e918b3eb-ef73-45f9-a74d-85ebcf88dd00",
+      "id": "4b7cb7b1-bd02-4ec9-9379-4fce5e19a4f6",
       "name": "split_assets",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -3045,7 +3056,7 @@
       }
     },
     {
-      "id": "6fbf81d5-a06a-4637-ae97-2229ac062ae5",
+      "id": "e3f3394c-f8e0-407f-9b4d-275992f57ddb",
       "name": "store_assets",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
@@ -3187,7 +3198,7 @@
       }
     },
     {
-      "id": "8f6ecdc9-c683-4653-8f0b-ea5004c37fc1",
+      "id": "a39e3a67-f4c4-40d2-9648-2a3fa0ff7ff9",
       "name": "if_asset_rendered",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -3222,7 +3233,7 @@
       }
     },
     {
-      "id": "10b025de-7480-493c-a488-66d57d5b1841",
+      "id": "fde85f65-4e97-4575-8ed8-e0f9469971af",
       "name": "if_asset_has_bytes",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -3256,7 +3267,7 @@
       }
     },
     {
-      "id": "e00b1005-89d4-4880-9ed2-b37f0b5c62b8",
+      "id": "ac5461a9-1356-4a6a-a794-0369f56e0be6",
       "name": "asset_from_data_url",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -3269,7 +3280,7 @@
       }
     },
     {
-      "id": "d5852dba-c0e1-4834-a395-c12691380aa1",
+      "id": "96b9a1a6-ade0-44b2-9256-f72ebb22bab1",
       "name": "presign_asset",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -3289,7 +3300,7 @@
       }
     },
     {
-      "id": "4e77b208-76e2-4607-8cdf-5a39f4477743",
+      "id": "483ac728-7a71-4ecc-83ce-c806d8ad27b7",
       "name": "asset_signed_url",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -3302,7 +3313,7 @@
       }
     },
     {
-      "id": "d09b34b6-296d-4c82-b8be-91a41eb14877",
+      "id": "be894d88-33bc-4096-8454-5e98db27f34c",
       "name": "download_asset",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -3325,9 +3336,8 @@
       }
     },
     {
-      "id": "fedd0284-2e16-4271-91ac-f3089b004e65",
+      "id": "b93e8300-b9bb-43bf-ac41-00ef432d3e5f",
       "name": "upload_asset_file",
-      "webhookId": "3e336bb7-d679-4cb2-a72c-69c114b32a32",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
@@ -3347,12 +3357,12 @@
           "id": "DszMmPE7WwOjHQjz",
           "name": "Slack account"
         }
-      }
+      },
+      "webhookId": "0d736851-9ccc-4bca-b7ef-74035004d1fa"
     },
     {
-      "id": "8ea004c5-4666-4fc6-9870-b3a856a80c8e",
+      "id": "1806c75e-ac6a-47c1-9537-addd26b41c1e",
       "name": "notify_asset_review",
-      "webhookId": "2fa363e4-f232-43e9-b478-fbc4a808fd4c",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
@@ -3383,10 +3393,11 @@
           "id": "DszMmPE7WwOjHQjz",
           "name": "Slack account"
         }
-      }
+      },
+      "webhookId": "85eb94c8-7625-49a1-b5b8-6cd084372628"
     },
     {
-      "id": "0aa889e8-ce22-4a3e-a723-35564475a69b",
+      "id": "3a0adbf0-dc49-4368-9757-2e5331c90dff",
       "name": "switch_asset_accept",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
@@ -3449,7 +3460,7 @@
       }
     },
     {
-      "id": "6a5ed19b-bb9e-4cf9-b32d-fd8c73409a2d",
+      "id": "d9f0eae4-cc8c-4e2b-993e-31c654b46bf3",
       "name": "mark_asset_approved",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
@@ -3585,9 +3596,8 @@
       }
     },
     {
-      "id": "668f13e0-9f89-43d4-ad27-d00a879c7f85",
+      "id": "d4a07328-539f-4edd-b2b0-1987453ac94f",
       "name": "notification_retry_or_cancel_asset",
-      "webhookId": "d2e30117-9489-4956-9a8e-9f421ffe6805",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
@@ -3640,10 +3650,11 @@
           "id": "DszMmPE7WwOjHQjz",
           "name": "Slack account"
         }
-      }
+      },
+      "webhookId": "aa7b4ad2-8d3e-4a0b-b3a7-d2601fe7f18f"
     },
     {
-      "id": "0e76a789-d2c0-4244-a16c-170f891e5ec3",
+      "id": "dd1d10ee-91d5-4e9a-b1a3-341bae2d131a",
       "name": "switch_asset_retry",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
@@ -3704,7 +3715,7 @@
       }
     },
     {
-      "id": "bc6fc675-436a-480d-abce-f65a21c6ba10",
+      "id": "942d2ebd-a1ff-41da-bc56-e566f5dc5b9f",
       "name": "mark_asset_cancelled",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
@@ -3838,9 +3849,8 @@
       }
     },
     {
-      "id": "d881c418-bd3c-40bc-a278-eaac2def7fba",
+      "id": "87d81b89-2b32-453a-825b-a92def73c22f",
       "name": "send_asset_cancelled_notification",
-      "webhookId": "ff68a9e7-af99-4143-bb13-86cd52b0da3f",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
@@ -3865,10 +3875,11 @@
           "id": "DszMmPE7WwOjHQjz",
           "name": "Slack account"
         }
-      }
+      },
+      "webhookId": "c1ee1720-11e6-42f8-ac87-0406f973e907"
     },
     {
-      "id": "95bbd434-eed0-4697-8386-2e00befaeaff",
+      "id": "48874a99-43cd-484d-a815-a84a7b407f35",
       "name": "read_asset_rows",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
@@ -3897,7 +3908,7 @@
       }
     },
     {
-      "id": "71fea478-f3d1-44c8-a2e4-803b92560a0b",
+      "id": "609795aa-d79b-4be9-baba-2335443de487",
       "name": "if_all_assets_approved",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -3910,7 +3921,7 @@
       }
     },
     {
-      "id": "20f9ed47-76f6-4fd4-b264-ceb0b24a50bd",
+      "id": "28d8949f-35a1-4a26-84a0-0499ecc50afd",
       "name": "read_asset_rows_for_publish",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
@@ -3939,7 +3950,7 @@
       }
     },
     {
-      "id": "d300340b-af29-413c-ac54-ddd747395731",
+      "id": "e736a854-883f-4f6f-b774-deb51caece2f",
       "name": "read_draft_for_publish",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
@@ -3968,7 +3979,7 @@
       }
     },
     {
-      "id": "5ef27446-8794-4fe8-b552-8c0c8afa5d03",
+      "id": "5c36b0ce-4874-46fe-ab84-17490513b2f7",
       "name": "get_posts_dir",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -4002,7 +4013,7 @@
       }
     },
     {
-      "id": "6af91177-42b4-4b6a-af95-d4a4683d54a9",
+      "id": "9b74f269-6485-4468-aa13-64301d1594e4",
       "name": "disambiguate_slug",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -4015,7 +4026,7 @@
       }
     },
     {
-      "id": "36a557da-0a4b-430b-a159-7923a853d01c",
+      "id": "7dd79a5c-5779-4594-b86e-dc8d35aee1bf",
       "name": "build_commit_files",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -4028,7 +4039,7 @@
       }
     },
     {
-      "id": "5f6f6d13-481a-4a76-b537-18a0808f1458",
+      "id": "24199d98-d662-4a20-8164-69f129c67b53",
       "name": "plan_asset_uploads",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -4041,7 +4052,7 @@
       }
     },
     {
-      "id": "05eb500e-7a62-4f45-ba31-d8b0f30511a0",
+      "id": "6e35db90-90ed-4578-956d-f63a9385d30b",
       "name": "if_asset_needs_fetch",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -4076,7 +4087,7 @@
       }
     },
     {
-      "id": "4e1351f2-f75f-46a5-a2ed-10944991cdc4",
+      "id": "3e867f6e-83dd-411f-b27c-d55885279ced",
       "name": "presign_asset_publish",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -4096,7 +4107,7 @@
       }
     },
     {
-      "id": "1dc71e59-4868-48f0-968a-079a8631b345",
+      "id": "082ba83c-ec79-4a1b-bc52-8e864bde32b0",
       "name": "asset_publish_url",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -4109,7 +4120,7 @@
       }
     },
     {
-      "id": "a4d764dd-af51-4866-a963-852b78dde54c",
+      "id": "e7e574d1-b46f-4b4a-aeb3-86c3479d9c20",
       "name": "download_asset_publish",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -4132,7 +4143,7 @@
       }
     },
     {
-      "id": "b6119523-af5f-4ccf-a890-d1d157b3af0b",
+      "id": "73a44899-e539-44b8-95b5-2bad9de64f5b",
       "name": "asset_bytes_from_download",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -4145,7 +4156,7 @@
       }
     },
     {
-      "id": "dbcca9d0-184b-4ebe-8838-5e488b88afed",
+      "id": "e8af204f-61c6-46c5-a091-29f17d96105d",
       "name": "create_blobs",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -4182,7 +4193,7 @@
       }
     },
     {
-      "id": "23b53012-473c-4360-a57f-1d12054f9156",
+      "id": "32296340-fdff-4182-b8a5-948464bcc73f",
       "name": "collect_tree_entries",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -4195,7 +4206,7 @@
       }
     },
     {
-      "id": "004a06e1-bff2-42ba-9aee-7b3eb387d6fe",
+      "id": "2db98a3f-f8af-44ee-9fdb-fc04d02ba20f",
       "name": "get_base_ref",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -4229,7 +4240,7 @@
       }
     },
     {
-      "id": "fc25e659-5a6f-40ae-9e92-57c6c85c79ac",
+      "id": "ce0e0c20-7079-4322-a9fa-9c16a0477d89",
       "name": "create_tree",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -4266,7 +4277,7 @@
       }
     },
     {
-      "id": "8218852d-9ade-4a9c-8476-90d606f6713c",
+      "id": "04c89a1c-bd98-45e7-9707-980b777adf03",
       "name": "create_commit",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -4303,7 +4314,7 @@
       }
     },
     {
-      "id": "22c4bcf7-d880-4171-a8f9-f7de559e38cd",
+      "id": "178c5807-1732-4f4e-bda9-d9afbfa0e6c8",
       "name": "patch_ref",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -4341,7 +4352,7 @@
       }
     },
     {
-      "id": "e7a3464b-5cfd-4fe8-aa58-9eb69c214f32",
+      "id": "a72d5ea1-c39e-48ab-ab1d-feb8f4b06def",
       "name": "get_base_ref_again",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -4375,7 +4386,7 @@
       }
     },
     {
-      "id": "e301c200-0afd-4c89-9792-144b5cc91d63",
+      "id": "5f2e6a41-13d0-4621-9b0d-abf16fa550fb",
       "name": "create_tree_again",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -4412,7 +4423,7 @@
       }
     },
     {
-      "id": "0d28883d-654a-46cd-a774-bf80d78ce3a2",
+      "id": "1a520917-5e97-488b-9511-a55e0c1550c0",
       "name": "create_commit_again",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -4449,7 +4460,7 @@
       }
     },
     {
-      "id": "091f2eba-3fc4-491a-8bf8-e414c1631978",
+      "id": "2a890221-9268-4eea-9d1f-48457f19e432",
       "name": "patch_ref_again",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -4486,7 +4497,7 @@
       }
     },
     {
-      "id": "845df18a-e2f0-4ade-848f-af348e66d10f",
+      "id": "73b48280-8abe-4715-b335-8936ac3bec13",
       "name": "check_ref_retry",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -4499,7 +4510,7 @@
       }
     },
     {
-      "id": "5bcaa644-598d-444d-8076-301d3a549849",
+      "id": "63d25e5f-8877-4ffe-89f3-068c1374eb5a",
       "name": "record_published",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
@@ -4769,7 +4780,7 @@
       }
     },
     {
-      "id": "e93f37e9-fc41-4a5f-934a-72a7fd81fab4",
+      "id": "7fd17999-f81f-44cc-b000-d58abf61b38c",
       "name": "asset_paths",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -4782,7 +4793,7 @@
       }
     },
     {
-      "id": "50c83ed4-309d-4c4a-8426-deb89132b41e",
+      "id": "398673a3-7323-41b8-9ca6-4f94ae87fbb7",
       "name": "record_asset_paths",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
@@ -4917,9 +4928,8 @@
       }
     },
     {
-      "id": "878003b0-a9b9-4def-b646-e2a70224b24d",
+      "id": "2a849ae1-0ba9-44ba-88ae-37f3cc6514ea",
       "name": "send_published_notification",
-      "webhookId": "bc54171c-558a-4e38-849d-89a476286acb",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
@@ -4944,7 +4954,8 @@
           "id": "DszMmPE7WwOjHQjz",
           "name": "Slack account"
         }
-      }
+      },
+      "webhookId": "9e67e7d1-39a3-4baf-aeb0-6ef709337e41"
     }
   ],
   "pinData": null,
@@ -4968,6 +4979,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 0,
-  "updatedAt": "2026-10-16T03:27:37.776Z",
-  "versionId": "8881c5e6-f618-49a4-b375-55003ec570de"
+  "updatedAt": "2026-10-16T03:32:48.662Z",
+  "versionId": "ee7f4a2f-eb61-4607-89d3-0f953dab8f4d"
 }

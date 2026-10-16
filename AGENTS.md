@@ -475,7 +475,7 @@ nothing may leave, dim or hide before the end — and the animated branch is not
 `png` type at all. A `SCENES` count on the still type becomes the card's parts within the
 one frame rather than a sequence. So the studio holds two different stills and they are
 not the same medium: `image` is Gemini's raster, `launch_card` is a frame the composer
-composed. `openspec/changes/add-launch-card-type/` is the record.
+composed. `openspec/changes/archive/2026-10-16-add-launch-card-type/` is the record.
 
 **When a launch card, and when something else.** A launch card announces **a thing we
 ship** — a product, a feature, an integration, a release — and it is the one visual whose

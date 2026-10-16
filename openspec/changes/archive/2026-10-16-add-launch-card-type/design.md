@@ -77,6 +77,13 @@ that is not a contract worth relying on — the artifact must not depend on the 
 timing at all. It is a one-line change in the adapter, so it applies to any future still
 type rather than to `launch_card` alone.
 
+**Closing verification, live, after the fix** (`bd70a54`, adapter re-pinned `e45e410`,
+session rolled): execution **13588**, run `COMPLETE`, asset `RENDERED`, `image/png`,
+1280x670, `S3_BYTES` **359,894**, and the decoded frame carries **12,307 distinct
+colours** with its background covering only 8.2% of the pixels — against 4,107 bytes and
+one colour before. The colour count is within 50 of the 12,257 measured on 13581's final
+frame, which is what "the sampler takes the frame the measurement predicted" looks like.
+
 ### D2 — the card's parts live in a new `launch` form
 
 The registry declares how a type is authored and its frame — never a layout. The

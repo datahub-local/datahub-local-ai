@@ -1,5 +1,12 @@
 # Spec Delta
 
+## Purpose
+
+Turns one source text into a set of visual assets through a declared type registry: a static image authored by the image model, and stills, clips, SVGs and a self-contained HTML deck authored by the composer agent. The workflow is generic and stateless between runs: parameters arrive on the trigger, the result is returned and recorded.
+
+Applied by hand: `openspec archive` ignores a delta `## Purpose` when the capability already
+has one, and reports it, so the live spec's Purpose was edited directly to match this text.
+
 ## MODIFIED Requirements
 
 ### Requirement: Types are declared in a registry

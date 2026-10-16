@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Turns one source text into a set of visual assets through a declared type registry: a static image authored by the image model, and animations authored by the composer agent. The workflow is generic and stateless between runs: parameters arrive on the trigger, the result is returned and recorded.
+Turns one source text into a set of visual assets through a declared type registry: a static image authored by the image model, and stills, clips, SVGs and a self-contained HTML deck authored by the composer agent. The workflow is generic and stateless between runs: parameters arrive on the trigger, the result is returned and recorded.
 
 ## Requirements
 
@@ -15,8 +15,9 @@ declare `image` (authored by the image model, png), `animation` (authored by the
 composer agent, mp4), `animation_linkedin` (authored by the composer agent, gif, inside
 the platform's GIF cap), `animation_linkedin_video` (authored by the composer agent,
 mp4, at the feed's aspect), `svg` (authored by the composer agent, a self-contained
-animated SVG) and `deck` (authored by the composer agent, a self-contained HTML
-presentation that the same run also renders to mp4).
+animated SVG), `deck` (authored by the composer agent, a self-contained HTML
+presentation that the same run also renders to mp4) and `launch_card` (authored by the
+composer agent, a still png at the announcement frame).
 
 A type MUST NOT require a frozen final frame: an animated type's declared budget SHALL
 NOT mandate a hold during which nothing moves.
@@ -34,6 +35,11 @@ NOT mandate a hold during which nothing moves.
 - **WHEN** an animated type's budget is read
 - **THEN** it declares no frozen-hold requirement
 - **AND** the brief asks for an ambient idle rather than a still final frame
+
+#### Scenario: A still type declares no clip
+- **WHEN** the still raster type is read
+- **THEN** it declares no per-scene floor and no frame budget beyond the single frame
+  it ships
 
 ### Requirement: The requested set is a trigger parameter
 
@@ -395,3 +401,26 @@ answer was given".
 - **THEN** the run answers with that type's asset, carrying a reason that names it
 - **AND** the run status reports the failure
 - **AND** the caller sees the reason rather than an empty result
+
+### Requirement: A still raster type is composed in one frame
+
+WHEN a requested type's format is a still raster, the brief SHALL state that the whole
+visual is complete and legible in the composition's **final** frame, and the produced
+asset SHALL be that frame of the render. The brief MUST NOT require the composer to
+suppress motion: an entrance MAY run, because the sampled frame is the settled one, and
+the constraint the brief carries is that nothing may leave, dim or hide before the end.
+The system MUST NOT require the composer to hold a finished composition for a duration,
+and the part of the composition before the sampled frame is not part of the artifact.
+
+A still type SHALL be selectable like any other type and SHALL NOT be produced by
+interpreting a moving composition or by templating a layout.
+
+#### Scenario: The card is complete in the sampled frame
+- **WHEN** a still raster type is requested
+- **THEN** the brief names the final frame as the artifact
+- **AND** it forbids an element leaving, dimming or hiding before that frame
+
+#### Scenario: A still is legible without motion
+- **WHEN** the still asset is fetched
+- **THEN** it is a complete, readable visual on its own
+- **AND** no scene of a clip was selected to stand in for it

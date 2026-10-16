@@ -224,7 +224,13 @@ export function transcodeArgs(format, { fps, width, frames, durationSeconds } = 
         "out.webp",
       ];
     case "png":
-      return ["-y", "-i", "out.mp4", "-frames:v", "1", "out.png"];
+      // A still is sampled from the END of the render, not its first frame. An
+      // authored composition animates its subjects in, so frame 1 is the empty
+      // page: measured against a real launch card (2026-10-16, run 13581), frame 1
+      // was 4,107 bytes and exactly one colour where the final frame was 251,865
+      // bytes and 12,257 colours. The last frame is the settled card whatever the
+      // composer's entrance timing, so the artifact does not depend on it.
+      return ["-y", "-sseof", "-0.1", "-i", "out.mp4", "-frames:v", "1", "out.png"];
     case "svg":
       // Authored directly by the composer as a self-contained animated SVG; there is
       // no engine out.mp4 to derive it from, so nothing to transcode.

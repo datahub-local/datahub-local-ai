@@ -26,10 +26,11 @@ when the subject is a thing we ship, and today the studio cannot make one.
   `agents/n8n/prompts/visual_forms.md`, so the card's parts are defined once and
   reusable. A form is the right home: the registry declares only the output frame.
 - Teach the brief to compose a still: `build_author_brief` gains a `png` branch
-  asking for the whole card in the composition's **first frame**, because the still
-  is produced as that frame of the render (`agents/adapters/pi-render/session-lib.mjs`,
-  `transcodeArgs`: `-frames:v 1`). Without the branch the artifact is an arbitrary
-  first frame of an entrance animation.
+  stating that the whole card is complete and legible in the composition's **final**
+  frame, because the still is produced from that frame of the render
+  (`agents/adapters/pi-render/session-lib.mjs`, `transcodeArgs`). The first attempt
+  sampled the render's *first* frame instead and shipped a blank card — see
+  `design.md` D1, which carries the measurements.
 - Extend the `FORCE` enum in `visual_studio.workflow.json` and the two `FORMS`
   arrays in `content_feed_curator.workflow.json` with the new form, and the
   vocabulary comment in `datasets/hook_types.json` — one vocabulary in four places,
@@ -73,5 +74,8 @@ articles; a launch card announces *our own* product, so it is chosen by `FORCE`
   still-type invariants) and `scripts/test_visual_studio_graph.py` (the still
   branch). `scripts/test_hook_registry.py` already gates the four-place vocabulary
   and needs no change.
-- **`agents/adapters/pi-render`** — **no change**. The still rides the existing
-  `png` transcode.
+- **`agents/adapters/pi-render`** — `session-lib.mjs`'s `png` transcode samples the
+  render's **final** frame instead of its first (plus its adapter test), because the
+  first live run of the type shipped a blank png. The adapter image is rebuilt and
+  re-pinned by `publish-images.yaml` on push, and the model is not asked to suppress
+  motion.

@@ -42,19 +42,20 @@ NOT mandate a hold during which nothing moves.
 ### Requirement: A still raster type is composed in one frame
 
 WHEN a requested type's format is a still raster, the brief SHALL state that the whole
-visual is composed in the composition's first frame, and that nothing arrives by
-fading, sliding or typing. The produced asset SHALL be that first frame of the render,
-and the system MUST NOT require the composer to hold a finished composition for a
-duration — the part of the composition after the first frame is not sampled and is not
-part of the artifact.
+visual is complete and legible in the composition's **final** frame, and the produced
+asset SHALL be that frame of the render. The brief MUST NOT require the composer to
+suppress motion: an entrance MAY run, because the sampled frame is the settled one, and
+the constraint the brief carries is that nothing may leave, dim or hide before the end.
+The system MUST NOT require the composer to hold a finished composition for a duration,
+and the part of the composition before the sampled frame is not part of the artifact.
 
 A still type SHALL be selectable like any other type and SHALL NOT be produced by
 interpreting a moving composition or by templating a layout.
 
-#### Scenario: The card is complete in the first frame
+#### Scenario: The card is complete in the sampled frame
 - **WHEN** a still raster type is requested
-- **THEN** the brief asks for the whole visual in the first frame
-- **AND** no element is left to an entrance animation
+- **THEN** the brief names the final frame as the artifact
+- **AND** it forbids an element leaving, dimming or hiding before that frame
 
 #### Scenario: A still is legible without motion
 - **WHEN** the still asset is fetched

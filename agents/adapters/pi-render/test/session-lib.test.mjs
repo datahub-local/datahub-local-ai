@@ -100,6 +100,8 @@ test("transcodeArgs only runs ffmpeg when the format is not mp4", () => {
   assert.ok(webp.includes("libwebp"));
   assert.equal(webp.at(-1), "out.webp");
   const png = transcodeArgs("png", {});
+  // Sampled from the end: an entrance animation leaves the first frame empty.
+  assert.ok(png.includes("-sseof"), "a still must not be taken from the first frame");
   assert.ok(png.includes("-frames:v"));
   assert.equal(png.at(-1), "out.png");
 });

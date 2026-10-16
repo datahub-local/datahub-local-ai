@@ -460,16 +460,22 @@ A `deck` run returns two assets from that one turn: the deck (`out.html`) and it
 video (`out.mp4`), fetched by `fetch_paired_artifact` and emitted as `deck` +
 `deck_video`.
 
-**A still is the render's first frame.** `launch_card` is the one agent-authored raster,
-and its artifact is `out.mp4`'s **first frame**: the session's `png` transcode is
-`ffmpeg -frames:v 1` (`agents/adapters/pi-render/session-lib.mjs`, `transcodeArgs`), which
-is also why a still needs its own branch in `build_author_brief`. That branch states that
-the whole visual is composed in the first frame — nothing fades, slides or types its way
-in — because an entrance animation would leave the artifact missing, and whatever moves
-after that frame is never sampled. A `SCENES` count on the still type becomes the card's
-parts within the one frame rather than a sequence. So the studio holds two different
-stills and they are not the same medium: `image` is Gemini's raster, `launch_card` is a
-frame the composer composed. `openspec/changes/add-launch-card-type/` is the record.
+**A still is the render's last frame, and that is measured, not assumed.** `launch_card`
+is the one agent-authored raster, and its artifact is the **final** frame of the
+composition the composer renders: the session's `png` transcode is
+`ffmpeg -sseof -0.1 -frames:v 1` (`agents/adapters/pi-render/session-lib.mjs`,
+`transcodeArgs`). It was the *first* frame until the type's first live run, which is
+exactly the trap: an authored composition animates its subjects in, so frame 1 of the
+real card (run 13581) was **4,107 bytes and exactly one colour** — a blank page — while
+its final frame was **251,865 bytes and 12,257 colours** with content in every row band.
+No brief wording fixes that reliably: the framework's motion rules ask for entrances and
+a model will write them, so the artifact must not depend on the composer's timing. The
+still brief therefore names the final frame and forbids only what would break it —
+nothing may leave, dim or hide before the end — and the animated branch is not used for a
+`png` type at all. A `SCENES` count on the still type becomes the card's parts within the
+one frame rather than a sequence. So the studio holds two different stills and they are
+not the same medium: `image` is Gemini's raster, `launch_card` is a frame the composer
+composed. `openspec/changes/add-launch-card-type/` is the record.
 
 **When a launch card, and when something else.** A launch card announces **a thing we
 ship** — a product, a feature, an integration, a release — and it is the one visual whose

@@ -162,15 +162,16 @@ def test_the_brief_carries_force_style_brand_and_frame(label, doc):
 
 
 @pytest.mark.parametrize("label,doc", list(_copies()))
-def test_the_brief_composes_a_still_in_one_frame(label, doc):
-    """A still artifact is the render's first frame (session-lib transcodeArgs takes
-    ``-frames:v 1``), so the brief must ask for the whole visual to be composed
-    there rather than animated in."""
+def test_the_brief_composes_a_still_in_one_settled_frame(label, doc):
+    """A still artifact is the render's **last** frame (session-lib transcodeArgs
+    samples the end with ``-sseof``), so the brief must say the card is complete
+    there: an entrance is fine, an exit is not."""
     body = _code(doc, "build_author_brief")
     assert "format === 'png'" in body, "the brief has no still branch"
     start = body.index(": format === 'png'")
     still = body[start:body.index("].join", start)]
-    assert "first frame" in still, "the still brief does not name the frame that ships"
+    assert "final frame" in still, "the still brief does not name the frame that ships"
+    assert "first frame" not in still, "the still brief still promises the first frame"
     assert "stillSceneLine" in still, "a scene count is ignored rather than folded in"
     assert "sampling" not in still, "the still branch reuses the animated instruction"
 

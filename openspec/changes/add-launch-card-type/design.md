@@ -21,15 +21,15 @@ Verified by reading the code, not inferred:
    a screenshot in either mode"* — and rule 2 — *"Use only names and numbers that
    appear in the source text; never invent a number, reword or add text"* — forbid
    exactly what a launch card is made of.
-2. **A still is frame 1 of a render, not a directly authored file.**
-   `session-lib.mjs` `transcodeArgs` → `png: ["-y","-i","out.mp4","-frames:v","1","out.png"]`.
-   `turnInstruction` for a non-svg, non-deck format tells the composer to write
-   `index.html` and render `out.mp4`. So a png artifact is `out.mp4`'s first frame,
-   and the composer must compose the finished card **at t=0**.
-3. **`build_author_brief` has no still branch.** It branches on deck, then svg,
-   then falls through to the animated branch, whose text is *"Render a WxH
-   composition that runs about N seconds. Animate deliberately …"*. A png type
-   added without a branch therefore yields a random first frame.
+2. **A still is a frame of a render, not a directly authored file.**
+   `session-lib.mjs` `transcodeArgs` derives `png` from `out.mp4`; `turnInstruction`
+   for a non-svg, non-deck format tells the composer to write `index.html` and render
+   `out.mp4`. **Which frame was a decision this change got wrong first, and the
+   probe measured it:** see D1.
+3. **`build_author_brief` had no still branch.** It branches on deck, then svg, then
+   falls through to the animated branch, whose text is *"Render a WxH composition
+   that runs about N seconds. Animate deliberately …"*. A png type added without a
+   branch therefore yields a frame nobody chose.
 4. **`render: "static"` does not mean "still".** `image` (Gemini raster) and `svg`
    (a self-contained *animated* SVG authored directly, never rendered) both declare
    it. The honest signal for the brief is the **format**, which it already branches
@@ -41,22 +41,41 @@ Verified by reading the code, not inferred:
    Adding a form to one and not the others is silently clamped, and the test fails.
 6. **Motion rules and a still do not conflict.** `visual_motion_rules.md` forbids a
    *frozen final frame in an animated clip* — "Nothing fully stops". A still is not
-   an animated clip, and nothing requires the composition to freeze: it may drift
-   after frame 1, which is simply not sampled. So the brief states completeness at
-   frame 1 and no rule is exempted.
+   an animated clip, and the still branch ships no clip, so no rule is exempted and
+   the brief needs no suppression of motion.
 
 ## Decisions
 
-### D1 — `launch_card` is agent-authored, `static`, `png`, 1.91:1
+### D1 — `launch_card` is agent-authored, `static`, `png`, 1.91:1, sampled from the render's final frame
 
 The composer is the only author that can letter exactly and draw an interface. The
-frame is the reference's: 1.91:1, viewport 1280 → 1280x670 (the reference is
+frame is the reference's: 1.91:1, viewport 1280 -> 1280x670 (the reference is
 1280x668; 1.91:1 is the declared ratio and the render rounds it).
 
-The brief's new branch states the mechanism plainly: *everything is composed in the
-first frame; nothing fades, slides or types its way in, because the artifact is that
-frame.* That is the one non-obvious instruction this type needs, and it is the
-reason the change touches the graph at all.
+**Which frame was wrong on the first attempt, and the probe is what found it.** The
+first implementation took `out.mp4`'s *first* frame (`-frames:v 1`) and asked the brief
+for a card complete at t=0 with nothing fading in. The type's first live run
+(execution 13581, 2026-10-16) produced a **blank** png: 4,107 bytes, 8-bit RGB,
+1280x670, **exactly one colour** (`#0c1016`) across 100% of the frame. The composer had
+authored the composition correctly — 25 KB of HTML, a 7-second render at 210 frames,
+the card reproduced faithfully — but with the entrance animation the framework's own
+motion rules ask for, so t=0 is the empty page.
+
+Re-measured against that same render, from the pi-render session itself:
+
+| sample | bytes | distinct colours | non-background |
+| --- | --- | --- | --- |
+| frame 1 (`-frames:v 1`) | 4,107 | 1 | 0.0% |
+| final frame (`-sseof -0.1`) | 251,865 | 12,257 | 54.5% |
+| one second before the end (`-sseof -1`) | 246,944 | 11,709 | 54.7% |
+
+So the fix is on the **sampler**, not in the brief: `transcodeArgs("png")` now takes the
+final frame, and the brief states that the artifact is that frame, that entrances may
+run, and that nothing may leave, dim or hide before the end. A brief that demands
+"nothing animates in" is a request for the composer to disobey the motion grammar, and
+that is not a contract worth relying on — the artifact must not depend on the composer's
+timing at all. It is a one-line change in the adapter, so it applies to any future still
+type rather than to `launch_card` alone.
 
 ### D2 — the card's parts live in a new `launch` form
 
@@ -107,14 +126,12 @@ scene plan already in place.
 
 ## Risks
 
-- **[UNVERIFIED] the composer obeys "compose it in the first frame".** The
-  mechanism is verified by reading `transcodeArgs`; that a model renders a complete
-  card at t=0 is not. Guards: the brief states it as the artifact's definition, the
-  vocabulary's `launch` line lists the parts, and a card that misses it is
-  diagnosable from the run's `STORYBOARD` report. A probe run is task 5.3.
-- **`-frames:v 1` takes t=0 exactly.** An entrance that starts at t=0 is the failure
-  mode; a composition that starts complete cannot hit it. If a probe shows otherwise,
-  the fix is in the brief, not in the adapter.
+- **[RESOLVED by measurement] the sampler, not the composer, decides whether the still
+  is blank.** The first implementation relied on the composer composing a complete card
+  at t=0 and it failed in production (D1). The final-frame sampler removes the
+  dependency; the residual risk is a composition that *exits* its content at the end,
+  which the brief forbids in one line and which the framework's motion rules do not ask
+  for (they forbid ending frozen, not ending empty).
 - **A still costs the studio its "no holds" property?** No: the property is about a
   clip's final frame, and this type ships no clip.
 

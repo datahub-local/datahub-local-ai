@@ -37,6 +37,28 @@
       "main": [
         [
           {
+            "node": "download_blog_categories",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "download_blog_categories": {
+      "main": [
+        [
+          {
+            "node": "validate_categories",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "validate_categories": {
+      "main": [
+        [
+          {
             "node": "read_asset_rows_for_entry",
             "type": "main",
             "index": 0
@@ -840,7 +862,7 @@
   "name": "Article Content Writer",
   "nodes": [
     {
-      "id": "c7bdab53-b609-4710-98dc-467856e36ed0",
+      "id": "fcad63ce-6a10-4abd-86b1-b55e527be398",
       "name": "click_trigger",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
@@ -851,7 +873,7 @@
       "parameters": {}
     },
     {
-      "id": "ed715d41-31d0-444e-804b-105b71473e97",
+      "id": "93e07d38-250f-459c-a531-bd7811460187",
       "name": "schedule_trigger",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
@@ -871,7 +893,7 @@
       }
     },
     {
-      "id": "71920dc9-d684-4e15-89b3-cbbc4ba364d6",
+      "id": "47a5481d-eb65-4194-b8f9-5c48f4e0731a",
       "name": "read_article_queue",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
@@ -910,7 +932,7 @@
       }
     },
     {
-      "id": "e441b0d3-56fc-4fa2-b8fe-13fd67da0708",
+      "id": "a7aa4047-71b6-4bc3-9031-9e158ca4e93f",
       "name": "pick_candidate",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -923,13 +945,76 @@
       }
     },
     {
-      "id": "53f0e790-0739-471d-8354-f02e2d70d243",
+      "id": "6fa16d64-072d-485f-849e-b096889adc0c",
+      "name": "download_blog_categories",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        640,
+        -192
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "qUfjfWLGEjV96ljf",
+          "mode": "list",
+          "cachedResultName": "DownloadTemplate",
+          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "template_name": "datasets/blog_categories.json",
+            "template_vars": "={{ {} }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "template_name",
+              "displayName": "template_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "template_vars",
+              "displayName": "template_vars",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "ad7768fa-cd9f-4e08-aaf9-1dc74f425f4c",
+      "name": "validate_categories",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        -192
+      ],
+      "parameters": {
+        "jsCode": "// The row's categories, checked against the one list the blog has (datasets/blog_categories.json)\n// before anything is drafted or committed. A category the blog does not define is a failure\n// with a reason, not a post published under a new heading: the alternative is a taxonomy that\n// grows one row at a time and cannot be found again.\n//\n// The list is fetched, not copied into this node, and an unreadable file fails the run rather\n// than skipping the check -- a silent skip is how a validation becomes decoration.\nconst raw = $('download_blog_categories').first().json.output || '{}';\nlet known;\ntry {\n  known = JSON.parse(raw);\n} catch (e) {\n  throw new Error('datasets/blog_categories.json is not valid JSON: ' + e.message);\n}\nconst allowed = new Set((known.categories || []).map((c) => String(c).trim()));\nif (!allowed.size) throw new Error('datasets/blog_categories.json declares no category');\nconst row = $('pick_candidate').first().json;\nconst declared = String(row.CATEGORIES || '').split(',').map((c) => c.trim()).filter(Boolean);\nconst unknown = declared.filter((c) => !allowed.has(c));\nif (declared.length && unknown.length) {\n  throw new Error('row ' + row.row_number + ' names categories the blog does not define: ' + unknown.join(', ') + ' (known: ' + [...allowed].join(', ') + ')');\n}\nconst categories = declared.length ? declared : ['General'];\nreturn [{ json: { ...row, CATEGORIES: categories.join(', ') } }];\n"
+      }
+    },
+    {
+      "id": "f9ca8085-a0ad-4c9a-ab6b-75b5062db173",
       "name": "read_asset_rows_for_entry",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
       "position": [
-        672,
-        0
+        1120,
+        -192
       ],
       "parameters": {
         "operation": "get",
@@ -952,7 +1037,7 @@
       }
     },
     {
-      "id": "4c525922-bef0-43a1-8f57-c45fe37a4433",
+      "id": "e2333c63-8b9d-49c9-bb10-0f36f751e558",
       "name": "select_article_to_queue",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -961,11 +1046,11 @@
         0
       ],
       "parameters": {
-        "jsCode": "// The next action for the entry, from the predicate in the design (D15): the phase is read off\n// the stored state in two places - the article's own review state on the sheet and the\n// per-asset rows here - so a resumed run reaches the same next action as an uninterrupted one\n// instead of guessing at whichever field looks unfinished.\nconst row = $('pick_candidate').first().json;\nconst assets = $input.all().map((i) => i.json);\nconst requested = (r) => {\n  const list = String(r.ASSET_TYPES || '').split(',').map((s) => s.trim()).filter(Boolean);\n  return list.includes('image') ? list : ['image', ...list];\n};\nconst pending = requested(row).filter((type) => {\n  const hit = assets.find((a) => String(a.ASSET_TYPE || '') === type);\n  return !hit || String(hit.STATUS || '').toUpperCase() !== 'APPROVED';\n});\nconst article = String(row.ARTICLE_STATUS || '').trim().toUpperCase();\nconst phase = article === 'APPROVED' ? (pending.length ? 'assets' : 'publish') : 'draft';\nconsole.log('row ' + row.row_number + ' -> ' + phase + ' (pending: ' + (pending.join(',') || 'none') + ')');\nreturn [{ json: { ...row, PHASE: phase, PENDING_ASSETS: pending.join(',') } }];\n"
+        "jsCode": "// The next action for the entry, from the predicate in the design (D15): the phase is read off\n// the stored state in two places - the article's own review state on the sheet and the\n// per-asset rows here - so a resumed run reaches the same next action as an uninterrupted one\n// instead of guessing at whichever field looks unfinished.\nconst row = $('validate_categories').first().json;\nconst assets = $input.all().map((i) => i.json);\nconst requested = (r) => {\n  const list = String(r.ASSET_TYPES || '').split(',').map((s) => s.trim()).filter(Boolean);\n  return list.includes('image') ? list : ['image', ...list];\n};\nconst pending = requested(row).filter((type) => {\n  const hit = assets.find((a) => String(a.ASSET_TYPE || '') === type);\n  return !hit || String(hit.STATUS || '').toUpperCase() !== 'APPROVED';\n});\nconst article = String(row.ARTICLE_STATUS || '').trim().toUpperCase();\nconst phase = article === 'APPROVED' ? (pending.length ? 'assets' : 'publish') : 'draft';\nconsole.log('row ' + row.row_number + ' -> ' + phase + ' (pending: ' + (pending.join(',') || 'none') + ')');\nreturn [{ json: { ...row, PHASE: phase, PENDING_ASSETS: pending.join(',') } }];\n"
       }
     },
     {
-      "id": "ac8f4356-dc96-49f4-8e4d-f6c5eaad5840",
+      "id": "3bd9f910-3bb4-40f5-98e5-dfe444d83acc",
       "name": "update_status_in_progress",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
@@ -1232,7 +1317,7 @@
       }
     },
     {
-      "id": "eea12873-44de-47c1-8841-9b5bc0614197",
+      "id": "62845620-b8fb-42b7-9aad-38da2c800dc6",
       "name": "switch_phase",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
@@ -1315,7 +1400,7 @@
       }
     },
     {
-      "id": "9d9e5add-eb46-4130-a885-f30ac3fc2376",
+      "id": "b785ad72-e2f6-4062-afa2-7fbf9dd45e55",
       "name": "if_has_link",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -1350,7 +1435,7 @@
       }
     },
     {
-      "id": "ead0fd5b-9a95-407c-8c17-fe9cf8106336",
+      "id": "1075ed8f-e027-48be-94f8-f4116e601fda",
       "name": "download_content",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -1368,7 +1453,7 @@
       "onError": "continueRegularOutput"
     },
     {
-      "id": "82af9b28-def3-4d9b-8632-083414728732",
+      "id": "629fbc4a-9d99-43c3-9f71-ae39553240e1",
       "name": "set_link_flags",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -1381,7 +1466,7 @@
       }
     },
     {
-      "id": "c7e09f6b-caf5-4878-b89c-9694d34ab592",
+      "id": "14dac504-4682-457c-bdac-3333ccef4b39",
       "name": "execute_article_creator",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
@@ -1498,7 +1583,7 @@
       }
     },
     {
-      "id": "711c2759-5d8a-4703-ba24-668a581bc17b",
+      "id": "f1dc68f5-48f8-4f37-8be5-ebf88c720276",
       "name": "check_draft_error",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -1533,7 +1618,7 @@
       }
     },
     {
-      "id": "7a65878f-d99e-4e3a-8c51-daba5e8659ab",
+      "id": "a3d7150c-a7bb-4a74-9d9a-fb1d0c3c7dce",
       "name": "fail_draft",
       "type": "n8n-nodes-base.stopAndError",
       "typeVersion": 1,
@@ -1547,7 +1632,7 @@
       }
     },
     {
-      "id": "af59123e-0508-4d09-8c1a-cc3e81911ad5",
+      "id": "797f3f31-e392-4bd6-9eb1-659ea8be77bd",
       "name": "derive_slug",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -1560,7 +1645,7 @@
       }
     },
     {
-      "id": "46f8f823-5a7e-4135-ab54-a441a7ddca24",
+      "id": "a2f179f2-b16a-4147-8e8d-dba41f82aa47",
       "name": "store_draft",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
@@ -1653,7 +1738,7 @@
       }
     },
     {
-      "id": "739501bc-410c-4e83-b6c9-9e9870894430",
+      "id": "9d535555-41cf-4630-8766-0ea79e6f5f98",
       "name": "draft_to_file",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -1666,7 +1751,7 @@
       }
     },
     {
-      "id": "cbf90fde-c3d9-40f1-8f93-3fa8d8479b08",
+      "id": "97e21ae0-7d58-4abd-bd4b-5c527eb8ec94",
       "name": "upload_draft_file",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
@@ -1690,7 +1775,7 @@
       }
     },
     {
-      "id": "b070cc6c-acac-4943-8bc9-5f6e24649f89",
+      "id": "1008512e-c43f-4e65-a2b5-493614b7c595",
       "name": "update_article_drafted",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
@@ -1961,7 +2046,7 @@
       }
     },
     {
-      "id": "2e167cfe-8b02-4dbd-a16e-745c00515a06",
+      "id": "68544fc4-f830-46d4-b5b1-03362b0169da",
       "name": "notify_article_review",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
@@ -1996,7 +2081,7 @@
       }
     },
     {
-      "id": "583e2f40-f53d-45cd-8182-7ee88b081bd8",
+      "id": "ff0b5d21-f84f-426f-9fa8-0159d0cd65c6",
       "name": "switch_article_accept",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
@@ -2059,7 +2144,7 @@
       }
     },
     {
-      "id": "3aac16b7-2fcb-4d16-b8bd-1c4fc5a12b3c",
+      "id": "e623b691-0eb0-4593-a4e1-8e3128bc0f9d",
       "name": "update_article_approved",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
@@ -2326,7 +2411,7 @@
       }
     },
     {
-      "id": "da228756-8dba-4d72-a9b1-27d083475300",
+      "id": "6dab328e-4e20-4212-bbac-134b2b4ea414",
       "name": "notification_retry_or_cancel",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
@@ -2383,7 +2468,7 @@
       }
     },
     {
-      "id": "d9561a8f-e47c-4ff6-aa35-c1283ec3ac29",
+      "id": "38ec0025-6362-48c4-a6ce-1a68427f4285",
       "name": "switch_article_retry",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
@@ -2444,7 +2529,7 @@
       }
     },
     {
-      "id": "e2542436-bf65-4d82-b625-725f526820f6",
+      "id": "5bfcb325-aee6-4208-9b69-1f5454e6414b",
       "name": "update_status_cancelled",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
@@ -2711,7 +2796,7 @@
       }
     },
     {
-      "id": "01719bc2-3acc-42c1-85ff-f617375547d4",
+      "id": "8ea0b10d-5439-4f63-8a86-0cbb6fc94ba1",
       "name": "retire_asset_rows",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
@@ -2840,7 +2925,7 @@
       }
     },
     {
-      "id": "ff589dd2-f34d-4079-9f42-f53418bf9345",
+      "id": "4526d827-a41c-4e7c-8cf4-500fd93b7c5f",
       "name": "send_cancelled_notification",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
@@ -2869,7 +2954,7 @@
       }
     },
     {
-      "id": "377e671a-d3da-4f58-a94e-80b70d561320",
+      "id": "dcc509b9-4e30-485d-b271-ba7afa4c9fd2",
       "name": "read_draft_for_assets",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
@@ -2898,7 +2983,7 @@
       }
     },
     {
-      "id": "e182d6d9-8d2e-46bd-942e-5cd38c86fc20",
+      "id": "1694a1d3-46ed-4a4e-8bea-627c52062092",
       "name": "execute_visual_studio",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
@@ -2935,7 +3020,7 @@
       }
     },
     {
-      "id": "2a2c56fe-8d83-4003-987e-886502694085",
+      "id": "e918b3eb-ef73-45f9-a74d-85ebcf88dd00",
       "name": "split_assets",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -2948,7 +3033,7 @@
       }
     },
     {
-      "id": "12d3d7e6-5fe4-48a4-b4e5-0a879f145e5f",
+      "id": "6fbf81d5-a06a-4637-ae97-2229ac062ae5",
       "name": "store_assets",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
@@ -3090,7 +3175,7 @@
       }
     },
     {
-      "id": "012fb358-6622-480d-b5de-09e7e18d2289",
+      "id": "8f6ecdc9-c683-4653-8f0b-ea5004c37fc1",
       "name": "if_asset_rendered",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -3125,7 +3210,7 @@
       }
     },
     {
-      "id": "8e0f14ca-ee74-4cb0-8cbe-5346c46cd8cd",
+      "id": "10b025de-7480-493c-a488-66d57d5b1841",
       "name": "if_asset_has_bytes",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -3159,7 +3244,7 @@
       }
     },
     {
-      "id": "be7cb4bd-17c0-4aa3-822a-7b5a521ec46b",
+      "id": "e00b1005-89d4-4880-9ed2-b37f0b5c62b8",
       "name": "asset_from_data_url",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -3172,7 +3257,7 @@
       }
     },
     {
-      "id": "69f8fa46-e8c3-4da6-acd8-17c542af7984",
+      "id": "d5852dba-c0e1-4834-a395-c12691380aa1",
       "name": "presign_asset",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -3192,7 +3277,7 @@
       }
     },
     {
-      "id": "a36e443e-996c-468a-983f-1656221fd1d1",
+      "id": "4e77b208-76e2-4607-8cdf-5a39f4477743",
       "name": "asset_signed_url",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -3205,7 +3290,7 @@
       }
     },
     {
-      "id": "52319297-c6ea-45d1-bc1d-bacdbbbb13e3",
+      "id": "d09b34b6-296d-4c82-b8be-91a41eb14877",
       "name": "download_asset",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -3228,7 +3313,7 @@
       }
     },
     {
-      "id": "728c3696-4271-4a74-b95a-beff5875962f",
+      "id": "fedd0284-2e16-4271-91ac-f3089b004e65",
       "name": "upload_asset_file",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
@@ -3252,7 +3337,7 @@
       }
     },
     {
-      "id": "2eed7ec6-dcfd-4659-a063-d637f1aef0d1",
+      "id": "8ea004c5-4666-4fc6-9870-b3a856a80c8e",
       "name": "notify_asset_review",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
@@ -3287,7 +3372,7 @@
       }
     },
     {
-      "id": "d49db863-c25c-4502-923b-51eeca53b612",
+      "id": "0aa889e8-ce22-4a3e-a723-35564475a69b",
       "name": "switch_asset_accept",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
@@ -3350,7 +3435,7 @@
       }
     },
     {
-      "id": "5d44e3b9-baf9-44f8-8342-9bd180389be1",
+      "id": "6a5ed19b-bb9e-4cf9-b32d-fd8c73409a2d",
       "name": "mark_asset_approved",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
@@ -3486,7 +3571,7 @@
       }
     },
     {
-      "id": "a30c14b6-990d-447c-a992-7a19276f39e8",
+      "id": "668f13e0-9f89-43d4-ad27-d00a879c7f85",
       "name": "notification_retry_or_cancel_asset",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
@@ -3543,7 +3628,7 @@
       }
     },
     {
-      "id": "4dc7a728-8d3f-48f5-9386-6acee66b6dba",
+      "id": "0e76a789-d2c0-4244-a16c-170f891e5ec3",
       "name": "switch_asset_retry",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
@@ -3604,7 +3689,7 @@
       }
     },
     {
-      "id": "7dc69494-70c9-483a-ae65-e7bfea5deee0",
+      "id": "bc6fc675-436a-480d-abce-f65a21c6ba10",
       "name": "mark_asset_cancelled",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
@@ -3738,7 +3823,7 @@
       }
     },
     {
-      "id": "1037e97e-1fd6-4b71-8944-6be8cd64e468",
+      "id": "d881c418-bd3c-40bc-a278-eaac2def7fba",
       "name": "send_asset_cancelled_notification",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
@@ -3767,7 +3852,7 @@
       }
     },
     {
-      "id": "bac4887d-eea9-4de0-815b-a7113d6a7039",
+      "id": "95bbd434-eed0-4697-8386-2e00befaeaff",
       "name": "read_asset_rows",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
@@ -3796,7 +3881,7 @@
       }
     },
     {
-      "id": "394934ee-e834-4f95-8361-22440269f8fb",
+      "id": "71fea478-f3d1-44c8-a2e4-803b92560a0b",
       "name": "if_all_assets_approved",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -3809,7 +3894,7 @@
       }
     },
     {
-      "id": "341bd766-38fb-4a47-b1ae-36f07a314117",
+      "id": "20f9ed47-76f6-4fd4-b264-ceb0b24a50bd",
       "name": "read_asset_rows_for_publish",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
@@ -3838,7 +3923,7 @@
       }
     },
     {
-      "id": "5f402169-421f-4007-a0a6-e3255531feb5",
+      "id": "d300340b-af29-413c-ac54-ddd747395731",
       "name": "read_draft_for_publish",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
@@ -3867,7 +3952,7 @@
       }
     },
     {
-      "id": "e69f0116-318f-46bd-bd60-ce4de4219cf2",
+      "id": "5ef27446-8794-4fe8-b552-8c0c8afa5d03",
       "name": "get_posts_dir",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -3901,7 +3986,7 @@
       }
     },
     {
-      "id": "bd967116-e2fe-48c3-ba52-a31981c9ca4c",
+      "id": "6af91177-42b4-4b6a-af95-d4a4683d54a9",
       "name": "disambiguate_slug",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -3914,7 +3999,7 @@
       }
     },
     {
-      "id": "5b19416a-4a12-49ca-87a1-035be2d64e5c",
+      "id": "36a557da-0a4b-430b-a159-7923a853d01c",
       "name": "build_commit_files",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -3927,7 +4012,7 @@
       }
     },
     {
-      "id": "fa721b4e-3874-4d8e-95d1-cabaf3ff3acd",
+      "id": "5f6f6d13-481a-4a76-b537-18a0808f1458",
       "name": "plan_asset_uploads",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -3940,7 +4025,7 @@
       }
     },
     {
-      "id": "7aa19cea-3c08-4dd9-8b29-b7324ff7d37f",
+      "id": "05eb500e-7a62-4f45-ba31-d8b0f30511a0",
       "name": "if_asset_needs_fetch",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -3975,7 +4060,7 @@
       }
     },
     {
-      "id": "5dde4070-39d3-43ec-a9d2-11c4e98e990a",
+      "id": "4e1351f2-f75f-46a5-a2ed-10944991cdc4",
       "name": "presign_asset_publish",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -3995,7 +4080,7 @@
       }
     },
     {
-      "id": "ad706104-b123-4250-8992-2007026fe462",
+      "id": "1dc71e59-4868-48f0-968a-079a8631b345",
       "name": "asset_publish_url",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -4008,7 +4093,7 @@
       }
     },
     {
-      "id": "dada8dde-7ece-4170-afe7-8606783cf66b",
+      "id": "a4d764dd-af51-4866-a963-852b78dde54c",
       "name": "download_asset_publish",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -4031,7 +4116,7 @@
       }
     },
     {
-      "id": "533368cc-1ff7-4d91-84b1-c9182597198f",
+      "id": "b6119523-af5f-4ccf-a890-d1d157b3af0b",
       "name": "asset_bytes_from_download",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -4044,7 +4129,7 @@
       }
     },
     {
-      "id": "10ec1f85-dee2-419c-8be6-ac063b5279e9",
+      "id": "dbcca9d0-184b-4ebe-8838-5e488b88afed",
       "name": "create_blobs",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -4081,7 +4166,7 @@
       }
     },
     {
-      "id": "0e245ce8-75a7-4e2a-a6f1-c7354a9f1a30",
+      "id": "23b53012-473c-4360-a57f-1d12054f9156",
       "name": "collect_tree_entries",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -4094,7 +4179,7 @@
       }
     },
     {
-      "id": "6f9cf79b-f628-4a69-afab-2943c2c52e33",
+      "id": "004a06e1-bff2-42ba-9aee-7b3eb387d6fe",
       "name": "get_base_ref",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -4128,7 +4213,7 @@
       }
     },
     {
-      "id": "9d0349a1-b3d6-453c-a393-b33dff11a333",
+      "id": "fc25e659-5a6f-40ae-9e92-57c6c85c79ac",
       "name": "create_tree",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -4165,7 +4250,7 @@
       }
     },
     {
-      "id": "c676b1d6-9b94-4b06-a90b-0a1cb2d8a9d6",
+      "id": "8218852d-9ade-4a9c-8476-90d606f6713c",
       "name": "create_commit",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -4202,7 +4287,7 @@
       }
     },
     {
-      "id": "a1264e76-9fae-4e2f-bdfe-4436dc71791f",
+      "id": "22c4bcf7-d880-4171-a8f9-f7de559e38cd",
       "name": "patch_ref",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -4240,7 +4325,7 @@
       "onError": "continueErrorOutput"
     },
     {
-      "id": "7b4e13d2-d978-439e-a904-041c056bd831",
+      "id": "e7a3464b-5cfd-4fe8-aa58-9eb69c214f32",
       "name": "get_base_ref_again",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -4274,7 +4359,7 @@
       }
     },
     {
-      "id": "399b7d8a-c897-46e5-8f46-5bc97e106725",
+      "id": "e301c200-0afd-4c89-9792-144b5cc91d63",
       "name": "create_tree_again",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -4311,7 +4396,7 @@
       }
     },
     {
-      "id": "325201cf-2caf-4a35-ae9a-4a4b1c2b0f8b",
+      "id": "0d28883d-654a-46cd-a774-bf80d78ce3a2",
       "name": "create_commit_again",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -4348,7 +4433,7 @@
       }
     },
     {
-      "id": "e16b0865-b554-468a-a3c8-019ae5ef5d41",
+      "id": "091f2eba-3fc4-491a-8bf8-e414c1631978",
       "name": "patch_ref_again",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -4385,7 +4470,7 @@
       }
     },
     {
-      "id": "58507229-1529-49fb-aea8-62671f9707cd",
+      "id": "845df18a-e2f0-4ade-848f-af348e66d10f",
       "name": "check_ref_retry",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -4398,7 +4483,7 @@
       }
     },
     {
-      "id": "a74f8c58-40a2-465e-b530-04e6ce8d6525",
+      "id": "5bcaa644-598d-444d-8076-301d3a549849",
       "name": "record_published",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
@@ -4668,7 +4753,7 @@
       }
     },
     {
-      "id": "6683e73a-f6ce-4463-92c0-77f07d5fcb0f",
+      "id": "e93f37e9-fc41-4a5f-934a-72a7fd81fab4",
       "name": "asset_paths",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -4681,7 +4766,7 @@
       }
     },
     {
-      "id": "90726edd-f3f4-4ce2-9ec0-411739226a69",
+      "id": "50c83ed4-309d-4c4a-8426-deb89132b41e",
       "name": "record_asset_paths",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
@@ -4816,7 +4901,7 @@
       }
     },
     {
-      "id": "fb2a6e94-8f64-4c90-8425-70799d035309",
+      "id": "878003b0-a9b9-4def-b646-e2a70224b24d",
       "name": "send_published_notification",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,

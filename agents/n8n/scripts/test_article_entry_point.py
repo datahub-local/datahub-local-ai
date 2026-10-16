@@ -187,6 +187,19 @@ def test_one_commit_sequence_with_a_guarded_fast_forward_retry():
     assert _targets("check_ref_retry") == ["record_published"]
 
 
+def test_the_row_categories_are_checked_before_anything_is_drafted():
+    # The one taxonomy copy is fetched, not restated in the node, and an unreadable file fails
+    # the run rather than skipping the check.
+    download = _nodes()["download_blog_categories"]["parameters"]["workflowInputs"]["value"]
+    assert download["template_name"] == "datasets/blog_categories.json"
+    assert download["template_vars"] == "={{ {} }}"
+    code = _js("validate_categories")
+    assert "known.categories" in code
+    assert "throw new Error" in code
+    assert _targets("pick_candidate") == ["download_blog_categories"]
+    assert _targets("validate_categories") == ["read_asset_rows_for_entry"]
+
+
 def test_the_only_continue_regular_output_is_normalised_downstream():
     # A non-AI node forwards its input unchanged on failure, so the flag has to be set by a
     # following node rather than read off the failed one.

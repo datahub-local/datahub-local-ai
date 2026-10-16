@@ -178,6 +178,53 @@ export function outputFps({ frames, durationSeconds, fps } = {}) {
   return 8;
 }
 
+// The gateway's streaming timeout, and the composer's own settings. Pi reads these
+// from `<agent-dir>/settings.json`, which the session server writes beside the
+// models.json it already writes; without the file Pi runs on the vendor's defaults
+// (idle timeout 300s, three retries) and the composer has no tuned window at all.
+//
+// The idle timeout is the client's patience for one HTTP response, and the gateway's
+// `stream_timeout` is the same wait on the far side of the proxy — for a streaming
+// call, the gap between chunks. The client must be the more patient of the two, or it
+// abandons an attempt before the gateway reports what happened, and the retry sees a
+// different error than the one it was tuned for. Measured 2026-10-16: the gateway's
+// 30s per-read timeout killed nine consecutive attempts (run 13648), the composer
+// authored nothing, and the caller's artifact fetch answered 404.
+//
+// The retry numbers are what make a stall survivable: roughly `maxRetries` attempts,
+// each up to the idle timeout, separated by an exponential backoff capped at
+// `maxAgentDelayMs`. At the defaults that spans the ~12 minutes the measured outage
+// lasted, and bounds a dead endpoint at ~17 minutes.
+export const DEFAULT_GATEWAY_STREAM_TIMEOUT_MS = 120_000;
+export const DEFAULT_RETRY = {
+  idleTimeoutMs: 240_000,
+  maxRetries: 6,
+  baseDelayMs: 5_000,
+  maxAgentDelayMs: 60_000,
+};
+
+// The object Pi reads as settings.json. Throws rather than writing a file whose idle
+// timeout would kill an attempt before the gateway could report why it failed.
+export function agentSettings({
+  idleTimeoutMs = DEFAULT_RETRY.idleTimeoutMs,
+  maxRetries = DEFAULT_RETRY.maxRetries,
+  baseDelayMs = DEFAULT_RETRY.baseDelayMs,
+  maxAgentDelayMs = DEFAULT_RETRY.maxAgentDelayMs,
+  gatewayStreamTimeoutMs = DEFAULT_GATEWAY_STREAM_TIMEOUT_MS,
+} = {}) {
+  if (!(idleTimeoutMs > gatewayStreamTimeoutMs)) {
+    throw new Error(
+      `the composer's idle timeout (${idleTimeoutMs}ms) must exceed the gateway's streaming timeout (${gatewayStreamTimeoutMs}ms)`
+    );
+  }
+  return {
+    httpIdleTimeoutMs: idleTimeoutMs,
+    // Stated rather than left to the vendor's default: a silent change to it would
+    // turn the retry window off, which is the whole of this configuration.
+    retry: { enabled: true, maxRetries, baseDelayMs, maxAgentDelayMs },
+  };
+}
+
 function trimNumber(n) {
   return String(Math.round(n * 1000) / 1000);
 }

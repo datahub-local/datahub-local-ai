@@ -10,6 +10,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { DEFAULT_GATEWAY_STREAM_TIMEOUT_MS, DEFAULT_RETRY } from "../session-lib.mjs";
+
 const serverPath = fileURLToPath(new URL("../session-server.mjs", import.meta.url));
 const port = 18000 + Math.floor(Math.random() * 2000);
 const base = `http://127.0.0.1:${port}`;
@@ -101,6 +103,24 @@ test("the vendored GSAP is staged beside the composition", async () => {
   // `<script src="gsap.min.js">` resolves as a sibling; an absolute /opt path 404s.
   const staged = await readFile(join(dir, "workspace", "runs", "run_a", "gsap.min.js"), "utf8");
   assert.equal(staged, "/* staged gsap */");
+});
+
+test("the session writes Pi's retry and idle-timeout settings", async () => {
+  // Without this file Pi runs on the vendor's defaults (300s idle timeout, three
+  // retries) because `--session-dir` and the agent directory are the only config Pi
+  // reads; the tuned window is what lets a stalled model call be retried.
+  const settings = JSON.parse(await readFile(join(dir, "home", ".pi/agent/settings.json"), "utf8"));
+  assert.equal(settings.httpIdleTimeoutMs, DEFAULT_RETRY.idleTimeoutMs);
+  assert.ok(
+    settings.httpIdleTimeoutMs > DEFAULT_GATEWAY_STREAM_TIMEOUT_MS,
+    "the composer must outlast the gateway's streaming timeout"
+  );
+  assert.deepEqual(settings.retry, {
+    enabled: true,
+    maxRetries: DEFAULT_RETRY.maxRetries,
+    baseDelayMs: DEFAULT_RETRY.baseDelayMs,
+    maxAgentDelayMs: DEFAULT_RETRY.maxAgentDelayMs,
+  });
 });
 
 test("a deck turn serves the deck and its paired video", async () => {

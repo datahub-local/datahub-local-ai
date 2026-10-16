@@ -41,6 +41,8 @@ import {
   expiredRunDirs,
   expiredTranscripts,
   DEFAULT_SESSION_WORKSPACE,
+  DEFAULT_RETRY,
+  agentSettings,
 } from "./session-lib.mjs";
 
 const port = Number(process.env.SYMPOZIUM_SESSION_PORT || "8080");
@@ -169,6 +171,23 @@ await writeFile(
       },
     },
   })
+);
+
+// Pi's retry and idle-timeout settings, which Pi reads from the same agent directory.
+// Without this file the composer runs on the vendor's defaults, where a stream that
+// stalls for longer than the gateway's per-read timeout ends the attempt with no
+// window left to retry in. Overridable like the numbers above, so the window can move
+// without a rebuild; `agentSettings` refuses an idle timeout the gateway would beat.
+await writeFile(
+  `${process.env.HOME}/.pi/agent/settings.json`,
+  JSON.stringify(
+    agentSettings({
+      idleTimeoutMs: Number(process.env.PI_RENDER_HTTP_IDLE_MS || DEFAULT_RETRY.idleTimeoutMs),
+      maxRetries: Number(process.env.PI_RENDER_RETRY_MAX || DEFAULT_RETRY.maxRetries),
+      baseDelayMs: Number(process.env.PI_RENDER_RETRY_BASE_MS || DEFAULT_RETRY.baseDelayMs),
+      maxAgentDelayMs: Number(process.env.PI_RENDER_RETRY_MAX_DELAY_MS || DEFAULT_RETRY.maxAgentDelayMs),
+    })
+  )
 );
 
 process.env.HYPERFRAMES_BROWSER_PATH = browser;

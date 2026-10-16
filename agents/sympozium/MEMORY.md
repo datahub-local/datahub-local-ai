@@ -4179,3 +4179,53 @@ payload by ~1 MB, so a workflow that fetches and uploads stores the asset as sur
 that carries it in JSON. `LinkedIn Post Sharing` and the image creator keep `none`
 regardless — they hold the bytes to publish them, and that is the one copy in n8n that is
 unavoidable.
+
+## The composer's model calls: a stalled stream is the failure mode (2026-10-16)
+
+Visual Studio run `13648` authored nothing. Nine consecutive attempts died with
+`litellm.APIConnectionError … Timeout on reading data from socket` between 11:51:26 and
+11:56:46, `/tmp/aivideo/runs/lips-72/` held only `gsap.min.js` and `assets/fonts`, and the
+caller's `GET /artifacts/lips-72/out.mp4` answered 404 — which is how the failure surfaced,
+as a missing artifact rather than as a reason. Three facts, none of them visible in our code:
+
+- **The gateway's `request_timeout: 30` is a per-read timeout**, and for a streaming call that
+  means the gap *between chunks*: `aiohttp_transport.py` builds
+  `ClientTimeout(sock_connect=…, sock_read=timeout.read, …)`, and `Router._get_stream_timeout`
+  resolves request → deployment → router `stream_timeout` → `request_timeout`. A compose turn
+  of minutes is therefore fine, and a 30-second silence is fatal.
+- **A streaming caller is not rescued by the fallback chain.** `router.py::stream_with_fallbacks`
+  falls back only when the failure is pre-first-chunk with nothing generated —
+  `if not e.is_pre_first_chunk and (e.generated_content or _stream_chunks_have_generated_content(…)):
+  raise e.original_exception from e`. The composer's stream had already emitted a sentence and
+  then stalled, so the router re-raised the provider's own error. In the same minutes the
+  *non-streaming* path in the same process retried the primary and answered `200` from
+  OpenRouter at 11:59:09. **The runtime's own retry is the recovery mechanism for a stream**,
+  which is why `session-server.mjs` now writes `~/.pi/agent/settings.json`
+  (`httpIdleTimeoutMs` 240000, `retry` 6 / baseDelay 5000 / maxAgentDelay 60000) beside the
+  `models.json` it already wrote — and why the idle timeout must stay **above** the gateway's
+  streaming timeout: the gateway's verdict has to arrive first, or the retry sees a different
+  error than the one it was tuned for.
+- **An expired `sendAndWait` resumes with the node's own input.** `SlackV2.execute` ends
+  `putExecutionToWait(waitTill); return [this.getInputData()]`, and this build carries no
+  `timedOut` marker (`grep -rho timedOut` over `n8n-nodes-base` returns nothing). A branch on
+  `$json.data` therefore has to read *absence* as the default answer. `if_animation_retry`
+  tests for the retry **action** and sends everything else — the other answer and no answer at
+  all — to the still image, because the inverse wiring would re-author an unanswered failure
+  forever. The wait is bounded (`options.limitWaitTime.values`, 30 minutes) for the same
+  reason: an unbounded form would hold the post until someone answered it.
+
+`opencode-go/glm-5.3-flash` is not a dead hop. It answers `200` for plain, streaming and
+tool-carrying requests and rejects only `reasoning_effort`
+(`[1210] This model always engages in thinking and cannot be disabled; please use low, high, or
+max`), which every composer request carries because `thinkingLevelMap` turns `minimal` into
+`none`. The gateway drops that parameter for that one deployment, so the hop can serve the
+caller it exists for; the two n8n nodes that name it as their fallback model needed it kept.
+
+What this changed: `datahub-local-core`'s litellm config gains
+`router_settings.stream_timeout: 120` (streams get their own patience, and the 30s stays for
+non-streaming callers, where the chain does fire) and that drop; `LinkedIn Post Sharing`'s
+failure branch gained the bounded reviewer choice, with `build_retry_feedback` carrying the
+asset's own `ERROR` as `FEEDBACK` so a re-author is asked against the reason it failed.
+`openspec/changes/harden-composer-against-stalls/` is the record. Unresolved and measured
+rather than assumed: why the upstream stalls mid-stream is unmeasured, and Pi made nine
+attempts where its documented `maxRetries: 3` predicts four.

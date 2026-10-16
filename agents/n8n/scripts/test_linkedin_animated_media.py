@@ -220,11 +220,106 @@ def test_a_failed_animation_falls_back_to_the_image_and_says_so(label, document)
     """A post is never blocked on the animation."""
     connections = _connections(document)
     failure_output = _targets(connections, "if_animation_ok")[1]
-    assert failure_output == "notify_animation_fallback"
-    assert "execute_image_creator" in _walk(connections, "notify_animation_fallback")
+    assert failure_output == "notify_animation_failed"
+    assert "execute_image_creator" in _walk(connections, "notify_animation_failed")
     # It enters the image branch *before* the image's own approval gate, so the
     # substitute is approved as an image rather than silently replacing it.
-    assert "notification_accept_image" in _walk(connections, "notify_animation_fallback")
+    assert "notification_accept_image" in _walk(connections, "notify_animation_failed")
+
+
+@pytest.mark.parametrize("label,document", list(_copies(SHARING)))
+def test_a_failed_animation_offers_one_bounded_choice(label, document):
+    """The failure is reported with a choice, and the report cannot hold the post.
+
+    An unanswered form resumes with the node's own input -- ``SlackV2.execute`` ends
+    ``putExecutionToWait(waitTill); return [this.getInputData()]`` -- and this build of
+    ``n8n-nodes-base`` carries no ``timedOut`` marker, so an expiry is only visible as
+    the *absence* of ``data``. The branch therefore has to treat "no answer" as the
+    still, which is what the bounded wait is for: an unbounded form would park the
+    publish until someone answered it.
+    """
+    connections = _connections(document)
+    nodes = _nodes(document)
+    form = nodes["notify_animation_failed"]
+    assert form["type"] == "n8n-nodes-base.slack"
+    assert form["parameters"]["operation"] == "sendAndWait"
+    assert form["parameters"]["responseType"] == "customForm"
+    assert form["webhookId"], "a sendAndWait node needs a webhook to receive the answer"
+    assert form.get("credentials", {}).get("slackApi"), "the form has no Slack credential"
+
+    limit = form["parameters"]["options"]["limitWaitTime"]["values"]
+    assert limit["limitType"] == "afterTimeInterval"
+    assert int(limit["resumeAmount"]) > 0, "an unbounded wait holds the post"
+    assert limit["resumeUnit"] in ("minutes", "hours")
+
+    # Both answers are offered, and the actions the switch tests for are the ones the
+    # form can send.
+    actions = [
+        option["option"]
+        for field in form["parameters"]["formFields"]["values"]
+        if field["fieldLabel"] == "Action"
+        for option in field["fieldOptions"]["values"]
+    ]
+    assert len(actions) == 2
+    condition = nodes["if_animation_retry"]["parameters"]["conditions"]["conditions"][0]
+    assert condition["leftValue"] == "={{ $json.data.Action }}"
+    assert condition["rightValue"] == actions[0], "the retry branch tests an action the form cannot send"
+
+    # True (the retry action) re-authors; everything else -- the other answer and the
+    # absent answer of an expired form -- takes the still.
+    retry, still = _targets(connections, "if_animation_retry")
+    assert _targets(connections, "if_animation_retry", 0) == ["build_retry_feedback"]
+    assert _targets(connections, "if_animation_retry", 1) == ["execute_image_creator"]
+    assert still == "execute_image_creator"
+    assert retry == "build_retry_feedback"
+
+
+@pytest.mark.parametrize("label,document", list(_copies(SHARING)))
+def test_a_retry_carries_the_failure_reason_and_reuses_the_session(label, document):
+    """A re-author is asked against the reason it failed, in the same thread.
+
+    The reason is built by ``build_retry_feedback`` and read back by the studio node,
+    so a *rejected* animation keeps passing only the reviewer's own feedback: a
+    guarded read of the earlier failure would leak into a later rejection.
+    """
+    connections = _connections(document)
+    nodes = _nodes(document)
+
+    assert _targets(connections, "build_retry_feedback") == ["execute_visual_studio"]
+    js = nodes["build_retry_feedback"]["parameters"]["jsCode"]
+    assert "$('check_animation_result').last()" in js, "the reason must be the latest check"
+    assert "ERROR" in js
+    assert "data.Feedback" in js, "the reviewer's note is dropped"
+
+    studio = nodes["execute_visual_studio"]["parameters"]["workflowInputs"]["value"]
+    assert "build_retry_feedback" in studio["FEEDBACK"], "the failure reason does not reach the request"
+    assert "build_retry_feedback').isExecuted" in studio["FEEDBACK"], (
+        "the failure feedback must be read only when that branch ran"
+    )
+    assert "notification_retry_or_cancel_animation" in studio["FEEDBACK"], (
+        "the rejection path's own feedback was replaced rather than composed"
+    )
+    assert studio["SESSION_ID"] == "=lips-{{ $('select_article_to_post').item.json.row_number }}"
+
+
+@pytest.mark.parametrize("label,document", list(_copies(SHARING)))
+def test_no_path_re_authors_a_failed_animation_without_an_answer(label, document):
+    """The failure side reaches the studio only through the bounded form.
+
+    The studio also has its own retry (a rejection), so this asserts the *new* edge
+    and not the absence of the node: the only predecessor of the failure-feedback
+    builder is the form's decision.
+    """
+    connections = _connections(document)
+    assert "if_animation_ok" in [
+        source
+        for source, ports in connections.items()
+        if any(
+            edge["node"] == "notify_animation_failed"
+            for branch in (ports.get("main") or [])
+            for edge in (branch or [])
+        )
+    ], "the failure form is reachable from something other than the result check"
 
 
 @pytest.mark.parametrize("label,document", list(_copies(SHARING)))

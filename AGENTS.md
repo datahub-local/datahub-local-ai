@@ -795,10 +795,14 @@ Four things about the branch are deliberate:
 - **It branches on the asset, not the run.** The studio reports its run `STATUS: PARTIAL`
   whenever a requested type is unavailable, so `check_animation_result` tests the asset's
   own `STATUS`/`ERROR`.
-- **A failed animation never blocks the post.** The failure output lands on a Slack notice
-  naming the article and the reason, then continues into the image branch *before* the
-  image's own approval gate — so the substitute is reviewed as an image instead of silently
-  replacing the animation.
+- **A failed animation never blocks the post.** The failure output lands on a Slack form
+  naming the article and the reason, which offers a re-author or the still, and an answer that
+  never comes takes the still on a 30-minute bound (`options.limitWaitTime.values`) — either
+  way it continues into the image branch *before* the image's own approval gate, so the
+  substitute is reviewed as an image instead of silently replacing the animation. The branch
+  tests for the retry **action**, not for the still, because an expired `sendAndWait` resumes
+  with the node's own input and no `data.Action`: the inverse wiring would re-author an
+  unanswered failure forever.
 - **A rejection continues the thread.** A post has one media asset, so nothing needs
   keeping in step; the retry form's feedback is passed straight back to the studio as
   `FEEDBACK`, and the animated branch names a session derived from the article

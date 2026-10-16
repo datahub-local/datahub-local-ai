@@ -22,6 +22,9 @@ import {
   expiredTranscripts,
   VENDOR_ASSETS,
   DEFAULT_SESSION_WORKSPACE,
+  DEFAULT_RETRY,
+  DEFAULT_GATEWAY_STREAM_TIMEOUT_MS,
+  agentSettings,
 } from "../session-lib.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -210,6 +213,34 @@ test("expiredTranscripts sweeps only this server's old transcripts", () => {
   assert.deepEqual(expiredTranscripts(entries, { cutoffMs, keep: "in-flight" }), [
     "2026-10-05T00-00-00-000Z_old.jsonl",
   ]);
+});
+
+test("agentSettings writes the retry window Pi reads, and refuses one the gateway beats", () => {
+  const settings = agentSettings();
+  assert.equal(settings.httpIdleTimeoutMs, DEFAULT_RETRY.idleTimeoutMs);
+  assert.deepEqual(settings.retry, {
+    enabled: true,
+    maxRetries: DEFAULT_RETRY.maxRetries,
+    baseDelayMs: DEFAULT_RETRY.baseDelayMs,
+    maxAgentDelayMs: DEFAULT_RETRY.maxAgentDelayMs,
+  });
+
+  // The window is what makes a stall survivable: the attempts it buys, each of which may
+  // wait the idle timeout, must outlast the minutes an endpoint spends silent.
+  assert.ok(settings.retry.maxRetries >= 1, "a single attempt is not a retry window");
+  assert.ok(
+    (settings.retry.maxRetries + 1) * settings.httpIdleTimeoutMs >= 10 * 60 * 1000,
+    "the window is shorter than a ten-minute stall"
+  );
+
+  const overridden = agentSettings({ idleTimeoutMs: 500_000, maxRetries: 1, baseDelayMs: 1, maxAgentDelayMs: 2 });
+  assert.equal(overridden.httpIdleTimeoutMs, 500_000);
+  assert.equal(overridden.retry.maxRetries, 1);
+
+  // An idle timeout at or below the gateway's streaming timeout would abandon an attempt
+  // before the gateway could report its verdict, so the retry would never run.
+  assert.throws(() => agentSettings({ idleTimeoutMs: DEFAULT_GATEWAY_STREAM_TIMEOUT_MS }), /must exceed/);
+  assert.throws(() => agentSettings({ idleTimeoutMs: 1_000, gatewayStreamTimeoutMs: 120_000 }), /must exceed/);
 });
 
 test("this module depends on nothing but node builtins", async () => {

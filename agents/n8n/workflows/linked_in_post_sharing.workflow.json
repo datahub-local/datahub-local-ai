@@ -2274,7 +2274,7 @@
             "value": {
               "CONTENT": "={{ $('execute_post_creator').item.json.text }}",
               "ASSET_TYPES": "animation_linkedin_video",
-              "FEEDBACK": "={{ $('notification_retry_or_cancel_animation').isExecuted ? ($('notification_retry_or_cancel_animation').last().json.data.Feedback || '') : '' }}",
+              "FEEDBACK": "={{ $('build_retry_feedback').isExecuted ? $('build_retry_feedback').last().json.FEEDBACK : ($('notification_retry_or_cancel_animation').isExecuted ? ($('notification_retry_or_cancel_animation').last().json.data.Feedback || '') : '') }}",
               "FORCE": "={{ $('select_article_to_post').item.json.VISUAL_FORM || 'auto' }}",
               "SCENES": "={{ String($('select_article_to_post').item.json.SCENES || '') }}",
               "SESSION_ID": "=lips-{{ $('select_article_to_post').item.json.row_number }}"
@@ -2641,16 +2641,17 @@
         }
       },
       {
-        "id": "an000000-0000-4000-8000-000000000011",
-        "name": "notify_animation_fallback",
-        "webhookId": "1c412efe-b74f-4b1f-9130-6ddf98622f24",
+        "id": "an000000-0000-4000-8000-000000000012",
+        "name": "notify_animation_failed",
+        "webhookId": "d0555b04-98ce-4591-9baa-8791a3b6ded7",
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
           10368,
-          -768
+          -544
         ],
         "parameters": {
+          "operation": "sendAndWait",
           "select": "channel",
           "channelId": {
             "__rl": true,
@@ -2658,14 +2659,97 @@
             "mode": "list",
             "cachedResultName": "workflows"
           },
-          "text": "=Animated media was not used for {{ $('select_article_to_post').item.json.URL }}: {{ $('check_animation_result').item.json.ERROR }}. Falling back to the still image, which will be approved as usual.",
-          "otherOptions": {}
+          "message": "=Animated media was not produced for {{ $('select_article_to_post').item.json.URL }}: {{ $('check_animation_result').item.json.ERROR }}.\n\nChoose *Retry animation* to author it again, or *Use still image* to continue with the still. Unanswered, the still image is used after 30 minutes and the post continues.",
+          "responseType": "customForm",
+          "formFields": {
+            "values": [
+              {
+                "fieldLabel": "Action",
+                "fieldType": "dropdown",
+                "fieldOptions": {
+                  "values": [
+                    {
+                      "option": "Retry animation"
+                    },
+                    {
+                      "option": "Use still image"
+                    }
+                  ]
+                },
+                "requiredField": true
+              },
+              {
+                "fieldLabel": "Feedback",
+                "fieldType": "textarea",
+                "placeholder": "What must change in the next attempt. Leave empty to author it again from the failure reason alone."
+              }
+            ]
+          },
+          "options": {
+            "messageButtonLabel": "Respond",
+            "responseFormTitle": "LinkedIn animation - retry or use the still",
+            "limitWaitTime": {
+              "values": {
+                "limitType": "afterTimeInterval",
+                "resumeAmount": 30,
+                "resumeUnit": "minutes"
+              }
+            },
+            "appendAttribution": true
+          }
         },
         "credentials": {
           "slackApi": {
             "id": "DszMmPE7WwOjHQjz",
             "name": "Slack account"
           }
+        }
+      },
+      {
+        "id": "an000000-0000-4000-8000-000000000013",
+        "name": "if_animation_retry",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          10592,
+          -544
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "loose",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "anim-retry-action",
+                "leftValue": "={{ $json.data.Action }}",
+                "rightValue": "Retry animation",
+                "operator": {
+                  "type": "string",
+                  "operation": "equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "looseTypeValidation": true,
+          "options": {}
+        }
+      },
+      {
+        "id": "an000000-0000-4000-8000-000000000014",
+        "name": "build_retry_feedback",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          10816,
+          -544
+        ],
+        "parameters": {
+          "jsCode": "// The asset's own failure reason is the whole of this retry: it is what the\n// composer must author against. A reviewer's note is added when the form carried\n// one. The latest check is read rather than the first, so a second failure carries\n// its own reason and not the previous one's.\nconst data = $input.first().json.data || {};\nconst reason = $('check_animation_result').last().json.ERROR || '';\nconst note = String(data.Feedback || '').trim();\nconst feedback = [note, reason && ('the previous attempt failed: ' + reason)]\n  .filter(Boolean)\n  .join(' | ');\nreturn [{ json: { FEEDBACK: feedback } }];\n"
         }
       },
       {
@@ -3297,7 +3381,7 @@
           ],
           [
             {
-              "node": "notify_animation_fallback",
+              "node": "notify_animation_failed",
               "type": "main",
               "index": 0
             }
@@ -3337,11 +3421,40 @@
           ]
         ]
       },
-      "notify_animation_fallback": {
+      "notify_animation_failed": {
         "main": [
           [
             {
+              "node": "if_animation_retry",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "if_animation_retry": {
+        "main": [
+          [
+            {
+              "node": "build_retry_feedback",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
               "node": "execute_image_creator",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "build_retry_feedback": {
+        "main": [
+          [
+            {
+              "node": "execute_visual_studio",
               "type": "main",
               "index": 0
             }
@@ -3891,7 +4004,7 @@
         ],
         [
           {
-            "node": "notify_animation_fallback",
+            "node": "notify_animation_failed",
             "type": "main",
             "index": 0
           }
@@ -3931,11 +4044,40 @@
         ]
       ]
     },
-    "notify_animation_fallback": {
+    "notify_animation_failed": {
       "main": [
         [
           {
+            "node": "if_animation_retry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if_animation_retry": {
+      "main": [
+        [
+          {
+            "node": "build_retry_feedback",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "execute_image_creator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "build_retry_feedback": {
+      "main": [
+        [
+          {
+            "node": "execute_visual_studio",
             "type": "main",
             "index": 0
           }
@@ -6393,7 +6535,7 @@
           "value": {
             "CONTENT": "={{ $('execute_post_creator').item.json.text }}",
             "ASSET_TYPES": "animation_linkedin_video",
-            "FEEDBACK": "={{ $('notification_retry_or_cancel_animation').isExecuted ? ($('notification_retry_or_cancel_animation').last().json.data.Feedback || '') : '' }}",
+            "FEEDBACK": "={{ $('build_retry_feedback').isExecuted ? $('build_retry_feedback').last().json.FEEDBACK : ($('notification_retry_or_cancel_animation').isExecuted ? ($('notification_retry_or_cancel_animation').last().json.data.Feedback || '') : '') }}",
             "FORCE": "={{ $('select_article_to_post').item.json.VISUAL_FORM || 'auto' }}",
             "SCENES": "={{ String($('select_article_to_post').item.json.SCENES || '') }}",
             "SESSION_ID": "=lips-{{ $('select_article_to_post').item.json.row_number }}"
@@ -6760,16 +6902,17 @@
       }
     },
     {
-      "id": "an000000-0000-4000-8000-000000000011",
-      "name": "notify_animation_fallback",
-      "webhookId": "1c412efe-b74f-4b1f-9130-6ddf98622f24",
+      "id": "an000000-0000-4000-8000-000000000012",
+      "name": "notify_animation_failed",
+      "webhookId": "d0555b04-98ce-4591-9baa-8791a3b6ded7",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
         10368,
-        -768
+        -544
       ],
       "parameters": {
+        "operation": "sendAndWait",
         "select": "channel",
         "channelId": {
           "__rl": true,
@@ -6777,14 +6920,97 @@
           "mode": "list",
           "cachedResultName": "workflows"
         },
-        "text": "=Animated media was not used for {{ $('select_article_to_post').item.json.URL }}: {{ $('check_animation_result').item.json.ERROR }}. Falling back to the still image, which will be approved as usual.",
-        "otherOptions": {}
+        "message": "=Animated media was not produced for {{ $('select_article_to_post').item.json.URL }}: {{ $('check_animation_result').item.json.ERROR }}.\n\nChoose *Retry animation* to author it again, or *Use still image* to continue with the still. Unanswered, the still image is used after 30 minutes and the post continues.",
+        "responseType": "customForm",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Action",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Retry animation"
+                  },
+                  {
+                    "option": "Use still image"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Feedback",
+              "fieldType": "textarea",
+              "placeholder": "What must change in the next attempt. Leave empty to author it again from the failure reason alone."
+            }
+          ]
+        },
+        "options": {
+          "messageButtonLabel": "Respond",
+          "responseFormTitle": "LinkedIn animation - retry or use the still",
+          "limitWaitTime": {
+            "values": {
+              "limitType": "afterTimeInterval",
+              "resumeAmount": 30,
+              "resumeUnit": "minutes"
+            }
+          },
+          "appendAttribution": true
+        }
       },
       "credentials": {
         "slackApi": {
           "id": "DszMmPE7WwOjHQjz",
           "name": "Slack account"
         }
+      }
+    },
+    {
+      "id": "an000000-0000-4000-8000-000000000013",
+      "name": "if_animation_retry",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        10592,
+        -544
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "anim-retry-action",
+              "leftValue": "={{ $json.data.Action }}",
+              "rightValue": "Retry animation",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "an000000-0000-4000-8000-000000000014",
+      "name": "build_retry_feedback",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        10816,
+        -544
+      ],
+      "parameters": {
+        "jsCode": "// The asset's own failure reason is the whole of this retry: it is what the\n// composer must author against. A reviewer's note is added when the form carried\n// one. The latest check is read rather than the first, so a second failure carries\n// its own reason and not the previous one's.\nconst data = $input.first().json.data || {};\nconst reason = $('check_animation_result').last().json.ERROR || '';\nconst note = String(data.Feedback || '').trim();\nconst feedback = [note, reason && ('the previous attempt failed: ' + reason)]\n  .filter(Boolean)\n  .join(' | ');\nreturn [{ json: { FEEDBACK: feedback } }];\n"
       }
     },
     {

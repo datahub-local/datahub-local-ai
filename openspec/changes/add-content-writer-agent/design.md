@@ -195,10 +195,16 @@ Two reference-shape facts, read off the installed nodes rather than guessed, and
 - **A Data Table can be addressed by name too.** `DataTable`'s `dataTableId` locator declares modes `list` and `name` (`common/fields.js`). So `article_drafts` and `article_assets` can be wired before either table is created.
 
 - **The `DataTable` node carries its own table management.** Its row operations include
-  `upsert` (keyed by filter conditions), and its table operations include `create`. So the two
-  tables in section 1 can be created by running a node rather than only by hand in the UI, and a
-  round of review upserts its row instead of accumulating one per attempt. Whether the *public*
-  REST API gained an equivalent endpoint stays [UNVERIFIED]; the node is enough for this change.
+  `upsert` (keyed by filter conditions), and its table operations include `create`. So a round of
+  review upserts its row instead of accumulating one per attempt, and the two tables in section
+  1 can be created by running a node.
+- **The public API has DataTable endpoints, so the tables are scriptable after all.** The earlier
+  [UNVERIFIED] resolved the other way: `GET /api/v1/data-tables` lists them with their columns,
+  `POST /api/v1/data-tables` answers 201 and `DELETE /api/v1/data-tables/{id}` answers 204 —
+  measured 2026-10-16 with a throwaway table that left no residue. `/api/v1/datatables` and
+  `/api/v1/dataTable` are 404, so the hyphenated path is the one, and `/api/v1/projects` is 403
+  on this license (`feat:projectRole:admin`), which is why the table's own `projectId` has to be
+  read from a table rather than listed.
 - **A Data Table filter condition is `eq` / `neq` / `lt` / `isNotEmpty`**, not `notEqual`. Read
   off `DataTable/common/methods.js` after an invalid condition was written into a filter here;
   the values are load options, so nothing validates them offline and an invalid one would fail

@@ -1,7 +1,7 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "ba0ff2ca-1aec-485c-9343-c596acf35847",
+    "versionId": "f41d1ee7-a2c4-4bf0-8ad3-1a0215967630",
     "workflowId": "nPBkIpeObC1Om0LH",
     "nodes": [
       {
@@ -184,8 +184,8 @@
       {
         "id": "33284e9b-40ab-4e97-a604-277598c7f834",
         "name": "create_article_ai",
-        "type": "@n8n/n8n-nodes-langchain.chainLlm",
-        "typeVersion": 1.6,
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 3.1,
         "alwaysOutputData": false,
         "retryOnFail": true,
         "maxTries": 5,
@@ -196,14 +196,10 @@
         ],
         "parameters": {
           "promptType": "define",
-          "text": "={{ $('download_article_prompt').item.json.output }}",
+          "text": "={{ $('download_system_prompt').item.json.output + '\\n\\n---\\n\\n' + $('download_article_prompt').item.json.output }}",
           "needsFallback": true,
-          "messages": {
-            "messageValues": [
-              {
-                "message": "={{ $('download_system_prompt').item.json.output }}"
-              }
-            ]
+          "options": {
+            "maxIterations": 12
           }
         }
       },
@@ -217,7 +213,7 @@
           -992
         ],
         "parameters": {
-          "jsCode": "// The two things the caller needs out of the model's answer: the H1, which the row\n// stores as ARTICLE_TITLE and the entry point turns into the frozen slug, and the body,\n// which carries one `<!-- asset:<type> -->` marker per requested asset. The word budget\n// is checked here rather than trusted to the model: a mandatory count in a format is a\n// count that gets invented when the real one is missing, and this is also the change's\n// own acceptance case for an over-budget draft.\n//\n// MAX_WORDS is required. The entry point resolves the row's budget and the 1200 default,\n// so a value missing here is a caller bug: fail loudly rather than guess a bound.\nconst req = $('set_workflow_vars').first().json;\nconst max = Number(req.MAX_WORDS);\nif (!isFinite(max) || max <= 0) throw new Error('MAX_WORDS is required and must be a positive number');\nconst raw = String($json.text || '');\nconst block = /<article>([\\s\\S]*?)<\\/article>/.exec(raw);\nconst inner = (block ? block[1] : raw).trim();\nconst HEAD = /^#\\s+(.+?)\\s*$/;\nlet title = '';\nconst body = [];\nfor (const line of inner.split('\\n')) {\n  if (!title && !body.length && HEAD.test(line.trim())) {\n    title = line.trim().replace(HEAD, '$1');\n    continue;\n  }\n  body.push(line);\n}\nconst text = body.join('\\n').trim();\n// A marker is an instruction to the publishing step, not prose the reader counts.\nconst words = text.replace(/<!--[\\s\\S]*?-->/g, ' ').split(/\\s+/).filter(Boolean).length;\nlet error = '';\nif (!text) error = 'EMPTY_DRAFT: the model returned no article body';\nelse if (!title) error = 'EMPTY_TITLE: the draft has no H1 title';\nelse if (words > max) error = 'OVER_BUDGET: ' + words + ' words against MAX_WORDS=' + max;\nreturn { json: { TITLE: title, TEXT: text, WORD_COUNT: words, ERROR: error } };\n"
+          "jsCode": "// The two things the caller needs out of the model's answer: the H1, which the row\n// stores as ARTICLE_TITLE and the entry point turns into the frozen slug, and the body,\n// which carries one `<!-- asset:<type> -->` marker per requested asset. The word budget\n// is checked here rather than trusted to the model: a mandatory count in a format is a\n// count that gets invented when the real one is missing, and this is also the change's\n// own acceptance case for an over-budget draft.\n//\n// MAX_WORDS is required. The entry point resolves the row's budget and the 1200 default,\n// so a value missing here is a caller bug: fail loudly rather than guess a bound.\nconst req = $('set_workflow_vars').first().json;\nconst max = Number(req.MAX_WORDS);\nif (!isFinite(max) || max <= 0) throw new Error('MAX_WORDS is required and must be a positive number');\n// An agent node answers `output` where a chain node answered `text`; the sub-workflow's\n// own contract stays the old names, so this is the one place the difference is absorbed.\nconst raw = String($json.output || $json.text || '');\nconst block = /<article>([\\s\\S]*?)<\\/article>/.exec(raw);\nconst inner = (block ? block[1] : raw).trim();\nconst HEAD = /^#\\s+(.+?)\\s*$/;\nlet title = '';\nconst body = [];\nfor (const line of inner.split('\\n')) {\n  if (!title && !body.length && HEAD.test(line.trim())) {\n    title = line.trim().replace(HEAD, '$1');\n    continue;\n  }\n  body.push(line);\n}\nconst text = body.join('\\n').trim();\n// A marker is an instruction to the publishing step, not prose the reader counts.\nconst words = text.replace(/<!--[\\s\\S]*?-->/g, ' ').split(/\\s+/).filter(Boolean).length;\nlet error = '';\nif (!text) error = 'EMPTY_DRAFT: the model returned no article body';\nelse if (!title) error = 'EMPTY_TITLE: the draft has no H1 title';\nelse if (words > max) error = 'OVER_BUDGET: ' + words + ' words against MAX_WORDS=' + max;\nreturn { json: { TITLE: title, TEXT: text, WORD_COUNT: words, ERROR: error } };\n"
         }
       },
       {
@@ -314,6 +310,94 @@
             "name": "LiteLLM account"
           }
         }
+      },
+      {
+        "id": "13406702-c418-4b1e-9f5e-15d9dc588fc0",
+        "name": "read_page",
+        "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+        "typeVersion": 2,
+        "position": [
+          -16748,
+          -872
+        ],
+        "parameters": {
+          "name": "read_page",
+          "description": "Fetch one URL and return its readable text. Use it on a link the other tools returned, or on a documentation URL.",
+          "source": "database",
+          "workflowId": {
+            "__rl": true,
+            "value": "09xEuVQj207pjK4x",
+            "mode": "list",
+            "cachedResultName": "Download Content",
+            "cachedResultUrl": "/workflow/09xEuVQj207pjK4x"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "URL": "={{ $fromAI('URL', 'the page to read', 'string') }}"
+            },
+            "matchingColumns": [],
+            "schema": [
+              {
+                "id": "URL",
+                "displayName": "URL",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "f8553b78-c622-4720-8db6-09d1ceb456dc",
+        "name": "research_sources",
+        "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+        "typeVersion": 2,
+        "position": [
+          -16748,
+          -932
+        ],
+        "parameters": {
+          "name": "research_sources",
+          "description": "Search Hacker News and the author's RSS feeds for a subject. Returns a digest of titles, URLs, points and comment counts. Use it first; read a result with read_page before relying on it.",
+          "source": "database",
+          "workflowId": {
+            "__rl": true,
+            "value": "3YctNv7fJl17sOT3",
+            "mode": "list",
+            "cachedResultName": "Content Research",
+            "cachedResultUrl": "/workflow/3YctNv7fJl17sOT3"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "QUERY": "={{ $fromAI('QUERY', 'the subject to search for', 'string') }}"
+            },
+            "matchingColumns": [],
+            "schema": [
+              {
+                "id": "QUERY",
+                "displayName": "QUERY",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true
+          },
+          "options": {}
+        }
       }
     ],
     "connections": {
@@ -404,6 +488,28 @@
             }
           ]
         ]
+      },
+      "read_page": {
+        "ai_tool": [
+          [
+            {
+              "node": "create_article_ai",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "research_sources": {
+        "ai_tool": [
+          [
+            {
+              "node": "create_article_ai",
+              "type": "ai_tool",
+              "index": 0
+            }
+          ]
+        ]
       }
     },
     "nodeGroups": [],
@@ -411,10 +517,10 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-10-15T20:14:57.530Z",
-    "updatedAt": "2026-10-15T20:14:57.530Z"
+    "createdAt": "2026-10-16T04:38:20.660Z",
+    "updatedAt": "2026-10-16T04:38:20.660Z"
   },
-  "activeVersionId": "ba0ff2ca-1aec-485c-9343-c596acf35847",
+  "activeVersionId": "f41d1ee7-a2c4-4bf0-8ad3-1a0215967630",
   "connections": {
     "main_trigger": {
       "main": [
@@ -500,6 +606,28 @@
             "node": "create_article_ai",
             "type": "ai_languageModel",
             "index": 1
+          }
+        ]
+      ]
+    },
+    "read_page": {
+      "ai_tool": [
+        [
+          {
+            "node": "create_article_ai",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "research_sources": {
+      "ai_tool": [
+        [
+          {
+            "node": "create_article_ai",
+            "type": "ai_tool",
+            "index": 0
           }
         ]
       ]
@@ -692,8 +820,8 @@
     {
       "id": "33284e9b-40ab-4e97-a604-277598c7f834",
       "name": "create_article_ai",
-      "type": "@n8n/n8n-nodes-langchain.chainLlm",
-      "typeVersion": 1.6,
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
       "alwaysOutputData": false,
       "retryOnFail": true,
       "maxTries": 5,
@@ -704,14 +832,10 @@
       ],
       "parameters": {
         "promptType": "define",
-        "text": "={{ $('download_article_prompt').item.json.output }}",
+        "text": "={{ $('download_system_prompt').item.json.output + '\\n\\n---\\n\\n' + $('download_article_prompt').item.json.output }}",
         "needsFallback": true,
-        "messages": {
-          "messageValues": [
-            {
-              "message": "={{ $('download_system_prompt').item.json.output }}"
-            }
-          ]
+        "options": {
+          "maxIterations": 12
         }
       }
     },
@@ -725,7 +849,7 @@
         -992
       ],
       "parameters": {
-        "jsCode": "// The two things the caller needs out of the model's answer: the H1, which the row\n// stores as ARTICLE_TITLE and the entry point turns into the frozen slug, and the body,\n// which carries one `<!-- asset:<type> -->` marker per requested asset. The word budget\n// is checked here rather than trusted to the model: a mandatory count in a format is a\n// count that gets invented when the real one is missing, and this is also the change's\n// own acceptance case for an over-budget draft.\n//\n// MAX_WORDS is required. The entry point resolves the row's budget and the 1200 default,\n// so a value missing here is a caller bug: fail loudly rather than guess a bound.\nconst req = $('set_workflow_vars').first().json;\nconst max = Number(req.MAX_WORDS);\nif (!isFinite(max) || max <= 0) throw new Error('MAX_WORDS is required and must be a positive number');\nconst raw = String($json.text || '');\nconst block = /<article>([\\s\\S]*?)<\\/article>/.exec(raw);\nconst inner = (block ? block[1] : raw).trim();\nconst HEAD = /^#\\s+(.+?)\\s*$/;\nlet title = '';\nconst body = [];\nfor (const line of inner.split('\\n')) {\n  if (!title && !body.length && HEAD.test(line.trim())) {\n    title = line.trim().replace(HEAD, '$1');\n    continue;\n  }\n  body.push(line);\n}\nconst text = body.join('\\n').trim();\n// A marker is an instruction to the publishing step, not prose the reader counts.\nconst words = text.replace(/<!--[\\s\\S]*?-->/g, ' ').split(/\\s+/).filter(Boolean).length;\nlet error = '';\nif (!text) error = 'EMPTY_DRAFT: the model returned no article body';\nelse if (!title) error = 'EMPTY_TITLE: the draft has no H1 title';\nelse if (words > max) error = 'OVER_BUDGET: ' + words + ' words against MAX_WORDS=' + max;\nreturn { json: { TITLE: title, TEXT: text, WORD_COUNT: words, ERROR: error } };\n"
+        "jsCode": "// The two things the caller needs out of the model's answer: the H1, which the row\n// stores as ARTICLE_TITLE and the entry point turns into the frozen slug, and the body,\n// which carries one `<!-- asset:<type> -->` marker per requested asset. The word budget\n// is checked here rather than trusted to the model: a mandatory count in a format is a\n// count that gets invented when the real one is missing, and this is also the change's\n// own acceptance case for an over-budget draft.\n//\n// MAX_WORDS is required. The entry point resolves the row's budget and the 1200 default,\n// so a value missing here is a caller bug: fail loudly rather than guess a bound.\nconst req = $('set_workflow_vars').first().json;\nconst max = Number(req.MAX_WORDS);\nif (!isFinite(max) || max <= 0) throw new Error('MAX_WORDS is required and must be a positive number');\n// An agent node answers `output` where a chain node answered `text`; the sub-workflow's\n// own contract stays the old names, so this is the one place the difference is absorbed.\nconst raw = String($json.output || $json.text || '');\nconst block = /<article>([\\s\\S]*?)<\\/article>/.exec(raw);\nconst inner = (block ? block[1] : raw).trim();\nconst HEAD = /^#\\s+(.+?)\\s*$/;\nlet title = '';\nconst body = [];\nfor (const line of inner.split('\\n')) {\n  if (!title && !body.length && HEAD.test(line.trim())) {\n    title = line.trim().replace(HEAD, '$1');\n    continue;\n  }\n  body.push(line);\n}\nconst text = body.join('\\n').trim();\n// A marker is an instruction to the publishing step, not prose the reader counts.\nconst words = text.replace(/<!--[\\s\\S]*?-->/g, ' ').split(/\\s+/).filter(Boolean).length;\nlet error = '';\nif (!text) error = 'EMPTY_DRAFT: the model returned no article body';\nelse if (!title) error = 'EMPTY_TITLE: the draft has no H1 title';\nelse if (words > max) error = 'OVER_BUDGET: ' + words + ' words against MAX_WORDS=' + max;\nreturn { json: { TITLE: title, TEXT: text, WORD_COUNT: words, ERROR: error } };\n"
       }
     },
     {
@@ -822,6 +946,94 @@
           "name": "LiteLLM account"
         }
       }
+    },
+    {
+      "id": "13406702-c418-4b1e-9f5e-15d9dc588fc0",
+      "name": "read_page",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2,
+      "position": [
+        -16748,
+        -872
+      ],
+      "parameters": {
+        "name": "read_page",
+        "description": "Fetch one URL and return its readable text. Use it on a link the other tools returned, or on a documentation URL.",
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "09xEuVQj207pjK4x",
+          "mode": "list",
+          "cachedResultName": "Download Content",
+          "cachedResultUrl": "/workflow/09xEuVQj207pjK4x"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "URL": "={{ $fromAI('URL', 'the page to read', 'string') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "URL",
+              "displayName": "URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "f8553b78-c622-4720-8db6-09d1ceb456dc",
+      "name": "research_sources",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2,
+      "position": [
+        -16748,
+        -932
+      ],
+      "parameters": {
+        "name": "research_sources",
+        "description": "Search Hacker News and the author's RSS feeds for a subject. Returns a digest of titles, URLs, points and comment counts. Use it first; read a result with read_page before relying on it.",
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "value": "3YctNv7fJl17sOT3",
+          "mode": "list",
+          "cachedResultName": "Content Research",
+          "cachedResultUrl": "/workflow/3YctNv7fJl17sOT3"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "QUERY": "={{ $fromAI('QUERY', 'the subject to search for', 'string') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "QUERY",
+              "displayName": "QUERY",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      }
     }
   ],
   "pinData": null,
@@ -843,6 +1055,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 0,
-  "updatedAt": "2026-10-15T20:16:01.982Z",
-  "versionId": "ba0ff2ca-1aec-485c-9343-c596acf35847"
+  "updatedAt": "2026-10-16T04:38:20.656Z",
+  "versionId": "f41d1ee7-a2c4-4bf0-8ad3-1a0215967630"
 }

@@ -162,6 +162,43 @@ def test_no_edge_targets_an_input_the_node_does_not_have(path):
 
 
 @pytest.mark.parametrize("path", EXPORTS, ids=lambda p: p.name)
+def test_every_tool_attached_to_an_agent_can_be_executed(path):
+    """An agent's tool must implement ``execute``, not only ``supplyData``.
+
+    The v3 agent hands a tool call to the workflow engine, which runs the node through its
+    own executor and needs an ``execute`` method. A tool node with only ``supplyData`` still
+    connects, still shows in the editor's own catalog, and fails on every call with
+    ``has a "supplyData" method but no "execute" method`` -- measured 2026-10-16, where two
+    ``toolHttpRequest`` tools were wired into ``Article Creator``, the model called them,
+    every call died, the agent's final output was empty and the draft returned ``EMPTY_DRAFT``.
+    The list is read off the installed image, not the catalog:
+
+        grep -L "async execute" n8n-nodes-langchain/dist/nodes/tools/*/*.node.js
+    """
+    executable = {
+        "@n8n/n8n-nodes-langchain.toolWorkflow",
+        "@n8n/n8n-nodes-langchain.toolWikipedia",
+        "@n8n/n8n-nodes-langchain.toolSearXng",
+        "@n8n/n8n-nodes-langchain.toolSerpApi",
+        "@n8n/n8n-nodes-langchain.toolWolframAlpha",
+        "@n8n/n8n-nodes-langchain.toolCode",
+        "@n8n/n8n-nodes-langchain.toolThink",
+        "@n8n/n8n-nodes-langchain.toolVectorStore",
+    }
+    for label, nodes, connections in _copies(path):
+        types = {n["name"]: n["type"] for n in nodes}
+        unusable = [
+            f"{source} ({types.get(source, '?')}) -> {edge['node']}"
+            for source, kinds in connections.items()
+            for branch in kinds.get("ai_tool") or []
+            for edge in branch or []
+            # For an `ai_tool` edge the tool is the source and the agent is the target.
+            if types.get(source) not in executable
+        ]
+        assert not unusable, f"{label}: tool node cannot be executed by the agent: {unusable}"
+
+
+@pytest.mark.parametrize("path", EXPORTS, ids=lambda p: p.name)
 def test_every_called_workflow_exists_in_the_repository(path):
     """A sub-workflow or error handler that is not committed is one the backup cannot restore."""
     data = _document(path)

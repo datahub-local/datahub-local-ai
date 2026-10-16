@@ -164,6 +164,45 @@ There is no automated test for an n8n workflow in this repository. Verification 
 
 *Alternatives considered:* implying CI coverage — rejected; the repo only tests the Sympozium delivery hook, and an unstated manual story reads as untested.
 
+### D18. The writer researches with tools, and the tools are workflows
+
+`Article Creator` writes with a `@n8n/n8n-nodes-langchain.agent` (3.1) instead of a `chainLlm`,
+with two tools attached: `research_sources`, a **workflow tool** wrapping the new
+`Content Research` sub-workflow (Hacker News Algolia plus the author's Miniflux feeds, returned
+as one digest), and `read_page`, the existing `Download Content` workflow, which turns one URL
+into readable text. No source needs an API key: this deployment holds no search-API credential,
+and the two that answer without one — HN Algolia and Miniflux — are the sources the curator
+already reads.
+
+The tool **node type** is not a free choice, and that is the gate finding here. The v3.1 agent
+hands a tool call to the workflow engine, which runs the node through its own executor and so
+needs an `execute` method. In this build `toolHttpRequest` implements only `supplyData`
+(`grep -L "async execute" n8n-nodes-langchain/dist/nodes/tools/*/*.node.js`), so every call to
+it died with `The node "@n8n/n8n-nodes-langchain.toolHttpRequest" has a "supplyData" method but
+no "execute" method.` The model spent its turns on a tool that could not run, returned no text,
+and the draft came back `EMPTY_DRAFT` (execution 13598). The first version wired the search as
+two `toolHttpRequest` nodes; both were removed. `toolWorkflow` (v2) implements both methods and
+is what the writer gets. That is also why the HTTP detail lives in a workflow: the model reads
+one digest instead of two raw API payloads, and it is the only shape that runs at all.
+
+The loop is bounded, because a researching agent is unbounded by default. The task prompt
+allows at most three lookups, requires a search for the entry's subject, requires a source that
+is *about* that subject (a same-named project, album or event is not it), and requires reading a
+page before citing it; the node allows twelve iterations, because three primary-model failures
+were measured spending an 8-cap before the draft was written. A lookup that yields nothing
+usable is a legitimate outcome: the draft is written from the entry's inputs and says that no
+source was found.
+
+*Alternatives considered:* `toolHttpRequest` for the search — rejected, it cannot run under this
+agent version. `toolWikipedia` — wired, probed and dropped: asked for "Sympozium" it answered a
+Dimmu Borgir album, one more schema and one more wrong-source path for coverage HN search does
+not already give. A search API key (Brave/Tavily/SerpApi) — rejected: no such credential exists
+here and the tools must work on the cluster as it is. A generic HTTP tool for the model to fetch
+any URL — rejected with the type, and a big tool schema plus raw HTML in the context is what the
+`Download Content` readability path exists to avoid. Leaving the writer without tools — rejected
+by the requester: the article lane must be able to research, and the single `LINK` fetch was the
+whole capability before this.
+
 ## Risks / Trade-offs
 
 - **Direct-to-`main` publication of model-written content is public and irreversible in the moment.** → Two explicit, separate Slack approvals; the commit ref and URL are recorded in the row; rollback is `git revert` on `alvsanand`. Switching to a branch+PR later touches only D5's publish node.
@@ -177,6 +216,8 @@ There is no automated test for an n8n workflow in this repository. Verification 
 - **The create path is a new capability on the apply script.** → Scope `--create` to creation only, idempotent by name, print the new id, and prove it with a throwaway workflow created then edited through the existing `PUT` path; a same-named workflow must be left untouched.
 - **A requested asset marker can be missing from the draft, or a title edit can move the URL.** → The marker contract defaults a missing type to a fixed position rather than dropping it (D12), and the slug is frozen at first draft so a title edit cannot rename committed files (D11).
 - **An unwired failure is invisible.** → `settings.errorWorkflow` on the entry point, sub-workflows raise, and the error workflow clears the row; state this in the change and verify before enabling the schedule.
+- **A search can return a different thing with the same name.** → Measured, not hypothetical: every result for "Sympozium" was about some other Symposium (Plato, a Rust tool at `symposium.dev`, an album), and the first run's model hunted twelve times for a match that does not exist. The prompt therefore requires a source to be *about* the entry's subject, allows three lookups, and makes "nothing usable came back" a stated outcome; task 6.7 verifies both paths. The residual risk is a same-named source that is plausible on its face — the reviewer sees the fetched URL in the draft, which is the mitigation.
+- **The primary model fails intermittently once a tool is attached, and each rescue costs an iteration.** → Measured on all three research runs: `ai_model` threw `Cannot read properties of undefined (reading 'map')` (1–3 times per run) and `ai_model_fallback` answered instead, so the run succeeded with `needsFallback`. The node's iteration budget was raised from 8 to 12 for that reason, and 6.7 records the frequency. Not fixed here: it is in the model node or the gateway, and the fallback is the mitigation the fleet already runs.
 
 ## Migration Plan
 
@@ -335,6 +376,47 @@ afterwards, so these are readings and not inferences.
 - **`MAX_WORDS` missing fails loudly.** An omitted `MAX_WORDS` ended the sub-execution `error`
   at `parse_article` rather than drafting against a guessed bound; the caller's
   `executeWorkflow` node failed with it, which is the propagation D7 relies on.
+
+## Live measurements (2026-10-16, the research tools)
+
+Measured through a temporary webhook probe (`zz_writer_tools_probe_temp`, created, run, then
+deleted) calling `Article Creator` directly, and read back from each run's own execution.
+
+- **The writer researches, and cites what it read.** A subject the web has (the Iceberg REST
+  catalog) took three model turns: `research_sources` once (10 results), `read_page` once on the
+  Google Open Source Blog page the search returned, and the draft ended by citing that URL. The
+  run's only error was the length gate: `OVER_BUDGET: 369 words against MAX_WORDS=350`.
+- **A subject the web does not have stays honest.** "Sympozium" returned 0 results from both
+  sources; the writer stopped after two searches, converged in 26 seconds and wrote from the
+  entry's inputs — `What I don't know from what I've read: which policies Sympozium defines, how
+  it resolves two agents claiming one task, and what happens when a policy is unsatisfiable`.
+  No source was cited and none was invented.
+- **The tool node type is the failure that cost a run.** With the search wired as two
+  `toolHttpRequest` nodes, the agent did call them (`search_web` ×2, `check_feeds` ×1) and every
+  call answered `has a "supplyData" method but no "execute" method`; the agent's final output was
+  empty, so the draft came back `EMPTY_DRAFT` (execution 13598). `read_page` — a `toolWorkflow` —
+  answered in the same run, which is what identified the node type rather than the wiring as the
+  cause; both HTTP tools were then replaced by the workflow tool (D18).
+- **A loop that looks unbounded is a prompt problem first.** The run before the fix spent its
+  whole 8-iteration budget on 12 searches, because the probe's own `EXTRA_PROMPT` ordered it to
+  keep researching a subject that has no results. With the budget at 12 the same shape converged
+  in two searches. Note the ordering: that run, and the two above it, were made **before** the
+  prompt was pushed, so they exercised the graph's tool descriptions and not the task prompt's
+  research rules (the next bullet measures the pushed prompt).
+- **The task prompt really does reach the runtime on push, and it is this repository.**
+  `DownloadTemplate` reads `BACKUP_GITHUB_REPO_OWNER`/`NAME`/`PATH`, which are
+  `datahub-local`/`datahub-local-ai`/`agents/n8n`, through the GitHub node's file get. After the
+  push, a run's own `download_article_prompt` output was 3,004 characters and contained
+  `## Research`, `research_sources`, `read_page`, `three lookups`, `same-named` and `you did not
+  fetch` — so the bound and the relevance rule are live, and the article's behaviour is not read
+  off the repository copy. That same run searched once (10 results), read the Google Open Source
+  Blog page the search returned, and wrote 315 words with no error.
+- **`toolWikipedia` answered the wrong page.** Asked for "Sympozium" it returned the Dimmu Borgir
+  album *Puritanical Euphoric Misanthropia* — noise with a schema cost, removed (D18).
+- **The primary model fails intermittently once tools are attached.** `ai_model` threw
+  `Cannot read properties of undefined (reading 'map')` in all three research runs (1–3 times
+  each) and `ai_model_fallback` (`glm-5.3-flash`) answered instead, so `needsFallback` is what
+  carried every run; each rescue spends an iteration, which is why the budget moved 8 → 12.
 
 ## Open Questions
 

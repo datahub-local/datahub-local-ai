@@ -382,6 +382,21 @@ Seven structural things worth knowing before editing an export:
   input cardinality, so it is read off the connection graph or not at all. A
   node `notes` claiming otherwise is the same second-copy-of-a-decision problem
   as a comment beside a value, and drifted the same way.
+- **An agent's tool node must implement `execute`, and the obvious node does not.** n8n's v3
+  agent hands a tool call to the workflow engine, which runs the node through its own executor,
+  so a tool node carrying only `supplyData` fails on **every** call with `The node
+  "@n8n/n8n-nodes-langchain.toolHttpRequest" has a "supplyData" method but no "execute" method.`
+  — while connecting cleanly, publishing cleanly and appearing in the editor's own catalog. Hit
+  2026-10-16 in `Article Creator`: two `toolHttpRequest` tools were wired, the model did call
+  them (`search_web` ×2, `check_feeds` ×1), every call died, the agent's final text came back
+  empty and the draft returned `EMPTY_DRAFT` — and the failure is invisible in the export, which
+  shows a connected tool. Read the usable set off the image, not the catalog:
+  `grep -L "async execute" .../n8n-nodes-langchain/dist/nodes/tools/*/*.node.js` lists the ones
+  that cannot run. `toolWorkflow` (v2), `toolWikipedia`, `toolSearXng`, `toolSerpApi`,
+  `toolCode`, `toolThink` and `toolVectorStore` implement both. It is also the reason an HTTP
+  lookup belongs in a workflow called as a tool, which additionally hands the model a shaped
+  result instead of a raw API payload. `test_workflow_invariants.py` now asserts the type of
+  every `ai_tool` source in every export, so the next one fails offline rather than at the model.
 - **A rule the gate enforces must be satisfiable by the rules the drafter
   follows.** `LinkedIn Post Creator` drafts text and then reviews it in the same
   execution against `linkedin_post_rules.md` *plus* the row's `EXTRA_PROMPT`,

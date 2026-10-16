@@ -43,7 +43,7 @@ WHEN the selected entry carries a source link, the system SHALL retrieve the pag
 
 ### Requirement: Article draft is produced with its own review state
 
-The system SHALL produce one long-form article draft from the entry's topic, description, optional link content and, when present, the latest article feedback. The draft SHALL be stored by the system and referenced from the entry's row in `article_queue`, which SHALL carry an article review state distinct from every asset's review state. The draft SHALL be sent to Slack for article approval.
+The system SHALL produce one long-form article draft from the entry's topic, description, optional link content, sources the writer retrieved during that run and, when present, the latest article feedback. The draft SHALL be stored by the system and referenced from the entry's row in `article_queue`, which SHALL carry an article review state distinct from every asset's review state. The draft SHALL be sent to Slack for article approval.
 
 #### Scenario: First draft produced
 - **WHEN** an entry has no article draft yet
@@ -55,6 +55,26 @@ The system SHALL produce one long-form article draft from the entry's topic, des
 - **WHEN** no non-empty article body is produced
 - **THEN** no draft is stored
 - **AND** the article review state is an error state naming the failure
+
+### Requirement: The writer researches within a bound and attributes what it read
+
+The writer SHALL be able to search for the entry's subject and to read a page it found, within a bounded number of lookups per draft, and SHALL cite only pages it fetched during that run. A retrieved source SHALL be used only when it is about the entry's subject. When a search returns nothing usable or a source cannot be reached, drafting SHALL continue from the entry's inputs alone rather than from unread material.
+
+#### Scenario: A search finds a usable source
+- **WHEN** the writer searches for the entry's subject and a result is about that subject
+- **THEN** the writer reads the page before relying on it
+- **AND** the draft cites it, and cites nothing it did not fetch
+
+#### Scenario: Results are about a different subject
+- **WHEN** every result shares the subject's name but is a different thing
+- **THEN** the writer stops searching instead of hunting for a match
+- **AND** the draft is written from the entry's inputs and cites no source
+
+#### Scenario: A search source is unavailable
+- **WHEN** one of the search sources cannot be reached in that run
+- **THEN** the writer is told which source did not answer
+- **AND** drafting continues from the sources that did
+- **AND** when none answered, the draft is written from the entry's inputs alone
 
 ### Requirement: Assets are produced and reviewed as a set
 

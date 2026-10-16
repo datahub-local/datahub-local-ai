@@ -151,11 +151,85 @@ def test_creator_fetches_both_prompt_files():
     assert _downloaded("download_system_prompt")[0] == "prompts/article_writer_system.md"
 
 
-def test_creator_sends_the_system_prompt_as_the_system_message():
-    # The persona and the hard rules must arrive as the system message, not as more
-    # text in the user turn, or the model treats them as content to write about.
-    message = _node("create_article_ai")["parameters"]["messages"]["messageValues"][0]["message"]
-    assert "download_system_prompt" in message
+# A tool node's type is not free. The v3.1 agent hands a tool call to the workflow engine, which
+# runs the node through its own executor and therefore needs an `execute` method. In this build
+# `toolHttpRequest` has only `supplyData`, so every call to it died with
+#   The node "@n8n/n8n-nodes-langchain.toolHttpRequest" has a "supplyData" method but no "execute" method.
+# and the draft came back `EMPTY_DRAFT` after the model had spent its turns on a tool that could
+# not run (execution 13598, 2026-10-16). The list is read off the installed image:
+#   grep -L "async execute" n8n-nodes-langchain/dist/nodes/tools/*/*.node.js
+EXECUTABLE_TOOL_TYPES = frozenset(
+    {
+        "@n8n/n8n-nodes-langchain.toolWorkflow",
+        "@n8n/n8n-nodes-langchain.toolWikipedia",
+        "@n8n/n8n-nodes-langchain.toolSearXng",
+        "@n8n/n8n-nodes-langchain.toolSerpApi",
+        "@n8n/n8n-nodes-langchain.toolWolframAlpha",
+        "@n8n/n8n-nodes-langchain.toolCode",
+        "@n8n/n8n-nodes-langchain.toolThink",
+        "@n8n/n8n-nodes-langchain.toolVectorStore",
+    }
+)
+
+
+def _writer_tools() -> set:
+    return {
+        name
+        for name, kinds in _creator()["connections"].items()
+        for branches in (kinds.get("ai_tool") or [])
+        for edge in branches or []
+        if edge["node"] == "create_article_ai"
+    }
+
+
+def test_creator_gives_the_writer_its_persona_and_its_tools():
+    # The writer is an agent (tools on the writer, chosen deliberately), so the persona rides
+    # in the prompt text: the node's system slot is a parameter this repository has never used,
+    # and one wrong key would drop the persona without failing anything.
+    node = _node("create_article_ai")
+    assert node["type"] == "@n8n/n8n-nodes-langchain.agent"
+    assert "download_system_prompt" in node["parameters"]["text"]
+    assert "download_article_prompt" in node["parameters"]["text"]
+    assert _writer_tools() == {"research_sources", "read_page"}
+
+
+def test_the_writer_loop_is_bounded():
+    # Measured on execution 13603: the primary model failed three times with
+    # `Cannot read properties of undefined (reading 'map')` and every fallback rescue spends one
+    # iteration, so a budget of 8 was gone before the draft was written.
+    iterations = _node("create_article_ai")["parameters"]["options"]["maxIterations"]
+    assert isinstance(iterations, int)
+    assert 8 <= iterations <= 20
+
+
+def test_every_writer_tool_can_be_executed_by_the_agent():
+    for name in _writer_tools():
+        assert _node(name)["type"] in EXECUTABLE_TOOL_TYPES, name
+        assert "@n8n/n8n-nodes-langchain.toolHttpRequest" != _node(name)["type"]
+
+
+def test_the_writer_researches_through_workflows_in_this_repository():
+    # Both tools wrap a workflow in this repository, so the HTTP detail lives in one place and
+    # the model receives a digest rather than two raw API payloads.
+    research = _node("research_sources")["parameters"]
+    content_research = json.loads((WORKFLOWS / "content_research.workflow.json").read_text(encoding="utf-8"))
+    assert research["workflowId"]["value"] == content_research["id"]
+    assert research["workflowId"]["cachedResultName"] == content_research["name"]
+    assert "QUERY" in research["workflowInputs"]["value"]
+    page = _node("read_page")["parameters"]
+    assert page["workflowId"]["value"] == "09xEuVQj207pjK4x"  # Download Content, readable text
+    for name in _writer_tools():
+        assert _node(name)["parameters"].get("description")
+
+
+def test_task_prompt_bounds_and_scopes_the_research():
+    text = TASK_PROMPT.read_text(encoding="utf-8")
+    assert "`research_sources`" in text and "`read_page`" in text
+    assert "three lookups" in text
+    # A name match is not a subject match: on the first live run every result for "Sympozium"
+    # was about a different Symposium, and only this rule stops the model hunting for one.
+    assert "same-named" in text
+    assert "never cite a URL you did not fetch" in text
 
 
 def test_creator_returns_text_its_title_and_the_error_field():

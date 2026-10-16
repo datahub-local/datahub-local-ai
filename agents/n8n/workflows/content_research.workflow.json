@@ -1,0 +1,407 @@
+{
+  "active": true,
+  "activeVersion": {
+    "versionId": "aded09dc-1628-454e-ab32-54511625105f",
+    "workflowId": "3YctNv7fJl17sOT3",
+    "nodes": [
+      {
+        "id": "b7e10001-0001-4001-8001-000000000001",
+        "name": "main_trigger",
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          -16,
+          0
+        ],
+        "parameters": {
+          "workflowInputs": {
+            "values": [
+              {
+                "name": "QUERY"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "b7e10001-0001-4001-8001-000000000002",
+        "name": "normalize_input",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          208,
+          0
+        ],
+        "parameters": {
+          "jsCode": "// The query is the whole input. A blank one is refused by name rather than searched\n// for nothing, so an empty tool call is visible instead of reading as 'no results'.\nconst query = String($json.QUERY ?? '').trim();\nif (!query) {\n  throw new Error('QUERY is required: research needs something to search for');\n}\nreturn [{ json: { QUERY: query } }];"
+        }
+      },
+      {
+        "id": "b7e10001-0001-4001-8001-000000000003",
+        "name": "search_hn",
+        "notes": "onError continueRegularOutput forwards the input unchanged, which build_digest reads as this source being unavailable; it reports that in the digest rather than hiding it.",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "onError": "continueRegularOutput",
+        "position": [
+          432,
+          -112
+        ],
+        "parameters": {
+          "method": "GET",
+          "url": "https://hn.algolia.com/api/v1/search",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "query",
+                "value": "={{ $json.QUERY }}"
+              },
+              {
+                "name": "tags",
+                "value": "story"
+              },
+              {
+                "name": "hitsPerPage",
+                "value": "5"
+              }
+            ]
+          },
+          "options": {
+            "timeout": 30000
+          }
+        }
+      },
+      {
+        "id": "b7e10001-0001-4001-8001-000000000004",
+        "name": "search_feeds",
+        "notes": "Whole-word search over the entries Miniflux already has, which is the author's own feed set; the auth header is the same idiom the Content Feed Curator uses.",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "onError": "continueRegularOutput",
+        "position": [
+          432,
+          112
+        ],
+        "parameters": {
+          "method": "GET",
+          "url": "={{ $env[\"MINIFLUX_URL\"] }}/v1/entries",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "=Basic {{ ($env[\"MINIFLUX_API_USER\"] + \":\" + $env[\"MINIFLUX_API_PASSWORD\"]).base64Encode() }}"
+              }
+            ]
+          },
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "search",
+                "value": "={{ $json.QUERY }}"
+              },
+              {
+                "name": "limit",
+                "value": "5"
+              },
+              {
+                "name": "order",
+                "value": "published_at"
+              },
+              {
+                "name": "direction",
+                "value": "desc"
+              }
+            ]
+          },
+          "options": {
+            "timeout": 30000
+          }
+        }
+      },
+      {
+        "id": "b7e10001-0001-4001-8001-000000000005",
+        "name": "build_digest",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "alwaysOutputData": true,
+        "position": [
+          672,
+          0
+        ],
+        "parameters": {
+          "jsCode": "// One digest, so the writer reads one block of sources instead of two raw API\n// payloads. Each source is read by node name: a failed HTTP node forwards its input\n// unchanged, so the item itself cannot say which source answered.\nconst MAX_ITEMS = 5;\nconst MAX_TITLE = 120;\nconst cut = (value) => String(value || '').replace(/\\s+/g, ' ').trim().slice(0, MAX_TITLE);\n\nfunction readNode(name) {\n  try {\n    if (!$('' + name).isExecuted) return null;\n    return $('' + name).first().json || null;\n  } catch (error) {\n    return null;\n  }\n}\n\nconst query = String((readNode('normalize_input') || {}).QUERY || '');\nconst hnRaw = readNode('search_hn');\nconst feedsRaw = readNode('search_feeds');\nconst hn = hnRaw && Array.isArray(hnRaw.hits) ? hnRaw.hits : null;\nconst feeds = feedsRaw && Array.isArray(feedsRaw.entries) ? feedsRaw.entries : null;\n\nconst lines = ['Query: ' + query];\nconst unavailable = [];\n\nif (hn) {\n  lines.push('Hacker News (' + Math.min(hn.length, MAX_ITEMS) + ' of ' + hn.length + '):');\n  for (const hit of hn.slice(0, MAX_ITEMS)) {\n    const url = hit.url || 'https://news.ycombinator.com/item?id=' + hit.objectID;\n    lines.push('- ' + cut(hit.title) + ' | ' + url + ' | ' + (hit.points || 0) + ' points, ' + (hit.num_comments || 0) + ' comments');\n  }\n} else {\n  unavailable.push('hacker news search');\n}\n\nif (feeds) {\n  lines.push('Feeds (' + Math.min(feeds.length, MAX_ITEMS) + ' of ' + feeds.length + '):');\n  for (const entry of feeds.slice(0, MAX_ITEMS)) {\n    lines.push('- ' + cut(entry.title) + ' | ' + String(entry.url || '') + ' | ' + cut(((entry.feed || {}).title) || ''));\n  }\n} else {\n  unavailable.push('feed search');\n}\n\nif (unavailable.length) {\n  lines.push('Unavailable this run: ' + unavailable.join(', '));\n}\nif (!hn && !feeds) {\n  lines.push('No source answered: write from the entry inputs alone and say the search failed.');\n}\n\nconst found = (hn ? hn.length : 0) + (feeds ? feeds.length : 0);\nreturn [{ json: { QUERY: query, RESULTS: found, DIGEST: lines.join('\\n') } }];"
+        }
+      }
+    ],
+    "connections": {
+      "main_trigger": {
+        "main": [
+          [
+            {
+              "node": "normalize_input",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "normalize_input": {
+        "main": [
+          [
+            {
+              "node": "search_hn",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "search_feeds",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "search_hn": {
+        "main": [
+          [
+            {
+              "node": "build_digest",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "search_feeds": {
+        "main": [
+          [
+            {
+              "node": "build_digest",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "nodeGroups": [],
+    "authors": "no name",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "createdAt": "2026-10-16T04:34:16.898Z",
+    "updatedAt": "2026-10-16T04:34:16.898Z"
+  },
+  "activeVersionId": "aded09dc-1628-454e-ab32-54511625105f",
+  "connections": {
+    "main_trigger": {
+      "main": [
+        [
+          {
+            "node": "normalize_input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "normalize_input": {
+      "main": [
+        [
+          {
+            "node": "search_hn",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "search_feeds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "search_hn": {
+      "main": [
+        [
+          {
+            "node": "build_digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "search_feeds": {
+      "main": [
+        [
+          {
+            "node": "build_digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2026-10-16T04:34:16.898Z",
+  "id": "3YctNv7fJl17sOT3",
+  "isArchived": false,
+  "meta": null,
+  "name": "Content Research",
+  "nodeGroups": [],
+  "nodes": [
+    {
+      "id": "b7e10001-0001-4001-8001-000000000001",
+      "name": "main_trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -16,
+        0
+      ],
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "QUERY"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "b7e10001-0001-4001-8001-000000000002",
+      "name": "normalize_input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// The query is the whole input. A blank one is refused by name rather than searched\n// for nothing, so an empty tool call is visible instead of reading as 'no results'.\nconst query = String($json.QUERY ?? '').trim();\nif (!query) {\n  throw new Error('QUERY is required: research needs something to search for');\n}\nreturn [{ json: { QUERY: query } }];"
+      }
+    },
+    {
+      "id": "b7e10001-0001-4001-8001-000000000003",
+      "name": "search_hn",
+      "notes": "onError continueRegularOutput forwards the input unchanged, which build_digest reads as this source being unavailable; it reports that in the digest rather than hiding it.",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "onError": "continueRegularOutput",
+      "position": [
+        432,
+        -112
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://hn.algolia.com/api/v1/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{ $json.QUERY }}"
+            },
+            {
+              "name": "tags",
+              "value": "story"
+            },
+            {
+              "name": "hitsPerPage",
+              "value": "5"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      }
+    },
+    {
+      "id": "b7e10001-0001-4001-8001-000000000004",
+      "name": "search_feeds",
+      "notes": "Whole-word search over the entries Miniflux already has, which is the author's own feed set; the auth header is the same idiom the Content Feed Curator uses.",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "onError": "continueRegularOutput",
+      "position": [
+        432,
+        112
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env[\"MINIFLUX_URL\"] }}/v1/entries",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Basic {{ ($env[\"MINIFLUX_API_USER\"] + \":\" + $env[\"MINIFLUX_API_PASSWORD\"]).base64Encode() }}"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "search",
+              "value": "={{ $json.QUERY }}"
+            },
+            {
+              "name": "limit",
+              "value": "5"
+            },
+            {
+              "name": "order",
+              "value": "published_at"
+            },
+            {
+              "name": "direction",
+              "value": "desc"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      }
+    },
+    {
+      "id": "b7e10001-0001-4001-8001-000000000005",
+      "name": "build_digest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "alwaysOutputData": true,
+      "position": [
+        672,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// One digest, so the writer reads one block of sources instead of two raw API\n// payloads. Each source is read by node name: a failed HTTP node forwards its input\n// unchanged, so the item itself cannot say which source answered.\nconst MAX_ITEMS = 5;\nconst MAX_TITLE = 120;\nconst cut = (value) => String(value || '').replace(/\\s+/g, ' ').trim().slice(0, MAX_TITLE);\n\nfunction readNode(name) {\n  try {\n    if (!$('' + name).isExecuted) return null;\n    return $('' + name).first().json || null;\n  } catch (error) {\n    return null;\n  }\n}\n\nconst query = String((readNode('normalize_input') || {}).QUERY || '');\nconst hnRaw = readNode('search_hn');\nconst feedsRaw = readNode('search_feeds');\nconst hn = hnRaw && Array.isArray(hnRaw.hits) ? hnRaw.hits : null;\nconst feeds = feedsRaw && Array.isArray(feedsRaw.entries) ? feedsRaw.entries : null;\n\nconst lines = ['Query: ' + query];\nconst unavailable = [];\n\nif (hn) {\n  lines.push('Hacker News (' + Math.min(hn.length, MAX_ITEMS) + ' of ' + hn.length + '):');\n  for (const hit of hn.slice(0, MAX_ITEMS)) {\n    const url = hit.url || 'https://news.ycombinator.com/item?id=' + hit.objectID;\n    lines.push('- ' + cut(hit.title) + ' | ' + url + ' | ' + (hit.points || 0) + ' points, ' + (hit.num_comments || 0) + ' comments');\n  }\n} else {\n  unavailable.push('hacker news search');\n}\n\nif (feeds) {\n  lines.push('Feeds (' + Math.min(feeds.length, MAX_ITEMS) + ' of ' + feeds.length + '):');\n  for (const entry of feeds.slice(0, MAX_ITEMS)) {\n    lines.push('- ' + cut(entry.title) + ' | ' + String(entry.url || '') + ' | ' + cut(((entry.feed || {}).title) || ''));\n  }\n} else {\n  unavailable.push('feed search');\n}\n\nif (unavailable.length) {\n  lines.push('Unavailable this run: ' + unavailable.join(', '));\n}\nif (!hn && !feeds) {\n  lines.push('No source answered: write from the entry inputs alone and say the search failed.');\n}\n\nconst found = (hn ? hn.length : 0) + (feeds ? feeds.length : 0);\nreturn [{ json: { QUERY: query, RESULTS: found, DIGEST: lines.join('\\n') } }];"
+      }
+    }
+  ],
+  "pinData": null,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "role": "workflow:owner",
+      "workflowId": "3YctNv7fJl17sOT3",
+      "projectId": "zcGU09G6dy4Oah3l",
+      "createdAt": "2026-10-16T04:34:16.898Z",
+      "updatedAt": "2026-10-16T04:34:16.898Z"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2026-10-16T04:34:16.898Z",
+  "versionId": "aded09dc-1628-454e-ab32-54511625105f"
+}

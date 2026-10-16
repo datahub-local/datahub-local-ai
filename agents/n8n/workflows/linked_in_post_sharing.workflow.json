@@ -1,7 +1,7 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "9be63400-837f-4a48-b299-1f46956d5a7f",
+    "versionId": "c0b0b712-f0c8-4597-96cf-06a4fc38be49",
     "workflowId": "oxARWWyxenKgmv6A",
     "nodes": [
       {
@@ -1541,20 +1541,6 @@
         }
       },
       {
-        "id": "28a628e2-dc66-49d0-b786-caf27fce9b7f",
-        "name": "stop_and_error",
-        "type": "n8n-nodes-base.stopAndError",
-        "typeVersion": 1,
-        "position": [
-          11392,
-          -1632
-        ],
-        "parameters": {
-          "errorType": "errorMessage",
-          "errorMessage": "={{ $json.ERROR || $json.error || 'post failed' }} ({{ $('select_article_to_post').item.json.URL }})"
-        }
-      },
-      {
         "id": "7331acf8-870a-42eb-8579-dcd40443bc14",
         "name": "send_2_linkedin_omImage",
         "type": "n8n-nodes-base.linkedIn",
@@ -2413,28 +2399,6 @@
         }
       },
       {
-        "id": "an000000-0000-4000-8000-000000000005",
-        "name": "download_animation",
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.4,
-        "position": [
-          11040,
-          -1200
-        ],
-        "parameters": {
-          "url": "={{ $json.URL }}",
-          "options": {
-            "response": {
-              "response": {
-                "responseFormat": "file",
-                "outputPropertyName": "data"
-              }
-            },
-            "timeout": 600000
-          }
-        }
-      },
-      {
         "id": "an000000-0000-4000-8000-000000000006",
         "name": "notification_sent_animation",
         "webhookId": "53d1d089-9efe-41aa-940c-cd92351a1720",
@@ -2893,6 +2857,28 @@
         }
       },
       {
+        "id": "939bb31c-0d9b-49cf-945b-3013c366c509",
+        "name": "stop_and_error",
+        "type": "n8n-nodes-base.stopAndError",
+        "typeVersion": 1,
+        "position": [
+          11392,
+          -1632
+        ],
+        "parameters": {
+          "errorType": "errorMessage",
+          "errorMessage": "={{ $json.ERROR || $json.error || 'post failed' }} ({{ $('select_article_to_post').item.json.URL }})"
+        }
+      },
+      {
+        "id": "dce21ec9-0000-4000-8000-000000000000",
+        "name": "presign_animation",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          10368,
+          -1200
+        ],
         "parameters": {
           "method": "POST",
           "url": "={{ ($env.MCP_UTILS_URL || '') + '/mcp' }}",
@@ -2911,28 +2897,42 @@
           "options": {
             "timeout": 120000
           }
-        },
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.4,
-        "name": "presign_animation",
-        "position": [
-          10368,
-          -1200
-        ],
-        "id": "2c3ce260-0000-4000-8000-000000000000"
+        }
       },
       {
-        "parameters": {
-          "jsCode": "// The signed download URL the temp-bucket server answered with, so the bytes can be\n// fetched without this workflow holding a bucket credential at all. The answer is one\n// line of key=value pairs, split the way a caller does rather than matched as prose; a\n// failure is a line beginning ERROR: and is raised here so the run reports it rather\n// than uploading something else.\nconst resp = $input.first().json || {};\nconst content = resp.result && resp.result.content;\nconst text = content && content[0] && content[0].text;\nif (typeof text !== 'string') throw new Error('the temp-bucket server answered no text');\nif (text.indexOf('ERROR:') === 0) throw new Error(text.slice(0, 500));\nconst pairs = {};\nfor (const part of text.trim().split(/\\s+/)) {\n  const eq = part.indexOf('=');\n  if (eq > 0) pairs[part.slice(0, eq)] = part.slice(eq + 1);\n}\nif (!pairs.url) throw new Error('no signed url in: ' + text.slice(0, 300));\nreturn [{ json: {\n  URL: pairs.url, KEY: pairs.key || '', BYTES: Number(pairs.bytes || 0),\n  CONTENT_TYPE: pairs['content-type'] || '', EXPIRES: Number(pairs.expires || 0),\n} }];\n"
-        },
+        "id": "7a56f434-0000-4000-8000-000000000000",
+        "name": "animation_url",
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
-        "name": "animation_url",
         "position": [
           10752,
           -1200
         ],
-        "id": "132acab1-0000-4000-8000-000000000000"
+        "parameters": {
+          "jsCode": "// The signed download URL the temp-bucket server answered with, so the bytes can be\n// fetched without this workflow holding a bucket credential at all. The answer is one\n// line of key=value pairs, split the way a caller does rather than matched as prose; a\n// failure is a line beginning ERROR: and is raised here so the run reports it rather\n// than uploading something else.\nconst resp = $input.first().json || {};\nconst content = resp.result && resp.result.content;\nconst text = content && content[0] && content[0].text;\nif (typeof text !== 'string') throw new Error('the temp-bucket server answered no text');\nif (text.indexOf('ERROR:') === 0) throw new Error(text.slice(0, 500));\nconst pairs = {};\nfor (const part of text.trim().split(/\\s+/)) {\n  const eq = part.indexOf('=');\n  if (eq > 0) pairs[part.slice(0, eq)] = part.slice(eq + 1);\n}\nif (!pairs.url) throw new Error('no signed url in: ' + text.slice(0, 300));\nreturn [{ json: {\n  URL: pairs.url, KEY: pairs.key || '', BYTES: Number(pairs.bytes || 0),\n  CONTENT_TYPE: pairs['content-type'] || '', EXPIRES: Number(pairs.expires || 0),\n} }];\n"
+        }
+      },
+      {
+        "id": "an000000-0000-4000-8000-000000000005",
+        "name": "download_animation",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          11040,
+          -1200
+        ],
+        "parameters": {
+          "url": "={{ $json.URL }}",
+          "options": {
+            "response": {
+              "response": {
+                "responseFormat": "file",
+                "outputPropertyName": "data"
+              }
+            },
+            "timeout": 600000
+          }
+        }
       }
     ],
     "connections": {
@@ -3275,17 +3275,6 @@
           ]
         ]
       },
-      "download_animation": {
-        "main": [
-          [
-            {
-              "node": "notification_sent_animation",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
       "execute_visual_studio": {
         "main": [
           [
@@ -3518,6 +3507,17 @@
             }
           ]
         ]
+      },
+      "download_animation": {
+        "main": [
+          [
+            {
+              "node": "notification_sent_animation",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
       }
     },
     "nodeGroups": [],
@@ -3525,10 +3525,10 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-10-12T16:47:20.463Z",
-    "updatedAt": "2026-10-12T16:47:20.463Z"
+    "createdAt": "2026-10-15T18:40:53.672Z",
+    "updatedAt": "2026-10-15T18:40:53.672Z"
   },
-  "activeVersionId": "9be63400-837f-4a48-b299-1f46956d5a7f",
+  "activeVersionId": "c0b0b712-f0c8-4597-96cf-06a4fc38be49",
   "connections": {
     "switch_user_accept": {
       "main": [
@@ -3869,17 +3869,6 @@
         ]
       ]
     },
-    "download_animation": {
-      "main": [
-        [
-          {
-            "node": "notification_sent_animation",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "execute_visual_studio": {
       "main": [
         [
@@ -4107,6 +4096,17 @@
         [
           {
             "node": "download_animation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "download_animation": {
+      "main": [
+        [
+          {
+            "node": "notification_sent_animation",
             "type": "main",
             "index": 0
           }
@@ -5660,20 +5660,6 @@
       }
     },
     {
-      "id": "939bb31c-0d9b-49cf-945b-3013c366c509",
-      "name": "stop_and_error",
-      "type": "n8n-nodes-base.stopAndError",
-      "typeVersion": 1,
-      "position": [
-        11392,
-        -1632
-      ],
-      "parameters": {
-        "errorType": "errorMessage",
-        "errorMessage": "={{ $json.ERROR || $json.error || 'post failed' }} ({{ $('select_article_to_post').item.json.URL }})"
-      }
-    },
-    {
       "id": "7331acf8-870a-42eb-8579-dcd40443bc14",
       "name": "send_2_linkedin_omImage",
       "type": "n8n-nodes-base.linkedIn",
@@ -6532,28 +6518,6 @@
       }
     },
     {
-      "id": "an000000-0000-4000-8000-000000000005",
-      "name": "download_animation",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        11040,
-        -1200
-      ],
-      "parameters": {
-        "url": "={{ $json.URL }}",
-        "options": {
-          "response": {
-            "response": {
-              "responseFormat": "file",
-              "outputPropertyName": "data"
-            }
-          },
-          "timeout": 600000
-        }
-      }
-    },
-    {
       "id": "an000000-0000-4000-8000-000000000006",
       "name": "notification_sent_animation",
       "webhookId": "53d1d089-9efe-41aa-940c-cd92351a1720",
@@ -7012,6 +6976,28 @@
       }
     },
     {
+      "id": "939bb31c-0d9b-49cf-945b-3013c366c509",
+      "name": "stop_and_error",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        11392,
+        -1632
+      ],
+      "parameters": {
+        "errorType": "errorMessage",
+        "errorMessage": "={{ $json.ERROR || $json.error || 'post failed' }} ({{ $('select_article_to_post').item.json.URL }})"
+      }
+    },
+    {
+      "id": "dce21ec9-0000-4000-8000-000000000000",
+      "name": "presign_animation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        10368,
+        -1200
+      ],
       "parameters": {
         "method": "POST",
         "url": "={{ ($env.MCP_UTILS_URL || '') + '/mcp' }}",
@@ -7030,28 +7016,42 @@
         "options": {
           "timeout": 120000
         }
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "name": "presign_animation",
-      "position": [
-        10368,
-        -1200
-      ],
-      "id": "dce21ec9-0000-4000-8000-000000000000"
+      }
     },
     {
-      "parameters": {
-        "jsCode": "// The signed download URL the temp-bucket server answered with, so the bytes can be\n// fetched without this workflow holding a bucket credential at all. The answer is one\n// line of key=value pairs, split the way a caller does rather than matched as prose; a\n// failure is a line beginning ERROR: and is raised here so the run reports it rather\n// than uploading something else.\nconst resp = $input.first().json || {};\nconst content = resp.result && resp.result.content;\nconst text = content && content[0] && content[0].text;\nif (typeof text !== 'string') throw new Error('the temp-bucket server answered no text');\nif (text.indexOf('ERROR:') === 0) throw new Error(text.slice(0, 500));\nconst pairs = {};\nfor (const part of text.trim().split(/\\s+/)) {\n  const eq = part.indexOf('=');\n  if (eq > 0) pairs[part.slice(0, eq)] = part.slice(eq + 1);\n}\nif (!pairs.url) throw new Error('no signed url in: ' + text.slice(0, 300));\nreturn [{ json: {\n  URL: pairs.url, KEY: pairs.key || '', BYTES: Number(pairs.bytes || 0),\n  CONTENT_TYPE: pairs['content-type'] || '', EXPIRES: Number(pairs.expires || 0),\n} }];\n"
-      },
+      "id": "7a56f434-0000-4000-8000-000000000000",
+      "name": "animation_url",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "name": "animation_url",
       "position": [
         10752,
         -1200
       ],
-      "id": "7a56f434-0000-4000-8000-000000000000"
+      "parameters": {
+        "jsCode": "// The signed download URL the temp-bucket server answered with, so the bytes can be\n// fetched without this workflow holding a bucket credential at all. The answer is one\n// line of key=value pairs, split the way a caller does rather than matched as prose; a\n// failure is a line beginning ERROR: and is raised here so the run reports it rather\n// than uploading something else.\nconst resp = $input.first().json || {};\nconst content = resp.result && resp.result.content;\nconst text = content && content[0] && content[0].text;\nif (typeof text !== 'string') throw new Error('the temp-bucket server answered no text');\nif (text.indexOf('ERROR:') === 0) throw new Error(text.slice(0, 500));\nconst pairs = {};\nfor (const part of text.trim().split(/\\s+/)) {\n  const eq = part.indexOf('=');\n  if (eq > 0) pairs[part.slice(0, eq)] = part.slice(eq + 1);\n}\nif (!pairs.url) throw new Error('no signed url in: ' + text.slice(0, 300));\nreturn [{ json: {\n  URL: pairs.url, KEY: pairs.key || '', BYTES: Number(pairs.bytes || 0),\n  CONTENT_TYPE: pairs['content-type'] || '', EXPIRES: Number(pairs.expires || 0),\n} }];\n"
+      }
+    },
+    {
+      "id": "an000000-0000-4000-8000-000000000005",
+      "name": "download_animation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        11040,
+        -1200
+      ],
+      "parameters": {
+        "url": "={{ $json.URL }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          },
+          "timeout": 600000
+        }
+      }
     }
   ],
   "pinData": {},
@@ -7091,6 +7091,6 @@
   },
   "tags": [],
   "triggerCount": 1,
-  "updatedAt": "2026-10-12T16:47:20.444Z",
-  "versionId": "9be63400-837f-4a48-b299-1f46956d5a7f"
+  "updatedAt": "2026-10-15T18:40:53.668Z",
+  "versionId": "c0b0b712-f0c8-4597-96cf-06a4fc38be49"
 }

@@ -51,6 +51,7 @@ def test_the_registry_declares_the_expected_types(registry):
         "animation_linkedin_video",
         "svg",
         "deck",
+        "launch_card",
     ]
 
 
@@ -152,6 +153,33 @@ def test_the_deck_type_declares_its_paired_video(registry):
     assert entry["format"] == "html"
     assert entry["paired"]["format"] == "mp4"
     assert entry["paired"]["assetType"], "the paired asset has no type name"
+
+
+def test_the_launch_card_is_a_still_at_the_announcement_frame(registry):
+    """The one agent-authored still raster: a card is a frame, not a clip."""
+    entry = next(t for t in registry["types"] if t["id"] == "launch_card")
+    assert entry["author"] == "agent"
+    assert entry["render"] == "static"
+    assert entry["format"] == "png"
+    assert entry["aspect"] == "1.91:1"
+    # A still ships one frame, so there is no scene to give a floor to, no duration
+    # to run for and nothing to hold.
+    assert "secondsPerScene" not in entry
+    assert "durationSeconds" not in entry
+    assert "holdSeconds" not in entry
+    width = entry["budget"]["viewport"]
+    aw, ah = (float(x) for x in entry["aspect"].split(":"))
+    height = round(width * ah / aw)
+    assert width > height, "the announcement frame is wider than it is tall"
+    assert width >= 1200, "the frame is below the platform's recommended long edge"
+
+
+def test_a_png_type_is_a_still(registry):
+    """The brief branches on the format to compose a still in one frame, so a png
+    type that animated would be handed the still brief."""
+    for t in registry["types"]:
+        if t["format"] == "png":
+            assert t["render"] == "static", f"{t['id']} declares png with a {t['render']} render"
 
 
 def test_default_types_are_declared(registry):

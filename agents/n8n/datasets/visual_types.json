@@ -1,7 +1,7 @@
 {
   "_comment": "Artifact-type registry for the Visual Studio workflow. Downloaded through DownloadTemplate (template_name: datasets/visual_types.json) with an empty template_vars, so this file must contain no doubled-curly-brace placeholder anywhere, not even in a comment. It declares how each type is authored, rendered and formatted; the workflow routes on these fields and adding a type is a data change.",
   "_comment_author": "author is one of: image (content -> image prompt -> image model), agent (content -> the pi-render composer authors and renders a composition -> the artifact). The composer plans a storyboard and authors the composition in one turn; the type declares only the output frame (format, aspect, duration, budget).",
-  "_comment_render": "render is one of: static (one raster file authored directly), video (the composer's render, encoded to the type's format), deck (one self-contained HTML presentation authored by the composer, which the same run also renders to video).",
+  "_comment_render": "render is one of: static (a still - a raster the image model authors, or for the composer the first frame of the composition it renders), video (the composer's render, encoded to the type's format), deck (one self-contained HTML presentation authored by the composer, which the same run also renders to video).",
   "_comment_budget": "budget.fps/frames/viewport size the composition the composer is briefed to author. A type may declare its own; the workflow passes the type's values to the composer.",
   "_comment_paired": "paired declares a second artifact the same run yields: the format of the extra file and the asset type it is returned as. Only a deck declares one.",
   "_comment_duration": "durationSeconds is the clip's floor in seconds. secondsPerScene is the minimum each scene gets when the caller names a scene count, so the brief asks for max(durationSeconds, SCENES x secondsPerScene). A type that declares no secondsPerScene keeps its duration whatever the scene count. The GIF type declares none because a per-scene floor would push it past the platform's pixel cap.",
@@ -104,6 +104,21 @@
       "budget": {
         "fps": 30,
         "frames": 900,
+        "viewport": 1280
+      }
+    },
+    {
+      "id": "launch_card",
+      "brandKind": "diagrammatic",
+      "name": "Launch card",
+      "author": "agent",
+      "render": "static",
+      "format": "png",
+      "aspect": "1.91:1",
+      "available": true,
+      "budget": {
+        "fps": 30,
+        "frames": 30,
         "viewport": 1280
       }
     }

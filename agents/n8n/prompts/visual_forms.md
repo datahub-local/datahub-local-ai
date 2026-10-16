@@ -13,3 +13,4 @@ and lets the author choose from this list. Build the definition, not the name.
 - `ui`: show the interface - a screen, a scroll or a cursor, with callouts on what changed.
 - `manga`: draw it as comic panels - one heavy-bordered ink panel per subject, halftone tone and speed lines behind it, a shouted sfx word, each panel slamming in on its own beat.
 - `retro`: draw it as a 16-bit console screen - chunky pixel art on a coarse grid, a small palette, hard-edged HUD frames and bitmap lettering, each subject snapping in on its own beat.
+- `launch`: announce a thing we ship - one brand lockup, one status badge, a headline with its supporting line, the feature set as a few short chips, a window of the product's own interface with the working part accented, and one call to action.

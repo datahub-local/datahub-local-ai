@@ -430,19 +430,23 @@ Seven structural things worth knowing before editing an export:
   apply that adds or removes nodes: re-read `activeVersion`, re-activate, confirm
   `active`, and diff the export against live afterwards.
 
+- **An export's `jsCode` is a string, so a line break in the file is `\n` and a `\n` inside a JS string is `\\n` — write the pair where the single belongs and the node is a syntax error.** Nothing offline catches it: the JSON is still valid, the diff still reads as two lines, and every textual assertion still passes. n8n parses the node only when a run reaches it, so the whole node fails for every run, and the apply ships it silently. Hit on 2026-10-16 adding the still-type branch to `build_author_brief`: `\n` landed between `stillPlanLine` and `stillSceneLine`, live took it, and every agent-authored asset would have failed. `agents/n8n/scripts/test_code_nodes_parse.py` now parses every Code node with `node --check` inside an async wrapper (a top-level `return` is legal there and illegal in a plain script), and the `agents/n8n` CI job installs node for it. Check a jsCode edit by executing it, not by reading it.
+
 #### Visual Studio
 
 One workflow turns a source text into visual assets, driven by the type registry
 `agents/n8n/datasets/visual_types.json`. Adding a type is a change to that file, not a
-branch in the graph. Six types: `image` (authored by the Gemini image model, png),
+branch in the graph. Seven types: `image` (authored by the Gemini image model, png),
 `animation` (authored by the composer agent, mp4), `animation_linkedin` (authored by the
 composer agent, gif, inside LinkedIn's GIF cap), `animation_linkedin_video` (authored by
 the composer agent, mp4, at the feed's 4:5 aspect), `svg` (authored by the composer agent,
-a self-contained animated SVG) and `deck` (authored by the composer agent, a
-self-contained HTML presentation that the same run also renders to mp4). A type declares
+a self-contained animated SVG), `deck` (authored by the composer agent, a
+self-contained HTML presentation that the same run also renders to mp4) and `launch_card`
+(authored by the composer agent, a still png at the announcement frame). A type declares
 its `brandKind` (`diagrammatic` or `photographic`), its output format and the frame the
 composer is briefed to produce; no animated type declares a `holdSeconds`, because a
-frozen final frame is the cheap-motion tell the framework names.
+frozen final frame is the cheap-motion tell the framework names, and a still type declares
+no clip at all — no `durationSeconds`, no `secondsPerScene`.
 
 **Authoring is one composer turn.** For an agent type the request's `CONTENT` is a brief
 sent to the `pi-render` session, which plans a **storyboard** (form, style, scenes) and
@@ -455,6 +459,38 @@ The `image` type stays on Gemini — a different medium, not a fallback for an a
 A `deck` run returns two assets from that one turn: the deck (`out.html`) and its paired
 video (`out.mp4`), fetched by `fetch_paired_artifact` and emitted as `deck` +
 `deck_video`.
+
+**A still is the render's first frame.** `launch_card` is the one agent-authored raster,
+and its artifact is `out.mp4`'s **first frame**: the session's `png` transcode is
+`ffmpeg -frames:v 1` (`agents/adapters/pi-render/session-lib.mjs`, `transcodeArgs`), which
+is also why a still needs its own branch in `build_author_brief`. That branch states that
+the whole visual is composed in the first frame — nothing fades, slides or types its way
+in — because an entrance animation would leave the artifact missing, and whatever moves
+after that frame is never sampled. A `SCENES` count on the still type becomes the card's
+parts within the one frame rather than a sequence. So the studio holds two different
+stills and they are not the same medium: `image` is Gemini's raster, `launch_card` is a
+frame the composer composed. `openspec/changes/add-launch-card-type/` is the record.
+
+**When a launch card, and when something else.** A launch card announces **a thing we
+ship** — a product, a feature, an integration, a release — and it is the one visual whose
+subject is our own work rather than someone else's article. Its form, `launch`, is the
+only place the card's parts are defined: one brand lockup, one status badge, a headline
+with its supporting line, the feature set as a few short chips, a window of the product's
+own interface with the working part accented, and one call to action. Reach for it when
+the reader's next act is to click, download or try. Everything else is one of the other
+types: an `image` when the visual is *about an article* — an infographic of its facts, or
+an art-directed photographic frame, never exact lettering or an interface, both of which
+`prompts/visual_raster.md` forbids outright — an `animation` or `animation_linkedin_video`
+when the idea needs time (a sequence, a flow, a build-up), `animation_linkedin` for the
+same thing as a looping image inside the platform's pixel cap, `svg` for something small,
+sharp and vector, and `deck` when the argument has chapters. No hook defaults to `launch`:
+the registry classifies articles someone else wrote and is in no position to announce our
+product, so the form is reached by `FORCE=launch` (or by the composer's own choice under
+`auto`, since every brief carries the vocabulary). A **paged carousel** — a LinkedIn
+document post of N slides — is not this type and is not built: it needs a new format, an
+authoring path the composer cannot take (it writes HTML, not a PDF) and a publish path the
+installed LinkedIn node cannot take either; the timed equivalent is already `SCENES` on an
+animated type.
 
 **The composer's guide is sandbox facts; the brief is the work.**
 `agents/adapters/pi-render/prompts/authoring.md` states only what the brief cannot and the
@@ -517,7 +553,7 @@ than `PI_RENDER_SESSION_TTL_DAYS` (default 7, matching the prune window below; `
 on startup and throttled after each turn, never the session in flight.
 `openspec/changes/add-visual-studio-iteration/` is the record.
 
-**FORCE and STYLE.** `FORCE` is `auto | diagram | story | data | poster | code | chart | timeline | quote | ui | manga | retro`;
+**FORCE and STYLE.** `FORCE` is `auto | diagram | story | data | poster | code | chart | timeline | quote | ui | manga | retro | launch`;
 `auto` lets the composer choose the form, anything else pins it, and a forced form is honoured or
 reported, never silently replaced. The vocabulary is one committed file, `prompts/visual_forms.md`,
 fetched by the studio (into the brief) and by the curator (into the judge prompt as `{{ FORMS }}`),

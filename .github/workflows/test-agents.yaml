@@ -44,6 +44,14 @@ jobs:
       - name: Sync dependencies
         run: uv sync --extra dev
 
+      # The Code-node guard parses each export's jsCode, so this job needs node;
+      # python alone cannot tell a valid program from a broken one. Same version as
+      # the pi-render job below.
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
       # Offline: these read the committed workflow exports, so no cluster, no
       # credential and no network. Nothing else ran agents/n8n/ -- the export
       # guards existed but no job invoked them, so a broken export shipped.

@@ -162,6 +162,20 @@ def test_the_brief_carries_force_style_brand_and_frame(label, doc):
 
 
 @pytest.mark.parametrize("label,doc", list(_copies()))
+def test_the_brief_composes_a_still_in_one_frame(label, doc):
+    """A still artifact is the render's first frame (session-lib transcodeArgs takes
+    ``-frames:v 1``), so the brief must ask for the whole visual to be composed
+    there rather than animated in."""
+    body = _code(doc, "build_author_brief")
+    assert "format === 'png'" in body, "the brief has no still branch"
+    start = body.index(": format === 'png'")
+    still = body[start:body.index("].join", start)]
+    assert "first frame" in still, "the still brief does not name the frame that ships"
+    assert "stillSceneLine" in still, "a scene count is ignored rather than folded in"
+    assert "sampling" not in still, "the still branch reuses the animated instruction"
+
+
+@pytest.mark.parametrize("label,doc", list(_copies()))
 def test_the_form_vocabulary_is_fetched_and_reaches_the_brief(label, doc):
     """One committed copy of the vocabulary, fetched the way the motion rules are.
 

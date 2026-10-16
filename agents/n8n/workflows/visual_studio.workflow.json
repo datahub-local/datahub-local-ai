@@ -1,7 +1,7 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "57753c7c-f6bd-4f93-8ba8-03bb96a5a7c2",
+    "versionId": "761a8890-d659-4e01-befb-1b8402f34d73",
     "workflowId": "2pSrRNmYR2jkX1JG",
     "nodes": [
       {
@@ -488,37 +488,6 @@
         }
       },
       {
-        "id": "68237f50-4e6d-442f-9018-7f65d59c807d",
-        "name": "store_artifact",
-        "notes": "The session's finished artifact, stored by the temp-bucket server; continued on error for the same reason as execute_author, and agent_result reports it as this asset's ERROR.",
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.4,
-        "onError": "continueRegularOutput",
-        "position": [
-          2912,
-          -448
-        ],
-        "parameters": {
-          "method": "POST",
-          "url": "={{ $('build_author_brief').item.json.STORE_URL }}",
-          "sendHeaders": true,
-          "headerParameters": {
-            "parameters": [
-              {
-                "name": "Content-Type",
-                "value": "application/json"
-              }
-            ]
-          },
-          "sendBody": true,
-          "specifyBody": "json",
-          "jsonBody": "={{ JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'temp_store', arguments: { source_url: $('build_author_brief').item.json.ARTIFACT_URL, key: $('build_author_brief').item.json.ARTIFACT_KEY } } }) }}",
-          "options": {
-            "timeout": 300000
-          }
-        }
-      },
-      {
         "id": "20f42e27-8199-4da2-9602-cf7fa50d3786",
         "name": "agent_result",
         "type": "n8n-nodes-base.code",
@@ -653,37 +622,6 @@
         }
       },
       {
-        "id": "e4d0f6b5-7a8c-4d9e-8f1a-3b4c5d6e7f80",
-        "name": "store_paired_artifact",
-        "notes": "The deck's paired video, stored after the deck. Continued on error for the same reason as store_artifact: agent_result keeps the deck and reports the missing pair rather than failing the run.",
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.4,
-        "onError": "continueRegularOutput",
-        "position": [
-          3488,
-          -528
-        ],
-        "parameters": {
-          "method": "POST",
-          "url": "={{ $('build_author_brief').item.json.STORE_URL }}",
-          "sendHeaders": true,
-          "headerParameters": {
-            "parameters": [
-              {
-                "name": "Content-Type",
-                "value": "application/json"
-              }
-            ]
-          },
-          "sendBody": true,
-          "specifyBody": "json",
-          "jsonBody": "={{ JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'temp_store', arguments: { source_url: $('build_author_brief').item.json.PAIRED_ARTIFACT_URL, key: $('build_author_brief').item.json.PAIRED_ARTIFACT_KEY } } }) }}",
-          "options": {
-            "timeout": 300000
-          }
-        }
-      },
-      {
         "id": "d3c9e5a4-6f7b-4c8d-9e0f-2a3b4c5d6e7f",
         "name": "if_deck",
         "type": "n8n-nodes-base.if",
@@ -795,6 +733,68 @@
         ],
         "parameters": {
           "jsCode": "// prompts/visual_forms.md is the one copy of the form vocabulary. It is fetched\n// once and handed to build_author_brief, which appends it to every brief.\nreturn [{ json: { FORMS: String($json.output || '') } }];\n"
+        }
+      },
+      {
+        "id": "68237f50-4e6d-442f-9018-7f65d59c807d",
+        "name": "store_artifact",
+        "notes": "The session's finished artifact, stored by the temp-bucket server; continued on error for the same reason as execute_author, and agent_result reports it as this asset's ERROR.",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "onError": "continueRegularOutput",
+        "position": [
+          2912,
+          -448
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $('build_author_brief').item.json.STORE_URL }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'temp_store', arguments: { source_url: $('build_author_brief').item.json.ARTIFACT_URL, key: $('build_author_brief').item.json.ARTIFACT_KEY } } }) }}",
+          "options": {
+            "timeout": 300000
+          }
+        }
+      },
+      {
+        "id": "e4d0f6b5-7a8c-4d9e-8f1a-3b4c5d6e7f80",
+        "name": "store_paired_artifact",
+        "notes": "The deck's paired video, stored after the deck. Continued on error for the same reason as store_artifact: agent_result keeps the deck and reports the missing pair rather than failing the run.",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "onError": "continueRegularOutput",
+        "position": [
+          3488,
+          -528
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $('build_author_brief').item.json.STORE_URL }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'temp_store', arguments: { source_url: $('build_author_brief').item.json.PAIRED_ARTIFACT_URL, key: $('build_author_brief').item.json.PAIRED_ARTIFACT_KEY } } }) }}",
+          "options": {
+            "timeout": 300000
+          }
         }
       }
     ],
@@ -959,8 +959,7 @@
               "index": 0
             }
           ]
-        ],
-        "main": []
+        ]
       },
       "ai_model_fallback": {
         "ai_languageModel": [
@@ -972,8 +971,7 @@
               "index": 1
             }
           ]
-        ],
-        "main": []
+        ]
       },
       "if_agent": {
         "main": [
@@ -1009,17 +1007,6 @@
           [
             {
               "node": "store_artifact",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "store_artifact": {
-        "main": [
-          [
-            {
-              "node": "if_deck",
               "type": "main",
               "index": 0
             }
@@ -1064,17 +1051,6 @@
           [
             {
               "node": "visual_rules",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "store_paired_artifact": {
-        "main": [
-          [
-            {
-              "node": "agent_result",
               "type": "main",
               "index": 0
             }
@@ -1131,6 +1107,28 @@
             }
           ]
         ]
+      },
+      "store_artifact": {
+        "main": [
+          [
+            {
+              "node": "if_deck",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "store_paired_artifact": {
+        "main": [
+          [
+            {
+              "node": "agent_result",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
       }
     },
     "nodeGroups": [],
@@ -1138,10 +1136,10 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-10-14T20:03:02.897Z",
-    "updatedAt": "2026-10-14T20:03:02.897Z"
+    "createdAt": "2026-10-15T19:02:11.773Z",
+    "updatedAt": "2026-10-15T19:02:11.773Z"
   },
-  "activeVersionId": "57753c7c-f6bd-4f93-8ba8-03bb96a5a7c2",
+  "activeVersionId": "761a8890-d659-4e01-befb-1b8402f34d73",
   "connections": {
     "main_trigger": {
       "main": [
@@ -1303,8 +1301,7 @@
             "index": 0
           }
         ]
-      ],
-      "main": []
+      ]
     },
     "ai_model_fallback": {
       "ai_languageModel": [
@@ -1316,8 +1313,7 @@
             "index": 1
           }
         ]
-      ],
-      "main": []
+      ]
     },
     "if_agent": {
       "main": [
@@ -1353,17 +1349,6 @@
         [
           {
             "node": "store_artifact",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "store_artifact": {
-      "main": [
-        [
-          {
-            "node": "if_deck",
             "type": "main",
             "index": 0
           }
@@ -1408,17 +1393,6 @@
         [
           {
             "node": "visual_rules",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "store_paired_artifact": {
-      "main": [
-        [
-          {
-            "node": "agent_result",
             "type": "main",
             "index": 0
           }
@@ -1470,6 +1444,28 @@
         [
           {
             "node": "download_registry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "store_artifact": {
+      "main": [
+        [
+          {
+            "node": "if_deck",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "store_paired_artifact": {
+      "main": [
+        [
+          {
+            "node": "agent_result",
             "type": "main",
             "index": 0
           }
@@ -1968,37 +1964,6 @@
       }
     },
     {
-      "id": "68237f50-4e6d-442f-9018-7f65d59c807d",
-      "name": "store_artifact",
-      "notes": "The session's finished artifact, stored by the temp-bucket server; continued on error for the same reason as execute_author, and agent_result reports it as this asset's ERROR.",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "onError": "continueRegularOutput",
-      "position": [
-        2912,
-        -448
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $('build_author_brief').item.json.STORE_URL }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'temp_store', arguments: { source_url: $('build_author_brief').item.json.ARTIFACT_URL, key: $('build_author_brief').item.json.ARTIFACT_KEY } } }) }}",
-        "options": {
-          "timeout": 300000
-        }
-      }
-    },
-    {
       "id": "20f42e27-8199-4da2-9602-cf7fa50d3786",
       "name": "agent_result",
       "type": "n8n-nodes-base.code",
@@ -2133,37 +2098,6 @@
       }
     },
     {
-      "id": "e4d0f6b5-7a8c-4d9e-8f1a-3b4c5d6e7f80",
-      "name": "store_paired_artifact",
-      "notes": "The deck's paired video, stored after the deck. Continued on error for the same reason as store_artifact: agent_result keeps the deck and reports the missing pair rather than failing the run.",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "onError": "continueRegularOutput",
-      "position": [
-        3488,
-        -528
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $('build_author_brief').item.json.STORE_URL }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'temp_store', arguments: { source_url: $('build_author_brief').item.json.PAIRED_ARTIFACT_URL, key: $('build_author_brief').item.json.PAIRED_ARTIFACT_KEY } } }) }}",
-        "options": {
-          "timeout": 300000
-        }
-      }
-    },
-    {
       "id": "d3c9e5a4-6f7b-4c8d-9e0f-2a3b4c5d6e7f",
       "name": "if_deck",
       "type": "n8n-nodes-base.if",
@@ -2276,6 +2210,68 @@
       "parameters": {
         "jsCode": "// prompts/visual_forms.md is the one copy of the form vocabulary. It is fetched\n// once and handed to build_author_brief, which appends it to every brief.\nreturn [{ json: { FORMS: String($json.output || '') } }];\n"
       }
+    },
+    {
+      "id": "68237f50-4e6d-442f-9018-7f65d59c807d",
+      "name": "store_artifact",
+      "notes": "The session's finished artifact, stored by the temp-bucket server; continued on error for the same reason as execute_author, and agent_result reports it as this asset's ERROR.",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "onError": "continueRegularOutput",
+      "position": [
+        2912,
+        -448
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('build_author_brief').item.json.STORE_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'temp_store', arguments: { source_url: $('build_author_brief').item.json.ARTIFACT_URL, key: $('build_author_brief').item.json.ARTIFACT_KEY } } }) }}",
+        "options": {
+          "timeout": 300000
+        }
+      }
+    },
+    {
+      "id": "e4d0f6b5-7a8c-4d9e-8f1a-3b4c5d6e7f80",
+      "name": "store_paired_artifact",
+      "notes": "The deck's paired video, stored after the deck. Continued on error for the same reason as store_artifact: agent_result keeps the deck and reports the missing pair rather than failing the run.",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "onError": "continueRegularOutput",
+      "position": [
+        3488,
+        -528
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('build_author_brief').item.json.STORE_URL }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'temp_store', arguments: { source_url: $('build_author_brief').item.json.PAIRED_ARTIFACT_URL, key: $('build_author_brief').item.json.PAIRED_ARTIFACT_KEY } } }) }}",
+        "options": {
+          "timeout": 300000
+        }
+      }
     }
   ],
   "pinData": {},
@@ -2301,6 +2297,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 2,
-  "updatedAt": "2026-10-14T20:03:02.885Z",
-  "versionId": "57753c7c-f6bd-4f93-8ba8-03bb96a5a7c2"
+  "updatedAt": "2026-10-15T19:02:11.772Z",
+  "versionId": "761a8890-d659-4e01-befb-1b8402f34d73"
 }

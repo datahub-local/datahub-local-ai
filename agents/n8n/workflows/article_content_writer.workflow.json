@@ -1,0 +1,4855 @@
+{
+  "connections": {
+    "click_trigger": {
+      "main": [
+        [
+          {
+            "node": "read_article_queue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "schedule_trigger": {
+      "main": [
+        [
+          {
+            "node": "read_article_queue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "read_article_queue": {
+      "main": [
+        [
+          {
+            "node": "pick_candidate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "pick_candidate": {
+      "main": [
+        [
+          {
+            "node": "read_asset_rows_for_entry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "read_asset_rows_for_entry": {
+      "main": [
+        [
+          {
+            "node": "select_article_to_queue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "select_article_to_queue": {
+      "main": [
+        [
+          {
+            "node": "update_status_in_progress",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "update_status_in_progress": {
+      "main": [
+        [
+          {
+            "node": "switch_phase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "switch_phase": {
+      "main": [
+        [
+          {
+            "node": "if_has_link",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "read_draft_for_assets",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "read_asset_rows_for_publish",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if_has_link": {
+      "main": [
+        [
+          {
+            "node": "download_content",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "set_link_flags",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "download_content": {
+      "main": [
+        [
+          {
+            "node": "set_link_flags",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "set_link_flags": {
+      "main": [
+        [
+          {
+            "node": "execute_article_creator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "execute_article_creator": {
+      "main": [
+        [
+          {
+            "node": "check_draft_error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check_draft_error": {
+      "main": [
+        [
+          {
+            "node": "derive_slug",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "fail_draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "derive_slug": {
+      "main": [
+        [
+          {
+            "node": "store_draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "store_draft": {
+      "main": [
+        [
+          {
+            "node": "draft_to_file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "draft_to_file": {
+      "main": [
+        [
+          {
+            "node": "upload_draft_file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "upload_draft_file": {
+      "main": [
+        [
+          {
+            "node": "update_article_drafted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "update_article_drafted": {
+      "main": [
+        [
+          {
+            "node": "notify_article_review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "notify_article_review": {
+      "main": [
+        [
+          {
+            "node": "switch_article_accept",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "switch_article_accept": {
+      "main": [
+        [
+          {
+            "node": "update_article_approved",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "notification_retry_or_cancel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "update_article_approved": {
+      "main": [
+        [
+          {
+            "node": "read_draft_for_assets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "notification_retry_or_cancel": {
+      "main": [
+        [
+          {
+            "node": "switch_article_retry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "switch_article_retry": {
+      "main": [
+        [
+          {
+            "node": "execute_article_creator",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "update_status_cancelled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "update_status_cancelled": {
+      "main": [
+        [
+          {
+            "node": "retire_asset_rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "retire_asset_rows": {
+      "main": [
+        [
+          {
+            "node": "send_cancelled_notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "read_draft_for_assets": {
+      "main": [
+        [
+          {
+            "node": "execute_visual_studio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "execute_visual_studio": {
+      "main": [
+        [
+          {
+            "node": "split_assets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "split_assets": {
+      "main": [
+        [
+          {
+            "node": "store_assets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "store_assets": {
+      "main": [
+        [
+          {
+            "node": "if_asset_rendered",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if_asset_rendered": {
+      "main": [
+        [
+          {
+            "node": "if_asset_has_bytes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if_asset_has_bytes": {
+      "main": [
+        [
+          {
+            "node": "asset_from_data_url",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "presign_asset",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "asset_from_data_url": {
+      "main": [
+        [
+          {
+            "node": "upload_asset_file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "presign_asset": {
+      "main": [
+        [
+          {
+            "node": "asset_signed_url",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "asset_signed_url": {
+      "main": [
+        [
+          {
+            "node": "download_asset",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "download_asset": {
+      "main": [
+        [
+          {
+            "node": "upload_asset_file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "upload_asset_file": {
+      "main": [
+        [
+          {
+            "node": "notify_asset_review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "notify_asset_review": {
+      "main": [
+        [
+          {
+            "node": "switch_asset_accept",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "switch_asset_accept": {
+      "main": [
+        [
+          {
+            "node": "mark_asset_approved",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "notification_retry_or_cancel_asset",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "mark_asset_approved": {
+      "main": [
+        [
+          {
+            "node": "read_asset_rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "notification_retry_or_cancel_asset": {
+      "main": [
+        [
+          {
+            "node": "switch_asset_retry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "switch_asset_retry": {
+      "main": [
+        [
+          {
+            "node": "execute_visual_studio",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "mark_asset_cancelled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "mark_asset_cancelled": {
+      "main": [
+        [
+          {
+            "node": "send_asset_cancelled_notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "read_asset_rows": {
+      "main": [
+        [
+          {
+            "node": "if_all_assets_approved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "read_asset_rows_for_publish": {
+      "main": [
+        [
+          {
+            "node": "read_draft_for_publish",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "read_draft_for_publish": {
+      "main": [
+        [
+          {
+            "node": "get_posts_dir",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_posts_dir": {
+      "main": [
+        [
+          {
+            "node": "disambiguate_slug",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "disambiguate_slug": {
+      "main": [
+        [
+          {
+            "node": "build_commit_files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "build_commit_files": {
+      "main": [
+        [
+          {
+            "node": "plan_asset_uploads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "plan_asset_uploads": {
+      "main": [
+        [
+          {
+            "node": "if_asset_needs_fetch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if_asset_needs_fetch": {
+      "main": [
+        [
+          {
+            "node": "create_blobs",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "presign_asset_publish",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "presign_asset_publish": {
+      "main": [
+        [
+          {
+            "node": "asset_publish_url",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "asset_publish_url": {
+      "main": [
+        [
+          {
+            "node": "download_asset_publish",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "download_asset_publish": {
+      "main": [
+        [
+          {
+            "node": "asset_bytes_from_download",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "asset_bytes_from_download": {
+      "main": [
+        [
+          {
+            "node": "create_blobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "create_blobs": {
+      "main": [
+        [
+          {
+            "node": "collect_tree_entries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "collect_tree_entries": {
+      "main": [
+        [
+          {
+            "node": "get_base_ref",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_base_ref": {
+      "main": [
+        [
+          {
+            "node": "create_tree",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "create_tree": {
+      "main": [
+        [
+          {
+            "node": "create_commit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "create_commit": {
+      "main": [
+        [
+          {
+            "node": "patch_ref",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "patch_ref": {
+      "main": [
+        [
+          {
+            "node": "record_published",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "get_base_ref_again",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_base_ref_again": {
+      "main": [
+        [
+          {
+            "node": "create_tree_again",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "create_tree_again": {
+      "main": [
+        [
+          {
+            "node": "create_commit_again",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "create_commit_again": {
+      "main": [
+        [
+          {
+            "node": "patch_ref_again",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "patch_ref_again": {
+      "main": [
+        [
+          {
+            "node": "check_ref_retry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check_ref_retry": {
+      "main": [
+        [
+          {
+            "node": "record_published",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "record_published": {
+      "main": [
+        [
+          {
+            "node": "asset_paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "asset_paths": {
+      "main": [
+        [
+          {
+            "node": "record_asset_paths",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "record_asset_paths": {
+      "main": [
+        [
+          {
+            "node": "send_published_notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if_all_assets_approved": {
+      "main": [
+        [
+          {
+            "node": "read_asset_rows_for_publish",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "name": "Article Content Writer",
+  "nodes": [
+    {
+      "id": "c7bdab53-b609-4710-98dc-467856e36ed0",
+      "name": "click_trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "ed715d41-31d0-444e-804b-105b71473e97",
+      "name": "schedule_trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        192
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 0 8 * * 2,4"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "71920dc9-d684-4e15-89b3-cbbc4ba364d6",
+      "name": "read_article_queue",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        224,
+        0
+      ],
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI",
+          "mode": "list",
+          "cachedResultName": "content_planner",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "article_queue",
+          "mode": "name",
+          "cachedResultName": "article_queue"
+        },
+        "options": {
+          "dataLocationOnSheet": {
+            "values": {
+              "rangeDefinition": "detectAutomatically",
+              "readRowsUntil": "firstEmptyRow"
+            }
+          }
+        }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "pGARJmt50qz64xOo",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "e441b0d3-56fc-4fa2-b8fe-13fd67da0708",
+      "name": "pick_candidate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// The one entry this run works on (D8), chosen from the sheet alone so the asset read below\n// can be filtered on it. QUEUE first, then the oldest mid-flight claim: a run that died while\n// Slack waited is picked up before a new row is started, so a stuck entry cannot starve behind\n// fresh work. Half-finished work is never inferred from whichever field looks untouched - that\n// is what select_article_to_queue decides next, from the asset rows.\nconst rows = $input.all()\n  .map((i) => ({ ...i.json, row_number: Number(i.json.row_number || 0) }))\n  .filter((r) => r.row_number && String(r.ENTRY_ID || '').trim());\nconst status = (r) => String(r.STATUS || '').trim().toUpperCase();\nconst fresh = rows.filter((r) => status(r) === 'QUEUE').sort((a, b) => a.row_number - b.row_number);\nconst resumable = rows\n  .filter((r) => status(r) === 'IN_PROGRESS' && String(r.ARTICLE_STATUS || '').trim().toUpperCase() !== 'CANCELLED')\n  .sort((a, b) => a.row_number - b.row_number);\nconst row = fresh[0] || resumable[0];\nif (!row) {\n  console.log('article_queue holds nothing actionable (' + rows.length + ' rows read)');\n  return [];\n}\nif (!String(row.TOPIC || '').trim() && !String(row.DESCRIPTION || '').trim()) {\n  throw new Error('article_queue row ' + row.row_number + ' has neither TOPIC nor DESCRIPTION');\n}\nreturn [{ json: { ...row, ARTICLE_ROUND: Number(row.ARTICLE_ROUND || 0), MAX_WORDS: Number(row.MAX_WORDS || 0) || 1200 } }];\n"
+      }
+    },
+    {
+      "id": "53f0e790-0739-471d-8354-f02e2d70d243",
+      "name": "read_asset_rows_for_entry",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        672,
+        0
+      ],
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "article_assets"
+        },
+        "options": {},
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "ENTRY_ID",
+              "condition": "eq",
+              "keyValue": "={{ $('pick_candidate').item.json.ENTRY_ID }}"
+            }
+          ]
+        },
+        "limit": 50
+      }
+    },
+    {
+      "id": "4c525922-bef0-43a1-8f57-c45fe37a4433",
+      "name": "select_article_to_queue",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// The next action for the entry, from the predicate in the design (D15): the phase is read off\n// the stored state in two places - the article's own review state on the sheet and the\n// per-asset rows here - so a resumed run reaches the same next action as an uninterrupted one\n// instead of guessing at whichever field looks unfinished.\nconst row = $('pick_candidate').first().json;\nconst assets = $input.all().map((i) => i.json);\nconst requested = (r) => {\n  const list = String(r.ASSET_TYPES || '').split(',').map((s) => s.trim()).filter(Boolean);\n  return list.includes('image') ? list : ['image', ...list];\n};\nconst pending = requested(row).filter((type) => {\n  const hit = assets.find((a) => String(a.ASSET_TYPE || '') === type);\n  return !hit || String(hit.STATUS || '').toUpperCase() !== 'APPROVED';\n});\nconst article = String(row.ARTICLE_STATUS || '').trim().toUpperCase();\nconst phase = article === 'APPROVED' ? (pending.length ? 'assets' : 'publish') : 'draft';\nconsole.log('row ' + row.row_number + ' -> ' + phase + ' (pending: ' + (pending.join(',') || 'none') + ')');\nreturn [{ json: { ...row, PHASE: phase, PENDING_ASSETS: pending.join(',') } }];\n"
+      }
+    },
+    {
+      "id": "ac8f4356-dc96-49f4-8e4d-f6c5eaad5840",
+      "name": "update_status_in_progress",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        1120,
+        0
+      ],
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI",
+          "mode": "list",
+          "cachedResultName": "content_planner",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "article_queue",
+          "mode": "name",
+          "cachedResultName": "article_queue"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "row_number": "={{ $json.row_number }}",
+            "STATUS": "IN_PROGRESS",
+            "EXECUTION_ID": "={{ $execution.id }}",
+            "UPDATE_DATE": "={{ (new Date()).toISOString() }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "ENTRY_ID",
+              "displayName": "ENTRY_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "TOPIC",
+              "displayName": "TOPIC",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "DESCRIPTION",
+              "displayName": "DESCRIPTION",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "LINK",
+              "displayName": "LINK",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "CATEGORIES",
+              "displayName": "CATEGORIES",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ASSET_TYPES",
+              "displayName": "ASSET_TYPES",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "MAX_WORDS",
+              "displayName": "MAX_WORDS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "EXTRA_PROMPT",
+              "displayName": "EXTRA_PROMPT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "PRIORITY",
+              "displayName": "PRIORITY",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ORIGIN",
+              "displayName": "ORIGIN",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "STATUS",
+              "displayName": "STATUS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "ARTICLE_STATUS",
+              "displayName": "ARTICLE_STATUS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ARTICLE_ROUND",
+              "displayName": "ARTICLE_ROUND",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ARTICLE_FEEDBACK",
+              "displayName": "ARTICLE_FEEDBACK",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ARTICLE_TITLE",
+              "displayName": "ARTICLE_TITLE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ARTICLE_REF",
+              "displayName": "ARTICLE_REF",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "PUBLISHED_URL",
+              "displayName": "PUBLISHED_URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "COMMIT_REF",
+              "displayName": "COMMIT_REF",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "PUBLISHED_AT",
+              "displayName": "PUBLISHED_AT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "EXECUTION_ID",
+              "displayName": "EXECUTION_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "ERROR",
+              "displayName": "ERROR",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "UPDATE_DATE",
+              "displayName": "UPDATE_DATE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "pGARJmt50qz64xOo",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "eea12873-44de-47c1-8841-9b5bc0614197",
+      "name": "switch_phase",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        1344,
+        0
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "phase-draft",
+                    "leftValue": "={{ $('select_article_to_queue').item.json.PHASE }}",
+                    "rightValue": "draft",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "phase-assets",
+                    "leftValue": "={{ $('select_article_to_queue').item.json.PHASE }}",
+                    "rightValue": "assets",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "phase-publish",
+                    "leftValue": "={{ $('select_article_to_queue').item.json.PHASE }}",
+                    "rightValue": "publish",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "9d9e5add-eb46-4130-a885-f30ac3fc2376",
+      "name": "if_has_link",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1568,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "has-link",
+              "leftValue": "={{ String($('select_article_to_queue').item.json.LINK || '').trim() }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "ead0fd5b-9a95-407c-8c17-fe9cf8106336",
+      "name": "download_content",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1568,
+        96
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('select_article_to_queue').item.json.LINK }}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "82af9b28-def3-4d9b-8632-083414728732",
+      "name": "set_link_flags",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1792,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// One item out of either branch, carrying the fetched text and whether it was used.\n//\n// The flag is set here and never read off the failing node's own output: a non-AI node with\n// continueRegularOutput forwards its input unchanged, so `$json.error` is absent and a branch\n// on it would take the success path. What is read is whether the download ran and what it\n// returned, which this node can see either way.\nconst row = $('select_article_to_queue').first().json;\nconst link = String(row.LINK || '').trim();\nlet content = '';\nif ($('download_content').isExecuted) {\n  const out = $('download_content').first().json || {};\n  content = String(typeof out.data === 'string' ? out.data : out.data || '').trim().slice(0, 60000);\n}\nconst used = content.length > 0;\nif (link && !used) console.log('link not used: ' + link);\nreturn [{ json: { ...row, LINK_USED: used, LINK_TEXT: content } }];\n"
+      }
+    },
+    {
+      "id": "c7e09f6b-caf5-4878-b89c-9694d34ab592",
+      "name": "execute_article_creator",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        2016,
+        0
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "nPBkIpeObC1Om0LH",
+          "mode": "list",
+          "cachedResultName": "Article Creator"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "TOPIC": "={{ $('select_article_to_queue').item.json.TOPIC || '' }}",
+            "DESCRIPTION": "={{ $('select_article_to_queue').item.json.DESCRIPTION || '' }}",
+            "URL": "={{ $('select_article_to_queue').item.json.LINK || '' }}",
+            "CONTENT": "={{ $('set_link_flags').item.json.LINK_TEXT || '' }}",
+            "MAX_WORDS": "={{ $('select_article_to_queue').item.json.MAX_WORDS }}",
+            "ASSET_TYPES": "={{ $('select_article_to_queue').item.json.ASSET_TYPES || '' }}",
+            "EXTRA_PROMPT": "={{ $('select_article_to_queue').item.json.EXTRA_PROMPT || '' }}",
+            "FEEDBACK": "={{ $('notification_retry_or_cancel').isExecuted ? ($('notification_retry_or_cancel').last().json.data.Feedback || '') : ($('select_article_to_queue').item.json.ARTICLE_FEEDBACK || '') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "TOPIC",
+              "displayName": "TOPIC",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "DESCRIPTION",
+              "displayName": "DESCRIPTION",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "URL",
+              "displayName": "URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "CONTENT",
+              "displayName": "CONTENT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "MAX_WORDS",
+              "displayName": "MAX_WORDS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "ASSET_TYPES",
+              "displayName": "ASSET_TYPES",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "EXTRA_PROMPT",
+              "displayName": "EXTRA_PROMPT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "FEEDBACK",
+              "displayName": "FEEDBACK",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "711c2759-5d8a-4703-ba24-668a581bc17b",
+      "name": "check_draft_error",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2240,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "draft-error-empty",
+              "leftValue": "={{ $json.ERROR || '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "7a65878f-d99e-4e3a-8c51-daba5e8659ab",
+      "name": "fail_draft",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        2464,
+        96
+      ],
+      "parameters": {
+        "errorType": "errorMessage",
+        "errorMessage": "={{ 'article draft failed for row ' + $('select_article_to_queue').item.json.row_number + ': ' + ($('execute_article_creator').item.json.ERROR || 'no reason returned') }}"
+      }
+    },
+    {
+      "id": "af59123e-0508-4d09-8c1a-cc3e81911ad5",
+      "name": "derive_slug",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2464,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// The slug, frozen at the first draft: a retry that changes the title must not rename a\n// committed file or move the URL, so the row keeps the slug the first draft produced and a\n// retry reuses it (design D11). The commit disambiguates it against the posts directory; the\n// draft does not pay for that call.\nconst slugify = (title) => String(title || '')\n  .toLowerCase()\n  .normalize('NFKD')\n  .replace(/[\\u0300-\\u036f]/g, '')\n  .replace(/[^a-z0-9]+/g, '-')\n  .replace(/^-+|-+$/g, '')\n  .split('-')\n  .filter(Boolean)\n  .slice(0, 8)\n  .join('-');\nconst row = $('select_article_to_queue').first().json;\nconst title = String($('execute_article_creator').first().json.title || '').trim();\nconst slug = slugify(row.ARTICLE_TITLE) || slugify(title);\nif (!title) throw new Error('the draft came back without a title');\nif (!slug) throw new Error('no title to derive a slug from');\nreturn [{ json: { ...row, DRAFT_TITLE: title, SLUG: slug } }];\n"
+      }
+    },
+    {
+      "id": "46f8f823-5a7e-4135-ab54-a441a7ddca24",
+      "name": "store_draft",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2688,
+        0
+      ],
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "article_drafts"
+        },
+        "options": {},
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "ENTRY_ID",
+              "condition": "eq",
+              "keyValue": "={{ $json.ENTRY_ID }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ENTRY_ID": "={{ $json.ENTRY_ID }}",
+            "ROUND": "={{ $json.ARTICLE_ROUND + 1 }}",
+            "TITLE": "={{ $json.DRAFT_TITLE }}",
+            "SLUG": "={{ $json.SLUG }}",
+            "ARTICLE_TEXT": "={{ $('execute_article_creator').item.json.text }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "ENTRY_ID",
+              "displayName": "ENTRY_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ROUND",
+              "displayName": "ROUND",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "TITLE",
+              "displayName": "TITLE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "SLUG",
+              "displayName": "SLUG",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ARTICLE_TEXT",
+              "displayName": "ARTICLE_TEXT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      }
+    },
+    {
+      "id": "739501bc-410c-4e83-b6c9-9e9870894430",
+      "name": "draft_to_file",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2912,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// The draft reaches Slack as a file: a sendAndWait section truncates around 3000 characters\n// and a 1200-word draft is several times that. The binary is built the way LinkedIn Image\n// Creator's convert_image builds its png - one Buffer, the shape the Slack file upload reads.\nconst text = String($('execute_article_creator').first().json.text || '');\nif (!text.trim()) throw new Error('the draft is empty; refusing to upload it');\nconst title = String($('derive_slug').first().json.DRAFT_TITLE || 'draft');\nreturn [{\n  json: { ...$('select_article_to_queue').first().json, DRAFT_TITLE: title, SLUG: $('derive_slug').first().json.SLUG, BYTES: Buffer.byteLength(text) },\n  binary: { data: { mimeType: 'text/markdown', fileName: title + '.md', fileExtension: 'md', data: Buffer.from(text, 'utf8') } },\n}];\n"
+      }
+    },
+    {
+      "id": "cbf90fde-c3d9-40f1-8f93-3fa8d8479b08",
+      "name": "upload_draft_file",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        3136,
+        0
+      ],
+      "parameters": {
+        "resource": "file",
+        "binaryPropertyName": "={{ $('draft_to_file').item.binary.data }}",
+        "options": {
+          "channelId": "C08RQNXQV3P",
+          "initialComment": "=Draft for row {{ $('select_article_to_queue').item.json.row_number }} - {{ $('derive_slug').item.json.DRAFT_TITLE }} (round {{ $('select_article_to_queue').item.json.ARTICLE_ROUND + 1 }})"
+        }
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "DszMmPE7WwOjHQjz",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "id": "b070cc6c-acac-4943-8bc9-5f6e24649f89",
+      "name": "update_article_drafted",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        3360,
+        0
+      ],
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI",
+          "mode": "list",
+          "cachedResultName": "content_planner",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "article_queue",
+          "mode": "name",
+          "cachedResultName": "article_queue"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "row_number": "={{ $('select_article_to_queue').item.json.row_number }}",
+            "STATUS": "WAITING_APPROVAL",
+            "ARTICLE_STATUS": "DRAFT",
+            "ARTICLE_ROUND": "={{ $('select_article_to_queue').item.json.ARTICLE_ROUND + 1 }}",
+            "ARTICLE_TITLE": "={{ $('derive_slug').item.json.DRAFT_TITLE }}",
+            "ARTICLE_REF": "={{ 'article_drafts:' + $('select_article_to_queue').item.json.ENTRY_ID }}",
+            "ERROR": "",
+            "UPDATE_DATE": "={{ (new Date()).toISOString() }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "ENTRY_ID",
+              "displayName": "ENTRY_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "TOPIC",
+              "displayName": "TOPIC",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "DESCRIPTION",
+              "displayName": "DESCRIPTION",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "LINK",
+              "displayName": "LINK",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "CATEGORIES",
+              "displayName": "CATEGORIES",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ASSET_TYPES",
+              "displayName": "ASSET_TYPES",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "MAX_WORDS",
+              "displayName": "MAX_WORDS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "EXTRA_PROMPT",
+              "displayName": "EXTRA_PROMPT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "PRIORITY",
+              "displayName": "PRIORITY",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ORIGIN",
+              "displayName": "ORIGIN",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "STATUS",
+              "displayName": "STATUS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "ARTICLE_STATUS",
+              "displayName": "ARTICLE_STATUS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "ARTICLE_ROUND",
+              "displayName": "ARTICLE_ROUND",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "ARTICLE_FEEDBACK",
+              "displayName": "ARTICLE_FEEDBACK",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ARTICLE_TITLE",
+              "displayName": "ARTICLE_TITLE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "ARTICLE_REF",
+              "displayName": "ARTICLE_REF",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "PUBLISHED_URL",
+              "displayName": "PUBLISHED_URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "COMMIT_REF",
+              "displayName": "COMMIT_REF",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "PUBLISHED_AT",
+              "displayName": "PUBLISHED_AT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "EXECUTION_ID",
+              "displayName": "EXECUTION_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ERROR",
+              "displayName": "ERROR",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "UPDATE_DATE",
+              "displayName": "UPDATE_DATE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "pGARJmt50qz64xOo",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "2e167cfe-8b02-4dbd-a16e-745c00515a06",
+      "name": "notify_article_review",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        3584,
+        0
+      ],
+      "parameters": {
+        "operation": "sendAndWait",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C08RQNXQV3P",
+          "mode": "list",
+          "cachedResultName": "workflows"
+        },
+        "message": "=Review the article for row {{ $('select_article_to_queue').item.json.row_number }} - {{ $('derive_slug').item.json.DRAFT_TITLE }} (round {{ $('select_article_to_queue').item.json.ARTICLE_ROUND + 1 }}). The full draft is the file above; the runner-up for this entry is not included.",
+        "options": {
+          "appendAttribution": true
+        },
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double"
+          }
+        }
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "DszMmPE7WwOjHQjz",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "id": "583e2f40-f53d-45cd-8182-7ee88b081bd8",
+      "name": "switch_article_accept",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        3808,
+        0
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "article-approved",
+                    "leftValue": "={{ $json.data.approved }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "article-rejected",
+                    "leftValue": "={{ $json.data.approved }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "false",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "3aac16b7-2fcb-4d16-b8bd-1c4fc5a12b3c",
+      "name": "update_article_approved",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        4032,
+        96
+      ],
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI",
+          "mode": "list",
+          "cachedResultName": "content_planner",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "article_queue",
+          "mode": "name",
+          "cachedResultName": "article_queue"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "row_number": "={{ $('select_article_to_queue').item.json.row_number }}",
+            "ARTICLE_STATUS": "APPROVED",
+            "ARTICLE_FEEDBACK": "",
+            "UPDATE_DATE": "={{ (new Date()).toISOString() }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "ENTRY_ID",
+              "displayName": "ENTRY_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "TOPIC",
+              "displayName": "TOPIC",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "DESCRIPTION",
+              "displayName": "DESCRIPTION",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "LINK",
+              "displayName": "LINK",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "CATEGORIES",
+              "displayName": "CATEGORIES",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ASSET_TYPES",
+              "displayName": "ASSET_TYPES",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "MAX_WORDS",
+              "displayName": "MAX_WORDS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "EXTRA_PROMPT",
+              "displayName": "EXTRA_PROMPT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "PRIORITY",
+              "displayName": "PRIORITY",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ORIGIN",
+              "displayName": "ORIGIN",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "STATUS",
+              "displayName": "STATUS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ARTICLE_STATUS",
+              "displayName": "ARTICLE_STATUS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "ARTICLE_ROUND",
+              "displayName": "ARTICLE_ROUND",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ARTICLE_FEEDBACK",
+              "displayName": "ARTICLE_FEEDBACK",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "ARTICLE_TITLE",
+              "displayName": "ARTICLE_TITLE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ARTICLE_REF",
+              "displayName": "ARTICLE_REF",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "PUBLISHED_URL",
+              "displayName": "PUBLISHED_URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "COMMIT_REF",
+              "displayName": "COMMIT_REF",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "PUBLISHED_AT",
+              "displayName": "PUBLISHED_AT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "EXECUTION_ID",
+              "displayName": "EXECUTION_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ERROR",
+              "displayName": "ERROR",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "UPDATE_DATE",
+              "displayName": "UPDATE_DATE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "pGARJmt50qz64xOo",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "da228756-8dba-4d72-a9b1-27d083475300",
+      "name": "notification_retry_or_cancel",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        4032,
+        -96
+      ],
+      "parameters": {
+        "operation": "sendAndWait",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C08RQNXQV3P",
+          "mode": "list",
+          "cachedResultName": "workflows"
+        },
+        "message": "=The article for row {{ $('select_article_to_queue').item.json.row_number }} was not approved. Choose Retry or Cancel, and say what must change.",
+        "options": {
+          "messageButtonLabel": "Respond",
+          "responseFormTitle": "Article - retry or cancel",
+          "appendAttribution": true
+        },
+        "responseType": "customForm",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Action",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Retry"
+                  },
+                  {
+                    "option": "Cancel"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Feedback",
+              "fieldType": "textarea",
+              "placeholder": "What must change in the next draft. This overrides the writing rules. Leave empty to regenerate unchanged."
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "DszMmPE7WwOjHQjz",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "id": "d9561a8f-e47c-4ff6-aa35-c1283ec3ac29",
+      "name": "switch_article_retry",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        4256,
+        -96
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "retry-article",
+                    "leftValue": "={{ $json.data.Action }}",
+                    "rightValue": "Retry",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "cancel-article",
+                    "leftValue": "={{ $json.data.Action }}",
+                    "rightValue": "Cancel",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "e2542436-bf65-4d82-b625-725f526820f6",
+      "name": "update_status_cancelled",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        4480,
+        192
+      ],
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI",
+          "mode": "list",
+          "cachedResultName": "content_planner",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "article_queue",
+          "mode": "name",
+          "cachedResultName": "article_queue"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "row_number": "={{ $('select_article_to_queue').item.json.row_number }}",
+            "STATUS": "CANCELLED",
+            "ARTICLE_STATUS": "CANCELLED",
+            "UPDATE_DATE": "={{ (new Date()).toISOString() }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "ENTRY_ID",
+              "displayName": "ENTRY_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "TOPIC",
+              "displayName": "TOPIC",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "DESCRIPTION",
+              "displayName": "DESCRIPTION",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "LINK",
+              "displayName": "LINK",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "CATEGORIES",
+              "displayName": "CATEGORIES",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ASSET_TYPES",
+              "displayName": "ASSET_TYPES",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "MAX_WORDS",
+              "displayName": "MAX_WORDS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "EXTRA_PROMPT",
+              "displayName": "EXTRA_PROMPT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "PRIORITY",
+              "displayName": "PRIORITY",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ORIGIN",
+              "displayName": "ORIGIN",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "STATUS",
+              "displayName": "STATUS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "ARTICLE_STATUS",
+              "displayName": "ARTICLE_STATUS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "ARTICLE_ROUND",
+              "displayName": "ARTICLE_ROUND",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ARTICLE_FEEDBACK",
+              "displayName": "ARTICLE_FEEDBACK",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ARTICLE_TITLE",
+              "displayName": "ARTICLE_TITLE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ARTICLE_REF",
+              "displayName": "ARTICLE_REF",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "PUBLISHED_URL",
+              "displayName": "PUBLISHED_URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "COMMIT_REF",
+              "displayName": "COMMIT_REF",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "PUBLISHED_AT",
+              "displayName": "PUBLISHED_AT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "EXECUTION_ID",
+              "displayName": "EXECUTION_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ERROR",
+              "displayName": "ERROR",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "UPDATE_DATE",
+              "displayName": "UPDATE_DATE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "pGARJmt50qz64xOo",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "01719bc2-3acc-42c1-85ff-f617375547d4",
+      "name": "retire_asset_rows",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        4704,
+        192
+      ],
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "article_assets"
+        },
+        "options": {},
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "ENTRY_ID",
+              "condition": "eq",
+              "keyValue": "={{ $('select_article_to_queue').item.json.ENTRY_ID }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "STATUS": "CANCELLED"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "ENTRY_ID",
+              "displayName": "ENTRY_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ASSET_TYPE",
+              "displayName": "ASSET_TYPE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "STATUS",
+              "displayName": "STATUS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ROUND",
+              "displayName": "ROUND",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "S3_KEY",
+              "displayName": "S3_KEY",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "CONTENT_TYPE",
+              "displayName": "CONTENT_TYPE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ERROR",
+              "displayName": "ERROR",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "PATH",
+              "displayName": "PATH",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "DATA_BASE64",
+              "displayName": "DATA_BASE64",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      }
+    },
+    {
+      "id": "ff589dd2-f34d-4079-9f42-f53418bf9345",
+      "name": "send_cancelled_notification",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        4928,
+        192
+      ],
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C08RQNXQV3P",
+          "mode": "list",
+          "cachedResultName": "workflows"
+        },
+        "text": "=Article cancelled for row {{ $('select_article_to_queue').item.json.row_number }} - {{ $('select_article_to_queue').item.json.TOPIC }}. The entry stays in the sheet and its asset rows were retired.",
+        "otherOptions": {
+          "includeLinkToWorkflow": true
+        }
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "DszMmPE7WwOjHQjz",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "id": "377e671a-d3da-4f58-a94e-80b70d561320",
+      "name": "read_draft_for_assets",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1344,
+        288
+      ],
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "article_drafts"
+        },
+        "options": {},
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "ENTRY_ID",
+              "condition": "eq",
+              "keyValue": "={{ $('select_article_to_queue').item.json.ENTRY_ID }}"
+            }
+          ]
+        },
+        "limit": 50
+      }
+    },
+    {
+      "id": "e182d6d9-8d2e-46bd-942e-5cd38c86fc20",
+      "name": "execute_visual_studio",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1568,
+        288
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "2pSrRNmYR2jkX1JG",
+          "mode": "list",
+          "cachedResultName": "Visual Studio",
+          "cachedResultUrl": "/workflow/2pSrRNmYR2jkX1JG"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "CONTENT": "={{ $('read_draft_for_assets').first().json.ARTICLE_TEXT }}",
+            "ASSET_TYPES": "={{ $('select_article_to_queue').item.json.PENDING_ASSETS || $('select_article_to_queue').item.json.ASSET_TYPES || 'image,svg' }}",
+            "FEEDBACK": "={{ $('notification_retry_or_cancel_asset').isExecuted ? ($('notification_retry_or_cancel_asset').last().json.data.Feedback || '') : '' }}",
+            "FORCE": "",
+            "STYLE": "",
+            "SCENES": "",
+            "EXTRA_PROMPT": "={{ $('select_article_to_queue').item.json.EXTRA_PROMPT || '' }}",
+            "SESSION_ID": "={{ 'blog-' + $('select_article_to_queue').item.json.ENTRY_ID }}"
+          },
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "2a2c56fe-8d83-4003-987e-886502694085",
+      "name": "split_assets",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1792,
+        288
+      ],
+      "parameters": {
+        "jsCode": "// One item per asset the studio answered with. The run STATUS is deliberately not what is\n// branched on: it is PARTIAL whenever any requested type is unavailable, so an unavailable\n// type would take the whole set with it. Each asset's own STATUS is the decision, and a type\n// the registry does not declare arrives here as an asset carrying its reason.\nconst resp = $input.first().json || {};\nconst row = $('select_article_to_queue').first().json;\nconst assets = Array.isArray(resp.ASSETS) ? resp.ASSETS : [];\nif (!assets.length) throw new Error('the studio returned no asset at all (run ' + (resp.RUN_ID || '?') + ', status ' + (resp.STATUS || '?') + ')');\nreturn assets.map((a) => ({\n  json: {\n    ...row,\n    ROUND: Number(row.ARTICLE_ROUND || 0) + 1,\n    RUN_ID: resp.RUN_ID || '',\n    SESSION_ID: resp.SESSION_ID || '',\n    ASSET_TYPE: a.ASSET_TYPE || '',\n    ASSET_STATUS: a.STATUS || '',\n    ERROR: a.ERROR || '',\n    CONTENT_TYPE: a.CONTENT_TYPE || '',\n    FORMAT: a.FORMAT || '',\n    S3_KEY: a.S3_KEY || '',\n    S3_BYTES: a.S3_BYTES || 0,\n    IMAGE: a.IMAGE || '',\n  },\n}));\n"
+      }
+    },
+    {
+      "id": "12d3d7e6-5fe4-48a4-b4e5-0a879f145e5f",
+      "name": "store_assets",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        2016,
+        288
+      ],
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "article_assets"
+        },
+        "options": {},
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "ENTRY_ID",
+              "condition": "eq",
+              "keyValue": "={{ $json.ENTRY_ID }}"
+            },
+            {
+              "keyName": "ASSET_TYPE",
+              "condition": "eq",
+              "keyValue": "={{ $json.ASSET_TYPE }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "ENTRY_ID": "={{ $json.ENTRY_ID }}",
+            "ASSET_TYPE": "={{ $json.ASSET_TYPE }}",
+            "STATUS": "={{ $json.ERROR ? 'ERROR' : 'REVIEW' }}",
+            "ROUND": "={{ $json.ROUND }}",
+            "S3_KEY": "={{ $json.S3_KEY }}",
+            "CONTENT_TYPE": "={{ $json.CONTENT_TYPE }}",
+            "ERROR": "={{ $json.ERROR }}",
+            "PATH": "",
+            "DATA_BASE64": "={{ $json.IMAGE ? String($json.IMAGE).split(',')[1] : '' }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "ENTRY_ID",
+              "displayName": "ENTRY_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ASSET_TYPE",
+              "displayName": "ASSET_TYPE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "STATUS",
+              "displayName": "STATUS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ROUND",
+              "displayName": "ROUND",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "S3_KEY",
+              "displayName": "S3_KEY",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "CONTENT_TYPE",
+              "displayName": "CONTENT_TYPE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ERROR",
+              "displayName": "ERROR",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "PATH",
+              "displayName": "PATH",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "DATA_BASE64",
+              "displayName": "DATA_BASE64",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      }
+    },
+    {
+      "id": "012fb358-6622-480d-b5de-09e7e18d2289",
+      "name": "if_asset_rendered",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2240,
+        288
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "asset-rendered",
+              "leftValue": "={{ ['RENDERED', 'COMPLETE'].includes(String($('split_assets').item.json.ASSET_STATUS || '').toUpperCase()) && !$('split_assets').item.json.ERROR }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "8e0f14ca-ee74-4cb0-8cbe-5346c46cd8cd",
+      "name": "if_asset_has_bytes",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2464,
+        288
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "asset-has-inline-bytes",
+              "leftValue": "={{ String($('split_assets').item.json.IMAGE || '').length }}",
+              "rightValue": "0",
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "be7cb4bd-17c0-4aa3-822a-7b5a521ec46b",
+      "name": "asset_from_data_url",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2688,
+        384
+      ],
+      "parameters": {
+        "jsCode": "// The raster type carries its own bytes as a data URL, because they were made inside n8n and\n// no store can fetch them. This is the only asset byte an article run carries, and it is why\n// the hero previews in Slack without a bucket round trip.\nconst a = $('split_assets').first().json;\nconst url = String(a.IMAGE || '');\nconst comma = url.indexOf(',');\nif (comma < 0) throw new Error('asset ' + a.ASSET_TYPE + ' carries no usable data URL');\nconst meta = url.slice(0, comma);\nconst data = Buffer.from(url.slice(comma + 1), 'base64');\nconst mime = (meta.match(/data:([^;]+)/) || [])[1] || a.CONTENT_TYPE || 'application/octet-stream';\nconst ext = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' }[mime] || a.FORMAT || 'bin';\nreturn [{\n  json: { ...a, ASSET_MIME: mime, ASSET_EXT: ext, BYTES: data.length },\n  binary: { data: { mimeType: mime, fileName: a.ASSET_TYPE + '.' + ext, fileExtension: ext, data } },\n}];\n"
+      }
+    },
+    {
+      "id": "69f8fa46-e8c3-4da6-acd8-17c542af7984",
+      "name": "presign_asset",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2688,
+        192
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.MCP_UTILS_URL || '') + '/mcp' }}",
+        "options": {
+          "timeout": 300000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'temp_retrieve', arguments: { key: $('split_assets').item.json.S3_KEY } } }) }}"
+      }
+    },
+    {
+      "id": "a36e443e-996c-468a-983f-1656221fd1d1",
+      "name": "asset_signed_url",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2912,
+        192
+      ],
+      "parameters": {
+        "jsCode": "// The signed URL the temp-bucket server answered with. The answer is split into key=value\n// pairs the way a caller reads it rather than matched as prose, and a failure (a line\n// beginning ERROR:) is raised here so the run reports it instead of uploading something else.\nconst resp = $input.first().json || {};\nconst content = resp.result && resp.result.content;\nconst text = content && content[0] && content[0].text;\nif (typeof text !== 'string') throw new Error('the temp-bucket server answered no text');\nif (text.indexOf('ERROR:') === 0) throw new Error(text.slice(0, 500));\nconst pairs = {};\nfor (const part of text.trim().split(/\\s+/)) {\n  const eq = part.indexOf('=');\n  if (eq > 0) pairs[part.slice(0, eq)] = part.slice(eq + 1);\n}\nif (!pairs.url) throw new Error('no signed url in: ' + text.slice(0, 300));\nconst a = $('split_assets').first().json;\nconst mime = pairs['content-type'] || a.CONTENT_TYPE || 'application/octet-stream';\nconst ext = (mime.split('/')[1] || a.FORMAT || 'bin').replace('jpeg', 'jpg');\nreturn [{ json: { ...a, SIGNED_URL: pairs.url, ASSET_MIME: mime, ASSET_EXT: ext, S3_BYTES: Number(pairs.bytes || a.S3_BYTES || 0) } }];\n"
+      }
+    },
+    {
+      "id": "52319297-c6ea-45d1-bc1d-bacdbbbb13e3",
+      "name": "download_asset",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3136,
+        192
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.SIGNED_URL }}",
+        "options": {
+          "timeout": 600000,
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "728c3696-4271-4a74-b95a-beff5875962f",
+      "name": "upload_asset_file",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        3360,
+        288
+      ],
+      "parameters": {
+        "resource": "file",
+        "binaryPropertyName": "={{ $('asset_from_data_url').isExecuted ? $('asset_from_data_url').item.binary.data : $('download_asset').item.binary.data }}",
+        "options": {
+          "channelId": "C08RQNXQV3P",
+          "initialComment": "=Asset {{ $('split_assets').item.json.ASSET_TYPE }} for row {{ $('split_assets').item.json.row_number }} (round {{ $('split_assets').item.json.ROUND }})"
+        }
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "DszMmPE7WwOjHQjz",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "id": "2eed7ec6-dcfd-4659-a063-d637f1aef0d1",
+      "name": "notify_asset_review",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        3584,
+        288
+      ],
+      "parameters": {
+        "operation": "sendAndWait",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C08RQNXQV3P",
+          "mode": "list",
+          "cachedResultName": "workflows"
+        },
+        "message": "=Review asset {{ $('split_assets').item.json.ASSET_TYPE }} for row {{ $('split_assets').item.json.row_number }} (round {{ $('split_assets').item.json.ROUND }}). The file is attached above; the article is not re-opened.",
+        "options": {
+          "appendAttribution": true
+        },
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double"
+          }
+        }
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "DszMmPE7WwOjHQjz",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "id": "d49db863-c25c-4502-923b-51eeca53b612",
+      "name": "switch_asset_accept",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        3808,
+        288
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "asset-approved",
+                    "leftValue": "={{ $json.data.approved }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "asset-rejected",
+                    "leftValue": "={{ $json.data.approved }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "false",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "5d44e3b9-baf9-44f8-8342-9bd180389be1",
+      "name": "mark_asset_approved",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        4032,
+        384
+      ],
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "article_assets"
+        },
+        "options": {},
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "ENTRY_ID",
+              "condition": "eq",
+              "keyValue": "={{ $('split_assets').item.json.ENTRY_ID }}"
+            },
+            {
+              "keyName": "ASSET_TYPE",
+              "condition": "eq",
+              "keyValue": "={{ $('split_assets').item.json.ASSET_TYPE }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "STATUS": "APPROVED",
+            "ROUND": "={{ $('split_assets').item.json.ROUND }}",
+            "ERROR": ""
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "ENTRY_ID",
+              "displayName": "ENTRY_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ASSET_TYPE",
+              "displayName": "ASSET_TYPE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "STATUS",
+              "displayName": "STATUS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ROUND",
+              "displayName": "ROUND",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "S3_KEY",
+              "displayName": "S3_KEY",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "CONTENT_TYPE",
+              "displayName": "CONTENT_TYPE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ERROR",
+              "displayName": "ERROR",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "PATH",
+              "displayName": "PATH",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "DATA_BASE64",
+              "displayName": "DATA_BASE64",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      }
+    },
+    {
+      "id": "a30c14b6-990d-447c-a992-7a19276f39e8",
+      "name": "notification_retry_or_cancel_asset",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        4032,
+        192
+      ],
+      "parameters": {
+        "operation": "sendAndWait",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C08RQNXQV3P",
+          "mode": "list",
+          "cachedResultName": "workflows"
+        },
+        "message": "=Asset {{ $('split_assets').item.json.ASSET_TYPE }} for row {{ $('split_assets').item.json.row_number }} was not approved. Choose Retry or Cancel, and say what must change.",
+        "options": {
+          "messageButtonLabel": "Respond",
+          "responseFormTitle": "Article asset - retry or cancel",
+          "appendAttribution": true
+        },
+        "responseType": "customForm",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Action",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Retry"
+                  },
+                  {
+                    "option": "Cancel"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Feedback",
+              "fieldType": "textarea",
+              "placeholder": "What must change in this asset. It edits the composition the rejection named rather than starting a new one."
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "DszMmPE7WwOjHQjz",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "id": "4dc7a728-8d3f-48f5-9386-6acee66b6dba",
+      "name": "switch_asset_retry",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        4256,
+        192
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "retry-asset",
+                    "leftValue": "={{ $json.data.Action }}",
+                    "rightValue": "Retry",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "cancel-asset",
+                    "leftValue": "={{ $json.data.Action }}",
+                    "rightValue": "Cancel",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "7dc69494-70c9-483a-ae65-e7bfea5deee0",
+      "name": "mark_asset_cancelled",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        4256,
+        -288
+      ],
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "article_assets"
+        },
+        "options": {},
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "ENTRY_ID",
+              "condition": "eq",
+              "keyValue": "={{ $('split_assets').item.json.ENTRY_ID }}"
+            },
+            {
+              "keyName": "ASSET_TYPE",
+              "condition": "eq",
+              "keyValue": "={{ $('split_assets').item.json.ASSET_TYPE }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "STATUS": "CANCELLED"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "ENTRY_ID",
+              "displayName": "ENTRY_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ASSET_TYPE",
+              "displayName": "ASSET_TYPE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "STATUS",
+              "displayName": "STATUS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ROUND",
+              "displayName": "ROUND",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "S3_KEY",
+              "displayName": "S3_KEY",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "CONTENT_TYPE",
+              "displayName": "CONTENT_TYPE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ERROR",
+              "displayName": "ERROR",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "PATH",
+              "displayName": "PATH",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "DATA_BASE64",
+              "displayName": "DATA_BASE64",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      }
+    },
+    {
+      "id": "1037e97e-1fd6-4b71-8944-6be8cd64e468",
+      "name": "send_asset_cancelled_notification",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        4480,
+        -288
+      ],
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C08RQNXQV3P",
+          "mode": "list",
+          "cachedResultName": "workflows"
+        },
+        "text": "=Asset {{ $('split_assets').item.json.ASSET_TYPE }} for row {{ $('split_assets').item.json.row_number }} was cancelled. The article stays as approved; publishing waits for the missing asset.",
+        "otherOptions": {
+          "includeLinkToWorkflow": true
+        }
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "DszMmPE7WwOjHQjz",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "id": "bac4887d-eea9-4de0-815b-a7113d6a7039",
+      "name": "read_asset_rows",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        4480,
+        384
+      ],
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "article_assets"
+        },
+        "options": {},
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "ENTRY_ID",
+              "condition": "eq",
+              "keyValue": "={{ $('select_article_to_queue').item.json.ENTRY_ID }}"
+            }
+          ]
+        },
+        "limit": 50
+      }
+    },
+    {
+      "id": "394934ee-e834-4f95-8361-22440269f8fb",
+      "name": "if_all_assets_approved",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4704,
+        384
+      ],
+      "parameters": {
+        "jsCode": "// Every requested type approved and none left in review: only then is there one commit.\n//\n// The check reads the stored rows rather than this run's history, so a resumed run that\n// approved two of three assets earlier still publishes once the third clears. A cancelled\n// asset keeps the article from committing, which is the deliberate direction: the run reports\n// instead of publishing a post that is missing a picture it asked for.\nconst requested = String($('select_article_to_queue').first().json.ASSET_TYPES || 'image,svg')\n  .split(',')\n  .map((s) => s.trim())\n  .filter(Boolean);\nconst effective = requested.includes('image') ? requested : ['image', ...requested];\nconst rows = $('read_asset_rows').all().map((i) => i.json);\nconst statusOf = (type) => {\n  const row = rows.find((r) => String(r.ASSET_TYPE || '') === type);\n  return row ? String(row.STATUS || '').toUpperCase() : 'MISSING';\n};\nconst blocking = effective.filter((type) => !['APPROVED', 'COMMITTED'].includes(statusOf(type)));\nif (blocking.length) {\n  console.log('not committing: ' + blocking.map((t) => t + '=' + statusOf(t)).join(', '));\n  return [];\n}\nreturn [{ json: { ...$('select_article_to_queue').first().json, ASSET_ROWS: effective.map((type) => rows.find((r) => String(r.ASSET_TYPE || '') === type)) } }];\n"
+      }
+    },
+    {
+      "id": "341bd766-38fb-4a47-b1ae-36f07a314117",
+      "name": "read_asset_rows_for_publish",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1344,
+        768
+      ],
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "article_assets"
+        },
+        "options": {},
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "ENTRY_ID",
+              "condition": "eq",
+              "keyValue": "={{ $('select_article_to_queue').item.json.ENTRY_ID }}"
+            }
+          ]
+        },
+        "limit": 50
+      }
+    },
+    {
+      "id": "5f402169-421f-4007-a0a6-e3255531feb5",
+      "name": "read_draft_for_publish",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1344,
+        576
+      ],
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "article_drafts"
+        },
+        "options": {},
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "ENTRY_ID",
+              "condition": "eq",
+              "keyValue": "={{ $('select_article_to_queue').item.json.ENTRY_ID }}"
+            }
+          ]
+        },
+        "limit": 50
+      }
+    },
+    {
+      "id": "e69f0116-318f-46bd-bd60-ce4de4219cf2",
+      "name": "get_posts_dir",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1568,
+        576
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.github.com/repos/alvsanand/alvsanand/contents/docs/blog/posts?ref=main",
+        "options": {
+          "timeout": 300000
+        },
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "githubApi": {
+          "id": "x1DjxYsMLFm3vUiv",
+          "name": "GitHub account"
+        }
+      }
+    },
+    {
+      "id": "bd967116-e2fe-48c3-ba52-a31981c9ca4c",
+      "name": "disambiguate_slug",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1792,
+        576
+      ],
+      "parameters": {
+        "jsCode": "// The frozen slug, unless the repository already carries a post with it. Nothing is\n// committed before this point, so a disambiguated slug is still the one that is frozen.\nconst row = $('read_draft_for_publish').first().json;\nconst slug = String(row.SLUG || '').trim();\nif (!slug) throw new Error('the draft row carries no slug; the draft was stored before this field existed');\nconst listing = $input.first().json;\nconst taken = new Set((Array.isArray(listing) ? listing : []).map((f) => String(f.name || '')));\nlet final = slug;\nlet n = 2;\nwhile (taken.has(final + '.md') && n < 50) final = slug + '-' + n++;\nif (final !== slug) console.log('slug ' + slug + ' is taken; using ' + final);\nreturn [{ json: { ...row, SLUG: final } }];\n"
+      }
+    },
+    {
+      "id": "5b19416a-4a12-49ca-87a1-035be2d64e5c",
+      "name": "build_commit_files",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2016,
+        576
+      ],
+      "parameters": {
+        "jsCode": "// One item per file to commit: the article, then each approved asset. Front matter is\n// composed here rather than asked of the model (D5), a marker is replaced in place, and a\n// requested type whose marker the draft omitted is placed after the opening section instead\n// of being dropped - one live draft in three answered image,svg with the image marker only.\nconst row = $('disambiguate_slug').first().json;\nconst draft = $('read_draft_for_publish').first().json;\nconst slug = row.SLUG;\nconst text = String(draft.ARTICLE_TEXT || '');\nconst title = String(draft.TITLE || '').trim();\nif (!text.trim()) throw new Error('the stored draft is empty; refusing to commit');\nif (!title.trim()) throw new Error('the stored draft has no title');\n\nconst categories = String($('select_article_to_queue').first().json.CATEGORIES || 'General')\n  .split(',').map((s) => s.trim()).filter(Boolean);\nconst now = new Date();\nconst iso = now.toISOString();\nconst day = iso.slice(0, 10);\nconst front = ['---', 'date: ' + day, 'authors: [alvsanand]', 'categories: [' + categories.join(', ') + ']', '---', ''].join('\\n');\n\nconst assets = $('read_asset_rows_for_publish').all().map((i) => i.json).map((a) => ({\n  type: String(a.ASSET_TYPE || ''),\n  ext: (String(a.CONTENT_TYPE || '').split('/')[1] || 'png').replace('jpeg', 'jpg'),\n  alt: (title + ' - ' + String(a.ASSET_TYPE || '').replace(/_/g, ' ')).slice(0, 120),\n}));\nconst pathOf = (a) => 'docs/img/' + slug + '-' + a.type + '.' + a.ext;\n\nlet body = text.replace(/^#\\s+.*\\n?/, '').trim();\nconst missing = [];\nfor (const a of assets) {\n  const marker = new RegExp('<!--\\\\s*asset:' + a.type + '\\\\s*-->', 'g');\n  const reference = '![' + a.alt + '](/' + pathOf(a) + '){ width=\"80%\" }';\n  if (marker.test(body)) body = body.replace(marker, reference);\n  else missing.push(a.type);\n}\nif (missing.length) {\n  const lines = body.split('\\n');\n  const heading = lines.findIndex((l, i) => i > 0 && l.startsWith('## '));\n  const at = heading === -1 ? lines.length : heading;\n  lines.splice(at, 0, '', ...missing.map((type) => {\n    const a = assets.find((x) => x.type === type);\n    return '![' + a.alt + '](/' + pathOf(a) + '){ width=\"80%\" }';\n  }), '');\n  body = lines.join('\\n');\n  console.log('placed without a marker: ' + missing.join(', '));\n}\n\nconst files = [{\n  PATH: 'docs/blog/posts/' + day.slice(0, 4) + day.slice(5, 7) + '-' + slug + '.md',\n  TEXT: front + '# ' + title + '\\n\\n' + body + '\\n',\n  BINARY: false,\n}];\nfor (const a of assets) files.push({ PATH: pathOf(a), ASSET_TYPE: a.type, BINARY: true });\n\nreturn files.map((f) => ({\n  json: {\n    ...$('select_article_to_queue').first().json,\n    SLUG: slug,\n    DRAFT_TITLE: title,\n    PUBLISHED_URL: 'https://alvsanand.com/blog/' + day.slice(0, 4) + '/' + day.slice(5, 7) + '/' + day.slice(8, 10) + '/' + slug + '/',\n    FILE_PATH: f.PATH,\n    FILE_TEXT: f.TEXT || '',\n    FILE_IS_BINARY: f.BINARY,\n    ASSET_TYPE: f.ASSET_TYPE || '',\n    COMMIT_MESSAGE: 'docs(blog): ' + title,\n  },\n}));\n"
+      }
+    },
+    {
+      "id": "fa721b4e-3874-4d8e-95d1-cabaf3ff3acd",
+      "name": "plan_asset_uploads",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2240,
+        576
+      ],
+      "parameters": {
+        "jsCode": "// What each approved asset's bytes are, and where they have to come from.\n//\n// A raster hero has no durable handle of its own - the studio made its bytes inside n8n and\n// keeps no copy - so the review stored them on its asset row, which is the same shape\n// TemporalFiles uses for the same reason. An agent-authored asset does have one: its S3 key,\n// which the utils server signs a URL for on demand. A resumed commit run therefore still has\n// every byte it needs, which is what makes the persistence in section 4 worth anything.\nconst rows = $('read_asset_rows_for_publish').all().map((i) => i.json);\nconst rowOf = (type) => rows.find((r) => String(r.ASSET_TYPE || '') === type) || {};\nconst files = $('build_commit_files').all().map((i) => i.json).filter((j) => j.FILE_IS_BINARY);\nreturn files.map((j) => {\n  const row = rowOf(j.ASSET_TYPE);\n  const local = String(row.DATA_BASE64 || '');\n  if (local) {\n    return { json: { ...j, FILE_BASE64: local, FILE_BYTES: Buffer.from(local, 'base64').length, NEEDS_FETCH: false } };\n  }\n  if (!row.S3_KEY) throw new Error('asset ' + j.ASSET_TYPE + ' has neither stored bytes nor an object key');\n  return { json: { ...j, FILE_BASE64: '', NEEDS_FETCH: true, S3_KEY: row.S3_KEY } };\n});\n"
+      }
+    },
+    {
+      "id": "7aa19cea-3c08-4dd9-8b29-b7324ff7d37f",
+      "name": "if_asset_needs_fetch",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2464,
+        576
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "asset-needs-fetch",
+              "leftValue": "={{ $json.NEEDS_FETCH }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "5dde4070-39d3-43ec-a9d2-11c4e98e990a",
+      "name": "presign_asset_publish",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2688,
+        672
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ($env.MCP_UTILS_URL || '') + '/mcp' }}",
+        "options": {
+          "timeout": 300000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'temp_retrieve', arguments: { key: $json.S3_KEY } } }) }}"
+      }
+    },
+    {
+      "id": "ad706104-b123-4250-8992-2007026fe462",
+      "name": "asset_publish_url",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2912,
+        672
+      ],
+      "parameters": {
+        "jsCode": "// The signed URL for this asset, read the same way the review path reads it.\nconst resp = $input.first().json || {};\nconst content = resp.result && resp.result.content;\nconst text = content && content[0] && content[0].text;\nif (typeof text !== 'string') throw new Error('the temp-bucket server answered no text');\nif (text.indexOf('ERROR:') === 0) throw new Error(text.slice(0, 500));\nconst pairs = {};\nfor (const part of text.trim().split(/\\s+/)) {\n  const eq = part.indexOf('=');\n  if (eq > 0) pairs[part.slice(0, eq)] = part.slice(eq + 1);\n}\nif (!pairs.url) throw new Error('no signed url in: ' + text.slice(0, 300));\nreturn [{ json: { ...$('plan_asset_uploads').first().json, SIGNED_URL: pairs.url, SIGNED_BYTES: Number(pairs.bytes || 0) } }];\n"
+      }
+    },
+    {
+      "id": "dada8dde-7ece-4170-afe7-8606783cf66b",
+      "name": "download_asset_publish",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3136,
+        672
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.SIGNED_URL }}",
+        "options": {
+          "timeout": 600000,
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "533368cc-1ff7-4d91-84b1-c9182597198f",
+      "name": "asset_bytes_from_download",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3360,
+        672
+      ],
+      "parameters": {
+        "jsCode": "// The fetched bytes, as base64 for the blob API, carrying the same fields the local branch\n// already had so the two paths converge on one shape.\nconst j = $('plan_asset_uploads').all().find((i) => i.json.S3_KEY === $('asset_publish_url').first().json.S3_KEY).json;\nconst bin = ($input.first().binary || {}).data;\nif (!bin) throw new Error('the signed url served no bytes for ' + j.ASSET_TYPE);\nreturn [{ json: { ...j, FILE_BASE64: Buffer.from(bin.data).toString('base64'), FILE_BYTES: bin.data.length, NEEDS_FETCH: false } }];\n"
+      }
+    },
+    {
+      "id": "10ec1f85-dee2-419c-8be6-ac063b5279e9",
+      "name": "create_blobs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3584,
+        576
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.github.com/repos/alvsanand/alvsanand/git/blobs",
+        "options": {
+          "timeout": 300000
+        },
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ content: $json.FILE_BASE64, encoding: 'base64' }) }}"
+      },
+      "credentials": {
+        "githubApi": {
+          "id": "x1DjxYsMLFm3vUiv",
+          "name": "GitHub account"
+        }
+      }
+    },
+    {
+      "id": "0e245ce8-75a7-4e2a-a6f1-c7354a9f1a30",
+      "name": "collect_tree_entries",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3808,
+        576
+      ],
+      "parameters": {
+        "jsCode": "// The tree the commit carries: every text file inline (the Trees API takes utf-8 content)\n// and every asset as the blob sha it just got. The sha-to-path pairing is asserted against the\n// byte length each blob reports, so a mis-order fails loudly rather than committing a picture\n// under the article's name.\nconst files = $('build_commit_files').all().map((i) => i.json);\nconst blobs = files.filter((f) => f.FILE_IS_BINARY);\nconst answers = $('create_blobs').all().map((i) => i.json);\nif (answers.length !== blobs.length) {\n  throw new Error('GitHub answered ' + answers.length + ' blobs for ' + blobs.length + ' assets');\n}\nconst expected = $('plan_asset_uploads').all().map((i) => i.json.FILE_BYTES);\nconst entries = files.map((f) => ({ path: f.FILE_PATH, mode: '100644', type: 'blob' }));\nblobs.forEach((f, i) => {\n  const answer = answers[i] || {};\n  if (!answer.sha) throw new Error('GitHub answered no sha for ' + f.FILE_PATH);\n  if (Number(answer.size) && Number(answer.size) !== Number(expected[i])) {\n    throw new Error('blob ' + i + ' is ' + answer.size + ' bytes against an expected ' + expected[i] + '; refusing to guess which file it is');\n  }\n  const at = entries.findIndex((e) => e.path === f.FILE_PATH);\n  entries[at].sha = answer.sha;\n});\nfiles.filter((f) => !f.FILE_IS_BINARY).forEach((f) => {\n  const at = entries.findIndex((e) => e.path === f.FILE_PATH);\n  entries[at].content = f.FILE_TEXT;\n});\nreturn [{ json: { ...$('build_commit_files').first().json, TREE_ENTRIES: entries, FILE_COUNT: files.length } }];\n"
+      }
+    },
+    {
+      "id": "6f9cf79b-f628-4a69-afab-2943c2c52e33",
+      "name": "get_base_ref",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        4032,
+        576
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.github.com/repos/alvsanand/alvsanand/git/ref/heads/main",
+        "options": {
+          "timeout": 300000
+        },
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "githubApi": {
+          "id": "x1DjxYsMLFm3vUiv",
+          "name": "GitHub account"
+        }
+      }
+    },
+    {
+      "id": "9d0349a1-b3d6-453c-a393-b33dff11a333",
+      "name": "create_tree",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        4256,
+        576
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.github.com/repos/alvsanand/alvsanand/git/trees",
+        "options": {
+          "timeout": 300000
+        },
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ base_tree: $('get_base_ref').first().json.object.sha, tree: $('collect_tree_entries').first().json.TREE_ENTRIES }) }}"
+      },
+      "credentials": {
+        "githubApi": {
+          "id": "x1DjxYsMLFm3vUiv",
+          "name": "GitHub account"
+        }
+      }
+    },
+    {
+      "id": "c676b1d6-9b94-4b06-a90b-0a1cb2d8a9d6",
+      "name": "create_commit",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        4480,
+        576
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.github.com/repos/alvsanand/alvsanand/git/commits",
+        "options": {
+          "timeout": 300000
+        },
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ message: $('collect_tree_entries').first().json.COMMIT_MESSAGE || $('build_commit_files').first().json.COMMIT_MESSAGE, tree: $json.sha, parents: [$('get_base_ref').first().json.object.sha] }) }}"
+      },
+      "credentials": {
+        "githubApi": {
+          "id": "x1DjxYsMLFm3vUiv",
+          "name": "GitHub account"
+        }
+      }
+    },
+    {
+      "id": "a1264e76-9fae-4e2f-bdfe-4436dc71791f",
+      "name": "patch_ref",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        4704,
+        576
+      ],
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://api.github.com/repos/alvsanand/alvsanand/git/refs/heads/main",
+        "options": {
+          "timeout": 300000
+        },
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ sha: $json.sha, force: false }) }}"
+      },
+      "credentials": {
+        "githubApi": {
+          "id": "x1DjxYsMLFm3vUiv",
+          "name": "GitHub account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "7b4e13d2-d978-439e-a904-041c056bd831",
+      "name": "get_base_ref_again",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        4928,
+        768
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.github.com/repos/alvsanand/alvsanand/git/ref/heads/main",
+        "options": {
+          "timeout": 300000
+        },
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            }
+          ]
+        }
+      },
+      "credentials": {
+        "githubApi": {
+          "id": "x1DjxYsMLFm3vUiv",
+          "name": "GitHub account"
+        }
+      }
+    },
+    {
+      "id": "399b7d8a-c897-46e5-8f46-5bc97e106725",
+      "name": "create_tree_again",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        5152,
+        768
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.github.com/repos/alvsanand/alvsanand/git/trees",
+        "options": {
+          "timeout": 300000
+        },
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ base_tree: $('get_base_ref_again').first().json.object.sha, tree: $('collect_tree_entries').first().json.TREE_ENTRIES }) }}"
+      },
+      "credentials": {
+        "githubApi": {
+          "id": "x1DjxYsMLFm3vUiv",
+          "name": "GitHub account"
+        }
+      }
+    },
+    {
+      "id": "325201cf-2caf-4a35-ae9a-4a4b1c2b0f8b",
+      "name": "create_commit_again",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        5376,
+        768
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.github.com/repos/alvsanand/alvsanand/git/commits",
+        "options": {
+          "timeout": 300000
+        },
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ message: $('collect_tree_entries').first().json.COMMIT_MESSAGE, tree: $json.sha, parents: [$('get_base_ref_again').first().json.object.sha] }) }}"
+      },
+      "credentials": {
+        "githubApi": {
+          "id": "x1DjxYsMLFm3vUiv",
+          "name": "GitHub account"
+        }
+      }
+    },
+    {
+      "id": "e16b0865-b554-468a-a3c8-019ae5ef5d41",
+      "name": "patch_ref_again",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        5600,
+        768
+      ],
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://api.github.com/repos/alvsanand/alvsanand/git/refs/heads/main",
+        "options": {
+          "timeout": 300000
+        },
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ sha: $json.sha, force: false }) }}"
+      },
+      "credentials": {
+        "githubApi": {
+          "id": "x1DjxYsMLFm3vUiv",
+          "name": "GitHub account"
+        }
+      }
+    },
+    {
+      "id": "58507229-1529-49fb-aea8-62671f9707cd",
+      "name": "check_ref_retry",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5824,
+        768
+      ],
+      "parameters": {
+        "jsCode": "// The retry is only worth anything if the second PATCH also failed: a first failure means the\n// branch moved, and the tree and commit above were rebuilt on the branch's new head. A second\n// failure is reported rather than looped, which is what the spec asks for.\nconst resp = $input.first().json || {};\nif (resp.error || resp.message) {\n  throw new Error('the commit could not be fast-forwarded twice: ' + String(resp.message || resp.error).slice(0, 300));\n}\nreturn [{ json: { ...$('collect_tree_entries').first().json, COMMIT_SHA: resp.sha || ($('create_commit_again').isExecuted ? $('create_commit_again').item.json.sha : $('create_commit').item.json.sha) } }];\n"
+      }
+    },
+    {
+      "id": "a74f8c58-40a2-465e-b530-04e6ce8d6525",
+      "name": "record_published",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        4928,
+        576
+      ],
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI",
+          "mode": "list",
+          "cachedResultName": "content_planner",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "article_queue",
+          "mode": "name",
+          "cachedResultName": "article_queue"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "row_number": "={{ $('select_article_to_queue').item.json.row_number }}",
+            "STATUS": "PUBLISHED",
+            "PUBLISHED_URL": "={{ $('build_commit_files').first().json.PUBLISHED_URL }}",
+            "COMMIT_REF": "={{ $('create_commit_again').isExecuted ? $('create_commit_again').item.json.sha : $('create_commit').item.json.sha }}",
+            "PUBLISHED_AT": "={{ (new Date()).toISOString() }}",
+            "ERROR": "",
+            "UPDATE_DATE": "={{ (new Date()).toISOString() }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "ENTRY_ID",
+              "displayName": "ENTRY_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "TOPIC",
+              "displayName": "TOPIC",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "DESCRIPTION",
+              "displayName": "DESCRIPTION",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "LINK",
+              "displayName": "LINK",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "CATEGORIES",
+              "displayName": "CATEGORIES",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ASSET_TYPES",
+              "displayName": "ASSET_TYPES",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "MAX_WORDS",
+              "displayName": "MAX_WORDS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "EXTRA_PROMPT",
+              "displayName": "EXTRA_PROMPT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "PRIORITY",
+              "displayName": "PRIORITY",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ORIGIN",
+              "displayName": "ORIGIN",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "STATUS",
+              "displayName": "STATUS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "ARTICLE_STATUS",
+              "displayName": "ARTICLE_STATUS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ARTICLE_ROUND",
+              "displayName": "ARTICLE_ROUND",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ARTICLE_FEEDBACK",
+              "displayName": "ARTICLE_FEEDBACK",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ARTICLE_TITLE",
+              "displayName": "ARTICLE_TITLE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ARTICLE_REF",
+              "displayName": "ARTICLE_REF",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "PUBLISHED_URL",
+              "displayName": "PUBLISHED_URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "COMMIT_REF",
+              "displayName": "COMMIT_REF",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "PUBLISHED_AT",
+              "displayName": "PUBLISHED_AT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "EXECUTION_ID",
+              "displayName": "EXECUTION_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ERROR",
+              "displayName": "ERROR",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "UPDATE_DATE",
+              "displayName": "UPDATE_DATE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "pGARJmt50qz64xOo",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "6683e73a-f6ce-4463-92c0-77f07d5fcb0f",
+      "name": "asset_paths",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5152,
+        576
+      ],
+      "parameters": {
+        "jsCode": "// One item per committed asset, so its row records where it landed. The paths come from the\n// commit's own file list rather than from a second derivation.\nreturn $('build_commit_files').all()\n  .map((i) => i.json)\n  .filter((j) => j.FILE_IS_BINARY)\n  .map((j) => ({ json: { ENTRY_ID: j.ENTRY_ID, ASSET_TYPE: j.ASSET_TYPE, PATH: j.FILE_PATH } }));\n"
+      }
+    },
+    {
+      "id": "90726edd-f3f4-4ce2-9ec0-411739226a69",
+      "name": "record_asset_paths",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        5376,
+        576
+      ],
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "article_assets"
+        },
+        "options": {},
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "ENTRY_ID",
+              "condition": "eq",
+              "keyValue": "={{ $json.ENTRY_ID }}"
+            },
+            {
+              "keyName": "ASSET_TYPE",
+              "condition": "eq",
+              "keyValue": "={{ $json.ASSET_TYPE }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "STATUS": "COMMITTED",
+            "PATH": "={{ $json.PATH }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "ENTRY_ID",
+              "displayName": "ENTRY_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ASSET_TYPE",
+              "displayName": "ASSET_TYPE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "STATUS",
+              "displayName": "STATUS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "ROUND",
+              "displayName": "ROUND",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "S3_KEY",
+              "displayName": "S3_KEY",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "CONTENT_TYPE",
+              "displayName": "CONTENT_TYPE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "ERROR",
+              "displayName": "ERROR",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "PATH",
+              "displayName": "PATH",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "DATA_BASE64",
+              "displayName": "DATA_BASE64",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      }
+    },
+    {
+      "id": "fb2a6e94-8f64-4c90-8425-70799d035309",
+      "name": "send_published_notification",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        5600,
+        576
+      ],
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C08RQNXQV3P",
+          "mode": "list",
+          "cachedResultName": "workflows"
+        },
+        "text": "=Published row {{ $('select_article_to_queue').item.json.row_number }}: {{ $('build_commit_files').first().json.PUBLISHED_URL }} (commit {{ $('create_commit').item.json.sha }}, {{ $('collect_tree_entries').first().json.FILE_COUNT }} files, one commit)",
+        "otherOptions": {
+          "includeLinkToWorkflow": true
+        }
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "DszMmPE7WwOjHQjz",
+          "name": "Slack account"
+        }
+      }
+    }
+  ],
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionTimeout": 3600,
+    "timeSavedMode": "fixed",
+    "availableInMCP": false
+  }
+}

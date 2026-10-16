@@ -82,7 +82,7 @@ The publish step is an HTTP Request with a bearer GitHub credential — the **ex
 
 Assets are produced by the `visual-studio` capability's Visual Studio workflow, invoked as a sub-workflow. The set is the entry's `ASSET_TYPES` — the `image` hero always, plus whatever the row declares, `image,svg` when the row is blank — or the registry's own `default_types` when the call leaves `ASSET_TYPES` empty; the ids are the registry's, so adding a type is a `visual_types.json` edit and never a graph edit, and a request over `max_types_per_request` comes back SKIPPED with a reason rather than dropped. `FORCE`, `STYLE` and `SCENES` are left blank by this change, so the composer chooses its own form and scene count; there is no per-entry column for a pinned form yet.
 
-Bytes arrive two different ways, because the raster type is authored *inside* n8n and the composer types are not. The `image` type returns its data URL inline with the answer — measured on the LinkedIn lane at ~2.3 MB in `execution_data` for one 1080x1350 png — while an agent-authored type is stored in Garage by the utils server and answers with `S3_KEY` and `S3_BYTES`. The entry point signs that key through the utils server's `temp_retrieve` and downloads the signed URL as a file, exactly as `LinkedIn Post Sharing` does for its video, and `article_assets` stores the key rather than the bytes.
+Bytes arrive two different ways, because the raster type is authored *inside* n8n and the composer types are not. The `image` type returns its data URL inline with the answer — measured on the LinkedIn lane at ~2.3 MB in `execution_data` for one 1080x1350 png — while an agent-authored type is stored in Garage by the utils server and answers with `S3_KEY` and `S3_BYTES`. The entry point signs that key through the utils server's `temp_retrieve` and downloads the signed URL as a file, exactly as `LinkedIn Post Sharing` does for its video, and `article_assets` stores the key rather than the bytes. The raster's own bytes are the exception and are stored on the asset row (`DATA_BASE64`): they have no durable handle anywhere else, and without them a commit resumed after a died run has nothing to upload. The cost is bounded - measured 943,620 bytes for one 928x1152 hero - and no other type pays it.
 
 The studio's run `STATUS` is `PARTIAL` whenever a requested type is unavailable and `FAILED` when every asset carries an error, so the caller branches on each asset's own `STATUS`/`ERROR` and never on the run status: an unresolvable type comes back as an asset carrying the reason, and one such asset must not take the rest of the set with it.
 
@@ -194,12 +194,42 @@ Two reference-shape facts, read off the installed nodes rather than guessed, and
 - **A Google Sheet can be addressed by name.** `Google/Sheet/v2`'s `sheetName` resource locator supports `{__rl: true, mode: "name", value: "<title>"}`, and the node's own builder hint says a title placed in `list` or `id` mode cannot resolve. The LinkedIn exports use `mode: "list"` with the gid because they were built against a live page. Neither name nor gid is stable-forever, but the name is the one the change itself specifies for the page, so the exports use it until the page exists and a gid can be read.
 - **A Data Table can be addressed by name too.** `DataTable`'s `dataTableId` locator declares modes `list` and `name` (`common/fields.js`). So `article_drafts` and `article_assets` can be wired before either table is created.
 
-Consequence: the human steps in section 1 are no longer a precondition for authoring anything, only for running it.
+- **The `DataTable` node carries its own table management.** Its row operations include
+  `upsert` (keyed by filter conditions), and its table operations include `create`. So the two
+  tables in section 1 can be created by running a node rather than only by hand in the UI, and a
+  round of review upserts its row instead of accumulating one per attempt. Whether the *public*
+  REST API gained an equivalent endpoint stays [UNVERIFIED]; the node is enough for this change.
+- **A Data Table filter condition is `eq` / `neq` / `lt` / `isNotEmpty`**, not `notEqual`. Read
+  off `DataTable/common/methods.js` after an invalid condition was written into a filter here;
+  the values are load options, so nothing validates them offline and an invalid one would fail
+  at run time on that node only. `test_article_entry_point.py` keeps every filter condition in
+  the entry point honest by asserting the nodes that matter, not by enumerating the vocabulary.
+
+Consequence: the human steps in section 1 are no longer a precondition for authoring anything,
+only for running it.
 
 ## Entry point: node plan
 
-The remaining authoring work for `Article Content Writer`, fixed here so the graph is not
-re-invented node by node. Every shape it needs already exists in `linked_in_post_sharing`
+**Implemented** as `agents/n8n/workflows/article_content_writer.workflow.json` (73 nodes, a create
+body; live creation is 6.1). The graph follows this plan with four deliberate departures, each
+because the plan's shape would have failed at run time:
+
+- the queue is read in two steps, not one: `pick_candidate` chooses the entry from the sheet
+  alone and `read_asset_rows_for_entry` then reads **that entry's** asset rows, so the asset read
+  is bounded by the entry instead of a table that grows. `select_article_to_queue` turns the two
+  into `PHASE` and `PENDING_ASSETS`;
+- a raster asset's bytes are stored on its `article_assets` row (`DATA_BASE64`) at render time.
+  The plan left them local, but a raster has no durable handle at all - the studio makes those
+  bytes inside n8n and keeps no copy - so a commit resumed after a died run would have had
+  nothing to commit. An agent-authored asset is re-fetched from its `S3_KEY` instead, so no
+  video-sized payload ever reaches the row;
+- the non-fast-forward retry is a real second attempt: `patch_ref`'s error output re-reads
+  `heads/main` and rebuilds tree and commit on the branch's new head, because replaying the same
+  `PATCH` cannot succeed;
+- the draft row is written with `upsert` keyed on `ENTRY_ID`, so a round updates the row instead
+  of adding one per attempt.
+
+Original plan, for reference. Every shape it needs already exists in `linked_in_post_sharing`
 (read, claim, `sendAndWait` double approval, the Retry/Cancel form, cancel branches, the
 publish-time row update) or in `visual_studio_test` (the DataTable write and the download
 URL), so the build is a clone-and-rewire rather than new node types.

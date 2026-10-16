@@ -247,12 +247,20 @@ end, not automated.
 - **Why the upstream stalls mid-stream is not measured.** `[UNVERIFIED]` — the change
   tolerates the stall rather than explaining it; a later change may find that a different
   deployment or provider setting removes it entirely.
-- **Whether Pi's `retry.*` settings change the observed attempt count is unverified.** The
-  9-vs-3 discrepancy is unexplained, so the verification task measures it with a forced stall
-  rather than assuming the settings took effect.
+- **Whether Pi's `retry.*` settings change the observed attempt count is now measured for the
+  settings themselves, and the original discrepancy is not reproduced.** 4.2's forced stall
+  against a stub endpoint gave exactly `maxRetries + 1` requests (3 for `maxRetries: 2`), so the
+  settings are honoured; the 9 attempts seen on 2026-10-16 therefore came from something other
+  than one turn's retry window (`[UNVERIFIED]` — most likely more than one turn, but that is not
+  established).
+- **A failed turn named no model endpoint until 4.5.** Pi's own account of an aborted stream is
+  `terminated` and carries no endpoint, so `runPi`'s message did not satisfy this change's own
+  "names the model endpoint and the reason" requirement. Found by 4.2's probe rather than by
+  reading, and closed in the adapter (`piFailure`) with a test that fails without it.
 - **Which of `router_settings.stream_timeout` and `litellm_params.stream_timeout` suits
   `datahub-local-core`** is that repository's call; both are supported by the installed
   version, and the deployment-level form is the fallback if the router-level key is refused.
+  The router-level form was taken and 1.3 verified it applies with no Router warning.
 
 ## Definition of done
 

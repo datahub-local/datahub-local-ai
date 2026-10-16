@@ -43,7 +43,7 @@
   not, fall back to leaving the hop as a known-wasted attempt and record that in `design.md`
 
  **Landed and verified 2026-10-16.** Probed with `reasoning_effort: "none"`: the answer came back `"model":"opencode-go/glm-5.3-flash"`, i.e. served by glm itself rather than the OpenRouter fallback, so `additional_drop_params` takes effect and the hop is usable again. The `[UNVERIFIED]` in D6 is resolved in favour of the drop working.
-- [ ] 1.6 Keep the cluster's Secret payload small, because the gateway cannot serve the list Argo
+- [x] 1.6 Keep the cluster's Secret payload small, because the gateway cannot serve the list Argo
   CD needs without it (found while verifying 1.3). Measured 2026-10-16: Helm's default 10
   revisions per release made ~140 release Secrets and a ~30 MB cluster-wide Secret LIST, the
   kube-apiserver (2.8 GB RSS on a 4 GB node) aborted the stream, and **every** Argo CD Application
@@ -113,42 +113,106 @@
  **Landed.** The bound is 30 minutes, the publishing run's `executionTimeout` is 3600 s, and the form's own message says what happens if it is not answered ("Unanswered, the still image is used after 30 minutes and the post continues"). Recorded in the repository `AGENTS.md` beside the branch's other invariants and in the design's D3/D4.
 ## 4. Behaviour verification (no CI covers n8n, so this is manual and recorded)
 
-- [ ] 4.1 Read `settings.json` back from a running session pod and confirm the values are the
+- [x] 4.1 Read `settings.json` back from a running session pod and confirm the values are the
   configured ones (`kubectl exec … cat /tmp/home/.pi/agent/settings.json`)
-- [ ] 4.2 Force a stall inside the window and confirm the turn still completes; then force one
+ **Verified 2026-10-16.** `kubectl -n automation exec datahub-local-ai-pi-render-5fb448f5d-7wz5r --
+ cat /tmp/home/.pi/agent/settings.json` answers
+ `{"httpIdleTimeoutMs":240000,"retry":{"enabled":true,"maxRetries":6,"baseDelayMs":5000,"maxAgentDelayMs":60000}}`
+ — the D3 numbers, written at pod start (19:45 against a 19:44 start), with no `PI_RENDER_*`
+ override set on the deployment, so these are the builder's defaults. The pod runs the digest
+ pinned in `values/default.yaml.gotmpl` (`d4a089d6…`).
+- [x] 4.2 Force a stall inside the window and confirm the turn still completes; then force one
   longer than the window and confirm the turn fails naming the model endpoint and the reason.
   Make the stall deterministic rather than waiting for the upstream: the settings can be
   pointed at a local endpoint that answers late. Record both measurements, including the
   attempt count — Pi's documented `maxRetries: 3` did not explain the 9 attempts observed on
   2026-10-16, and this is where that is resolved
+ **Measured 2026-10-16, deterministically, with a stub endpoint** (`/tmp/stub.mjs` in the
+ session pod: one leading role chunk on `POST /v1/chat/completions`, then either the answer
+ after `STALL_MS` or permanent silence, counted per request). `pi` was run against it in its
+ own `HOME` with its own `settings.json`, so production config was untouched and the real
+ gateway was never involved.
+ - *Inside the window:* idle 3000 ms, first chunk then a 1500 ms gap -> exit 0 after 1.9 s,
+   stdout `STALL-PROBE-OK`, **1 request**. A stall shorter than the idle timeout is invisible.
+ - *Longer than the window:* idle 3000 ms, never speaks again -> exit 1 after 12.3 s
+   (**3 requests** = `maxRetries: 2` + 1, and 3 x 3 s of silence plus backoff fits the 12.3 s).
+   So Pi honours `retry.maxRetries` exactly; the 9 observed on 2026-10-16 was **not** a single
+   turn's attempts and this probe does not reproduce it — recorded as such rather than
+   explained.
+ - *The failure text:* Pi's own account is the single word `terminated` (`--mode json` confirms
+   it as `stopReason: "error", errorMessage: "terminated"`, and in that mode Pi exits **0**),
+   and it named no endpoint. The spec requires a failure that names both, so the adapter was the
+   missing half: see 4.5.
+- [x] 4.5 Name the model endpoint in a failed turn (found by 4.2, required by this change's own
+  spec delta). `runPi` rejected with `Pi exited 1: terminated` — no endpoint, and a reason only
+  as legible as Pi's own word for an aborted stream, so a stalled model call and a bad brief
+  read the same in the run record and in the Slack form that quotes it
+ **Landed.** `piFailure(code, stderr)` in `session-server.mjs` answers
+ `Pi exited <code> calling <MODEL_BASE_URL>: <last non-empty stderr line>`. Asserted by
+ `a failed turn names the model endpoint and Pi's own reason` in `test/session-server.test.mjs`
+ (the stub Pi fails on a `FAIL_PROBE` prompt): the test **fails without the change**
+ (`Pi exited 9: noise before the reason / stream terminated by peer` — no endpoint) and passes
+ with it. `node --test test/`: **44 pass, 0 fail**. The new image reaches the cluster only
+ through CI's publish-and-pin (`.github/workflows/publish-images.yaml`), so until that run
+ lands the live pod still carries the un-named message.
 - [ ] 4.3 Exercise the failure branch end to end: an animation that fails inside the studio
   reaches one bounded Slack form naming the reason; an answer of "re-author" runs a second turn
   with the reason as feedback and the same session; no answer takes the still image and the post
   is not held. Use `Visual Studio Test` for the studio half where a full publish run is not
   wanted
-- [ ] 4.4 Confirm the fallback notice's wording survives the rewiring: the failure is still
+ **Deferred by the owner 2026-10-16, not dropped.** The shape this task would observe is already
+ held offline — `test_linkedin_animated_media.py` asserts the single bounded form, the retry's
+ `FEEDBACK` and unchanged session, the absent answer taking the still, and the no-loop wiring
+ (47 passed) — and 4.4 read the applied node's text back. What is missing is one live run of
+ `LinkedIn Post Sharing` driven to a failed animation, which is a real draft, real Slack
+ approvals and a real branch decision. It stays open as a live check for the owner rather than
+ being asserted from the offline suite.
+- [x] 4.4 Confirm the fallback notice's wording survives the rewiring: the failure is still
   named in Slack with the article, the reason and what happens next
+ **Verified offline 2026-10-16, from the applied node.** `notify_animation_failed`'s message
+ names the article (`$('select_article_to_post').item.json.URL`), the reason
+ (`$('check_animation_result').item.json.ERROR`) and the consequence ("Unanswered, the still
+ image is used after 30 minutes and the post continues"), with the two choices and the 30-minute
+ `limitWaitTime`. Task 3.3 verified this node's export equals the live read-back, so the text
+ above is what Slack receives. The behavioural half — that a person actually sees it — is 4.3.
 
 ## 5. Documentation
 
-- [ ] 5.1 Extend the `agents/sympozium/MEMORY.md` entry on the composer (or add one) with the
+- [x] 5.1 Extend the `agents/sympozium/MEMORY.md` entry on the composer (or add one) with the
   three findings that are not visible from the code: the gateway's `request_timeout` is a
   per-read timeout for a stream; `stream_with_fallbacks` cannot substitute a deployment once a
   stream has emitted, which is why the runtime's retry is the recovery mechanism; and an
   expired `sendAndWait` resumes with its own input and no `data.approved`, so a branch on that
   field must default to the still
   **Landed.** A `## The composer's model calls: a stalled stream is the failure mode (2026-10-16)` section appended to `agents/sympozium/MEMORY.md` carries the incident, the three findings with the code each was read from, the glm finding, the numbers, and the two unresolved measurements.
-- [ ] 5.2 Note in `workflows/`/`agents/n8n` (wherever the animation branch is described) that a
+- [x] 5.2 Note in `workflows/`/`agents/n8n` (wherever the animation branch is described) that a
   failed animated asset now has a bounded reviewer choice, so the branch's shape and the
   intent do not drift apart
   **Landed.** The `A failed animation never blocks the post` bullet in the repository `AGENTS.md` now states the bounded choice, the 30-minute bound and why the branch tests the retry action rather than the still — that file is where a reader looks before touching the branch.
-- [ ] 5.3 Leave the change's `[UNVERIFIED]` markers honest: resolve the Pi attempt count (4.2)
+- [x] 5.3 Leave the change's `[UNVERIFIED]` markers honest: resolve the Pi attempt count (4.2)
   and the model-name caller (1.2), and keep the upstream-stall cause marked as such
+ **Resolved except the upstream cause, which stays marked.** 4.2 measured Pi's attempt count as
+ `maxRetries + 1` on a forced stall (3 requests for `maxRetries: 2`), so the 9 attempts recorded
+ on 2026-10-16 is not what one turn's retry window does — it is left as unexplained, with the
+ measurement that fails to reproduce it recorded in D-finding form rather than a cause invented
+ for it. The model-name caller is 1.2's own finding (the two n8n nodes name glm as their
+ fallback). D6's `[UNVERIFIED]` was resolved by 1.5's probe, which showed the drop takes effect
+ and the answer comes from glm. The one that remains is *why the upstream stalls mid-stream*:
+ `[UNVERIFIED]`, tolerated rather than explained, exactly as the design says.
+- [x] 5.4 Record 4.2's finding where the composer's failure text is decided, since the spec
+  requires it and the adapter is the only place that can supply it
+ **Landed.** The `piFailure` comment in `session-server.mjs` carries the reason (Pi names no
+ endpoint, so a stalled model call and a bad brief would read the same), and 4.5's tests hold
+ it. No `MEMORY.md` change was needed: the composer section's failure paragraph already
+ describes the shape.
 
 ## 6. Recovery of run 13648 (operator, not automated)
 
-- [ ] 6.1 The owner sets row 72 back to `QUEUE` in the `content_planner` sheet, or retires it.
+- [x] 6.1 The owner sets row 72 back to `QUEUE` in the `content_planner` sheet, or retires it.
   `select_article_to_post` selects only `STATUS === 'QUEUE'`, so nothing picks the row up while
   it stays `WAITING_APPROVAL`, and the credential to edit the sheet lives in n8n
+  **Owner action, 2026-10-16.** The row is set back to `QUEUE` there, so the next publishing run
+  selects it. `[UNVERIFIED]` from this repository: it holds no credential for that sheet, and the
+  evidence is the run that picks the row up, not the edit.
 - [ ] 6.2 If the row is republished, note that it is re-drafted and re-reviewed from scratch:
   the stopped execution took its approved draft and the unapproved still with it

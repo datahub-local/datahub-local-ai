@@ -28,6 +28,12 @@ fs.writeFileSync("index.html", "<div>stub</div>");
 fs.writeFileSync("out.html", "<html>stub deck</html>");
 fs.writeFileSync("out.mp4", Buffer.from([0, 0, 0, 0x18, 0x66, 0x74, 0x79, 0x70]));
 fs.writeFileSync("prompt.txt", process.argv.at(-1) || "");
+// The failure path: Pi reports a stalled model call as one word of its own, and
+// names no endpoint unless the server adds it.
+if ((process.argv.at(-1) || "").includes("FAIL_PROBE")) {
+  process.stderr.write("noise before the reason\\nstream terminated by peer");
+  process.exit(9);
+}
 process.stdout.write("rendered 1 frame");
 `;
 
@@ -179,4 +185,20 @@ test("the artifact route refuses traversal and unknown names", async () => {
   assert.equal((await fetch(`${base}/artifacts/run_a/index.html`)).status, 404);
   assert.equal((await fetch(`${base}/artifacts/run_a/out.txt`)).status, 404);
   assert.equal((await fetch(`${base}/artifacts/nope/out.mp4`)).status, 404);
+});
+
+test("a failed turn names the model endpoint and Pi's own reason", async () => {
+  // Pi's account of an exhausted retry window is its stream plumbing's word, so
+  // the endpoint has to come from the server: a caller reading the run record
+  // must be able to tell a stalled model call from a bad brief.
+  const res = await fetch(`${base}/v1/chat/completions`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "FAIL_PROBE" }], session_id: "run_fail" }),
+  });
+  assert.equal(res.status, 400);
+  const { error } = await res.json();
+  assert.match(error.message, /Pi exited 9/);
+  assert.ok(error.message.includes("http://127.0.0.1:1/v1"), `the endpoint is named: ${error.message}`);
+  assert.ok(error.message.includes("stream terminated by peer"), `the reason is carried: ${error.message}`);
 });

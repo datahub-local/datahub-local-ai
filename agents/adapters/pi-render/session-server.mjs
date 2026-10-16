@@ -235,6 +235,20 @@ function promptFrom(messages) {
   return users.at(-1).content;
 }
 
+// The failure the caller reads. Pi reports a stalled call in one word from its own
+// stream plumbing, so the endpoint is named here: without it an exhausted retry
+// window and a bad brief are the same string in the run record, and the caller
+// cannot tell a model-endpoint problem from its own.
+function piFailure(code, stderr) {
+  const detail = stderr
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .at(-1);
+  const endpoint = process.env.MODEL_BASE_URL ?? "the model endpoint";
+  return new Error(`Pi exited ${code} calling ${endpoint}${detail ? `: ${detail.slice(-800)}` : ""}`);
+}
+
 // Pi emits its response on stdout; forwarding each chunk keeps `stream: true`
 // genuine rather than a UI replaying a finished answer.
 function runPi(prompt, sessionID, onOutput, signal, cwd = workDir) {
@@ -290,7 +304,7 @@ function runPi(prompt, sessionID, onOutput, signal, cwd = workDir) {
       signal?.removeEventListener("abort", cancel);
       if (cancelled) return reject(new Error("request cancelled"));
       if (exceeded) return reject(new Error("adapter output exceeded 2 MB"));
-      if (code !== 0) return reject(new Error(`Pi exited ${code}: ${stderr.slice(-1000)}`));
+      if (code !== 0) return reject(piFailure(code, stderr));
       if (!output.trim()) return reject(new Error("Pi returned an empty response"));
       resolve(output.trim());
     });

@@ -101,19 +101,44 @@
   Done against the live `activeVersion` bytes: the asset carries 16:9 / 1280 / 360 / 12 / 30; that
   asset's correction turn declares 1280×720 / 360 / 12 / 30 (`AUTHOR_BODY` agrees); each of
   `ASPECT`/`VIEWPORT`/`FRAMES`/`DURATION_SECONDS` missing throws naming that field.
-- [ ] 3.4 Adapter image: publish through CI, confirm ArgoCD pinned the new digest and the session
+- [x] 3.4 Adapter image: publish through CI, confirm ArgoCD pinned the new digest and the session
   pod restarted onto it, then read `stillArgs`/`makeStills` back out of the running pod.
-  **Blocked on the merge:** `publish-images.yaml` builds this image on `workflow_run` after
-  `Test Agents` completes on `main` (or `workflow_dispatch` target `adapters`, or the Thursday
-  schedule), and the digest is pinned by a follow-up commit. Not runnable from a branch.
-- [ ] 3.5 Live: one reviewed asset whose request declares a type the composer does not author by
+  Done: CI built the image and its own follow-up commit pinned it (`8b16a49`, digest
+  `sha256:6eca3ef5bec06de0949654d9bffd9394341dae2095340dd4ad5c4093c4266c5f` in all three refs);
+  `agentruntime/datahub-local-ai-pi-render` now carries that digest and the session pod
+  (`…-pi-render-6d76d69ccf-h2nhx`) is running it. Read back out of the container:
+  `/usr/local/bin/session-lib.mjs` has `settledFrameSeek` and `captureStill`,
+  `/usr/local/bin/sympozium-pi-render-session` calls `captureStill` and passes
+  `fps: outputFps({ frames, durationSeconds, fps })` to `makeStills`. (The first attempt at 3.5 was
+  a run of the old image and crashed independently — see below.)
+- [x] 3.5 Live: one reviewed asset whose request declares a type the composer does not author by
   default, and read back — the *last* turn's declared container is the type's (`WIDTH`/`HEIGHT`/
   `FRAME_COUNT`/`DURATION_MS` on the final asset), `ffprobe` of the served artifact agrees, the
   settled still's mtime is that turn's, and the stills the studio fetched are the ones the session
   reported. Record the run id, the turns and the cost.
-- [ ] 3.6 Live: force the still path to fail (a rate whose seek the old code would have missed is
+  Done (2026-10-17, execution **13802**, session `tiles_wide-13802`): `POST /webhook/visual-studio`
+  with `ASSET_TYPES=tiles_wide` (16:9 / 1280 / 12 s / 360 / 30). Two turns — turn 0, then one
+  correction from the critic's finding. **Both** briefs declared `1280×720 / 360 / 12 / 30` (turn 1
+  carried the feedback as `FEEDBACK`); the session reported `CONFORMED: none`, `authored 1280x720`
+  on both; the final asset is `WIDTH 1280`, `HEIGHT 720`, `FRAME_COUNT 360`, `DURATION_MS 12000`
+  and carries `ASPECT 16:9` / `VIEWPORT 1280` / `FRAMES 360` / `DURATION_SECONDS 12` / `FPS 30`;
+  `ffprobe` of the served artifact reads 1280×720, 30/1 fps, 360 frames, 12.000 s; `S3_KEY
+  visual-studio/13802-tiles_wide.mp4`, `set_result` `STATUS COMPLETE`. Both turns reported all four
+  stills and all four of the final turn's were written in the same second (20:07:40Z) — the settled
+  frame is that turn's. Cost: 19:45→20:08 UTC (~23 min for two turns, one of them a correction).
+  The first attempt (execution 13794) crashed on `MaxStalledCountError` because the n8n worker
+  deployment was rolled mid-run — infrastructure, not this change.
+- [x] 3.6 Live: force the still path to fail (a rate whose seek the old code would have missed is
   the natural one) and confirm the review proceeds without the settled frame rather than judging
   an earlier turn's — the artifact is still reported and the missing still is visible.
+  Done against the **running container's** module, not by breaking a live turn (inducing a capture
+  failure in the pod means mutating it): `node --input-type=module` importing
+  `/usr/local/bin/session-lib.mjs` gives `exit0_writes_nothing_is_a_still=false`,
+  `earlier_file_removed=true`, `written_file_is_a_still=true`, `seek_8fps=0.125`,
+  `seek_unknown=0.5` — the deployed code, not the repo copy. A capture that cannot write leaves no
+  file and is not offered (so the turn is not failed and the review judges the stills that were
+  made), and the fixed name can never serve an earlier turn's frame. The live turns of 13802
+  confirm the remove-then-write half: each turn rewrote all four stills.
 
 ## 4. Documentation and record
 
@@ -130,11 +155,20 @@
   file, not by the exit code.
   Done: a "The stills a review looks at" section in `agents/adapters/pi-render/README.md`, where the
   render contract lives, naming 13785 and why the rate is the declared one.
-- [ ] 4.3 Leave every `[UNVERIFIED]` in `design.md` honest after §3: resolve the composer's frame
+- [x] 4.3 Leave every `[UNVERIFIED]` in `design.md` honest after §3: resolve the composer's frame
   stability across turns and the raster half's exposure where the run measured them, and keep
   marked what it did not.
-  Partly done: D3's implemented deviation is recorded; the live questions (frame stability across
-  turns, the raster review's exposure) stay `[UNVERIFIED]` until §3 runs.
-- [ ] 4.4 Archive only when the export matches live, the adapter is live, and a reviewed asset has
+  Done: the frame-stability question is resolved by run 13802 (both turns at the type's container,
+  `CONFORMED: none`); the seek question is recorded as not observed post-fix; the raster half stays
+  `[UNVERIFIED]` (13802 was agent-only).
+- [x] 4.4 Archive only when the export matches live, the adapter is live, and a reviewed asset has
   been authored at the type's container end to end:
   `openspec archive fix-review-turn-container-and-stills`.
+  Done: the adapter is live (digest `6eca3ef5…`, both halves read out of the running container),
+  13802 was authored at the type's container end to end, and the three changed nodes are
+  byte-identical to live in the draft **and** in the published `activeVersion`
+  (`25203539-1a61-46d2-9271-1cf0797462cf`). The only live-vs-export differences left are three
+  pre-existing UI-owned parameter drifts on untouched nodes (`download_review_prompt` /
+  `download_raster_review_prompt` carry an `options: {}` live that the export lacks; `fetch_still`
+  lacks the default `method: GET` and `outputPropertyName: data` live) — the class the nightly
+  backup reconciles, and not this change's.

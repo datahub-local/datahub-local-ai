@@ -154,15 +154,20 @@ the turn" behaviour — rather than a review that judges the wrong turn's frame.
 
 ## Open questions
 
-- **Is the composer's frame stable across turns once the declaration is right?** Turn 0 of run
-  13785 was authored at the declared frame from an off-frame composition, so the answer looks
-  like yes; a run whose correction turns keep the declaration is the test. `[UNVERIFIED]`.
-- **How often is the settled-frame seek the reason a still is missing?** One measured instance,
-  on the first clip this pipeline produced below 10 fps — which the derived rate makes ordinary
-  rather than rare. `[UNVERIFIED]` beyond this run; D4 makes the failure visible either way.
-- **Does the raster half need the same guard?** Its frame comes from `if_raster`, so it has no
-  declared-container defect; whether its *review* has an equivalent (a stale data URL cannot occur,
-  since the bytes ride the execution) is `[UNVERIFIED]` and out of scope.
+- **Is the composer's frame stable across turns once the declaration is right?** *Resolved by run
+  13802 (2026-10-17)*: a `tiles_wide` request whose review returned a finding took one correction
+  turn and both turns declared `1280×720 / 360 frames / 12 s / 30 fps`; the session reported
+  `CONFORMED: none` with `authored: 1280x720` on **both**, and `ffprobe` of the served artifact
+  reads `1280×720, 30/1 fps, 360 frames, 12.000 s`. At the old brief that correction turn was
+  1080×1350 / 3 s / 24 / 8.
+- **How often is the settled-frame seek the reason a still is missing?** Not observed after the
+  fix — run 13802's two turns each wrote all four stills in the same second. One measured instance
+  before it (run 13785), on the first clip this pipeline produced below 10 fps, which the derived
+  rate makes ordinary rather than rare. D4 makes the failure visible either way; the
+  exit-0-writes-nothing case is asserted offline.
+- **Does the raster half need the same guard?** Still `[UNVERIFIED]`: run 13802 was agent-only, so
+  no raster review was exercised. The frame comes from `if_raster`, so it has no declared-container
+  defect; a stale data URL cannot occur, since the bytes ride the execution. Out of scope.
 
 ## Definition of done
 

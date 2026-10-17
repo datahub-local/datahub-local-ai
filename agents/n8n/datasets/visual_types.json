@@ -87,6 +87,40 @@
       }
     },
     {
+      "id": "tiles",
+      "brandKind": "diagrammatic",
+      "name": "Tiling loop",
+      "author": "agent",
+      "render": "video",
+      "format": "mp4",
+      "aspect": "4:5",
+      "form": "tiles",
+      "durationSeconds": 12,
+      "available": true,
+      "budget": {
+        "fps": 30,
+        "frames": 360,
+        "viewport": 1080
+      }
+    },
+    {
+      "id": "tiles_wide",
+      "brandKind": "diagrammatic",
+      "name": "Tiling loop (wide)",
+      "author": "agent",
+      "render": "video",
+      "format": "mp4",
+      "aspect": "16:9",
+      "form": "tiles",
+      "durationSeconds": 12,
+      "available": true,
+      "budget": {
+        "fps": 30,
+        "frames": 360,
+        "viewport": 1280
+      }
+    },
+    {
       "id": "svg",
       "brandKind": "diagrammatic",
       "name": "Animated SVG",

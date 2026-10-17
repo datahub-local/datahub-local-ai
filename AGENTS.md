@@ -416,6 +416,19 @@ Seven structural things worth knowing before editing an export:
   input cardinality, so it is read off the connection graph or not at all. A
   node `notes` claiming otherwise is the same second-copy-of-a-decision problem
   as a comment beside a value, and drifted the same way.
+- **A sub-workflow's response is its last node's *last run*, so a caller cannot receive two
+  branches' items from one call.** `Visual Studio` answers with one item per asset branch —
+  `merge_branches` is a Merge v3 whose append mode runs once per arriving branch, so `set_result`
+  runs per branch and each item's `ASSETS` holds one asset. Two of them exist in the studio's own
+  execution, and the caller sees **one**: the other branch's item never leaves the sub-workflow.
+  Measured 2026-10-17 on the article flow — the studio authored and rendered both assets
+  (execution 13722, `svg_wide` stored at `visual-studio/13722-svg_wide.svg`) while the caller
+  received a single asset (execution 13720) and the publish gate reported `svg_wide=MISSING`. The
+  fix is one call per type (`split_pending_types` in the article flow fans the pending set out to
+  one item per type, and the studio call reads `$json.ASSET_TYPE`), not a caller that reads more
+  items: there is nothing more to read. A Merge cannot express the join either — append runs per
+  input and `combine` merges fields rather than listing items — so a multi-type caller is a
+  per-type caller.
 - **An agent's tool node must implement `execute`, and the obvious node does not.** n8n's v3
   agent hands a tool call to the workflow engine, which runs the node through its own executor,
   so a tool node carrying only `supplyData` fails on **every** call with `The node
@@ -485,11 +498,14 @@ Seven structural things worth knowing before editing an export:
 
 One workflow turns a source text into visual assets, driven by the type registry
 `agents/n8n/datasets/visual_types.json`. Adding a type is a change to that file, not a
-branch in the graph. Nine types: `image` (authored by the Gemini image model, png),
+branch in the graph. Eleven types: `image` (authored by the Gemini image model, png),
 `image_wide` (the same raster at 16:9), `animation` (authored by the composer agent, mp4),
 `animation_linkedin` (authored by the composer agent, gif, inside LinkedIn's GIF cap),
 `animation_linkedin_video` (authored by the composer agent, mp4, at the feed's 4:5 aspect),
-`svg` (authored by the composer agent, a self-contained animated SVG), `svg_wide` (the same
+`tiles` (authored by the composer agent, a looping tiled pattern drawn by a seeded walk, mp4
+at the feed's aspect; a pattern is not a sequence, so it declares no per-scene floor),
+`tiles_wide` (the same loop at 16:9), `svg` (authored by the composer agent, a self-contained
+animated SVG), `svg_wide` (the same
 animated SVG at 16:9), `deck` (authored by the composer agent, a self-contained HTML
 presentation that the same run also renders to mp4) and `launch_card` (authored by the
 composer agent, a still png at the announcement frame). A type declares its `brandKind`
@@ -623,12 +639,16 @@ than `PI_RENDER_SESSION_TTL_DAYS` (default 7, matching the prune window below; `
 on startup and throttled after each turn, never the session in flight.
 `openspec/changes/add-visual-studio-iteration/` is the record.
 
-**FORCE and STYLE.** `FORCE` is `auto | diagram | story | data | poster | code | chart | timeline | quote | ui | manga | retro | launch`;
+**FORCE and STYLE.** `FORCE` is `auto | diagram | story | data | poster | code | chart | timeline | quote | ui | manga | retro | launch | tiles`;
 `auto` lets the composer choose the form, anything else pins it, and a forced form is honoured or
 reported, never silently replaced. The vocabulary is one committed file, `prompts/visual_forms.md`,
 fetched by the studio (into the brief) and by the curator (into the judge prompt as `{{ FORMS }}`),
 so the judge that overrides a hook's default and the composer that builds it read the same
-definitions. `STYLE` names a brand scheme (`dark | light`). `FORCE`
+definitions — but the **enum** is duplicated into the graph, so adding a form is a registry *and*
+graph change, not a prompt push: `normalize_input`'s `const FORCES` and the curator's `parse_judge`
+and `parse_judge_backfill` `const FORMS` must carry the new name, and `test_hook_registry.py` and
+`test_visual_studio_graph.py` fail until all three do. A missed copy is loud at run time as well —
+`normalize_input` refuses a `FORCE` its enum lacks, naming the value. `STYLE` names a brand scheme (`dark | light`). `FORCE`
 is validated in `normalize_input`, which is where a fixed enum belongs; `STYLE` is resolved
 and validated in `brand_tokens`, because the scheme names are data in `brand.json` and a
 hardcoded default would be a second copy of that decision. An unknown value in either

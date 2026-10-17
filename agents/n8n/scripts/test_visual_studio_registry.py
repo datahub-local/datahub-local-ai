@@ -51,6 +51,8 @@ def test_the_registry_declares_the_expected_types(registry):
         "animation",
         "animation_linkedin",
         "animation_linkedin_video",
+        "tiles",
+        "tiles_wide",
         "svg",
         "svg_wide",
         "deck",
@@ -153,6 +155,26 @@ def test_the_linkedin_video_type_is_the_feed_frame(registry):
     assert entry["durationSeconds"] == VIDEO_FLOOR_SECONDS
     assert entry["budget"]["frames"] == entry["durationSeconds"] * entry["budget"]["fps"]
     assert entry["secondsPerScene"] == SCENE_SECONDS
+
+
+def test_the_tiling_types_are_a_seeded_loop_pair(registry):
+    """A tiling is one continuous field, not a sequence: no scene floor and no hold, and a
+    length that follows the declared rate. The pair is the frame, so the feed's 4:5 and a
+    wide surface are two ids rather than one type a caller then crops."""
+    for tid, aspect, viewport in (("tiles", "4:5", 1080), ("tiles_wide", "16:9", 1280)):
+        entry = next(t for t in registry["types"] if t["id"] == tid)
+        assert entry["form"] == "tiles", tid
+        assert entry["author"] == "agent", tid
+        assert entry["render"] == "video", tid
+        assert entry["format"] == "mp4", tid
+        assert entry["aspect"] == aspect, tid
+        assert entry["budget"]["viewport"] == viewport, tid
+        assert entry["durationSeconds"] > 0, f"{tid} declares no duration"
+        assert entry["budget"]["frames"] == entry["durationSeconds"] * entry["budget"]["fps"], tid
+        # A pattern has no scenes to give a floor to, and nothing may require the frame to
+        # stop; the clip's length is its declared duration whatever the caller's SCENES.
+        assert "secondsPerScene" not in entry, f"{tid} gives a scene a floor"
+        assert "holdSeconds" not in entry, f"{tid} mandates a frozen final frame"
 
 
 @pytest.mark.parametrize("tid", ["animation", "animation_linkedin_video", "deck"])

@@ -116,11 +116,24 @@ def test_the_rendered_asset_is_the_only_thing_that_gets_reviewed():
 
 
 def test_a_resumed_asset_phase_asks_only_for_the_pending_types():
+    # The pending set is resolved once, in the splitter, and the studio is then called with
+    # one type per call. The studio cannot answer a two-type request with two assets: a
+    # sub-workflow's response is its last node's last run, so the other branch's item is
+    # dropped inside n8n (measured 2026-10-17, executions 13722 and 13720).
     studio = _nodes()["execute_visual_studio"]["parameters"]["workflowInputs"]["value"]
-    assert "PENDING_ASSETS" in studio["ASSET_TYPES"]
+    assert studio["ASSET_TYPES"] == "={{ $json.ASSET_TYPE }}"
+    code = _js("split_pending_types")
+    assert "PENDING_ASSETS" in code and "ASSET_TYPE: type" in code
+    assert _targets("read_draft_for_assets") == ["split_pending_types"]
+    assert _targets("split_pending_types") == ["execute_visual_studio"]
+    # The retry path re-asks too, and it must not bypass the splitter: a retry that sent the
+    # whole pending set would lose every asset but the last one again.
+    assert _targets("switch_asset_retry", 0) == ["split_pending_types"]
     # The draft comes from the Data Table, not from a node that did not run in this execution.
     assert studio["CONTENT"] == "={{ $('read_draft_for_assets').first().json.ARTICLE_TEXT }}"
-    assert studio["SESSION_ID"] == "={{ 'blog-' + $('select_article_to_queue').item.json.ENTRY_ID }}"
+    # The row fields ride on the item rather than through `$('node').item`, which a fan-out
+    # from one item to many no longer pairs.
+    assert studio["SESSION_ID"] == "={{ 'blog-' + $json.ENTRY_ID }}"
 
 
 def test_the_publish_path_owns_its_own_reads():
@@ -254,12 +267,12 @@ def test_the_blocked_publish_reports_instead_of_ending_the_run():
 
 def test_the_hero_every_run_asks_for_is_the_wide_frame():
     # The article's hero is the wide raster; the LinkedIn types stay 4:5 for their own
-    # platform. The fallback in the studio call is the pair, not the old portrait types.
+    # platform. The fallback the splitter uses when a row names nothing is the wide one.
     assert "['image_wide', ...list]" in _js("select_article_to_queue")
     assert "['image_wide', ...requested]" in _js("if_all_assets_approved")
-    studio = _nodes()["execute_visual_studio"]["parameters"]["workflowInputs"]["value"]["ASSET_TYPES"]
-    assert "'image_wide,svg_wide'" in studio
-    assert "'image,svg'" not in studio
+    code = _js("split_pending_types")
+    assert "'image_wide'" in code
+    assert "'image,svg'" not in code
 
 
 def test_the_only_continue_regular_output_is_normalised_downstream():

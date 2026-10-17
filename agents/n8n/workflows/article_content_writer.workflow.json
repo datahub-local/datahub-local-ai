@@ -346,7 +346,7 @@
       "main": [
         [
           {
-            "node": "execute_visual_studio",
+            "node": "split_pending_types",
             "type": "main",
             "index": 0
           }
@@ -525,7 +525,7 @@
       "main": [
         [
           {
-            "node": "execute_visual_studio",
+            "node": "split_pending_types",
             "type": "main",
             "index": 0
           }
@@ -873,6 +873,17 @@
         [
           {
             "node": "read_asset_rows_for_publish",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "split_pending_types": {
+      "main": [
+        [
+          {
+            "node": "execute_visual_studio",
             "type": "main",
             "index": 0
           }
@@ -3045,13 +3056,13 @@
           "mappingMode": "defineBelow",
           "value": {
             "CONTENT": "={{ $('read_draft_for_assets').first().json.ARTICLE_TEXT }}",
-            "ASSET_TYPES": "={{ $('select_article_to_queue').item.json.PENDING_ASSETS || $('select_article_to_queue').item.json.ASSET_TYPES || 'image_wide,svg_wide' }}",
+            "ASSET_TYPES": "={{ $json.ASSET_TYPE }}",
             "FEEDBACK": "={{ $('notification_retry_or_cancel_asset').isExecuted ? ($('notification_retry_or_cancel_asset').last().json.data.Feedback || '') : '' }}",
             "FORCE": "",
             "STYLE": "",
             "SCENES": "",
-            "EXTRA_PROMPT": "={{ $('select_article_to_queue').item.json.EXTRA_PROMPT || '' }}",
-            "SESSION_ID": "={{ 'blog-' + $('select_article_to_queue').item.json.ENTRY_ID }}"
+            "EXTRA_PROMPT": "={{ $json.EXTRA_PROMPT || '' }}",
+            "SESSION_ID": "={{ 'blog-' + $json.ENTRY_ID }}"
           },
           "matchingColumns": [],
           "schema": [],
@@ -5039,6 +5050,19 @@
         "otherOptions": {
           "includeLinkToWorkflow": true
         }
+      }
+    },
+    {
+      "id": "d63e1a99-4f73-4c5d-b132-9e7f0c4a8b53",
+      "name": "split_pending_types",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1456,
+        288
+      ],
+      "parameters": {
+        "jsCode": "// One studio call per pending type. The studio answers with one asset per response item and\n// a sub-workflow's response is its last node's LAST run, so a two-type request reaches the\n// caller as a single asset -- the other branch's item is dropped inside n8n. Measured\n// 2026-10-17: the studio authored and rendered both (execution 13722, `svg_wide` stored at\n// `visual-studio/13722-svg_wide.svg`) and the caller received one asset (execution 13720),\n// so the publish gate reported `svg_wide=MISSING`. One call per type keeps every asset:\n// each call has one branch, one response item, and one asset in it.\nconst row = $('select_article_to_queue').first().json;\nconst draft = $('read_draft_for_assets').first().json;\nconst pending = String(row.PENDING_ASSETS || row.ASSET_TYPES || 'image_wide')\n  .split(',').map((s) => s.trim()).filter(Boolean);\nif (!pending.length) throw new Error('no asset type is pending for row ' + row.row_number);\nreturn pending.map((type) => ({ json: {\n  ...row,\n  ...draft,\n  ASSET_TYPE: type,\n  ROUND: Number(row.ARTICLE_ROUND || 0) + 1,\n} }));\n"
       }
     }
   ],

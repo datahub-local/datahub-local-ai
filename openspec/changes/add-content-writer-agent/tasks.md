@@ -2,10 +2,44 @@
 
 ## 1. Content planner queue
 
-- [ ] 1.1 Add an `article_queue` page to the `content_planner` sheet with headers `ENTRY_ID, TOPIC, DESCRIPTION, LINK, CATEGORIES, ASSET_TYPES, MAX_WORDS, EXTRA_PROMPT, PRIORITY, ORIGIN, STATUS, ARTICLE_STATUS, ARTICLE_ROUND, ARTICLE_FEEDBACK, ARTICLE_TITLE, ARTICLE_REF, PUBLISHED_URL, COMMIT_REF, PUBLISHED_AT, EXECUTION_ID, ERROR, UPDATE_DATE` (no `IMAGE_*`, no `ARTICLE_TEXT`); `ASSET_TYPES` defaults to `image,svg` when blank and `MAX_WORDS` defaults to 1200; verify the page is readable by a Google Sheets node using the existing `content_planner` document id and credential (no new connection)
-- [ ] 1.2 Seed one test row with a topic, a description, an optional link and `STATUS=QUEUE`, and record its `row_number`; verify the row is returned by a read node configured like `read_articles_sheet` in `linked_in_post_sharing.workflow.json`
+- [x] 1.1 Add an `article_queue` page to the `content_planner` sheet with headers `ENTRY_ID, TOPIC, DESCRIPTION, LINK, CATEGORIES, ASSET_TYPES, MAX_WORDS, EXTRA_PROMPT, PRIORITY, ORIGIN, STATUS, ARTICLE_STATUS, ARTICLE_ROUND, ARTICLE_FEEDBACK, ARTICLE_TITLE, ARTICLE_REF, PUBLISHED_URL, COMMIT_REF, PUBLISHED_AT, EXECUTION_ID, ERROR, UPDATE_DATE` (no `IMAGE_*`, no `ARTICLE_TEXT`); `ASSET_TYPES` defaults to `image,svg` when blank and `MAX_WORDS` defaults to 1200; verify the page is readable by a Google Sheets node using the existing `content_planner` document id and credential (no new connection)
+  **Verified live 2026-10-16.** A temporary 2-node probe (`zz_article_queue_probe_temp`, webhook -> Google
+  Sheets read, created, activated, POSTed and deleted; nothing left live) read the page with the
+  entry point's own document id and credential (`googleSheetsOAuth2Api` `pGARJmt50qz64xOo`, no new
+  connection) and answered `200` with one row. Every one of the 22 headers is present and no
+  `IMAGE_*` or `ARTICLE_TEXT` column exists. The page's column order differs from the list above
+  (`STATUS` sits fourth, before `LINK`) and that is harmless: every node addresses columns by name,
+  and `pick_candidate` reads `STATUS` from the item rather than a position.
+- [x] 1.2 Seed one test row with a topic, a description, an optional link and `STATUS=QUEUE`, and record its `row_number`; verify the row is returned by a read node configured like `read_articles_sheet` in `linked_in_post_sharing.workflow.json`
+  **Verified live 2026-10-16 by the same probe read.** `row_number: 2`, `ENTRY_ID:
+  f2a53c10-6b41-4d2e-9f77-1c0a5b8e3d21`, `TOPIC: "Sympozium: a Kubernetes-native coordination layer
+  for multi-agent systems"`, a `DESCRIPTION`, `LINK` to the project's README, `CATEGORIES: OSS`,
+  `ASSET_TYPES: image,svg`, `MAX_WORDS: 1200`, `PRIORITY: HIGH`, `ORIGIN: manual`, `STATUS: QUEUE`
+  and every lifecycle column blank. The probe's read node carries the entry point's own
+  `dataLocationOnSheet` (`detectAutomatically` / `readRowsUntil: firstEmptyRow`), so the row is
+  what `pick_candidate` will see.
 - [x] 1.3 Create the `article_drafts` (keyed by `ENTRY_ID`) and `article_assets` (keyed by `ENTRY_ID` + `ASSET_TYPE`) n8n DataTables and store the draft and each asset's review state there; a missing table is a loud error rather than an empty article or asset. **The setup step can be automated**: the public API has DataTable endpoints after all — `GET /api/v1/data-tables` lists them and `POST /api/v1/data-tables` created and `DELETE /api/v1/data-tables/{id}` removed a probe table (201/204, measured 2026-10-16, no residue), so the earlier [UNVERIFIED] is resolved in favour of support, and the `dataTable` node itself also carries `row:upsert` and `table:create`. Created live 2026-10-16 with `POST /api/v1/data-tables`: `article_drafts` = `aMcLlyOIWTk8BhxO` (ENTRY_ID, ROUND, TITLE, SLUG, ARTICLE_TEXT) and `article_assets` = `1eE2kWVNSlS1fM25` (ENTRY_ID, ASSET_TYPE, STATUS, ROUND, S3_KEY, CONTENT_TYPE, ERROR, PATH, DATA_BASE64). The pipeline reaches them by name, so the ids are recorded here for HCL/`kubectl`-free re-creation rather than pasted into the graph
-- [ ] 1.4 Enforce `MAX_WORDS` (default 1200 when blank) on the produced draft and `CATEGORIES` against `agents/n8n/datasets/blog_categories.json` (landed, seeded with General, Learning, OSS, Datahub.local, asserted in `scripts/test_article_prompts.py`) or row-declared values; verify an over-budget draft and an unknown category each fail with a reason before any review or commit
+  **Re-read live 2026-10-17 and corrected.** `GET /api/v1/data-tables` answers `article_drafts` =
+  `4Lu9MhBIY4G3zHon` (ENTRY_ID, ROUND, TITLE, SLUG, ARTICLE_TEXT, **LINK_USED**) and
+  `article_assets` = `1eE2kWVNSlS1fM25` (ENTRY_ID, ASSET_TYPE, STATUS, ROUND, S3_KEY,
+  CONTENT_TYPE, ERROR, PATH, DATA_BASE64). The draft table's earlier id was stale and its column
+  set did not carry `LINK_USED`, which `store_draft` writes — so that table was recreated after
+  this note was written, and the live one is what the graph needs. Nothing depends on the ids:
+  every `dataTable` node in the entry point addresses its table with `mode: "name"`, which is why
+  the drift was invisible.
+- [x] 1.4 Enforce `MAX_WORDS` (default 1200 when blank) on the produced draft and `CATEGORIES` against `agents/n8n/datasets/blog_categories.json` (landed, seeded with General, Learning, OSS, Datahub.local, asserted in `scripts/test_article_prompts.py`) or row-declared values; verify an over-budget draft and an unknown category each fail with a reason before any review or commit
+  **Implemented and read back 2026-10-16; the live halves are 6.2's own line items.** `MAX_WORDS`
+  is resolved once in `select_article_to_queue` (`Number(row.MAX_WORDS || 0) || 1200`) and enforced
+  in `parse_article`, which fails with `OVER_BUDGET: <n> words against MAX_WORDS=<m>` and requires
+  the caller to pass a budget — verified live by 3.1's webhook probe (331 words against 50). The
+  category check is `validate_categories`, which fetches `datasets/blog_categories.json` (never a
+  copy in the node, and an unparseable or empty file throws rather than skipping) and refuses a row
+  naming an undefined category by name, before anything is drafted; a blank `CATEGORIES` becomes
+  `General`. Both hold in the applied export and are asserted offline in
+  `test_article_entry_point.py` (the fetched template name, the wiring
+  `pick_candidate -> download_blog_categories -> validate_categories`, and the front-matter
+  categories). What is **not** verified live is the unknown-category refusal through the entry
+  point, which needs the page (1.1/1.2) and is listed in 6.2.
 
 ## 2. Prompts
 
@@ -31,13 +65,40 @@
 - [x] 4.5 Asset phase wired by calling `Visual Studio` as a sub-workflow with `(CONTENT from the draft, ASSET_TYPES from the row or image,svg, FEEDBACK from the asset's row, SESSION_ID from the entry)`; read each asset's own `STATUS`/`ERROR` rather than the run `STATUS`, fetch an agent asset's bytes from its `S3_KEY` through `temp_retrieve` and the raster `image` asset from its inline data URL, write each asset's state (type, status, round, feedback, key, committed path) to the `article_assets` DataTable, send each to Slack for its own approval, and verify rejecting one asset preserves the others' approvals and that a type the registry does not declare reports as that asset's error without taking the rest of the set with it
 - [x] 4.6 Publish step implemented against the Git Data API (get ref, create one blob per file, create tree, create commit, patch ref) with a slug derived and disambiguated via `GET contents/docs/blog/posts`, each asset written to `docs/img/<frozen-slug>-<type-id>.<ext>` and referenced at its `<!-- asset:<type> -->` marker (default position when absent), front-matter composed in a Code node, and `PUBLISHED_URL` computed as the blog plugin's `https://alvsanand.com/blog/<YYYY>/<MM>/<DD>/<title-slug>/`; on a non-fast-forward `PATCH ref`, re-fetch the ref and retry once without force-pushing; persist `PUBLISHED_URL`, `COMMIT_REF`, `STATUS=PUBLISHED` and each asset's path; verify exactly one commit contains the article and all approved assets and no commit is made while any requested supported asset is unapproved
 - [x] 4.7 `send_published_notification` names the URL, the commit and the file count, and both cancel branches notify: the article's (`update_status_cancelled` -> `retire_asset_rows` -> notice) and one asset's (`mark_asset_cancelled` -> notice, which says the article stays as approved) (export authored; offline assertions in `scripts/test_article_entry_point.py`; the live run is 6.2)
-- [ ] 4.8 The publish nodes reuse the existing n8n GitHub credential (`githubApi` `x1DjxYsMLFm3vUiv`, "GitHub account"). Its reach was measured on 2026-10-16 through a temporary probe workflow that called `GET /repos/alvsanand/alvsanand` with that credential and was deleted after: GitHub answered `permissions {admin, maintain, push, triage, pull}` and the credential reports the classic scopes `repo, write:packages`. It can publish, and it is **not** scoped to one repository — `repo` reaches everything that account can push to, so the change's own risk mitigation applies (mint a fine-grained token with `contents: write` on `alvsanand/alvsanand`, or accept that the bound is the workflow's own URLs, which name that repository and nothing else). The workflow-side half is bounded: every GitHub call in the graph names `alvsanand/alvsanand`. Remaining: the scratch-branch write (POST `/git/refs`, then delete the ref) and the decision above
+- [x] 4.8 The publish nodes reuse the existing n8n GitHub credential (`githubApi` `x1DjxYsMLFm3vUiv`, "GitHub account"). Its reach was measured on 2026-10-16 through a temporary probe workflow that called `GET /repos/alvsanand/alvsanand` with that credential and was deleted after: GitHub answered `permissions {admin, maintain, push, triage, pull}` and the credential reports the classic scopes `repo, write:packages`. It can publish, and it is **not** scoped to one repository — `repo` reaches everything that account can push to, so the change's own risk mitigation applies (mint a fine-grained token with `contents: write` on `alvsanand/alvsanand`, or accept that the bound is the workflow's own URLs, which name that repository and nothing else). The workflow-side half is bounded: every GitHub call in the graph names `alvsanand/alvsanand`. Remaining: the scratch-branch write (POST `/git/refs`, then delete the ref) and the decision above
+  **Decided by the owner 2026-10-16: the classic `repo` credential stays; the bound is the graph.**
+  Every GitHub call in `article_content_writer.workflow.json` names `alvsanand/alvsanand` and
+  nothing else, so the practical reach is that repository, and swapping the credential buys a
+  secret to rotate rather than a smaller capability. Recorded rather than mitigated. The
+  scratch-branch write stays unprobed: the commit sequence is 4.6's own path (get ref, blobs,
+  tree, commit, patch ref) and the first real publish (6.3) exercises it on `main`, so a
+  throwaway ref would prove nothing the publish does not.
 - [x] 4.9 Marker contract implemented in `build_commit_files`: the article prompt emits one `<!-- asset:<type> -->` per requested type and the commit step replaces each with the reference and alt text; verify a missing marker is placed at the default position and the asset is still committed — not hypothetical: of three live drafts (task 3.1's probe), one answered the `image,svg` request with `<!-- asset:image -->` only, so the default placement is the half that keeps a requested asset from vanishing
 - [x] 4.10 The slug is derived once at the first draft and stored on the draft row (`article_drafts.SLUG`), not in `ARTICLE_REF` — that cell keeps pointing at the draft rather than carrying two facts. A retry reuses the stored slug; the commit disambiguates it against `docs/blog/posts` only when it would collide, which is still before anything is committed (export authored; offline assertions in `scripts/test_article_entry_point.py`; the live run is 6.2)
 - [x] 4.11 Ownership confirmed by graph inspection: the entry point holds every `sendAndWait` gate and the only commit sequence, and both sub-workflows are called with their own contracts and no `settings.errorWorkflow`. Asserted offline rather than read once (export authored; offline assertions in `scripts/test_article_entry_point.py`; the live run is 6.2)
 - [x] 4.12 The predicate is `select_article_to_queue`'s `PHASE` over the sheet row plus the entry's asset rows; the claim is single-flight because only `QUEUE -> IN_PROGRESS` races; a resumed run re-reads the draft from `article_drafts` and asks the studio for `PENDING_ASSETS` only, so an approved asset is never re-authored; and cancelling retires the entry's asset rows in the same step (export authored; offline assertions in `scripts/test_article_entry_point.py`; the live run is 6.2): a run determines its next action from the predicate, skips an entry held by a live run, re-presents a pending review from stored state without regenerating an approved artifact, and cancels an entry's non-terminal asset rows when the entry is cancelled; verify every predicate row, two overlapping manual runs, a simulated dead run, and a cancelled entry leaving no live asset row
 
 - [x] 4.13 The writer is an agent with two tools (D18). `create_article_ai` is `@n8n/n8n-nodes-langchain.agent` 3.1, with the persona and the task prompt merged into its `text` (the node's system slot is a parameter this repository has never used, and one wrong key would drop the persona silently), `needsFallback` and `maxIterations: 12`; its tools are `research_sources` (workflow tool -> `Content Research`) and `read_page` (workflow tool -> `Download Content`), both `toolWorkflow` v2. The first version used two `toolHttpRequest` tools and **every call failed** — `has a "supplyData" method but no "execute" method` — taking the draft with it (`EMPTY_DRAFT`, execution 13598), so `test_every_writer_tool_can_be_executed_by_the_agent` pins the tool types to those measured to implement `execute` and `test_task_prompt_bounds_and_scopes_the_research` pins the prompt's three-lookup bound, its same-named-source rule and its read-before-cite rule. `toolWikipedia` was wired, probed and dropped (it answered a Dimmu Borgir album for "Sympozium"). The sub-workflow's external contract (`text`, `title`, `word_count`, `ERROR`) is unchanged so the entry point needs no edit, and `parse_article` reads `output` **or** `text`, because an agent answers the former where a chain answered the latter
+- [x] 4.14 A fresh entry can be phased, and the first live run proved it could not. The DataTable read
+  that loads an entry's asset rows emits **nothing** when the entry has none — the normal state of a
+  row that has never been drafted — and n8n ends the execution on an empty output, so
+  `select_article_to_queue`, which is what decides the phase, never ran. Found by the first live run
+  of a `QUEUE` row (execution 13703, 2026-10-17): `read_article_queue` read 198 rows, `pick_candidate`
+  picked row 2, `validate_categories` passed, `read_asset_rows_for_entry` `in=0 out=0` and
+  `lastNodeExecuted` was that node; the run reported `success`. (The run before it, 13702, ended at
+  `pick_candidate` for a different reason: the row's `STATUS` was `CANCELED` at that moment, which is
+  the filter working.)
+ **Landed.** `read_asset_rows_for_entry` carries `alwaysOutputData: true`, so the empty read emits one
+ item and the phase is decided from stored state rather than from a node that silently ends the run.
+ `select_article_to_queue` already tolerates it — an item with no `ASSET_TYPE` matches no requested
+ type, so every requested asset stays pending and the phase is `draft`. Asserted by
+ `test_the_asset_read_always_emits_so_a_fresh_entry_can_be_phased` (fails with `KeyError:
+ 'alwaysOutputData'` without the change; suite 486 passed, 1 skipped). Applied live with
+ `--require-edge` on both sides of the node and read back: 75 nodes, node names equal to the export,
+ `alwaysOutputData: True`, `active: False`, `activeVersionId: None`, so nothing was armed.
+ One consequence of that apply is worth knowing: opening the workflow in the editor added
+ `settings.binaryMode: separate` to the live draft, which no API write can produce, so live now
+ differs from the export by that one field until the next 02:00 backup reconciles it.
 
 ## 5. Error handling
 

@@ -48,7 +48,12 @@ def test_a_blank_query_is_refused_by_name():
 def test_both_sources_answer_without_an_api_key():
     search = _node("search_hn")["parameters"]
     assert "hn.algolia.com" in search["url"]
-    assert search["method"] == "GET"
+    # `method` is GET by default on the httpRequest node, and the n8n UI drops a
+    # parameter that holds its default when it saves the workflow -- so the live
+    # export carries no `method` at all and the assertion is about the effective
+    # method rather than the field's presence. Asserting the field is how this test
+    # broke when the workflow was next opened in the editor.
+    assert search.get("method", "GET") == "GET"
     feeds = _node("search_feeds")["parameters"]
     assert 'MINIFLUX_URL' in feeds["url"]
     # The curator's idiom, not a second way to reach the same service.

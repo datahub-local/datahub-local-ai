@@ -1020,6 +1020,7 @@
       "name": "read_asset_rows_for_entry",
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
+      "alwaysOutputData": true,
       "position": [
         1120,
         -192

@@ -152,9 +152,12 @@
  `a failed turn names the model endpoint and Pi's own reason` in `test/session-server.test.mjs`
  (the stub Pi fails on a `FAIL_PROBE` prompt): the test **fails without the change**
  (`Pi exited 9: noise before the reason / stream terminated by peer` — no endpoint) and passes
- with it. `node --test test/`: **44 pass, 0 fail**. The new image reaches the cluster only
- through CI's publish-and-pin (`.github/workflows/publish-images.yaml`), so until that run
- lands the live pod still carries the un-named message.
+ with it. `node --test test/`: **44 pass, 0 fail**. The image is **live**: CI's publish-and-pin
+ (`.github/workflows/publish-images.yaml`) committed `5d9a516`, ArgoCD synced
+ `datahub-local-ai-sympozium` to it, and the session Deployment now runs
+ `…-pi-render-adapter@sha256:5c825cb8…` (pod restarted 20:51 UTC) — read back from the pod,
+ `/usr/local/bin/sympozium-pi-render-session` carries `piFailure` and the `calling <endpoint>`
+ message, with the D3 `settings.json` unchanged.
 - [ ] 4.3 Exercise the failure branch end to end: an animation that fails inside the studio
   reaches one bounded Slack form naming the reason; an answer of "re-author" runs a second turn
   with the reason as feedback and the same session; no answer takes the still image and the post

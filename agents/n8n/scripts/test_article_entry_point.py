@@ -199,6 +199,21 @@ def test_the_row_categories_are_checked_before_anything_is_drafted():    # The o
     assert _targets("validate_categories") == ["read_asset_rows_for_entry"]
 
 
+def test_the_asset_read_always_emits_so_a_fresh_entry_can_be_phased():
+    # A fresh entry has no asset rows, and the DataTable read then emits *nothing* --
+    # n8n ends the execution on an empty output, so the run stopped at this node and
+    # never reached `select_article_to_queue`, which is what decides the phase. Found
+    # live on 2026-10-17 (execution 13703: in=0 out=0, lastNodeExecuted this node) on
+    # the first run of a QUEUE row.
+    node = _nodes()["read_asset_rows_for_entry"]
+    assert node["alwaysOutputData"] is True
+    assert _targets("read_asset_rows_for_entry") == ["select_article_to_queue"]
+    # The consumer must survive the empty item that flag emits: it treats every input
+    # item as an asset row, and one with no ASSET_TYPE matches no requested type.
+    assert "ASSET_TYPE" in _js("select_article_to_queue")
+    assert "!hit" in _js("select_article_to_queue")
+
+
 def test_the_only_continue_regular_output_is_normalised_downstream():
     # A non-AI node forwards its input unchanged on failure, so the flag has to be set by a
     # following node rather than read off the failed one.

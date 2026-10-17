@@ -315,6 +315,22 @@ the script or the export, so `kubectl cp` them in (an `exec -i` stdin stream
 drops past ~8 KB, which silently truncates a `--changes` file), and the pod dies
 on `sleep` — recreate it rather than trusting an existing `n8n-apply`.
 
+**A probe workflow created active cannot be deleted until it is deactivated**, and
+the refusal names the reason: `DELETE /api/v1/workflows/{id}` answers `409 Cannot
+delete a published workflow. Unpublish it before deleting.` — `POST
+/api/v1/workflows/{id}/deactivate`, then `DELETE`, then read the id back to
+confirm it is gone. Measured 2026-10-16 deleting a temporary read probe, and the
+first attempt left it live because the delete was the only step that failed.
+
+**The public API cannot fire a manual trigger.** `POST
+/api/v1/workflows/{id}/test-runs` is the *evaluation* runner ("The workflow must
+contain a configured evaluation trigger") and there is no execute endpoint, so a
+workflow whose only triggers are a `manualTrigger` and a `scheduleTrigger` is
+started from the UI or by a temporary webhook workflow that calls it with
+`executeWorkflow` — the shape every live verification here has used. The full
+public API surface is readable from the running instance:
+`GET /api/v1/openapi.yml` (YAML, ~870 KB).
+
 **The API accepts no `settings.binaryMode`, on `POST` or on `PUT`** — the field is
 UI-only, so a create body copied from an export that carries it lands without it,
 and `--set-setting binaryMode=separate` reports `MISMATCH` because the value is
@@ -324,6 +340,24 @@ naming five, and the `PUT` that followed changed nothing. The `Visual Studio` an
 `LinkedIn Post Creator` exports carry it because both were edited in the UI; a
 workflow created through the API does not, and a create body should leave it out
 rather than promise a setting the API will drop.
+
+**The UI is a writer the API cannot mirror, so the nightly backup is the only
+reconciler.** Two directions, both measured on the 2026-10-17 backup, which
+rewrote eight exports after the workflows were opened in the editor:
+
+- **The UI drops a parameter that holds its default.** `search_hn`/`search_feeds`
+  lost `method: "GET"` and `Article Creator`'s two `toolWorkflow` nodes lost
+  `source: "database"` and `options: {}`. Nothing changed behaviour — those are the
+  defaults — but an offline test that asserts the *field* fails while the node is
+  correct, which is how `test_content_research.py` broke. Assert the effective
+  value (`search.get("method", "GET") == "GET"`), not its presence.
+- **The UI adds `settings.binaryMode`**, which no API write can produce or remove
+  (above). A workflow edited in the editor therefore reads as drift against its
+  export until the next backup, and `--set-setting` cannot close it.
+
+So an export is the backup's output, not a body to be hand-edited back: after a
+UI session the export is behind live until 02:00, and a test that pins a
+UI-owned field pins something the editor may rewrite at any time.
 
 Pair every change with `--require-edge 'src>dst'`. A change is argued from the
 graph — "these two nodes sit downstream of a per-item stream" — and the graph

@@ -43,6 +43,7 @@ import {
   DEFAULT_SESSION_WORKSPACE,
   DEFAULT_RETRY,
   agentSettings,
+  stillArgs,
 } from "./session-lib.mjs";
 
 const port = Number(process.env.SYMPOZIUM_SESSION_PORT || "8080");
@@ -343,6 +344,28 @@ function writeSSE(res, value) {
   if (!res.writableEnded) res.write(`data: ${JSON.stringify(value)}\n\n`);
 }
 
+// The stills of the render, produced here because the artifact is here and left in the run
+// directory for the studio to fetch. This server makes no model call: the review is the
+// workflow's, and all it needs from here is something to look at.
+async function makeStills(dir, { format, width, height, durationSeconds }) {
+  const f = safeFormat(format);
+  const jobs = stillArgs({ format: f, runDir: dir, width, height, durationSeconds });
+  if (!jobs.length) {
+    // A still png IS the still, and the launch card is one: nothing to sample.
+    return [artifactName(f)];
+  }
+  const names = [];
+  for (const job of jobs) {
+    try {
+      await runCommand(job.command, job.args, dir);
+      names.push(job.output);
+    } catch {
+      // one still that cannot be made does not fail the turn: the others still show it
+    }
+  }
+  return names;
+}
+
 // One turn at a time: Pi's session file is a shared resource and concurrent
 // turns against it interleave. The contract asks adapters to serialize.
 let queue = Promise.resolve();
@@ -393,6 +416,7 @@ http
       const format = safeFormat(request.format);
       const fps = Number(request.fps);
       const width = Number(request.width);
+      const height = Number(request.height);
       const frames = Number(request.frames);
       const durationSeconds = Number(request.durationSeconds);
       const stream = request.stream === true;
@@ -446,6 +470,10 @@ http
       // same run directory, before answering.
       await transcode(dir, format, { fps, width, frames, durationSeconds });
 
+      // Then hand back stills of it. The studio's critic looks at these; the review, its
+      // bound and its verdict belong to the workflow, not to this server.
+      const stills = await makeStills(dir, { format, width, height, durationSeconds });
+
       await sweepIfDue(sessionID);
 
       if (stream) {
@@ -456,6 +484,7 @@ http
           model: process.env.MODEL_NAME,
           choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
         });
+        // The stills are a field, not a chunk: the studio's own call is not a stream.
         if (!res.writableEnded) res.end("data: [DONE]\n\n");
         return;
       }
@@ -465,6 +494,7 @@ http
         created: Math.floor(Date.now() / 1000),
         model: process.env.MODEL_NAME,
         choices: [{ index: 0, message: { role: "assistant", content: response }, finish_reason: "stop" }],
+        stills,
       });
       res.writeHead(200, { "content-type": "application/json", "content-length": Buffer.byteLength(body) }).end(body);
     } catch (err) {

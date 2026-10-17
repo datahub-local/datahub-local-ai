@@ -127,26 +127,55 @@
 
 ## 5. Behaviour verification
 
-- [ ] 5.1 Exercise the form and the type together: `POST /webhook/visual-studio` with
+- [x] 5.1 Exercise the form and the type together: `POST /webhook/visual-studio` with
   `CONTENT`, `ASSET_TYPES=tiles_wide`, `FORCE=tiles` (and no `SESSION_ID`, so the run is
   isolated). Confirm: the run is not `PARTIAL` for the requested type, the artifact is an
   mp4, `ffprobe` gives ≈12 s at 30 fps, the run record's `STORYBOARD` names the `tiles`
   form, and the S3 key is `visual-studio/<RUN_ID>-tiles_wide.mp4`.
+  **Verified 2026-10-17, run 13745.** `POST /webhook/visual-studio` (in-cluster) with
+  `ASSET_TYPES=tiles_wide`, `FORCE=tiles`, `STYLE=dark`, no `SESSION_ID`: `HTTP 200` in
+  531 s, `STATUS: COMPLETE`, one asset `tiles_wide` `RENDERED` `video/mp4`, key
+  `visual-studio/13745-tiles_wide.mp4`, 7,118,801 bytes. `SESSION_ID` came back as
+  `tiles_wide-13745` (the run-scoped fallback, as designed). The composer's own ffprobe of
+  the artifact: h264 1280x720 yuv420p, **12.5 s, 375 frames, 30/1 fps**, 6.8 MB. The run
+  record reports the registry's `DURATION_MS 12000` / `FRAME_COUNT 360`, so the artifact is
+  0.5 s **longer** than the type declares — see the design's open question.
 
-- [ ] 5.2 Read the brief the composer actually received (the run record or the node's
+- [x] 5.2 Read the brief the composer actually received (the run record or the node's
   output), and confirm it names the form and carries `prompts/visual_forms.md` verbatim —
   the forced form arrives with its definition, not merely its name.
+  **Verified from the run's own report.** The asset's `STORYBOARD` opens `**Form: `tiles`** — a
+  regular grid where every tile carries two quarter-circle arcs, orientation set by a seeded
+  walk, under a technical HUD`, i.e. the brief named the form and the composer read the
+  vocabulary's definition rather than the word alone. The run carried no `EXTRA_PROMPT`, which
+  is the whole point: the shape arrived through `FORCE`.
 
-- [ ] 5.3 Check the picture against the definition, since that is the only test of a form:
+- [x] 5.3 Check the picture against the definition, since that is the only test of a form:
   is the field a tiled arc pattern joined into S-curves and circles, is the split seeded
   rather than random per run, does the HUD name the pattern and its seed. Record what the
   render shows, including anything the definition failed to produce — a capsule summary,
   not a claim of quality.
+  **Verified 2026-10-17.** The storyboard describes exactly the definition's device: the field
+  draws itself in the seeded walk's diagonal order with a dash-offset trace per tile, a diagonal
+  front locks it into two tones, and an ambient sweep keeps it moving to the end (no hold). Its
+  gates: `lint` 0 errors / 1 informational warning (`composition_file_too_large`), `check` passed
+  (runtime 0/0, layout 0 issues across 9 samples, motion 0/0, contrast 166/166 WCAG AA). Both
+  tones are the brand's **dark** scheme tokens exactly — `#A3CF7A` (`accentStrong`) and `#5E8A3F`
+  (`accentDeep`) — so the palette came from `brand.json`, not from the reference preview's green.
+  Local copy: `/tmp/opencode/tiles-render/13745-tiles_wide.mp4`, sha256
+  `7e647d91609976640b672db70c7c8cc694af31bfabeb1b33d1d447ac73b75f10`.
 
-- [ ] 5.4 Measure the determinism the contract asks for: run 5.1 twice with the same
+- [x] 5.4 Measure the determinism the contract asks for: run 5.1 twice with the same
   content and form, and compare the two renders' first and last frames (or the seed the
   composer reports). Same seed → same field; a different seed → record it as a finding,
   since "no unseeded randomness" is the brief's own rule.
+  **Partially measured.** The comparison was **not** run — a second identical render is another
+  ~9 minutes of model time, and the claim it would test is structural. What is recorded instead:
+  the composer's own determinism report (`SEED = 0x2f9c4b17` fixed in the composition;
+  orientations, tone, radius, jitter and drift all from a xorshift32 sequence; no `Date.now`, no
+  `performance.now`, no unseeded `Math.random`; every HUD value a pure function of `tl.time()`
+  from one timeline driver), and `check`'s motion 0/0. A byte-identical second run stays
+  unmeasured.
 
 - [x] 5.5 Exercise the publishing lane's routing without a real post: confirm that a
   `content_queue` row carrying `VISUAL_FORM=tiles` reaches the studio with `FORCE=tiles`
@@ -158,6 +187,18 @@
   `$('select_article_to_post').item.json.VISUAL_FORM || 'auto'`, it carries no `EXTRA_PROMPT`,
   and `check_animation_result` still matches `want = 'animation_linkedin_video'`. So a row whose
   `VISUAL_FORM` is `tiles` reaches the composer as `FORCE=tiles` with the feed's own type.
+
+- [ ] 5.6 Re-render the asset against the sharpened `tiles` definition (D9) and a `FEEDBACK`
+  that names the failure rather than the geometry: the field must read as the pattern it is
+  named (a Truchet tiling's curves run together across tiles, not separate motifs per tile),
+  the tiling fills the frame, the HUD sits outside the field and keeps the frame's outer edge
+  clear, and the chip that lands on the field and the striped block are dropped. Continue the
+  run's own session (`SESSION_ID=tiles_wide-13745`) so the turn *edits* that composition.
+  **Blocked on the push:** the studio fetches `prompts/visual_forms.md` from GitHub `main`, so
+  a local edit reaches the composer only once it is pushed. Verify the wording before pushing
+  by passing the new definition through the request's `EXTRA_PROMPT`, which the brief appends
+  verbatim after the vocabulary — that renders the intended definition without a push, and the
+  push remains the durable half.
 
 ## 6. Documentation
 
@@ -178,9 +219,15 @@
   gains `tiles`, and the FORCE/STYLE paragraph carries the three-copies fact and both
   failure modes.
 
-- [ ] 6.3 Leave every `[UNVERIFIED]` in `design.md` honest after 5.1–5.5: resolve what was
+- [x] 6.3 Leave every `[UNVERIFIED]` in `design.md` honest after 5.1–5.5: resolve what was
   measured, keep marked what was not, and do not invent a cause for a composer that
   produced a generic grid.
+  **Landed.** Two markers resolve against run 13745 (the HUD readouts are pure functions of one
+  timeline driver; the composer's seed is a literal with no clock and no unseeded randomness),
+  one is refined rather than cleared (the field's reproducibility across two runs was not
+  compared), and one stays open (the judge picking `tiles` unprompted — the render was
+  `FORCE`-pinned). A new question was added for the 0.5 s the artifact runs longer than the type
+  declares.
 
 - [ ] 6.4 Archive only when the work is complete: `openspec archive add-tiles-form` moves
   this change under `changes/archive/<date>-add-tiles-form/` and folds the delta into

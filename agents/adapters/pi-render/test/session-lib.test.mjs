@@ -18,6 +18,7 @@ import {
   compositionMarker,
   turnInstruction,
   sessionIdFromTranscript,
+  stillArgs,
   expiredRunDirs,
   expiredTranscripts,
   VENDOR_ASSETS,
@@ -255,4 +256,45 @@ test("this module depends on nothing but node builtins", async () => {
   for (const spec of imports) {
     assert.ok(spec.startsWith("node:"), `${spec} is not a node builtin`);
   }
+});
+
+
+test("stillArgs screenshots an authored document at the declared frame", () => {
+  const [svg] = stillArgs({ format: "svg", runDir: "/runs/x", width: 1280, height: 720 });
+  assert.equal(svg.command, "chromium");
+  assert.ok(svg.args.includes("--window-size=1280,720"));
+  assert.ok(svg.args.some((a) => a.startsWith("--screenshot=/runs/x/")));
+  assert.ok(svg.args.includes("file:///runs/x/out.svg"));
+  assert.equal(svg.mime, "image/png");
+  // A deck is authored as html, and its still is that page.
+  const [deck] = stillArgs({ format: "html", runDir: "/runs/x", width: 1280, height: 720 });
+  assert.ok(deck.args.includes("file:///runs/x/out.html"));
+});
+
+test("stillArgs samples a clip and always includes its final frame", () => {
+  const jobs = stillArgs({ format: "mp4", runDir: "/runs/x", width: 1280, durationSeconds: 30 });
+  assert.deepEqual(jobs.map((j) => j.output), ["review-1.jpg", "review-2.jpg", "review-3.jpg", "review-final.jpg"]);
+  assert.ok(jobs.every((j) => j.command === "ffmpeg" && j.mime === "image/jpeg"));
+  // The offsets are the declared duration's, and the last frame is seeked from the end.
+  assert.ok(jobs[0].args.includes("7.5"), "a quarter of thirty seconds");
+  assert.ok(jobs[3].args.includes("-sseof"), "the final frame is not a timestamp guess");
+  // A clip whose duration is unknown still yields its final frame rather than nothing.
+  const bare = stillArgs({ format: "gif", runDir: "/runs/x" });
+  assert.equal(bare.length, 1);
+  assert.equal(bare[0].output, "review-final.jpg");
+});
+
+test("stillArgs asks for no still when the artifact is one", () => {
+  assert.deepEqual(stillArgs({ format: "png", runDir: "/runs/x", width: 1280 }), []);
+});
+
+test("the artifact route serves the stills beside the artifact, and nothing else", () => {
+  const ws = "/tmp/aivideo";
+  assert.ok(resolveArtifact(ws, "s", "out.svg"));
+  assert.ok(resolveArtifact(ws, "s", "review-1.png"), "a document's still is served");
+  assert.ok(resolveArtifact(ws, "s", "review-final.jpg"), "a clip's last frame is served");
+  assert.equal(resolveArtifact(ws, "s", "review-1.html"), null, "only the stills, not any name");
+  assert.equal(resolveArtifact(ws, "s", "prompt.txt"), null);
+  assert.equal(contentTypeFor("review-final.jpg"), "image/jpeg");
+  assert.equal(contentTypeFor("review-1.png"), "image/png");
 });

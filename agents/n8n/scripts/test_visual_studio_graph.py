@@ -81,7 +81,69 @@ def test_the_agent_branch_reaches_the_merge(label, doc):
     assert _targets(doc, "if_deck", 0) == ["store_paired_artifact"]
     assert _targets(doc, "if_deck", 1) == ["agent_result"]
     assert _targets(doc, "store_paired_artifact", 0) == ["agent_result"]
-    assert _targets(doc, "agent_result", 0) == ["merge_branches"]
+    # The asset is reviewed before it is offered: the review is this workflow's, not the
+    # session's, and its clear path is what reaches the merge.
+    assert _targets(doc, "agent_result", 0) == ["prepare_stills"]
+    assert _targets(doc, "prepare_stills", 0) == ["if_stills"]
+    assert _targets(doc, "if_stills", 0) == ["fetch_still"]
+    assert _targets(doc, "if_stills", 1) == ["merge_branches"], "no still is a review that did not run"
+    assert _targets(doc, "fetch_still", 0) == ["encode_stills"]
+    assert _targets(doc, "encode_stills", 0) == ["critique"]
+    assert _targets(doc, "critique", 0) == ["parse_verdict"]
+    assert _targets(doc, "parse_verdict", 0) == ["if_review_findings"]
+    assert _targets(doc, "if_review_findings", 0) == ["review_feedback"]
+    assert _targets(doc, "if_review_findings", 1) == ["merge_branches"]
+    # And a finding is corrected in the thread that owns the composition.
+    assert _targets(doc, "review_feedback", 0) == ["build_author_brief"]
+
+
+@pytest.mark.parametrize("label,doc", list(_copies()))
+def test_the_review_is_orchestrated_here_and_the_session_makes_no_model_call(label, doc):
+    # The critic is a call this workflow makes: the session hands back stills and nothing else.
+    # An api call inside the adapter was the first shape and was rejected -- orchestration is
+    # this graph's job, and the agent's dependencies stay what they were.
+    critique = _node(doc, "critique")
+    assert critique["type"] == "n8n-nodes-base.httpRequest"
+    assert "chat/completions" in critique["parameters"]["url"]
+    assert critique["parameters"]["method"] == "POST"
+    assert critique["credentials"]["httpBearerAuth"]["id"] == _node(doc, "generate_image")["credentials"]["httpBearerAuth"]["id"]
+    # The prompt is a committed file, fetched like the motion rules, so the grammar a critic
+    # applies is a prompt push rather than an image rebuild.
+    fetch = _node(doc, "download_review_prompt")["parameters"]["workflowInputs"]["value"]
+    assert fetch["template_name"] == "prompts/visual_review_composition.md"
+    assert fetch["template_vars"] == "={{ {} }}"
+    # The stills come from the session's own route, at the session the turn used.
+    code = _node(doc, "prepare_stills")["parameters"]["jsCode"]
+    assert "/artifacts/" in code and "$env.PI_RENDER_URL" in code
+    assert "resp.stills" in code, "the names the render reported, not a guessed convention"
+    # The critic sees the stills, not the artifact: the bytes that flow here are stills.
+    encode = _node(doc, "encode_stills")["parameters"]["jsCode"]
+    assert "getBinaryDataBuffer" in encode and "image_url" in encode
+    assert "AUTHOR_BODY" in encode, "the critic judges against the brief the composer was given"
+
+
+@pytest.mark.parametrize("label,doc", list(_copies()))
+def test_the_review_is_bounded_and_its_verdict_is_data(label, doc):
+    # The bound lives with the request's defaults, and the loop's whole decision is one field
+    # the gate reads -- so the bound and the verdict are asserted offline rather than trusted.
+    normalize = _node(doc, "normalize_input")["parameters"]["jsCode"]
+    assert "REVIEW_CYCLES = 2" in normalize
+    assert "REVIEW_ROUND: 0" in normalize
+    verdict = _node(doc, "parse_verdict")["parameters"]["jsCode"]
+    assert "RETRY: verdict === 'fix' && round < cycles" in verdict
+    assert "REVIEW: JSON.stringify(" in verdict, "the outcome rides on the asset"
+    # An unreadable answer is a pass: the other direction spends every cycle and ships the
+    # same defect.
+    assert "unreadable = true" in verdict and "verdict = 'ok'" in verdict
+    # The fix turn carries the findings and increments the round.
+    feedback = _node(doc, "review_feedback")["parameters"]["jsCode"]
+    assert "FEEDBACK: a.FINDINGS_TEXT" in feedback
+    assert "REVIEW_ROUND: Math.max(0, Number(a.REVIEW_ROUND || 0)) + 1" in feedback
+    # And the authoring brief honours an item-level correction, which is how the fix turn's
+    # findings reach the composer.
+    brief = _node(doc, "build_author_brief")["parameters"]["jsCode"]
+    assert "const feedback = String(a.FEEDBACK || req.FEEDBACK || '')" in brief
+    assert "REVIEW_ROUND: Math.max(0, Number(a.REVIEW_ROUND || 0))" in brief
 
 
 @pytest.mark.parametrize("label,doc", list(_copies()))
@@ -214,7 +276,10 @@ def test_the_form_vocabulary_is_fetched_and_reaches_the_brief(label, doc):
     name = dl["parameters"]["workflowInputs"]["value"]["template_name"]
     assert name == "prompts/visual_forms.md"
     assert _targets(doc, "download_visual_forms", 0) == ["visual_forms"]
-    assert _targets(doc, "visual_forms", 0) == ["download_registry"]
+    # The review prompt is fetched on the same chain, after the vocabulary and before the
+    # registry: it depends on nothing, and every node here reads what it needs by name.
+    assert _targets(doc, "visual_forms", 0) == ["download_review_prompt"]
+    assert _targets(doc, "download_review_prompt", 0) == ["download_registry"]
     body = _code(doc, "build_author_brief")
     assert "visual_forms" in body and "FORMS" in body
     assert "vocab" in body, "the brief does not append the vocabulary"

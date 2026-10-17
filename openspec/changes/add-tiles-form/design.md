@@ -67,6 +67,14 @@ copies of the vocabulary exist and which branch reads which field.
 - **The registry's own spec is out of date.** `image_wide`/`svg_wide` and the form
   precedence are implemented and unspecified; this change corrects both in its delta
   rather than adding a third undocumented behaviour beside them.
+- **A comment can assert a property the code does not have.** Run 13745's `index.html`
+  says its two arcs are "the classic pairing that joins across tile edges into S-curves and
+  circles" while drawing them at `0.42·TILE` (16.4–17.9 px for a 39 px tile) with a ±1 px
+  centre offset — so no arc reaches its tile's edge midpoint and the curves cannot connect.
+  Read from the run's own file at `/tmp/aivideo/runs/tiles_wide-13745/index.html` in the
+  session pod. It is the same second-copy-of-a-decision problem the repository documents
+  for node `notes`: the comment restates an intent the code does not implement, and a
+  reader who trusts it debugs the wrong layer.
 
 ## Goals / Non-Goals
 
@@ -181,6 +189,34 @@ that a type may pin the form it means. A spec that under-describes current behav
 cannot gate a change to that behaviour, and the two omissions were both found by reading
 the code this change touches.
 
+### D9. A pattern form names the thing, not the construction
+
+Measured on run 13745. The first `tiles` brief produced a lattice of isolated arc pairs:
+the definition described a motif ("an arc or corner motif") and never stated the property
+that makes a tiling read, while the composition's own comment asserted the join its code
+did not make — `rad = TILE * (0.42 …)` with ±1 px centre jitter cannot meet a neighbour,
+because joining needs the radius to be half the tile and the centre to be the tile's.
+A reviewer sees the failure and not the cause; and a definition that instead lists the
+geometry is a recipe the composer can satisfy while still missing the picture.
+
+So the definition names real patterns — a Truchet tiling (quarter-arc tiles), a zellige
+interlace, a labyrinth — and states the recognition test rather than the construction: the
+pattern must be recognisable as the thing it is named, reading as one continuous drawing
+rather than repeated separate motifs, with the tiling filling the frame and the HUD clear
+of it. The name carries the knowledge (a model asked for a Truchet field draws one the way
+it draws a skyline when asked for a skyline); the test carries the verdict.
+
+This inverts the vocabulary's own "build the definition, not the name" rule, and the
+exception is deliberate: that rule guards against a name the model would have to guess at,
+and for a pattern family the guess is the point.
+
+*Alternatives considered:* spell out the geometry (radius half the tile, no centre jitter,
+no per-tile radius variation) — rejected as brick-by-brick: it dictates a construction the
+composer owns, it would be re-derived for every pattern family, and it fixes one defect
+while leaving the frame-edge and HUD-overlap defects unstated. Keep the definition and
+re-render — rejected: the failure is reproducible from the definition, not one unlucky
+turn.
+
 ## Risks
 
 - **The graph edit is an apply against a running automation.** A `PUT` is field-level and
@@ -208,12 +244,29 @@ the code this change touches.
 - **Whether the HUD's counters read as content or as decoration.** The preview carries a
   timecode, a frame count, a tile count and a tempo; the definition names the naming of
   the pattern and its seed and leaves the rest to the composer under the existing rules
-  (seed literal, no clock, single paused timeline). `[UNVERIFIED]` until a live run.
+  (seed literal, no clock, single paused timeline). **Resolved by run 13745 (2026-10-17):**
+  the composer authored the HUD as readouts of the field's own state — a tile counter, a
+  drawn counter, an arc radius and an orientation spread — each a pure function of
+  `tl.time()` from the one timeline driver, and landed `SAME FIELD / EVERY RUN` as the last
+  line. The counters are content, not ornament.
 - **Whether a 4:5 frame needs a different tile count than 16:9** to read at the same
-  density. A form-level question the composer answers; not a registry field.
-- **Whether the composer honours the deterministic seed visibly** — the same seed
-  producing the same field across two runs is the property the authoring contract asks
-  for, and it has not been measured for this form. `[UNVERIFIED]`.
+  density. A form-level question the composer answers; not a registry field. Unmeasured:
+  run 13745 was the 16:9 type.
+- **The declared duration is not enforced on the artifact.** Run 13745's composition is
+  **12.5 s / 375 frames** while the type declares `durationSeconds: 12` and the run record
+  reports `DURATION_MS 12000` / `FRAME_COUNT 360`. The clip is 0.5 s *longer* than declared
+  — harmless here, plausibly the composer rounding a beat onto its own storyboard, but it
+  matters because a consumer that trusts the run record's frame count rather than the file
+  describes the asset slightly wrong. Recorded rather than fixed: the registry value is an
+  instruction to the composer and nothing measures the artifact against it. `[UNVERIFIED]`
+  whether this is a one-off or the normal spread.
+- **Whether the composer honours the deterministic seed visibly.** Measured in part: the
+  seed is a literal in the composition (`SEED = 0x2f9c4b17`), every randomised value comes
+  from one xorshift32 sequence, and the HUD reads from a single timeline driver, with no
+  `Date.now`, no `performance.now` and no unseeded `Math.random` (the composer's own
+  report, corroborated by `check`'s motion 0/0). What was **not** measured is the pair of
+  runs: the same brief rendered twice was not compared, so "the same field every run" rests
+  on the code the composer says it wrote. `[UNVERIFIED]` until that comparison is made.
 
 ## Definition of done
 

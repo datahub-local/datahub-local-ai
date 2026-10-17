@@ -14,6 +14,10 @@ export const SESSION_ID_RE = /^(?!\.{1,2}$)[a-zA-Z0-9._-]{1,80}$/;
 // A produced artifact name. Deliberately narrower than session_id: only the names
 // this server writes are ever served.
 const ARTIFACT_NAME_RE = /^out\.(mp4|gif|webp|png|svg|html)$/;
+// The stills of a render, served beside it: the studio's critic fetches one of these. They
+// are the only other names this server writes, so the route stays a whitelist rather than a
+// path a caller can steer.
+const STILL_NAME_RE = /^review-(final|\d+)\.(png|jpg)$/;
 
 export const DEFAULT_FORMAT = "mp4";
 
@@ -87,7 +91,7 @@ export async function stageVendorAssets(dir, vendorDir = VENDOR_DIR) {
 // traversal (`..`, absolute paths, separators) resolve to null rather than escape.
 export function resolveArtifact(workspace, sessionId, name) {
   if (!isValidSessionId(sessionId)) return null;
-  if (typeof name !== "string" || !ARTIFACT_NAME_RE.test(name)) return null;
+  if (typeof name !== "string" || (!ARTIFACT_NAME_RE.test(name) && !STILL_NAME_RE.test(name))) return null;
   if (basename(name) !== name) return null;
   const dir = runDir(workspace, sessionId);
   const full = normalize(join(dir, name));
@@ -100,6 +104,8 @@ export function contentTypeFor(name) {
   for (const { ext, mime } of Object.values(FORMATS)) {
     if (name === `out.${ext}`) return mime;
   }
+  if (name.endsWith(".png")) return "image/png";
+  if (name.endsWith(".jpg")) return "image/jpeg";
   return "application/octet-stream";
 }
 
@@ -291,3 +297,60 @@ export function transcodeArgs(format, { fps, width, frames, durationSeconds } = 
   }
 }
 
+
+// ---------------------------------------------------------------------------
+// Stills: what a critic can look at, produced here because the artifact is here.
+//
+// The review itself is orchestrated by the studio -- the critic is a call the workflow
+// makes, not something this server knows about. What this server owns is the render, so it
+// hands back stills of it: a browser screenshot for an authored document, frames for a clip.
+// No model call, and no new dependency: Chromium and ffmpeg are what the render already uses.
+export const DEFAULT_STILL_OFFSETS = [0.25, 0.5, 0.75];
+
+// The stills to make, per medium. A clip's FINAL frame is always one of them: "nothing fully
+// stops" is the rule, so a frozen clip hides in its last frame. An SVG or a deck has no
+// composition to render for the svg type (the composer writes no index.html), so Chromium
+// screenshots the artifact itself at the declared frame. A still png IS the still, so it
+// needs no command -- the artifact is what the critic looks at.
+export function stillArgs({ format, runDir, width, height, durationSeconds, offsets = DEFAULT_STILL_OFFSETS } = {}) {
+  const f = safeFormat(format);
+  const dir = String(runDir || "").replace(/\/+$/, "");
+  const w = Math.max(1, Math.round(Number(width) || 1280));
+  const h = Math.max(1, Math.round(Number(height) || (w * 9) / 16));
+  if (f === "svg" || f === "html") {
+    const page = f === "svg" ? "out.svg" : "out.html";
+    return [
+      {
+        command: "chromium",
+        args: [
+          "--headless=new",
+          "--no-sandbox",
+          "--disable-gpu",
+          "--hide-scrollbars",
+          `--window-size=${w},${h}`,
+          `--screenshot=${dir}/review-1.png`,
+          `file://${dir}/${page}`,
+        ],
+        output: "review-1.png",
+        mime: "image/png",
+      },
+    ];
+  }
+  if (f === "png") return [];
+  const artifact = artifactName(f);
+  const seconds = Number(durationSeconds);
+  const times = Number.isFinite(seconds) && seconds > 0 ? offsets.map((o) => Math.round(seconds * o * 100) / 100) : [];
+  const out = times.map((t, i) => ({
+    command: "ffmpeg",
+    args: ["-y", "-ss", String(t), "-i", artifact, "-frames:v", "1", "-vf", "scale='min(1280,iw)':-2", `${dir}/review-${i + 1}.jpg`],
+    output: `review-${i + 1}.jpg`,
+    mime: "image/jpeg",
+  }));
+  out.push({
+    command: "ffmpeg",
+    args: ["-y", "-sseof", "-0.1", "-i", artifact, "-frames:v", "1", "-vf", "scale='min(1280,iw)':-2", `${dir}/review-final.jpg`],
+    output: "review-final.jpg",
+    mime: "image/jpeg",
+  });
+  return out;
+}

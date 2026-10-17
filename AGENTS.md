@@ -528,6 +528,26 @@ pairing), and `download_raster_prompt` passes `ASPECT` to `prompts/visual_raster
 composes to it. A caller that wants a different frame picks a type; the wide pair exists
 because an article is read on a screen and the LinkedIn types are 4:5 for their feed.
 
+**A render is looked at before a human is asked to look at it, and the workflow does the
+looking.** `Visual Studio` runs a bounded self-review after the authoring turn. The session
+hands back stills of what it rendered — `stills: [...]` in the response, made with the tools the
+render already uses (Chromium for an SVG or a deck, `ffmpeg` frames for a clip, the final frame
+always, since "nothing fully stops" means a frozen clip hides there) — and serves them beside
+the artifact, because the artifact is in the pod and the gateway cannot reach the pod's route.
+The workflow fetches them, asks a **different** vision model on the gateway
+(`opencode-go/glm-5.3-flash`, reusing `generate_image`'s bearer credential) with
+`prompts/visual_review_composition.md` and the brief the composer was given, and on findings
+takes another authoring turn **in the same session** with them as the reviewer's correction,
+bounded by `REVIEW_CYCLES` (2). **The critic's call is the workflow's, never the adapter's**: the
+agent renders and reports what it rendered, and deciding whether that is good is orchestration —
+an API call inside the adapter was the first shape and was rejected for putting a model
+dependency and an opinion inside the agent. The verdict is data (`VERDICT`, `RETRY`, and a
+`REVIEW` that rides on the asset), a still that cannot be made or a prompt that is missing
+records the review as not run rather than failing the asset, and an unreadable verdict is a pass
+with the raw answer kept — the other direction spends every cycle and ships the same defect.
+What it cannot see is motion, which the framework's `check` gate owns, and the stills' bytes are
+the only bytes the review adds to the graph.
+
 **Authoring is one composer turn.** For an agent type the request's `CONTENT` is a brief
 sent to the `pi-render` session, which plans a **storyboard** (form, style, scenes) and
 then authors a HyperFrames composition and renders it, in the same turn. The workflow

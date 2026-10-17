@@ -4,7 +4,7 @@
 
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { mkdtemp, mkdir, readFile, writeFile, chmod, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -15,6 +15,11 @@ import { DEFAULT_GATEWAY_STREAM_TIMEOUT_MS, DEFAULT_RETRY } from "../session-lib
 const serverPath = fileURLToPath(new URL("../session-server.mjs", import.meta.url));
 const port = 18000 + Math.floor(Math.random() * 2000);
 const base = `http://127.0.0.1:${port}`;
+const gatewayPort = port + 1;
+const gatewayBase = `http://127.0.0.1:${gatewayPort}/v1`;
+// A still of a clip needs ffmpeg, which CI does not install: the tests that need one say so
+// and skip rather than fail for the environment's sake.
+const hasFfmpeg = spawnSync("ffmpeg", ["-version"], { stdio: "ignore" }).status === 0;
 
 let dir;
 let child;
@@ -27,7 +32,10 @@ const fs = require("node:fs");
 fs.writeFileSync("index.html", "<div>stub</div>");
 fs.writeFileSync("out.html", "<html>stub deck</html>");
 fs.writeFileSync("out.mp4", Buffer.from([0, 0, 0, 0x18, 0x66, 0x74, 0x79, 0x70]));
+fs.writeFileSync("out.png", Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+fs.writeFileSync("review-1.png", Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
 fs.writeFileSync("prompt.txt", process.argv.at(-1) || "");
+fs.appendFileSync("prompts.log", (process.argv.at(-1) || "") + "\\n---TURN---\\n");
 // The failure path: Pi reports a stalled model call as one word of its own, and
 // names no endpoint unless the server adds it.
 if ((process.argv.at(-1) || "").includes("FAIL_PROBE")) {
@@ -36,6 +44,31 @@ if ((process.argv.at(-1) || "").includes("FAIL_PROBE")) {
 }
 process.stdout.write("rendered 1 frame");
 `;
+
+// A stand-in for the gateway's chat endpoint: it answers the critic's call with the verdict
+// the test asked for, and counts the calls so a bound can be asserted.
+let gatewayCalls = 0;
+let gatewayAnswer = () => "{\"verdict\": \"ok\", \"findings\": []}";
+let gateway;
+
+async function startGateway(port) {
+  const http = await import("node:http");
+  gateway = http.createServer((req, res) => {
+    let body = "";
+    req.on("data", (c) => (body += c));
+    req.on("end", () => {
+      gatewayCalls += 1;
+      const answer = gatewayAnswer(body);
+      if (answer === null) {
+        res.writeHead(500, { "content-type": "application/json" }).end("{}");
+        return;
+      }
+      const payload = JSON.stringify({ choices: [{ message: { role: "assistant", content: answer } }] });
+      res.writeHead(200, { "content-type": "application/json" }).end(payload);
+    });
+  });
+  await new Promise((r) => gateway.listen(port, "127.0.0.1", r));
+}
 
 async function waitForHealth(timeoutMs = 10000) {
   const deadline = Date.now() + timeoutMs;
@@ -75,15 +108,17 @@ before(async () => {
       SYMPOZIUM_SESSION_PORT: String(port),
       SYMPOZIUM_HARNESS_CONTRACT_VERSION: "v1alpha2",
       MODEL_NAME: "stub",
-      MODEL_BASE_URL: "http://127.0.0.1:1/v1",
+      MODEL_BASE_URL: gatewayBase,
       OPENAI_API_KEY: "stub",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
+  await startGateway(gatewayPort);
   await waitForHealth();
 });
 
 after(async () => {
+  gateway?.close();
   child?.kill("SIGTERM");
   await rm(dir, { recursive: true, force: true });
 });
@@ -199,6 +234,41 @@ test("a failed turn names the model endpoint and Pi's own reason", async () => {
   assert.equal(res.status, 400);
   const { error } = await res.json();
   assert.match(error.message, /Pi exited 9/);
-  assert.ok(error.message.includes("http://127.0.0.1:1/v1"), `the endpoint is named: ${error.message}`);
+  assert.ok(error.message.includes(gatewayBase), `the endpoint is named: ${error.message}`);
   assert.ok(error.message.includes("stream terminated by peer"), `the reason is carried: ${error.message}`);
+});
+
+
+test("a turn reports the stills a critic can look at", async () => {
+  // The contract is the field: which stills exist depends on the tools the pod has (a
+  // browser for a document, ffmpeg for a clip), and the studio fetches the names it is given.
+  const res = await fetch(`${base}/v1/chat/completions`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "make a card" }], session_id: "run_stills", format: "mp4" }),
+  });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.ok(Array.isArray(body.stills), "the stills are reported");
+});
+
+test("the artifact route serves the stills beside the artifact, and nothing else", async () => {
+  // The stub render leaves a still behind, so this needs neither a browser nor ffmpeg.
+  const still = await fetch(`${base}/artifacts/run_a/review-1.png`);
+  assert.equal(still.status, 200);
+  assert.equal(still.headers.get("content-type"), "image/png");
+  assert.equal((await fetch(`${base}/artifacts/run_a/review-1.html`)).status, 404);
+  assert.equal((await fetch(`${base}/artifacts/run_a/prompt.txt`)).status, 404);
+});
+
+test("a still png type hands back its artifact as the still", { skip: !hasFfmpeg && "ffmpeg is not installed" }, async () => {
+  const res = await fetch(`${base}/v1/chat/completions`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "make a card" }], session_id: "run_png", format: "png" }),
+  });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.deepEqual(body.stills, ["out.png"]);
+  assert.equal((await fetch(`${base}/artifacts/run_png/out.png`)).status, 200);
 });

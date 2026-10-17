@@ -11,6 +11,9 @@ top level and inside ``activeVersion``, and a fix applied to one copy is a live 
 
 import json
 import re
+import shutil
+import subprocess
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -341,6 +344,40 @@ def test_the_asset_carries_what_the_runtime_reported_about_its_container(label, 
 
 
 @pytest.mark.parametrize("label,doc", list(_copies()))
+def test_the_asset_carries_the_container_the_request_declared(label, doc):
+    # A review turn's item is built from the asset, so the declaration has to ride on it or
+    # the correction turn re-invents one (measured 2026-10-17, run 13785: a tiles_wide
+    # request at 16:9 / 1280 / 12s / 360 was corrected at 1080x1350 / 3s / 24 frames).
+    code = _code(doc, "agent_result")
+    for field in ("ASPECT: a.ASPECT", "VIEWPORT: String(Number(a.VIEWPORT)", "FRAMES: String(Number(a.FRAMES)",
+                  "DURATION_SECONDS: String(Number(a.DURATION_SECONDS)", "FPS: String(Number(a.FPS)"):
+        assert field in code, f"the asset does not carry {field!r}"
+    # The declaration survives the loop's own nodes, which spread the asset they are handed.
+    assert "...asset" in _code(doc, "prepare_stills"), "prepare_stills would drop the declaration"
+    assert "...a" in _code(doc, "parse_verdict"), "parse_verdict would drop the declaration"
+    assert "...a" in _code(doc, "review_feedback"), "the correction turn would lose the declaration"
+
+
+@pytest.mark.parametrize("label,doc", list(_copies()))
+def test_the_brief_never_invents_a_container(label, doc):
+    # The four silent defaults are the reason run 13785 shipped two wrong turns; absence is
+    # now an error naming the field, because a plausible default is indistinguishable from
+    # the caller's request once the run has produced an artifact.
+    body = _code(doc, "build_author_brief")
+    assert "cannot re-declare a container" in body
+    for field in ("declared('VIEWPORT', a.VIEWPORT)", "declared('FRAMES', a.FRAMES)",
+                  "declared('DURATION_SECONDS', a.DURATION_SECONDS)"):
+        assert field in body, f"the brief does not require {field!r}"
+    for fallback in ("|| 1080", "|| '4:5'", "|| 24", "|| 8"):
+        assert fallback not in body, f"the brief still defaults its container via {fallback!r}"
+    # The registry completes the container so every real type satisfies that requirement: a
+    # type that declares no length (the launch card) still declares one, from its own budget,
+    # rather than 0, which the brief would now refuse.
+    registry = _code(doc, "parse_registry")
+    assert "Number(t.durationSeconds) || frames / fps" in registry
+
+
+@pytest.mark.parametrize("label,doc", list(_copies()))
 def test_only_the_brief_crosses_to_the_composer(label, doc):
     # The request is the brief plus the output frame; no markup is sent, which is
     # what keeps the workflow out of the composition.
@@ -571,3 +608,148 @@ def test_a_critic_that_cannot_answer_does_not_fail_the_run(label, doc):
     # And the empty answer is recorded rather than read as a pass.
     for name in ("parse_verdict", "parse_raster_verdict"):
         assert "REVIEW_REASON: unreadable ?" in _code(doc, name)
+
+
+# ---------------------------------------------------------------------------
+# The container across the loop, executed rather than asserted textually.
+#
+# A review turn's item is asset-shaped, so the honest check is to run the two Code nodes
+# with the environment n8n gives them and read the brief they produce: `agent_result`
+# builds the asset the loop carries, and `build_author_brief` turns that asset into the
+# correction turn's declaration. A missing declaration is a thrown error, which is the
+# other half of the contract. n8n runs a Code node as an async body with `$input`, `$`,
+# `$env` and `$execution` in scope and `this.helpers` on the instance, so the driver
+# supplies exactly those.
+
+NODE_REQUIRED = "node is required to execute the exports' Code nodes"
+
+_DRIVER = r"""
+const { readFileSync } = require("node:fs");
+const spec = JSON.parse(readFileSync(process.argv[2], "utf8"));
+async function main() {
+  const out = [];
+  for (const c of spec.cases) {
+    const nodes = c.nodes || {};
+    const $ = (name) => {
+      const items = nodes[name];
+      if (!items) throw new Error("unknown node " + name);
+      return { first: () => items[0], all: () => items };
+    };
+    const input = c.input || [];
+    const $input = { first: () => input[0], all: () => input };
+    const $json = input[0] || {};
+    const $env = c.env || {};
+    const $execution = c.execution || { id: "1" };
+    const helpers = {};
+    try {
+      const fn = new Function("$", "$input", "$json", "$env", "$execution", "helpers",
+        "\"use strict\"; return (async function(){\n" + c.code + "\n}).call({ helpers });");
+      const result = await fn($, $input, $json, $env, $execution, helpers);
+      out.push({ ok: true, items: JSON.parse(JSON.stringify(result || [])) });
+    } catch (e) {
+      out.push({ ok: false, error: String((e && e.message) || e) });
+    }
+  }
+  process.stdout.write(JSON.stringify(out));
+}
+main();
+"""
+
+
+def _exec_code(cases):
+    with tempfile.TemporaryDirectory() as td:
+        driver = Path(td) / "driver.cjs"
+        driver.write_text(_DRIVER)
+        spec = Path(td) / "spec.json"
+        spec.write_text(json.dumps({"cases": cases}))
+        done = subprocess.run(["node", str(driver), str(spec)], capture_output=True, text=True, check=False)
+    assert done.returncode == 0, done.stderr
+    return json.loads(done.stdout)
+
+
+# What the composer's brief carries for a ``tiles_wide`` request: the type's own container,
+# as ``parse_registry`` fills it (16:9, viewport 1280, 12 s, 360 frames at 30 fps).
+_TILES_WIDE = {
+    "ASSET_TYPE": "tiles_wide", "RENDER_MODE": "video", "FORMAT": "mp4", "FORM": "tiles",
+    "ASPECT": "16:9", "VIEWPORT": "1280", "FRAMES": "360", "DURATION_SECONDS": "12", "FPS": "30",
+    "WIDTH": "1280", "HEIGHT": "720", "SCENE_SECONDS": 0, "REVIEW_ROUND": 0, "FEEDBACK": "",
+    "SESSION_ID": "tiles_wide-13785", "AUTHOR_URL": "http://pi/v1/chat/completions",
+    "STORE_URL": "http://utils/mcp", "PAIRED_ARTIFACT_URL": "",
+}
+# The request the two nodes share, as ``normalize_input`` emits it.
+_REQUEST = {"RUN_ID": "13785", "CONTENT": "a tiling loop", "SESSION_ID": "", "FEEDBACK": "",
+            "EXTRA_PROMPT": "", "FORCE": "auto", "SCENES": "", "REVIEW_CYCLES": 2}
+_ENV = {"PI_RENDER_URL": "http://pi", "MCP_UTILS_URL": "http://utils"}
+
+
+def _brief_nodes():
+    return {
+        "normalize_input": [{"json": dict(_REQUEST)}],
+        "brand_tokens": [{"json": {"STYLE": "dark", "BRAND": "the brand block"}}],
+        "visual_rules": [{"json": {"RULES": "the motion rules"}}],
+        "visual_forms": [{"json": {"FORMS": "the form vocabulary"}}],
+    }
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason=NODE_REQUIRED)
+def test_a_correction_turn_keeps_the_container_the_request_declared():
+    # The measurement this fixes: run 13785's correction turns were asked for
+    # 1080x1350 / 3 s / 24 frames for a request whose registry entry says the container
+    # asserted below. `agent_result` builds the asset the review loop carries; feeding that
+    # asset to `build_author_brief` is the correction turn's own input.
+    doc = json.loads(STUDIO.read_text())
+    built = _exec_code([{
+        "code": _code(doc, "agent_result"),
+        "nodes": {
+            "build_author_brief": [{"json": dict(_TILES_WIDE)}],
+            "execute_author": [{"json": {
+                "choices": [{"message": {"content": "storyboard: a tiling loop"}}],
+                "conformance": {"fit": "scale", "authored": "1920x1080", "short": False},
+            }}],
+            "store_artifact": [{"json": {"result": {"content": [
+                {"text": "key=visual-studio/13785-tiles_wide.mp4 bytes=9 content-type=video/mp4"}
+            ]}}}],
+        },
+        "env": _ENV,
+        "execution": {"id": "13785"},
+    }])[0]
+    assert built["ok"], built.get("error")
+    asset = built["items"][0]["json"]
+    # The asset names the declaration beside what the runtime delivered.
+    assert (asset["ASPECT"], asset["VIEWPORT"], asset["FRAMES"], asset["DURATION_SECONDS"], asset["FPS"]) == (
+        "16:9", "1280", "360", "12", "30"
+    )
+    assert (asset["WIDTH"], asset["HEIGHT"]) == ("1280", "720")
+    assert asset["CONFORMED"] == "scale" and asset["AUTHORED_FRAME"] == "1920x1080"
+
+    brief = _exec_code([{
+        "code": _code(doc, "build_author_brief"),
+        "input": [{"json": asset}],
+        "nodes": _brief_nodes(),
+        "env": _ENV,
+    }])[0]
+    assert brief["ok"], brief.get("error")
+    out = brief["items"][0]["json"]
+    # The correction turn declares the type's container, not the defaults it used to invent.
+    assert (out["WIDTH"], out["HEIGHT"], out["FRAMES"], out["DURATION_SECONDS"], out["FPS"]) == (1280, 720, 360, 12, 30)
+    assert '"width":1280' in out["AUTHOR_BODY"] and '"height":720' in out["AUTHOR_BODY"]
+    assert '"frames":360' in out["AUTHOR_BODY"] and '"durationSeconds":12' in out["AUTHOR_BODY"]
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason=NODE_REQUIRED)
+@pytest.mark.parametrize("missing", ["ASPECT", "VIEWPORT", "FRAMES", "DURATION_SECONDS"])
+def test_the_brief_refuses_a_turn_with_no_declared_container(missing):
+    # Absence is expressible: a plausible default is indistinguishable from the caller's
+    # request once the run has produced an artifact, so a missing field stops the turn.
+    doc = json.loads(STUDIO.read_text())
+    item = dict(_TILES_WIDE, **_REQUEST)
+    item.pop(missing)
+    result = _exec_code([{
+        "code": _code(doc, "build_author_brief"),
+        "input": [{"json": item}],
+        "nodes": _brief_nodes(),
+        "env": _ENV,
+    }])[0]
+    assert result["ok"] is False, f"a turn without {missing} was briefed anyway"
+    assert missing in result["error"], result["error"]
+    assert "cannot re-declare a container" in result["error"]

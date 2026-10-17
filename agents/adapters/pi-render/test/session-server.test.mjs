@@ -290,6 +290,27 @@ test("the artifact route serves the stills beside the artifact, and nothing else
   assert.equal((await fetch(`${base}/artifacts/run_a/prompt.txt`)).status, 404);
 });
 
+test("a still that was not written this turn is not offered, and the earlier frame is cleared", async () => {
+  // The output name is fixed and a session reuses its run directory, so a capture that
+  // wrote nothing would leave the previous turn's frame to be served as this turn's still
+  // (measured 2026-10-17, run 13785: turns 1 and 2 both offered review-final.jpg at turn
+  // 0's mtime). Here the capture cannot produce a file, and the planted one must be gone
+  // rather than offered.
+  const runDir = join(dir, "workspace", "runs", "run_stale");
+  await mkdir(runDir, { recursive: true });
+  await writeFile(join(runDir, "review-final.jpg"), "the previous turn's frame");
+  const res = await fetch(`${base}/v1/chat/completions`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "make a card" }], session_id: "run_stale", format: "mp4" }),
+  });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.ok(!body.stills.includes("review-final.jpg"), `a stale frame was offered: ${JSON.stringify(body.stills)}`);
+  await assert.rejects(readFile(join(runDir, "review-final.jpg")), "the earlier turn's frame must not stand in");
+  assert.equal((await fetch(`${base}/artifacts/run_stale/review-final.jpg`)).status, 404);
+});
+
 test("a still png type hands back its artifact as the still", { skip: !hasFfmpeg && "ffmpeg is not installed" }, async () => {
   const res = await fetch(`${base}/v1/chat/completions`, {
     method: "POST",

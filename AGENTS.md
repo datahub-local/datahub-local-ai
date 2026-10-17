@@ -581,6 +581,30 @@ before the capture and costs no wall time — measured against a page whose cont
 plus its settled frame, and a deck (whose page is not a timeline) one settled shot. The clip case
 was already right: `ffmpeg` frames plus the final one.
 
+**A correction turn keeps the container the request declared, and a still is of the turn it
+judges.** Both came out of run 13785 (2026-10-17), a `tiles_wide` request whose registry entry
+says 16:9 / viewport 1280 / 12 s / 360 frames / 30 fps. The review loop's items are built from
+the asset (`agent_result` → `prepare_stills` → `parse_verdict` → `review_feedback`), and the asset
+carried none of `ASPECT`/`VIEWPORT`/`FRAMES`/`DURATION_SECONDS`, so `build_author_brief`'s four
+silent defaults fired at once and **both** correction turns were asked for 1080×1350 / 3 s / 24
+frames / 8 fps. The composer authored what it was told and the conformance delivered it exactly
+(rate resampled 30 → 8) — so the critic, handed that degraded brief, named the *correct* 16:9
+composition as the defect, and because an asset's object key is per run and per type
+(`visual-studio/<run>-<type>.mp4`) turn 0's right artifact was overwritten as well. The
+declaration now rides on the asset beside what was delivered (`WIDTH`/`HEIGHT`/`FRAME_COUNT`/
+`DURATION_MS`), and `build_author_brief` refuses an item that carries none, naming the missing
+field, because a plausible default is indistinguishable from the caller's request once the run
+has produced an artifact; `parse_registry` completes the container for a type that declares no
+length (the launch card) from its own budget, so every real type satisfies that requirement. The
+raster half never had this defect: its frame comes from `if_raster`, not from the item in hand.
+Separately, the settled-frame still is sought at one frame interval of the **served** rate (the
+conformance's declared rate, not the `ffprobe` taken before it), and a capture counts as a still
+only when it wrote bytes: at 8 fps the old fixed `-sseof -0.1` exited 0 and wrote nothing, so
+turns 1 and 2 both reported four stills and served turn 0's `review-final.jpg` under that name
+while the review prompt tells the critic to judge geometry on the last still. A still that was
+not produced is now removed-first and absent from `stills`, so the review judges one frame fewer
+rather than the wrong turn's frame, and never fails the asset.
+
 **Authoring is one composer turn.** For an agent type the request's `CONTENT` is a brief
 sent to the `pi-render` session, which plans a **storyboard** (form, style, scenes) and
 then authors a HyperFrames composition and renders it, in the same turn. The workflow

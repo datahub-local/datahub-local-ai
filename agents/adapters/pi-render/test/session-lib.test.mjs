@@ -21,6 +21,8 @@ import {
   turnInstruction,
   sessionIdFromTranscript,
   stillArgs,
+  settledFrameSeek,
+  captureStill,
   expiredRunDirs,
   expiredTranscripts,
   VENDOR_ASSETS,
@@ -373,6 +375,58 @@ test("stillArgs samples a clip and always includes its final frame", () => {
 
 test("stillArgs asks for no still when the artifact is one", () => {
   assert.deepEqual(stillArgs({ format: "png", runDir: "/runs/x", width: 1280 }), []);
+});
+
+test("the settled-frame seek reaches a frame at the clip's own rate", () => {
+  // ffmpeg's `-sseof` shorter than one frame interval exits 0 and writes nothing: on the
+  // 8 fps artifact this pipeline derives from 24 frames over 3 s, -0.1 wrote no file while
+  // -0.125 wrote the frame (measured 2026-10-17, run 13785).
+  assert.equal(settledFrameSeek(8), 0.125);
+  assert.ok(settledFrameSeek(30) >= 1 / 30, "a high rate seeks at least one interval");
+  assert.ok(settledFrameSeek(2) >= 0.5);
+  // A rate below 1 fps gets a whole interval too, not a fraction of one.
+  assert.ok(settledFrameSeek(0.5) >= 2);
+  // A rate nobody reported falls back rather than seeking 0 -- which reaches no frame.
+  assert.equal(settledFrameSeek(0), 0.5);
+  assert.equal(settledFrameSeek(undefined), 0.5);
+  assert.equal(settledFrameSeek(NaN), 0.5);
+  assert.equal(settledFrameSeek(-1), 0.5);
+});
+
+test("stillArgs seeks the settled frame by the frame interval, and falls back when the rate is unknown", () => {
+  const offset = (job) => job.args[job.args.indexOf("-sseof") + 1];
+  const slow = stillArgs({ format: "mp4", runDir: "/runs/x", durationSeconds: 3, fps: 8 });
+  assert.equal(offset(slow.at(-1)), "-0.125", "one frame at 8 fps is 0.125 s");
+  const fast = stillArgs({ format: "mp4", runDir: "/runs/x", durationSeconds: 12, fps: 30 });
+  assert.ok(Number(offset(fast.at(-1)).slice(1)) >= 1 / 30);
+  // A caller that reports no rate still gets a settled frame rather than a zero seek.
+  const bare = stillArgs({ format: "gif", runDir: "/runs/x" });
+  assert.equal(offset(bare[0]), "-0.5");
+});
+
+test("a capture that wrote nothing is not a still, and an earlier file at that name is cleared", async () => {
+  const run = await mkdtemp(join(tmpdir(), "pi-still-"));
+  try {
+    // The previous turn's frame is on disk under the name this turn will use.
+    await writeFile(join(run, "review-final.jpg"), "the previous turn's frame");
+    // The measured shape: ffmpeg exits 0 and writes nothing for a sub-frame seek.
+    const made = await captureStill({ dir: run, output: "review-final.jpg", run: async () => {} });
+    assert.equal(made, false, "a capture that wrote no bytes is not a still");
+    await assert.rejects(readFile(join(run, "review-final.jpg")), "the earlier turn's frame must not stand in");
+
+    // A capture that wrote bytes is a still.
+    const ok = await captureStill({
+      dir: run,
+      output: "review-1.jpg",
+      run: async () => { await writeFile(join(run, "review-1.jpg"), "frame"); },
+    });
+    assert.equal(ok, true);
+    // A capture that could not run, and one that wrote an empty file, are both not stills.
+    assert.equal(await captureStill({ dir: run, output: "review-2.jpg", run: async () => { throw new Error("ffmpeg exited 1"); } }), false);
+    assert.equal(await captureStill({ dir: run, output: "review-3.jpg", run: async () => { await writeFile(join(run, "review-3.jpg"), ""); } }), false);
+  } finally {
+    await rm(run, { recursive: true, force: true });
+  }
 });
 
 test("the artifact route serves the stills beside the artifact, and nothing else", () => {

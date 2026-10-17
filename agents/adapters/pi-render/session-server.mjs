@@ -46,6 +46,8 @@ import {
   DEFAULT_RETRY,
   agentSettings,
   stillArgs,
+  captureStill,
+  outputFps,
 } from "./session-lib.mjs";
 
 const port = Number(process.env.SYMPOZIUM_SESSION_PORT || "8080");
@@ -408,21 +410,20 @@ function writeSSE(res, value) {
 // The stills of the render, produced here because the artifact is here and left in the run
 // directory for the studio to fetch. This server makes no model call: the review is the
 // workflow's, and all it needs from here is something to look at.
-async function makeStills(dir, { format, width, height, durationSeconds }) {
+async function makeStills(dir, { format, width, height, durationSeconds, fps }) {
   const f = safeFormat(format);
-  const jobs = stillArgs({ format: f, runDir: dir, width, height, durationSeconds });
+  const jobs = stillArgs({ format: f, runDir: dir, width, height, durationSeconds, fps });
   if (!jobs.length) {
     // A still png IS the still, and the launch card is one: nothing to sample.
     return [artifactName(f)];
   }
   const names = [];
   for (const job of jobs) {
-    try {
-      await runCommand(job.command, job.args, dir);
-      names.push(job.output);
-    } catch {
-      // one still that cannot be made does not fail the turn: the others still show it
-    }
+    // A still that could not be made does not fail the turn: the others still show it. It
+    // is not offered either -- the studio fetches the names it is given, so a name whose
+    // file was not written this turn is one more still the review judges nothing on.
+    const made = await captureStill({ dir, output: job.output, run: () => runCommand(job.command, job.args, dir) });
+    if (made) names.push(job.output);
   }
   return names;
 }
@@ -538,7 +539,15 @@ http
       // Then hand back stills of it. The studio's critic looks at these; the review, its
       // bound and its verdict belong to the workflow, not to this server. They are made
       // after the conformance so the critic sees the artifact the caller receives.
-      const stills = await makeStills(dir, { format, width, height, durationSeconds });
+      //
+      // The rate they are sampled at is the one the conformance DELIVERS, from the
+      // declaration -- not the engine's pre-conformance rate, which is exactly the trap
+      // this fixes: an 8 fps artifact produced from a 30 fps render would be seeked at
+      // 1/30 s and lose its settled frame.
+      const stills = await makeStills(dir, {
+        format, width, height, durationSeconds,
+        fps: outputFps({ frames, durationSeconds, fps }),
+      });
 
       await sweepIfDue(sessionID);
 

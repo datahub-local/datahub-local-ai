@@ -113,6 +113,15 @@ with `-0.5 s` when the rate is unknown — instead of the fixed `-0.1`. The meas
 0.125 s at 8 fps; a rate-derived offset is the same number for any rate this pipeline can produce,
 and it costs one frame's decode rather than the whole clip.
 
+*Implemented deviation.* The rate is the one the conformance **delivers** — `outputFps({ frames,
+durationSeconds, fps })`, the declared rate — not the `probeContainer` reading taken at that call
+site. That probe is read **before** the conformance, so on the measured run it reports the engine's
+30 fps while the served artifact is 8 fps, and seeking at `1/30` would lose the settled frame in
+exactly the case this change exists for. The declaration is the artifact's own rate by construction
+(every kind is encoded with `fps=<declared>`), so it is both correct and rate-independent. A probe
+of the served artifact after the transcode would have to be understood for a GIF, whose
+`r_frame_rate` is an encoder artefact, and is not needed beside it.
+
 *Alternatives considered:* write-through with `-update 1` (no seek at all, one file written per
 frame, ending with the last) — correct and rate-independent (measured: the last frame at
 1080×1350) but it decodes and re-encodes every frame of a twelve-second clip to keep one image;

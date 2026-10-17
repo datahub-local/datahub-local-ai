@@ -3,7 +3,7 @@
 // unit-tested with `node --test` without starting the HTTP server.
 
 import { basename, join, normalize, sep } from "node:path";
-import { copyFile } from "node:fs/promises";
+import { copyFile, rm, stat } from "node:fs/promises";
 
 // The shape session-server.mjs accepts for session_id: a run identifier that is
 // safe as a single path segment. `.` and `..` are excluded even though the
@@ -429,12 +429,44 @@ export function transcodeArgs(format, { fps, width, height, frames, durationSeco
 // No model call, and no new dependency: Chromium and ffmpeg are what the render already uses.
 export const DEFAULT_STILL_OFFSETS = [0.25, 0.5, 0.75];
 
+// The seek that reaches a clip's final frame. ffmpeg's `-sseof` shorter than one frame
+// interval exits 0 and writes NOTHING: on the 8 fps artifact this pipeline derives from 24
+// frames over 3 s, `-0.05`/`-0.1`/`-0.11`/`-0.12` wrote no file while `-0.125`/`-0.13`/
+// `-0.15`/`-0.2` wrote the frame (measured 2026-10-17, run 13785, with this server's own
+// argument list and `spawn` path). One frame interval is therefore the floor, and half a
+// second the fallback for a rate nobody reported.
+export function settledFrameSeek(fps) {
+  const rate = Number(fps);
+  if (!Number.isFinite(rate) || rate <= 0) return 0.5;
+  return Math.max(1, Math.ceil(1 / rate)) / rate;
+}
+
+// Capture one still and report whether it was really made. The output name is fixed and a
+// session reuses its run directory, so an earlier turn's file at that name would otherwise
+// be served as this turn's still: the target is removed before the capture and the still is
+// reported only when the capture wrote bytes, not when it merely exited 0.
+export async function captureStill({ dir, output, run } = {}) {
+  const target = join(dir, output);
+  await rm(target, { force: true });
+  try {
+    await run();
+  } catch {
+    return false;
+  }
+  try {
+    const info = await stat(target);
+    return info.size > 0;
+  } catch {
+    return false;
+  }
+}
+
 // The stills to make, per medium. A clip's FINAL frame is always one of them: "nothing fully
 // stops" is the rule, so a frozen clip hides in its last frame. An SVG or a deck has no
 // composition to render for the svg type (the composer writes no index.html), so Chromium
 // screenshots the artifact itself at the declared frame. A still png IS the still, so it
 // needs no command -- the artifact is what the critic looks at.
-export function stillArgs({ format, runDir, width, height, durationSeconds, offsets = DEFAULT_STILL_OFFSETS } = {}) {
+export function stillArgs({ format, runDir, width, height, durationSeconds, fps, offsets = DEFAULT_STILL_OFFSETS } = {}) {
   const f = safeFormat(format);
   const dir = String(runDir || "").replace(/\/+$/, "");
   const w = Math.max(1, Math.round(Number(width) || 1280));
@@ -484,7 +516,7 @@ export function stillArgs({ format, runDir, width, height, durationSeconds, offs
   }));
   out.push({
     command: "ffmpeg",
-    args: ["-y", "-sseof", "-0.1", "-i", artifact, "-frames:v", "1", "-vf", "scale='min(1280,iw)':-2", `${dir}/review-final.jpg`],
+    args: ["-y", "-sseof", `-${settledFrameSeek(fps)}`, "-i", artifact, "-frames:v", "1", "-vf", "scale='min(1280,iw)':-2", `${dir}/review-final.jpg`],
     output: "review-final.jpg",
     mime: "image/jpeg",
   });

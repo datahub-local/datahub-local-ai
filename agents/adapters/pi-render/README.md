@@ -301,6 +301,32 @@ The per-run directory is the point: turns are serialized, but a later run must n
 overwrite an earlier run's artifact before its caller has fetched it. `session-lib.mjs`
 holds the path and format rules, unit-tested under `test/`.
 
+### The stills a review looks at
+
+The same response carries `stills: [...]`, frames of the served artifact the workflow's
+critic fetches through the artifact route (`review-<n>.jpg` for a clip, `review-<n>.png`
+for an SVG or a deck; a still png IS an artifact, so it declares none). They are made
+after the conformance, so they show what the caller receives. Nothing here calls a model:
+the review, its bound and its verdict are the workflow's.
+
+Two facts about those captures are codec-level rather than stylistic and both were hit
+live on 2026-10-17 (run 13785):
+
+- **`ffmpeg -sseof` shorter than one frame interval exits 0 and writes nothing.** The
+  settled frame is sought with `-sseof` at no less than one frame interval of the *served*
+  artifact's rate (`1/(frames/durationSeconds)` for a clip, half a second when no rate was
+  declared). At 8 fps — ordinary here, since the rate is derived from the declared frame
+  count over the declared length — `-0.1` wrote no file while `-0.125` wrote the frame.
+  The rate is taken from the declaration the conformance delivers, **not** from the
+  `ffprobe` of the engine's render: that probe is read before the conformance, so on a
+  30 fps render conformed to 8 fps it would seek at `1/30` and lose the frame again.
+- **A capture is a still only when the file exists and carries bytes.** The output name is
+  fixed and a session reuses its run directory across turns, so the target is removed
+  before the capture and the name is reported only when bytes were written — otherwise an
+  earlier turn's frame at that name stands in for this turn's, under the same name. A
+  still that could not be made is a review that judges one frame fewer, never a failed
+  asset, and never a stale frame.
+
 ### A session continues, and expires
 
 `session_id` is durable state, not just an address. Pi is spawned with `--session-id

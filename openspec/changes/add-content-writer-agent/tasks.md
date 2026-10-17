@@ -159,6 +159,23 @@
  committed as an extra asset. It is why the stale row had to go, and it wants its own fix: the
  commit path should read the requested set the gate already computes.
 
+- [ ] 4.18 A type can pin the composition form it means. The registry had no form field, so a
+  diagram could only be *hoped* for: `FORCE` is one value per request, and the article's brief
+  sends none, leaving the choice to the composer (it picked `diagram` for this subject, by choice
+  rather than by contract)
+ **Landed and live 2026-10-17.** `datasets/visual_types.json` gains an optional `form` (with its
+ `_comment_form`), `svg_wide` declares `diagram`, `parse_registry` shapes `FORM: t.form || ''`
+ (and the unknown/unavailable note carries the field too), and `build_author_brief` resolves
+ `a.FORM || req.FORCE || 'auto'` — the type wins, then the caller, then the composer. Applied to
+ `Visual Studio` with `--require-edge` on the registry→brief path and **published**; the published
+ version (`933d8e1c…`) carries both. Asserted by `test_a_type_may_pin_the_form_it_means` (the
+ declared form must be a name in `prompts/visual_forms.md`, so a typo cannot reach the composer as
+ prose) and `test_a_types_form_is_honoured_ahead_of_the_callers`; both fail without the change.
+ One guard earned its keep here: the first apply was refused by
+ `--require-edge 'normalize_input>build_author_brief'`, an edge that does not exist
+ (`normalize_input -> download_brand`), so a premise I had assumed was checked rather than
+ written.
+
 ## 5. Error handling
 
 - [x] 5.1 `agents/n8n/workflows/article_content_writer_error.workflow.json` authored as a create body, modeled on `linked_in_post_sharing_error` with one deliberate divergence: the row match no longer decides whether the notice is sent. `select_row_with_error` emits a `NO_ROW` item when nothing carries the failed execution id, `if_row_found` sends the matched row through the Sheet update and the rowless case straight to `set_error`, and both paths reach `send_error_notification` — the LinkedIn shape ends the notice on the row match, so a failure with no matching row is silent. Offline assertions in `scripts/test_content_writer_graph.py` (the handler sets no `errorWorkflow`, the notice is reachable from the trigger and from the rowless branch, only the matched branch updates the sheet, the page is addressed by name). No `settings.errorWorkflow` on the handler itself, per the repo rule. **Remaining: the live trigger** (the row moves to `ERROR` and the notice is delivered) — needs the page and the entry point to exist, so it is part of 6.1/6.2
@@ -168,7 +185,9 @@
 ## 6. Apply and verify
 
 - [x] 6.1 Create and apply all new workflows live with `scripts/apply_workflow_changes.py --create` after showing the diff, pairing subsequent edits with `--require-edge`, and re-read to confirm each field landed; verify the live graph matches the exports. `Article Creator` done: created as `nPBkIpeObC1Om0LH`, activated, read back and diffed (9 nodes and the connections identical, both graph copies agreeing), and the export rewritten to the canonical backup shape (the `GET /api/v1/workflows?limit=250` entry with sorted top-level keys, which is what the backup itself writes — verified against `visual_studio.workflow.json`). One field of the create body did not land: `settings.binaryMode`, which the public API accepts on neither `POST` nor `PUT`; it was dropped from the export and the measurement recorded in `AGENTS.md`. Created live 2026-10-16: `Article Creator` `nPBkIpeObC1Om0LH`, `Article Content Writer Error` `33uWLrAzZMm4SOP8` (active), `Article Content Writer` `sKsjxDDW40TATaS6` (inactive, by 6.6). Every export is the canonical backup shape (the `GET /api/v1/workflows?limit=250` entry, top-level keys sorted), which the 02:01 backup reproduced byte-for-byte for `Article Creator`. Still missing before 6.2 can run: the `article_queue` page and its test row (1.1, 1.2), which only a human can add
+
 - [ ] 6.2 Exercise every path with the manual trigger: article+all assets approved, one asset rejected then retried (confirming the retry edits the entry's session rather than authoring a new composition), article rejected then retried, an asset-only reject after the article is approved, a text-only tweak (every pending review still re-opens), a long draft reviewed without truncation (file/snippet, not inline), a resumed review carrying its round in the same thread, a `ASSET_TYPES` value naming a type the registry does not declare (that asset reports its error and the rest of the set proceeds), a concurrent commit on `main` retried once, an over-budget draft, an unknown category, and cancel (asset rows retired); verify the observable row/asset state and Slack messages for each
+
 - [ ] 6.3 Verify the end-to-end publish: the article and all its approved assets land in `alvsanand` in one commit, `docs/blog/posts/<YYYYMM>-<slug>.md` has valid front-matter and references each asset at its marker with alt text, each asset row records its committed path, and the entry records URL and commit ref
 - [ ] 6.4 Verify idempotency by running the trigger again for the published test row; confirm no commit, no asset and no row change
 - [ ] 6.5 Verify a source link that cannot be fetched continues from topic/description and records that the link was not used

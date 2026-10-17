@@ -494,9 +494,12 @@ animated SVG at 16:9), `deck` (authored by the composer agent, a self-contained 
 presentation that the same run also renders to mp4) and `launch_card` (authored by the
 composer agent, a still png at the announcement frame). A type declares its `brandKind`
 (`diagrammatic` or `photographic`), its output format and the frame the composer is briefed
-to produce; no animated type declares a `holdSeconds`, because a frozen final frame is the
-cheap-motion tell the framework names, and a still type declares no clip at all — no
-`durationSeconds`, no `secondsPerScene`.
+to produce, and it may declare the `form` it means — the studio honours a type's form ahead
+of the caller's `FORCE`, because choosing the type is choosing its shape (`svg_wide` is the
+article's diagram, so it pins `diagram`; a type that declares none takes the caller's
+`FORCE`, and with neither the composer chooses). No animated type declares a `holdSeconds`,
+because a frozen final frame is the cheap-motion tell the framework names, and a still type
+declares no clip at all — no `durationSeconds`, no `secondsPerScene`.
 
 **The frame is the type's data, in both halves of the raster branch.** `aspect` is what the
 composer is briefed to author, and for a raster it must also reach the image request and the

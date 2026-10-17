@@ -101,6 +101,18 @@ def test_the_raster_branch_reaches_the_merge(label, doc):
 
 
 @pytest.mark.parametrize("label,doc", list(_copies()))
+def test_a_types_form_is_honoured_ahead_of_the_callers(label, doc):
+    # The type's own form wins, then the caller's FORCE, then the composer's choice: a
+    # `diagram` type must not be talked out of being a diagram by a request-level knob that
+    # was written for the whole request.
+    shaped = _node(doc, "parse_registry")["parameters"]["jsCode"]
+    assert "FORM: t.form || ''" in shaped
+    assert "FORM: ''" in shaped, "the unknown/unavailable note must carry the field too"
+    brief = _node(doc, "build_author_brief")["parameters"]["jsCode"]
+    assert "a.FORM || req.FORCE || 'auto'" in brief
+
+
+@pytest.mark.parametrize("label,doc", list(_copies()))
 def test_the_raster_frame_comes_from_the_type(label, doc):
     # The frame is the type's own data: the raster request used to hardcode `4:5`, so a
     # type declaring 16:9 was generated portrait and then composed for the wrong shape --

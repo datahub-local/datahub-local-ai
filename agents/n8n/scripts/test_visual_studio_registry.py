@@ -18,6 +18,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 TYPES = ROOT / "datasets" / "visual_types.json"
+PROMPTS = ROOT / "prompts"
 
 # LinkedIn's documented GIF cap: at most 500 frames, at most 36,152,320 pixels.
 GIF_FRAME_CAP = 500
@@ -71,6 +72,24 @@ def test_the_wide_types_are_the_landscape_frame(registry):
     # The LinkedIn frames stay what the platform wants.
     assert by_id["image"]["aspect"] == "4:5"
     assert by_id["svg"]["aspect"] == "4:5"
+
+
+def test_a_type_may_pin_the_form_it_means(registry):
+    # A type can declare the composition shape it means, and the studio honours it ahead of
+    # the caller's FORCE: choosing the type is choosing its shape. `svg_wide` is the article's
+    # diagram, so it pins `diagram` rather than hoping the composer picks it (it did, but by
+    # choice -- the article's second asset must be a diagram every run).
+    by_id = {t["id"]: t for t in registry["types"]}
+    assert by_id["svg_wide"]["form"] == "diagram"
+    # A form is one of the vocabulary's names, never a new word: the enum, the curator's
+    # arrays and prompts/visual_forms.md are one list (test_hook_registry.py pins that), and a
+    # typo here would reach the composer as prose it may ignore.
+    text = (PROMPTS / "visual_forms.md").read_text(encoding="utf-8")
+    known = set(re.findall(r"^- `([a-z_]+)`:", text, re.M))
+    assert known, "the form vocabulary could not be read"
+    for t in registry["types"]:
+        if "form" in t:
+            assert t["form"] in known, f"{t['id']} declares an unknown form {t['form']}"
 
 
 def test_every_type_declares_a_known_author_and_render(registry):

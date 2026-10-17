@@ -546,7 +546,19 @@ dependency and an opinion inside the agent. The verdict is data (`VERDICT`, `RET
 records the review as not run rather than failing the asset, and an unreadable verdict is a pass
 with the raw answer kept — the other direction spends every cycle and ships the same defect.
 What it cannot see is motion, which the framework's `check` gate owns, and the stills' bytes are
-the only bytes the review adds to the graph.
+the only bytes the review adds to the graph. **A critique is expensive and slow**: four stills took
+102 s on the first live call (2026-10-17), so the critic's node allows 300 s and — this matters more
+— carries `onError: continueRegularOutput`, because a critic that cannot answer must not fail the
+run it was checking. The first live review proved the cost of not having that: its second call hit a
+120 s node timeout, the authoring run errored, and an asset that had already been fixed once died
+with it (execution 13762). One asset with one fix cycle is ≈ 18 minutes against ≈ 8 without. **A still of an animated
+document must be captured after its entrances run**: Chromium screenshots an SVG at t=0, so the
+first live review's finding was "no diagram content is visible" on a frame no reader ever sees
+(execution 13770), and a fix cycle went on it. `--virtual-time-budget` advances the page's clock
+before the capture and costs no wall time — measured against a page whose content appears after 3 s:
+3,886 bytes at t=0, 8,011 with the budget — so an animated SVG gets the declared duration's offsets
+plus its settled frame, and a deck (whose page is not a timeline) one settled shot. The clip case
+was already right: `ffmpeg` frames plus the final one.
 
 **Authoring is one composer turn.** For an agent type the request's `CONTENT` is a brief
 sent to the `pi-render` session, which plans a **storyboard** (form, style, scenes) and

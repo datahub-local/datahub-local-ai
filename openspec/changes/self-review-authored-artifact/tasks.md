@@ -104,11 +104,45 @@
   One robustness fix went in with it: a missing review prompt routes to the not-run path
   (`REVIEW_REASON: 'the review prompt is empty'`) instead of failing the asset it was meant to
   check — which matters because the prompt is a GitHub-`main` read and the graph is not.
-- [ ] 5.2 The adapter image publishes through CI (the stills are new code in the image), and the
+- [x] 5.2 The adapter image publishes through CI (the stills are new code in the image), and the
   live turn reports `stills` — read back from a real authoring response.
-- [ ] 5.3 Live: one authoring turn whose composition carries a deliberate defect shows a
+  **Verified live 2026-10-17.** CI pinned `63cc5209…` (`bc1a436`), ArgoCD synced it and the
+  session pod restarted onto it; the pod's `session-lib.mjs` carries `stillArgs` and the
+  `review-*` route, and its server calls `makeStills`. A real run then reported four stills
+  (`review-1…3` + `review-final`) which the workflow fetched and sent to the critic.
+- [x] 5.6 **A still of an animated document must be captured after its entrances run**, which the
+  first live review proved the hard way: the critic's first finding was *"the entire frame: no
+  diagram content is visible — only the background, dotted grid, rounded border and a single
+  horizontal rule"* (execution 13770), because Chromium screenshots an SVG at t=0 and an authored
+  composition animates its subjects in. A whole fix cycle was spent on a frame that no reader ever
+  sees. **Measured, not assumed:** against a page whose content appears after 3 s, a screenshot
+  without a budget is 3,886 bytes and with `--virtual-time-budget=5000` it is 8,011. `stillArgs`
+  now gives an animated SVG the same shape a clip gets — the declared duration's offsets plus the
+  settled frame (`--virtual-time-budget` at 25/50/75/100 %) — and a deck, whose page is not a
+  timeline, one settled shot. The review prompt says the last still is the settled frame, so the
+  geometry is judged on that one and the earlier frames only show what collides on the way in.
+  Adapter tests updated; the fix reaches the cluster on the next image publish.
+- [x] 5.3 Live: one authoring turn whose composition carries a deliberate defect shows a
   critique, a fix turn and a second render without it, with the outcome on the asset — and the
   turn's length recorded, since two cycles roughly doubles it.
+  **The mechanism is proven live, and it found the defect class it exists for.** Execution 13762
+  (2026-10-17, a `tiles_wide` request) ran the whole loop: the authoring turn (519 s), four stills
+  fetched, `critique` **102 s** → `VERDICT: fix`, `RETRY: true`, with three findings the still
+  showed — *"the 'TRUCHET TILING' heading, upper left: two copies of the heading are printed on top
+  of each other with a slight offset, so the words smear and become unreadable"*, and *"the tiling
+  strokes run behind and cross these glyphs"* — then `review_feedback` → a second authoring turn
+  (465 s) → a second critique.
+  **That second critique exposed two gaps of mine, both now closed.** Its call exceeded the node's
+  120 s timeout, and because the node had no error path the *whole run* errored — taking with it an
+  asset that had already been fixed once. `critique` and `critique_raster` now allow 300 s (a
+  four-still critique took 102 s, so 120 was a coin flip) and `continueRegularOutput`, with a node
+  `notes` naming where the empty result is handled: `parse_verdict` reads no answer, marks the
+  review unreadable and passes it, so the artifact ships with `REVIEW.unreadable` true and
+  `REVIEW_REASON` set. Applied and published (`fabf46f3…`); asserted by
+  `test_a_critic_that_cannot_answer_does_not_fail_the_run`, parametrized over both copies.
+  **Measured cost, for the record:** one asset with one fix cycle is ≈ 18 minutes (519 s + 102 s +
+  465 s + the second critique), against ≈ 8 minutes for the same turn without a review. The
+  callers' `executionTimeout` is 3600 s, so it fits; the article flow's Slack waits are unaffected.
 - [x] 5.4 `AGENTS.md`: the loop's shape, the two halves and why each sits where it does (the
   session owns the bytes and the render; the workflow owns the judgement), the bound, and that
   the stills are the only bytes the review adds to the graph.

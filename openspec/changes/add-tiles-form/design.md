@@ -252,14 +252,18 @@ turn.
 - **Whether a 4:5 frame needs a different tile count than 16:9** to read at the same
   density. A form-level question the composer answers; not a registry field. Unmeasured:
   run 13745 was the 16:9 type.
-- **The declared duration is not enforced on the artifact.** Run 13745's composition is
+- **The declared duration is not enforced on the artifact.** Run 13745's composition was
   **12.5 s / 375 frames** while the type declares `durationSeconds: 12` and the run record
-  reports `DURATION_MS 12000` / `FRAME_COUNT 360`. The clip is 0.5 s *longer* than declared
-  — harmless here, plausibly the composer rounding a beat onto its own storyboard, but it
-  matters because a consumer that trusts the run record's frame count rather than the file
-  describes the asset slightly wrong. Recorded rather than fixed: the registry value is an
-  instruction to the composer and nothing measures the artifact against it. `[UNVERIFIED]`
-  whether this is a one-off or the normal spread.
+  reports `DURATION_MS 12000` / `FRAME_COUNT 360` — 0.5 s *longer* than declared. Run 13762
+  showed the same gap total: the served artifact is **1080×1350, 30 fps, 90 frames, 3.000 s**
+  for a type declaring 16:9 / viewport 1280 / 12 s / 360 frames, while the asset row still
+  claims `WIDTH 1280`, `HEIGHT 720`, `FRAME_COUNT 360`, `DURATION_MS 12000`. So it is not one
+  number that is unenforced but the whole container — frame, rate and length — and the record
+  describes the request rather than the artifact. Moved out of this change:
+  `openspec/changes/conform-artifact-to-type-frame/` conforms the artifact to the declared
+  container in the session's transcode and reports the authored values beside the declared
+  ones. What stays here is the measurement and the reason this change does not fix it: the
+  form vocabulary is about the picture, and the container is the runtime's contract.
 - **Whether the composer honours the deterministic seed visibly.** Measured in part: the
   seed is a literal in the composition (`SEED = 0x2f9c4b17`), every randomised value comes
   from one xorshift32 sequence, and the HUD reads from a single timeline driver, with no

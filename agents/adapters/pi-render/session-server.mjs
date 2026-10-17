@@ -22,7 +22,7 @@
 
 import http from "node:http";
 import { createReadStream } from "node:fs";
-import { mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
@@ -35,6 +35,8 @@ import {
   resolveArtifact,
   contentTypeFor,
   transcodeArgs,
+  conformanceNote,
+  CONFORMED_TEMP,
   stageVendorAssets,
   compositionMarker,
   turnInstruction,
@@ -312,32 +314,91 @@ function runPi(prompt, sessionID, onOutput, signal, cwd = workDir) {
   });
 }
 
-// A bounded child process (ffmpeg) whose failure names its stderr, so a transcode
-// problem is legible rather than a bare exit code.
-function runCommand(command, args, cwd) {
+// A bounded child process (ffmpeg, ffprobe) whose failure names its stderr, so a transcode
+// problem is legible rather than a bare exit code. `capture` resolves the child's stdout,
+// which is how ffprobe's container report is read.
+function runCommand(command, args, cwd, { capture = false } = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { cwd, env: process.env, stdio: ["ignore", "pipe", "pipe"] });
     let stderr = "";
+    let stdout = "";
+    child.stdout.setEncoding("utf8");
+    child.stdout.on("data", (chunk) => {
+      if (capture && stdout.length < 100_000) stdout += chunk;
+    });
     child.stderr.setEncoding("utf8");
     child.stderr.on("data", (chunk) => {
       if (stderr.length < 4000) stderr += chunk;
     });
     child.on("error", reject);
     child.on("close", (code) => {
-      if (code === 0) return resolve();
+      if (code === 0) return resolve(capture ? stdout : undefined);
       reject(new Error(`${command} exited ${code}: ${stderr.slice(-1000)}`));
     });
   });
 }
 
+// The container the engine actually produced. A composition carries its own frame in its
+// markup, so a render can disagree with the request that asked for it: measured on the
+// tiles type (2026-10-17, run 13762), a request declaring 16:9 / viewport 1280 / 12s was
+// rendered at 1080x1350 / 3s. `null` means it could not be read -- which is conformed
+// rather than trusted, and reported rather than failed.
+async function probeContainer(dir, name) {
+  try {
+    const raw = await runCommand(
+      "ffprobe",
+      [
+        "-v",
+        "error",
+        "-select_streams",
+        "v:0",
+        "-show_entries",
+        "stream=width,height,r_frame_rate",
+        "-show_entries",
+        "format=duration",
+        "-of",
+        "json",
+        name,
+      ],
+      dir,
+      { capture: true }
+    );
+    const parsed = JSON.parse(raw);
+    const stream = ((parsed.streams || [])[0]) || {};
+    const [num, den] = String(stream.r_frame_rate || "").split("/").map(Number);
+    return {
+      width: stream.width,
+      height: stream.height,
+      durationSeconds: Number((parsed.format || {}).duration),
+      fps: den ? num / den : num,
+    };
+  } catch {
+    return null;
+  }
+}
+
 // The engine always renders out.mp4. A caller that asked for another format gets it
-// produced here, after the render, from the type's declared fps/width — deterministic
-// post-processing, not a model decision. MP4 needs no step.
+// produced here, after the render, and every kind is conformed to the container the request
+// declared -- frame, rate and length -- because the engine's frame is the composition's own
+// markup rather than the request's. Deterministic post-processing, not a model decision.
+// Returns what ran, so the note can say whether anything was conformed and why not.
 async function transcode(dir, format, opts) {
   const args = transcodeArgs(format, opts);
-  if (!args) return artifactName(format);
-  await runCommand("ffmpeg", args, dir);
-  return artifactName(format);
+  if (!args) return { name: artifactName(format), conformed: false, reason: "" };
+  try {
+    await runCommand("ffmpeg", args, dir);
+  } catch (err) {
+    // An mp4 already has a valid artifact -- the engine's own render -- so a conformance
+    // that could not run is reported rather than fatal, and the caller still gets bytes.
+    // A format change has no such fallback: without it there is no artifact to serve.
+    if (safeFormat(format) !== "mp4") throw err;
+    const message = err instanceof Error ? err.message : "the conformance did not run";
+    return { name: artifactName(format), conformed: false, reason: message };
+  }
+  // ffmpeg cannot read and write one file, and for mp4 the artifact IS the engine's output,
+  // so the conformance wrote a sibling that replaces it here.
+  if (safeFormat(format) === "mp4") await rename(join(dir, CONFORMED_TEMP), join(dir, artifactName(format)));
+  return { name: artifactName(format), conformed: true, reason: "" };
 }
 
 function writeSSE(res, value) {
@@ -467,11 +528,16 @@ http
       ));
 
       // Produce the caller's requested format from the engine's out.mp4, in the
-      // same run directory, before answering.
-      await transcode(dir, format, { fps, width, frames, durationSeconds });
+      // same run directory, before answering -- and conform it to the declared container,
+      // which the composition's own frame may not match (probed, not assumed).
+      const engineContainer = await probeContainer(dir, "out.mp4");
+      const containerOpts = { fps, width, height, frames, durationSeconds, actual: engineContainer };
+      const { conformed, reason } = await transcode(dir, format, containerOpts);
+      const conformance = conformanceNote({ opts: containerOpts, actual: engineContainer, conformed, reason });
 
       // Then hand back stills of it. The studio's critic looks at these; the review, its
-      // bound and its verdict belong to the workflow, not to this server.
+      // bound and its verdict belong to the workflow, not to this server. They are made
+      // after the conformance so the critic sees the artifact the caller receives.
       const stills = await makeStills(dir, { format, width, height, durationSeconds });
 
       await sweepIfDue(sessionID);
@@ -495,6 +561,7 @@ http
         model: process.env.MODEL_NAME,
         choices: [{ index: 0, message: { role: "assistant", content: response }, finish_reason: "stop" }],
         stills,
+        conformance,
       });
       res.writeHead(200, { "content-type": "application/json", "content-length": Buffer.byteLength(body) }).end(body);
     } catch (err) {

@@ -13,6 +13,8 @@ import {
   resolveArtifact,
   contentTypeFor,
   transcodeArgs,
+  needsConformance,
+  conformanceNote,
   outputFps,
   stageVendorAssets,
   compositionMarker,
@@ -91,7 +93,9 @@ test("contentTypeFor matches the served artifact", () => {
   assert.equal(contentTypeFor("out.html"), "text/html");
 });
 
-test("transcodeArgs only runs ffmpeg when the format is not mp4", () => {
+test("transcodeArgs runs ffmpeg for a format change, and for a container that differs", () => {
+  // A request that declared nothing has nothing to conform to, so an mp4 is served as the
+  // engine rendered it.
   assert.equal(transcodeArgs("mp4", {}), null);
   assert.equal(transcodeArgs("svg", {}), null, "an SVG is authored directly, not transcoded");
   assert.equal(transcodeArgs("html", {}), null, "a deck is authored directly, not transcoded");
@@ -108,6 +112,77 @@ test("transcodeArgs only runs ffmpeg when the format is not mp4", () => {
   assert.ok(png.includes("-sseof"), "a still must not be taken from the first frame");
   assert.ok(png.includes("-frames:v"));
   assert.equal(png.at(-1), "out.png");
+});
+
+test("an mp4 already in the declared container is not encoded twice", () => {
+  const declared = { width: 1280, height: 720, frames: 360, durationSeconds: 12 };
+  assert.equal(transcodeArgs("mp4", { ...declared, actual: { width: 1280, height: 720, durationSeconds: 12, fps: 30 } }), null);
+  // One frame short at 30fps is the same clip; half a second is not.
+  assert.equal(
+    transcodeArgs("mp4", { ...declared, actual: { width: 1280, height: 720, durationSeconds: 11.98, fps: 30 } }),
+    null
+  );
+  assert.notEqual(
+    transcodeArgs("mp4", { ...declared, actual: { width: 1280, height: 720, durationSeconds: 11.5, fps: 30 } }),
+    null
+  );
+});
+
+test("an mp4 whose container disagrees is conformed, and never over its own input", () => {
+  // Measured shape: a 16:9 / 12s type rendered at 1080x1350 for 3s.
+  const declared = { width: 1280, height: 720, frames: 360, durationSeconds: 12 };
+  const args = transcodeArgs("mp4", { ...declared, actual: { width: 1080, height: 1350, durationSeconds: 3, fps: 30 } });
+  const line = args.join(" ");
+  assert.ok(line.includes("scale=1280:720:force_original_aspect_ratio=increase"), line);
+  assert.ok(line.includes("crop=1280:720"), line);
+  assert.ok(line.includes("-t 12"), "a longer render is trimmed to the declared length");
+  assert.ok(line.includes("fps=30"), "the declared frame count over the declared length");
+  assert.equal(args.at(-1), "out.conformed.mp4", "ffmpeg cannot write the file it is reading");
+  assert.ok(args.includes("-i") && args[args.indexOf("-i") + 1] === "out.mp4");
+});
+
+test("a render whose container cannot be read is conformed rather than trusted", () => {
+  const declared = { width: 1280, height: 720, frames: 360, durationSeconds: 12 };
+  assert.ok(needsConformance(declared, null));
+  assert.ok(needsConformance(declared, { width: 0, height: 0, durationSeconds: 0, fps: 0 }));
+  assert.ok(!needsConformance({}, null), "nothing declared, nothing to conform to");
+  assert.ok(!needsConformance(declared, { width: 1280, height: 720, durationSeconds: 12, fps: 30 }));
+});
+
+test("conformanceNote names the frame served, the frame authored, and a short render", () => {
+  const declared = { width: 1280, height: 720, frames: 360, durationSeconds: 12 };
+  const cropped = conformanceNote({
+    opts: declared,
+    actual: { width: 1080, height: 1350, durationSeconds: 3, fps: 30 },
+    conformed: true,
+  });
+  assert.deepEqual(cropped, {
+    frame: "1280x720",
+    authored: "1080x1350",
+    fit: "crop",
+    durationSeconds: 12,
+    authoredSeconds: 3,
+    short: true,
+    reason: "",
+  });
+  const clean = conformanceNote({ opts: declared, actual: { width: 1280, height: 720, durationSeconds: 12, fps: 30 } });
+  assert.equal(clean.fit, "none");
+  assert.equal(clean.short, false);
+  const scaled = conformanceNote({
+    opts: declared,
+    actual: { width: 2560, height: 1440, durationSeconds: 12, fps: 30 },
+    conformed: true,
+  });
+  assert.equal(scaled.fit, "scale", "the same aspect scaled is not a crop");
+  const blind = conformanceNote({ opts: declared, actual: null });
+  assert.equal(blind.fit, "unknown");
+  assert.equal(blind.authored, "");
+  assert.ok(blind.reason, "an unreadable render says why it is unknown");
+});
+
+test("a still is conformed to the declared frame like any other artifact", () => {
+  const png = transcodeArgs("png", { width: 1280, height: 670 });
+  assert.ok(png.join(" ").includes("crop=1280:670"), "the card ships the declared frame");
 });
 
 test("outputFps prefers frames/duration so a type is tunable from data", () => {
@@ -259,16 +334,28 @@ test("this module depends on nothing but node builtins", async () => {
 });
 
 
-test("stillArgs screenshots an authored document at the declared frame", () => {
-  const [svg] = stillArgs({ format: "svg", runDir: "/runs/x", width: 1280, height: 720 });
+test("stillArgs screenshots an animated document after its entrances run", () => {
+  // Chromium screenshots at t=0 otherwise, and the first live review spent a fix cycle on an
+  // empty frame: "no diagram content is visible" (execution 13770, 2026-10-17). Measured
+  // against a page whose content appears after 3 s: 3,886 bytes at t=0, 8,011 with the budget.
+  const shots = stillArgs({ format: "svg", runDir: "/runs/x", width: 1280, height: 720, durationSeconds: 12 });
+  assert.deepEqual(shots.map((j) => j.output), ["review-1.png", "review-2.png", "review-3.png", "review-4.png"]);
+  assert.deepEqual(
+    shots.map((j) => j.args.find((a) => a.startsWith("--virtual-time-budget="))),
+    ["--virtual-time-budget=3000", "--virtual-time-budget=6000", "--virtual-time-budget=9000", "--virtual-time-budget=12000"]
+  );
+  const [svg] = shots;
   assert.equal(svg.command, "chromium");
   assert.ok(svg.args.includes("--window-size=1280,720"));
-  assert.ok(svg.args.some((a) => a.startsWith("--screenshot=/runs/x/")));
   assert.ok(svg.args.includes("file:///runs/x/out.svg"));
   assert.equal(svg.mime, "image/png");
-  // A deck is authored as html, and its still is that page.
-  const [deck] = stillArgs({ format: "html", runDir: "/runs/x", width: 1280, height: 720 });
-  assert.ok(deck.args.includes("file:///runs/x/out.html"));
+  // A deck's page is not a timeline: one settled shot is what there is to see.
+  const deck = stillArgs({ format: "html", runDir: "/runs/x", width: 1280, height: 720, durationSeconds: 30 });
+  assert.equal(deck.length, 1);
+  assert.ok(deck[0].args.includes("file:///runs/x/out.html"));
+  assert.ok(deck[0].args.includes("--virtual-time-budget=30000"));
+  // An unknown duration still settles rather than capturing t=0.
+  assert.ok(stillArgs({ format: "svg", runDir: "/runs/x" })[3].args.includes("--virtual-time-budget=3000"));
 });
 
 test("stillArgs samples a clip and always includes its final frame", () => {

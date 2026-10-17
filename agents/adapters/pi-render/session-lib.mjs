@@ -235,18 +235,129 @@ function trimNumber(n) {
   return String(Math.round(n * 1000) / 1000);
 }
 
-// The ffmpeg argument list that turns the engine's out.mp4 into the requested
-// format inside runDir. Returns null when no transcode is needed (mp4). A declared
-// duration trims the input to that length, so the frame count is what the type
-// budget says it is even if the agent's render ran long.
-export function transcodeArgs(format, { fps, width, frames, durationSeconds } = {}) {
+// The container an artifact is in: its frame, its length and its rate. A render whose
+// container could not be read is passed as null, which is conformed rather than trusted --
+// an unprobed render is not evidence that it matches.
+export function containerOf(value) {
+  const v = value || {};
+  const positive = (n, round) => {
+    const x = Number(n);
+    return Number.isFinite(x) && x > 0 ? (round ? Math.round(x) : x) : 0;
+  };
+  return {
+    width: positive(v.width, true),
+    height: positive(v.height, true),
+    durationSeconds: positive(v.durationSeconds),
+    fps: positive(v.fps),
+  };
+}
+
+// What a request declared, in the same terms: the frame and length it named and the rate
+// derived from the frame count it budgeted.
+function declaredContainer({ fps, width, height, frames, durationSeconds } = {}) {
+  return containerOf({ width, height, durationSeconds, fps: outputFps({ frames, durationSeconds, fps }) });
+}
+
+// A clip within a frame and a half of the declared length at the declared rate is the same
+// clip; a half-second difference is a different one. One tolerance, used by the decision to
+// conform and by the note, so the two never disagree.
+function lengthTolerance(declared) {
+  return declared.fps > 0 ? 1.5 / declared.fps : 0.05;
+}
+
+// Whether the engine's render needs conforming to what the request declared. A render whose
+// container cannot be read needs it, and a request that declared neither a frame nor a length
+// has nothing to conform to.
+export function needsConformance(opts = {}, actual = null) {
+  const d = declaredContainer(opts);
+  if (!d.width && !d.durationSeconds) return false;
+  const a = containerOf(actual);
+  if (!a.width || !a.height || !a.durationSeconds) return true;
+  if (d.width && d.height && (a.width !== d.width || a.height !== d.height)) return true;
+  if (d.durationSeconds && Math.abs(a.durationSeconds - d.durationSeconds) > lengthTolerance(d)) return true;
+  if (Math.abs(a.fps - d.fps) > 0.01 * d.fps) return true;
+  return false;
+}
+
+// What the conformance did, in terms a caller can read off the asset: the frame the artifact
+// is served at, the frame the composition was authored at where the two differ, and whether
+// the render was shorter than the declared length. Nothing extends a render -- a held last
+// frame is the frozen tail the composition rules forbid, so a short render is reported.
+export function conformanceNote({ opts = {}, actual = null, conformed = false, reason = "" } = {}) {
+  const d = declaredContainer(opts);
+  const a = containerOf(actual);
+  const frame = d.width && d.height ? `${d.width}x${d.height}` : `${a.width}x${a.height}`;
+  if (!a.width || !a.height || !a.durationSeconds) {
+    return {
+      frame,
+      authored: "",
+      fit: "unknown",
+      durationSeconds: d.durationSeconds,
+      authoredSeconds: 0,
+      short: false,
+      reason: reason || "the render's container could not be read",
+    };
+  }
+  const aspect = (c) => c.width / c.height;
+  const sameAspect = d.width && d.height ? Math.abs(aspect(a) - aspect(d)) / aspect(d) < 0.01 : true;
+  return {
+    frame,
+    authored: `${a.width}x${a.height}`,
+    fit: !conformed ? "none" : sameAspect ? "scale" : "crop",
+    durationSeconds: d.durationSeconds,
+    authoredSeconds: a.durationSeconds,
+    short: Boolean(d.durationSeconds && a.durationSeconds < d.durationSeconds - lengthTolerance(d)),
+    reason,
+  };
+}
+
+// Where a conformed mp4 is written before it replaces the engine's own output: ffmpeg cannot
+// read and write one file, and the artifact the engine produced IS out.mp4.
+export const CONFORMED_TEMP = "out.conformed.mp4";
+
+// The ffmpeg argument list that turns the engine's out.mp4 into the requested container and
+// format inside runDir. `actual` is the engine render's probed container: for mp4 this returns
+// null when nothing differs, so a render that already matches is never encoded twice. Every
+// kind receives the declared frame, the declared rate (so the frame count is what the type
+// budget says it is even if the render ran long) and the declared length, trimmed and never
+// extended.
+export function transcodeArgs(format, { fps, width, height, frames, durationSeconds, actual = null } = {}) {
   const rate = outputFps({ frames, durationSeconds, fps });
-  const filters = [`fps=${trimNumber(rate)}`];
-  if (Number.isFinite(width) && width > 0) filters.push(`scale=${width}:-2:flags=lanczos`);
+  const w = Math.round(Number(width) || 0);
+  const h = Math.round(Number(height) || 0);
+  const frameFilters = [];
+  if (w > 0 && h > 0) {
+    // Increase-then-crop is a plain scale when the aspect already agrees, and fills the
+    // declared frame when it does not. A declared frame means filled, so the overflow is
+    // cropped rather than letterboxed, and the note names the authored frame.
+    frameFilters.push(`scale=${w}:${h}:force_original_aspect_ratio=increase`);
+    frameFilters.push(`crop=${w}:${h}`);
+  } else if (w > 0) {
+    frameFilters.push(`scale=${w}:-2:flags=lanczos`);
+  }
+  const filters = [`fps=${trimNumber(rate)}`, ...frameFilters];
   const trim = Number.isFinite(durationSeconds) && durationSeconds > 0 ? ["-t", trimNumber(durationSeconds)] : [];
   switch (safeFormat(format)) {
-    case "mp4":
-      return null;
+    case "mp4": {
+      if (!needsConformance({ fps, width, height, frames, durationSeconds }, actual)) return null;
+      return [
+        "-y",
+        ...trim,
+        "-i",
+        "out.mp4",
+        "-vf",
+        filters.join(","),
+        "-c:v",
+        "libx264",
+        "-preset",
+        "veryfast",
+        "-crf",
+        "18",
+        "-pix_fmt",
+        "yuv420p",
+        CONFORMED_TEMP,
+      ];
+    }
     case "gif": {
       // Palettegen/paletteuse is what makes a flat-colour diagram GIF small and
       // clean; -loop 0 makes it animate.
@@ -282,8 +393,19 @@ export function transcodeArgs(format, { fps, width, frames, durationSeconds } = 
       // page: measured against a real launch card (2026-10-16, run 13581), frame 1
       // was 4,107 bytes and exactly one colour where the final frame was 251,865
       // bytes and 12,257 colours. The last frame is the settled card whatever the
-      // composer's entrance timing, so the artifact does not depend on it.
-      return ["-y", "-sseof", "-0.1", "-i", "out.mp4", "-frames:v", "1", "out.png"];
+      // composer's entrance timing, so the artifact does not depend on it. Its frame
+      // is conformed like any other artifact's: a still ships the declared frame.
+      return [
+        "-y",
+        "-sseof",
+        "-0.1",
+        "-i",
+        "out.mp4",
+        "-frames:v",
+        "1",
+        ...(frameFilters.length ? ["-vf", frameFilters.join(",")] : []),
+        "out.png",
+      ];
     case "svg":
       // Authored directly by the composer as a self-contained animated SVG; there is
       // no engine out.mp4 to derive it from, so nothing to transcode.
@@ -319,22 +441,36 @@ export function stillArgs({ format, runDir, width, height, durationSeconds, offs
   const h = Math.max(1, Math.round(Number(height) || (w * 9) / 16));
   if (f === "svg" || f === "html") {
     const page = f === "svg" ? "out.svg" : "out.html";
-    return [
-      {
-        command: "chromium",
-        args: [
-          "--headless=new",
-          "--no-sandbox",
-          "--disable-gpu",
-          "--hide-scrollbars",
-          `--window-size=${w},${h}`,
-          `--screenshot=${dir}/review-1.png`,
-          `file://${dir}/${page}`,
-        ],
-        output: "review-1.png",
-        mime: "image/png",
-      },
-    ];
+    const seconds = Number(durationSeconds);
+    const total = Number.isFinite(seconds) && seconds > 0 ? seconds : 3;
+    // An authored document has to be captured AFTER its entrances run. Chromium screenshots
+    // at t=0 otherwise, and the first live review spent a whole fix cycle on an empty frame
+    // ("no diagram content is visible", execution 13770). `--virtual-time-budget` advances
+    // the page's clock before the capture and costs no wall time (measured: 3,886 bytes at
+    // t=0 against 8,011 once a 3 s-delayed element had appeared).
+    //
+    // An animated SVG is a timeline, so it gets the same shape a clip does -- the declared
+    // duration's offsets plus the settled frame. A deck's page is not a timeline: one
+    // settled shot is what there is to see.
+    const budgets =
+      f === "svg"
+        ? [0.25, 0.5, 0.75, 1].map((o) => Math.round(total * o * 1000))
+        : [Math.max(3000, Math.round(total * 1000))];
+    return budgets.map((ms, i) => ({
+      command: "chromium",
+      args: [
+        "--headless=new",
+        "--no-sandbox",
+        "--disable-gpu",
+        "--hide-scrollbars",
+        `--virtual-time-budget=${ms}`,
+        `--window-size=${w},${h}`,
+        `--screenshot=${dir}/review-${i + 1}.png`,
+        `file://${dir}/${page}`,
+      ],
+      output: `review-${i + 1}.png`,
+      mime: "image/png",
+    }));
   }
   if (f === "png") return [];
   const artifact = artifactName(f);

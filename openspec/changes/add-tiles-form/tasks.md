@@ -188,7 +188,7 @@
   and `check_animation_result` still matches `want = 'animation_linkedin_video'`. So a row whose
   `VISUAL_FORM` is `tiles` reaches the composer as `FORCE=tiles` with the feed's own type.
 
-- [ ] 5.6 Re-render the asset against the sharpened `tiles` definition (D9) and a `FEEDBACK`
+- [x] 5.6 Re-render the asset against the sharpened `tiles` definition (D9) and a `FEEDBACK`
   that names the failure rather than the geometry: the field must read as the pattern it is
   named (a Truchet tiling's curves run together across tiles, not separate motifs per tile),
   the tiling fills the frame, the HUD sits outside the field and keeps the frame's outer edge
@@ -199,6 +199,33 @@
   by passing the new definition through the request's `EXTRA_PROMPT`, which the brief appends
   verbatim after the vocabulary — that renders the intended definition without a push, and the
   push remains the durable half.
+  **Landed, and the wording bought the picture.** Two turns were needed, both on the live
+  instance:
+  - *First attempt (execution 13756)* wrote the fix into the composition but never rendered
+    it: the session pod was rolled onto a new image at 14:43:07, one second after the turn
+    wrote `index.html`, and the caller was answered `ERROR: fetching …/out.mp4 failed:
+    ConnectError. Nothing was stored.` Read off the PVC, that revision had already changed the
+    geometry — `TILE = 40` with the radius exactly half the tile, arcs between adjacent edge
+    midpoints so each tile's two arcs cover all four edges and neighbours' strokes continue,
+    the grid oversized and offset so it fills the frame, the HUD moved to a 62 px inset, the
+    file 35,952 → 33,741 bytes. (The run's own review fields behaved as documented for a
+    missing artifact: `REVIEWED: false`, `REVIEW_REASON: "the render left no still"`.)
+  - *Second attempt (execution 13762)* rendered — 2,640,886 bytes, stills, `out.mp4` — and the
+    picture is the one the definition asks for: continuous S-curves and full circles, seams
+    joined, the field filling the frame, a margin between the HUD and the outer edge. Its
+    `STORYBOARD` names no form (the asset row was built from an error path), but the artifact
+    and its stills exist. The workflow, however, died at the new `critique` node with
+    `ECONNABORTED` and answered the caller `500`, so the artifact was fetched from the
+    session's own `GET /artifacts/tiles_wide-13745/out.mp4` instead.
+  - *What the second render exposed is a different defect*: the served artifact is
+    **1080×1350, 30 fps, 90 frames, 3.000 s** against a type declaring 16:9 / viewport 1280 /
+    12 s / 360 frames, i.e. the composer's frame and length are unenforced. It is spun out
+    into `openspec/changes/conform-artifact-to-type-frame/`, which conforms the artifact to
+    the declared container and reports the drift.
+  - The local copies are `/tmp/opencode/tiles-render/13762-tiles_wide.mp4`,
+    `review-final.jpg` and `review-1.jpg` (plus `13745-tiles_wide.mp4` for comparison), and the
+    two revisions of the composition at `/tmp/opencode/13745-index.html` and
+    `13756-index.html`.
 
 ## 6. Documentation
 

@@ -140,6 +140,35 @@ test("an authoring turn writes into its own run directory and returns its artifa
   assert.deepEqual([...bytes], [0, 0, 0, 0x18, 0x66, 0x74, 0x79, 0x70]);
 });
 
+test("a turn reports the container it served and why nothing was conformed", async () => {
+  const res = await fetch(`${base}/v1/chat/completions`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      messages: [{ role: "user", content: "make a card" }],
+      session_id: "run_note",
+      format: "mp4",
+      fps: 30,
+      width: 1280,
+      height: 720,
+      frames: 360,
+      durationSeconds: 12,
+    }),
+  });
+  assert.equal(res.status, 200, "a container that cannot be read never fails the turn");
+  const body = await res.json();
+  // The stub writes eight bytes of ftyp rather than a clip, and CI installs no ffmpeg:
+  // either way the render's container cannot be read, so the note says so and the caller
+  // still receives the bytes the engine produced.
+  assert.equal(body.conformance.frame, "1280x720");
+  assert.equal(body.conformance.fit, "unknown");
+  assert.ok(body.conformance.reason, "an unreadable render says why it is unknown");
+  assert.equal(body.conformance.durationSeconds, 12);
+  assert.equal(body.conformance.short, false, "nothing is claimed about a length nobody read");
+  const art = await fetch(`${base}/artifacts/run_note/out.mp4`);
+  assert.equal(art.status, 200);
+});
+
 test("the vendored GSAP is staged beside the composition", async () => {
   // `<script src="gsap.min.js">` resolves as a sibling; an absolute /opt path 404s.
   const staged = await readFile(join(dir, "workspace", "runs", "run_a", "gsap.min.js"), "utf8");

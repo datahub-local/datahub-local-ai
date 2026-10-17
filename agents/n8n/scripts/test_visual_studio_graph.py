@@ -323,6 +323,24 @@ def test_a_failed_composer_is_continued_and_handled(label, doc):
 
 
 @pytest.mark.parametrize("label,doc", list(_copies()))
+def test_the_asset_carries_what_the_runtime_reported_about_its_container(label, doc):
+    # The declared frame the caller reads is the request's; the session's note says what the
+    # artifact was served at, and names the authored frame where the two differed (measured
+    # 2026-10-17, run 13762: a 16:9 / 12s type served at 1080x1350 / 3s). Absent note means
+    # empty fields, so "no report" and "the declared container" stay distinguishable.
+    code = _code(doc, "agent_result")
+    assert "conformance" in code
+    assert "execute_author" in code
+    for field in ("CONFORMED", "AUTHORED_FRAME", "SHORT"):
+        assert field in code, field
+    # And the request to the session carries both numbers of the declared frame: a
+    # conformance that knows only the width can scale but cannot deliver the aspect, and the
+    # session's own `height` read was dead until this was fixed.
+    body = _code(doc, "build_author_brief").split("AUTHOR_BODY", 1)[1]
+    assert "width: width" in body and "height: height" in body
+
+
+@pytest.mark.parametrize("label,doc", list(_copies()))
 def test_only_the_brief_crosses_to_the_composer(label, doc):
     # The request is the brief plus the output frame; no markup is sent, which is
     # what keeps the workflow out of the composition.
@@ -535,3 +553,21 @@ def test_the_raster_is_reviewed_the_same_way_with_a_rewritten_prompt(label, doc)
     assert "RASTER_REVIEW_ROUND" in _node(doc, "parse_registry")["parameters"]["jsCode"]
     assert "RETRY: verdict === 'fix' && round < cycles" in _node(doc, "parse_raster_verdict")["parameters"]["jsCode"]
     assert "REVIEW: JSON.stringify(" in _node(doc, "parse_raster_verdict")["parameters"]["jsCode"]
+
+
+@pytest.mark.parametrize("label,doc", list(_copies()))
+def test_a_critic_that_cannot_answer_does_not_fail_the_run(label, doc):
+    # Measured 2026-10-17 (execution 13762): the critic's second call hit the node timeout and
+    # the whole authoring run errored, taking an asset that had already been fixed once with it.
+    # The node continues on error, and the verdict node is where the empty answer is handled --
+    # which is why the note has to name it.
+    for name in ("critique", "critique_raster"):
+        node = _node(doc, name)
+        assert node["onError"] == "continueRegularOutput", f"{name} would fail the run it was checking"
+        assert node["notes"], f"{name} must say where the empty result is handled"
+        assert "parse_verdict" in node["notes"] or "parse_raster_verdict" in node["notes"]
+        # A four-still critique took 102s on the first call and over 120s on the second.
+        assert node["parameters"]["options"]["timeout"] >= 300000, f"{name} would time out on a real critique"
+    # And the empty answer is recorded rather than read as a pass.
+    for name in ("parse_verdict", "parse_raster_verdict"):
+        assert "REVIEW_REASON: unreadable ?" in _code(doc, name)

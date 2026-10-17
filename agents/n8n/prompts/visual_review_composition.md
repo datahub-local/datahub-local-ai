@@ -9,7 +9,9 @@ You review one authored visual. You are given stills of the render and the brief
 
 ## What not to report
 
-- Motion, timing or transition: you have stills, not the clip.
+- Motion, timing or transition: you have stills, not the clip. When several stills are given, the
+  **last is the settled frame** — judge the geometry of that one, and use the earlier ones only to
+  see whether anything collides on the way in.
 - Anything you cannot see in a still.
 - A preference for a different subject, wording or composition, where the still is correct as asked.
 

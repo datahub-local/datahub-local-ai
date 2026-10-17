@@ -1,18 +1,10 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "f41d1ee7-a2c4-4bf0-8ad3-1a0215967630",
+    "versionId": "83d2696a-d245-485a-a2c4-eb9d6a554d9a",
     "workflowId": "nPBkIpeObC1Om0LH",
     "nodes": [
       {
-        "id": "21668eec-5b4e-4520-80c1-706618ebe5e2",
-        "name": "main_trigger",
-        "type": "n8n-nodes-base.executeWorkflowTrigger",
-        "typeVersion": 1.1,
-        "position": [
-          -17344,
-          -880
-        ],
         "parameters": {
           "workflowInputs": {
             "values": [
@@ -43,17 +35,17 @@
               }
             ]
           }
-        }
+        },
+        "id": "21668eec-5b4e-4520-80c1-706618ebe5e2",
+        "name": "main_trigger",
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          -17344,
+          -992
+        ]
       },
       {
-        "id": "8b05e041-9f40-4e74-a32a-4ec5057f7684",
-        "name": "set_workflow_vars",
-        "type": "n8n-nodes-base.set",
-        "typeVersion": 3.4,
-        "position": [
-          -17120,
-          -880
-        ],
         "parameters": {
           "assignments": {
             "assignments": [
@@ -79,17 +71,17 @@
           },
           "includeOtherFields": true,
           "options": {}
-        }
+        },
+        "id": "8b05e041-9f40-4e74-a32a-4ec5057f7684",
+        "name": "set_workflow_vars",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          -17120,
+          -992
+        ]
       },
       {
-        "id": "0ca99bd7-06a7-432e-a0c6-af85f386fee1",
-        "name": "download_article_prompt",
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.2,
-        "position": [
-          -16896,
-          -880
-        ],
         "parameters": {
           "workflowId": {
             "__rl": true,
@@ -129,17 +121,17 @@
             "convertFieldsToString": true
           },
           "options": {}
-        }
-      },
-      {
-        "id": "df25c640-319c-493c-b0df-b9ac01f0d448",
-        "name": "download_system_prompt",
+        },
+        "id": "0ca99bd7-06a7-432e-a0c6-af85f386fee1",
+        "name": "download_article_prompt",
         "type": "n8n-nodes-base.executeWorkflow",
         "typeVersion": 1.2,
         "position": [
-          -16672,
+          -16896,
           -992
-        ],
+        ]
+      },
+      {
         "parameters": {
           "workflowId": {
             "__rl": true,
@@ -179,9 +171,25 @@
             "convertFieldsToString": true
           },
           "options": {}
-        }
+        },
+        "id": "df25c640-319c-493c-b0df-b9ac01f0d448",
+        "name": "download_system_prompt",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          -16672,
+          -992
+        ]
       },
       {
+        "parameters": {
+          "promptType": "define",
+          "text": "={{ $('download_system_prompt').item.json.output + '\\n\\n---\\n\\n' + $('download_article_prompt').item.json.output }}",
+          "needsFallback": true,
+          "options": {
+            "maxIterations": 12
+          }
+        },
         "id": "33284e9b-40ab-4e97-a604-277598c7f834",
         "name": "create_article_ai",
         "type": "@n8n/n8n-nodes-langchain.agent",
@@ -191,40 +199,24 @@
         "maxTries": 5,
         "waitBetweenTries": 5000,
         "position": [
-          -16448,
+          -16320,
           -992
-        ],
-        "parameters": {
-          "promptType": "define",
-          "text": "={{ $('download_system_prompt').item.json.output + '\\n\\n---\\n\\n' + $('download_article_prompt').item.json.output }}",
-          "needsFallback": true,
-          "options": {
-            "maxIterations": 12
-          }
-        }
+        ]
       },
       {
+        "parameters": {
+          "jsCode": "// The two things the caller needs out of the model's answer: the H1, which the row\n// stores as ARTICLE_TITLE and the entry point turns into the frozen slug, and the body,\n// which carries one `<!-- asset:<type> -->` marker per requested asset. The word budget\n// is checked here rather than trusted to the model: a mandatory count in a format is a\n// count that gets invented when the real one is missing, and this is also the change's\n// own acceptance case for an over-budget draft.\n//\n// MAX_WORDS is required. The entry point resolves the row's budget and the 1200 default,\n// so a value missing here is a caller bug: fail loudly rather than guess a bound.\nconst req = $('set_workflow_vars').first().json;\nconst max = Number(req.MAX_WORDS);\nif (!isFinite(max) || max <= 0) throw new Error('MAX_WORDS is required and must be a positive number');\n// An agent node answers `output` where a chain node answered `text`; the sub-workflow's\n// own contract stays the old names, so this is the one place the difference is absorbed.\nconst raw = String($json.output || $json.text || '');\nconst block = /<article>([\\s\\S]*?)<\\/article>/.exec(raw);\nconst inner = (block ? block[1] : raw).trim();\nconst HEAD = /^#\\s+(.+?)\\s*$/;\nlet title = '';\nconst body = [];\nfor (const line of inner.split('\\n')) {\n  if (!title && !body.length && HEAD.test(line.trim())) {\n    title = line.trim().replace(HEAD, '$1');\n    continue;\n  }\n  body.push(line);\n}\nconst text = body.join('\\n').trim();\n// A marker is an instruction to the publishing step, not prose the reader counts.\nconst words = text.replace(/<!--[\\s\\S]*?-->/g, ' ').split(/\\s+/).filter(Boolean).length;\nlet error = '';\nif (!text) error = 'EMPTY_DRAFT: the model returned no article body';\nelse if (!title) error = 'EMPTY_TITLE: the draft has no H1 title';\nelse if (words > max) error = 'OVER_BUDGET: ' + words + ' words against MAX_WORDS=' + max;\nreturn { json: { TITLE: title, TEXT: text, WORD_COUNT: words, ERROR: error } };\n"
+        },
         "id": "1ddafc37-25e0-4dd3-bfd8-c93d7c5af347",
         "name": "parse_article",
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          -16000,
+          -15856,
           -992
-        ],
-        "parameters": {
-          "jsCode": "// The two things the caller needs out of the model's answer: the H1, which the row\n// stores as ARTICLE_TITLE and the entry point turns into the frozen slug, and the body,\n// which carries one `<!-- asset:<type> -->` marker per requested asset. The word budget\n// is checked here rather than trusted to the model: a mandatory count in a format is a\n// count that gets invented when the real one is missing, and this is also the change's\n// own acceptance case for an over-budget draft.\n//\n// MAX_WORDS is required. The entry point resolves the row's budget and the 1200 default,\n// so a value missing here is a caller bug: fail loudly rather than guess a bound.\nconst req = $('set_workflow_vars').first().json;\nconst max = Number(req.MAX_WORDS);\nif (!isFinite(max) || max <= 0) throw new Error('MAX_WORDS is required and must be a positive number');\n// An agent node answers `output` where a chain node answered `text`; the sub-workflow's\n// own contract stays the old names, so this is the one place the difference is absorbed.\nconst raw = String($json.output || $json.text || '');\nconst block = /<article>([\\s\\S]*?)<\\/article>/.exec(raw);\nconst inner = (block ? block[1] : raw).trim();\nconst HEAD = /^#\\s+(.+?)\\s*$/;\nlet title = '';\nconst body = [];\nfor (const line of inner.split('\\n')) {\n  if (!title && !body.length && HEAD.test(line.trim())) {\n    title = line.trim().replace(HEAD, '$1');\n    continue;\n  }\n  body.push(line);\n}\nconst text = body.join('\\n').trim();\n// A marker is an instruction to the publishing step, not prose the reader counts.\nconst words = text.replace(/<!--[\\s\\S]*?-->/g, ' ').split(/\\s+/).filter(Boolean).length;\nlet error = '';\nif (!text) error = 'EMPTY_DRAFT: the model returned no article body';\nelse if (!title) error = 'EMPTY_TITLE: the draft has no H1 title';\nelse if (words > max) error = 'OVER_BUDGET: ' + words + ' words against MAX_WORDS=' + max;\nreturn { json: { TITLE: title, TEXT: text, WORD_COUNT: words, ERROR: error } };\n"
-        }
+        ]
       },
       {
-        "id": "f06b0cdb-0ca0-475f-bce7-d9b4d8e10eb6",
-        "name": "set_output",
-        "type": "n8n-nodes-base.set",
-        "typeVersion": 3.4,
-        "position": [
-          -15776,
-          -992
-        ],
         "parameters": {
           "assignments": {
             "assignments": [
@@ -255,17 +247,17 @@
             ]
           },
           "options": {}
-        }
+        },
+        "id": "f06b0cdb-0ca0-475f-bce7-d9b4d8e10eb6",
+        "name": "set_output",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          -15632,
+          -992
+        ]
       },
       {
-        "id": "d5e56f92-2855-4e67-b9a9-c60e6bb1fc50",
-        "name": "ai_model",
-        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-        "typeVersion": 1.3,
-        "position": [
-          -16672,
-          -776
-        ],
         "parameters": {
           "model": {
             "__rl": true,
@@ -277,6 +269,14 @@
             "maxRetries": 5
           }
         },
+        "id": "d5e56f92-2855-4e67-b9a9-c60e6bb1fc50",
+        "name": "ai_model",
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.3,
+        "position": [
+          -16440,
+          -760
+        ],
         "credentials": {
           "openAiApi": {
             "id": "LitellmN8nAcct01",
@@ -285,14 +285,6 @@
         }
       },
       {
-        "id": "720198e0-9bcd-4ac3-92e0-b81eccc3eea8",
-        "name": "ai_model_fallback",
-        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-        "typeVersion": 1.3,
-        "position": [
-          -16448,
-          -776
-        ],
         "parameters": {
           "model": {
             "__rl": true,
@@ -304,6 +296,14 @@
             "maxRetries": 5
           }
         },
+        "id": "720198e0-9bcd-4ac3-92e0-b81eccc3eea8",
+        "name": "ai_model_fallback",
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.3,
+        "position": [
+          -16312,
+          -760
+        ],
         "credentials": {
           "openAiApi": {
             "id": "LitellmN8nAcct01",
@@ -312,18 +312,9 @@
         }
       },
       {
-        "id": "13406702-c418-4b1e-9f5e-15d9dc588fc0",
-        "name": "read_page",
-        "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
-        "typeVersion": 2,
-        "position": [
-          -16748,
-          -872
-        ],
         "parameters": {
           "name": "read_page",
           "description": "Fetch one URL and return its readable text. Use it on a link the other tools returned, or on a documentation URL.",
-          "source": "database",
           "workflowId": {
             "__rl": true,
             "value": "09xEuVQj207pjK4x",
@@ -351,23 +342,21 @@
             ],
             "attemptToConvertTypes": false,
             "convertFieldsToString": true
-          },
-          "options": {}
-        }
-      },
-      {
-        "id": "f8553b78-c622-4720-8db6-09d1ceb456dc",
-        "name": "research_sources",
+          }
+        },
+        "id": "13406702-c418-4b1e-9f5e-15d9dc588fc0",
+        "name": "read_page",
         "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
         "typeVersion": 2,
         "position": [
-          -16748,
-          -932
-        ],
+          -16184,
+          -760
+        ]
+      },
+      {
         "parameters": {
           "name": "research_sources",
           "description": "Search Hacker News and the author's RSS feeds for a subject. Returns a digest of titles, URLs, points and comment counts. Use it first; read a result with read_page before relying on it.",
-          "source": "database",
           "workflowId": {
             "__rl": true,
             "value": "3YctNv7fJl17sOT3",
@@ -395,9 +384,16 @@
             ],
             "attemptToConvertTypes": false,
             "convertFieldsToString": true
-          },
-          "options": {}
-        }
+          }
+        },
+        "id": "f8553b78-c622-4720-8db6-09d1ceb456dc",
+        "name": "research_sources",
+        "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+        "typeVersion": 2,
+        "position": [
+          -16056,
+          -760
+        ]
       }
     ],
     "connections": {
@@ -514,13 +510,13 @@
     },
     "nodeGroups": [],
     "authors": "no name",
-    "name": null,
-    "description": null,
+    "name": "Version 83d2696a",
+    "description": "",
     "autosaved": false,
-    "createdAt": "2026-10-16T04:38:20.660Z",
-    "updatedAt": "2026-10-16T04:38:20.660Z"
+    "createdAt": "2026-10-16T13:34:12.001Z",
+    "updatedAt": "2026-10-16T13:34:13.626Z"
   },
-  "activeVersionId": "f41d1ee7-a2c4-4bf0-8ad3-1a0215967630",
+  "activeVersionId": "83d2696a-d245-485a-a2c4-eb9d6a554d9a",
   "connections": {
     "main_trigger": {
       "main": [
@@ -641,14 +637,6 @@
   "nodeGroups": [],
   "nodes": [
     {
-      "id": "21668eec-5b4e-4520-80c1-706618ebe5e2",
-      "name": "main_trigger",
-      "type": "n8n-nodes-base.executeWorkflowTrigger",
-      "typeVersion": 1.1,
-      "position": [
-        -17344,
-        -880
-      ],
       "parameters": {
         "workflowInputs": {
           "values": [
@@ -679,17 +667,17 @@
             }
           ]
         }
-      }
+      },
+      "id": "21668eec-5b4e-4520-80c1-706618ebe5e2",
+      "name": "main_trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -17344,
+        -992
+      ]
     },
     {
-      "id": "8b05e041-9f40-4e74-a32a-4ec5057f7684",
-      "name": "set_workflow_vars",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        -17120,
-        -880
-      ],
       "parameters": {
         "assignments": {
           "assignments": [
@@ -715,17 +703,17 @@
         },
         "includeOtherFields": true,
         "options": {}
-      }
+      },
+      "id": "8b05e041-9f40-4e74-a32a-4ec5057f7684",
+      "name": "set_workflow_vars",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -17120,
+        -992
+      ]
     },
     {
-      "id": "0ca99bd7-06a7-432e-a0c6-af85f386fee1",
-      "name": "download_article_prompt",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        -16896,
-        -880
-      ],
       "parameters": {
         "workflowId": {
           "__rl": true,
@@ -765,17 +753,17 @@
           "convertFieldsToString": true
         },
         "options": {}
-      }
-    },
-    {
-      "id": "df25c640-319c-493c-b0df-b9ac01f0d448",
-      "name": "download_system_prompt",
+      },
+      "id": "0ca99bd7-06a7-432e-a0c6-af85f386fee1",
+      "name": "download_article_prompt",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        -16672,
+        -16896,
         -992
-      ],
+      ]
+    },
+    {
       "parameters": {
         "workflowId": {
           "__rl": true,
@@ -815,9 +803,25 @@
           "convertFieldsToString": true
         },
         "options": {}
-      }
+      },
+      "id": "df25c640-319c-493c-b0df-b9ac01f0d448",
+      "name": "download_system_prompt",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -16672,
+        -992
+      ]
     },
     {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('download_system_prompt').item.json.output + '\\n\\n---\\n\\n' + $('download_article_prompt').item.json.output }}",
+        "needsFallback": true,
+        "options": {
+          "maxIterations": 12
+        }
+      },
       "id": "33284e9b-40ab-4e97-a604-277598c7f834",
       "name": "create_article_ai",
       "type": "@n8n/n8n-nodes-langchain.agent",
@@ -827,40 +831,24 @@
       "maxTries": 5,
       "waitBetweenTries": 5000,
       "position": [
-        -16448,
+        -16320,
         -992
-      ],
-      "parameters": {
-        "promptType": "define",
-        "text": "={{ $('download_system_prompt').item.json.output + '\\n\\n---\\n\\n' + $('download_article_prompt').item.json.output }}",
-        "needsFallback": true,
-        "options": {
-          "maxIterations": 12
-        }
-      }
+      ]
     },
     {
+      "parameters": {
+        "jsCode": "// The two things the caller needs out of the model's answer: the H1, which the row\n// stores as ARTICLE_TITLE and the entry point turns into the frozen slug, and the body,\n// which carries one `<!-- asset:<type> -->` marker per requested asset. The word budget\n// is checked here rather than trusted to the model: a mandatory count in a format is a\n// count that gets invented when the real one is missing, and this is also the change's\n// own acceptance case for an over-budget draft.\n//\n// MAX_WORDS is required. The entry point resolves the row's budget and the 1200 default,\n// so a value missing here is a caller bug: fail loudly rather than guess a bound.\nconst req = $('set_workflow_vars').first().json;\nconst max = Number(req.MAX_WORDS);\nif (!isFinite(max) || max <= 0) throw new Error('MAX_WORDS is required and must be a positive number');\n// An agent node answers `output` where a chain node answered `text`; the sub-workflow's\n// own contract stays the old names, so this is the one place the difference is absorbed.\nconst raw = String($json.output || $json.text || '');\nconst block = /<article>([\\s\\S]*?)<\\/article>/.exec(raw);\nconst inner = (block ? block[1] : raw).trim();\nconst HEAD = /^#\\s+(.+?)\\s*$/;\nlet title = '';\nconst body = [];\nfor (const line of inner.split('\\n')) {\n  if (!title && !body.length && HEAD.test(line.trim())) {\n    title = line.trim().replace(HEAD, '$1');\n    continue;\n  }\n  body.push(line);\n}\nconst text = body.join('\\n').trim();\n// A marker is an instruction to the publishing step, not prose the reader counts.\nconst words = text.replace(/<!--[\\s\\S]*?-->/g, ' ').split(/\\s+/).filter(Boolean).length;\nlet error = '';\nif (!text) error = 'EMPTY_DRAFT: the model returned no article body';\nelse if (!title) error = 'EMPTY_TITLE: the draft has no H1 title';\nelse if (words > max) error = 'OVER_BUDGET: ' + words + ' words against MAX_WORDS=' + max;\nreturn { json: { TITLE: title, TEXT: text, WORD_COUNT: words, ERROR: error } };\n"
+      },
       "id": "1ddafc37-25e0-4dd3-bfd8-c93d7c5af347",
       "name": "parse_article",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -16000,
+        -15856,
         -992
-      ],
-      "parameters": {
-        "jsCode": "// The two things the caller needs out of the model's answer: the H1, which the row\n// stores as ARTICLE_TITLE and the entry point turns into the frozen slug, and the body,\n// which carries one `<!-- asset:<type> -->` marker per requested asset. The word budget\n// is checked here rather than trusted to the model: a mandatory count in a format is a\n// count that gets invented when the real one is missing, and this is also the change's\n// own acceptance case for an over-budget draft.\n//\n// MAX_WORDS is required. The entry point resolves the row's budget and the 1200 default,\n// so a value missing here is a caller bug: fail loudly rather than guess a bound.\nconst req = $('set_workflow_vars').first().json;\nconst max = Number(req.MAX_WORDS);\nif (!isFinite(max) || max <= 0) throw new Error('MAX_WORDS is required and must be a positive number');\n// An agent node answers `output` where a chain node answered `text`; the sub-workflow's\n// own contract stays the old names, so this is the one place the difference is absorbed.\nconst raw = String($json.output || $json.text || '');\nconst block = /<article>([\\s\\S]*?)<\\/article>/.exec(raw);\nconst inner = (block ? block[1] : raw).trim();\nconst HEAD = /^#\\s+(.+?)\\s*$/;\nlet title = '';\nconst body = [];\nfor (const line of inner.split('\\n')) {\n  if (!title && !body.length && HEAD.test(line.trim())) {\n    title = line.trim().replace(HEAD, '$1');\n    continue;\n  }\n  body.push(line);\n}\nconst text = body.join('\\n').trim();\n// A marker is an instruction to the publishing step, not prose the reader counts.\nconst words = text.replace(/<!--[\\s\\S]*?-->/g, ' ').split(/\\s+/).filter(Boolean).length;\nlet error = '';\nif (!text) error = 'EMPTY_DRAFT: the model returned no article body';\nelse if (!title) error = 'EMPTY_TITLE: the draft has no H1 title';\nelse if (words > max) error = 'OVER_BUDGET: ' + words + ' words against MAX_WORDS=' + max;\nreturn { json: { TITLE: title, TEXT: text, WORD_COUNT: words, ERROR: error } };\n"
-      }
+      ]
     },
     {
-      "id": "f06b0cdb-0ca0-475f-bce7-d9b4d8e10eb6",
-      "name": "set_output",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        -15776,
-        -992
-      ],
       "parameters": {
         "assignments": {
           "assignments": [
@@ -891,17 +879,17 @@
           ]
         },
         "options": {}
-      }
+      },
+      "id": "f06b0cdb-0ca0-475f-bce7-d9b4d8e10eb6",
+      "name": "set_output",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -15632,
+        -992
+      ]
     },
     {
-      "id": "d5e56f92-2855-4e67-b9a9-c60e6bb1fc50",
-      "name": "ai_model",
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-      "typeVersion": 1.3,
-      "position": [
-        -16672,
-        -776
-      ],
       "parameters": {
         "model": {
           "__rl": true,
@@ -913,6 +901,14 @@
           "maxRetries": 5
         }
       },
+      "id": "d5e56f92-2855-4e67-b9a9-c60e6bb1fc50",
+      "name": "ai_model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -16440,
+        -760
+      ],
       "credentials": {
         "openAiApi": {
           "id": "LitellmN8nAcct01",
@@ -921,14 +917,6 @@
       }
     },
     {
-      "id": "720198e0-9bcd-4ac3-92e0-b81eccc3eea8",
-      "name": "ai_model_fallback",
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-      "typeVersion": 1.3,
-      "position": [
-        -16448,
-        -776
-      ],
       "parameters": {
         "model": {
           "__rl": true,
@@ -940,6 +928,14 @@
           "maxRetries": 5
         }
       },
+      "id": "720198e0-9bcd-4ac3-92e0-b81eccc3eea8",
+      "name": "ai_model_fallback",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -16312,
+        -760
+      ],
       "credentials": {
         "openAiApi": {
           "id": "LitellmN8nAcct01",
@@ -948,18 +944,9 @@
       }
     },
     {
-      "id": "13406702-c418-4b1e-9f5e-15d9dc588fc0",
-      "name": "read_page",
-      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
-      "typeVersion": 2,
-      "position": [
-        -16748,
-        -872
-      ],
       "parameters": {
         "name": "read_page",
         "description": "Fetch one URL and return its readable text. Use it on a link the other tools returned, or on a documentation URL.",
-        "source": "database",
         "workflowId": {
           "__rl": true,
           "value": "09xEuVQj207pjK4x",
@@ -987,23 +974,21 @@
           ],
           "attemptToConvertTypes": false,
           "convertFieldsToString": true
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "f8553b78-c622-4720-8db6-09d1ceb456dc",
-      "name": "research_sources",
+        }
+      },
+      "id": "13406702-c418-4b1e-9f5e-15d9dc588fc0",
+      "name": "read_page",
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2,
       "position": [
-        -16748,
-        -932
-      ],
+        -16184,
+        -760
+      ]
+    },
+    {
       "parameters": {
         "name": "research_sources",
         "description": "Search Hacker News and the author's RSS feeds for a subject. Returns a digest of titles, URLs, points and comment counts. Use it first; read a result with read_page before relying on it.",
-        "source": "database",
         "workflowId": {
           "__rl": true,
           "value": "3YctNv7fJl17sOT3",
@@ -1031,17 +1016,25 @@
           ],
           "attemptToConvertTypes": false,
           "convertFieldsToString": true
-        },
-        "options": {}
-      }
+        }
+      },
+      "id": "f8553b78-c622-4720-8db6-09d1ceb456dc",
+      "name": "research_sources",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2,
+      "position": [
+        -16056,
+        -760
+      ]
     }
   ],
-  "pinData": null,
+  "pinData": {},
   "settings": {
     "executionOrder": "v1",
     "callerPolicy": "workflowsFromSameOwner",
     "timeSavedMode": "fixed",
-    "availableInMCP": false
+    "availableInMCP": false,
+    "binaryMode": "separate"
   },
   "shared": [
     {
@@ -1055,6 +1048,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 0,
-  "updatedAt": "2026-10-16T04:38:20.656Z",
-  "versionId": "f41d1ee7-a2c4-4bf0-8ad3-1a0215967630"
+  "updatedAt": "2026-10-16T13:34:35.801Z",
+  "versionId": "83d2696a-d245-485a-a2c4-eb9d6a554d9a"
 }

@@ -151,7 +151,8 @@ def test_the_raster_branch_reaches_the_merge(label, doc):
     assert _targets(doc, "download_raster_prompt", 0) == ["raster_director"]
     assert _targets(doc, "raster_director", 0) == ["generate_image"]
     assert _targets(doc, "generate_image", 0) == ["raster_result"]
-    assert _targets(doc, "raster_result", 0) == ["merge_branches"]
+    # The raster is reviewed too, and its clear path is what reaches the merge.
+    assert _targets(doc, "raster_result", 0) == ["prepare_raster_review"]
     assert _targets(doc, "ready_pass", 0) == ["merge_branches"]
     # The merged assets go straight to the response. Nothing in this graph uploads: an
     # agent asset is stored by the temp-bucket server and arrives here already named, and
@@ -279,7 +280,8 @@ def test_the_form_vocabulary_is_fetched_and_reaches_the_brief(label, doc):
     # The review prompt is fetched on the same chain, after the vocabulary and before the
     # registry: it depends on nothing, and every node here reads what it needs by name.
     assert _targets(doc, "visual_forms", 0) == ["download_review_prompt"]
-    assert _targets(doc, "download_review_prompt", 0) == ["download_registry"]
+    assert _targets(doc, "download_review_prompt", 0) == ["download_raster_review_prompt"]
+    assert _targets(doc, "download_raster_review_prompt", 0) == ["download_registry"]
     body = _code(doc, "build_author_brief")
     assert "visual_forms" in body and "FORMS" in body
     assert "vocab" in body, "the brief does not append the vocabulary"
@@ -502,3 +504,34 @@ def test_the_response_carries_the_resolved_session(label, doc):
     code = _code(doc, "set_result")
     assert "SESSION_ID: sessionId" in code
     assert "build_author_brief" in code and "SESSION_ID" in code
+
+
+@pytest.mark.parametrize("label,doc", list(_copies()))
+def test_the_raster_is_reviewed_the_same_way_with_a_rewritten_prompt(label, doc):
+    # The raster's bytes are made inside n8n, so nothing is fetched back and no still is
+    # needed: the data URL the image model returned is what the critic looks at. The fix is a
+    # rewritten image prompt, which is what `visual_raster.md`'s feedback block is for.
+    assert _targets(doc, "raster_result", 0) == ["prepare_raster_review"]
+    assert _targets(doc, "prepare_raster_review", 0) == ["if_raster_review"]
+    assert _targets(doc, "if_raster_review", 0) == ["critique_raster"]
+    assert _targets(doc, "if_raster_review", 1) == ["merge_branches"], "no image is a review that did not run"
+    assert _targets(doc, "critique_raster", 0) == ["parse_raster_verdict"]
+    assert _targets(doc, "parse_raster_verdict", 0) == ["if_raster_findings"]
+    assert _targets(doc, "if_raster_findings", 0) == ["raster_feedback"]
+    assert _targets(doc, "if_raster_findings", 1) == ["merge_branches"]
+    assert _targets(doc, "raster_feedback", 0) == ["download_raster_prompt"], "the fix is a rewritten prompt"
+    # One critic, one credential, one grammar per medium.
+    assert _node(doc, "critique_raster")["credentials"]["httpBearerAuth"]["id"] == _node(doc, "critique")["credentials"]["httpBearerAuth"]["id"]
+    assert _node(doc, "critique_raster")["parameters"]["jsonBody"] == "={{ $json.CRITIQUE_BODY }}"
+    fetch = _node(doc, "download_raster_review_prompt")["parameters"]["workflowInputs"]["value"]
+    assert fetch["template_name"] == "prompts/visual_review_raster.md"
+    assert _targets(doc, "download_review_prompt", 0) == ["download_raster_review_prompt"]
+    assert _targets(doc, "download_raster_review_prompt", 0) == ["download_registry"]
+    # The image, the prompt it came from and the source text are what the critic judges against.
+    code = _node(doc, "prepare_raster_review")["parameters"]["jsCode"]
+    assert "a.IMAGE" in code and "a.PROMPT" in code and "a.CONTENT" in code
+    assert "image_url" in code
+    # The bound is the same one, and the round has a home on the item.
+    assert "RASTER_REVIEW_ROUND" in _node(doc, "parse_registry")["parameters"]["jsCode"]
+    assert "RETRY: verdict === 'fix' && round < cycles" in _node(doc, "parse_raster_verdict")["parameters"]["jsCode"]
+    assert "REVIEW: JSON.stringify(" in _node(doc, "parse_raster_verdict")["parameters"]["jsCode"]

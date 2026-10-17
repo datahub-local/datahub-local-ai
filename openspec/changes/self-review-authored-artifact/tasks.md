@@ -67,15 +67,28 @@
 
 ## 4. The raster half (`Visual Studio`)
 
-- [ ] 4.1 After `raster_result`: critique the PNG's data URL with
+- [x] 4.1 After `raster_result`: critique the PNG's data URL with
   `prompts/visual_review_raster.md` (where the fix is a rewritten image prompt rather than an
   edit), and on findings append them to the image director's input and regenerate, bounded by
   the same `REVIEW_CYCLES`. The bytes are the ones n8n already holds, so nothing is fetched back
   and the still question does not arise.
-- [ ] 4.2 `prompts/visual_review_raster.md` — wrong frame, forbidden lettering, an invented
-  number, a subject that does not match the brief.
-- [ ] 4.3 Assertions: the loop exists on the raster branch only, it is bounded, and a verdict of
+  **Landed in the export (not yet applied).** `raster_result` → `prepare_raster_review` (the
+  image, the prompt it came from and the source text, as one request body) → `if_raster_review`
+  → `critique_raster` (the same critic, credential and model) → `parse_raster_verdict` →
+  `if_raster_findings` → `raster_feedback` → **`download_raster_prompt`**: the fix re-fetches the
+  raster prompt with the findings in its feedback block, so the next attempt is generated from a
+  rewritten prompt. A render that produced no image, or a missing grammar, routes to the merge
+  with the reason recorded rather than failing the asset.
+- [x] 4.2 `prompts/visual_review_raster.md` — frame, legibility, what it must not contain
+  (interface chrome, lettering the art direction forbids, a number the source does not carry),
+  and fit to the brief. `fix` must be expressible as a prompt change, which is what makes the
+  raster's correction a rewritten prompt rather than an edit.
+  **Landed.**
+- [x] 4.3 Assertions: the loop exists on the raster branch only, it is bounded, and a verdict of
   `ok` goes straight to `merge_branches`.
+  **Landed** in `test_visual_studio_graph.py`, parametrized over both copies: the path, the one
+  credential, the fetched grammar, the round's home on the item, the shared bound and the
+  tolerant parse. 502 passed, 1 skipped.
 
 ## 5. Verification and record
 

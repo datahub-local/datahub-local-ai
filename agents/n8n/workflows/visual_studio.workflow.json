@@ -182,7 +182,7 @@
           -176
         ],
         "parameters": {
-          "jsCode": "const cfg = JSON.parse($('download_registry').first().json.output || '{}');\nconst req = $('normalize_input').first().json;\nconst types = Array.isArray(cfg.types) ? cfg.types : [];\nconst byId = new Map(types.map((t) => [t.id, t]));\nconst budget = cfg.budget || {};\nconst cap = Number(cfg.max_types_per_request || 3);\nlet requested = req.ASSET_TYPES\n  ? req.ASSET_TYPES.split(',').map((s) => s.trim()).filter(Boolean)\n  : (cfg.default_types || []);\nrequested = [...new Set(requested)];\nconst out = [];\nconst shaped = (t, extra) => {\n  const b = Object.assign({}, budget, t.budget || {});\n  const paired = t.paired || {};\n  return Object.assign({}, req, {\n    ASSET_TYPE: t.id, NAME: t.name || t.id, AUTHOR: t.author, BRAND_KIND: t.brandKind || 'diagrammatic',\n    RENDER_MODE: t.render, FORMAT: t.format, ASPECT: t.aspect || '4:5', FORM: t.form || '',\n    FPS: Number(b.fps || 12), FRAMES: Number(b.frames || 36), VIEWPORT: Number(b.viewport || 1200),\n    DURATION_SECONDS: Number(t.durationSeconds || 0),\n    SCENE_SECONDS: Number(t.secondsPerScene || 0),\n    PAIRED_FORMAT: paired.format || '', PAIRED_ASSET_TYPE: paired.assetType || '',\n  }, extra);\n};\nconst note = (id, status, error) => out.push({ json: Object.assign({}, req, {\n  ASSET_TYPE: id, NAME: id, AUTHOR: null, BRAND_KIND: '', RENDER_MODE: '', FORMAT: '', ASPECT: '', FORM: '',\n  FPS: 0, FRAMES: 0, VIEWPORT: 0, DURATION_SECONDS: 0, STATUS: status, ERROR: error }) });\nfor (const id of requested.slice(0, cap)) {\n  const t = byId.get(id);\n  if (!t) { note(id, 'UNKNOWN', 'unknown asset type: ' + id); continue; }\n  const kind = t.brandKind || 'diagrammatic';\n  if (kind !== 'diagrammatic' && kind !== 'photographic') throw new Error('unknown brandKind for ' + t.id + ': ' + t.brandKind);\n  // An unavailable type must not take its author branch: null its author so it\n  // falls through to the report path with a STATUS and reason.\n  if (t.available === false) {\n    out.push({ json: shaped(t, { AUTHOR: null, STATUS: 'UNAVAILABLE', ERROR: t.unavailableReason || ('unavailable: ' + t.id) }) });\n    continue;\n  }\n  out.push({ json: shaped(t, { STATUS: '' }) });\n}\nfor (const id of requested.slice(cap)) note(id, 'SKIPPED', 'over the per-request cap of ' + cap);\nreturn out;\n"
+          "jsCode": "const cfg = JSON.parse($('download_registry').first().json.output || '{}');\nconst req = $('normalize_input').first().json;\nconst types = Array.isArray(cfg.types) ? cfg.types : [];\nconst byId = new Map(types.map((t) => [t.id, t]));\nconst budget = cfg.budget || {};\nconst cap = Number(cfg.max_types_per_request || 3);\nlet requested = req.ASSET_TYPES\n  ? req.ASSET_TYPES.split(',').map((s) => s.trim()).filter(Boolean)\n  : (cfg.default_types || []);\nrequested = [...new Set(requested)];\nconst out = [];\nconst shaped = (t, extra) => {\n  const b = Object.assign({}, budget, t.budget || {});\n  const paired = t.paired || {};\n  return Object.assign({}, req, {\n    ASSET_TYPE: t.id, NAME: t.name || t.id, AUTHOR: t.author, BRAND_KIND: t.brandKind || 'diagrammatic',\n    RENDER_MODE: t.render, FORMAT: t.format, ASPECT: t.aspect || '4:5', FORM: t.form || '',\n    RASTER_REVIEW_ROUND: 0,\n    FPS: Number(b.fps || 12), FRAMES: Number(b.frames || 36), VIEWPORT: Number(b.viewport || 1200),\n    DURATION_SECONDS: Number(t.durationSeconds || 0),\n    SCENE_SECONDS: Number(t.secondsPerScene || 0),\n    PAIRED_FORMAT: paired.format || '', PAIRED_ASSET_TYPE: paired.assetType || '',\n  }, extra);\n};\nconst note = (id, status, error) => out.push({ json: Object.assign({}, req, {\n  ASSET_TYPE: id, NAME: id, AUTHOR: null, BRAND_KIND: '', RENDER_MODE: '', FORMAT: '', ASPECT: '', FORM: '', RASTER_REVIEW_ROUND: 0,\n  FPS: 0, FRAMES: 0, VIEWPORT: 0, DURATION_SECONDS: 0, STATUS: status, ERROR: error }) });\nfor (const id of requested.slice(0, cap)) {\n  const t = byId.get(id);\n  if (!t) { note(id, 'UNKNOWN', 'unknown asset type: ' + id); continue; }\n  const kind = t.brandKind || 'diagrammatic';\n  if (kind !== 'diagrammatic' && kind !== 'photographic') throw new Error('unknown brandKind for ' + t.id + ': ' + t.brandKind);\n  // An unavailable type must not take its author branch: null its author so it\n  // falls through to the report path with a STATUS and reason.\n  if (t.available === false) {\n    out.push({ json: shaped(t, { AUTHOR: null, STATUS: 'UNAVAILABLE', ERROR: t.unavailableReason || ('unavailable: ' + t.id) }) });\n    continue;\n  }\n  out.push({ json: shaped(t, { STATUS: '' }) });\n}\nfor (const id of requested.slice(cap)) note(id, 'SKIPPED', 'over the per-request cap of ' + cap);\nreturn out;\n"
         }
       },
       {
@@ -1015,6 +1015,189 @@
         "parameters": {
           "jsCode": "// The next authoring turn, with the critic's findings as the reviewer's correction. The\n// session id is unchanged, so the adapter edits the composition in place rather than\n// authoring a new one, and the round is incremented for the bound the gate reads.\nconst a = $input.first().json;\nreturn [{ json: {\n  ...a,\n  FEEDBACK: a.FINDINGS_TEXT || '',\n  REVIEW_ROUND: Math.max(0, Number(a.REVIEW_ROUND || 0)) + 1,\n} }];\n"
         }
+      },
+      {
+        "id": "17a3f5cc-6d80-4b91-e354-0c8294fb1d76",
+        "name": "download_raster_review_prompt",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          3248,
+          -160
+        ],
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "qUfjfWLGEjV96ljf",
+            "mode": "list",
+            "cachedResultName": "DownloadTemplate"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "template_name": "prompts/visual_review_raster.md",
+              "template_vars": "={{ {} }}"
+            },
+            "matchingColumns": [],
+            "schema": [
+              {
+                "id": "template_name",
+                "displayName": "template_name",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string"
+              },
+              {
+                "id": "template_vars",
+                "displayName": "template_vars",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "28b4a6dd-7e91-4ca2-f465-1d93a50c2e87",
+        "name": "prepare_raster_review",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          5456,
+          96
+        ],
+        "parameters": {
+          "jsCode": "// The raster's review request, from the bytes this execution already holds. A raster is made\n// inside n8n (no store can fetch bytes n8n created), so unlike an authored composition there is\n// nothing to fetch back and no still to make: the data URL the image model returned is what the\n// critic looks at. A render that produced no image is not reviewed, and says so.\nconst a = $input.first().json || {};\nconst round = Math.max(0, Number(a.RASTER_REVIEW_ROUND || 0));\nconst prompt = String($('download_raster_review_prompt').first().json.output || '').trim();\nconst image = String(a.IMAGE || '');\nconst reason = !prompt ? 'the review prompt is empty' : !image ? 'the image model returned no image' : '';\nif (reason) {\n  return [{ json: { ...a, RASTER_REVIEW_ROUND: round, REVIEWED: false, REVIEW_REASON: reason, CRITIQUE_BODY: '' } }];\n}\nconst text = [\n  prompt,\n  '---',\n  'The image prompt this was generated from:',\n  String(a.PROMPT || '(not recorded)'),\n  '---',\n  'The source text it illustrates:',\n  String(a.CONTENT || ''),\n].join('\\n\\n');\nreturn [{ json: {\n  ...a,\n  RASTER_REVIEW_ROUND: round,\n  REVIEWED: true,\n  CRITIQUE_BODY: JSON.stringify({ model: 'opencode-go/glm-5.3-flash', messages: [{ role: 'user', content: [\n    { type: 'text', text },\n    { type: 'image_url', image_url: { url: image } },\n  ] }] }),\n} }];\n"
+        }
+      },
+      {
+        "id": "39c5b7ee-8fa2-4db3-a576-2e04b61d3f98",
+        "name": "if_raster_review",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          5680,
+          96
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "loose",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "raster-reviewable",
+                "leftValue": "={{ String($json.CRITIQUE_BODY || '') }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "string",
+                  "operation": "notEmpty",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "looseTypeValidation": true,
+          "options": {}
+        }
+      },
+      {
+        "id": "4ad6c8ff-90b3-4ec4-b687-3f15c72e4a09",
+        "name": "critique_raster",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          5904,
+          96
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "http://datahub-local-core-data-litellm.data.svc.cluster.local:4000/v1/chat/completions",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpBearerAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ $json.CRITIQUE_BODY }}",
+          "options": {
+            "timeout": 120000
+          }
+        },
+        "credentials": {
+          "httpBearerAuth": {
+            "id": "LitellmN8nBera01",
+            "name": "LiteLLM account (bearer)"
+          }
+        }
+      },
+      {
+        "id": "5be7d900-a1c4-4fd5-c798-4026d83f5b1a",
+        "name": "parse_raster_verdict",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          6128,
+          96
+        ],
+        "parameters": {
+          "jsCode": "// The same tolerant read as the composition half: an unreadable verdict is a pass with the raw\n// answer kept, because the other direction spends every cycle and ships the same defect.\nconst resp = $input.first().json || {};\nconst a = $('prepare_raster_review').first().json;\nconst raw = String((((resp.choices || [])[0] || {}).message || {}).content || '').trim();\nlet verdict = 'ok';\nlet findings = [];\nlet unreadable = true;\nconst start = raw.indexOf('{');\nconst end = raw.lastIndexOf('}');\nif (start !== -1 && end > start) {\n  try {\n    const parsed = JSON.parse(raw.slice(start, end + 1));\n    const named = (Array.isArray(parsed.findings) ? parsed.findings : [])\n      .map((f) => ({ where: String((f && f.where) || '').trim(), what: String((f && f.what) || '').trim(), fix: String((f && f.fix) || '').trim() }))\n      .filter((f) => f.fix || f.what);\n    if (String(parsed.verdict || '').trim().toLowerCase() === 'fix' && named.length) {\n      verdict = 'fix';\n      findings = named;\n    }\n    unreadable = false;\n  } catch (e) {\n    unreadable = true;\n  }\n}\nconst round = Math.max(0, Number(a.RASTER_REVIEW_ROUND || 0));\nconst cycles = Math.max(0, Number($('normalize_input').first().json.REVIEW_CYCLES || 0));\nconst findingsText = findings.map((f, i) => (i + 1) + '. ' + (f.where ? f.where + ': ' : '') + (f.what || 'a defect') + ' - ' + f.fix).join('\\n');\nreturn [{ json: {\n  ...a,\n  VERDICT: verdict,\n  FINDINGS_TEXT: findingsText,\n  UNREADABLE: unreadable,\n  RETRY: verdict === 'fix' && round < cycles,\n  REVIEW: JSON.stringify({ round: round + 1, verdict, findings, unreadable, raw: raw.slice(0, 2000) }),\n} }];\n"
+        }
+      },
+      {
+        "id": "6cf8ea11-b2d5-40e6-d8a9-5137e94a6c2b",
+        "name": "if_raster_findings",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          6352,
+          96
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "loose",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "raster-review-retry",
+                "leftValue": "={{ $json.RETRY }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "looseTypeValidation": true,
+          "options": {}
+        }
+      },
+      {
+        "id": "7d09fb22-c3e6-41f7-e9ba-6248f05b7d3c",
+        "name": "raster_feedback",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          6576,
+          96
+        ],
+        "parameters": {
+          "jsCode": "// The fix for a raster is a rewritten image prompt, so the finding goes back to the prompt\n// writer: `visual_raster.md` already carries the reviewer's feedback block, and re-fetching it\n// with this feedback is what puts the change into the next prompt. The round is incremented for\n// the bound the gate reads.\nconst a = $input.first().json;\nreturn [{ json: {\n  ...a,\n  FEEDBACK: a.FINDINGS_TEXT || '',\n  RASTER_REVIEW_ROUND: Math.max(0, Number(a.RASTER_REVIEW_ROUND || 0)) + 1,\n} }];\n"
+        }
       }
     ],
     "connections": {
@@ -1139,7 +1322,7 @@
         "main": [
           [
             {
-              "node": "merge_branches",
+              "node": "prepare_raster_review",
               "type": "main",
               "index": 0
             }
@@ -1353,7 +1536,7 @@
         "main": [
           [
             {
-              "node": "download_registry",
+              "node": "download_raster_review_prompt",
               "type": "main",
               "index": 0
             }
@@ -1456,6 +1639,97 @@
           [
             {
               "node": "build_author_brief",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "download_raster_review_prompt": {
+        "main": [
+          [
+            {
+              "node": "download_registry",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "prepare_raster_review": {
+        "main": [
+          [
+            {
+              "node": "if_raster_review",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "if_raster_review": {
+        "main": [
+          [
+            {
+              "node": "critique_raster",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "merge_branches",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "critique_raster": {
+        "main": [
+          [
+            {
+              "node": "parse_raster_verdict",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "parse_raster_verdict": {
+        "main": [
+          [
+            {
+              "node": "if_raster_findings",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "if_raster_findings": {
+        "main": [
+          [
+            {
+              "node": "raster_feedback",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "merge_branches",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "raster_feedback": {
+        "main": [
+          [
+            {
+              "node": "download_raster_prompt",
               "type": "main",
               "index": 0
             }
@@ -1594,7 +1868,7 @@
       "main": [
         [
           {
-            "node": "merge_branches",
+            "node": "prepare_raster_review",
             "type": "main",
             "index": 0
           }
@@ -1808,7 +2082,7 @@
       "main": [
         [
           {
-            "node": "download_registry",
+            "node": "download_raster_review_prompt",
             "type": "main",
             "index": 0
           }
@@ -1911,6 +2185,97 @@
         [
           {
             "node": "build_author_brief",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "download_raster_review_prompt": {
+      "main": [
+        [
+          {
+            "node": "download_registry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "prepare_raster_review": {
+      "main": [
+        [
+          {
+            "node": "if_raster_review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if_raster_review": {
+      "main": [
+        [
+          {
+            "node": "critique_raster",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "merge_branches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "critique_raster": {
+      "main": [
+        [
+          {
+            "node": "parse_raster_verdict",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "parse_raster_verdict": {
+      "main": [
+        [
+          {
+            "node": "if_raster_findings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if_raster_findings": {
+      "main": [
+        [
+          {
+            "node": "raster_feedback",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "merge_branches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "raster_feedback": {
+      "main": [
+        [
+          {
+            "node": "download_raster_prompt",
             "type": "main",
             "index": 0
           }
@@ -2095,7 +2460,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const cfg = JSON.parse($('download_registry').first().json.output || '{}');\nconst req = $('normalize_input').first().json;\nconst types = Array.isArray(cfg.types) ? cfg.types : [];\nconst byId = new Map(types.map((t) => [t.id, t]));\nconst budget = cfg.budget || {};\nconst cap = Number(cfg.max_types_per_request || 3);\nlet requested = req.ASSET_TYPES\n  ? req.ASSET_TYPES.split(',').map((s) => s.trim()).filter(Boolean)\n  : (cfg.default_types || []);\nrequested = [...new Set(requested)];\nconst out = [];\nconst shaped = (t, extra) => {\n  const b = Object.assign({}, budget, t.budget || {});\n  const paired = t.paired || {};\n  return Object.assign({}, req, {\n    ASSET_TYPE: t.id, NAME: t.name || t.id, AUTHOR: t.author, BRAND_KIND: t.brandKind || 'diagrammatic',\n    RENDER_MODE: t.render, FORMAT: t.format, ASPECT: t.aspect || '4:5', FORM: t.form || '',\n    FPS: Number(b.fps || 12), FRAMES: Number(b.frames || 36), VIEWPORT: Number(b.viewport || 1200),\n    DURATION_SECONDS: Number(t.durationSeconds || 0),\n    SCENE_SECONDS: Number(t.secondsPerScene || 0),\n    PAIRED_FORMAT: paired.format || '', PAIRED_ASSET_TYPE: paired.assetType || '',\n  }, extra);\n};\nconst note = (id, status, error) => out.push({ json: Object.assign({}, req, {\n  ASSET_TYPE: id, NAME: id, AUTHOR: null, BRAND_KIND: '', RENDER_MODE: '', FORMAT: '', ASPECT: '', FORM: '',\n  FPS: 0, FRAMES: 0, VIEWPORT: 0, DURATION_SECONDS: 0, STATUS: status, ERROR: error }) });\nfor (const id of requested.slice(0, cap)) {\n  const t = byId.get(id);\n  if (!t) { note(id, 'UNKNOWN', 'unknown asset type: ' + id); continue; }\n  const kind = t.brandKind || 'diagrammatic';\n  if (kind !== 'diagrammatic' && kind !== 'photographic') throw new Error('unknown brandKind for ' + t.id + ': ' + t.brandKind);\n  // An unavailable type must not take its author branch: null its author so it\n  // falls through to the report path with a STATUS and reason.\n  if (t.available === false) {\n    out.push({ json: shaped(t, { AUTHOR: null, STATUS: 'UNAVAILABLE', ERROR: t.unavailableReason || ('unavailable: ' + t.id) }) });\n    continue;\n  }\n  out.push({ json: shaped(t, { STATUS: '' }) });\n}\nfor (const id of requested.slice(cap)) note(id, 'SKIPPED', 'over the per-request cap of ' + cap);\nreturn out;\n"
+        "jsCode": "const cfg = JSON.parse($('download_registry').first().json.output || '{}');\nconst req = $('normalize_input').first().json;\nconst types = Array.isArray(cfg.types) ? cfg.types : [];\nconst byId = new Map(types.map((t) => [t.id, t]));\nconst budget = cfg.budget || {};\nconst cap = Number(cfg.max_types_per_request || 3);\nlet requested = req.ASSET_TYPES\n  ? req.ASSET_TYPES.split(',').map((s) => s.trim()).filter(Boolean)\n  : (cfg.default_types || []);\nrequested = [...new Set(requested)];\nconst out = [];\nconst shaped = (t, extra) => {\n  const b = Object.assign({}, budget, t.budget || {});\n  const paired = t.paired || {};\n  return Object.assign({}, req, {\n    ASSET_TYPE: t.id, NAME: t.name || t.id, AUTHOR: t.author, BRAND_KIND: t.brandKind || 'diagrammatic',\n    RENDER_MODE: t.render, FORMAT: t.format, ASPECT: t.aspect || '4:5', FORM: t.form || '',\n    RASTER_REVIEW_ROUND: 0,\n    FPS: Number(b.fps || 12), FRAMES: Number(b.frames || 36), VIEWPORT: Number(b.viewport || 1200),\n    DURATION_SECONDS: Number(t.durationSeconds || 0),\n    SCENE_SECONDS: Number(t.secondsPerScene || 0),\n    PAIRED_FORMAT: paired.format || '', PAIRED_ASSET_TYPE: paired.assetType || '',\n  }, extra);\n};\nconst note = (id, status, error) => out.push({ json: Object.assign({}, req, {\n  ASSET_TYPE: id, NAME: id, AUTHOR: null, BRAND_KIND: '', RENDER_MODE: '', FORMAT: '', ASPECT: '', FORM: '', RASTER_REVIEW_ROUND: 0,\n  FPS: 0, FRAMES: 0, VIEWPORT: 0, DURATION_SECONDS: 0, STATUS: status, ERROR: error }) });\nfor (const id of requested.slice(0, cap)) {\n  const t = byId.get(id);\n  if (!t) { note(id, 'UNKNOWN', 'unknown asset type: ' + id); continue; }\n  const kind = t.brandKind || 'diagrammatic';\n  if (kind !== 'diagrammatic' && kind !== 'photographic') throw new Error('unknown brandKind for ' + t.id + ': ' + t.brandKind);\n  // An unavailable type must not take its author branch: null its author so it\n  // falls through to the report path with a STATUS and reason.\n  if (t.available === false) {\n    out.push({ json: shaped(t, { AUTHOR: null, STATUS: 'UNAVAILABLE', ERROR: t.unavailableReason || ('unavailable: ' + t.id) }) });\n    continue;\n  }\n  out.push({ json: shaped(t, { STATUS: '' }) });\n}\nfor (const id of requested.slice(cap)) note(id, 'SKIPPED', 'over the per-request cap of ' + cap);\nreturn out;\n"
       },
       "id": "6e9b25a7-acc3-4561-8291-ebfc534eacd0",
       "name": "parse_registry",
@@ -2935,6 +3300,189 @@
       ],
       "parameters": {
         "jsCode": "// The next authoring turn, with the critic's findings as the reviewer's correction. The\n// session id is unchanged, so the adapter edits the composition in place rather than\n// authoring a new one, and the round is incremented for the bound the gate reads.\nconst a = $input.first().json;\nreturn [{ json: {\n  ...a,\n  FEEDBACK: a.FINDINGS_TEXT || '',\n  REVIEW_ROUND: Math.max(0, Number(a.REVIEW_ROUND || 0)) + 1,\n} }];\n"
+      }
+    },
+    {
+      "id": "17a3f5cc-6d80-4b91-e354-0c8294fb1d76",
+      "name": "download_raster_review_prompt",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        3248,
+        -160
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "qUfjfWLGEjV96ljf",
+          "mode": "list",
+          "cachedResultName": "DownloadTemplate"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "template_name": "prompts/visual_review_raster.md",
+            "template_vars": "={{ {} }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "template_name",
+              "displayName": "template_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "template_vars",
+              "displayName": "template_vars",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "28b4a6dd-7e91-4ca2-f465-1d93a50c2e87",
+      "name": "prepare_raster_review",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5456,
+        96
+      ],
+      "parameters": {
+        "jsCode": "// The raster's review request, from the bytes this execution already holds. A raster is made\n// inside n8n (no store can fetch bytes n8n created), so unlike an authored composition there is\n// nothing to fetch back and no still to make: the data URL the image model returned is what the\n// critic looks at. A render that produced no image is not reviewed, and says so.\nconst a = $input.first().json || {};\nconst round = Math.max(0, Number(a.RASTER_REVIEW_ROUND || 0));\nconst prompt = String($('download_raster_review_prompt').first().json.output || '').trim();\nconst image = String(a.IMAGE || '');\nconst reason = !prompt ? 'the review prompt is empty' : !image ? 'the image model returned no image' : '';\nif (reason) {\n  return [{ json: { ...a, RASTER_REVIEW_ROUND: round, REVIEWED: false, REVIEW_REASON: reason, CRITIQUE_BODY: '' } }];\n}\nconst text = [\n  prompt,\n  '---',\n  'The image prompt this was generated from:',\n  String(a.PROMPT || '(not recorded)'),\n  '---',\n  'The source text it illustrates:',\n  String(a.CONTENT || ''),\n].join('\\n\\n');\nreturn [{ json: {\n  ...a,\n  RASTER_REVIEW_ROUND: round,\n  REVIEWED: true,\n  CRITIQUE_BODY: JSON.stringify({ model: 'opencode-go/glm-5.3-flash', messages: [{ role: 'user', content: [\n    { type: 'text', text },\n    { type: 'image_url', image_url: { url: image } },\n  ] }] }),\n} }];\n"
+      }
+    },
+    {
+      "id": "39c5b7ee-8fa2-4db3-a576-2e04b61d3f98",
+      "name": "if_raster_review",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        5680,
+        96
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "raster-reviewable",
+              "leftValue": "={{ String($json.CRITIQUE_BODY || '') }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "4ad6c8ff-90b3-4ec4-b687-3f15c72e4a09",
+      "name": "critique_raster",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        5904,
+        96
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://datahub-local-core-data-litellm.data.svc.cluster.local:4000/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.CRITIQUE_BODY }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "LitellmN8nBera01",
+          "name": "LiteLLM account (bearer)"
+        }
+      }
+    },
+    {
+      "id": "5be7d900-a1c4-4fd5-c798-4026d83f5b1a",
+      "name": "parse_raster_verdict",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6128,
+        96
+      ],
+      "parameters": {
+        "jsCode": "// The same tolerant read as the composition half: an unreadable verdict is a pass with the raw\n// answer kept, because the other direction spends every cycle and ships the same defect.\nconst resp = $input.first().json || {};\nconst a = $('prepare_raster_review').first().json;\nconst raw = String((((resp.choices || [])[0] || {}).message || {}).content || '').trim();\nlet verdict = 'ok';\nlet findings = [];\nlet unreadable = true;\nconst start = raw.indexOf('{');\nconst end = raw.lastIndexOf('}');\nif (start !== -1 && end > start) {\n  try {\n    const parsed = JSON.parse(raw.slice(start, end + 1));\n    const named = (Array.isArray(parsed.findings) ? parsed.findings : [])\n      .map((f) => ({ where: String((f && f.where) || '').trim(), what: String((f && f.what) || '').trim(), fix: String((f && f.fix) || '').trim() }))\n      .filter((f) => f.fix || f.what);\n    if (String(parsed.verdict || '').trim().toLowerCase() === 'fix' && named.length) {\n      verdict = 'fix';\n      findings = named;\n    }\n    unreadable = false;\n  } catch (e) {\n    unreadable = true;\n  }\n}\nconst round = Math.max(0, Number(a.RASTER_REVIEW_ROUND || 0));\nconst cycles = Math.max(0, Number($('normalize_input').first().json.REVIEW_CYCLES || 0));\nconst findingsText = findings.map((f, i) => (i + 1) + '. ' + (f.where ? f.where + ': ' : '') + (f.what || 'a defect') + ' - ' + f.fix).join('\\n');\nreturn [{ json: {\n  ...a,\n  VERDICT: verdict,\n  FINDINGS_TEXT: findingsText,\n  UNREADABLE: unreadable,\n  RETRY: verdict === 'fix' && round < cycles,\n  REVIEW: JSON.stringify({ round: round + 1, verdict, findings, unreadable, raw: raw.slice(0, 2000) }),\n} }];\n"
+      }
+    },
+    {
+      "id": "6cf8ea11-b2d5-40e6-d8a9-5137e94a6c2b",
+      "name": "if_raster_findings",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        6352,
+        96
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "raster-review-retry",
+              "leftValue": "={{ $json.RETRY }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "7d09fb22-c3e6-41f7-e9ba-6248f05b7d3c",
+      "name": "raster_feedback",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6576,
+        96
+      ],
+      "parameters": {
+        "jsCode": "// The fix for a raster is a rewritten image prompt, so the finding goes back to the prompt\n// writer: `visual_raster.md` already carries the reviewer's feedback block, and re-fetching it\n// with this feedback is what puts the change into the next prompt. The round is incremented for\n// the bound the gate reads.\nconst a = $input.first().json;\nreturn [{ json: {\n  ...a,\n  FEEDBACK: a.FINDINGS_TEXT || '',\n  RASTER_REVIEW_ROUND: Math.max(0, Number(a.RASTER_REVIEW_ROUND || 0)) + 1,\n} }];\n"
       }
     }
   ],

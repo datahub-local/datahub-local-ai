@@ -121,7 +121,13 @@
   settled frame (`--virtual-time-budget` at 25/50/75/100 %) — and a deck, whose page is not a
   timeline, one settled shot. The review prompt says the last still is the settled frame, so the
   geometry is judged on that one and the earlier frames only show what collides on the way in.
-  Adapter tests updated; the fix reaches the cluster on the next image publish.
+  Adapter tests updated.
+  **Reached the cluster and re-verified there 2026-10-17.** CI published the adapter and pinned
+  `sha256:3c6983cd…` (`d5ee84d`), ArgoCD synced it and the session pod restarted onto it; the
+  pod's `session-lib.mjs` carries the budgeted `chromium` arguments. Probed from that pod with a
+  2 s-delayed element: `--screenshot` without a budget was **1,456 bytes** (background alone) and
+  with `--virtual-time-budget=3000` **9,974 bytes** (the element present) — so the failure the
+  first live review hit is closed in the running image, not only in the tests.
 - [x] 5.3 Live: one authoring turn whose composition carries a deliberate defect shows a
   critique, a fix turn and a second render without it, with the outcome on the asset — and the
   turn's length recorded, since two cycles roughly doubles it.

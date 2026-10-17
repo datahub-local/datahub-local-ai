@@ -528,6 +528,27 @@ pairing), and `download_raster_prompt` passes `ASPECT` to `prompts/visual_raster
 composes to it. A caller that wants a different frame picks a type; the wide pair exists
 because an article is read on a screen and the LinkedIn types are 4:5 for their feed.
 
+**An artifact's container is the type's, and the runtime conforms it after the render.** A
+type declares `aspect`, `budget.viewport`, `durationSeconds` and `frames`; the composer's brief
+states them and nothing made the delivered file match them — measured on run 13762
+(2026-10-17), a `tiles_wide` request for 16:9 / 1280 / 12 s / 360 frames came back as
+`ffprobe` **1080×1350, 30 fps, 90 frames, 3.000 s** while the record's `WIDTH 1280` /
+`HEIGHT 720` / `FRAME_COUNT 360` / `DURATION_MS 12000` asserted the request, so the record
+described a file nobody had. `hyperframes render` has **no viewport or size flag** (v0.8.158),
+so the composition's own `data-width` is the frame and a wrong one can only be conformed
+afterwards. The session therefore probes the engine's output with `ffprobe` and, when the
+frame, rate or length differ, re-encodes **before** the stills — `scale=W:H:force_original_aspect_ratio=increase`
+then `crop=W:H`, because a declared frame means *filled* and an aspect mismatch is covered and
+cropped rather than letterboxed, and `-t <declared seconds>`, which trims and never extends: a
+held last frame is the frozen tail the motion rules forbid, so a short render is delivered short
+and reported. `mp4` used to return `null` from `transcodeArgs` — the one kind every video type
+uses was the one kind never conformed. The note rides back on the response and onto the asset
+(`CONFORMED`, `AUTHORED_FRAME`, `SHORT`), so `WIDTH`/`HEIGHT`/`FRAME_COUNT`/`DURATION_MS`
+describe the declared container *because the artifact now is it*, and a drift is readable from
+the record instead of hidden inside the bytes. A render that already matches pays no second
+encode, and a conformance that cannot run is a note with `fit: unknown` rather than a lost
+asset.
+
 **A render is looked at before a human is asked to look at it, and the workflow does the
 looking.** `Visual Studio` runs a bounded self-review after the authoring turn. The session
 hands back stills of what it rendered — `stills: [...]` in the response, made with the tools the

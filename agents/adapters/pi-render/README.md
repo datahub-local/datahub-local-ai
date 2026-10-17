@@ -268,7 +268,7 @@ a second request:
 
 1. `POST /v1/chat/completions` with `session_id` identifying the run and `format` naming
    the output kind (`mp4`, `gif`, `webp`, `png`). The output's shape is all request
-   data: `width`, `frames` and `durationSeconds` (or `fps`). `frames`/`durationSeconds`
+   data: `width`, `height`, `frames` and `durationSeconds` (or `fps`). `frames`/`durationSeconds`
    are what make a long, slow clip possible — 24 frames over 18 s is 1.33 fps, so the
    composition is authored slowly and sampled sparsely, and a type is retuned from the
    registry without touching this image. The server runs Pi in
@@ -277,6 +277,22 @@ a second request:
    (MP4 → GIF at the declared rate/size, the LinkedIn case). The workspace defaults
    to `/tmp/aivideo` because a session container mounts the session PVC at `/tmp` and
    does **not** mount `/workspace`; `SYMPOZIUM_WORKSPACE` overrides it.
+
+   Those declared numbers are the container the caller receives, not only what the
+   composer is told. After the turn the server probes the engine's output with `ffprobe`
+   and, when the frame, the rate or the length differ, re-encodes it before the stills are
+   taken: scaled to the declared frame and **cover-cropped** when the authored aspect
+   differs, trimmed to the declared length and never extended (a held last frame is the
+   frozen tail the composition rules forbid, so a short render is delivered short). The
+   engine has **no viewport or size flag** — `hyperframes render --help` v0.8.158 lists
+   none — so the composition's own `data-width`/`data-height` is the frame it renders at
+   and a wrong one cannot be re-rendered right; conforming after the render is the only
+   place the declared frame can be delivered. The response carries what was done as
+   `conformance` (`frame`, `authored`, `fit` of `none|crop|scale|unknown`,
+   `durationSeconds`, `authoredSeconds`, `short`), and a render whose container cannot be
+   read is conformed rather than trusted. A render that already matches is served
+   untouched, so the common case pays no second encode, and a conformance that fails is a
+   note rather than a failed turn wherever the engine's own artifact can still be served.
 2. `GET /artifacts/<session_id>/out.<ext>` fetches it. Only the names the server writes,
    under that run's own directory, are reachable; `session_id` and the file name are both
    validated, and traversal is refused.

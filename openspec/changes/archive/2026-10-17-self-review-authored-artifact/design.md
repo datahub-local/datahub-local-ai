@@ -81,11 +81,16 @@ The call asks for a JSON object: `{"verdict": "ok" | "fix", "findings": [{"where
 text recorded. The alternative — treating an unparseable verdict as "keep fixing" — turns a
 model that cannot hold the format into a loop that never ends.
 
-### D3. Two cycles, and the budget is a setting
+### D3. Two cycles, and the bound lives in the graph that owns the critic
 
-`PI_RENDER_REVIEW_CYCLES` (default `2`) bounds the extra authoring turns per request. A
-cycle is: critique → fix turn → re-render → critique. The last critique's findings are
-recorded whether or not they were fixed, so a shipped-with-findings artifact says so.
+`REVIEW_CYCLES = 2` in the studio's `normalize_input` bounds the extra authoring turns
+per asset. A cycle is: critique → fix turn → re-render → critique. The last critique's
+findings are recorded whether or not they were fixed, so a shipped-with-findings artifact
+says so.
+
+The bound is a graph constant rather than an adapter setting because the critic is the
+workflow's (D1): the adapter renders, serves stills and holds no review state, so a
+setting there would be read by nobody. Changing the bound is a `--set` on the workflow.
 
 ### D4. The still is chosen per medium, and the final frame is always one of them
 
@@ -140,18 +145,20 @@ compositions, and a raster has no composition to edit.
   a sample rather than a run.
 - **Whether `glm-5.3-flash` is a good critic** is unmeasured: it is chosen for being a
   different model that serves vision, not because its judgement has been compared with a
-  human's. The model is a setting (`PI_RENDER_REVIEW_MODEL`, and the studio's own model
-  parameter) so it can be changed without a code change.
+  human's. It is a literal in the two critique nodes' request bodies, so changing it is a
+  workflow edit (`--set`) rather than a code change; nothing compares it with a human yet.
 
 ## Definition of Done
 
-- The adapter's loop is asserted offline: the sampling arguments per medium, the critic
-  request's shape, the tolerant verdict parse, and the cycle bound — each failing without
-  its change.
-- The raster loop is asserted offline in the studio's own tests, and both graph copies carry
-  it.
+- The adapter's still sampling is asserted offline: the arguments per medium, the final
+  frame always among them, and the settled capture for an authored document — each failing
+  without its change.
+- The loop is asserted offline in the studio's own tests — the critique request's shape, the
+  tolerant verdict parse and the cycle bound — and both graph copies carry it, raster half
+  included.
 - A live authoring turn with a deliberately broken composition produces a critique, a fix
   turn, and a second render that no longer shows the defect; the findings are recorded on
-  the asset.
+  the asset. Verified live 2026-10-17 (execution 13762), and a critic that cannot answer
+  leaves the artifact standing rather than failing the run.
 - The turn's length with two cycles is measured, not assumed.
 - `openspec validate --all` passes with this change present.

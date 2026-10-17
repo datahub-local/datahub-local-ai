@@ -60,6 +60,21 @@ Read from the code this change touches, and from the runs that motivated it.
 - **The stills already come after the transcode**, so the review will judge the conformed
   artifact as soon as the transcode runs for mp4 — the order needs no change, only the
   missing case.
+- **The drift this change mitigates has a cause it does not own** (found by §5's live
+  verification, 2026-10-17, run 13785). The fix turn of the studio's self-review rebuilds its
+  brief from an *asset-shaped* item, which carries no `ASPECT`, `VIEWPORT`, `FRAMES`,
+  `DURATION_SECONDS` or `FPS`, so `build_author_brief`'s own defaults — 1080 wide, 4:5, 24
+  frames, 8 fps — become the next turn's *declared* container: a `tiles_wide` request declared
+  1080×1350 / 3 s / 24 frames on its second and third turns where the registry declares 16:9 /
+  1280 / 12 s / 360 frames, and the composer authored it. The critic then read the degraded brief
+  and demanded the correct 16:9 composition be changed to 4:5. This is the real cause of run
+  13762's 1080×1350 artifact, which this design and the proposal name as "the composer's frame is
+  unenforced" — the conformance below is still the right backstop, and the loop is the thing that
+  has to stop re-declaring. A second defect came out of the same run: the settled-frame still is
+  an `ffmpeg -sseof -0.1` capture, which produces **no file** when a frame interval exceeds 0.1 s
+  (< 10 fps, i.e. exactly the derived rates this pipeline produces), so the review judged a stale
+  frame. Both are spun out into
+  `openspec/changes/fix-review-turn-container-and-stills/` and are not absorbed here.
 
 ## Goals / Non-Goals
 
@@ -163,18 +178,28 @@ run.
 ## Open questions
 
 - **Should the review judge the container too?** The critic's own prompt orders its findings
-  geometry, then legibility, then brand — the frame a composition was authored at is not on
-  the list, and it is the one defect this change can only mitigate. `[UNVERIFIED]` whether the
-  critic's stills make an aspect mismatch obvious to it; the authoring brief already states
-  the frame.
+  geometry, then legibility, then brand — the frame a composition was authored at is not on the
+  list, and it is the one defect this change can only mitigate. **Resolved 2026-10-17, run 13785,
+  in the worst way:** the critic *does* see the frame — it named it from the stills, read the
+  declared frame off the brief and asked for the composition to be changed to it — and because
+  the fix turn's brief was itself wrong (see the gate finding above) its correction was to the
+  *wrong* frame. So the reviewer is not blind to the container; what it lacks is a brief that
+  states the right one.
 - **Would a responsive composition remove the need to crop?** A composition whose layout is
   full-bleed and whose type scales to the viewport would render correctly at any declared
   frame; run 13762's file hardcodes `width: 1080px`. If the engine gains a viewport flag, or
   the brief asks for a responsive root, this change becomes a backstop rather than the
-  mechanism. `[UNVERIFIED]` for both.
+  mechanism. `[UNVERIFIED]` for both — and run 13785 adds a data point in the other direction:
+  told the declared frame, the composer rebuilt a 1080×1350 composition at 1280×720 rather than
+  scaling it, so a responsive root was not what it reached for.
 - **How often the frame drifts is unmeasured.** Two runs were looked at: one missed the
   length by 0.5 s, one missed frame and length entirely. The note this change adds is the
-  instrument that answers it over time.
+  instrument that answers it over time. **First reading, 2026-10-17 (run 13785, three turns):**
+  with the declared frame stated correctly the composer corrected the composition to it
+  (`AUTHORED_FRAME: "1280x720"`, `fit: "scale"`, a 12.5 s render trimmed to 12 s), so the drift
+  is not the composer's alone — two of the three turns drifted only because the loop had
+  re-declared the frame (previous finding). `[UNVERIFIED]` how often a *correct* declaration is
+  missed.
 
 ## Definition of done
 

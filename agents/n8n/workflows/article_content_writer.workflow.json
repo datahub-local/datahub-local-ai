@@ -854,6 +854,24 @@
       "main": [
         [
           {
+            "node": "if_assets_blocked",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if_assets_blocked": {
+      "main": [
+        [
+          {
+            "node": "notify_assets_blocked",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "read_asset_rows_for_publish",
             "type": "main",
             "index": 0
@@ -1055,7 +1073,7 @@
         0
       ],
       "parameters": {
-        "jsCode": "// The next action for the entry, from the predicate in the design (D15): the phase is read off\n// the stored state in two places - the article's own review state on the sheet and the\n// per-asset rows here - so a resumed run reaches the same next action as an uninterrupted one\n// instead of guessing at whichever field looks unfinished.\nconst row = $('validate_categories').first().json;\nconst assets = $input.all().map((i) => i.json);\nconst requested = (r) => {\n  const list = String(r.ASSET_TYPES || '').split(',').map((s) => s.trim()).filter(Boolean);\n  return list.includes('image') ? list : ['image', ...list];\n};\nconst pending = requested(row).filter((type) => {\n  const hit = assets.find((a) => String(a.ASSET_TYPE || '') === type);\n  return !hit || String(hit.STATUS || '').toUpperCase() !== 'APPROVED';\n});\nconst article = String(row.ARTICLE_STATUS || '').trim().toUpperCase();\nconst phase = article === 'APPROVED' ? (pending.length ? 'assets' : 'publish') : 'draft';\nconsole.log('row ' + row.row_number + ' -> ' + phase + ' (pending: ' + (pending.join(',') || 'none') + ')');\nreturn [{ json: { ...row, PHASE: phase, PENDING_ASSETS: pending.join(',') } }];\n"
+        "jsCode": "// The next action for the entry, from the predicate in the design (D15). A run always\n// carries a hero: either raster counts as one, so a row naming the portrait `image` keeps\n// its own choice and a row naming neither gets the wide one, which is the frame a page\n// wants. The phase is read off\n// the stored state in two places - the article's own review state on the sheet and the\n// per-asset rows here - so a resumed run reaches the same next action as an uninterrupted one\n// instead of guessing at whichever field looks unfinished.\nconst row = $('validate_categories').first().json;\nconst assets = $input.all().map((i) => i.json);\nconst requested = (r) => {\n  const list = String(r.ASSET_TYPES || '').split(',').map((s) => s.trim()).filter(Boolean);\n  const hasHero = list.includes('image_wide') || list.includes('image');\n  return hasHero ? list : ['image_wide', ...list];\n};\nconst pending = requested(row).filter((type) => {\n  const hit = assets.find((a) => String(a.ASSET_TYPE || '') === type);\n  return !hit || String(hit.STATUS || '').toUpperCase() !== 'APPROVED';\n});\nconst article = String(row.ARTICLE_STATUS || '').trim().toUpperCase();\nconst phase = article === 'APPROVED' ? (pending.length ? 'assets' : 'publish') : 'draft';\nconsole.log('row ' + row.row_number + ' -> ' + phase + ' (pending: ' + (pending.join(',') || 'none') + ')');\nreturn [{ json: { ...row, PHASE: phase, PENDING_ASSETS: pending.join(',') } }];\n"
       }
     },
     {
@@ -3027,7 +3045,7 @@
           "mappingMode": "defineBelow",
           "value": {
             "CONTENT": "={{ $('read_draft_for_assets').first().json.ARTICLE_TEXT }}",
-            "ASSET_TYPES": "={{ $('select_article_to_queue').item.json.PENDING_ASSETS || $('select_article_to_queue').item.json.ASSET_TYPES || 'image,svg' }}",
+            "ASSET_TYPES": "={{ $('select_article_to_queue').item.json.PENDING_ASSETS || $('select_article_to_queue').item.json.ASSET_TYPES || 'image_wide,svg_wide' }}",
             "FEEDBACK": "={{ $('notification_retry_or_cancel_asset').isExecuted ? ($('notification_retry_or_cancel_asset').last().json.data.Feedback || '') : '' }}",
             "FORCE": "",
             "STYLE": "",
@@ -3053,7 +3071,7 @@
         288
       ],
       "parameters": {
-        "jsCode": "// One item per asset the studio answered with. The run STATUS is deliberately not what is\n// branched on: it is PARTIAL whenever any requested type is unavailable, so an unavailable\n// type would take the whole set with it. Each asset's own STATUS is the decision, and a type\n// the registry does not declare arrives here as an asset carrying its reason.\nconst resp = $input.first().json || {};\nconst row = $('select_article_to_queue').first().json;\nconst assets = Array.isArray(resp.ASSETS) ? resp.ASSETS : [];\nif (!assets.length) throw new Error('the studio returned no asset at all (run ' + (resp.RUN_ID || '?') + ', status ' + (resp.STATUS || '?') + ')');\nreturn assets.map((a) => ({\n  json: {\n    ...row,\n    ROUND: Number(row.ARTICLE_ROUND || 0) + 1,\n    RUN_ID: resp.RUN_ID || '',\n    SESSION_ID: resp.SESSION_ID || '',\n    ASSET_TYPE: a.ASSET_TYPE || '',\n    ASSET_STATUS: a.STATUS || '',\n    ERROR: a.ERROR || '',\n    CONTENT_TYPE: a.CONTENT_TYPE || '',\n    FORMAT: a.FORMAT || '',\n    S3_KEY: a.S3_KEY || '',\n    S3_BYTES: a.S3_BYTES || 0,\n    IMAGE: a.IMAGE || '',\n  },\n}));\n"
+        "jsCode": "// One item per asset the studio answered with. The run STATUS is deliberately not what is\n// branched on: it is PARTIAL whenever any requested type is unavailable, so an unavailable\n// type would take the whole set with it. Each asset's own STATUS is the decision, and a type\n// the registry does not declare arrives here as an asset carrying its reason.\n//\n// Every response item is read, not the first: the studio answers with one item per asset\n// branch because its own merge runs once per branch, so a two-type request arrives as two\n// items carrying one asset each. Reading only the first of them is how the svg was\n// authored, rendered and then dropped -- the asset rows never saw it and the publish gate found it\n// MISSING (execution 13705, 2026-10-17).\nconst responses = $input.all().map((i) => i.json || {});\nconst resp = responses[0] || {};\nconst row = $('select_article_to_queue').first().json;\nconst assets = responses.flatMap((r) => (Array.isArray(r.ASSETS) ? r.ASSETS : []));\nif (!assets.length) throw new Error('the studio returned no asset at all (runs ' + responses.map((r) => r.RUN_ID || '?').join(',') + ', status ' + (resp.STATUS || '?') + ')');\nreturn assets.map((a) => ({\n  json: {\n    ...row,\n    ROUND: Number(row.ARTICLE_ROUND || 0) + 1,\n    RUN_ID: resp.RUN_ID || '',\n    SESSION_ID: resp.SESSION_ID || '',\n    ASSET_TYPE: a.ASSET_TYPE || '',\n    ASSET_STATUS: a.STATUS || '',\n    ERROR: a.ERROR || '',\n    CONTENT_TYPE: a.CONTENT_TYPE || '',\n    FORMAT: a.FORMAT || '',\n    S3_KEY: a.S3_KEY || '',\n    S3_BYTES: a.S3_BYTES || 0,\n    IMAGE: a.IMAGE || '',\n  },\n}));\n"
       }
     },
     {
@@ -3918,7 +3936,7 @@
         384
       ],
       "parameters": {
-        "jsCode": "// Every requested type approved and none left in review: only then is there one commit.\n//\n// The check reads the stored rows rather than this run's history, so a resumed run that\n// approved two of three assets earlier still publishes once the third clears. A cancelled\n// asset keeps the article from committing, which is the deliberate direction: the run reports\n// instead of publishing a post that is missing a picture it asked for.\nconst requested = String($('select_article_to_queue').first().json.ASSET_TYPES || 'image,svg')\n  .split(',')\n  .map((s) => s.trim())\n  .filter(Boolean);\nconst effective = requested.includes('image') ? requested : ['image', ...requested];\nconst rows = $('read_asset_rows').all().map((i) => i.json);\nconst statusOf = (type) => {\n  const row = rows.find((r) => String(r.ASSET_TYPE || '') === type);\n  return row ? String(row.STATUS || '').toUpperCase() : 'MISSING';\n};\nconst blocking = effective.filter((type) => !['APPROVED', 'COMMITTED'].includes(statusOf(type)));\nif (blocking.length) {\n  console.log('not committing: ' + blocking.map((t) => t + '=' + statusOf(t)).join(', '));\n  return [];\n}\nreturn [{ json: { ...$('select_article_to_queue').first().json, ASSET_ROWS: effective.map((type) => rows.find((r) => String(r.ASSET_TYPE || '') === type)) } }];\n"
+        "jsCode": "// Every requested type approved and none left in review: only then is there one commit.\n//\n// The check reads the stored rows rather than this run's history, so a resumed run that\n// approved two of three assets earlier still publishes once the third clears. A cancelled\n// asset keeps the article from committing, which is the deliberate direction: the run reports\n// instead of publishing a post that is missing a picture it asked for.\nconst requested = String($('select_article_to_queue').first().json.ASSET_TYPES || 'image_wide')\n  .split(',')\n  .map((s) => s.trim())\n  .filter(Boolean);\n// The same hero rule as the selector, and it has to stay the same rule: a gate that\n// prepends a type the selector did not ask for blocks every run forever.\nconst hasHero = requested.includes('image_wide') || requested.includes('image');\nconst effective = hasHero ? requested : ['image_wide', ...requested];\nconst rows = $('read_asset_rows').all().map((i) => i.json);\nconst statusOf = (type) => {\n  const row = rows.find((r) => String(r.ASSET_TYPE || '') === type);\n  return row ? String(row.STATUS || '').toUpperCase() : 'MISSING';\n};\nconst blocking = effective.filter((type) => !['APPROVED', 'COMMITTED'].includes(statusOf(type)));\n// The verdict is data and the branch on it is the next node: returning nothing here is how a\n// blocked publish ended the execution as `success`, with no commit and no notice at all\n// (execution 13705, 2026-10-17 -- the svg had never reached the asset rows).\nconst report = blocking.map((t) => t + '=' + statusOf(t)).join(', ');\nif (blocking.length) console.log('not committing: ' + report);\nreturn [{ json: {\n  ...$('select_article_to_queue').first().json,\n  ASSET_ROWS: effective.map((type) => rows.find((r) => String(r.ASSET_TYPE || '') === type)),\n  BLOCKED: blocking.length > 0,\n  BLOCKING: report || 'none',\n} }];\n"
       }
     },
     {
@@ -4957,6 +4975,71 @@
         }
       },
       "webhookId": "9e67e7d1-39a3-4baf-aeb0-6ef709337e41"
+    },
+    {
+      "id": "b41c9e77-2d51-4a3b-9f10-7c5e8a2d6f31",
+      "name": "if_assets_blocked",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4704,
+        560
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "assets-blocked",
+              "leftValue": "={{ $json.BLOCKED }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "c52d0f88-3e62-4b4c-a021-8d6f9b3e7a42",
+      "name": "notify_assets_blocked",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        4928,
+        560
+      ],
+      "credentials": {
+        "slackApi": {
+          "id": "DszMmPE7WwOjHQjz",
+          "name": "Slack account"
+        }
+      },
+      "webhookId": "3f2a6c14-7b8d-4e59-9c03-1a5d7e9b2f60",
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C08RQNXQV3P",
+          "mode": "list",
+          "cachedResultName": "workflows"
+        },
+        "text": "=Not committing row {{ $('select_article_to_queue').item.json.row_number }}: {{ $json.BLOCKING }}. Nothing was committed and the entry stays IN_PROGRESS; re-run it once every requested asset is approved.",
+        "otherOptions": {
+          "includeLinkToWorkflow": true
+        }
+      }
     }
   ],
   "pinData": null,

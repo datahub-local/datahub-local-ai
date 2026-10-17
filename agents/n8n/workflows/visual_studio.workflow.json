@@ -294,7 +294,7 @@
             "mappingMode": "defineBelow",
             "value": {
               "template_name": "prompts/visual_raster.md",
-              "template_vars": "={{ {\n \"ASSET_TYPE\": $json.ASSET_TYPE,\n \"CONTENT\": $json.CONTENT,\n \"BRAND\": $json.BRAND_KIND === 'photographic' ? '' : $('brand_tokens').first().json.BRAND,\n \"ART_DIRECTION\": $json.BRAND_KIND === 'photographic' ? $('brand_tokens').first().json.ART_DIRECTION : '',\n \"FEEDBACK\": $json.FEEDBACK\n} }}"
+              "template_vars": "={{ {\n \"ASSET_TYPE\": $json.ASSET_TYPE,\n \"ASPECT\": $json.ASPECT,\n \"CONTENT\": $json.CONTENT,\n \"BRAND\": $json.BRAND_KIND === 'photographic' ? '' : $('brand_tokens').first().json.BRAND,\n \"ART_DIRECTION\": $json.BRAND_KIND === 'photographic' ? $('brand_tokens').first().json.ART_DIRECTION : '',\n \"FEEDBACK\": $json.FEEDBACK\n} }}"
             },
             "matchingColumns": [],
             "schema": [
@@ -355,7 +355,7 @@
           "genericAuthType": "httpBearerAuth",
           "sendBody": true,
           "specifyBody": "json",
-          "jsonBody": "={\n  \"model\": \"google/gemini-3.1-flash-image\",\n  \"prompt\": {{ $json.text.toJsonString() }},\n  \"aspect_ratio\": \"4:5\",\n  \"resolution\": \"1K\"\n}",
+          "jsonBody": "={\n  \"model\": \"google/gemini-3.1-flash-image\",\n  \"prompt\": {{ $json.text.toJsonString() }},\n  \"aspect_ratio\": {{ $('if_raster').all()[$itemIndex].json.ASPECT.toJsonString() }},\n  \"resolution\": \"1K\"\n}",
           "options": {}
         },
         "credentials": {
@@ -1762,7 +1762,7 @@
           "mappingMode": "defineBelow",
           "value": {
             "template_name": "prompts/visual_raster.md",
-            "template_vars": "={{ {\n \"ASSET_TYPE\": $json.ASSET_TYPE,\n \"CONTENT\": $json.CONTENT,\n \"BRAND\": $json.BRAND_KIND === 'photographic' ? '' : $('brand_tokens').first().json.BRAND,\n \"ART_DIRECTION\": $json.BRAND_KIND === 'photographic' ? $('brand_tokens').first().json.ART_DIRECTION : '',\n \"FEEDBACK\": $json.FEEDBACK\n} }}"
+            "template_vars": "={{ {\n \"ASSET_TYPE\": $json.ASSET_TYPE,\n \"ASPECT\": $json.ASPECT,\n \"CONTENT\": $json.CONTENT,\n \"BRAND\": $json.BRAND_KIND === 'photographic' ? '' : $('brand_tokens').first().json.BRAND,\n \"ART_DIRECTION\": $json.BRAND_KIND === 'photographic' ? $('brand_tokens').first().json.ART_DIRECTION : '',\n \"FEEDBACK\": $json.FEEDBACK\n} }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -1823,7 +1823,7 @@
         "genericAuthType": "httpBearerAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"model\": \"google/gemini-3.1-flash-image\",\n  \"prompt\": {{ $json.text.toJsonString() }},\n  \"aspect_ratio\": \"4:5\",\n  \"resolution\": \"1K\"\n}",
+        "jsonBody": "={\n  \"model\": \"google/gemini-3.1-flash-image\",\n  \"prompt\": {{ $json.text.toJsonString() }},\n  \"aspect_ratio\": {{ $('if_raster').all()[$itemIndex].json.ASPECT.toJsonString() }},\n  \"resolution\": \"1K\"\n}",
         "options": {}
       },
       "id": "f0241d3f-52ae-40e9-a5ce-d914c1bd5df6",

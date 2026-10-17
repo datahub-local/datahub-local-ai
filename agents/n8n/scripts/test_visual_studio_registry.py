@@ -46,13 +46,31 @@ def test_the_registry_declares_the_expected_types(registry):
     ids = [t["id"] for t in registry["types"]]
     assert ids == [
         "image",
+        "image_wide",
         "animation",
         "animation_linkedin",
         "animation_linkedin_video",
         "svg",
+        "svg_wide",
         "deck",
         "launch_card",
     ]
+
+
+def test_the_wide_types_are_the_landscape_frame(registry):
+    # An article is read on a screen, so its hero is landscape. The wide pair is the same
+    # medium as `image`/`svg` at the frame a page wants, which is why it is a registry entry
+    # rather than a change to the LinkedIn types (4:5) or a new request parameter.
+    by_id = {t["id"]: t for t in registry["types"]}
+    assert by_id["image_wide"]["aspect"] == "16:9"
+    assert by_id["svg_wide"]["aspect"] == "16:9"
+    assert by_id["image_wide"]["author"] == "image"
+    assert by_id["image_wide"]["format"] == "png"
+    assert by_id["svg_wide"]["author"] == "agent"
+    assert by_id["svg_wide"]["format"] == "svg"
+    # The LinkedIn frames stay what the platform wants.
+    assert by_id["image"]["aspect"] == "4:5"
+    assert by_id["svg"]["aspect"] == "4:5"
 
 
 def test_every_type_declares_a_known_author_and_render(registry):

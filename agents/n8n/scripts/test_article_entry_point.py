@@ -138,7 +138,9 @@ def test_the_publish_path_owns_its_own_reads():
         references = set(REF_RE.findall(json.dumps(_nodes()[node]["parameters"])))
         assert "if_all_assets_approved" not in references, node
     assert _targets("switch_phase", 2) == ["read_asset_rows_for_publish"]
-    assert _targets("if_all_assets_approved") == ["read_asset_rows_for_publish"]
+    # The gate's clear path is what owns the publish read; its blocked path reports.
+    assert _targets("if_all_assets_approved") == ["if_assets_blocked"]
+    assert _targets("if_assets_blocked", 1) == ["read_asset_rows_for_publish"]
 
 
 def test_a_raster_is_stored_and_an_agent_asset_is_refetched():
@@ -212,6 +214,52 @@ def test_the_asset_read_always_emits_so_a_fresh_entry_can_be_phased():
     # item as an asset row, and one with no ASSET_TYPE matches no requested type.
     assert "ASSET_TYPE" in _js("select_article_to_queue")
     assert "!hit" in _js("select_article_to_queue")
+
+
+def test_every_asset_the_studio_answers_with_reaches_the_asset_rows():
+    # The studio answers with one item per asset branch -- its own merge runs once per
+    # branch -- so a two-type request arrives as two items carrying one asset each.
+    # Reading only the first is how the svg was authored, rendered and then dropped on
+    # 2026-10-17 (execution 13705): the asset rows never saw it, the publish gate found
+    # `svg=MISSING`, and the run ended with no commit and no notice.
+    code = _js("split_assets")
+    assert "$input.all()" in code
+    assert "$input.first()" not in code
+    assert "flatMap" in code
+    # The empty case still fails loudly rather than reaching the rows as no asset.
+    assert "the studio returned no asset at all" in code
+
+
+def test_the_blocked_publish_reports_instead_of_ending_the_run():
+    # The gate's verdict is data and the branch on it is a node, because returning nothing
+    # from the gate is how a blocked publish ended the execution as `success` with no commit
+    # and no notice (execution 13705, 2026-10-17: `svg=MISSING`, the svg having never
+    # reached the asset rows).
+    gate = _js("if_all_assets_approved")
+    assert "BLOCKED:" in gate and "BLOCKING:" in gate
+    assert "return [];" not in gate
+    assert _targets("if_all_assets_approved") == ["if_assets_blocked"]
+    assert _targets("if_assets_blocked", 0) == ["notify_assets_blocked"]
+    assert _targets("if_assets_blocked", 1) == ["read_asset_rows_for_publish"]
+    # The notice is a message, not a gate: a blocked publish must not park the run on a
+    # Slack wait, and nothing continues from it into the commit.
+    notice = _nodes()["notify_assets_blocked"]
+    assert notice["type"] == "n8n-nodes-base.slack"
+    assert notice["parameters"]["select"] == "channel"
+    assert notice["parameters"]["channelId"]["value"] == "C08RQNXQV3P"
+    assert notice["credentials"]["slackApi"]["id"] == _nodes()["notify_asset_review"]["credentials"]["slackApi"]["id"]
+    assert "BLOCKING" in notice["parameters"]["text"]
+    assert _targets("notify_assets_blocked") == []
+
+
+def test_the_hero_every_run_asks_for_is_the_wide_frame():
+    # The article's hero is the wide raster; the LinkedIn types stay 4:5 for their own
+    # platform. The fallback in the studio call is the pair, not the old portrait types.
+    assert "['image_wide', ...list]" in _js("select_article_to_queue")
+    assert "['image_wide', ...requested]" in _js("if_all_assets_approved")
+    studio = _nodes()["execute_visual_studio"]["parameters"]["workflowInputs"]["value"]["ASSET_TYPES"]
+    assert "'image_wide,svg_wide'" in studio
+    assert "'image,svg'" not in studio
 
 
 def test_the_only_continue_regular_output_is_normalised_downstream():

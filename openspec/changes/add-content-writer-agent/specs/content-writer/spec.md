@@ -139,6 +139,12 @@ The system SHALL commit the article and all of its approved assets to the `alvsa
 - **WHEN** the article or any requested supported asset is not approved
 - **THEN** nothing is committed to the repository
 
+#### Scenario: A blocked publish is reported rather than silent
+- **WHEN** the gate finds a requested asset that is not approved, including one with no row at all
+- **THEN** nothing is committed
+- **AND** a notice naming the entry and the blocking assets is delivered to Slack
+- **AND** the run ends without waiting on a review
+
 #### Scenario: Slug collision
 - **WHEN** the derived slug already exists at the target path
 - **THEN** the system disambiguates the slug rather than overwriting an existing post
@@ -152,6 +158,24 @@ The system SHALL commit the article and all of its approved assets to the `alvsa
 - **WHEN** the commit is rejected because the default branch advanced during the run
 - **THEN** the system re-reads the branch and retries once without force-pushing
 - **AND** a second rejection is surfaced as a commit error, not retried indefinitely
+
+### Requirement: The hero asset is framed for a screen
+
+The article's hero asset SHALL be produced at a landscape frame suited to reading on a screen. The frame SHALL come from the asset type's own declaration rather than from a value fixed in the workflow, and it SHALL reach both the image request and the prompt that directs the model, so the composition and the generated frame agree. Types bound to a platform feed keep that platform's frame.
+
+#### Scenario: The hero is landscape
+- **WHEN** a run requests the default asset set for an entry
+- **THEN** the raster hero type it asks for is the 16:9 one
+- **AND** the composer-authored diagram is requested at the same frame
+
+#### Scenario: The frame reaches the raster request and its prompt
+- **WHEN** a raster type is authored
+- **THEN** the image request asks for the type's declared aspect
+- **AND** the prompt that directs the model is told the same frame
+
+#### Scenario: A platform type keeps its own frame
+- **WHEN** a type bound to a platform feed is authored
+- **THEN** its declared frame is unchanged by this requirement
 
 ### Requirement: Queue row carries exactly one terminal outcome
 

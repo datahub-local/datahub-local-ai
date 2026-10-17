@@ -485,17 +485,29 @@ Seven structural things worth knowing before editing an export:
 
 One workflow turns a source text into visual assets, driven by the type registry
 `agents/n8n/datasets/visual_types.json`. Adding a type is a change to that file, not a
-branch in the graph. Seven types: `image` (authored by the Gemini image model, png),
-`animation` (authored by the composer agent, mp4), `animation_linkedin` (authored by the
-composer agent, gif, inside LinkedIn's GIF cap), `animation_linkedin_video` (authored by
-the composer agent, mp4, at the feed's 4:5 aspect), `svg` (authored by the composer agent,
-a self-contained animated SVG), `deck` (authored by the composer agent, a
-self-contained HTML presentation that the same run also renders to mp4) and `launch_card`
-(authored by the composer agent, a still png at the announcement frame). A type declares
-its `brandKind` (`diagrammatic` or `photographic`), its output format and the frame the
-composer is briefed to produce; no animated type declares a `holdSeconds`, because a
-frozen final frame is the cheap-motion tell the framework names, and a still type declares
-no clip at all — no `durationSeconds`, no `secondsPerScene`.
+branch in the graph. Nine types: `image` (authored by the Gemini image model, png),
+`image_wide` (the same raster at 16:9), `animation` (authored by the composer agent, mp4),
+`animation_linkedin` (authored by the composer agent, gif, inside LinkedIn's GIF cap),
+`animation_linkedin_video` (authored by the composer agent, mp4, at the feed's 4:5 aspect),
+`svg` (authored by the composer agent, a self-contained animated SVG), `svg_wide` (the same
+animated SVG at 16:9), `deck` (authored by the composer agent, a self-contained HTML
+presentation that the same run also renders to mp4) and `launch_card` (authored by the
+composer agent, a still png at the announcement frame). A type declares its `brandKind`
+(`diagrammatic` or `photographic`), its output format and the frame the composer is briefed
+to produce; no animated type declares a `holdSeconds`, because a frozen final frame is the
+cheap-motion tell the framework names, and a still type declares no clip at all — no
+`durationSeconds`, no `secondsPerScene`.
+
+**The frame is the type's data, in both halves of the raster branch.** `aspect` is what the
+composer is briefed to author, and for a raster it must also reach the image request and the
+prompt that directs it — it did neither until 2026-10-17: `generate_image` hardcoded
+`aspect_ratio: "4:5"` and the director, told nothing, invented "landscape 3:2" for a type
+declaring 16:9, so the model composed one shape and the API cropped it to another. Now
+`aspect_ratio` is `$('if_raster').all()[$itemIndex].json.ASPECT` (the chain node emits only
+`{text}`, so the item's own field is not reachable from `$json` and `$itemIndex` is the
+pairing), and `download_raster_prompt` passes `ASPECT` to `prompts/visual_raster.md`, which
+composes to it. A caller that wants a different frame picks a type; the wide pair exists
+because an article is read on a screen and the LinkedIn types are 4:5 for their feed.
 
 **Authoring is one composer turn.** For an agent type the request's `CONTENT` is a brief
 sent to the `pi-render` session, which plans a **storyboard** (form, style, scenes) and

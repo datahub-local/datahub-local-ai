@@ -26,6 +26,16 @@
       "available": true
     },
     {
+      "id": "image_wide",
+      "brandKind": "diagrammatic",
+      "name": "Image (wide)",
+      "author": "image",
+      "render": "static",
+      "format": "png",
+      "aspect": "16:9",
+      "available": true
+    },
+    {
       "id": "animation",
       "brandKind": "diagrammatic",
       "name": "Animation",
@@ -83,6 +93,17 @@
       "render": "static",
       "format": "svg",
       "aspect": "4:5",
+      "durationSeconds": 12,
+      "available": true
+    },
+    {
+      "id": "svg_wide",
+      "brandKind": "diagrammatic",
+      "name": "Animated SVG (wide)",
+      "author": "agent",
+      "render": "static",
+      "format": "svg",
+      "aspect": "16:9",
       "durationSeconds": 12,
       "available": true
     },

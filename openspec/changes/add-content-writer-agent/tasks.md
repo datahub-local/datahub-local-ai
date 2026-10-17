@@ -100,6 +100,65 @@
  `settings.binaryMode: separate` to the live draft, which no API write can produce, so live now
  differs from the export by that one field until the next 02:00 backup reconciles it.
 
+- [x] 4.15 The article's hero is framed for a screen, and the frame is the type's data in both
+  halves of the raster branch. Found by the first live asset run (2026-10-17): the hero came back
+  928x1152 (4:5) and the animated SVG 1280x1600 (4:5), because `image` and `svg` declare the
+  LinkedIn feed's frame and the blog was asking for those. The frame was also fixed rather than
+  declared on the raster side — `generate_image` hardcoded `aspect_ratio: "4:5"` while the director
+  it had just prompted wrote *"landscape 3:2"*, so the model composed one shape and the API
+  cropped it to another (read out of execution 13712)
+ **Landed (export + registry + prompt; the graph half is 4.17).** `datasets/visual_types.json`
+ gains `image_wide` and `svg_wide`, both 16:9 — the same media at the frame a page wants, so the
+ LinkedIn types keep 4:5 and no request parameter was added. `generate_image`'s `aspect_ratio` is
+ now `$('if_raster').all()[$itemIndex].json.ASPECT` (the chain node emits only `{text}`, so
+ `$json` cannot carry it and `$itemIndex` is the pairing) and `download_raster_prompt` passes
+ `ASPECT` into `prompts/visual_raster.md`, which composes to it — the registry and the prompt are
+ read from GitHub `main`, so those two halves are live on push. Both copies of the studio graph
+ carry the change (`nodes` and `activeVersion.nodes`; patching one is how this was caught).
+ Asserted by `test_the_wide_types_are_the_landscape_frame` and
+ `test_the_raster_frame_comes_from_the_type` (the latter fails on the hardcoded `4:5`).
+- [x] 4.16 A blocked publish reports instead of ending the run with nothing. `if_all_assets_approved`
+  was a Code node that `return []`ed when any requested asset was not approved or had no row, and
+  n8n ends the execution on an empty output: execution 13705 ended `success` with no commit and no
+  Slack line, and the reason (`svg=MISSING`) existed only in the execution log
+ **Landed (export; the graph half is 4.17).** The gate now emits `BLOCKED`/`BLOCKING` as data, and
+ `if_assets_blocked` routes: blocked → `notify_assets_blocked` (a Slack *message*, not a wait, so a
+ blocked publish cannot park the run), clear → `read_asset_rows_for_publish`. Asserted by
+ `test_the_blocked_publish_reports_instead_of_ending_the_run`, which also pins that nothing
+ continues from the notice into the commit and that it carries the same channel and credential as
+ its neighbours. Both new tests fail without the change.
+- [ ] 4.17 Apply the graph halves live and point the test row at the wide pair. The studio's
+  `aspect_ratio` + `ASPECT` template var and the entry point's wide defaults, new `if_assets_blocked`
+  /`notify_assets_blocked` pair and rewiring are graph changes: the registry and the prompt are live
+  on push, these are not. The row's `ASSET_TYPES` (`image,svg` today) is a sheet edit — the flow's
+  own fallbacks now name the wide pair, so a row that declares the portrait types still asks for
+  them, which is the intended override rather than a bug.
+ **Applied live 2026-10-17; the push and the sheet edit remain.** Both graphs were applied with
+ `--require-edge` guards and read back. `Visual Studio`: the draft carried both fields and the
+ **published** version was fetched by its version id to confirm it too (29 nodes, `aspect_ratio`
+ expression, `ASPECT` present) — a PUT edits the draft, and the article path runs the published
+ sub-workflow, so publishing was the half that made it real. `Article Content Writer`: 77 nodes,
+ the two new nodes present, both rewirings confirmed, `active: False`. Live vs export: node-name
+ and connection hashes equal for both workflows, and every parameter of every touched node equal;
+ the only differences are `settings.binaryMode` and node positions, both UI-owned and reconciled by
+ the 02:00 backup.
+ **One coupling had to be closed before applying.** The hero rule is duplicated in
+ `select_article_to_queue` and in the publish gate, and a gate that prepends a type the selector did
+ not ask for blocks every run forever. Both now read the same predicate: either raster counts as a
+ declared hero, and a row that names neither gets `image_wide`.
+ **The push is required before the next run**: `datasets/visual_types.json` and
+ `prompts/visual_raster.md` are fetched from GitHub `main` by `DownloadTemplate`, so an uncommitted
+ `image_wide` is `unknown asset type: image_wide` at the studio and both assets come back `UNKNOWN`.
+ **The stale row was removed** for the chosen reset: `article_assets` held one APPROVED `image` row
+ (portrait, round 1) for entry `f2a53c10-…`, deleted with
+ `DELETE /api/v1/data-tables/1eE2kWVNSlS1fM25/rows/delete?filter=…` (filter required by the API,
+ 200, the entry now has no asset rows). The row's `STATUS=QUEUE` and `ASSET_TYPES=image_wide,svg_wide`
+ are the owner's edit, and `ENTRY_ID` is kept so the approved draft is reused.
+ **Found while doing it, not fixed here:** `build_commit_files` commits *every* row the entry has,
+ not only the requested types, so a leftover APPROVED row of a type no longer requested would be
+ committed as an extra asset. It is why the stale row had to go, and it wants its own fix: the
+ commit path should read the requested set the gate already computes.
+
 ## 5. Error handling
 
 - [x] 5.1 `agents/n8n/workflows/article_content_writer_error.workflow.json` authored as a create body, modeled on `linked_in_post_sharing_error` with one deliberate divergence: the row match no longer decides whether the notice is sent. `select_row_with_error` emits a `NO_ROW` item when nothing carries the failed execution id, `if_row_found` sends the matched row through the Sheet update and the rowless case straight to `set_error`, and both paths reach `send_error_notification` — the LinkedIn shape ends the notice on the row match, so a failure with no matching row is silent. Offline assertions in `scripts/test_content_writer_graph.py` (the handler sets no `errorWorkflow`, the notice is reachable from the trigger and from the rowless branch, only the matched branch updates the sheet, the page is addressed by name). No `settings.errorWorkflow` on the handler itself, per the repo rule. **Remaining: the live trigger** (the row moves to `ERROR` and the notice is delivered) — needs the page and the entry point to exist, so it is part of 6.1/6.2

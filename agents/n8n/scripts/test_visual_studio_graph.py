@@ -101,6 +101,20 @@ def test_the_raster_branch_reaches_the_merge(label, doc):
 
 
 @pytest.mark.parametrize("label,doc", list(_copies()))
+def test_the_raster_frame_comes_from_the_type(label, doc):
+    # The frame is the type's own data: the raster request used to hardcode `4:5`, so a
+    # type declaring 16:9 was generated portrait and then composed for the wrong shape --
+    # measured 2026-10-17, when the director's own prompt asked for "landscape 3:2" and the
+    # API cropped it to 4:5. The director is told the frame too, so the prompt and the
+    # request agree instead of one of them being authoritative.
+    body = _node(doc, "generate_image")["parameters"]["jsonBody"]
+    assert '"aspect_ratio": "4:5"' not in body
+    assert "$json.ASPECT" in body or "ASPECT" in body
+    vars_ = _node(doc, "download_raster_prompt")["parameters"]["workflowInputs"]["value"]["template_vars"]
+    assert "ASPECT" in vars_
+
+
+@pytest.mark.parametrize("label,doc", list(_copies()))
 def test_the_raster_model_still_has_its_llm(label, doc):
     # ai_model and ai_model_fallback are the raster director's language models; they
     # used to also feed the spec author, which is gone.

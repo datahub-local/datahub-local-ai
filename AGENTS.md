@@ -1146,6 +1146,37 @@ now carries `onError: continueErrorOutput`, and its second output joins the retu
 `build_failure` reads `$json.ERROR` or `$json.error.message` and the row carries the real reason
 either way.
 
+**The article is written for a reader who is new to the subject, and it has a spine.** Until
+2026-10-18 the rules said *"the reader is a practitioner, not a buyer"* and said nothing about the
+article's shape, which is how a Sympozium introduction came back dense with custom resources,
+admission webhooks and Helm for someone who had never seen the project — and how the gate then
+rejected four drafts for it. `article_writer_system.md` now defines the reader as smart, busy and
+**new to the subject** — an engineer from another field — and states the simplicity rules: explain
+every term where it first appears (naming a custom resource is not the failure; naming it without
+saying what it is for is), one idea per sentence, lead with the concrete, no sentence whose only job
+is to sound impressive. It also states **the frame**, which is the same for every article: the opening
+names the subject and the problem it answers, and **the close points at what to read or do next** and
+never restates. The body comes from `prompts/article_structures.md`, fetched into the drafting prompt
+as `{{ STRUCTURES }}`: seven named shapes — *introduction to a thing* (why the category exists → what
+else is out there and where it stops → why this one → what it does best → how it is built), *a
+decision and what it cost*, *an incident and the rule it produced*, *a comparison*, *a myth
+corrected*, *getting started*, *the state of a thing*. The writer picks by fit, and `EXTRA_PROMPT`
+can name one, the way the post lane's extra rules can name a subject.
+
+**The AI-speak list is one file, fetched by both lanes.** `prompts/ai_speak.md` holds the banned
+words, the filler phrases and the robotic scaffolding, and each lane injects it into its own rules
+file as `{{ AI_SPEAK }}` — so the drafter and the gate of *both* lanes read one copy. The clause that
+matters is kept with it: a listed word is banned as filler and allowed when it names the subject, an
+article about a harness says "the Standard harness". `test_shared_prompts.py` holds the two lanes to
+it and fails if any prompt restates the list, because the 2026-09-30 failure was exactly a gate
+enforcing a list the drafter was not reading.
+
+**The gate checks the objective half and not the judgement.** The new checks are the directional
+close, the AI-speak from the rules, and a term the subject is built from used without saying what it
+is for. "Is it simple enough" is deliberately **not** a check: that judgement is what rejected four
+drafts for a Kubernetes subject and cost a run, and a rule the drafter cannot read is unfixable by
+construction. The gate's scope line, added the same day, is what keeps the two apart.
+
 **The lane is otherwise unexercised by CI.** Nothing here has a live gate: the wiring is
 asserted offline in `agents/n8n/scripts/test_article_review_gate.py` and
 `test_article_entry_point.py`, and the behaviour was measured by hand on 2026-10-18 — the

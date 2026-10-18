@@ -221,28 +221,34 @@ Airflow still schedules the dlt ingest at 01:00 with the dbt build after it, bot
 What I take away: the incremental key deserves more scrutiny than the incremental strategy."""
 
 
-def _run_code_node(name, scope):
+def _run_code_node(name, scope, input_items=None):
     """Execute a committed Code node's jsCode with a stubbed n8n context.
 
     n8n runs a Code node body inside an async wrapper, so ``new Function`` is the shape that
     accepts its top-level ``return``. Every ``$('node')`` reference the body makes must be in
     ``scope``, so a body reaching for a node the test did not provide throws instead of
-    reading ``undefined``.
+    reading ``undefined``. ``input_items`` is the node's incoming stream, for a body that reads
+    ``$input``.
     """
     harness = textwrap.dedent(
         """
         const scope = %s;
+        const incoming = %s;
         const logs = [];
         const $ = (n) => {
           if (!(n in scope)) throw new Error('the test did not provide node ' + n);
           const items = scope[n].map((json) => ({ json }));
           return { first: () => items[0], all: () => items, item: items[0] };
         };
+        const $input = {
+          all: () => incoming.map((json) => ({ json })),
+          first: () => ({ json: incoming[0] }),
+        };
         const console = { log: (...a) => logs.push(a.join(' ')) };
-        const fn = new Function('$', 'console', %s);
-        process.stdout.write(JSON.stringify({ out: fn($, console), logs }));
+        const fn = new Function('$', 'console', '$input', %s);
+        process.stdout.write(JSON.stringify({ out: fn($, console, $input), logs }));
         """
-    ) % (json.dumps(scope), json.dumps(_js(name)))
+    ) % (json.dumps(scope), json.dumps(input_items or []), json.dumps(_js(name)))
     with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as fh:
         fh.write(harness)
         path = fh.name
@@ -362,6 +368,37 @@ def test_a_row_for_a_type_the_entry_no_longer_requests_is_not_committed():
     assert f"](/docs/img/{slug}-image.png)" not in article["FILE_TEXT"], (
         "the article references an asset that was not committed"
     )
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason=NODE_REQUIRED)
+def test_a_type_named_twice_is_requested_once():
+    """The requested set names each type once, whatever the row's `ASSET_TYPES` holds.
+
+    A test row on 2026-10-18 carried `svg_wide,svg_wide`, and the set went through undeduplicated
+    (`PENDING_ASSETS: "image_wide,svg_wide,svg_wide"`, execution 14018). Downstream that is two
+    studio calls for one type and two committed files at one `docs/img/` path.
+    """
+
+    def run(asset_types, assets):
+        return _run_code_node(
+            "select_article_to_queue",
+            {
+                "validate_categories": [
+                    {"row_number": 1, "ENTRY_ID": "e1", "ASSET_TYPES": asset_types, "ARTICLE_STATUS": ""}
+                ]
+            },
+            assets,
+        )["out"][0]["json"]
+
+    # A duplicated non-hero type, with the hero rule still prepending the wide raster.
+    out = run("svg_wide,svg_wide", [{"ASSET_TYPE": "image_wide", "STATUS": "APPROVED"}])
+    assert out["REQUESTED_ASSETS"] == "image_wide,svg_wide", out["REQUESTED_ASSETS"]
+    assert out["PENDING_ASSETS"] == "svg_wide", out["PENDING_ASSETS"]
+
+    # A duplicated hero type is one hero, not two.
+    out = run("image_wide,image_wide", [])
+    assert out["REQUESTED_ASSETS"] == "image_wide", out["REQUESTED_ASSETS"]
+    assert out["PENDING_ASSETS"] == "image_wide", out["PENDING_ASSETS"]
 
 
 def test_one_commit_sequence_with_a_guarded_fast_forward_retry():

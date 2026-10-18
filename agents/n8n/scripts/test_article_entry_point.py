@@ -166,6 +166,34 @@ def test_a_failed_draft_is_recorded_and_reported():
     assert "build_failure" in notice and "ERROR" in notice, "the notice names neither row nor reason"
 
 
+def test_the_human_retry_passes_the_draft_the_human_rejected():
+    """The sub-workflow holds a draft only within one invocation, so the retry must hand it one.
+
+    `PREVIOUS_DRAFT` inside `Article Creator` reads `parse_article`, which has not run when a
+    human answers the approval and `switch_article_retry` loops back into the same call node: the
+    block renders empty and `article_writer.md` reads an empty block as "this is the first
+    attempt: write a fresh draft". Measured on run 14178 (2026-10-18) — 14180, the first
+    authoring, carried its rejected draft into the internal retry, while the two human rounds
+    14187 and 14191 each regenerated the whole article from feedback that named one section.
+
+    A node reading its own earlier runs is the mechanism, and it is measured rather than assumed:
+    a probe cycle on 2026-10-18 (execution 14195) had `$('step').last()` answer the *previous*
+    run's value on the second pass, not the row being built.
+    """
+    assert "execute_article_creator" in _targets("switch_article_retry"), (
+        "the human's Retry no longer re-enters the call node this test is about"
+    )
+    call = _nodes()["execute_article_creator"]["parameters"]["workflowInputs"]
+    expr = call["value"]["PREVIOUS_DRAFT"]
+    assert "$('execute_article_creator')" in expr, "the human retry sends no draft"
+    assert ".last()" in expr, "a third human round would re-send the first draft"
+    assert "$('execute_article_creator').item" not in expr, "a paired-item read through the wait"
+    assert "isExecuted" in expr, "the first pass runs this node too, and an unguarded read throws"
+    assert "PREVIOUS_DRAFT" in [s["id"] for s in call["schema"]], (
+        "the field is not mapped, so n8n drops it on the way to the sub-workflow"
+    )
+
+
 def test_the_rendered_asset_is_the_only_thing_that_gets_reviewed():
     # An asset the studio could not render keeps its reason and takes no review.
     assert _targets("if_asset_rendered") == ["if_asset_has_bytes"]

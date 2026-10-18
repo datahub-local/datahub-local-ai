@@ -65,6 +65,7 @@ TRIGGER_VARS = frozenset(
         "ASSET_TYPES",
         "EXTRA_PROMPT",
         "FEEDBACK",
+        "PREVIOUS_DRAFT",
     }
 )
 
@@ -219,6 +220,23 @@ def test_the_retry_carries_the_draft_the_review_rejected():
         "a third attempt would edit the first attempt's draft and never converge"
     )
     assert "isExecuted" in expr, "an unguarded read throws when the first attempt renders this"
+
+
+def test_the_human_retry_falls_back_to_the_draft_the_caller_sent():
+    """A human retry is a new invocation, so the draft has to arrive on the trigger.
+
+    Inside one invocation `parse_article` holds the draft the gate just rejected; a human answer
+    to the approval loops back into the call node as a *new* invocation, where it has not run and
+    the block renders empty — and the prompt reads an empty block as "write a fresh draft".
+    Measured on run 14178 (2026-10-18): executions 14187 and 14191, two human rounds, each
+    regenerating the whole article against feedback that named one section.
+    """
+    expr = _node("download_article_prompt")["parameters"]["workflowInputs"]["value"]["template_vars"]
+    assert "$('main_trigger').first().json.PREVIOUS_DRAFT" in expr, (
+        "the caller's draft is not the fallback, so a human retry writes from scratch"
+    )
+    # the in-run draft still wins: the internal reviewer's retry must edit its own attempt
+    assert expr.index("$('parse_article').isExecuted") < expr.index("$('main_trigger').first().json.PREVIOUS_DRAFT")
 
 
 def test_creator_fetches_both_prompt_files():

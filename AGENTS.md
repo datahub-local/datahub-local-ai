@@ -1077,6 +1077,21 @@ first attempt renders the same node with `parse_article` not yet run. The graph 
 **before** the prompts are pushed: a pushed prompt naming a placeholder the graph does not pass stops
 every run, while a graph passing a var the prompt does not use is harmless.
 
+**A human retry had the same gap in a new place, and it was the one the owner hit.** `PREVIOUS_DRAFT`
+lives *inside* the sub-workflow, so it spans one invocation — and a person answering the approval
+re-enters `execute_article_creator` as a **new** invocation, where `parse_article` has not run. Run
+14178 (2026-10-18, still `waiting`) measured it: 14180's internal retry carried its rejected draft
+(24,675-char prompt), while 14187 and 14191 — two human rounds — each rendered an empty
+`## Previous Draft` and wrote a fresh article, the second against feedback naming a single section.
+Both lanes now hand the retry the draft the human read, taken from the call node's **own** earlier run
+(`$('execute_article_creator').last().json.text`, `$('execute_post_creator')` likewise), and the
+sub-workflow prefers it only when it holds none of its own, so the internal loop is unchanged. No
+store was read instead: the post lane has none (`content_queue` carries no post column) and the
+article's `article_drafts` row is a copy of what the run still holds. That a node may read its own
+earlier runs is measured rather than assumed — a probe cycle on 2026-10-18 (execution 14195) had
+`$('step').last()` answer the previous run's value on the second pass. No prompt file changed, so no
+push order applies this time.
+
 **The drafting agent's iteration cap is a cost cap, not a spiral fix.** `maxIterations` went from 8
 to 12 in October for a measured reason — every model failure inside the agent loop spends an
 iteration, and a run with three failures exhausted 8 before writing (execution 13603). It does not

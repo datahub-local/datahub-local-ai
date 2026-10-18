@@ -262,7 +262,7 @@
           "workflowInputs": {
             "mappingMode": "defineBelow",
             "value": {
-              "template_vars": "={{ {\n\"RULES\": $('set_workflow_vars').first().json.RULES,\n\"EXTRA_PROMPT\": $('main_trigger').first().json.EXTRA_PROMPT,\n\"CONTENT\": $('main_trigger').first().json.CONTENT,\n\"VARIETY_DIRECTIVES\": $('set_variety_directives').first().json.VARIETY_DIRECTIVES,\n\"FEEDBACK\": ($('main_trigger').first().json.FEEDBACK || \"\") + ($json.explanation ? \"\\nInternal review rejected the previous draft with: \" + $json.explanation : \"\"),\n\"PREVIOUS_POST\": $('parse_llm_output').isExecuted ? $('parse_llm_output').last().json.result : \"\",\n} }}",
+              "template_vars": "={{ {\n\"RULES\": $('set_workflow_vars').first().json.RULES,\n\"EXTRA_PROMPT\": $('main_trigger').first().json.EXTRA_PROMPT,\n\"CONTENT\": $('main_trigger').first().json.CONTENT,\n\"VARIETY_DIRECTIVES\": $('set_variety_directives').first().json.VARIETY_DIRECTIVES,\n\"FEEDBACK\": ($('main_trigger').first().json.FEEDBACK || \"\") + ($json.explanation ? \"\\nInternal review rejected the previous draft with: \" + $json.explanation : \"\"),\n\"PREVIOUS_POST\": $('parse_llm_output').isExecuted ? $('parse_llm_output').last().json.result : ($('main_trigger').first().json.PREVIOUS_POST || \"\"),\n} }}",
               "template_name": "prompts/linkedin_post.md"
             },
             "matchingColumns": [],
@@ -478,6 +478,9 @@
               },
               {
                 "name": "HOOK"
+              },
+              {
+                "name": "PREVIOUS_POST"
               }
             ]
           }
@@ -1451,7 +1454,7 @@
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "template_vars": "={{ {\n\"RULES\": $('set_workflow_vars').first().json.RULES,\n\"EXTRA_PROMPT\": $('main_trigger').first().json.EXTRA_PROMPT,\n\"CONTENT\": $('main_trigger').first().json.CONTENT,\n\"VARIETY_DIRECTIVES\": $('set_variety_directives').first().json.VARIETY_DIRECTIVES,\n\"FEEDBACK\": ($('main_trigger').first().json.FEEDBACK || \"\") + ($json.explanation ? \"\\nInternal review rejected the previous draft with: \" + $json.explanation : \"\"),\n\"PREVIOUS_POST\": $('parse_llm_output').isExecuted ? $('parse_llm_output').last().json.result : \"\",\n} }}",
+            "template_vars": "={{ {\n\"RULES\": $('set_workflow_vars').first().json.RULES,\n\"EXTRA_PROMPT\": $('main_trigger').first().json.EXTRA_PROMPT,\n\"CONTENT\": $('main_trigger').first().json.CONTENT,\n\"VARIETY_DIRECTIVES\": $('set_variety_directives').first().json.VARIETY_DIRECTIVES,\n\"FEEDBACK\": ($('main_trigger').first().json.FEEDBACK || \"\") + ($json.explanation ? \"\\nInternal review rejected the previous draft with: \" + $json.explanation : \"\"),\n\"PREVIOUS_POST\": $('parse_llm_output').isExecuted ? $('parse_llm_output').last().json.result : ($('main_trigger').first().json.PREVIOUS_POST || \"\"),\n} }}",
             "template_name": "prompts/linkedin_post.md"
           },
           "matchingColumns": [],
@@ -1667,6 +1670,9 @@
             },
             {
               "name": "HOOK"
+            },
+            {
+              "name": "PREVIOUS_POST"
             }
           ]
         }

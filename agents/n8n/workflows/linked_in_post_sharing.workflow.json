@@ -203,7 +203,8 @@
               "CONTENT": "={{ $('download_content').item.json.contentMkdown }}",
               "ENABLE_CHECK": "true",
               "FEEDBACK": "={{ $('notification_retry_or_cancel').isExecuted && $('notification_retry_or_cancel').last().json.data.Feedback ? $('notification_retry_or_cancel').last().json.data.Feedback : '' }}",
-              "HOOK": "={{ $('select_article_to_post').item.json.HOOK || '' }}"
+              "HOOK": "={{ $('select_article_to_post').item.json.HOOK || '' }}",
+              "PREVIOUS_POST": "={{ $('execute_post_creator').isExecuted ? ($('execute_post_creator').last().json.text || '') : '' }}"
             },
             "matchingColumns": [],
             "schema": [
@@ -280,6 +281,16 @@
               {
                 "id": "HOOK",
                 "displayName": "HOOK",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "PREVIOUS_POST",
+                "displayName": "PREVIOUS_POST",
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
@@ -4464,7 +4475,8 @@
             "CONTENT": "={{ $('download_content').item.json.contentMkdown }}",
             "ENABLE_CHECK": "true",
             "FEEDBACK": "={{ $('notification_retry_or_cancel').isExecuted && $('notification_retry_or_cancel').last().json.data.Feedback ? $('notification_retry_or_cancel').last().json.data.Feedback : '' }}",
-            "HOOK": "={{ $('select_article_to_post').item.json.HOOK || '' }}"
+            "HOOK": "={{ $('select_article_to_post').item.json.HOOK || '' }}",
+            "PREVIOUS_POST": "={{ $('execute_post_creator').isExecuted ? ($('execute_post_creator').last().json.text || '') : '' }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -4541,6 +4553,16 @@
             {
               "id": "HOOK",
               "displayName": "HOOK",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "PREVIOUS_POST",
+              "displayName": "PREVIOUS_POST",
               "required": false,
               "defaultMatch": false,
               "display": true,

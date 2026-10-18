@@ -207,3 +207,49 @@ def test_the_retry_carries_the_post_the_review_rejected(label, document):
         f"{label}: a third attempt would edit the first post and never converge"
     )
     assert "isExecuted" in expr, f"{label}: an unguarded read throws on the first attempt"
+
+
+@pytest.mark.parametrize("label,document", list(_copies(CREATOR)))
+def test_the_human_retry_falls_back_to_the_post_the_caller_sent(label, document):
+    """A human retry is a new invocation, so the post has to arrive on the trigger.
+
+    Same gap as the article lane, found the same day: `parse_llm_output` has not run when the
+    human's Retry loops back into `execute_post_creator`, so `PREVIOUS_POST` rendered empty and
+    the prompt read that as a first draft. The post is stored nowhere else in this lane —
+    `content_queue` has no post column — so the run itself has to carry it.
+    """
+    value = _nodes(document)["download_post_prompt"]["parameters"]["workflowInputs"]["value"]
+    expr = value["template_vars"]
+    assert "$('main_trigger').first().json.PREVIOUS_POST" in expr, (
+        f"{label}: the caller's post is not the fallback, so a human retry writes from scratch"
+    )
+    assert expr.index("$('parse_llm_output').isExecuted") < expr.index(
+        "$('main_trigger').first().json.PREVIOUS_POST"
+    ), f"{label}: the in-run post must win, or an internal retry edits the wrong draft"
+
+
+@pytest.mark.parametrize("label,document", list(_copies(SHARING)))
+def test_the_sharing_workflow_passes_the_draft_the_human_rejected(label, document):
+    """The post text has no durable home, so it travels in the run.
+
+    `content_queue` carries no post column (URL TITLE STATUS PRIORITY SCORE ORIGIN TOPIC SOURCE
+    RATIONALE EXTRA_PROMPT MAX_WORDS PUBLISHED_AT UPDATE_DATE RELEASE_DATE LINKEDIN_URL ENTRY_ID
+    ERROR EXECUTION_ID row_number), so the draft the human just read exists only in the run's own
+    output — and the call node's earlier run is exactly that: measured with a probe cycle on
+    2026-10-18 (execution 14195), a node's `.last()` on its second pass answers the *previous*
+    run's value, not the row being built.
+    """
+    assert "execute_post_creator" in _targets(_connections(document), "switch_user_retry"), (
+        f"{label}: the human's Retry no longer re-enters the call node this test is about"
+    )
+    call = _nodes(document)["execute_post_creator"]["parameters"]["workflowInputs"]
+    expr = call["value"]["PREVIOUS_POST"]
+    assert "$('execute_post_creator')" in expr, f"{label}: the human retry sends no post"
+    assert ".last()" in expr, f"{label}: a third human round would re-send the first post"
+    assert "$('execute_post_creator').item" not in expr, (
+        f"{label}: a paired-item read through the approval wait"
+    )
+    assert "isExecuted" in expr, f"{label}: the first pass runs this node too, and would throw"
+    assert "PREVIOUS_POST" in [s["id"] for s in call["schema"]], (
+        f"{label}: the field is not mapped, so n8n drops it on the way to the sub-workflow"
+    )

@@ -624,7 +624,8 @@
               "MAX_WORDS": "={{ $('select_article_to_queue').item.json.MAX_WORDS }}",
               "ASSET_TYPES": "={{ $('select_article_to_queue').item.json.ASSET_TYPES || '' }}",
               "EXTRA_PROMPT": "={{ $('select_article_to_queue').item.json.EXTRA_PROMPT || '' }}",
-              "FEEDBACK": "={{ $('notification_retry_or_cancel').isExecuted ? ($('notification_retry_or_cancel').last().json.data.Feedback || '') : ($('select_article_to_queue').item.json.ARTICLE_FEEDBACK || '') }}"
+              "FEEDBACK": "={{ $('notification_retry_or_cancel').isExecuted ? ($('notification_retry_or_cancel').last().json.data.Feedback || '') : ($('select_article_to_queue').item.json.ARTICLE_FEEDBACK || '') }}",
+              "PREVIOUS_DRAFT": "={{ $('execute_article_creator').isExecuted ? ($('execute_article_creator').last().json.text || '') : '' }}"
             },
             "matchingColumns": [],
             "schema": [
@@ -701,6 +702,16 @@
               {
                 "id": "FEEDBACK",
                 "displayName": "FEEDBACK",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "PREVIOUS_DRAFT",
+                "displayName": "PREVIOUS_DRAFT",
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
@@ -7014,7 +7025,8 @@
             "MAX_WORDS": "={{ $('select_article_to_queue').item.json.MAX_WORDS }}",
             "ASSET_TYPES": "={{ $('select_article_to_queue').item.json.ASSET_TYPES || '' }}",
             "EXTRA_PROMPT": "={{ $('select_article_to_queue').item.json.EXTRA_PROMPT || '' }}",
-            "FEEDBACK": "={{ $('notification_retry_or_cancel').isExecuted ? ($('notification_retry_or_cancel').last().json.data.Feedback || '') : ($('select_article_to_queue').item.json.ARTICLE_FEEDBACK || '') }}"
+            "FEEDBACK": "={{ $('notification_retry_or_cancel').isExecuted ? ($('notification_retry_or_cancel').last().json.data.Feedback || '') : ($('select_article_to_queue').item.json.ARTICLE_FEEDBACK || '') }}",
+            "PREVIOUS_DRAFT": "={{ $('execute_article_creator').isExecuted ? ($('execute_article_creator').last().json.text || '') : '' }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -7091,6 +7103,16 @@
             {
               "id": "FEEDBACK",
               "displayName": "FEEDBACK",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "PREVIOUS_DRAFT",
+              "displayName": "PREVIOUS_DRAFT",
               "required": false,
               "defaultMatch": false,
               "display": true,

@@ -1192,6 +1192,26 @@ is for. "Is it simple enough" is deliberately **not** a check: that judgement is
 drafts for a Kubernetes subject and cost a run, and a rule the drafter cannot read is unfixable by
 construction. The gate's scope line, added the same day, is what keeps the two apart.
 
+**The hero a row does not name is animated: `svg_wide`, not a still raster.** The rule read *"either
+raster counts as one, so a row naming the portrait `image` keeps its own choice and a row naming
+neither gets the wide one, which is the frame a page wants"* — and `image_wide` is a **Gemini png**,
+so a row whose own `ASSET_TYPES` was `svg_wide` (animated, `author: agent`) had a still prepended to
+it. Article run 14196 measured it: `REQUESTED_ASSETS = "image_wide,svg_wide"`, the splitter's first
+call was `image_wide`, and studio execution 14219 died on it — the animated asset the row actually
+asked for was never authored. The prepend is now `svg_wide`, and a row naming its own raster still
+keeps it: a page lead image is a legitimate still, a still nobody asked for is not. The
+`split_pending_types` fallback for a row naming nothing matches. Note this is *not* the post lane's
+rule — `POST_MEDIA` and its unconditional animation govern `content_queue`, and the article lane has
+no motion flag at all; what it has is the requested set, and the hero is the first type in it.
+
+**An SVG commits with an `.svg` extension, which the content type does not give you by splitting it.**
+`build_commit_files` derived the extension as `CONTENT_TYPE.split('/')[1]`, and an SVG asset reports
+`image/svg+xml` — so the path came out `docs/img/<slug>-svg_wide.svg+xml` and the article referenced
+it. Measured by executing the committed node: the same call with `image/png`, `video/mp4`,
+`image/gif` and `text/html` maps to `png`, `mp4`, `gif` and `html`, so the slash split was right for
+every type except the one now used as the default hero. It is a lookup on the content type with the
+slash split as its fallback, and `test_an_svg_asset_commits_with_an_svg_extension` pins it.
+
 **The lane is otherwise unexercised by CI.** Nothing here has a live gate: the wiring is
 asserted offline in `agents/n8n/scripts/test_article_review_gate.py` and
 `test_article_entry_point.py`, and the behaviour was measured by hand on 2026-10-18 — the

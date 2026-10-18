@@ -467,15 +467,74 @@ def test_a_type_named_twice_is_requested_once():
             assets,
         )["out"][0]["json"]
 
-    # A duplicated non-hero type, with the hero rule still prepending the wide raster.
-    out = run("svg_wide,svg_wide", [{"ASSET_TYPE": "image_wide", "STATUS": "APPROVED"}])
-    assert out["REQUESTED_ASSETS"] == "image_wide,svg_wide", out["REQUESTED_ASSETS"]
-    assert out["PENDING_ASSETS"] == "svg_wide", out["PENDING_ASSETS"]
+    # A duplicated non-hero type: the hero rule adds the animated wide one, once.
+    out = run("svg_wide,svg_wide", [{"ASSET_TYPE": "svg_wide", "STATUS": "APPROVED"}])
+    assert out["REQUESTED_ASSETS"] == "svg_wide", out["REQUESTED_ASSETS"]
+    assert out["PENDING_ASSETS"] == "", out["PENDING_ASSETS"]
 
     # A duplicated hero type is one hero, not two.
     out = run("image_wide,image_wide", [])
     assert out["REQUESTED_ASSETS"] == "image_wide", out["REQUESTED_ASSETS"]
     assert out["PENDING_ASSETS"] == "image_wide", out["PENDING_ASSETS"]
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason=NODE_REQUIRED)
+def test_the_hero_a_row_does_not_name_is_animated():
+    """The hero is `svg_wide`, not a still raster.
+
+    Measured 2026-10-18: article run 14196 asked the studio for `image_wide` - a Gemini png -
+    because the hero rule prepended a raster to a row whose own `ASSET_TYPES` was `svg_wide`. The
+    animated asset the row did ask for never got authored (studio execution 14219).
+    """
+
+    def run(types):
+        return _run_code_node(
+            "select_article_to_queue",
+            {
+                "validate_categories": [
+                    {"row_number": 1, "ENTRY_ID": "e1", "ASSET_TYPES": types, "ARTICLE_STATUS": ""}
+                ]
+            },
+            [],
+        )["out"][0]["json"]
+
+    # A row naming an animated type keeps it, and no raster is added behind its back.
+    assert run("svg_wide,svg_wide")["REQUESTED_ASSETS"] == "svg_wide"
+    assert run("animation")["REQUESTED_ASSETS"] == "svg_wide,animation"
+    assert run("tiles_wide")["REQUESTED_ASSETS"] == "svg_wide,tiles_wide"
+    assert run("")["REQUESTED_ASSETS"] == "svg_wide"
+    # A row that names its own raster keeps that choice.
+    assert run("image")["REQUESTED_ASSETS"] == "image"
+    assert run("image_wide")["REQUESTED_ASSETS"] == "image_wide"
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason=NODE_REQUIRED)
+def test_an_svg_asset_commits_with_an_svg_extension():
+    """`image/svg+xml` split on the slash is `svg+xml`, which is not an extension.
+
+    Every SVG asset - and now the default hero - would have committed at
+    `docs/img/<slug>-svg_wide.svg+xml` with the article referencing that path.
+    """
+    result = _run_code_node(
+        "build_commit_files",
+        {
+            "disambiguate_slug": [{"SLUG": "an-entry"}],
+            "read_draft_for_publish": [
+                {"ARTICLE_TEXT": "Opening.\n\n<!-- asset:svg_wide -->\n\n## A section\n\nBody.", "TITLE": "An Entry"}
+            ],
+            "read_asset_rows_for_publish": [
+                {"ASSET_TYPE": "svg_wide", "STATUS": "APPROVED", "CONTENT_TYPE": "image/svg+xml"}
+            ],
+            "select_article_to_queue": [
+                {"CATEGORIES": "Data", "ENTRY_ID": 1, "ROW_NUMBER": 1, "REQUESTED_ASSETS": "svg_wide"}
+            ],
+        },
+    )
+    paths = [f["json"]["FILE_PATH"] for f in result["out"]]
+    assert "docs/img/an-entry-svg_wide.svg" in paths, paths
+    assert not [p for p in paths if "+" in p], paths
+    article = next(f["json"] for f in result["out"] if not f["json"]["FILE_IS_BINARY"])
+    assert "](/docs/img/an-entry-svg_wide.svg)" in article["FILE_TEXT"]
 
 
 def test_one_commit_sequence_with_a_guarded_fast_forward_retry():
@@ -554,16 +613,16 @@ def test_the_blocked_publish_reports_instead_of_ending_the_run():
 
 
 def test_the_hero_every_run_asks_for_is_the_wide_frame():
-    # The article's hero is the wide raster; the LinkedIn types stay 4:5 for their own
-    # platform. The fallback the splitter uses when a row names nothing is the wide one.
-    assert "['image_wide', ...list]" in _js("select_article_to_queue")
-    # The gate reads the set the selector derived instead of repeating the rule, so the
-    # fallback exists once. See test_the_requested_set_is_derived_once_and_read_by_its_consumers.
+    # The hero is the wide 16:9 frame and it is animated - `svg_wide` - so a row that asks for an
+    # animated type is not handed a still raster it never named. A row naming its own raster keeps
+    # it. The splitter's fallback for a row that names nothing is the same wide frame.
+    assert "['svg_wide', ...list]" in _js("select_article_to_queue")
+    assert "'svg_wide'" in _js("split_pending_types")
+    # The gate reads the set the selector derived instead of repeating the rule, so the fallback
+    # exists once. See test_the_requested_set_is_derived_once_and_read_by_its_consumers.
     assert "REQUESTED_ASSETS" in _js("if_all_assets_approved")
-    assert "['image_wide', ..." not in _js("if_all_assets_approved")
-    code = _js("split_pending_types")
-    assert "'image_wide'" in code
-    assert "'image,svg'" not in code
+    assert "['svg_wide', ..." not in _js("if_all_assets_approved")
+    assert "'image,svg'" not in _js("split_pending_types")
 
 
 def test_the_only_continue_regular_output_is_normalised_downstream():

@@ -269,7 +269,8 @@
           },
           "builtInTools": {},
           "options": {
-            "maxRetries": 2
+            "maxRetries": 2,
+            "timeout": 120000
           }
         },
         "credentials": {
@@ -296,7 +297,8 @@
           },
           "builtInTools": {},
           "options": {
-            "maxRetries": 2
+            "maxRetries": 2,
+            "timeout": 120000
           }
         },
         "credentials": {
@@ -965,7 +967,8 @@
         },
         "builtInTools": {},
         "options": {
-          "maxRetries": 2
+          "maxRetries": 2,
+          "timeout": 120000
         }
       },
       "credentials": {
@@ -992,7 +995,8 @@
         },
         "builtInTools": {},
         "options": {
-          "maxRetries": 2
+          "maxRetries": 2,
+          "timeout": 120000
         }
       },
       "credentials": {

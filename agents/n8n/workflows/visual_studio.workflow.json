@@ -194,7 +194,8 @@
           },
           "builtInTools": {},
           "options": {
-            "maxRetries": 2
+            "maxRetries": 2,
+            "timeout": 120000
           }
         },
         "id": "f509c99a-ffe1-4061-8d1d-c2b748bcbfc8",
@@ -221,7 +222,8 @@
           },
           "builtInTools": {},
           "options": {
-            "maxRetries": 2
+            "maxRetries": 2,
+            "timeout": 120000
           }
         },
         "id": "ce5284fe-f18e-43df-8107-02cfe1511c59",
@@ -2484,7 +2486,8 @@
         },
         "builtInTools": {},
         "options": {
-          "maxRetries": 2
+          "maxRetries": 2,
+          "timeout": 120000
         }
       },
       "id": "f509c99a-ffe1-4061-8d1d-c2b748bcbfc8",
@@ -2511,7 +2514,8 @@
         },
         "builtInTools": {},
         "options": {
-          "maxRetries": 2
+          "maxRetries": 2,
+          "timeout": 120000
         }
       },
       "id": "ce5284fe-f18e-43df-8107-02cfe1511c59",

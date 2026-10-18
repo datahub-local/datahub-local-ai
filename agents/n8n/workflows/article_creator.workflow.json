@@ -272,7 +272,8 @@
           },
           "builtInTools": {},
           "options": {
-            "maxRetries": 5
+            "maxRetries": 5,
+            "timeout": 120000
           }
         },
         "id": "d5e56f92-2855-4e67-b9a9-c60e6bb1fc50",
@@ -299,7 +300,8 @@
           },
           "builtInTools": {},
           "options": {
-            "maxRetries": 5
+            "maxRetries": 5,
+            "timeout": 120000
           }
         },
         "id": "720198e0-9bcd-4ac3-92e0-b81eccc3eea8",
@@ -1248,7 +1250,8 @@
         },
         "builtInTools": {},
         "options": {
-          "maxRetries": 5
+          "maxRetries": 5,
+          "timeout": 120000
         }
       },
       "id": "d5e56f92-2855-4e67-b9a9-c60e6bb1fc50",
@@ -1275,7 +1278,8 @@
         },
         "builtInTools": {},
         "options": {
-          "maxRetries": 5
+          "maxRetries": 5,
+          "timeout": 120000
         }
       },
       "id": "720198e0-9bcd-4ac3-92e0-b81eccc3eea8",

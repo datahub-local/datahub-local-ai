@@ -71,11 +71,11 @@
 
 ## 4. Apply to the live instance
 
-- [ ] 4.1 Ask the owner before writing, per the repository rule: present the diff of the graph and
+- [x] 4.1 Ask the owner before writing, per the repository rule: present the diff of the graph and
   the two prompt files, and get an explicit answer.
-  **Asked 2026-10-18; the answer was "dry run first, then stop".** The diff was presented: live has
-  11 nodes against the export's 17, `parse_article → set_output` is replaced by the six-node loop,
-  and the two prompt files are already on `origin/main` (4.2).
+  **Asked 2026-10-18 and answered.** The diff was presented: live had 11 nodes against the export's
+  17, `parse_article → set_output` was replaced by the six-node loop, and the two prompt files were
+  already on `origin/main` (4.2). The owner asked for the dry run first and then said go.
 - [x] 4.2 Push the two prompt files first — `article_review.md` and `article_writer.md` are fetched
   from GitHub `main`, and a `DownloadTemplate` call for a file that is not there stops the run.
   **Already satisfied, nothing pushed by this change.** `HEAD == origin/main` and both files are on
@@ -99,11 +99,20 @@
   **The spec was proven complete offline before it is trusted**: applying it in memory to the live
   read yields `nodes` and `connections` byte-identical to the export, so the PUT cannot leave live
   short of the export (a spec that misses a field is invisible until the nightly backup reverts it).
-- [ ] 4.4 Apply (`--changes` with the field-level paths, `addNodes` and the rewritten connections;
+- [x] 4.4 Apply (`--changes` with the field-level paths, `addNodes` and the rewritten connections;
   never a whole exported body), then
   re-read: `activeVersion` carries the edit, `active` is still true, and the export's node-name set,
   connections and touched nodes match the live read-back. `Article Creator` is active, so publish
   the draft and confirm the published version carries it.
+  **Landed 2026-10-18.** The `--changes` spec was proven complete before the write by applying it
+  in memory to the live read and diffing against the export. All 18 writes landed with no
+  `MISMATCH`, `active` stayed `True`, and the PUT republished on its own — `versionId` and
+  `activeVersionId` moved together from `83d2696a…` to `feb7865e…` with all 17 nodes, so no
+  deactivate/activate cycle was needed. Re-read after: both copies 17 nodes, node sets and
+  connections equal to the export. One export defect was found and fixed in the same step: the two
+  copies disagreed on the `MAX_TRIES` assignment's `id` (`a25233cd…` at the top level against
+  `e4b03332…` in `activeVersion`), and live's own two copies agreed, so the export was reconciled to
+  live. A later field-level apply added the reviewer's retry settings (see 5.4).
 
 ## 5. Behaviour verification
 
@@ -170,9 +179,11 @@ sub-workflow's `executeWorkflowTrigger`. Deleted after the runs.
   and the reviewer's rejections were all fact checks that need `CONTENT`. The `EXTRA_PROMPT`
   conflict and the broken `glm-5.3-flash` fallback are added as open questions, and the dropped
   retries as a gate finding.
-- [ ] 6.3 Archive only when the graph is live, the prompts are pushed and 5.1–5.4 have run:
+- [x] 6.3 Archive only when the graph is live, the prompts are pushed and 5.1–5.4 have run:
   `openspec archive add-article-review-gate`.
-  **Conditions met 2026-10-18** — graph applied and read back equal to the export in both copies,
-  prompts on `origin/main`, 5.1–5.4 driven. Not yet run, because `add-content-writer-agent` is
-  still open against the same `content-writer` capability and archiving first would create
-  `openspec/specs/content-writer/spec.md` from this delta alone.
+  **Conditions met and archived 2026-10-18** — graph applied and read back equal to the export in
+  both copies, prompts on `origin/main`, 5.1–5.4 driven. Archived now rather than after
+  `add-content-writer-agent`: that change is still open against the same `content-writer`
+  capability, so this archive creates `openspec/specs/content-writer/spec.md` from the review
+  requirement alone and the sibling's archive appends its own requirements to it. The owner chose
+  that order deliberately.

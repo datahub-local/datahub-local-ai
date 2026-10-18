@@ -375,7 +375,7 @@ oauth2-proxy, which an API key does not satisfy. The key is
 `security/n8n-root` → `N8N_API_KEY`; mount it into a pod rather than reading it
 into a shell.
 
-Seven structural things worth knowing before editing an export:
+Eight structural things worth knowing before editing an export:
 
 - **Every export carries its nodes twice**, at the top level and inside
   `activeVersion`. Edit both or the file is self-inconsistent.
@@ -508,6 +508,8 @@ Seven structural things worth knowing before editing an export:
   `active`, and diff the export against live afterwards.
 
 - **An export's `jsCode` is a string, so a line break in the file is `\n` and a `\n` inside a JS string is `\\n` — write the pair where the single belongs and the node is a syntax error.** Nothing offline catches it: the JSON is still valid, the diff still reads as two lines, and every textual assertion still passes. n8n parses the node only when a run reaches it, so the whole node fails for every run, and the apply ships it silently. Hit on 2026-10-16 adding the still-type branch to `build_author_brief`: `\n` landed between `stillPlanLine` and `stillSceneLine`, live took it, and every agent-authored asset would have failed. `agents/n8n/scripts/test_code_nodes_parse.py` now parses every Code node with `node --check` inside an async wrapper (a top-level `return` is legal there and illegal in a plain script), and the `agents/n8n` CI job installs node for it. Check a jsCode edit by executing it, not by reading it.
+
+- **Every model node waits 120 s, because the gateway's failover outlasts the client's default.** `lmChatOpenAi`'s `options.timeout` defaults to **60000 ms** (`LmChatOpenAi.node.js`, applied both to the undici dispatcher and to the LangChain client), and the gateway is LiteLLM with a fallback chain: a primary that stalls is not a failed call, because the gateway waits on it and then fails over, so the client has to outlast the whole failover or it abandons the call during it and reports a timeout the gateway never made. Hit 2026-10-18: `check_article_llm` answered `litellm.Timeout: Timeout passed=30.0` and the run died with the failover still in flight. All twelve model nodes in this repository now set `options.timeout: 120000`, swept by `agents/n8n/scripts/test_model_timeouts.py` over every export's both copies — a per-file assertion would be one copy of the rule per workflow and a new workflow would be silently exempt. Neither the credential nor the instance carries a timeout, so it lives on each node. Note the node's own `maxRetries` multiplies with it (5 × 120 s is twelve minutes for one hung node), and the gateway's per-attempt timeout is a `datahub-local-core` LiteLLM setting — the tighter of the two, and not in this repository.
 
 #### Visual Studio
 

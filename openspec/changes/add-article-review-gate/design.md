@@ -37,11 +37,22 @@ Read off this repository's own exports and tests; each path is where the claim c
 - **A rejection must re-render the prompt.** The retry edge returns through
   `download_article_prompt`, whose `FEEDBACK` appends `Internal review rejected the previous draft
   with: <explanation>`. A retry straight to the model resubmits the same prompt.
-- **`MAX_TRIES` counts drafts.** Bound expression `$runIndex + 1 > MAX_TRIES`, copied from the
-  LinkedIn gate rather than re-derived, because the off-by-one there was measured.
+- **`MAX_TRIES` bounds retries, so the loop admits `MAX_TRIES + 1` drafts.** Bound expression
+  `$runIndex + 1 > MAX_TRIES`, copied from the LinkedIn gate rather than re-derived, because the
+  off-by-one there was measured. Measured here too, live 2026-10-18: `MAX_TRIES = 3` ran
+  `parse_article` **four** times (executions 13892 and 13913). The expression is kept — it is the
+  LinkedIn lane's measured shape — but the name is a bound on the retries, not a count of drafts.
 - **The marker instruction is a precondition of the gate.** Adding a marker check without fixing
   `<!-- asset:image -->` would reject every wide-type draft forever, so the prompt half is part of
   this change rather than a follow-up.
+- **The gate's marker check must name the form, not the id.** The first live runs rejected a
+  correct `<!-- asset:image_wide -->` twice — the check said "spelled as the type id" and the
+  reviewer read that as the bare id — and on the two attempts that followed the writer dropped the
+  marker altogether, so the gate destroyed the thing it was checking (executions 13892 and 13913,
+  2026-10-18). `build_commit_files` matches `<!--\s*asset:<type>\s*-->`, so the comment form is the
+  authority: the check now states that form, and `test_both_prompt_files_name_the_same_marker_form`
+  pins it against the writer's rule. Same class as 2026-09-30 in the LinkedIn lane — a rule the
+  drafter cannot satisfy — and it was found by a live run, not by the offline gate.
 
 ## Decisions
 
@@ -79,8 +90,10 @@ Read off this repository's own exports and tests; each path is where the claim c
 
 - **Whether 3 attempts is the right bound for an article.** `MAX_TRIES = 3` is copied from the
   LinkedIn lane; an article attempt is more expensive (a research-capable agent turn), so the bound
-  may want to be 2. `[UNVERIFIED]` — no live run has measured how often the second attempt is the
-  one that passes.
+  may want to be 2. Partly measured: 4 drafts cost ~5 minutes each run and **both** live probes
+  exhausted the bound (executions 13892, 13913, 2026-10-18), each rejection a legitimate finding —
+  an unsupported fact, or a closing paragraph that restates the article. Still `[UNVERIFIED]`
+  whether a passing run is reached within the bound on a realistic row.
 - **Whether the reviewer should see `CONTENT`.** Included for the fact check; if the pass proves
   slow or noisy, dropping it leaves length, markers and shape still checkable. `[UNVERIFIED]`.
 - **The hero marker.** Fixed here for the requested-type id; whether `build_commit_files`'s

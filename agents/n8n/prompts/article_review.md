@@ -7,7 +7,7 @@ Return `<output>true</output>` when the draft satisfies every check, `<output>fa
 ## Checks
 
 - Length: the body is at most {{ MAX_WORDS }} words and it is {{ WORD_COUNT }}. Over budget is a failure; say how many words to cut.
-- Every requested asset marker is present exactly once, alone on its own line, spelled as the type id: {{ ASSET_TYPES }}. A missing requested marker is a failure.
+- Every requested asset marker is present exactly once, alone on its own line, in the form `<!-- asset:<id> -->` with the type id in place of `<id>`, for these types: {{ ASSET_TYPES }}. The HTML comment is the marker; a bare type id is not, and neither is any other form. A requested type with no marker, a marker naming a type not requested, or a duplicated marker is a failure.
 - Every fact, number, quotation, date, release and citation is present in the Source Material or the entry's inputs. An invented one is a failure; a citation of a URL that is not the source link is a failure.
 - The subject is named as the entry's inputs spell it.
 - No hype or filler from the banned list; no closing paragraph that restates the article; no bullet-point padding.

@@ -161,3 +161,22 @@ def test_review_prompt_placeholders_match_the_call():
     supplied = set(VAR_KEY_RE.findall(node["parameters"]["workflowInputs"]["value"]["template_vars"]))
     assert declared == supplied
     assert {"TEXT", "WORD_COUNT", "MAX_WORDS", "RULES", "ASSET_TYPES"} <= declared
+
+
+def test_both_prompt_files_name_the_same_marker_form():
+    """A gate describing the marker differently from the drafter rejects a correct one.
+
+    Measured live 2026-10-18 (executions 13892 and 13913): the check said "spelled as the
+    type id", the reviewer read that as the bare id, rejected a correct
+    `<!-- asset:image_wide -->` twice, and on the attempts that followed the writer dropped
+    the marker altogether -- so the gate destroyed the thing it was checking. The publishing
+    step is the authority: `build_commit_files` matches `<!--\\s*asset:<type>\\s*-->`.
+    """
+    writer = (PROMPTS / "article_writer.md").read_text(encoding="utf-8")
+    reviewer = REVIEW_PROMPT.read_text(encoding="utf-8")
+    form = "<!-- asset:<id> -->"
+    assert form in writer, "the writer no longer states the marker form"
+    assert form in reviewer, "the reviewer no longer states the marker form"
+    assert "spelled as the type id" not in reviewer, (
+        "the wording that made the reviewer reject a correct marker is back"
+    )

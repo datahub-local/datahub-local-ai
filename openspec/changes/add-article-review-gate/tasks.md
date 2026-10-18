@@ -73,13 +73,34 @@
 
 - [ ] 4.1 Ask the owner before writing, per the repository rule: present the diff of the graph and
   the two prompt files, and get an explicit answer.
-- [ ] 4.2 Push the two prompt files first — `article_review.md` and `article_writer.md` are fetched
+  **Asked 2026-10-18; the answer was "dry run first, then stop".** The diff was presented: live has
+  11 nodes against the export's 17, `parse_article → set_output` is replaced by the six-node loop,
+  and the two prompt files are already on `origin/main` (4.2).
+- [x] 4.2 Push the two prompt files first — `article_review.md` and `article_writer.md` are fetched
   from GitHub `main`, and a `DownloadTemplate` call for a file that is not there stops the run.
-- [ ] 4.3 Dry run with `scripts/apply_workflow_changes.py`, guarded by `--require-edge` for the
+  **Already satisfied, nothing pushed by this change.** `HEAD == origin/main` and both files are on
+  it: `article_review.md` is present and `article_writer.md` carries the `{{ ASSET_TYPES }}` marker
+  line. So the prompt half is live now and the graph half is not — consistent, because nothing
+  fetches `article_review.md` until the apply.
+- [x] 4.3 Dry run with `scripts/apply_workflow_changes.py`, guarded by `--require-edge` for the
   edges the change assumes, read from the export's own connection graph
   (`parse_article>download_article_review_prompt`, `merge_article_verdict>switch_article_check`,
   `switch_article_check>download_article_prompt`). Record the guards and confirm each premise held.
-- [ ] 4.4 Apply (field-level `--set` on the nodes' parameters; never a whole exported body), then
+  **Landed 2026-10-18, and the three guards above were wrong — they cannot hold.** `--require-edge`
+  reads the *live* graph before any edit, and those three edges are the ones the change **creates**,
+  so the first one answered `DRIFT: parse_article -> ['set_output']` and the script stopped. They
+  are post-apply idempotency guards, not premises; re-run them after 4.4 (the script then reports
+  `nothing to change`). The premises that do hold live were used instead:
+  `parse_article>set_output` (the edge being replaced), `set_workflow_vars>download_article_prompt`
+  (the retry re-enters the prompt chain), `ai_model>create_article_ai` and
+  `ai_model_fallback>create_article_ai` (the reviewer shares the model nodes). All four answered
+  `edge ok`. The plan: 6 nodes added, 8 connection sources rewritten, 4 nodes' parameters set.
+  Live was re-read after the dry run — 11 nodes, `versionId 83d2696a…` unchanged, nothing written.
+  **The spec was proven complete offline before it is trusted**: applying it in memory to the live
+  read yields `nodes` and `connections` byte-identical to the export, so the PUT cannot leave live
+  short of the export (a spec that misses a field is invisible until the nightly backup reverts it).
+- [ ] 4.4 Apply (`--changes` with the field-level paths, `addNodes` and the rewritten connections;
+  never a whole exported body), then
   re-read: `activeVersion` carries the edit, `active` is still true, and the export's node-name set,
   connections and touched nodes match the live read-back. `Article Creator` is active, so publish
   the draft and confirm the published version carries it.

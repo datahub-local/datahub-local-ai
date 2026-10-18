@@ -68,7 +68,7 @@
                 "type": "string"
               },
               {
-                "id": "e4b03332-4edf-4a04-b66f-fe714f3a3fbd",
+                "id": "a25233cd-5a27-42a0-9217-d2d42a8b70c5",
                 "name": "MAX_TRIES",
                 "value": 3,
                 "type": "number"

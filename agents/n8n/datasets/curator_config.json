@@ -46,6 +46,9 @@
     }
   },
 
+  "_comment_cancel_after_days": "Hard ceiling on how long a row may stay in play, independent of the per-hook TTL above: any row still QUEUE, IN_PROGRESS or WAITING_APPROVAL whose last update is older than this many days is set CANCELED/CANCELLED by Content Feed Curator (content_queue) or Content Board Curator (article_queue). Only a run or an approval that is genuinely stuck reaches it, because the clock is the row's own UPDATE_DATE - the last write any phase made - and every phase rewrites it as it goes; an in-flight row is never a week old. Nothing the curator did NOT queue is excluded: the point of the ceiling is that an untouched row is retired whatever placed it, so a hand-set row goes too. Terminal rows (PUBLISHED, EXPIRED, ERROR, CANCELED/CANCELLED) are never touched. One value for both queues, because two ceilings would be two policies to keep in step. Note the spelling: content_queue's lane writes CANCELED, article_queue's writes CANCELLED.",
+  "cancel_after_days": 7,
+
   "_comment_write_to_sheet": "ON. Until this was true every run was a dry run, so the backlog never accumulated: the digest reported \"Backlog 0 -> 4\" three runs in a row, the sheet dedupe had nothing to match against, and the same articles were re-judged at full cost every time. That is the whole reason the queue never covered a week. Only rows the curator wrote itself can ever be deleted again - build_expire_rows filters on ORIGIN === 'AUTO' as an allow-list, so anything placed by hand is untouchable whatever its age.",
   "write_to_sheet": true,
 

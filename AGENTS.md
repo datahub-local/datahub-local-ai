@@ -1069,6 +1069,45 @@ answering `Duplicate 'call_id'`, and the `opencode-go/glm-5.3-flash` fallback an
 fails. Both are `datahub-local-core` LiteLLM settings, not this repository's, and they are why
 the numbers above were collected over several runs.
 
+#### Content board intake and the queue ceiling
+
+Two queues, one writer each. `Content Feed Curator` owns `content_queue` (the post lane) and a
+new `Content Board Curator` owns the board and `article_queue` (the blog lane) — a separate
+workflow because the board is a different source with a different failure surface, and putting a
+GitHub read and a second sheet's writes inside the feed curator's tuned caps and prompt budget
+was the rejected shape. `openspec/changes/add-board-intake-and-queue-ceiling/` is the record.
+
+**The board is issues, not a Project board.** The intake reads the open issues labelled `post`
+in `datahub-local/datahub-local` — four today (#79, #80, #91, #95). The installed GitHub node has
+**no issue-list operation**: the `issue` resource carries only create/get/edit/lock, and listing
+is `resource: repository, operation: getIssues` with the label and state under
+`getRepositoryIssuesFilters`. A design that used `resource: issue, operation: getAll` would
+connect and never run. An imported row is `ENTRY_ID: gh-<number>`, the title as `TOPIC`, the body
+as `DESCRIPTION`, the URL as `LINK`, and the `board_intake.json` defaults — no model is
+consulted, because a board idea is a person's decision. Dedupe is `ENTRY_ID` and `LINK`, so an
+issue is imported once and **the board is never written to**: no label, comment or close. A
+pull request returned by the same read is dropped by its own marker.
+
+**The 7-day ceiling is the row's own clock.** `cancel_after_days` in `curator_config.json`
+(`datasets/`) cancels any row still `QUEUE`, `IN_PROGRESS` or `WAITING_APPROVAL` whose
+`UPDATE_DATE` is older than a week — one value, read by both workflows. The clock is the last
+write any phase made, which is what makes it safe: a live run rewrites `UPDATE_DATE` every phase
+and is never a week old, while a run that died mid-claim or an approval nobody answered is. A
+board row is fresh by construction, so the ceiling cannot swallow its own import. **The two lanes
+spell it differently** — `content_queue` writes `CANCELED` (one L, its lane) and `article_queue`
+writes `CANCELLED` **and** `ARTICLE_STATUS=CANCELLED`, because `pick_candidate` resumes a stale
+claim by reading `ARTICLE_STATUS`; a single spelling in either would match nothing. The ceiling
+is deliberately shorter than every hook TTL (10–60 days), so it, not the TTL, is what actually
+retires a queued post — watch the curator digest's depth line.
+
+**One pass owns a row.** `build_expire_rows` keeps the hook TTL, the per-category cap and
+displacement, and returns early on any row past the ceiling so the two passes never write the
+same row in one run (two writes, `EXPIRED` and `CANCELED`, would otherwise race). Both reads
+carry `alwaysOutputData`: n8n does not execute a zero-item node, so without it a quiet board
+would stop the chain before the ceiling ran — the same failure shape as a filter emptying a
+chain. The intake is a **create body**, not yet applied, so it has no `activeVersion` and the
+invariant test that compares the two graph copies skips it until the apply.
+
 ### MCP servers
 
 The servers live in

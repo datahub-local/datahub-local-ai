@@ -149,7 +149,7 @@
           2016
         ],
         "parameters": {
-          "jsCode": "// Parse datasets/curator_config.json (fetched as text by DownloadTemplate) into a\n// single validated item that every downstream node reads via\n// $('parse_curator_config').first().json. Missing keys fall back to defaults, so a\n// partial config file can never take the run down.\nconst raw = $json.output || '{}';\nlet cfg;\ntry {\n  cfg = JSON.parse(raw);\n} catch (e) {\n  throw new Error('datasets/curator_config.json is not valid JSON: ' + e.message);\n}\n\nconst num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);\nconst bool = (v, d) => (typeof v === 'boolean' ? v : d);\nconst arr = (v, d) => (Array.isArray(v) ? v : d);\nconst obj = (v, d) => (v && typeof v === 'object' && !Array.isArray(v) ? v : d);\n\nconst sources = obj(cfg.sources, {});\nconst hnTop = obj(sources.hn_top, {});\nconst backlog = obj(cfg.backlog, {});\n\nconst out = {\n  lookback_days: num(cfg.lookback_days, 5),\n  max_entries_per_category: num(cfg.max_entries_per_category, 1000),\n  min_title_chars: num(cfg.min_title_chars, 15),\n  min_content_words: num(cfg.min_content_words, 120),\n\n  max_candidates: num(cfg.max_candidates, 60),\n  // Per-category pool share is derived from category_weights in rank_candidates, so\n  // there is deliberately no max_per_category knob: a flat ceiling is what let Tech\n  // take 20 of 60 slots while Hacker News got 1.\n  max_per_host: num(cfg.max_per_host, 3),\n  judge_n: num(cfg.judge_n, 24),\n  min_postability: num(cfg.min_postability, 4),\n\n  // The queue is a durable backlog drained one row per sharing run, so there is no\n  // top_n / max_per_domain / max_per_category_in_top any more: nothing builds a slate\n  // of five. Variety is decided on the way out by topic rotation.\n  //\n  // These fallbacks MUST track the config file. They are what a broken or truncated\n  // download degrades to, and a stale fallback is a silent config rollback: the\n  // NEWS_REACTION default sat at 4 against a lookback of 5, which is the arithmetic that\n  // admitted news rows already past their TTL. Every value here must clear lookback_days\n  // plus the longest publish gap for the same reason.\n  backlog: {\n    max_per_category: num(backlog.max_per_category, 10),\n    max_total: num(backlog.max_total, 60),\n    ttl_days: obj(backlog.ttl_days, { NEWS_REACTION: 10, HARD_NUMBER: 45, default: 60 }),\n  },\n\n  // Only used to warn in the digest when the backlog holds more than the TTL window can\n  // ever publish. Nothing gates on it - the publish schedule lives in LinkedIn Post Sharing.\n  publish_per_week: Math.max(1, num(cfg.publish_per_week, 3)),\n\n  mark_read: bool(cfg.mark_read, false),\n  write_to_sheet: bool(cfg.write_to_sheet, false),\n  http_concurrency: Math.max(1, num(cfg.http_concurrency, 6)),\n\n  hn_engagement: bool(cfg.hn_engagement, true),\n  hn_hot_points: num(cfg.hn_hot_points, 100),\n  hn_boost: num(cfg.hn_boost, 0.1),\n  starred_boost: num(cfg.starred_boost, 0.05),\n\n  sources: {\n    hn_top: {\n      enabled: bool(hnTop.enabled, true),\n      min_points: num(hnTop.min_points, 80),\n      limit: num(hnTop.limit, 40),\n    },\n  },\n\n  priority_bands: obj(cfg.priority_bands, { VERY_HIGH: 0.8, HIGH: 0.65, MEDIUM: 0.5 }),\n  // default 0 - with three wanted categories, anything else is something new in Miniflux\n  // that nobody has weighted yet, and 0 pool slots is the safe reading of \"undecided\".\n  category_weights: obj(cfg.category_weights, { default: 0 }),\n  exclude_categories: arr(cfg.exclude_categories, []).map((s) => String(s)),\n  aggregator_hosts: arr(cfg.aggregator_hosts, []).map((s) => String(s).toLowerCase()),\n  domain_blocklist: arr(cfg.domain_blocklist, []).map((s) => String(s).toLowerCase()),\n  title_blocklist: arr(cfg.title_blocklist, []).map((s) => String(s).toLowerCase()),\n  shared_keywords: arr(cfg.shared_keywords, []).map((s) => String(s).toLowerCase()),\n};\n\n// The keyword list is edited per category - the per-category lists route Hacker News\n// candidates, which arrive with no category of their own - and rank_candidates wants one\n// flat list for the affinity count. Derive the flat one rather than keeping both in the\n// file, so a term added to a category cannot be missing from the affinity vocabulary.\nconst rawCatKw = obj(cfg.category_keywords, {});\nout.category_keywords = {};\nfor (const cat of Object.keys(rawCatKw)) {\n  out.category_keywords[cat] = arr(rawCatKw[cat], []).map((s) => String(s).toLowerCase());\n}\nout.topic_keywords = [\n  ...new Set([...Object.values(out.category_keywords).flat(), ...out.shared_keywords]),\n];\n\nconst nowMs = Date.now();\nout.run_at = new Date(nowMs).toISOString();\nout.published_after = Math.floor((nowMs - out.lookback_days * 86400000) / 1000);\n\nreturn [{ json: out }];\n"
+          "jsCode": "// Parse datasets/curator_config.json (fetched as text by DownloadTemplate) into a\n// single validated item that every downstream node reads via\n// $('parse_curator_config').first().json. Missing keys fall back to defaults, so a\n// partial config file can never take the run down.\nconst raw = $json.output || '{}';\nlet cfg;\ntry {\n  cfg = JSON.parse(raw);\n} catch (e) {\n  throw new Error('datasets/curator_config.json is not valid JSON: ' + e.message);\n}\n\nconst num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);\nconst bool = (v, d) => (typeof v === 'boolean' ? v : d);\nconst arr = (v, d) => (Array.isArray(v) ? v : d);\nconst obj = (v, d) => (v && typeof v === 'object' && !Array.isArray(v) ? v : d);\n\nconst sources = obj(cfg.sources, {});\nconst hnTop = obj(sources.hn_top, {});\nconst backlog = obj(cfg.backlog, {});\n\nconst out = {\n  lookback_days: num(cfg.lookback_days, 5),\n  max_entries_per_category: num(cfg.max_entries_per_category, 1000),\n  min_title_chars: num(cfg.min_title_chars, 15),\n  min_content_words: num(cfg.min_content_words, 120),\n\n  max_candidates: num(cfg.max_candidates, 60),\n  // Per-category pool share is derived from category_weights in rank_candidates, so\n  // there is deliberately no max_per_category knob: a flat ceiling is what let Tech\n  // take 20 of 60 slots while Hacker News got 1.\n  max_per_host: num(cfg.max_per_host, 3),\n  judge_n: num(cfg.judge_n, 24),\n  min_postability: num(cfg.min_postability, 4),\n\n  // The queue is a durable backlog drained one row per sharing run, so there is no\n  // top_n / max_per_domain / max_per_category_in_top any more: nothing builds a slate\n  // of five. Variety is decided on the way out by topic rotation.\n  //\n  // These fallbacks MUST track the config file. They are what a broken or truncated\n  // download degrades to, and a stale fallback is a silent config rollback: the\n  // NEWS_REACTION default sat at 4 against a lookback of 5, which is the arithmetic that\n  // admitted news rows already past their TTL. Every value here must clear lookback_days\n  // plus the longest publish gap for the same reason.\n  backlog: {\n    max_per_category: num(backlog.max_per_category, 10),\n    max_total: num(backlog.max_total, 60),\n    ttl_days: obj(backlog.ttl_days, { NEWS_REACTION: 10, HARD_NUMBER: 45, default: 60 }),\n  },\n\n  // Only used to warn in the digest when the backlog holds more than the TTL window can\n  // ever publish. Nothing gates on it - the publish schedule lives in LinkedIn Post Sharing.\n  publish_per_week: Math.max(1, num(cfg.publish_per_week, 3)),\n\n  cancel_after_days: Math.max(1, num(cfg.cancel_after_days, 7)),\n  mark_read: bool(cfg.mark_read, false),\n  write_to_sheet: bool(cfg.write_to_sheet, false),\n  http_concurrency: Math.max(1, num(cfg.http_concurrency, 6)),\n\n  hn_engagement: bool(cfg.hn_engagement, true),\n  hn_hot_points: num(cfg.hn_hot_points, 100),\n  hn_boost: num(cfg.hn_boost, 0.1),\n  starred_boost: num(cfg.starred_boost, 0.05),\n\n  sources: {\n    hn_top: {\n      enabled: bool(hnTop.enabled, true),\n      min_points: num(hnTop.min_points, 80),\n      limit: num(hnTop.limit, 40),\n    },\n  },\n\n  priority_bands: obj(cfg.priority_bands, { VERY_HIGH: 0.8, HIGH: 0.65, MEDIUM: 0.5 }),\n  // default 0 - with three wanted categories, anything else is something new in Miniflux\n  // that nobody has weighted yet, and 0 pool slots is the safe reading of \"undecided\".\n  category_weights: obj(cfg.category_weights, { default: 0 }),\n  exclude_categories: arr(cfg.exclude_categories, []).map((s) => String(s)),\n  aggregator_hosts: arr(cfg.aggregator_hosts, []).map((s) => String(s).toLowerCase()),\n  domain_blocklist: arr(cfg.domain_blocklist, []).map((s) => String(s).toLowerCase()),\n  title_blocklist: arr(cfg.title_blocklist, []).map((s) => String(s).toLowerCase()),\n  shared_keywords: arr(cfg.shared_keywords, []).map((s) => String(s).toLowerCase()),\n};\n\n// The keyword list is edited per category - the per-category lists route Hacker News\n// candidates, which arrive with no category of their own - and rank_candidates wants one\n// flat list for the affinity count. Derive the flat one rather than keeping both in the\n// file, so a term added to a category cannot be missing from the affinity vocabulary.\nconst rawCatKw = obj(cfg.category_keywords, {});\nout.category_keywords = {};\nfor (const cat of Object.keys(rawCatKw)) {\n  out.category_keywords[cat] = arr(rawCatKw[cat], []).map((s) => String(s).toLowerCase());\n}\nout.topic_keywords = [\n  ...new Set([...Object.values(out.category_keywords).flat(), ...out.shared_keywords]),\n];\n\nconst nowMs = Date.now();\nout.run_at = new Date(nowMs).toISOString();\nout.published_after = Math.floor((nowMs - out.lookback_days * 86400000) / 1000);\n\nreturn [{ json: out }];\n"
         }
       },
       {
@@ -392,7 +392,7 @@
           1216
         ],
         "parameters": {
-          "content": "### Everything free happens before the judge\n\n`fetch_candidates` asks both sources - each in its own try/catch, so a dead source is a digest warning, not a failed run.\n\n`filter_candidates` drops what the blocklists and the sheet already answer for, and **merges** same-story duplicates instead of discarding them: only Hacker News knows the vote count, so the surviving copy inherits it.\n\n`rank_candidates` ranks on topic keyword affinity, a hard number in the headline, recency and votes - no network, no tokens - then **allocates** the pool by `category_weights` rather than filling it first-come. A flat per-category ceiling gave Tech 20 of 60 slots while Hacker News contributed 40 candidates and got 1: a bare link has no excerpt to match keywords against, so it loses to any full article. Each category now competes only against itself. Watch `quota -> filled` in the digest.\n\n`pick_finalists` sets the judge budget from the room the backlog actually has, **per category**, at four calls per free slot. `judge_n` is a ceiling, not a target: a full backlog spends zero, and a category already at `max_per_category` is skipped rather than judged and rejected downstream. The digest names any category that stopped listening.\n\nOnly two numbers cost anything: `max_candidates` bounds the HN lookups, `judge_n` bounds the LLM calls.",
+          "content": "### Everything free happens before the judge\n\n`fetch_candidates` asks both sources - each in its own try/catch, so a dead source is a digest warning, not a failed run.\n\n`filter_candidates` drops what the blocklists and the sheet already answer for, and **merges** same-story duplicates instead of discarding them: only Hacker News knows the vote count, so the surviving copy inherits it.\n\n`rank_candidates` ranks on topic keyword affinity, a hard number in the headline, recency and votes - no network, no tokens - then **allocates** the pool by `category_weights` rather than filling it first-come. A flat per-category ceiling gave Tech 20 of 60 slots while Hacker News contributed 40 candidates and got 1: a bare link has no excerpt to match keywords against, so it loses to any full article. Each category now competes only against itself. Watch `quota -> filled` in the digest.\n\n`pick_finalists` sets the judge budget from the room the backlog actually has, **per category**, at four calls per free slot. `judge_n` is a ceiling, not a target: a full backlog spends zero, and a category already at `max_per_category` is skipped rather than judged and rejected downstream. The digest names any category that stopped listening.\n\nOnly two numbers cost anything: `max_candidates` bounds the HN lookups, `judge_n` bounds the LLM calls.\n\n**A one-week ceiling retires whatever is still in play.** `cancel_after_days` (default 7) cancels any row still QUEUE / IN_PROGRESS / WAITING_APPROVAL whose last update is older than a week, whatever placed it - an untouched row is the thing the ceiling exists for. `build_expire_rows` keeps owning the hook TTL and the caps, and skips every row past the ceiling, so the two passes never write the same row.",
           "height": 420,
           "width": 420,
           "color": 5
@@ -733,7 +733,7 @@
           1264
         ],
         "parameters": {
-          "jsCode": "// Backlog maintenance. The queue is durable now, so this no longer expires every\n// unposted AUTO row each run - that was throwing away four judged winners per run to\n// publish one. It expires only what should not be published any more:\n//\n//   1. STALE - past its TTL. Measured from PUBLISHED_AT, the article's own date, not\n//      from when we queued it: a launch note is stale ten days after the launch\n//      regardless of when it reached the sheet. The TTL comes from the judge's hook,\n//      which is the field that already knows whether a piece is perishable -\n//      NEWS_REACTION dies in days, a TRADE_OFF or WAR_STORY keeps for weeks. The hook\n//      is read back out of the \"Hook: X.\" prefix on EXTRA_PROMPT because content_queue\n//      has no HOOK column.\n//   2. SURPLUS - over the per-category or global cap, lowest SCORE first. Admission\n//      already respects both caps, so this only fires when a cap was lowered in config\n//      or rows were added by hand.\n//   3. DISPLACED - admit_to_backlog let a stronger candidate take this row's slot, so the\n//      swap has to complete here or the queue ends the run one over its cap.\n//\n// ORIGIN=MANUAL is never touched, and neither is anything past QUEUE - IN_PROGRESS,\n// WAITING_APPROVAL and PUBLISHED are somebody else's business.\nconst cfg = $('parse_curator_config').first().json;\nconst bl = cfg.backlog;\nconst num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);\n\nconst rows = $('read_articles_sheet').all().map((i) => i.json).filter((r) => r && r.row_number);\nconst mine = rows.filter(\n  (r) => String(r.STATUS || '').trim() === 'QUEUE' && String(r.ORIGIN || '').trim() === 'AUTO'\n);\n\nconst nowMs = new Date(cfg.run_at).getTime();\nconst hookOf = (r) => {\n  const col = String(r.HOOK || '').trim().toUpperCase();\n  if (col) return col;\n  // Rows written before the HOOK column existed still carry the prefix.\n  const m = String(r.EXTRA_PROMPT || '').match(/^Hook:\\s*([A-Z_]+)\\./);\n  return m ? m[1] : '';\n};\nconst ttlOf = (r) => {\n  const h = hookOf(r);\n  // An unknown hook gets the default rather than the short TTL: guessing \"perishable\"\n  // would quietly bin evergreen rows queued before the hook was recorded.\n  return num(bl.ttl_days[h], num(bl.ttl_days.default, 21));\n};\nconst ageDaysOf = (r) => {\n  const t = Date.parse(r.PUBLISHED_AT || '') || Date.parse(r.UPDATE_DATE || '');\n  return isFinite(t) ? (nowMs - t) / 86400000 : 0;\n};\n\n// The displacements are read first: the pass below has to recognise those rows before it\n// decides anything else about them, and the surplus pass further down needs the same set.\nconst admissions = $('admit_to_backlog').all().map((i) => i.json).filter((j) => j && !j.no_selection);\nconst displacedRows = new Set(\n  admissions.map((j) => num(Number(j.DISPLACES_ROW), 0)).filter((n) => n > 0)\n);\n\nconst stale = [];\nconst swapped = [];\nconst keep = [];\nfor (const r of mine) {\n  const age = ageDaysOf(r);\n  const ttl = ttlOf(r);\n  if (displacedRows.has(r.row_number)) swapped.push({ r, why: 'displaced by a stronger candidate this run' });\n  else if (age > ttl) stale.push({ r, why: 'stale ' + Math.round(age) + 'd > ' + ttl + 'd (' + (hookOf(r) || 'no hook') + ')' });\n  else keep.push(r);\n}\n\n// Surplus is measured against what survives plus what is being admitted this run, so\n// the two nodes cannot both decide there is room for the same slot.\n// Every admission counts against the caps here, displacing ones included: the row a\n// displacement replaced has already been taken out of `keep` above, so counting the new\n// row is what makes one-in-one-out land on exactly the cap. Counting only the net\n// additions leaves the category one row over for every displacement, which is invisible\n// until a category is above cap to begin with - i.e. every run after max_per_category is\n// lowered, which is exactly when this pass is the only thing keeping the sheet honest.\nconst incoming = admissions;\nconst incomingByCat = new Map();\nfor (const j of incoming) {\n  const c = String(j.TOPIC || '').trim() || 'unknown';\n  incomingByCat.set(c, (incomingByCat.get(c) || 0) + 1);\n}\n// Manual rows occupy the backlog too, so they count towards the caps even though they\n// can never be expired by this node.\nconst manualQueued = rows.filter(\n  (r) => String(r.STATUS || '').trim() === 'QUEUE' && String(r.ORIGIN || '').trim() !== 'AUTO'\n);\n\nconst surplus = [];\nconst worstFirst = (a, b) => num(Number(a.SCORE), 0) - num(Number(b.SCORE), 0) || b.row_number - a.row_number;\n\nconst byCat = new Map();\nfor (const r of keep) {\n  const c = String(r.TOPIC || '').trim() || 'unknown';\n  if (!byCat.has(c)) byCat.set(c, []);\n  byCat.get(c).push(r);\n}\nconst survivors = new Set(keep.map((r) => r.row_number));\nfor (const [cat, list] of byCat) {\n  const manual = manualQueued.filter((r) => (String(r.TOPIC || '').trim() || 'unknown') === cat).length;\n  const room = bl.max_per_category - (incomingByCat.get(cat) || 0) - manual;\n  if (list.length <= room) continue;\n  for (const r of list.slice().sort(worstFirst).slice(0, list.length - Math.max(0, room))) {\n    surplus.push({ r, why: cat + ' over cap ' + bl.max_per_category });\n    survivors.delete(r.row_number);\n  }\n}\n// Global backstop, after the per-category pass.\nconst globalRoom = bl.max_total - incoming.length - manualQueued.length;\nconst stillHere = keep.filter((r) => survivors.has(r.row_number));\nif (stillHere.length > globalRoom) {\n  for (const r of stillHere.slice().sort(worstFirst).slice(0, stillHere.length - Math.max(0, globalRoom))) {\n    surplus.push({ r, why: 'backlog over ' + bl.max_total });\n    survivors.delete(r.row_number);\n  }\n}\n\nconst out = [...stale, ...swapped, ...surplus];\nconsole.log(\n  'build_expire_rows: ' + out.length + ' of ' + mine.length + ' AUTO/QUEUE rows expiring (' +\n    stale.length + ' stale, ' + swapped.length + ' displaced, ' + surplus.length + ' surplus); ' +\n    survivors.size + ' kept'\n);\nfor (const o of out.slice(0, 10)) console.log('  expire r' + o.r.row_number + ' ' + o.why + ' - ' + String(o.r.TITLE || '').slice(0, 60));\n\n// The Google Sheets update node needs at least one item to not error on an empty input,\n// and alwaysOutputData upstream would hand it a junk row. Return nothing and let the\n// node be skipped: n8n does not run a node with zero input items.\nreturn out.map((o) => ({ json: { row_number: o.r.row_number, TITLE: o.r.TITLE || '', reason: o.why } }));\n"
+          "jsCode": "// Backlog maintenance. The queue is durable now, so this no longer expires every\n// unposted AUTO row each run - that was throwing away four judged winners per run to\n// publish one. It expires only what should not be published any more:\n//\n//   1. STALE - past its TTL. Measured from PUBLISHED_AT, the article's own date, not\n//      from when we queued it: a launch note is stale ten days after the launch\n//      regardless of when it reached the sheet. The TTL comes from the judge's hook,\n//      which is the field that already knows whether a piece is perishable -\n//      NEWS_REACTION dies in days, a TRADE_OFF or WAR_STORY keeps for weeks. The hook\n//      is read back out of the \"Hook: X.\" prefix on EXTRA_PROMPT because content_queue\n//      has no HOOK column.\n//   2. SURPLUS - over the per-category or global cap, lowest SCORE first. Admission\n//      already respects both caps, so this only fires when a cap was lowered in config\n//      or rows were added by hand.\n//   3. DISPLACED - admit_to_backlog let a stronger candidate take this row's slot, so the\n//      swap has to complete here or the queue ends the run one over its cap.\n//\n// A row past cancel_after_days is none of this node's business: build_cancel_rows retires it whatever its hook TTL or cap position, and this node skips it so the two never write the same row.\n//\n// ORIGIN=MANUAL is never touched, and neither is anything past QUEUE - IN_PROGRESS,\n// WAITING_APPROVAL and PUBLISHED are somebody else's business.\nconst cfg = $('parse_curator_config').first().json;\nconst bl = cfg.backlog;\nconst num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);\nconst cancelDays = num(cfg.cancel_after_days, 7);\n\nconst rows = $('read_articles_sheet').all().map((i) => i.json).filter((r) => r && r.row_number);\nconst mine = rows.filter(\n  (r) => String(r.STATUS || '').trim() === 'QUEUE' && String(r.ORIGIN || '').trim() === 'AUTO'\n);\n\nconst nowMs = new Date(cfg.run_at).getTime();\nconst hookOf = (r) => {\n  const col = String(r.HOOK || '').trim().toUpperCase();\n  if (col) return col;\n  // Rows written before the HOOK column existed still carry the prefix.\n  const m = String(r.EXTRA_PROMPT || '').match(/^Hook:\\s*([A-Z_]+)\\./);\n  return m ? m[1] : '';\n};\nconst ttlOf = (r) => {\n  const h = hookOf(r);\n  // An unknown hook gets the default rather than the short TTL: guessing \"perishable\"\n  // would quietly bin evergreen rows queued before the hook was recorded.\n  return num(bl.ttl_days[h], num(bl.ttl_days.default, 21));\n};\nconst ageDaysOf = (r) => {\n  const t = Date.parse(r.PUBLISHED_AT || '') || Date.parse(r.UPDATE_DATE || '');\n  return isFinite(t) ? (nowMs - t) / 86400000 : 0;\n};\n\n// The displacements are read first: the pass below has to recognise those rows before it\n// decides anything else about them, and the surplus pass further down needs the same set.\nconst admissions = $('admit_to_backlog').all().map((i) => i.json).filter((j) => j && !j.no_selection);\nconst displacedRows = new Set(\n  admissions.map((j) => num(Number(j.DISPLACES_ROW), 0)).filter((n) => n > 0)\n);\n\nconst stale = [];\nconst swapped = [];\nconst keep = [];\nfor (const r of mine) {\n  const age = ageDaysOf(r);\n  // Past the ceiling is build_cancel_rows' job, whatever the hook's TTL says.\n  if (age > cancelDays) continue;\n  const ttl = ttlOf(r);\n  if (displacedRows.has(r.row_number)) swapped.push({ r, why: 'displaced by a stronger candidate this run' });\n  else if (age > ttl) stale.push({ r, why: 'stale ' + Math.round(age) + 'd > ' + ttl + 'd (' + (hookOf(r) || 'no hook') + ')' });\n  else keep.push(r);\n}\n\n// Surplus is measured against what survives plus what is being admitted this run, so\n// the two nodes cannot both decide there is room for the same slot.\n// Every admission counts against the caps here, displacing ones included: the row a\n// displacement replaced has already been taken out of `keep` above, so counting the new\n// row is what makes one-in-one-out land on exactly the cap. Counting only the net\n// additions leaves the category one row over for every displacement, which is invisible\n// until a category is above cap to begin with - i.e. every run after max_per_category is\n// lowered, which is exactly when this pass is the only thing keeping the sheet honest.\nconst incoming = admissions;\nconst incomingByCat = new Map();\nfor (const j of incoming) {\n  const c = String(j.TOPIC || '').trim() || 'unknown';\n  incomingByCat.set(c, (incomingByCat.get(c) || 0) + 1);\n}\n// Manual rows occupy the backlog too, so they count towards the caps even though they\n// can never be expired by this node.\nconst manualQueued = rows.filter(\n  (r) => String(r.STATUS || '').trim() === 'QUEUE' && String(r.ORIGIN || '').trim() !== 'AUTO'\n);\n\nconst surplus = [];\nconst worstFirst = (a, b) => num(Number(a.SCORE), 0) - num(Number(b.SCORE), 0) || b.row_number - a.row_number;\n\nconst byCat = new Map();\nfor (const r of keep) {\n  const c = String(r.TOPIC || '').trim() || 'unknown';\n  if (!byCat.has(c)) byCat.set(c, []);\n  byCat.get(c).push(r);\n}\nconst survivors = new Set(keep.map((r) => r.row_number));\nfor (const [cat, list] of byCat) {\n  const manual = manualQueued.filter((r) => (String(r.TOPIC || '').trim() || 'unknown') === cat).length;\n  const room = bl.max_per_category - (incomingByCat.get(cat) || 0) - manual;\n  if (list.length <= room) continue;\n  for (const r of list.slice().sort(worstFirst).slice(0, list.length - Math.max(0, room))) {\n    surplus.push({ r, why: cat + ' over cap ' + bl.max_per_category });\n    survivors.delete(r.row_number);\n  }\n}\n// Global backstop, after the per-category pass.\nconst globalRoom = bl.max_total - incoming.length - manualQueued.length;\nconst stillHere = keep.filter((r) => survivors.has(r.row_number));\nif (stillHere.length > globalRoom) {\n  for (const r of stillHere.slice().sort(worstFirst).slice(0, stillHere.length - Math.max(0, globalRoom))) {\n    surplus.push({ r, why: 'backlog over ' + bl.max_total });\n    survivors.delete(r.row_number);\n  }\n}\n\nconst out = [...stale, ...swapped, ...surplus];\nconsole.log(\n  'build_expire_rows: ' + out.length + ' of ' + mine.length + ' AUTO/QUEUE rows expiring (' +\n    stale.length + ' stale, ' + swapped.length + ' displaced, ' + surplus.length + ' surplus); ' +\n    survivors.size + ' kept'\n);\nfor (const o of out.slice(0, 10)) console.log('  expire r' + o.r.row_number + ' ' + o.why + ' - ' + String(o.r.TITLE || '').slice(0, 60));\n\n// The Google Sheets update node needs at least one item to not error on an empty input,\n// and alwaysOutputData upstream would hand it a junk row. Return nothing and let the\n// node be skipped: n8n does not run a node with zero input items.\nreturn out.map((o) => ({ json: { row_number: o.r.row_number, TITLE: o.r.TITLE || '', reason: o.why } }));\n"
         }
       },
       {
@@ -1816,6 +1816,260 @@
           },
           "options": {}
         }
+      },
+      {
+        "parameters": {
+          "jsCode": "// The one-week ceiling, a deliberate exception to the ORIGIN allow-list its sibling\n// build_expire_rows applies: any row still in play whose last write is older than\n// cancel_after_days is cancelled, whatever placed it, because an untouched row is the\n// thing the ceiling exists for. The clock is the row's own UPDATE_DATE - the last write a\n// phase made - so an in-flight run or a fresh approval is never old enough to qualify;\n// only a row nobody has touched in a week is. build_expire_rows skips these rows, so the\n// two passes never write the same row. Content_queue's own lane spells it CANCELED (one\n// L), unlike article_queue's CANCELLED; the node that writes it matches that lane.\nconst cfg = $('parse_curator_config').first().json;\nconst cancelDays = Math.max(1, Number(cfg.cancel_after_days) || 7);\nconst nowMs = Date.parse(cfg.run_at) || Date.now();\nconst IN_PLAY = new Set(['QUEUE', 'IN_PROGRESS', 'WAITING_APPROVAL']);\n\nconst rows = $('read_articles_sheet').all().map((i) => i.json).filter((r) => r && r.row_number);\nconst stale = [];\nfor (const r of rows) {\n  const status = String(r.STATUS || '').trim().toUpperCase();\n  if (!IN_PLAY.has(status)) continue;\n  const at = Date.parse(r.UPDATE_DATE || '');\n  if (!isFinite(at)) continue;\n  const age = (nowMs - at) / 86400000;\n  if (age <= cancelDays) continue;\n  stale.push({ row_number: r.row_number, TITLE: r.TITLE || '', status, age: Math.round(age) });\n}\nconsole.log(\n  'build_cancel_rows: ' + stale.length + ' of ' + rows.length + ' row(s) past the ' + cancelDays + 'd ceiling'\n);\nfor (const s of stale.slice(0, 10)) {\n  console.log('  cancel r' + s.row_number + ' (' + s.status + ', ' + s.age + 'd) ' + String(s.TITLE).slice(0, 60));\n}\n// Zero items skips the update node, which is exactly what \"nothing to cancel\" means.\nreturn stale.map((s) => ({ json: s }));\n"
+        },
+        "id": "8a1c0f70-0004-4a10-9a11-000000000004",
+        "name": "build_cancel_rows",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -16352,
+          1520
+        ]
+      },
+      {
+        "id": "8a1c0f70-0005-4a10-9a11-000000000005",
+        "name": "cancel_stale_queue",
+        "notes": "Writes CANCELED (one L - this lane's spelling) for rows build_cancel_rows selected: anything still QUEUE, IN_PROGRESS or WAITING_APPROVAL whose UPDATE_DATE is older than cancel_after_days. Nothing else is touched; most runs cancel nothing.",
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4.6,
+        "alwaysOutputData": false,
+        "position": [
+          -16064,
+          1520
+        ],
+        "parameters": {
+          "operation": "update",
+          "documentId": {
+            "__rl": true,
+            "value": "1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI",
+            "mode": "list",
+            "cachedResultName": "content_planner",
+            "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit?usp=drivesdk"
+          },
+          "sheetName": {
+            "__rl": true,
+            "value": "content_queue",
+            "mode": "name"
+          },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "row_number": "={{ $json.row_number }}",
+              "STATUS": "CANCELED",
+              "UPDATE_DATE": "={{ $('parse_curator_config').first().json.run_at }}",
+              "EXECUTION_ID": "={{ $execution.id }}"
+            },
+            "matchingColumns": [
+              "row_number"
+            ],
+            "schema": [
+              {
+                "id": "URL",
+                "displayName": "URL",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "TITLE",
+                "displayName": "TITLE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "STATUS",
+                "displayName": "STATUS",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              },
+              {
+                "id": "PRIORITY",
+                "displayName": "PRIORITY",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "SCORE",
+                "displayName": "SCORE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "ORIGIN",
+                "displayName": "ORIGIN",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "TOPIC",
+                "displayName": "TOPIC",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "SOURCE",
+                "displayName": "SOURCE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "RATIONALE",
+                "displayName": "RATIONALE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "EXTRA_PROMPT",
+                "displayName": "EXTRA_PROMPT",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "MAX_WORDS",
+                "displayName": "MAX_WORDS",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "PUBLISHED_AT",
+                "displayName": "PUBLISHED_AT",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "UPDATE_DATE",
+                "displayName": "UPDATE_DATE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              },
+              {
+                "id": "RELEASE_DATE",
+                "displayName": "RELEASE_DATE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "LINKEDIN_URL",
+                "displayName": "LINKEDIN_URL",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "ENTRY_ID",
+                "displayName": "ENTRY_ID",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "ERROR",
+                "displayName": "ERROR",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "EXECUTION_ID",
+                "displayName": "EXECUTION_ID",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              },
+              {
+                "id": "row_number",
+                "displayName": "row_number",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "number",
+                "canBeUsedToMatch": true,
+                "readOnly": true,
+                "removed": false
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": false
+          },
+          "options": {}
+        },
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "pGARJmt50qz64xOo",
+            "name": "Google Sheets account"
+          }
+        }
       }
     ],
     "connections": {
@@ -2110,6 +2364,11 @@
               "node": "if_has_admissions",
               "type": "main",
               "index": 0
+            },
+            {
+              "node": "build_cancel_rows",
+              "type": "main",
+              "index": 0
             }
           ],
           [
@@ -2371,6 +2630,17 @@
           [
             {
               "node": "fetch_candidates",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "build_cancel_rows": {
+        "main": [
+          [
+            {
+              "node": "cancel_stale_queue",
               "type": "main",
               "index": 0
             }
@@ -2679,6 +2949,11 @@
             "node": "if_has_admissions",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "build_cancel_rows",
+            "type": "main",
+            "index": 0
           }
         ],
         [
@@ -2945,6 +3220,17 @@
           }
         ]
       ]
+    },
+    "build_cancel_rows": {
+      "main": [
+        [
+          {
+            "node": "cancel_stale_queue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "createdAt": "2026-07-25T15:27:39.990Z",
@@ -3099,7 +3385,7 @@
         2016
       ],
       "parameters": {
-        "jsCode": "// Parse datasets/curator_config.json (fetched as text by DownloadTemplate) into a\n// single validated item that every downstream node reads via\n// $('parse_curator_config').first().json. Missing keys fall back to defaults, so a\n// partial config file can never take the run down.\nconst raw = $json.output || '{}';\nlet cfg;\ntry {\n  cfg = JSON.parse(raw);\n} catch (e) {\n  throw new Error('datasets/curator_config.json is not valid JSON: ' + e.message);\n}\n\nconst num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);\nconst bool = (v, d) => (typeof v === 'boolean' ? v : d);\nconst arr = (v, d) => (Array.isArray(v) ? v : d);\nconst obj = (v, d) => (v && typeof v === 'object' && !Array.isArray(v) ? v : d);\n\nconst sources = obj(cfg.sources, {});\nconst hnTop = obj(sources.hn_top, {});\nconst backlog = obj(cfg.backlog, {});\n\nconst out = {\n  lookback_days: num(cfg.lookback_days, 5),\n  max_entries_per_category: num(cfg.max_entries_per_category, 1000),\n  min_title_chars: num(cfg.min_title_chars, 15),\n  min_content_words: num(cfg.min_content_words, 120),\n\n  max_candidates: num(cfg.max_candidates, 60),\n  // Per-category pool share is derived from category_weights in rank_candidates, so\n  // there is deliberately no max_per_category knob: a flat ceiling is what let Tech\n  // take 20 of 60 slots while Hacker News got 1.\n  max_per_host: num(cfg.max_per_host, 3),\n  judge_n: num(cfg.judge_n, 24),\n  min_postability: num(cfg.min_postability, 4),\n\n  // The queue is a durable backlog drained one row per sharing run, so there is no\n  // top_n / max_per_domain / max_per_category_in_top any more: nothing builds a slate\n  // of five. Variety is decided on the way out by topic rotation.\n  //\n  // These fallbacks MUST track the config file. They are what a broken or truncated\n  // download degrades to, and a stale fallback is a silent config rollback: the\n  // NEWS_REACTION default sat at 4 against a lookback of 5, which is the arithmetic that\n  // admitted news rows already past their TTL. Every value here must clear lookback_days\n  // plus the longest publish gap for the same reason.\n  backlog: {\n    max_per_category: num(backlog.max_per_category, 10),\n    max_total: num(backlog.max_total, 60),\n    ttl_days: obj(backlog.ttl_days, { NEWS_REACTION: 10, HARD_NUMBER: 45, default: 60 }),\n  },\n\n  // Only used to warn in the digest when the backlog holds more than the TTL window can\n  // ever publish. Nothing gates on it - the publish schedule lives in LinkedIn Post Sharing.\n  publish_per_week: Math.max(1, num(cfg.publish_per_week, 3)),\n\n  mark_read: bool(cfg.mark_read, false),\n  write_to_sheet: bool(cfg.write_to_sheet, false),\n  http_concurrency: Math.max(1, num(cfg.http_concurrency, 6)),\n\n  hn_engagement: bool(cfg.hn_engagement, true),\n  hn_hot_points: num(cfg.hn_hot_points, 100),\n  hn_boost: num(cfg.hn_boost, 0.1),\n  starred_boost: num(cfg.starred_boost, 0.05),\n\n  sources: {\n    hn_top: {\n      enabled: bool(hnTop.enabled, true),\n      min_points: num(hnTop.min_points, 80),\n      limit: num(hnTop.limit, 40),\n    },\n  },\n\n  priority_bands: obj(cfg.priority_bands, { VERY_HIGH: 0.8, HIGH: 0.65, MEDIUM: 0.5 }),\n  // default 0 - with three wanted categories, anything else is something new in Miniflux\n  // that nobody has weighted yet, and 0 pool slots is the safe reading of \"undecided\".\n  category_weights: obj(cfg.category_weights, { default: 0 }),\n  exclude_categories: arr(cfg.exclude_categories, []).map((s) => String(s)),\n  aggregator_hosts: arr(cfg.aggregator_hosts, []).map((s) => String(s).toLowerCase()),\n  domain_blocklist: arr(cfg.domain_blocklist, []).map((s) => String(s).toLowerCase()),\n  title_blocklist: arr(cfg.title_blocklist, []).map((s) => String(s).toLowerCase()),\n  shared_keywords: arr(cfg.shared_keywords, []).map((s) => String(s).toLowerCase()),\n};\n\n// The keyword list is edited per category - the per-category lists route Hacker News\n// candidates, which arrive with no category of their own - and rank_candidates wants one\n// flat list for the affinity count. Derive the flat one rather than keeping both in the\n// file, so a term added to a category cannot be missing from the affinity vocabulary.\nconst rawCatKw = obj(cfg.category_keywords, {});\nout.category_keywords = {};\nfor (const cat of Object.keys(rawCatKw)) {\n  out.category_keywords[cat] = arr(rawCatKw[cat], []).map((s) => String(s).toLowerCase());\n}\nout.topic_keywords = [\n  ...new Set([...Object.values(out.category_keywords).flat(), ...out.shared_keywords]),\n];\n\nconst nowMs = Date.now();\nout.run_at = new Date(nowMs).toISOString();\nout.published_after = Math.floor((nowMs - out.lookback_days * 86400000) / 1000);\n\nreturn [{ json: out }];\n"
+        "jsCode": "// Parse datasets/curator_config.json (fetched as text by DownloadTemplate) into a\n// single validated item that every downstream node reads via\n// $('parse_curator_config').first().json. Missing keys fall back to defaults, so a\n// partial config file can never take the run down.\nconst raw = $json.output || '{}';\nlet cfg;\ntry {\n  cfg = JSON.parse(raw);\n} catch (e) {\n  throw new Error('datasets/curator_config.json is not valid JSON: ' + e.message);\n}\n\nconst num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);\nconst bool = (v, d) => (typeof v === 'boolean' ? v : d);\nconst arr = (v, d) => (Array.isArray(v) ? v : d);\nconst obj = (v, d) => (v && typeof v === 'object' && !Array.isArray(v) ? v : d);\n\nconst sources = obj(cfg.sources, {});\nconst hnTop = obj(sources.hn_top, {});\nconst backlog = obj(cfg.backlog, {});\n\nconst out = {\n  lookback_days: num(cfg.lookback_days, 5),\n  max_entries_per_category: num(cfg.max_entries_per_category, 1000),\n  min_title_chars: num(cfg.min_title_chars, 15),\n  min_content_words: num(cfg.min_content_words, 120),\n\n  max_candidates: num(cfg.max_candidates, 60),\n  // Per-category pool share is derived from category_weights in rank_candidates, so\n  // there is deliberately no max_per_category knob: a flat ceiling is what let Tech\n  // take 20 of 60 slots while Hacker News got 1.\n  max_per_host: num(cfg.max_per_host, 3),\n  judge_n: num(cfg.judge_n, 24),\n  min_postability: num(cfg.min_postability, 4),\n\n  // The queue is a durable backlog drained one row per sharing run, so there is no\n  // top_n / max_per_domain / max_per_category_in_top any more: nothing builds a slate\n  // of five. Variety is decided on the way out by topic rotation.\n  //\n  // These fallbacks MUST track the config file. They are what a broken or truncated\n  // download degrades to, and a stale fallback is a silent config rollback: the\n  // NEWS_REACTION default sat at 4 against a lookback of 5, which is the arithmetic that\n  // admitted news rows already past their TTL. Every value here must clear lookback_days\n  // plus the longest publish gap for the same reason.\n  backlog: {\n    max_per_category: num(backlog.max_per_category, 10),\n    max_total: num(backlog.max_total, 60),\n    ttl_days: obj(backlog.ttl_days, { NEWS_REACTION: 10, HARD_NUMBER: 45, default: 60 }),\n  },\n\n  // Only used to warn in the digest when the backlog holds more than the TTL window can\n  // ever publish. Nothing gates on it - the publish schedule lives in LinkedIn Post Sharing.\n  publish_per_week: Math.max(1, num(cfg.publish_per_week, 3)),\n\n  cancel_after_days: Math.max(1, num(cfg.cancel_after_days, 7)),\n  mark_read: bool(cfg.mark_read, false),\n  write_to_sheet: bool(cfg.write_to_sheet, false),\n  http_concurrency: Math.max(1, num(cfg.http_concurrency, 6)),\n\n  hn_engagement: bool(cfg.hn_engagement, true),\n  hn_hot_points: num(cfg.hn_hot_points, 100),\n  hn_boost: num(cfg.hn_boost, 0.1),\n  starred_boost: num(cfg.starred_boost, 0.05),\n\n  sources: {\n    hn_top: {\n      enabled: bool(hnTop.enabled, true),\n      min_points: num(hnTop.min_points, 80),\n      limit: num(hnTop.limit, 40),\n    },\n  },\n\n  priority_bands: obj(cfg.priority_bands, { VERY_HIGH: 0.8, HIGH: 0.65, MEDIUM: 0.5 }),\n  // default 0 - with three wanted categories, anything else is something new in Miniflux\n  // that nobody has weighted yet, and 0 pool slots is the safe reading of \"undecided\".\n  category_weights: obj(cfg.category_weights, { default: 0 }),\n  exclude_categories: arr(cfg.exclude_categories, []).map((s) => String(s)),\n  aggregator_hosts: arr(cfg.aggregator_hosts, []).map((s) => String(s).toLowerCase()),\n  domain_blocklist: arr(cfg.domain_blocklist, []).map((s) => String(s).toLowerCase()),\n  title_blocklist: arr(cfg.title_blocklist, []).map((s) => String(s).toLowerCase()),\n  shared_keywords: arr(cfg.shared_keywords, []).map((s) => String(s).toLowerCase()),\n};\n\n// The keyword list is edited per category - the per-category lists route Hacker News\n// candidates, which arrive with no category of their own - and rank_candidates wants one\n// flat list for the affinity count. Derive the flat one rather than keeping both in the\n// file, so a term added to a category cannot be missing from the affinity vocabulary.\nconst rawCatKw = obj(cfg.category_keywords, {});\nout.category_keywords = {};\nfor (const cat of Object.keys(rawCatKw)) {\n  out.category_keywords[cat] = arr(rawCatKw[cat], []).map((s) => String(s).toLowerCase());\n}\nout.topic_keywords = [\n  ...new Set([...Object.values(out.category_keywords).flat(), ...out.shared_keywords]),\n];\n\nconst nowMs = Date.now();\nout.run_at = new Date(nowMs).toISOString();\nout.published_after = Math.floor((nowMs - out.lookback_days * 86400000) / 1000);\n\nreturn [{ json: out }];\n"
       }
     },
     {
@@ -3342,7 +3628,7 @@
         1216
       ],
       "parameters": {
-        "content": "### Everything free happens before the judge\n\n`fetch_candidates` asks both sources - each in its own try/catch, so a dead source is a digest warning, not a failed run.\n\n`filter_candidates` drops what the blocklists and the sheet already answer for, and **merges** same-story duplicates instead of discarding them: only Hacker News knows the vote count, so the surviving copy inherits it.\n\n`rank_candidates` ranks on topic keyword affinity, a hard number in the headline, recency and votes - no network, no tokens - then **allocates** the pool by `category_weights` rather than filling it first-come. A flat per-category ceiling gave Tech 20 of 60 slots while Hacker News contributed 40 candidates and got 1: a bare link has no excerpt to match keywords against, so it loses to any full article. Each category now competes only against itself. Watch `quota -> filled` in the digest.\n\n`pick_finalists` sets the judge budget from the room the backlog actually has, **per category**, at four calls per free slot. `judge_n` is a ceiling, not a target: a full backlog spends zero, and a category already at `max_per_category` is skipped rather than judged and rejected downstream. The digest names any category that stopped listening.\n\nOnly two numbers cost anything: `max_candidates` bounds the HN lookups, `judge_n` bounds the LLM calls.",
+        "content": "### Everything free happens before the judge\n\n`fetch_candidates` asks both sources - each in its own try/catch, so a dead source is a digest warning, not a failed run.\n\n`filter_candidates` drops what the blocklists and the sheet already answer for, and **merges** same-story duplicates instead of discarding them: only Hacker News knows the vote count, so the surviving copy inherits it.\n\n`rank_candidates` ranks on topic keyword affinity, a hard number in the headline, recency and votes - no network, no tokens - then **allocates** the pool by `category_weights` rather than filling it first-come. A flat per-category ceiling gave Tech 20 of 60 slots while Hacker News contributed 40 candidates and got 1: a bare link has no excerpt to match keywords against, so it loses to any full article. Each category now competes only against itself. Watch `quota -> filled` in the digest.\n\n`pick_finalists` sets the judge budget from the room the backlog actually has, **per category**, at four calls per free slot. `judge_n` is a ceiling, not a target: a full backlog spends zero, and a category already at `max_per_category` is skipped rather than judged and rejected downstream. The digest names any category that stopped listening.\n\nOnly two numbers cost anything: `max_candidates` bounds the HN lookups, `judge_n` bounds the LLM calls.\n\n**A one-week ceiling retires whatever is still in play.** `cancel_after_days` (default 7) cancels any row still QUEUE / IN_PROGRESS / WAITING_APPROVAL whose last update is older than a week, whatever placed it - an untouched row is the thing the ceiling exists for. `build_expire_rows` keeps owning the hook TTL and the caps, and skips every row past the ceiling, so the two passes never write the same row.",
         "height": 420,
         "width": 420,
         "color": 5
@@ -3683,7 +3969,7 @@
         1264
       ],
       "parameters": {
-        "jsCode": "// Backlog maintenance. The queue is durable now, so this no longer expires every\n// unposted AUTO row each run - that was throwing away four judged winners per run to\n// publish one. It expires only what should not be published any more:\n//\n//   1. STALE - past its TTL. Measured from PUBLISHED_AT, the article's own date, not\n//      from when we queued it: a launch note is stale ten days after the launch\n//      regardless of when it reached the sheet. The TTL comes from the judge's hook,\n//      which is the field that already knows whether a piece is perishable -\n//      NEWS_REACTION dies in days, a TRADE_OFF or WAR_STORY keeps for weeks. The hook\n//      is read back out of the \"Hook: X.\" prefix on EXTRA_PROMPT because content_queue\n//      has no HOOK column.\n//   2. SURPLUS - over the per-category or global cap, lowest SCORE first. Admission\n//      already respects both caps, so this only fires when a cap was lowered in config\n//      or rows were added by hand.\n//   3. DISPLACED - admit_to_backlog let a stronger candidate take this row's slot, so the\n//      swap has to complete here or the queue ends the run one over its cap.\n//\n// ORIGIN=MANUAL is never touched, and neither is anything past QUEUE - IN_PROGRESS,\n// WAITING_APPROVAL and PUBLISHED are somebody else's business.\nconst cfg = $('parse_curator_config').first().json;\nconst bl = cfg.backlog;\nconst num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);\n\nconst rows = $('read_articles_sheet').all().map((i) => i.json).filter((r) => r && r.row_number);\nconst mine = rows.filter(\n  (r) => String(r.STATUS || '').trim() === 'QUEUE' && String(r.ORIGIN || '').trim() === 'AUTO'\n);\n\nconst nowMs = new Date(cfg.run_at).getTime();\nconst hookOf = (r) => {\n  const col = String(r.HOOK || '').trim().toUpperCase();\n  if (col) return col;\n  // Rows written before the HOOK column existed still carry the prefix.\n  const m = String(r.EXTRA_PROMPT || '').match(/^Hook:\\s*([A-Z_]+)\\./);\n  return m ? m[1] : '';\n};\nconst ttlOf = (r) => {\n  const h = hookOf(r);\n  // An unknown hook gets the default rather than the short TTL: guessing \"perishable\"\n  // would quietly bin evergreen rows queued before the hook was recorded.\n  return num(bl.ttl_days[h], num(bl.ttl_days.default, 21));\n};\nconst ageDaysOf = (r) => {\n  const t = Date.parse(r.PUBLISHED_AT || '') || Date.parse(r.UPDATE_DATE || '');\n  return isFinite(t) ? (nowMs - t) / 86400000 : 0;\n};\n\n// The displacements are read first: the pass below has to recognise those rows before it\n// decides anything else about them, and the surplus pass further down needs the same set.\nconst admissions = $('admit_to_backlog').all().map((i) => i.json).filter((j) => j && !j.no_selection);\nconst displacedRows = new Set(\n  admissions.map((j) => num(Number(j.DISPLACES_ROW), 0)).filter((n) => n > 0)\n);\n\nconst stale = [];\nconst swapped = [];\nconst keep = [];\nfor (const r of mine) {\n  const age = ageDaysOf(r);\n  const ttl = ttlOf(r);\n  if (displacedRows.has(r.row_number)) swapped.push({ r, why: 'displaced by a stronger candidate this run' });\n  else if (age > ttl) stale.push({ r, why: 'stale ' + Math.round(age) + 'd > ' + ttl + 'd (' + (hookOf(r) || 'no hook') + ')' });\n  else keep.push(r);\n}\n\n// Surplus is measured against what survives plus what is being admitted this run, so\n// the two nodes cannot both decide there is room for the same slot.\n// Every admission counts against the caps here, displacing ones included: the row a\n// displacement replaced has already been taken out of `keep` above, so counting the new\n// row is what makes one-in-one-out land on exactly the cap. Counting only the net\n// additions leaves the category one row over for every displacement, which is invisible\n// until a category is above cap to begin with - i.e. every run after max_per_category is\n// lowered, which is exactly when this pass is the only thing keeping the sheet honest.\nconst incoming = admissions;\nconst incomingByCat = new Map();\nfor (const j of incoming) {\n  const c = String(j.TOPIC || '').trim() || 'unknown';\n  incomingByCat.set(c, (incomingByCat.get(c) || 0) + 1);\n}\n// Manual rows occupy the backlog too, so they count towards the caps even though they\n// can never be expired by this node.\nconst manualQueued = rows.filter(\n  (r) => String(r.STATUS || '').trim() === 'QUEUE' && String(r.ORIGIN || '').trim() !== 'AUTO'\n);\n\nconst surplus = [];\nconst worstFirst = (a, b) => num(Number(a.SCORE), 0) - num(Number(b.SCORE), 0) || b.row_number - a.row_number;\n\nconst byCat = new Map();\nfor (const r of keep) {\n  const c = String(r.TOPIC || '').trim() || 'unknown';\n  if (!byCat.has(c)) byCat.set(c, []);\n  byCat.get(c).push(r);\n}\nconst survivors = new Set(keep.map((r) => r.row_number));\nfor (const [cat, list] of byCat) {\n  const manual = manualQueued.filter((r) => (String(r.TOPIC || '').trim() || 'unknown') === cat).length;\n  const room = bl.max_per_category - (incomingByCat.get(cat) || 0) - manual;\n  if (list.length <= room) continue;\n  for (const r of list.slice().sort(worstFirst).slice(0, list.length - Math.max(0, room))) {\n    surplus.push({ r, why: cat + ' over cap ' + bl.max_per_category });\n    survivors.delete(r.row_number);\n  }\n}\n// Global backstop, after the per-category pass.\nconst globalRoom = bl.max_total - incoming.length - manualQueued.length;\nconst stillHere = keep.filter((r) => survivors.has(r.row_number));\nif (stillHere.length > globalRoom) {\n  for (const r of stillHere.slice().sort(worstFirst).slice(0, stillHere.length - Math.max(0, globalRoom))) {\n    surplus.push({ r, why: 'backlog over ' + bl.max_total });\n    survivors.delete(r.row_number);\n  }\n}\n\nconst out = [...stale, ...swapped, ...surplus];\nconsole.log(\n  'build_expire_rows: ' + out.length + ' of ' + mine.length + ' AUTO/QUEUE rows expiring (' +\n    stale.length + ' stale, ' + swapped.length + ' displaced, ' + surplus.length + ' surplus); ' +\n    survivors.size + ' kept'\n);\nfor (const o of out.slice(0, 10)) console.log('  expire r' + o.r.row_number + ' ' + o.why + ' - ' + String(o.r.TITLE || '').slice(0, 60));\n\n// The Google Sheets update node needs at least one item to not error on an empty input,\n// and alwaysOutputData upstream would hand it a junk row. Return nothing and let the\n// node be skipped: n8n does not run a node with zero input items.\nreturn out.map((o) => ({ json: { row_number: o.r.row_number, TITLE: o.r.TITLE || '', reason: o.why } }));\n"
+        "jsCode": "// Backlog maintenance. The queue is durable now, so this no longer expires every\n// unposted AUTO row each run - that was throwing away four judged winners per run to\n// publish one. It expires only what should not be published any more:\n//\n//   1. STALE - past its TTL. Measured from PUBLISHED_AT, the article's own date, not\n//      from when we queued it: a launch note is stale ten days after the launch\n//      regardless of when it reached the sheet. The TTL comes from the judge's hook,\n//      which is the field that already knows whether a piece is perishable -\n//      NEWS_REACTION dies in days, a TRADE_OFF or WAR_STORY keeps for weeks. The hook\n//      is read back out of the \"Hook: X.\" prefix on EXTRA_PROMPT because content_queue\n//      has no HOOK column.\n//   2. SURPLUS - over the per-category or global cap, lowest SCORE first. Admission\n//      already respects both caps, so this only fires when a cap was lowered in config\n//      or rows were added by hand.\n//   3. DISPLACED - admit_to_backlog let a stronger candidate take this row's slot, so the\n//      swap has to complete here or the queue ends the run one over its cap.\n//\n// A row past cancel_after_days is none of this node's business: build_cancel_rows retires it whatever its hook TTL or cap position, and this node skips it so the two never write the same row.\n//\n// ORIGIN=MANUAL is never touched, and neither is anything past QUEUE - IN_PROGRESS,\n// WAITING_APPROVAL and PUBLISHED are somebody else's business.\nconst cfg = $('parse_curator_config').first().json;\nconst bl = cfg.backlog;\nconst num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);\nconst cancelDays = num(cfg.cancel_after_days, 7);\n\nconst rows = $('read_articles_sheet').all().map((i) => i.json).filter((r) => r && r.row_number);\nconst mine = rows.filter(\n  (r) => String(r.STATUS || '').trim() === 'QUEUE' && String(r.ORIGIN || '').trim() === 'AUTO'\n);\n\nconst nowMs = new Date(cfg.run_at).getTime();\nconst hookOf = (r) => {\n  const col = String(r.HOOK || '').trim().toUpperCase();\n  if (col) return col;\n  // Rows written before the HOOK column existed still carry the prefix.\n  const m = String(r.EXTRA_PROMPT || '').match(/^Hook:\\s*([A-Z_]+)\\./);\n  return m ? m[1] : '';\n};\nconst ttlOf = (r) => {\n  const h = hookOf(r);\n  // An unknown hook gets the default rather than the short TTL: guessing \"perishable\"\n  // would quietly bin evergreen rows queued before the hook was recorded.\n  return num(bl.ttl_days[h], num(bl.ttl_days.default, 21));\n};\nconst ageDaysOf = (r) => {\n  const t = Date.parse(r.PUBLISHED_AT || '') || Date.parse(r.UPDATE_DATE || '');\n  return isFinite(t) ? (nowMs - t) / 86400000 : 0;\n};\n\n// The displacements are read first: the pass below has to recognise those rows before it\n// decides anything else about them, and the surplus pass further down needs the same set.\nconst admissions = $('admit_to_backlog').all().map((i) => i.json).filter((j) => j && !j.no_selection);\nconst displacedRows = new Set(\n  admissions.map((j) => num(Number(j.DISPLACES_ROW), 0)).filter((n) => n > 0)\n);\n\nconst stale = [];\nconst swapped = [];\nconst keep = [];\nfor (const r of mine) {\n  const age = ageDaysOf(r);\n  // Past the ceiling is build_cancel_rows' job, whatever the hook's TTL says.\n  if (age > cancelDays) continue;\n  const ttl = ttlOf(r);\n  if (displacedRows.has(r.row_number)) swapped.push({ r, why: 'displaced by a stronger candidate this run' });\n  else if (age > ttl) stale.push({ r, why: 'stale ' + Math.round(age) + 'd > ' + ttl + 'd (' + (hookOf(r) || 'no hook') + ')' });\n  else keep.push(r);\n}\n\n// Surplus is measured against what survives plus what is being admitted this run, so\n// the two nodes cannot both decide there is room for the same slot.\n// Every admission counts against the caps here, displacing ones included: the row a\n// displacement replaced has already been taken out of `keep` above, so counting the new\n// row is what makes one-in-one-out land on exactly the cap. Counting only the net\n// additions leaves the category one row over for every displacement, which is invisible\n// until a category is above cap to begin with - i.e. every run after max_per_category is\n// lowered, which is exactly when this pass is the only thing keeping the sheet honest.\nconst incoming = admissions;\nconst incomingByCat = new Map();\nfor (const j of incoming) {\n  const c = String(j.TOPIC || '').trim() || 'unknown';\n  incomingByCat.set(c, (incomingByCat.get(c) || 0) + 1);\n}\n// Manual rows occupy the backlog too, so they count towards the caps even though they\n// can never be expired by this node.\nconst manualQueued = rows.filter(\n  (r) => String(r.STATUS || '').trim() === 'QUEUE' && String(r.ORIGIN || '').trim() !== 'AUTO'\n);\n\nconst surplus = [];\nconst worstFirst = (a, b) => num(Number(a.SCORE), 0) - num(Number(b.SCORE), 0) || b.row_number - a.row_number;\n\nconst byCat = new Map();\nfor (const r of keep) {\n  const c = String(r.TOPIC || '').trim() || 'unknown';\n  if (!byCat.has(c)) byCat.set(c, []);\n  byCat.get(c).push(r);\n}\nconst survivors = new Set(keep.map((r) => r.row_number));\nfor (const [cat, list] of byCat) {\n  const manual = manualQueued.filter((r) => (String(r.TOPIC || '').trim() || 'unknown') === cat).length;\n  const room = bl.max_per_category - (incomingByCat.get(cat) || 0) - manual;\n  if (list.length <= room) continue;\n  for (const r of list.slice().sort(worstFirst).slice(0, list.length - Math.max(0, room))) {\n    surplus.push({ r, why: cat + ' over cap ' + bl.max_per_category });\n    survivors.delete(r.row_number);\n  }\n}\n// Global backstop, after the per-category pass.\nconst globalRoom = bl.max_total - incoming.length - manualQueued.length;\nconst stillHere = keep.filter((r) => survivors.has(r.row_number));\nif (stillHere.length > globalRoom) {\n  for (const r of stillHere.slice().sort(worstFirst).slice(0, stillHere.length - Math.max(0, globalRoom))) {\n    surplus.push({ r, why: 'backlog over ' + bl.max_total });\n    survivors.delete(r.row_number);\n  }\n}\n\nconst out = [...stale, ...swapped, ...surplus];\nconsole.log(\n  'build_expire_rows: ' + out.length + ' of ' + mine.length + ' AUTO/QUEUE rows expiring (' +\n    stale.length + ' stale, ' + swapped.length + ' displaced, ' + surplus.length + ' surplus); ' +\n    survivors.size + ' kept'\n);\nfor (const o of out.slice(0, 10)) console.log('  expire r' + o.r.row_number + ' ' + o.why + ' - ' + String(o.r.TITLE || '').slice(0, 60));\n\n// The Google Sheets update node needs at least one item to not error on an empty input,\n// and alwaysOutputData upstream would hand it a junk row. Return nothing and let the\n// node be skipped: n8n does not run a node with zero input items.\nreturn out.map((o) => ({ json: { row_number: o.r.row_number, TITLE: o.r.TITLE || '', reason: o.why } }));\n"
       }
     },
     {
@@ -4765,6 +5051,260 @@
           "convertFieldsToString": true
         },
         "options": {}
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// The one-week ceiling, a deliberate exception to the ORIGIN allow-list its sibling\n// build_expire_rows applies: any row still in play whose last write is older than\n// cancel_after_days is cancelled, whatever placed it, because an untouched row is the\n// thing the ceiling exists for. The clock is the row's own UPDATE_DATE - the last write a\n// phase made - so an in-flight run or a fresh approval is never old enough to qualify;\n// only a row nobody has touched in a week is. build_expire_rows skips these rows, so the\n// two passes never write the same row. Content_queue's own lane spells it CANCELED (one\n// L), unlike article_queue's CANCELLED; the node that writes it matches that lane.\nconst cfg = $('parse_curator_config').first().json;\nconst cancelDays = Math.max(1, Number(cfg.cancel_after_days) || 7);\nconst nowMs = Date.parse(cfg.run_at) || Date.now();\nconst IN_PLAY = new Set(['QUEUE', 'IN_PROGRESS', 'WAITING_APPROVAL']);\n\nconst rows = $('read_articles_sheet').all().map((i) => i.json).filter((r) => r && r.row_number);\nconst stale = [];\nfor (const r of rows) {\n  const status = String(r.STATUS || '').trim().toUpperCase();\n  if (!IN_PLAY.has(status)) continue;\n  const at = Date.parse(r.UPDATE_DATE || '');\n  if (!isFinite(at)) continue;\n  const age = (nowMs - at) / 86400000;\n  if (age <= cancelDays) continue;\n  stale.push({ row_number: r.row_number, TITLE: r.TITLE || '', status, age: Math.round(age) });\n}\nconsole.log(\n  'build_cancel_rows: ' + stale.length + ' of ' + rows.length + ' row(s) past the ' + cancelDays + 'd ceiling'\n);\nfor (const s of stale.slice(0, 10)) {\n  console.log('  cancel r' + s.row_number + ' (' + s.status + ', ' + s.age + 'd) ' + String(s.TITLE).slice(0, 60));\n}\n// Zero items skips the update node, which is exactly what \"nothing to cancel\" means.\nreturn stale.map((s) => ({ json: s }));\n"
+      },
+      "id": "8a1c0f70-0004-4a10-9a11-000000000004",
+      "name": "build_cancel_rows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -16352,
+        1520
+      ]
+    },
+    {
+      "id": "8a1c0f70-0005-4a10-9a11-000000000005",
+      "name": "cancel_stale_queue",
+      "notes": "Writes CANCELED (one L - this lane's spelling) for rows build_cancel_rows selected: anything still QUEUE, IN_PROGRESS or WAITING_APPROVAL whose UPDATE_DATE is older than cancel_after_days. Nothing else is touched; most runs cancel nothing.",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "alwaysOutputData": false,
+      "position": [
+        -16064,
+        1520
+      ],
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI",
+          "mode": "list",
+          "cachedResultName": "content_planner",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "content_queue",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "row_number": "={{ $json.row_number }}",
+            "STATUS": "CANCELED",
+            "UPDATE_DATE": "={{ $('parse_curator_config').first().json.run_at }}",
+            "EXECUTION_ID": "={{ $execution.id }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "URL",
+              "displayName": "URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "TITLE",
+              "displayName": "TITLE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "STATUS",
+              "displayName": "STATUS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "PRIORITY",
+              "displayName": "PRIORITY",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "SCORE",
+              "displayName": "SCORE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "ORIGIN",
+              "displayName": "ORIGIN",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "TOPIC",
+              "displayName": "TOPIC",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "SOURCE",
+              "displayName": "SOURCE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "RATIONALE",
+              "displayName": "RATIONALE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "EXTRA_PROMPT",
+              "displayName": "EXTRA_PROMPT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "MAX_WORDS",
+              "displayName": "MAX_WORDS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "PUBLISHED_AT",
+              "displayName": "PUBLISHED_AT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "UPDATE_DATE",
+              "displayName": "UPDATE_DATE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "RELEASE_DATE",
+              "displayName": "RELEASE_DATE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "LINKEDIN_URL",
+              "displayName": "LINKEDIN_URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "ENTRY_ID",
+              "displayName": "ENTRY_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "ERROR",
+              "displayName": "ERROR",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "EXECUTION_ID",
+              "displayName": "EXECUTION_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "pGARJmt50qz64xOo",
+          "name": "Google Sheets account"
+        }
       }
     }
   ],

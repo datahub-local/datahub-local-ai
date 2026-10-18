@@ -570,7 +570,7 @@ def test_the_published_url_is_the_one_the_site_serves():
         },
     )
     article = result["out"][0]["json"]
-    day = re.search(r"^date: (\d{4}-\d{2}-\d{2})$", article["FILE_TEXT"], re.M).group(1)
+    day = re.search(r"^date: (\d{4}-\d{2}-\d{2})$", article["FILE_TEXT"], re.MULTILINE).group(1)
     yyyy, mm, dd = day.split("-")
     assert article["PUBLISHED_URL"] == (
         f"https://www.alvsanand.com/blog/{yyyy}/{mm}/{dd}/sympozium-when-one-ai-agent-isnt-enough/"

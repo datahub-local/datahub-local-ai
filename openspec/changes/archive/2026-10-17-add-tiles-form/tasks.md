@@ -256,7 +256,12 @@
   `FORCE`-pinned). A new question was added for the 0.5 s the artifact runs longer than the type
   declares.
 
-- [ ] 6.4 Archive only when the work is complete: `openspec archive add-tiles-form` moves
+- [x] 6.4 Archive only when the work is complete: `openspec archive add-tiles-form` moves
   this change under `changes/archive/<date>-add-tiles-form/` and folds the delta into
   `openspec/specs/visual-studio/spec.md`. Until then it stays in `changes/` and
   `openspec validate --all` is the gate.
+  **Archived 2026-10-17** as `2026-10-17-add-tiles-form`, 22/23 tasks `[x]` at the moment of
+  archiving (this one being the last). The fold applied to `openspec/specs/visual-studio/spec.md`:
+  one added requirement (a type may pin the form it means), two modified (the registry lists
+  `image_wide`/`svg_wide`/`tiles`/`tiles_wide`; the trigger contract's `FORCE` enum carries
+  `tiles`). `openspec validate --all` passes (12 items) after the fold.

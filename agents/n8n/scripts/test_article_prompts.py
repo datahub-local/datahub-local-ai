@@ -100,10 +100,13 @@ def test_task_prompt_placeholders_are_the_caller_contract():
 
 def test_task_prompt_documents_the_asset_marker_contract():
     # The publish step replaces each marker in place and defaults a missing one, so
-    # the prompt has to name the marker and not a path, filename or caption.
+    # the prompt has to name the marker and not a path, filename or caption. The hero's
+    # marker is the requested type's own id, not the literal `image`: the wide pair made
+    # `<!-- asset:image -->` a marker no row asks for, and the review gate now rejects a
+    # draft whose markers do not match the requested set.
     text = TASK_PROMPT.read_text(encoding="utf-8")
-    assert "<!-- asset:image -->" in text
     assert "<!-- asset:<id> -->" in text
+    assert "<!-- asset:image -->" not in text
     assert "ASSET_TYPES" in _placeholders(TASK_PROMPT)
     assert "no caption" in text
 

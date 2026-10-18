@@ -49,6 +49,7 @@ CALLER_VARS = frozenset(
         "EXTRA_PROMPT",
         "CONTENT",
         "FEEDBACK",
+        "PREVIOUS_DRAFT",
     }
 )
 
@@ -147,6 +148,26 @@ def test_creator_passes_what_the_task_prompt_declares():
     """The two halves of the contract, checked against each other rather than a list."""
     _name, supplied = _downloaded("download_article_prompt")
     assert supplied == _placeholders(TASK_PROMPT)
+
+
+def test_the_retry_carries_the_draft_the_review_rejected():
+    """The retry edits the draft it was told to fix instead of writing a new one.
+
+    A retry re-renders this prompt with the reviewer's reason and nothing else, so a model told
+    to "remove the closing paragraph" had no draft to remove it from — and on 2026-10-18 it went
+    looking for material instead, calling the same search seven times and the same page six times
+    until the agent's iteration cap killed the run (executions 14018, 14020).
+    """
+    expr = _node("download_article_prompt")["parameters"]["workflowInputs"]["value"]["template_vars"]
+    assert "PREVIOUS_DRAFT" in expr
+    assert "$('parse_article').last()" in expr, "the retry must carry the draft just rejected"
+    assert "$('parse_article').item" not in expr, (
+        "the loop's paired-item lineage runs back through switch_article_check and cannot resolve"
+    )
+    assert "$('parse_article').first()" not in expr, (
+        "a third attempt would edit the first attempt's draft and never converge"
+    )
+    assert "isExecuted" in expr, "an unguarded read throws when the first attempt renders this"
 
 
 def test_creator_fetches_both_prompt_files():

@@ -100,7 +100,7 @@
             "mappingMode": "defineBelow",
             "value": {
               "template_name": "prompts/article_writer.md",
-              "template_vars": "={{ {\n\"TOPIC\": $('main_trigger').first().json.TOPIC,\n\"DESCRIPTION\": $('main_trigger').first().json.DESCRIPTION,\n\"URL\": $('main_trigger').first().json.URL || \"\",\n\"MAX_WORDS\": $('main_trigger').first().json.MAX_WORDS,\n\"ASSET_TYPES\": $('main_trigger').first().json.ASSET_TYPES || \"\",\n\"EXTRA_PROMPT\": $('main_trigger').first().json.EXTRA_PROMPT || \"\",\n\"CONTENT\": $('main_trigger').first().json.CONTENT || \"\",\n\"FEEDBACK\": ($('main_trigger').first().json.FEEDBACK || \"\") + ($json.explanation ? \"\\nInternal review rejected the previous draft with: \" + $json.explanation : \"\"),\n} }}"
+              "template_vars": "={{ {\n\"TOPIC\": $('main_trigger').first().json.TOPIC,\n\"DESCRIPTION\": $('main_trigger').first().json.DESCRIPTION,\n\"URL\": $('main_trigger').first().json.URL || \"\",\n\"MAX_WORDS\": $('main_trigger').first().json.MAX_WORDS,\n\"ASSET_TYPES\": $('main_trigger').first().json.ASSET_TYPES || \"\",\n\"EXTRA_PROMPT\": $('main_trigger').first().json.EXTRA_PROMPT || \"\",\n\"CONTENT\": $('main_trigger').first().json.CONTENT || \"\",\n\"FEEDBACK\": ($('main_trigger').first().json.FEEDBACK || \"\") + ($json.explanation ? \"\\nInternal review rejected the previous draft with: \" + $json.explanation : \"\"),\n\"PREVIOUS_DRAFT\": $('parse_article').isExecuted ? $('parse_article').last().json.TEXT : \"\",\n} }}"
             },
             "matchingColumns": [],
             "schema": [
@@ -1076,7 +1076,7 @@
           "mappingMode": "defineBelow",
           "value": {
             "template_name": "prompts/article_writer.md",
-            "template_vars": "={{ {\n\"TOPIC\": $('main_trigger').first().json.TOPIC,\n\"DESCRIPTION\": $('main_trigger').first().json.DESCRIPTION,\n\"URL\": $('main_trigger').first().json.URL || \"\",\n\"MAX_WORDS\": $('main_trigger').first().json.MAX_WORDS,\n\"ASSET_TYPES\": $('main_trigger').first().json.ASSET_TYPES || \"\",\n\"EXTRA_PROMPT\": $('main_trigger').first().json.EXTRA_PROMPT || \"\",\n\"CONTENT\": $('main_trigger').first().json.CONTENT || \"\",\n\"FEEDBACK\": ($('main_trigger').first().json.FEEDBACK || \"\") + ($json.explanation ? \"\\nInternal review rejected the previous draft with: \" + $json.explanation : \"\"),\n} }}"
+            "template_vars": "={{ {\n\"TOPIC\": $('main_trigger').first().json.TOPIC,\n\"DESCRIPTION\": $('main_trigger').first().json.DESCRIPTION,\n\"URL\": $('main_trigger').first().json.URL || \"\",\n\"MAX_WORDS\": $('main_trigger').first().json.MAX_WORDS,\n\"ASSET_TYPES\": $('main_trigger').first().json.ASSET_TYPES || \"\",\n\"EXTRA_PROMPT\": $('main_trigger').first().json.EXTRA_PROMPT || \"\",\n\"CONTENT\": $('main_trigger').first().json.CONTENT || \"\",\n\"FEEDBACK\": ($('main_trigger').first().json.FEEDBACK || \"\") + ($json.explanation ? \"\\nInternal review rejected the previous draft with: \" + $json.explanation : \"\"),\n\"PREVIOUS_DRAFT\": $('parse_article').isExecuted ? $('parse_article').last().json.TEXT : \"\",\n} }}"
           },
           "matchingColumns": [],
           "schema": [

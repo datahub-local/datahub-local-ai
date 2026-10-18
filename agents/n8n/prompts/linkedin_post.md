@@ -105,6 +105,12 @@ HIGHEST PRIORITY. A human rejected the previous draft and asked for these change
 {{ FEEDBACK }}
 </feedback>
 
+## Previous Post
+
+{{ PREVIOUS_POST }}
+
+This is the post the review rejected. Rewrite it applying the Reviewer Feedback: keep what the review did not object to and change only what the feedback names. When the block is empty this is the first attempt: write a fresh post.
+
 ## Actual Input
 
 <content>

@@ -20,6 +20,7 @@ live bug.
 """
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -171,3 +172,38 @@ def test_publish_clears_a_stale_failure_reason(label, document):
     )
     entry = next(s for s in columns["schema"] if s["id"] == "ERROR")
     assert entry["removed"] is False, f"{label}: ERROR is not writable on the publish node"
+
+
+PROMPTS = Path(__file__).resolve().parents[1] / "prompts"
+PLACEHOLDER_RE = re.compile(r"\{\{\s*([A-Z_]+)\s*\}\}")
+VAR_KEY_RE = re.compile(r'"([A-Z_]+)":')
+
+
+@pytest.mark.parametrize("label,document", list(_copies(CREATOR)))
+def test_the_retry_carries_the_post_the_review_rejected(label, document):
+    """The retry edits the post it was told to fix instead of writing a new one.
+
+    The reviewer's reason says "apply these changes", and the drafting prompt carried the reason
+    and no post — so the drafter rewrote from nothing. The article lane failed the same way on
+    2026-10-18 (executions 14018, 14020), where the retry went looking for material instead of
+    editing and the agent's iteration cap ended the run.
+
+    Also holds the prompt's placeholders to the vars the node supplies: a pushed prompt naming one
+    DownloadTemplate was not handed stops every run, and this lane had no such guard.
+    """
+    prompt = (PROMPTS / "linkedin_post.md").read_text(encoding="utf-8")
+    declared = {m.group(1) for m in PLACEHOLDER_RE.finditer(prompt)}
+    node = _nodes(document)["download_post_prompt"]
+    value = node["parameters"]["workflowInputs"]["value"]
+    assert value["template_name"] == "prompts/linkedin_post.md", label
+    supplied = set(VAR_KEY_RE.findall(value["template_vars"]))
+    assert supplied == declared, f"{label}: the prompt and its call disagree on {supplied ^ declared}"
+    expr = value["template_vars"]
+    assert "$('parse_llm_output').last()" in expr, f"{label}: the retry carries no previous post"
+    assert "$('parse_llm_output').item" not in expr, (
+        f"{label}: the paired-item lineage runs back through switch_check_rules_llm"
+    )
+    assert "$('parse_llm_output').first()" not in expr, (
+        f"{label}: a third attempt would edit the first post and never converge"
+    )
+    assert "isExecuted" in expr, f"{label}: an unguarded read throws on the first attempt"

@@ -46,6 +46,12 @@ HIGHEST PRIORITY. A human rejected the previous draft and asked for these change
 {{ FEEDBACK }}
 </feedback>
 
+## Previous Draft
+
+{{ PREVIOUS_DRAFT }}
+
+This is the draft the review rejected. Rewrite it applying the Reviewer Feedback: keep what the review did not object to and change only what the feedback names. Do not research again on a retry — the Source Material above is what this attempt has, and a lookup that already answered is not a reason to repeat it. When the block is empty this is the first attempt: write a fresh draft, and research as the Research section allows.
+
 ## Shape
 
 - Open on the problem in the author's own framing, not on a definition and not on "In this article".

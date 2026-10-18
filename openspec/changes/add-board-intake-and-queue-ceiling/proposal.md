@@ -53,10 +53,12 @@ picked up next, and a stuck `IN_PROGRESS` claim can starve fresh work.
 
 ## Impact
 
-- **`agents/n8n/workflows/content_board_curator.workflow.json`** (new): a create body
-  (name, nodes, connections, settings) — this change does not apply it live, so it carries
-  no `activeVersion` and no assigned id, the shape the first `Visual Studio` commit used.
-  It points `settings.errorWorkflow` at the existing `Catch Errors`.
+- **`agents/n8n/workflows/content_board_curator.workflow.json`** (new): authored as a create
+  body (name, nodes, connections, settings), then created live on 2026-10-18 as
+  `RCSPaKMKsckAnJ9B` and activated. The committed file stays a create body until the nightly
+  backup rewrites it as a full export, so it carries no id or `activeVersion`. It points
+  `settings.errorWorkflow` at the existing `Catch Errors` and carries a manual trigger beside
+  the schedule so a run can be forced from the editor.
 - **`agents/n8n/workflows/content_feed_curator.workflow.json`**: two nodes added
   (`build_cancel_rows`, `cancel_stale_queue`), `if_write_to_sheet` fans out to the new
   pass, and `build_expire_rows` skips rows past the ceiling.

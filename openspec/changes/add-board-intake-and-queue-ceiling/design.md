@@ -171,6 +171,16 @@ one boundary is the bug; `test_the_expire_pass_skips_on_the_ceilings_own_clock` 
   depth the TTL was sized for is no longer reachable, and a quiet fortnight can leave the
   post queue thin. The value is one config edit; watch `Backlog before/after` in the
   curator's digest.
+- **The intake is live but not yet run.** The create and the curator apply are verified by
+  reading each workflow back and diffing it against the export, but no run has exercised the
+  GitHub read or the two Google Sheets writes. The first run is a real append (every open
+  `post` issue, four today) and a real cancellation sweep, so its outcome must be read back
+  from `article_queue`, not assumed.
+- **An apply spec that replaces a source's connections replaces the whole array.** The first
+  pass named only `if_write_to_sheet`'s true branch, and the live false branch
+  (`if_mark_read`) was dropped until a second spec restored it. The apply script rewires by
+  position, not by edge, so every branch of a source belongs in the spec — found live on
+  2026-10-18 and fixed in the same session.
 - **A new create body carries no `activeVersion`.** The invariant test that compares the
   two copies skips it until it is applied and backed up, so until then nothing offline
   checks the live graph against the file. Recorded in the tasks as the apply follow-up.

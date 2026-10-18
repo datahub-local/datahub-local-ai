@@ -59,14 +59,26 @@
   before touching either workflow, and keep the per-knob rationale in the datasets'
   `_comment` keys
 
-## 5. Apply (live, owner-approved — not done in this change)
+## 5. Apply (live, owner-approved)
 
-- [ ] 5.1 Apply the curator edit with `scripts/apply_workflow_changes.py`, guarded by
-  `--require-edge 'if_write_to_sheet>build_expire_rows'` and
-  `--require-edge 'build_cancel_rows>cancel_stale_queue'`; after writing, re-read
-  `activeVersion`, re-activate and confirm `active`, and diff the export against live
-- [ ] 5.2 Create `Content Board Curator` with `--create`, then verify the GitHub read
-  actually filters to the label by reading which issues a run imported, and confirm the
-  workflow is active with its error workflow wired
-- [ ] 5.3 Back up the applied instance so both files become full exports (the create body
-  gains its id and `activeVersion`), and confirm `pytest agents/n8n/scripts/` stays green
+- [x] 5.1 Apply the curator edit with `scripts/apply_workflow_changes.py --changes`, guarded by
+  `--require-edge` for `if_write_to_sheet>build_expire_rows` and
+  `build_expire_rows>expire_auto_queue`. **Landed 2026-10-18**: two nodes added, the fan-out and
+  the two `jsCode`s and the sticky note written, workflow still `active`. Read back and diffed
+  against the export: top-level and `activeVersion` both deep-equal the committed file. The first
+  pass dropped `if_write_to_sheet`'s false branch (`if_mark_read`) because a connections entry
+  replaces the whole array — a second spec restored it. **Lesson: name every branch of a source
+  in the spec.**
+- [x] 5.2 Create `Content Board Curator` with `--create`, then activate it. **Landed 2026-10-18**:
+  created `RCSPaKMKsckAnJ9B`, 15 nodes, `errorWorkflow` `fejq5nN6LP3F820w`, activated (`active:
+  true`). A manual trigger was added beside the schedule so a run can be forced from the editor.
+  Read back and diffed against the export: nodes, connections and settings equal (the export
+  gained the two n8n-generated `webhookId`s). **The GitHub read is not yet exercised by a run** —
+  see 5.4.
+- [ ] 5.3 Let the nightly backup rewrite both files as full exports (the curator file already is
+  one; the board file gains its id and `activeVersion`), and confirm `pytest
+  agents/n8n/scripts/` stays green afterwards.
+- [ ] 5.4 Force one run (editor *Execute workflow*, or the 12:15 tick) and read the outcome back
+  from `article_queue`: the four open `post` issues imported once, `ORIGIN=BOARD`, no duplicates
+  on a second run, and the Slack notice naming the count. This is the only check that proves the
+  GitHub node's filter actually restricts to the label.

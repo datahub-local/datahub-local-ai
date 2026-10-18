@@ -95,6 +95,9 @@ def _items(result):
 def test_the_entry_point_is_scheduled_and_reports_its_failure():
     trigger = _node(BOARD, "schedule_trigger")
     assert trigger["type"] == "n8n-nodes-base.scheduleTrigger"
+    # A manual trigger alongside it, so the editor's Execute workflow can force a run
+    # without waiting for the daily tick.
+    assert _node(BOARD, "click_trigger")["type"] == "n8n-nodes-base.manualTrigger"
     # An entry point carries errorWorkflow (nothing upstream could report for it), and the
     # target must be a workflow the repository has, or it is a call the backup cannot restore.
     assert BOARD["settings"]["errorWorkflow"] == CATCH_ERRORS_ID

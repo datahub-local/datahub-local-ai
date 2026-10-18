@@ -18,6 +18,18 @@
       ]
     },
     {
+      "parameters": {},
+      "id": "b1a0c0de-0015-4a10-9a11-000000000015",
+      "name": "click_trigger",
+      "notes": "The schedule runs it daily; this lets the editor's Execute workflow force one on demand, the same pair Content Feed Curator carries.",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        200
+      ]
+    },
+    {
       "parameters": {
         "rule": {
           "interval": [
@@ -188,7 +200,8 @@
           "id": "x1DjxYsMLFm3vUiv",
           "name": "GitHub account"
         }
-      }
+      },
+      "webhookId": "30dbd330-8c77-4288-907b-51540904fd62"
     },
     {
       "parameters": {
@@ -461,7 +474,8 @@
           "id": "DszMmPE7WwOjHQjz",
           "name": "Slack account"
         }
-      }
+      },
+      "webhookId": "ee00b5b8-14ca-4f42-8e8f-abf83351147a"
     }
   ],
   "connections": {
@@ -605,6 +619,17 @@
         [
           {
             "node": "notify_board",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "click_trigger": {
+      "main": [
+        [
+          {
+            "node": "download_board_config",
             "type": "main",
             "index": 0
           }

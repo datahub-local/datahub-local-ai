@@ -1107,8 +1107,9 @@ the same row in one run (two writes, `EXPIRED` and `CANCELED`, would otherwise r
 escapes both (an old article rewritten recently did, in the first version). Both reads
 carry `alwaysOutputData`: n8n does not execute a zero-item node, so without it a quiet board
 would stop the chain before the ceiling ran — the same failure shape as a filter emptying a
-chain. The intake is a **create body**, not yet applied, so it has no `activeVersion` and the
-invariant test that compares the two graph copies skips it until the apply.
+chain. The intake is **live** (created `RCSPaKMKsckAnJ9B`, active, error workflow wired); its
+committed file is still a **create body** until the nightly backup rewrites it as a full export,
+which is why the invariant test that compares the two graph copies skips it for now.
 
 ### MCP servers
 

@@ -1086,6 +1086,35 @@ row held `svg_wide,svg_wide` — was requested twice, which is two studio calls 
 committed files at one `docs/img/` path. One de-duplication in the selector covers every consumer,
 because the gate and the commit path read the field it derives.
 
+**The gate judges the checks it is given, and nothing else.** `prompts/article_review.md` states its
+scope: the checks listed, plus the human feedback. The entry's `TOPIC` and `DESCRIPTION` are context —
+what the piece is for — not checks. Until 2026-10-18 they were enforced as checks, and the failure was
+total: execution 14055's row said *"Plain language and no deep Kubernetes detail"*, the subject is a
+Kubernetes-native CRD project, and the human's retry feedback asked for the opposite. The gate rejected
+**four** drafts for the same reason — naming a custom resource, a controller, an admission webhook,
+Helm — which is the vocabulary the subject is made of and which the writer's own rules invite by
+calling the reader a practitioner. The run spent 20 minutes, burned its bound and failed with no draft.
+An invented check is unfixable by construction: the drafter cannot read the reviewer's inference, so
+the retry just carries it. The same prompt now also says the draft it is given is the **body only** —
+`parse_article` strips the H1 into `TITLE` and passes the two separately — so an H1 is not required in
+it; two of those four rejections demanded one, which no body can ever have. Both lines are pinned by
+`test_the_reviewer_judges_only_the_checks_it_is_given` and
+`test_the_reviewer_is_not_asked_for_an_h1_the_body_cannot_carry`.
+
+**A run that fails before publishing records it and tells a human.** `fail_draft` was a bare
+`stopAndError` and no node in the entry point wrote `STATUS=ERROR`, so a failed run left whatever the
+last phase wrote: execution 14055 posted a draft for review at 09:14, failed at 10:14, and the row
+still read `WAITING_APPROVAL` with an empty `ERROR` — claiming a live approval nobody would review.
+Nothing else reported it either, because the run was **manual** and n8n does not invoke
+`settings.errorWorkflow` for one. The failure path now runs `build_failure` → `record_failed_draft`
+(`STATUS=ERROR`, `ERROR=<reason>`, `UPDATE_DATE`) → `notify_draft_failed` (the `workflows` channel) →
+`fail_draft`. Two details are load-bearing: `fail_draft` reads the reason from `build_failure` rather
+than `$('execute_article_creator').item`, because a paired-item read through new nodes is the
+2026-09-30 failure in a new place; and `ERROR` had to be set `removed: false` in the Sheets node's
+schema, or the column is silently not written. A row in `ERROR` is **not** picked up again —
+`pick_candidate` selects `QUEUE` rows and stale claims — so it waits for a person, which is the
+deliberate direction.
+
 **The lane is otherwise unexercised by CI.** Nothing here has a live gate: the wiring is
 asserted offline in `agents/n8n/scripts/test_article_review_gate.py` and
 `test_article_entry_point.py`, and the behaviour was measured by hand on 2026-10-18 — the

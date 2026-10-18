@@ -386,6 +386,16 @@ Seven structural things worth knowing before editing an export:
   active and cannot be executed` and the failure goes unreported (hit 2026-09-28,
   Visual Studio's error path, which looked wired and did nothing until the handler
   was activated).
+- **n8n does not invoke `settings.errorWorkflow` for a manual execution**, so a manual
+  test that fails is silent — no notice, no row update, and nothing in the logs at info
+  level. Read off the running image: `execution-lifecycle-hooks.js` guards the call with
+  `if (!isManualMode && !suppressErrorWorkflow && fullRunData.status !== 'success' && …)`,
+  and `isManualMode` is `this.mode === 'manual'`. The consequence is measurable:
+  `Article Content Writer Error` (`33uWLrAzZMm4SOP8`) is active, is named by the entry
+  point's `settings.errorWorkflow`, and has **never** run — because every entry-point
+  execution so far has been started from the editor. A failure path is therefore only
+  exercised by a *triggered* run: drive one through a temporary webhook probe, and read
+  the execution list rather than waiting for Slack.
 - **Entry points notify, sub-workflows raise.** A workflow a schedule, webhook
   or form starts sets `errorWorkflow`, because nothing upstream could report for
   it. A workflow only ever called by a parent leaves it unset, so the error
@@ -1043,6 +1053,36 @@ requested type is `APPROVED` (the selector computes `pending` from the same set)
 filter is on the type and not on the status: a status condition could only drop an asset the gate
 had cleared. `test_the_requested_set_is_derived_once_and_read_by_its_consumers` pins that the hero
 rule exists in exactly one node.
+
+**A retry is handed the draft it rejected, in both lanes.** The reviewer's reason says "apply these
+changes", and the drafting prompt carried the reason and no draft — so the drafter rewrote from
+nothing, and on 2026-10-18 it went looking for material instead of editing: the retry turn called
+`research_sources` with the same query seven times and `read_page` on the same page six times, 13
+tool calls and 16 model calls, until the agent answered `Max iterations (12) reached` (executions
+14018, 14020) and the run was lost with no draft. `download_article_prompt` now passes the rejected
+draft as `PREVIOUS_DRAFT` and `download_post_prompt` as `PREVIOUS_POST`; both prompts say to edit it,
+and the article one says not to research again. Measured on the next run (14071): 617/400 words →
+retried → 387/400 accepted, the retry carrying 3,717 characters of the rejected draft and keeping
+its opening sentence, with **one** lookup in the whole run. Three things about the expression:
+`.last()` and never `.item`, because the paired-item lineage runs back through the switch and
+silently resolves to `undefined` (the 2026-09-30 `VARIETY_DIRECTIVES` failure); not `.first()`, or a
+third attempt edits the first attempt's draft and never converges; and `isExecuted`, because the
+first attempt renders the same node with `parse_article` not yet run. The graph must be applied
+**before** the prompts are pushed: a pushed prompt naming a placeholder the graph does not pass stops
+every run, while a graph passing a var the prompt does not use is harmless.
+
+**The drafting agent's iteration cap is a cost cap, not a spiral fix.** `maxIterations` went from 8
+to 12 in October for a measured reason — every model failure inside the agent loop spends an
+iteration, and a run with three failures exhausted 8 before writing (execution 13603). It does not
+stop a spiral: 13603 spiralled to 16 tool calls at 8, and 14020 to 13 at 12, both ending on the cap.
+Lowering it trades one failure for another, so it stays at 12 and the fix is the draft the retry is
+handed.
+
+**The requested asset set names each type once.** `select_article_to_queue`'s `requested()`
+de-duplicates `ASSET_TYPES` before applying the hero rule: a row naming a type twice — the live test
+row held `svg_wide,svg_wide` — was requested twice, which is two studio calls for one type and two
+committed files at one `docs/img/` path. One de-duplication in the selector covers every consumer,
+because the gate and the commit path read the field it derives.
 
 **The lane is otherwise unexercised by CI.** Nothing here has a live gate: the wiring is
 asserted offline in `agents/n8n/scripts/test_article_review_gate.py` and

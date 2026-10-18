@@ -28,13 +28,20 @@
 
 ## 3. Apply to the live instance
 
-- [ ] 3.1 Apply `Article Content Writer` with `--changes` and `--require-edge` on the selector's own
+- [x] 3.1 Apply `Article Content Writer` with `--changes` and `--require-edge` on the selector's own
   edges, then re-read and diff against the export.
-- [ ] 3.2 Confirm the entry point stays `active: False`.
+  **Landed 2026-10-18**, together with the retry-carry change's two workflows. Both guards held
+  (`select_article_to_queue>update_status_in_progress`, `update_status_in_progress>switch_phase`),
+  the write landed, and the re-read shows no node, connection or setting differing from the export.
+- [x] 3.2 Confirm the entry point stays `active: False`.
+  **Landed.** `active: False -> False`. Its export still claims a published version, because it was
+  deactivated after the last backup; the 02:00 backup reconciles that, and the live object has
+  `activeVersion: null`.
 
 ## 4. Documentation
 
-- [ ] 4.1 Record in `AGENTS.md`'s `#### Article Creator` subsection that the requested set names each
+- [x] 4.1 Record in `AGENTS.md`'s `#### Article Creator` subsection that the requested set names each
   type once, and why the de-duplication lives in the selector.
+  **Landed**, with the live row's own value (`svg_wide,svg_wide`) as the evidence.
 - [ ] 4.2 Archive when the graph is live and 2.1–2.2 have run:
   `openspec archive dedupe-the-requested-asset-set`.

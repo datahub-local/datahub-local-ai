@@ -42,25 +42,49 @@
   second** — the reverse order is a window in which the pushed prompt names a placeholder the
   graph does not pass, and `DownloadTemplate` stops every run in that window. A graph that passes a
   var the prompt does not use is harmless, so apply, then push.
-- [ ] 4.2 Apply `Article Creator` and `LinkedIn Post Creator` with `--changes` and `--require-edge`,
+- [x] 4.2 Apply `Article Creator` and `LinkedIn Post Creator` with `--changes` and `--require-edge`,
   then re-read both and diff against the exports.
-- [ ] 4.3 Confirm both workflows stay `active`, and that the published version carries the edit —
+  **Landed 2026-10-18.** Six guards held across the three workflows (`Article Creator`
+  `nPBkIpeObC1Om0LH`, `LinkedIn Post Creator` `PaeHFdCsdoVbQx11`, plus `Article Content Writer` for
+  the companion dedupe change). All three writes landed, `active` unchanged on each (`True`, `True`,
+  `False`). Re-read: no parameter, connection or setting differs from the exports. `Article
+  Creator`'s only deltas are node **positions** — the graph has been rearranged in the editor, and
+  positions are UI-owned — and the entry point's export still claims a published version because it
+  was deactivated (see `add-content-writer-agent` 6.6); the 02:00 backup reconciles both.
+- [x] 4.3 Confirm both workflows stay `active`, and that the published version carries the edit —
   the article path runs the published sub-workflow, not the draft.
+  **Landed.** Both stayed `active: True` and the PUT republished on its own, so the published
+  version carries the edit: the article lane's own runs below are proof, since a run reaches
+  `download_article_prompt` through the published graph.
 
 ## 5. Behaviour
 
-- [ ] 5.1 Drive one article retry and read the run's own `download_article_prompt` output on the
+- [x] 5.1 Drive one article retry and read the run's own `download_article_prompt` output on the
   retry attempt: the previous-draft block carries the rejected draft, and the turn writes instead of
   searching. This is the one property no offline case can show.
-- [ ] 5.2 Record what the retry cost, against the thirteen tool calls execution 14020 spent.
+  **Landed — execution 14071, the inverse of 14020.** Attempt 0: **617/400** →
+  `PROBLEM = OVER_BUDGET: 617 words against MAX_WORDS=400`. Attempt 1: **387/400**, accepted
+  (`ERROR=''`), reviewer `true`. The retry's prompt carries **3717 characters** of the rejected
+  draft, and attempt 0's block is **empty** — the `isExecuted` guard behaves. The retry is an
+  *edit*: it kept attempt 0's opening sentence ("Every night my homelab platform did the same honest,
+  wasteful thing. Airflow fired the dlt ingest at 01:00…") and cut 617 words to 387.
+- [x] 5.2 Record what the retry cost, against the thirteen tool calls execution 14020 spent.
+  **Landed.** The whole 14071 run made **1 `research_sources` + 1 `read_page`** and **5 `ai_model`
+  calls**, both lookups on the first attempt — the retry researched nothing. Execution 14020's retry
+  alone made **13 tool calls and 16 model calls** and died on the iteration cap. Same lane, same
+  budget, same homonym-free topic class; the difference is the draft it was handed.
 
 ## 6. Documentation
 
-- [ ] 6.1 Record in `AGENTS.md`: the retry carries the rejected draft in both lanes, the `.last()`
+- [x] 6.1 Record in `AGENTS.md`: the retry carries the rejected draft in both lanes, the `.last()`
   reason, and the finding that the drafting agent's iteration bound is a cost cap rather than a
   spiral fix (13603 at 8, 14020 at 12).
-- [ ] 6.2 Record the manual-execution fact in the n8n section: n8n does not invoke
+  **Landed** in the `#### Article Creator` subsection, with the measured before/after and the
+  apply-before-push order.
+- [x] 6.2 Record the manual-execution fact in the n8n section: n8n does not invoke
   `settings.errorWorkflow` for a manual execution, so a manual test that fails is silent — which is
   why `Article Content Writer Error` has never run.
+  **Landed** as a bullet beside the existing error-workflow rule, with the guard read off the
+  running image and the measurable consequence.
 - [ ] 6.3 Archive when both graphs are live, the prompts are pushed and 5.1 has run:
   `openspec archive carry-the-rejected-draft-into-the-retry`.

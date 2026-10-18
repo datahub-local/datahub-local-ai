@@ -180,3 +180,19 @@ def test_both_prompt_files_name_the_same_marker_form():
     assert "spelled as the type id" not in reviewer, (
         "the wording that made the reviewer reject a correct marker is back"
     )
+
+
+@pytest.mark.parametrize("label,document", list(_copies()))
+def test_the_reviewer_retries_a_transient_model_failure(label, document):
+    """The gate's own model call is retried, exactly as the LinkedIn lane's is.
+
+    Measured live 2026-10-18: one 30 s LiteLLM timeout on `check_article_llm` ended a run
+    that had already produced four drafts (execution 13975), while the node it mirrors --
+    `check_rules_llm` in `LinkedIn Post Creator` -- carries `retryOnFail: true` with five
+    tries, and the drafting agent in this workflow carries the same. A reviewer that fails
+    the run it is checking is worse than one that reports no verdict.
+    """
+    node = _nodes(document)["check_article_llm"]
+    assert node.get("retryOnFail") is True, f"{label}: the reviewer does not retry"
+    assert node.get("maxTries") == 5, f"{label}: the reviewer's retry bound changed"
+    assert node.get("waitBetweenTries") == 5000, f"{label}: the reviewer's retry wait changed"

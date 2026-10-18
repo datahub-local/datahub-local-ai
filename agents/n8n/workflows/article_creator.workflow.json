@@ -464,7 +464,10 @@
           -992
         ],
         "type": "@n8n/n8n-nodes-langchain.chainLlm",
-        "typeVersion": 1.6
+        "typeVersion": 1.6,
+        "retryOnFail": true,
+        "maxTries": 5,
+        "waitBetweenTries": 5000
       },
       {
         "id": "3c1b292c-9d8b-48c7-baba-365b1b9ada0e",
@@ -1437,7 +1440,10 @@
         -992
       ],
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
-      "typeVersion": 1.6
+      "typeVersion": 1.6,
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000
     },
     {
       "id": "3c1b292c-9d8b-48c7-baba-365b1b9ada0e",

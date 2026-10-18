@@ -271,7 +271,9 @@ def test_the_hero_reference_replaces_the_marker_where_the_writer_put_it():
             "disambiguate_slug": [{"SLUG": slug}],
             "read_draft_for_publish": [{"ARTICLE_TEXT": PUBLISHED_DRAFT, "TITLE": "Cutting a Nightly dbt Rebuild to Six Minutes"}],
             "read_asset_rows_for_publish": [{"ASSET_TYPE": "image_wide", "CONTENT_TYPE": "image/png"}],
-            "select_article_to_queue": [{"CATEGORIES": "Data", "ENTRY_ID": 1, "ROW_NUMBER": 1}],
+            "select_article_to_queue": [
+                {"CATEGORIES": "Data", "ENTRY_ID": 1, "ROW_NUMBER": 1, "REQUESTED_ASSETS": "image_wide"}
+            ],
         },
     )
     assert not [line for line in result["logs"] if "placed without a marker" in line], (
@@ -299,11 +301,66 @@ def test_the_hero_reference_replaces_the_marker_where_the_writer_put_it():
                  "TITLE": "Cutting a Nightly dbt Rebuild to Six Minutes"}
             ],
             "read_asset_rows_for_publish": [{"ASSET_TYPE": "image_wide", "CONTENT_TYPE": "image/png"}],
-            "select_article_to_queue": [{"CATEGORIES": "Data", "ENTRY_ID": 1, "ROW_NUMBER": 1}],
+            "select_article_to_queue": [
+                {"CATEGORIES": "Data", "ENTRY_ID": 1, "ROW_NUMBER": 1, "REQUESTED_ASSETS": "image_wide"}
+            ],
         },
     )
     assert [line for line in stale["logs"] if "placed without a marker: image_wide" in line], (
         "an unmatched marker no longer takes the fallback, so this test asserts nothing"
+    )
+
+
+def test_the_requested_set_is_derived_once_and_read_by_its_consumers():
+    """One definition of the hero rule, read by the gate and by the commit path.
+
+    The rule was derived twice, in `select_article_to_queue` and again in
+    `if_all_assets_approved`, coupled only by a comment. The commit path derived nothing and took
+    every row the table held, which is how an entry that once requested `image` and now requests
+    `image_wide` committed both.
+    """
+    selector = _js("select_article_to_queue")
+    assert "REQUESTED_ASSETS" in selector, "the selector no longer publishes the set it derived"
+    assert selector.count("includes('image_wide')") == 1, "the hero rule is derived more than once"
+    for name in ("if_all_assets_approved", "build_commit_files"):
+        code = _js(name)
+        assert "REQUESTED_ASSETS" in code, f"{name} does not read the selector's set"
+        assert "includes('image_wide')" not in code, f"{name} derives the hero rule again"
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason=NODE_REQUIRED)
+def test_a_row_for_a_type_the_entry_no_longer_requests_is_not_committed():
+    """The commit carries the entry's requested set, not every row the table holds.
+
+    Found while applying `add-content-writer-agent` 4.17 (2026-10-17): `read_asset_rows_for_publish`
+    filters on `ENTRY_ID` alone, so an entry whose requested set had changed committed its old
+    asset too — an orphan image in the repository and a commit that did not match the set the run
+    reported. Worked around by deleting the stale row by hand; fixed here.
+    """
+    slug = "cutting-a-nightly-dbt-rebuild-to-six-minutes"
+    result = _run_code_node(
+        "build_commit_files",
+        {
+            "disambiguate_slug": [{"SLUG": slug}],
+            "read_draft_for_publish": [{"ARTICLE_TEXT": PUBLISHED_DRAFT, "TITLE": "Cutting a Nightly dbt Rebuild to Six Minutes"}],
+            "read_asset_rows_for_publish": [
+                {"ASSET_TYPE": "image_wide", "STATUS": "APPROVED", "CONTENT_TYPE": "image/png"},
+                {"ASSET_TYPE": "image", "STATUS": "APPROVED", "CONTENT_TYPE": "image/png"},
+            ],
+            "select_article_to_queue": [
+                {"CATEGORIES": "Data", "ENTRY_ID": 1, "ROW_NUMBER": 1, "REQUESTED_ASSETS": "image_wide"}
+            ],
+        },
+    )
+    paths = [f["json"]["FILE_PATH"] for f in result["out"]]
+    assert f"docs/img/{slug}-image_wide.png" in paths, "the requested asset was not committed"
+    assert f"docs/img/{slug}-image.png" not in paths, "a row for an unrequested type was committed"
+    assert [line for line in result["logs"] if "not requested by this entry: image" in line], (
+        "the dropped type was not reported, so the run would not show it"
+    )
+    article = next(f["json"] for f in result["out"] if not f["json"]["FILE_IS_BINARY"])
+    assert f"](/docs/img/{slug}-image.png)" not in article["FILE_TEXT"], (
+        "the article references an asset that was not committed"
     )
 
 
@@ -386,7 +443,10 @@ def test_the_hero_every_run_asks_for_is_the_wide_frame():
     # The article's hero is the wide raster; the LinkedIn types stay 4:5 for their own
     # platform. The fallback the splitter uses when a row names nothing is the wide one.
     assert "['image_wide', ...list]" in _js("select_article_to_queue")
-    assert "['image_wide', ...requested]" in _js("if_all_assets_approved")
+    # The gate reads the set the selector derived instead of repeating the rule, so the
+    # fallback exists once. See test_the_requested_set_is_derived_once_and_read_by_its_consumers.
+    assert "REQUESTED_ASSETS" in _js("if_all_assets_approved")
+    assert "['image_wide', ..." not in _js("if_all_assets_approved")
     code = _js("split_pending_types")
     assert "'image_wide'" in code
     assert "'image,svg'" not in code

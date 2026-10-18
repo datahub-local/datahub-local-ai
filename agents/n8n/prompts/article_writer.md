@@ -34,6 +34,7 @@ Two tools, at most three lookups in total, then write:
 Rules:
 
 - Search for the entry's subject, not for a phrase you invented. One search and one read is usually enough.
+- The Source Material above is what this run already fetched: do not read it again, and do not search for it again.
 - A source counts only if it is about the entry's subject. A same-named person, project, album or event is not it: drop it and stop searching instead of hunting for a match.
 - Read a page before you rely on it, and never cite a URL you did not fetch.
 - Write the article as soon as you have one usable source or your lookups are spent, whichever comes first. If nothing usable came back, write from the entry's inputs alone and say in one sentence that no source could be found.
@@ -52,12 +53,16 @@ HIGHEST PRIORITY. A human rejected the previous draft and asked for these change
 
 This is the draft the review rejected. Rewrite it applying the Reviewer Feedback: keep what the review did not object to and change only what the feedback names. Do not research again on a retry — the Source Material above is what this attempt has, and a lookup that already answered is not a reason to repeat it. When the block is empty this is the first attempt: write a fresh draft, and research as the Research section allows.
 
+## Structure
+
+{{ STRUCTURES }}
+
 ## Shape
 
 - Open on the problem in the author's own framing, not on a definition and not on "In this article".
 - Then the reasoning, with the concrete specifics the inputs give: names, versions, configuration, quantities, trade-offs.
-- Close on what the author takes away, in one or two sentences, without summarising the article.
-- Use `##` subheadings only when the article has more than two distinct parts, and keep them short and concrete.
+- Close by pointing at what to read or do next — the follow-up article, the first command, the one thing to change. One or two sentences, and never a summary of the article you just wrote.
+- Use `##` subheadings only where the structure has more than two parts, and keep them short and concrete.
 - When the source link is set, end the body with a single line: `Source: {{ URL }}`.
 - No bullet-point padding: a list only where the items are genuinely parallel.
 

@@ -50,6 +50,7 @@ CALLER_VARS = frozenset(
         "CONTENT",
         "FEEDBACK",
         "PREVIOUS_DRAFT",
+        "STRUCTURES",
     }
 )
 
@@ -95,14 +96,58 @@ def _downloaded(name: str) -> tuple:
     return value["template_name"], set(VAR_KEY_RE.findall(value["template_vars"]))
 
 
-def test_system_prompt_declares_no_placeholder():
-    # It is fetched with `template_vars: {}`, so any placeholder here is an
-    # unresolvable name and DownloadTemplate stops the run.
-    assert _placeholders(SYSTEM_PROMPT) == set()
+def test_system_prompt_declares_only_the_shared_block():
+    # It declares exactly one placeholder, the shared AI-speak list, and the fetch supplies it.
+    # Any other name here is unresolvable and DownloadTemplate stops the run.
+    assert _placeholders(SYSTEM_PROMPT) == {"AI_SPEAK"}
+    supplied = set(VAR_KEY_RE.findall(
+        _node("download_system_prompt")["parameters"]["workflowInputs"]["value"]["template_vars"]))
+    assert supplied == {"AI_SPEAK"}, supplied
 
 
 def test_task_prompt_placeholders_are_the_caller_contract():
     assert _placeholders(TASK_PROMPT) == CALLER_VARS
+
+
+def test_the_rules_carry_the_reader_the_simplicity_rules_and_the_frame():
+    """The audience and the spine are the change; the length and the facts were already there.
+
+    Before this, the writer was told the voice and the budget and nothing about who it was
+    writing for, which is how a Sympozium introduction came back dense with CRDs, admission
+    webhooks and Helm for a reader who had never seen the project.
+    """
+    text = SYSTEM_PROMPT.read_text(encoding="utf-8")
+    assert "new to the subject" in text, "the reader is a practitioner again"
+    assert "Explain every term the first time it appears" in text
+    assert "One idea per sentence" in text
+    assert "Lead with the concrete" in text
+    # the frame, which the gate checks
+    assert "The opening names the subject and the problem it answers" in text
+    assert "The close points at what to do or read next" in text
+    assert "never restates" in text.lower()
+
+
+def test_the_writer_picks_a_body_shape():
+    """Seven shapes, named with their parts, and the Extra Rules can force one."""
+    structures = (PROMPTS / "article_structures.md").read_text(encoding="utf-8")
+    for shape in (
+        "Introduction to a thing",
+        "A decision and what it cost",
+        "An incident and the rule it produced",
+        "A comparison",
+        "A myth corrected",
+        "Getting started",
+        "The state of a thing",
+    ):
+        assert f"## {shape}" in structures, f"the {shape} shape is gone"
+    assert "If the Extra Rules name a shape, use that one" in structures
+    # the two halves agree: the prompt declares it and the fetch supplies it
+    assert "STRUCTURES" in _placeholders(TASK_PROMPT)
+    _name, supplied = _downloaded("download_article_prompt")
+    assert "STRUCTURES" in supplied
+    fetch = _node("download_article_structures")["parameters"]["workflowInputs"]["value"]
+    assert fetch["template_name"] == "prompts/article_structures.md"
+    assert fetch["template_vars"] == "={{ {} }}"
 
 
 def test_task_prompt_documents_the_asset_marker_contract():

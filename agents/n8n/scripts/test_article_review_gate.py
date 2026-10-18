@@ -182,6 +182,21 @@ def test_both_prompt_files_name_the_same_marker_form():
     )
 
 
+def test_the_gate_checks_the_frame_the_tone_and_the_terms():
+    """The objective half of the new rules is the half the gate is allowed to enforce.
+
+    "Is it simple enough" is not a check — that judgement rejected four drafts for a Kubernetes
+    subject on 2026-10-18 and cost a run. What can be checked is the close, the listed phrases and
+    a term used before it is explained.
+    """
+    reviewer = REVIEW_PROMPT.read_text(encoding="utf-8")
+    assert "The close points at what to read or do next" in reviewer, "the directional close is unchecked"
+    assert "restates the article" in reviewer
+    assert "No AI-speak from the list in the rules" in reviewer, "the tone list is unchecked"
+    assert "is explained where it first appears" in reviewer, "the term rule is unchecked"
+    assert "delve" not in reviewer, "the gate restates the banned list instead of reading the rules"
+
+
 def test_the_reviewer_judges_only_the_checks_it_is_given():
     """An invented check is a rule the drafter cannot be told about.
 

@@ -303,7 +303,34 @@ def test_the_ceiling_is_the_expire_pass_s_exclusion():
     for copy in ("nodes", "activeVersion.nodes"):
         js = _js(CURATOR, "build_expire_rows", copy)
         assert "const cancelDays = num(cfg.cancel_after_days, 7);" in js
-        assert "if (age > cancelDays) continue;" in js
+        assert "const sinceUpdate = isFinite(updatedAt) ? (nowMs - updatedAt) / 86400000 : 0;" in js
+        assert "if (sinceUpdate > cancelDays) continue;" in js
+
+
+def test_the_expire_pass_skips_on_the_ceilings_own_clock():
+    # The skip and the ceiling must share one clock (the row's UPDATE_DATE). Measured from
+    # PUBLISHED_AT, an old article rewritten recently is neither past the ceiling nor - having
+    # been skipped - ever past its hook TTL, so it would escape both passes.
+    cfg = {
+        "cancel_after_days": 7,
+        "run_at": "2026-10-18T00:00:00.000Z",
+        "backlog": {"max_per_category": 6, "max_total": 60,
+                    "ttl_days": {"NEWS_REACTION": 10, "default": 60}},
+    }
+    rows = [
+        # old article, written yesterday: not the ceiling's, and past its own TTL -> expire
+        {"row_number": 1, "TITLE": "old article, fresh row", "HOOK": "NEWS_REACTION", "ORIGIN": "AUTO",
+         "STATUS": "QUEUE", "PUBLISHED_AT": "2026-09-18T00:00:00.000Z", "UPDATE_DATE": "2026-10-17T00:00:00.000Z"},
+        # fresh article, untouched for a month: the ceiling's job, so skipped here
+        {"row_number": 2, "TITLE": "stuck row", "HOOK": "NEWS_REACTION", "ORIGIN": "AUTO",
+         "STATUS": "QUEUE", "PUBLISHED_AT": "2026-10-17T00:00:00.000Z", "UPDATE_DATE": "2026-09-18T00:00:00.000Z"},
+    ]
+    result = _items(_run(_js(CURATOR, "build_expire_rows"), {
+        "parse_curator_config": [cfg], "read_articles_sheet": rows, "admit_to_backlog": [],
+    }))
+    emitted = {r["row_number"] for r in result}
+    assert 1 in emitted  # expired on its hook TTL
+    assert 2 not in emitted  # left to the ceiling pass
 
 
 def test_the_ceiling_is_one_value_for_both_queues():

@@ -28,8 +28,11 @@
 - [x] 2.2 Add `build_cancel_rows` and `cancel_stale_queue` to
   `content_feed_curator.workflow.json` (both copies), fan `if_write_to_sheet` out to the new
   pass, and write `CANCELED` — this lane's spelling
-- [x] 2.3 `build_expire_rows` returns early on `age > cancelDays`, so no row is selected by
-  both the TTL pass and the ceiling pass in one run
+- [x] 2.3 `build_expire_rows` returns early on a row past the ceiling, measured on the
+  ceiling's own clock (`UPDATE_DATE`) rather than the `PUBLISHED_AT` the TTL check uses, so no
+  row is selected by both the TTL pass and the ceiling pass — and none escapes both. The first
+  version skipped on `PUBLISHED_AT` and did exactly that (an old article rewritten recently);
+  `test_the_expire_pass_skips_on_the_ceilings_own_clock` fails without the fix
 - [x] 2.4 The board curator's `build_cancel_rows` / `if_has_cancels` /
   `cancel_stale_articles` cancel an `article_queue` row still in play, setting `STATUS` and
   `ARTICLE_STATUS` both, and read the ceiling from `curator_config.json` rather than a

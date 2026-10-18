@@ -1101,8 +1101,10 @@ is deliberately shorter than every hook TTL (10–60 days), so it, not the TTL, 
 retires a queued post — watch the curator digest's depth line.
 
 **One pass owns a row.** `build_expire_rows` keeps the hook TTL, the per-category cap and
-displacement, and returns early on any row past the ceiling so the two passes never write the
-same row in one run (two writes, `EXPIRED` and `CANCELED`, would otherwise race). Both reads
+displacement, and returns early on any row past the ceiling — measured on the ceiling's own clock,
+the row's `UPDATE_DATE`, not the `PUBLISHED_AT` its TTL check uses — so the two passes never write
+the same row in one run (two writes, `EXPIRED` and `CANCELED`, would otherwise race), and no row
+escapes both (an old article rewritten recently did, in the first version). Both reads
 carry `alwaysOutputData`: n8n does not execute a zero-item node, so without it a quiet board
 would stop the chain before the ceiling ran — the same failure shape as a filter emptying a
 chain. The intake is a **create body**, not yet applied, so it has no `activeVersion` and the

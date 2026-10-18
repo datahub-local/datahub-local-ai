@@ -144,9 +144,17 @@ things to keep in step. `board_intake.json` carries only board-specific settings
 
 `build_expire_rows` owns the hook TTL, the per-category cap and displacement, and it only
 touches `ORIGIN=AUTO` `QUEUE` rows. A row past the ceiling is `build_cancel_rows`' job, so
-`build_expire_rows` returns early on `age > cancelDays` and never emits it. Without the
-skip both passes would select the same row on the same run and two sheet writes — `EXPIRED`
-and `CANCELED` — would race, with the last write winning.
+`build_expire_rows` returns early and never emits it. Without the skip both passes would select
+the same row on the same run and two sheet writes — `EXPIRED` and `CANCELED` — would race, with
+the last write winning.
+
+That skip MUST be measured on the ceiling's own clock, the row's `UPDATE_DATE`, not on the
+`PUBLISHED_AT` the TTL check uses. `build_expire_rows` measures staleness from `PUBLISHED_AT` on
+purpose (a launch note is stale ten days after the launch), so a first version that skipped on
+that same age let a row escape both passes: an old article rewritten recently is past the
+ceiling by `PUBLISHED_AT`, so it was skipped there, while its recent `UPDATE_DATE` keeps it off
+the cancel pass — and the hook TTL that would have retired it is never applied. Two clocks for
+one boundary is the bug; `test_the_expire_pass_skips_on_the_ceilings_own_clock` pins it.
 
 ## Risks
 

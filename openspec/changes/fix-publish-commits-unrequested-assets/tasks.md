@@ -44,17 +44,33 @@
 
 ## 4. Apply to the live instance
 
-- [ ] 4.1 Ask the owner before writing: present the diff of the three nodes and get an explicit
+- [x] 4.1 Ask the owner before writing: present the diff of the three nodes and get an explicit
   answer.
-- [ ] 4.2 Apply with `scripts/apply_workflow_changes.py --changes`, guarded by `--require-edge` for
+  **Asked 2026-10-18 and answered** — the diff of the three nodes, the offline results and the four
+  guards were presented, and the owner chose dry run then apply.
+- [x] 4.2 Apply with `scripts/apply_workflow_changes.py --changes`, guarded by `--require-edge` for
   the edges the change assumes, then re-read: the export's node-name set, connections and touched
   nodes match the live read-back, and `active` is unchanged (`False` by design).
-- [ ] 4.3 Confirm the entry point is still `active: False` after the apply, so the schedule cannot
+  **Landed 2026-10-18.** All four guards held (`select_article_to_queue>update_status_in_progress`,
+  `update_status_in_progress>switch_phase`, `read_asset_rows_for_publish>read_draft_for_publish`,
+  `if_all_assets_approved>if_assets_blocked`). The three writes landed and the read-back echoed each
+  node's new code; the PUT republished on its own (`versionId`/`activeVersionId` → `c338a00e…`).
+  Re-read after: both copies 78 nodes, name sets, per-node equality and connections equal to the
+  export, and `settings` equal too. **`active` was `True`, not `False`** — see 4.3.
+- [x] 4.3 Confirm the entry point is still `active: False` after the apply, so the schedule cannot
   tick while `add-content-writer-agent` 6.6 is open.
+  **Not confirmed — the premise was already false, and it is not this change's doing.** Live read
+  `active: True, triggerCount: 1` before the apply and `True` after, and the export has said `True`
+  since the 2026-10-18 nightly backup (`4c1bfb0`) — every backup before it recorded `False`. So the
+  entry point was activated on the instance sometime on 2026-10-17/18, and its `0 0 8 * * 2,4` cron
+  is armed. Raised with the owner rather than changed here: whether to deactivate is a decision
+  about `add-content-writer-agent` 6.6, and this change must not silently reverse it.
 
 ## 5. Documentation
 
-- [ ] 5.1 Record the defect and its fix in `AGENTS.md`'s `#### Article Creator` subsection — the
+- [x] 5.1 Record the defect and its fix in `AGENTS.md`'s `#### Article Creator` subsection — the
   commit carries the requested set, and the requested set has one definition.
+  **Landed**, with the reasoning that made the filter a type filter rather than a status filter, and
+  the offline case that pins the single definition.
 - [ ] 5.2 Archive when the graph is live and 3.1–3.3 have run:
   `openspec archive fix-publish-commits-unrequested-assets`.

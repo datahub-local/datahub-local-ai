@@ -1030,6 +1030,20 @@ bound (execution 13975). Recorded as an open question in the change, not fixed: 
 passes `EXTRA_PROMPT` to both passes the same way. Keep an extra prompt compatible with the
 budget.
 
+**The commit carries the entry's requested set and nothing else.** `read_asset_rows_for_publish`
+filters the asset table on `ENTRY_ID` alone — no type, no status — so a row for a type the entry no
+longer requests used to be committed as well: an orphan image under `docs/img/` that no marker
+references, and a commit that did not match the asset set the run reported. Found 2026-10-17 while
+applying 4.17 and worked around by deleting the stale row by hand, which is a workaround nobody
+would remember on the next entry whose requested set changed. `select_article_to_queue` now emits
+`REQUESTED_ASSETS` — the set it already derives with the hero rule — and both consumers read that
+field: the publish gate stops deriving the rule a second time, and `build_commit_files` filters the
+rows it commits to it and logs the types it left out. `PHASE === 'publish'` already implies every
+requested type is `APPROVED` (the selector computes `pending` from the same set), which is why the
+filter is on the type and not on the status: a status condition could only drop an asset the gate
+had cleared. `test_the_requested_set_is_derived_once_and_read_by_its_consumers` pins that the hero
+rule exists in exactly one node.
+
 **The lane is otherwise unexercised by CI.** Nothing here has a live gate: the wiring is
 asserted offline in `agents/n8n/scripts/test_article_review_gate.py` and
 `test_article_entry_point.py`, and the behaviour was measured by hand on 2026-10-18 — the

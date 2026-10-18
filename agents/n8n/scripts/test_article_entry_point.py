@@ -124,6 +124,25 @@ def test_the_draft_is_gated_before_anything_is_reviewed():
     assert _targets("check_draft_error", 0) == ["derive_slug"]
 
 
+def test_a_thrown_failure_is_reported_like_a_returned_one():
+    """The creator can fail two ways and both must mark the row and tell a human.
+
+    Measured 2026-10-18 (execution 14145): the creator *threw* `Max iterations (12) reached`,
+    n8n stopped the graph at the call node, and neither the reporter nor `check_draft_error` ran
+    — so the row stayed IN_PROGRESS with no ERROR and no notice, which is the gap the reporter
+    exists to close. `continueErrorOutput` is what puts a thrown failure on a branch, and unlike
+    `continueRegularOutput` n8n sets `json.error` on it (measured with a probe, 2026-10-18).
+    """
+    node = _nodes()["execute_article_creator"]
+    assert node.get("onError") == "continueErrorOutput", "a thrown failure stops the graph again"
+    assert _targets("execute_article_creator", 0) == ["check_draft_error"]
+    assert _targets("execute_article_creator", 1) == ["build_failure"]
+    assert _targets("check_draft_error", 1) == ["build_failure"]
+    build = _js("build_failure")
+    assert "$json.ERROR" in build, "the reason a *returned* failure carries is no longer read"
+    assert "$json.error" in build, "the reason a *thrown* failure carries is no longer read"
+
+
 def test_a_failed_draft_is_recorded_and_reported():
     """The failure path writes the row and tells a human, because nothing else will.
 

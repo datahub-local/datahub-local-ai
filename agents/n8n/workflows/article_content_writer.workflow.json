@@ -721,7 +721,8 @@
         "position": [
           2688,
           -112
-        ]
+        ],
+        "onError": "continueErrorOutput"
       },
       {
         "parameters": {
@@ -4218,7 +4219,7 @@
           -112
         ],
         "parameters": {
-          "jsCode": "// The failure path's only reporter. `check_draft_error` hands this the sub-workflow's answer,\n// which on the failure branch is `{ERROR}` alone - the creator returns no row fields - so the\n// row is read from the selector, the same read `fail_draft` used to make for its own message.\nconst row = $('select_article_to_queue').first().json;\nreturn [{ json: {\n  row_number: row.row_number,\n  TOPIC: row.TOPIC || '',\n  REASON: String($json.ERROR || 'no reason returned'),\n} }];"
+          "jsCode": "// The failure path's reporter, for both ways a run can fail here: the creator *returning* a\n// reason as data (`ERROR`, read by `check_draft_error`) and the creator *throwing* (`onError:\n// continueErrorOutput`, which n8n hands over with `json.error` set). The row comes from the\n// selector either way, because the creator's own answer carries no row fields.\nconst row = $('select_article_to_queue').first().json;\nconst thrown = $json.error && $json.error.message;\nreturn [{ json: {\n  row_number: row.row_number,\n  TOPIC: row.TOPIC || '',\n  REASON: String($json.ERROR || thrown || 'no reason returned'),\n} }];"
         }
       },
       {
@@ -4689,6 +4690,13 @@
           [
             {
               "node": "check_draft_error",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "build_failure",
               "type": "main",
               "index": 0
             }
@@ -5620,6 +5628,13 @@
         [
           {
             "node": "check_draft_error",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "build_failure",
             "type": "main",
             "index": 0
           }
@@ -7096,7 +7111,8 @@
       "position": [
         2688,
         -112
-      ]
+      ],
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -10593,7 +10609,7 @@
         -112
       ],
       "parameters": {
-        "jsCode": "// The failure path's only reporter. `check_draft_error` hands this the sub-workflow's answer,\n// which on the failure branch is `{ERROR}` alone - the creator returns no row fields - so the\n// row is read from the selector, the same read `fail_draft` used to make for its own message.\nconst row = $('select_article_to_queue').first().json;\nreturn [{ json: {\n  row_number: row.row_number,\n  TOPIC: row.TOPIC || '',\n  REASON: String($json.ERROR || 'no reason returned'),\n} }];"
+        "jsCode": "// The failure path's reporter, for both ways a run can fail here: the creator *returning* a\n// reason as data (`ERROR`, read by `check_draft_error`) and the creator *throwing* (`onError:\n// continueErrorOutput`, which n8n hands over with `json.error` set). The row comes from the\n// selector either way, because the creator's own answer carries no row fields.\nconst row = $('select_article_to_queue').first().json;\nconst thrown = $json.error && $json.error.message;\nreturn [{ json: {\n  row_number: row.row_number,\n  TOPIC: row.TOPIC || '',\n  REASON: String($json.ERROR || thrown || 'no reason returned'),\n} }];"
       }
     },
     {

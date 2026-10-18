@@ -415,7 +415,11 @@ Eight structural things worth knowing before editing an export:
   success branch on failure. Branch on a marker only the success path sets, or
   have the node report the failure as data (`ExecuteCommand` and the Puppeteer
   node handle `continueOnFail` themselves and *do* set `json.error`; the puppeteer
-  script's own `catch` is the reliable place). Hit 2026-09-28.
+  script's own `catch` is the reliable place). Hit 2026-09-28. Note the mode: that
+  is `continueRegularOutput`, which forwards the input. **`continueErrorOutput` is
+  the opposite** — it puts the failure on a second output with `json.error` set
+  (`{message, name, stack}`, measured with a probe 2026-10-18), which is the mode
+  to use when a thrown failure has to be reported.
 - **A node past `typeVersion` 4.1 re-runs its operation once per input item**,
   so a read node's cost is the size of the stream reaching it, not one call.
   (Sheets is explicit about it: `read.operation.ts` does `let length = 1; if
@@ -1114,6 +1118,33 @@ than `$('execute_article_creator').item`, because a paired-item read through new
 schema, or the column is silently not written. A row in `ERROR` is **not** picked up again —
 `pick_candidate` selects `QUEUE` rows and stale claims — so it waits for a person, which is the
 deliberate direction.
+
+**The writer's tools are attached only when the entry has no source of its own.** A first attempt can
+spiral exactly as a retry did, and the retry carry cannot help it: on 2026-10-18 execution 14147 —
+whose prompt already held the README — called `research_sources` **seven times** with the same query
+and `read_page` **six times** on the same page, 13 tool calls with three losing an iteration to a
+gateway failure, and hit `Max iterations (12)` with no draft at all. `download_system_prompt` now
+feeds `if_needs_research`, which branches on whether the entry's `CONTENT` already carries its source:
+with a source, `create_article_ai_plain` runs and has **no tools attached**, so a spiral is
+impossible; without one, `create_article_ai` keeps `research_sources` and `read_page`. Both agents
+share the model nodes over `ai_languageModel` and both feed `parse_article`, and both are handed the
+same prompt — the tool surface is the only difference. The researching agent's budget is raised to
+**20** (the owner's call) and the no-tools agent stays at the measured floor of **8**; note the
+trade, because `maxRetries` multiplies with the 120 s timeout, so a spiralling turn there can now
+cost twenty steps. An agent node needs its `Chat Model` and `Fallback Model` inputs connected or the
+PUT is refused (`Workflow cannot be activated because required inputs are not connected`), which is
+how the first attempt at this change was caught.
+
+**A failure the creator *throws* is reported the same way as one it returns.** The reporter added for
+a returned failure covered only half the cases: `check_draft_error` never runs when the sub-workflow
+call itself throws, so execution 14145 (`Max iterations (12) reached`) stopped the graph at
+`execute_article_creator` and left the row `IN_PROGRESS` with no `ERROR` and no notice. The call node
+now carries `onError: continueErrorOutput`, and its second output joins the returned-failure branch at
+`build_failure`. Unlike `continueRegularOutput` — where n8n forwards the node's input and sets no
+`json.error` (the 2026-09-28 note) — `continueErrorOutput` **does** set it: a probe measured
+`{"message":"connect ECONNREFUSED 127.0.0.1:9","name":"Error","stack":…}` on the error output, so
+`build_failure` reads `$json.ERROR` or `$json.error.message` and the row carries the real reason
+either way.
 
 **The lane is otherwise unexercised by CI.** Nothing here has a live gate: the wiring is
 asserted offline in `agents/n8n/scripts/test_article_review_gate.py` and

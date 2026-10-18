@@ -193,7 +193,7 @@
           "text": "={{ $('download_system_prompt').item.json.output + '\\n\\n---\\n\\n' + $('download_article_prompt').item.json.output }}",
           "needsFallback": true,
           "options": {
-            "maxIterations": 12
+            "maxIterations": 20
           }
         },
         "id": "33284e9b-40ab-4e97-a604-277598c7f834",
@@ -582,6 +582,62 @@
         ],
         "type": "n8n-nodes-base.set",
         "typeVersion": 3.4
+      },
+      {
+        "id": "5ef3a220-aeed-4581-b50b-f1e6cd65acef",
+        "name": "if_needs_research",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          -16544,
+          -992
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "loose",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "42b54cf1-d7cf-49f3-944d-2cfa698aa1bc",
+                "leftValue": "={{ String($('main_trigger').first().json.CONTENT || '').trim().length }}",
+                "rightValue": 200,
+                "operator": {
+                  "type": "number",
+                  "operation": "lt"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "looseTypeValidation": true,
+          "options": {}
+        }
+      },
+      {
+        "parameters": {
+          "promptType": "define",
+          "text": "={{ $('download_system_prompt').item.json.output + '\\n\\n---\\n\\n' + $('download_article_prompt').item.json.output }}",
+          "needsFallback": true,
+          "options": {
+            "maxIterations": 8
+          }
+        },
+        "id": "873d2869-5810-4b17-829c-80b60171ab9f",
+        "name": "create_article_ai_plain",
+        "type": "@n8n/n8n-nodes-langchain.agent",
+        "typeVersion": 3.1,
+        "alwaysOutputData": false,
+        "retryOnFail": true,
+        "maxTries": 5,
+        "waitBetweenTries": 5000,
+        "position": [
+          -16544,
+          -768
+        ]
       }
     ],
     "connections": {
@@ -622,7 +678,7 @@
         "main": [
           [
             {
-              "node": "create_article_ai",
+              "node": "if_needs_research",
               "type": "main",
               "index": 0
             }
@@ -663,6 +719,11 @@
               "node": "check_article_llm",
               "type": "ai_languageModel",
               "index": 0
+            },
+            {
+              "node": "create_article_ai_plain",
+              "type": "ai_languageModel",
+              "index": 0
             }
           ]
         ]
@@ -677,6 +738,11 @@
             },
             {
               "node": "create_article_ai",
+              "type": "ai_languageModel",
+              "index": 1
+            },
+            {
+              "node": "create_article_ai_plain",
               "type": "ai_languageModel",
               "index": 1
             }
@@ -773,6 +839,35 @@
             }
           ]
         ]
+      },
+      "if_needs_research": {
+        "main": [
+          [
+            {
+              "node": "create_article_ai",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "create_article_ai_plain",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "create_article_ai_plain": {
+        "main": [
+          [
+            {
+              "node": "parse_article",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
       }
     },
     "nodeGroups": [],
@@ -822,7 +917,7 @@
       "main": [
         [
           {
-            "node": "create_article_ai",
+            "node": "if_needs_research",
             "type": "main",
             "index": 0
           }
@@ -863,6 +958,11 @@
             "node": "check_article_llm",
             "type": "ai_languageModel",
             "index": 0
+          },
+          {
+            "node": "create_article_ai_plain",
+            "type": "ai_languageModel",
+            "index": 0
           }
         ]
       ]
@@ -877,6 +977,11 @@
           },
           {
             "node": "create_article_ai",
+            "type": "ai_languageModel",
+            "index": 1
+          },
+          {
+            "node": "create_article_ai_plain",
             "type": "ai_languageModel",
             "index": 1
           }
@@ -968,6 +1073,35 @@
         [
           {
             "node": "download_article_prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if_needs_research": {
+      "main": [
+        [
+          {
+            "node": "create_article_ai",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "create_article_ai_plain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "create_article_ai_plain": {
+      "main": [
+        [
+          {
+            "node": "parse_article",
             "type": "main",
             "index": 0
           }
@@ -1171,7 +1305,7 @@
         "text": "={{ $('download_system_prompt').item.json.output + '\\n\\n---\\n\\n' + $('download_article_prompt').item.json.output }}",
         "needsFallback": true,
         "options": {
-          "maxIterations": 12
+          "maxIterations": 20
         }
       },
       "id": "33284e9b-40ab-4e97-a604-277598c7f834",
@@ -1560,6 +1694,62 @@
       ],
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4
+    },
+    {
+      "id": "5ef3a220-aeed-4581-b50b-f1e6cd65acef",
+      "name": "if_needs_research",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -16544,
+        -992
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "42b54cf1-d7cf-49f3-944d-2cfa698aa1bc",
+              "leftValue": "={{ String($('main_trigger').first().json.CONTENT || '').trim().length }}",
+              "rightValue": 200,
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('download_system_prompt').item.json.output + '\\n\\n---\\n\\n' + $('download_article_prompt').item.json.output }}",
+        "needsFallback": true,
+        "options": {
+          "maxIterations": 8
+        }
+      },
+      "id": "873d2869-5810-4b17-829c-80b60171ab9f",
+      "name": "create_article_ai_plain",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "alwaysOutputData": false,
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "position": [
+        -16544,
+        -768
+      ]
     }
   ],
   "pinData": {},

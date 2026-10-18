@@ -76,6 +76,12 @@ def _creator() -> dict:
     return json.loads(CREATOR.read_text(encoding="utf-8"))
 
 
+def _edges(source: str, index: int = 0) -> list:
+    branches = (_creator()["connections"].get(source) or {}).get("main") or []
+    branch = branches[index] if index < len(branches) else []
+    return [edge["node"] for edge in (branch or [])]
+
+
 def _node(name: str) -> dict:
     for node in _creator()["nodes"]:
         if node["name"] == name:
@@ -230,6 +236,39 @@ def test_every_writer_tool_can_be_executed_by_the_agent():
     for name in _writer_tools():
         assert _node(name)["type"] in EXECUTABLE_TOOL_TYPES, name
         assert "@n8n/n8n-nodes-langchain.toolHttpRequest" != _node(name)["type"]
+
+
+def test_the_writer_only_gets_tools_when_the_entry_has_no_source():
+    """A row that already carries its source cannot call a tool, so it cannot spiral.
+
+    Measured 2026-10-18 (execution 14147): a *first* attempt whose prompt already held the
+    README called `research_sources` seven times with the same query and `read_page` six times
+    on the same page — 13 tool calls, three of them losing an iteration to a gateway failure —
+    and hit `Max iterations (12)` with no draft. The retry fix cannot help a first attempt, so
+    the tool surface itself is split: the tools belong to the agent that needs to research.
+    """
+    assert _edges("download_system_prompt") == ["if_needs_research"]
+    assert _edges("if_needs_research", 0) == ["create_article_ai"]
+    assert _edges("if_needs_research", 1) == ["create_article_ai_plain"]
+    assert _edges("create_article_ai") == ["parse_article"]
+    assert _edges("create_article_ai_plain") == ["parse_article"]
+    plain_tools = {
+        name
+        for name, kinds in _creator()["connections"].items()
+        for branches in (kinds.get("ai_tool") or [])
+        for edge in branches or []
+        if edge["node"] == "create_article_ai_plain"
+    }
+    assert not plain_tools, f"the no-tools agent has tools attached: {sorted(plain_tools)}"
+    assert _writer_tools() == {"research_sources", "read_page"}
+    # The split is driven by whether the prompt already carries the source, and both agents are
+    # handed the same prompt. The researching one gets the raised budget; the other needs only
+    # the measured floor for a turn that loses iterations to model failures.
+    condition = _node("if_needs_research")["parameters"]["conditions"]["conditions"][0]
+    assert "CONTENT" in condition["leftValue"] and condition["operator"]["operation"] == "lt"
+    assert _node("create_article_ai_plain")["parameters"]["text"] == _node("create_article_ai")["parameters"]["text"]
+    assert _node("create_article_ai")["parameters"]["options"]["maxIterations"] == 20
+    assert _node("create_article_ai_plain")["parameters"]["options"]["maxIterations"] == 8
 
 
 def test_the_writer_researches_through_workflows_in_this_repository():

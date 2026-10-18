@@ -192,4 +192,11 @@
 - [ ] 6.4 Verify idempotency by running the trigger again for the published test row; confirm no commit, no asset and no row change
 - [ ] 6.5 Verify a source link that cannot be fetched continues from topic/description and records that the link was not used
 - [ ] 6.6 Keep the schedule inactive and run by manual trigger until 6.2–6.5 pass, then activate the schedule and confirm the next tick selects at most one `QUEUE` row and processes no more than one entry per trigger
+ **Deactivated again 2026-10-18, deliberately.** The entry point was found live `active: True` with
+ its `0 0 8 * * 2,4` cron armed, and the export had recorded `True` in every backup since
+ 2026-10-18 02:00 (`4c1bfb0`) against `False` before that — so it was activated on the instance on
+ 2026-10-17/18, with 6.2–6.5 still open and the next tick two days out. `POST
+ /api/v1/workflows/sKsjxDDW40TATaS6/deactivate` answered `200`, the read-back is `active: False,
+ activeVersionId: null` with all 78 nodes intact, and the export still says `True` until the 02:00
+ backup reconciles it. Re-arm only when 6.2–6.5 have passed.
 - [ ] 6.7 Verify the research path through the entry point, on one row each: (a) a subject the web has — the draft cites a page the writer fetched during the run and cites nothing else; (b) a subject it does not — the draft cites nothing, says no source was found, and is still produced. Both were exercised against `Article Creator` by probe and are recorded in the design's measurements; this task is the same two runs end to end, where the row state and the Slack review are part of the evidence. Also record how often `ai_model` fails on a tool-attached call and whether any run exhausts `maxIterations`

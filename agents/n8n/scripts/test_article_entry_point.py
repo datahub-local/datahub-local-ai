@@ -249,8 +249,11 @@ def test_a_raster_is_stored_and_an_agent_asset_is_refetched():
     assert "S3_KEY" in plan
     assert "NEEDS_FETCH" in plan
     # The fetch branch exists and converges back on the blob call.
-    assert _targets("if_asset_needs_fetch", 0) == ["create_blobs"]
-    assert _targets("if_asset_needs_fetch", 1) == ["presign_asset_publish"]
+    # NEEDS_FETCH true is the agent asset: an object key and no local bytes, so it must be
+    # fetched. The local-bytes case goes straight to the blob. The outputs were the other way
+    # round until 2026-10-18, which is why the published SVG was a 0-byte file.
+    assert _targets("if_asset_needs_fetch", 0) == ["presign_asset_publish"]
+    assert _targets("if_asset_needs_fetch", 1) == ["create_blobs"]
     assert "create_blobs" in _reachable("asset_bytes_from_download")
 
 
@@ -321,9 +324,10 @@ def _run_code_node(name, scope, input_items=None):
           all: () => incoming.map((json) => ({ json })),
           first: () => ({ json: incoming[0] }),
         };
+        const $json = incoming[0];
         const console = { log: (...a) => logs.push(a.join(' ')) };
-        const fn = new Function('$', 'console', '$input', %s);
-        process.stdout.write(JSON.stringify({ out: fn($, console, $input), logs }));
+        const fn = new Function('$', 'console', '$input', '$json', %s);
+        process.stdout.write(JSON.stringify({ out: fn($, console, $input, $json), logs }));
         """
     ) % (json.dumps(scope), json.dumps(input_items or []), json.dumps(_js(name)))
     with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as fh:
@@ -366,7 +370,7 @@ def test_the_hero_reference_replaces_the_marker_where_the_writer_put_it():
     lines = article["FILE_TEXT"].split("\n")
     assert not [line for line in lines if "<!-- asset:" in line], "a marker survived into the file"
     at = next(
-        (i for i, line in enumerate(lines) if f"](/docs/img/{slug}-image_wide.png)" in line),
+        (i for i, line in enumerate(lines) if f"](/img/{slug}-image_wide.png)" in line),
         None,
     )
     assert at is not None, "the hero reference is not in the committed file"
@@ -442,7 +446,7 @@ def test_a_row_for_a_type_the_entry_no_longer_requests_is_not_committed():
         "the dropped type was not reported, so the run would not show it"
     )
     article = next(f["json"] for f in result["out"] if not f["json"]["FILE_IS_BINARY"])
-    assert f"](/docs/img/{slug}-image.png)" not in article["FILE_TEXT"], (
+    assert f"](/img/{slug}-image.png)" not in article["FILE_TEXT"], (
         "the article references an asset that was not committed"
     )
 
@@ -534,7 +538,43 @@ def test_an_svg_asset_commits_with_an_svg_extension():
     assert "docs/img/an-entry-svg_wide.svg" in paths, paths
     assert not [p for p in paths if "+" in p], paths
     article = next(f["json"] for f in result["out"] if not f["json"]["FILE_IS_BINARY"])
-    assert "](/docs/img/an-entry-svg_wide.svg)" in article["FILE_TEXT"]
+    assert "](/img/an-entry-svg_wide.svg)" in article["FILE_TEXT"], "the reference is a site path"
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason=NODE_REQUIRED)
+def test_the_published_url_is_the_one_the_site_serves():
+    """The URL is built from the title, not the entry's slug, and the host is `www.`.
+
+    Measured 2026-10-18: run 14228 announced
+    `https://alvsanand.com/blog/2026/10/18/sympozium-when-one-ai-agent-isn-t-enough/` and the
+    site serves `https://www.alvsanand.com/blog/2026/10/18/sympozium-when-one-ai-agent-isnt-enough/`
+    — the blog plugin slugifies the *title*, so "isn't" loses its apostrophe rather than gaining
+    a hyphen, and the filename's `202610-` prefix never appears.
+    """
+    result = _run_code_node(
+        "build_commit_files",
+        {
+            "disambiguate_slug": [{"SLUG": "sympozium-when-one-ai-agent-isn-t-enough"}],
+            "read_draft_for_publish": [
+                {
+                    "ARTICLE_TEXT": "Opening.\n\n<!-- asset:svg_wide -->\n\n## A section\n\nBody.",
+                    "TITLE": "Sympozium: when one AI agent isn't enough",
+                }
+            ],
+            "read_asset_rows_for_publish": [
+                {"ASSET_TYPE": "svg_wide", "STATUS": "APPROVED", "CONTENT_TYPE": "image/svg+xml"}
+            ],
+            "select_article_to_queue": [
+                {"CATEGORIES": "OSS", "ENTRY_ID": 1, "ROW_NUMBER": 1, "REQUESTED_ASSETS": "svg_wide"}
+            ],
+        },
+    )
+    article = result["out"][0]["json"]
+    day = re.search(r"^date: (\d{4}-\d{2}-\d{2})$", article["FILE_TEXT"], re.M).group(1)
+    yyyy, mm, dd = day.split("-")
+    assert article["PUBLISHED_URL"] == (
+        f"https://www.alvsanand.com/blog/{yyyy}/{mm}/{dd}/sympozium-when-one-ai-agent-isnt-enough/"
+    ), article["PUBLISHED_URL"]
 
 
 def test_one_commit_sequence_with_a_guarded_fast_forward_retry():

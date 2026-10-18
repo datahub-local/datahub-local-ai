@@ -20,6 +20,10 @@ inside ``activeVersion``, and a fix applied to one copy is a live bug.
 
 import json
 import re
+import shutil
+import subprocess
+import tempfile
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -32,6 +36,40 @@ REVIEW_PROMPT = PROMPTS / "article_review.md"
 
 PLACEHOLDER_RE = re.compile(r"\{\{\s*([A-Z_]+)\s*\}\}")
 VAR_KEY_RE = re.compile(r'"([A-Z_]+)":')
+NODE_REQUIRED = "node is required to execute a Code node"
+
+
+def _run_code_node(name, scope, incoming=None):
+    """Execute a committed Code node of Article Creator with a stubbed n8n context."""
+    code = _nodes({"nodes": json.loads(CREATOR.read_text(encoding="utf-8"))["nodes"]})[name][
+        "parameters"]["jsCode"]
+    harness = textwrap.dedent(
+        """
+        const scope = %s; const incoming = %s;
+        const $ = (n) => {
+          if (!(n in scope)) throw new Error('the test did not provide node ' + n);
+          const items = scope[n].map((json) => ({ json }));
+          return { first: () => items[0], all: () => items, item: items[0] };
+        };
+        const $input = {
+          all: () => incoming.map((json) => ({ json })),
+          first: () => ({ json: incoming[0] }),
+        };
+        const $json = incoming[0];
+        const console = { log: () => {} };
+        const fn = new Function('$', 'console', '$input', '$json', %s);
+        process.stdout.write(JSON.stringify(fn($, console, $input, $json)));
+        """
+    ) % (json.dumps(scope), json.dumps(incoming or []), json.dumps(code))
+    with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as fh:
+        fh.write(harness)
+        path = fh.name
+    try:
+        done = subprocess.run(["node", path], capture_output=True, text=True, check=False)
+    finally:
+        Path(path).unlink()
+    assert done.returncode == 0, done.stderr
+    return json.loads(done.stdout)
 
 
 def _copies():
@@ -195,6 +233,36 @@ def test_the_gate_checks_the_frame_the_tone_and_the_terms():
     assert "No AI-speak from the list in the rules" in reviewer, "the tone list is unchecked"
     assert "is explained where it first appears" in reviewer, "the term rule is unchecked"
     assert "delve" not in reviewer, "the gate restates the banned list instead of reading the rules"
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason=NODE_REQUIRED)
+def test_a_duplicated_marker_is_a_problem_in_code():
+    """How many markers a draft carries is a count, so the code counts it.
+
+    Both drafts of run 14228 carried `<!-- asset:svg_wide -->` twice — the writer was handed the
+    entry's raw `ASSET_TYPES` (`svg_wide,svg_wide`) while the selector had deduplicated it — the
+    gate passed them, and the published article referenced one illustration twice. A model
+    judgement missed it; this does not.
+    """
+
+    def problem(body):
+        return _run_code_node(
+            "parse_article",
+            {
+                "set_workflow_vars": [{"MAX_WORDS": 1200}],
+                "main_trigger": [{"ASSET_TYPES": "svg_wide"}],
+            },
+            [{"output": "<article>\n# A Title\n" + body + "\n</article>"}],
+        )["json"]["PROBLEM"]
+
+    assert problem("Opening.\n\n<!-- asset:svg_wide -->\n\n## S\n\nBody.") == ""
+    assert problem("Opening.\n\n<!-- asset:svg_wide -->\n\n## S\n\n<!-- asset:svg_wide -->\n\nBody.") == (
+        "MARKERS: svg_wide x2"
+    )
+    assert problem("Opening.\n\n## S\n\nBody.") == "MARKERS: svg_wide x0"
+    assert problem("Opening.\n\n<!-- asset:image_wide -->\n\n## S\n\nBody.") == (
+        "MARKERS: svg_wide x0, image_wide not requested"
+    )
 
 
 def test_the_reviewer_judges_only_the_checks_it_is_given():

@@ -1212,6 +1212,36 @@ it. Measured by executing the committed node: the same call with `image/png`, `v
 every type except the one now used as the default hero. It is a lookup on the content type with the
 slash split as its fallback, and `test_an_svg_asset_commits_with_an_svg_extension` pins it.
 
+**The first published article exposed four defects at once, all in the commit and marker paths.** Run
+14228 published the Sympozium introduction on 2026-10-18, and the result was a post whose only image
+was an empty file referenced at a path the site does not serve, from a URL that 404s.
+
+- **The fetch branch was inverted.** `plan_asset_uploads` marks an agent asset `NEEDS_FETCH: true`
+  (it has an `S3_KEY` and no local bytes), and `if_asset_needs_fetch` sent that **straight to
+  `create_blobs` with `FILE_BASE64: ''`**, while the fetch path
+  (`presign_asset_publish` → `download_asset_publish` → `asset_bytes_from_download`) hung off the
+  *false* output. The run proves it: those three nodes did not execute, and the committed file is
+  **0 bytes** — the GitHub API reports `size: 0`, `sha e69de29b…`, git's empty blob. The outputs are
+  swapped, and `test_a_raster_is_stored_and_an_agent_asset_is_refetched` used to *pin* the inversion.
+- **The reference path was `/docs/img/…`.** `docs/` is the MkDocs *source* directory; the site serves
+  from the root, and every hand-written post says `/img/…` (`202609-oss-trojan-horse.md`). The
+  committed file still lands at `docs/img/…` — the two are different strings, and `sitePathOf` is the
+  second one.
+- **The published URL is not the entry's slug.** The site serves
+  `https://www.alvsanand.com/blog/2026/10/18/sympozium-when-one-ai-agent-isnt-enough/` while the run
+  announced `https://alvsanand.com/blog/2026/10/18/sympozium-when-one-ai-agent-isn-t-enough/`: the
+  host is `www.`, and the blog plugin slugifies the **title** — `"isn't"` loses its apostrophe rather
+  than gaining a hyphen — so the filename's `202610-` prefix never appears. Both are now built from
+  the title and the day.
+- **The writer was handed the raw `ASSET_TYPES`.** The row read `svg_wide,svg_wide`; the selector
+  deduplicated it to `REQUESTED_ASSETS = "svg_wide"`, but `execute_article_creator` passed the raw
+  field, so the prompt said two types and **both drafts carried the marker twice**
+  (`['<!-- asset:svg_wide -->', '<!-- asset:svg_wide -->']`). The commit replaced both with the same
+  reference — one illustration shown twice — and the gate's "exactly once" check, a model judgement,
+  passed them. The entry point now passes `REQUESTED_ASSETS`, and `parse_article` **counts the markers
+  in code** (`MARKERS: svg_wide x2`, `… x0`, `… not requested`), because how many markers a draft
+  carries is a count and a count is not a judgement.
+
 **The lane is otherwise unexercised by CI.** Nothing here has a live gate: the wiring is
 asserted offline in `agents/n8n/scripts/test_article_review_gate.py` and
 `test_article_entry_point.py`, and the behaviour was measured by hand on 2026-10-18 — the

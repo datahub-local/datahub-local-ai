@@ -19,13 +19,20 @@ mode that is silent at run time, which is why they are pinned rather than review
 
 import json
 import re
+import shutil
+import subprocess
+import tempfile
+import textwrap
 from pathlib import Path
+
+import pytest
 
 BASE = Path(__file__).resolve().parents[1]  # agents/n8n
 WORKFLOWS = BASE / "workflows"
 
 ENTRY = WORKFLOWS / "article_content_writer.workflow.json"
 REF_RE = re.compile(r"\$\(\s*['\"]([^'\"]+)['\"]\s*\)")
+NODE_REQUIRED = "node is required to execute a Code node"
 
 
 def _doc():
@@ -188,6 +195,116 @@ def test_the_article_text_is_committed_inline_and_assets_as_blobs():
     entries = _js("collect_tree_entries")
     assert "content = f.FILE_TEXT" in entries
     assert "expected[i]" in entries  # a mis-paired sha fails instead of committing the wrong file
+
+
+# The accepted draft of execution 13994 (2026-10-18), verbatim: the first article run the
+# review loop published after retrying two over-budget drafts (462/400, then 412/400, then
+# 345/400). Its marker sits on line 3, before the first `## ` heading on line 5.
+PUBLISHED_DRAFT = """My homelab platform ingested CSV into bronze with dlt, and dbt built silver and gold into Iceberg on S3, queried through Trino. Every night `dbt build` ran across 40 models and took 22 minutes on the four-board cluster: three Orange Pi 5B boards, one Orange Pi 4 LTS, plus an amd64 NAS. That is a long time to hold a window for work that mostly rebuilds rows the source has not touched.
+
+<!-- asset:image_wide -->
+
+## What made it buildable
+
+The models are materialized as tables with `incremental_strategy merge` and an `is_incremental()` guard, and the lookback window is three days. Since dbt runs on Trino, the build is a set of distributed SQL statements against Iceberg on Garage; cutting the window to 6 minutes was mostly about scoping those statements.
+
+## The key is the whole game
+
+`_dlt_id` is stable per load but not per logical row, and `_batch_timestamp` is the loader's own clock, not the source's. So the models use the business key, deduplicating with a `row_number` window ordered by `_batch_timestamp` to keep the newest version of each key. Late-arriving rows are handled by the three-day lookback rather than full history, which assumes corrections older than three days are rare enough that a deliberate full refresh is cheaper than scanning everything nightly.
+
+Two traps worth naming. An incremental model with a wrong unique key silently duplicates rows on every run. A full-refresh run on Iceberg rewrites every data file, which took longer than the original batch window ever did.
+
+Granularity is where wrongness hides. `silver.bodega.invoice_items` expands `items_json` and `taxes_json` into 1682 line items from 85 invoices, and `silver.bodega.product_prices` flattens a nested prices object to one row per shop, product and date. Gold then aggregates per shop and day. Nothing user-facing reads bronze, because a chart on bronze would count invoices where it meant line items, and the MCP server scopes itself to `silver.bodega` and `gold.bodega`.
+
+Airflow still schedules the dlt ingest at 01:00 with the dbt build after it, both as Kubernetes pods.
+
+What I take away: the incremental key deserves more scrutiny than the incremental strategy."""
+
+
+def _run_code_node(name, scope):
+    """Execute a committed Code node's jsCode with a stubbed n8n context.
+
+    n8n runs a Code node body inside an async wrapper, so ``new Function`` is the shape that
+    accepts its top-level ``return``. Every ``$('node')`` reference the body makes must be in
+    ``scope``, so a body reaching for a node the test did not provide throws instead of
+    reading ``undefined``.
+    """
+    harness = textwrap.dedent(
+        """
+        const scope = %s;
+        const logs = [];
+        const $ = (n) => {
+          if (!(n in scope)) throw new Error('the test did not provide node ' + n);
+          const items = scope[n].map((json) => ({ json }));
+          return { first: () => items[0], all: () => items, item: items[0] };
+        };
+        const console = { log: (...a) => logs.push(a.join(' ')) };
+        const fn = new Function('$', 'console', %s);
+        process.stdout.write(JSON.stringify({ out: fn($, console), logs }));
+        """
+    ) % (json.dumps(scope), json.dumps(_js(name)))
+    with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as fh:
+        fh.write(harness)
+        path = fh.name
+    try:
+        done = subprocess.run(["node", path], capture_output=True, text=True, check=False)
+    finally:
+        Path(path).unlink()
+    assert done.returncode == 0, done.stderr
+    return json.loads(done.stdout)
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason=NODE_REQUIRED)
+def test_the_hero_reference_replaces_the_marker_where_the_writer_put_it():
+    """The published file carries the hero at the draft's marker, not at the fallback position.
+
+    Executed against the committed jsCode with the draft execution 13994 actually published,
+    because the two positions are one branch apart and reading the code cannot tell which one
+    a given draft takes. `<!-- asset:image -->` -- what the writer emitted before this change
+    for a row requesting `image_wide` -- matches nothing, so the hero fell to the fallback and
+    landed after the first `## ` heading instead of after the opening paragraph.
+    """
+    slug = "cutting-a-nightly-dbt-rebuild-to-six-minutes"
+    result = _run_code_node(
+        "build_commit_files",
+        {
+            "disambiguate_slug": [{"SLUG": slug}],
+            "read_draft_for_publish": [{"ARTICLE_TEXT": PUBLISHED_DRAFT, "TITLE": "Cutting a Nightly dbt Rebuild to Six Minutes"}],
+            "read_asset_rows_for_publish": [{"ASSET_TYPE": "image_wide", "CONTENT_TYPE": "image/png"}],
+            "select_article_to_queue": [{"CATEGORIES": "Data", "ENTRY_ID": 1, "ROW_NUMBER": 1}],
+        },
+    )
+    assert not [line for line in result["logs"] if "placed without a marker" in line], (
+        "the hero fell to the fallback position"
+    )
+    article = next(f["json"] for f in result["out"] if not f["json"]["FILE_IS_BINARY"])
+    lines = article["FILE_TEXT"].split("\n")
+    assert not [line for line in lines if "<!-- asset:" in line], "a marker survived into the file"
+    at = next(
+        (i for i, line in enumerate(lines) if f"](/docs/img/{slug}-image_wide.png)" in line),
+        None,
+    )
+    assert at is not None, "the hero reference is not in the committed file"
+    heading = next(i for i, line in enumerate(lines) if line.startswith("## "))
+    assert at < heading, "the hero landed after the first heading, which is the fallback position"
+
+    # The same draft with the marker the writer used to emit, so the assertion above cannot
+    # pass vacuously: a marker no requested type matches takes the fallback branch.
+    stale = _run_code_node(
+        "build_commit_files",
+        {
+            "disambiguate_slug": [{"SLUG": slug}],
+            "read_draft_for_publish": [
+                {"ARTICLE_TEXT": PUBLISHED_DRAFT.replace("<!-- asset:image_wide -->", "<!-- asset:image -->"),
+                 "TITLE": "Cutting a Nightly dbt Rebuild to Six Minutes"}
+            ],
+            "read_asset_rows_for_publish": [{"ASSET_TYPE": "image_wide", "CONTENT_TYPE": "image/png"}],
+            "select_article_to_queue": [{"CATEGORIES": "Data", "ENTRY_ID": 1, "ROW_NUMBER": 1}],
+        },
+    )
+    assert [line for line in stale["logs"] if "placed without a marker: image_wide" in line], (
+        "an unmatched marker no longer takes the fallback, so this test asserts nothing"
+    )
 
 
 def test_one_commit_sequence_with_a_guarded_fast_forward_retry():

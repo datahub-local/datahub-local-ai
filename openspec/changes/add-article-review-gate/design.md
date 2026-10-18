@@ -53,6 +53,12 @@ Read off this repository's own exports and tests; each path is where the claim c
   authority: the check now states that form, and `test_both_prompt_files_name_the_same_marker_form`
   pins it against the writer's rule. Same class as 2026-09-30 in the LinkedIn lane — a rule the
   drafter cannot satisfy — and it was found by a live run, not by the offline gate.
+- **A mirrored node is not a mirrored node: the retries were dropped.** `check_rules_llm` in
+  `LinkedIn Post Creator` carries `retryOnFail: true, maxTries: 5, waitBetweenTries: 5000`; the
+  `check_article_llm` built from it carried none, so a single 30 s LiteLLM timeout ended a run that
+  had already produced four drafts (execution 13975, 2026-10-18). Restored live and pinned. When
+  copying a node out of another workflow, copy its failure behaviour too — the parameters are what
+  a reader looks at, and `retryOnFail` is a sibling field a reader skips.
 
 ## Decisions
 
@@ -90,14 +96,33 @@ Read off this repository's own exports and tests; each path is where the claim c
 
 - **Whether 3 attempts is the right bound for an article.** `MAX_TRIES = 3` is copied from the
   LinkedIn lane; an article attempt is more expensive (a research-capable agent turn), so the bound
-  may want to be 2. Partly measured: 4 drafts cost ~5 minutes each run and **both** live probes
-  exhausted the bound (executions 13892, 13913, 2026-10-18), each rejection a legitimate finding —
-  an unsupported fact, or a closing paragraph that restates the article. Still `[UNVERIFIED]`
-  whether a passing run is reached within the bound on a realistic row.
+  may want to be 2. Measured 2026-10-18: the bound admits four drafts, a passing run **is** reached
+  within it (execution 13994, accepted on the third draft after 462/400 and 412/400), and a run
+  that cannot be satisfied costs ~5 minutes and four model passes before reporting
+  `MAX_RETRIES_EXCEEDED` (13892, 13913). The question is now cost, not reachability — and no
+  measurement yet covers a realistic 1200-word row.
 - **Whether the reviewer should see `CONTENT`.** Included for the fact check; if the pass proves
-  slow or noisy, dropping it leaves length, markers and shape still checkable. `[UNVERIFIED]`.
+  slow or noisy, dropping it leaves length, markers and shape still checkable. **Evidence for
+  keeping it, 2026-10-18:** every rejection the live runs produced was a fact the draft had added
+  beyond the Source Material — an invented write-up, a 02:00 start, "counts look plausible for
+  weeks", `nothing reads bronze` for `nothing user-facing reads bronze` — and none of those is
+  checkable without the source. It is also the expensive part of the pass, so the question stands
+  as a cost question rather than a correctness one.
 - **The hero marker.** Fixed here for the requested-type id; whether `build_commit_files`'s
   fallback placement should remain at all, now that the prompt is correct, is a separate question.
+  It is now pinned in both directions by
+  `test_the_hero_reference_replaces_the_marker_where_the_writer_put_it`.
+- **A caller's `EXTRA_PROMPT` is handed to the reviewer as a check.** The same block is injected
+  into the drafting prompt and into the reviewer's `## Extra rules`, so an extra prompt that
+  conflicts with the length budget makes the loop unsatisfiable: the first draft overshoots to
+  satisfy it, the retry's feedback cuts it back, and the reviewer then rejects the in-budget draft
+  for breaking the extra rule (execution 13975, 2026-10-18). Not fixed here — the LinkedIn lane
+  passes it to both passes the same way, and narrowing it would change what a caller can ask the
+  reviewer to look at. Worth deciding deliberately rather than inheriting.
+- **The `glm-5.3-flash` fallback does not work for this lane.** Every fallback call measured on
+  2026-10-18 answered `Model does not support this protocol`, so the router fallback contributes
+  nothing when the primary times out or rejects — a `datahub-local-core` LiteLLM question, not this
+  repository's, but it is why the drafting agent fails whole runs.
 
 ## Definition of done
 

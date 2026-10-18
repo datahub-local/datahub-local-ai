@@ -107,22 +107,72 @@
 
 ## 5. Behaviour verification
 
-- [ ] 5.1 An over-budget draft is retried: drive one run whose first draft exceeds `MAX_WORDS`, and
+Driven live 2026-10-18 through a temporary probe workflow (`Article Creator Probe`,
+`rpqx0u1MDgcn4fCw`) — a `webhook → executeWorkflow` shell, because the public API cannot fire a
+sub-workflow's `executeWorkflowTrigger`. Deleted after the runs.
+
+- [x] 5.1 An over-budget draft is retried: drive one run whose first draft exceeds `MAX_WORDS`, and
   confirm the second draft is inside the budget and the run publishes, rather than failing. Record
   the attempt count and both drafts' counts.
-- [ ] 5.2 A draft that never satisfies the gate reports `MAX_RETRIES_EXCEEDED: <reason>` with the
+  **Landed — execution 13994.** Four attempts' worth of bound, three drafts: **462/400** →
+  `PROBLEM = OVER_BUDGET: 462 words against MAX_WORDS=400` → retried; **412/400** → retried, the
+  reason carried as `Internal review rejected the previous draft with: OVER_BUDGET: 462 words
+  against MAX_WORDS=400 Body is 462 words, so cut 62 words to meet the 400-word limit.`; **345/400**
+  → the reviewer answered `true`, `set_output` ran with `ERROR=''` and `word_count=345`, and the run
+  published. Two earlier runs measured the same path without publishing: 13975 (489/400 and 547/400
+  retried, 371/400 and 353/400 inside the budget) ended on a 30 s reviewer timeout — see the retry
+  finding below — and 13913 showed the budget is *not* hit when the writer can comply (150/148/132/133
+  against 150), so the overshoot has to be driven, not waited for.
+- [x] 5.2 A draft that never satisfies the gate reports `MAX_RETRIES_EXCEEDED: <reason>` with the
   reviewer's own words, and the run's error notice names it.
-- [ ] 5.3 The reviewer reads the committed rules: read the run's own
+  **Landed — executions 13892 and 13913.** `set_error_max_tries` wrote
+  `MAX_RETRIES_EXCEEDED: <the last attempt's explanation verbatim>` (13892: the closing-restatement
+  finding; 13913: the `nothing reads bronze` paraphrase). The sub-workflow's own status is
+  `success` — the reason is data — so the entry point's `check_draft_error` is what fails the article
+  run: one report, as designed.
+- [x] 5.3 The reviewer reads the committed rules: read the run's own
   `download_article_review_prompt` output and confirm it carries `article_writer_system.md`
   verbatim.
-- [ ] 5.4 The hero marker matches the requested type: a row requesting `image_wide` produces a
+  **Landed — execution 13892.** All four attempts' reviewer prompt contain the committed
+  `prompts/article_writer_system.md` (1449 bytes) **verbatim**, so the gate and the drafter read one
+  file, not two.
+- [x] 5.4 The hero marker matches the requested type: a row requesting `image_wide` produces a
   draft carrying `<!-- asset:image_wide -->`, and the published file references the hero at its
   marker rather than at the fallback position.
+  **Landed, with the publish path exercised offline.** Every draft of 13892, 13913 and 13994 carries
+  `<!-- asset:image_wide -->` alone on its own line, and no attempt's reviewer found a marker
+  problem once the check named the form (the runs before that fix are the finding below).
+  `test_the_hero_reference_replaces_the_marker_where_the_writer_put_it` executes the committed
+  `build_commit_files` jsCode with **13994's own published draft** and asserts the hero reference
+  lands before the first `## ` heading with no `placed without a marker` log, plus a control case on
+  the stale `<!-- asset:image -->` marker that must take the fallback — so the assertion cannot pass
+  vacuously. A live publish was **not** run: it writes a commit to the blog repository, and the
+  placement decision is a pure function of the draft and the asset rows, both of which the test
+  takes from the run.
+  **Found and fixed in this section:** the gate's own model call carried no retries, unlike the
+  `check_rules_llm` it mirrors, so one 30 s LiteLLM timeout ended a run that already had four drafts
+  (execution 13975). `retryOnFail: true, maxTries: 5, waitBetweenTries: 5000` was applied live and
+  pinned by `test_the_reviewer_retries_a_transient_model_failure`.
 
 ## 6. Documentation
 
-- [ ] 6.1 Update the `Article Creator` paragraph of `AGENTS.md` (the n8n section) with the review
+- [x] 6.1 Update the `Article Creator` paragraph of `AGENTS.md` (the n8n section) with the review
   loop, the deterministic-budget rule and the marker correction.
-- [ ] 6.2 Leave every `[UNVERIFIED]` in `design.md` honest after 5.1–5.4.
+  **Landed as a new `#### Article Creator` subsection.** There was no paragraph to update — the
+  lane was documented only through the incident bullets in *seven structural things* — so the
+  subsection is new, sitting after `#### LinkedIn post media`, and carries the two workflows and
+  the creator's input contract, the review loop and its bound, the deterministic budget, the shared
+  rules file, the reviewer's retries, the marker-form rule, the `EXTRA_PROMPT` conflict, what CI
+  does and does not cover, and the two traps in reading the lane's history (the `OVER_BUDGET`
+  substring, and 13844).
+- [x] 6.2 Leave every `[UNVERIFIED]` in `design.md` honest after 5.1–5.4.
+  **Landed.** Both `[UNVERIFIED]`s are resolved into measurements: the bound is reachable (13994)
+  and the reviewer's rejections were all fact checks that need `CONTENT`. The `EXTRA_PROMPT`
+  conflict and the broken `glm-5.3-flash` fallback are added as open questions, and the dropped
+  retries as a gate finding.
 - [ ] 6.3 Archive only when the graph is live, the prompts are pushed and 5.1–5.4 have run:
   `openspec archive add-article-review-gate`.
+  **Conditions met 2026-10-18** — graph applied and read back equal to the export in both copies,
+  prompts on `origin/main`, 5.1–5.4 driven. Not yet run, because `add-content-writer-agent` is
+  still open against the same `content-writer` capability and archiving first would create
+  `openspec/specs/content-writer/spec.md` from this delta alone.

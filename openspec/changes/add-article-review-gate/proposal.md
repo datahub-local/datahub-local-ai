@@ -5,10 +5,15 @@
 `Article Creator` returns its first draft. Nothing reviews it, and the one check it does make is
 fatal: `parse_article` reports `OVER_BUDGET` as data, the entry point's `check_draft_error` reads a
 non-empty `ERROR` as a hard failure, and the run ends having spent the model time and produced
-nothing. Execution 13844 on 2026-10-17 is the case: the draft ran past `MAX_WORDS=1200` and the
-whole article run failed, with no second attempt and no way to recover the draft. The same is true
-of every other rule the draft can break — the review state on the row is a human's, and there is
-no automated pass between the writer and the reviewer.
+nothing. Execution 13849 on 2026-10-17 is the case: the draft ran 1276 words against
+`MAX_WORDS=1200`, `parse_article` reported `OVER_BUDGET: 1276 words against MAX_WORDS=1200`, and
+the reason came back as the answer with no second attempt. Executions 13622 (369 against 350) and
+13491 (331 against 50) are the same shape. The proposal first cited 13844; re-read live on
+2026-10-18, that execution is an *authorization* failure in `create_article_ai`
+(`Authorization failed - please check your credentials`) which produced no draft at all, so it is
+not evidence for this change. The same is true of every other rule the draft can break — the
+review state on the row is a human's, and there is no automated pass between the writer and the
+reviewer.
 
 `LinkedIn Post Creator` already has the shape this needs and has carried it since 2026-09-30: a
 second model pass (`check_rules_llm`) reviews the draft against the committed rules, a rejection

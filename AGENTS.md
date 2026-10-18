@@ -321,6 +321,11 @@ delete a published workflow. Unpublish it before deleting.` — `POST
 /api/v1/workflows/{id}/deactivate`, then `DELETE`, then read the id back to
 confirm it is gone. Measured 2026-10-16 deleting a temporary read probe, and the
 first attempt left it live because the delete was the only step that failed.
+Measured again 2026-10-18 on the article probe: the `deactivate` answered `200` and
+the `DELETE` immediately after **still** answered `409` while the object already read
+`active: false, activeVersionId: null` — the retry a second later answered `200` and
+the read-back `404`. So treat the pair as "deactivate, delete, retry the delete",
+not as one attempt each.
 
 **The public API cannot fire a manual trigger.** `POST
 /api/v1/workflows/{id}/test-runs` is the *evaluation* runner ("The workflow must
@@ -967,6 +972,88 @@ type declares a hold: the brief asks for an ambient idle, not a frozen final fra
 branch's wiring is asserted offline in
 `agents/n8n/scripts/test_linkedin_animated_media.py`, which also fails if a node that needs
 a credential has none or if the export has no published version.
+
+#### Article Creator
+
+Two workflows. `Article Content Writer` is the entry point (a manual trigger and a cron at
+08:00 UTC Tuesday and Thursday) and owns the sheet, the slug, the assets and the publish;
+`Article Creator` is the sub-workflow that drafts, called with `TOPIC`, `DESCRIPTION`, `URL`,
+`CONTENT`, `MAX_WORDS`, `ASSET_TYPES`, `EXTRA_PROMPT` and `FEEDBACK`. The creator's
+`executeWorkflowTrigger` is why the public API cannot start it — a verification run goes
+through a temporary `webhook → executeWorkflow` probe, as every live check here has.
+
+**A draft is reviewed before it is returned, and an over-budget one is retried rather than
+fatal.** The loop mirrors `LinkedIn Post Creator`: `parse_article` →
+`download_article_review_prompt` → `check_article_llm` → `parse_article_check_output` →
+`merge_article_verdict` → `switch_article_check`, whose three outputs are `set_output`
+(accepted), `set_error_max_tries` (bound reached) and a fallback back to
+`download_article_prompt`. The retry re-renders the drafting prompt, so a rejection cannot
+resubmit the same prompt. The bound is `{{ $runIndex + 1 }} > MAX_TRIES` with `MAX_TRIES = 3`,
+copied from the LinkedIn lane rather than re-derived — which means it admits **four** drafts,
+measured live (executions 13892, 13913, 13994): the name bounds the retries, not the drafts.
+
+**The budget is checked in code and beats the reviewer.** `parse_article` counts the body's
+words itself (markers excluded) and reports `PROBLEM` as *data*, never a throw; a count asked
+of a model is a count that gets invented. `merge_article_verdict` rejects on that `PROBLEM`
+whatever the reviewer's `<output>` said, and prefixes the reason with the parser's own numbers
+— so the answer carries `OVER_BUDGET: 462 words against MAX_WORDS=400 Body is 462 words, so cut
+62 words to meet the 400-word limit.` A `MAX_WORDS` that is missing or non-positive still
+throws: that is a caller bug, not a draft to retry.
+
+**The gate reads the writer's own rules file.** `RULES` is
+`$('download_system_prompt').output` — the same `prompts/article_writer_system.md` the drafter
+was given, fetched once — never a second copy that could drift.
+
+**The reviewer's model call retries.** `check_article_llm` carries `retryOnFail: true,
+maxTries: 5, waitBetweenTries: 5000`, matching the `check_rules_llm` it mirrors and the
+drafting agent beside it. It did not at first, and one 30 s LiteLLM timeout ended a run that
+had already produced four drafts (execution 13975, 2026-10-18): a reviewer that fails the run
+it is checking is worse than one that reports no verdict.
+`test_the_reviewer_retries_a_transient_model_failure` pins it.
+
+**The gate must name the marker's form, not its id.** The reviewer's check read "spelled as the
+type id", the reviewer took that to mean the bare id, and the first live runs rejected a
+*correct* `<!-- asset:image_wide -->` twice — after which the writer dropped the marker
+altogether, so the gate destroyed the thing it was checking (executions 13892 and 13913). The
+publishing step is the authority: `build_commit_files` matches
+`new RegExp('<!--\\s*asset:' + type + '\\s*-->')`. `prompts/article_review.md` now states that
+form, and `test_both_prompt_files_name_the_same_marker_form` holds it to the writer's rule. This
+is the 2026-09-30 LinkedIn failure in a new place: a rule the gate enforces has to be one the
+drafter can satisfy.
+
+**A caller's `EXTRA_PROMPT` reaches both passes, so an instruction that fights the budget makes
+the loop unsatisfiable.** It is injected into the drafting prompt and into the reviewer's own
+`## Extra rules`, so "write at least 500 words" against `MAX_WORDS=400` overshoots on the first
+draft, is cut back on the retry (the feedback outranks it) and is then rejected by the reviewer
+for breaking the very rule that forced the overshoot — the loop cannot converge and burns its
+bound (execution 13975). Recorded as an open question in the change, not fixed: the LinkedIn lane
+passes `EXTRA_PROMPT` to both passes the same way. Keep an extra prompt compatible with the
+budget.
+
+**The lane is otherwise unexercised by CI.** Nothing here has a live gate: the wiring is
+asserted offline in `agents/n8n/scripts/test_article_review_gate.py` and
+`test_article_entry_point.py`, and the behaviour was measured by hand on 2026-10-18 — the
+over-budget retry that published (13994: 462/400 → 412/400 → 345/400, accepted), the bound
+reporting `MAX_RETRIES_EXCEEDED: <the reviewer's own words>` (13892, 13913), the reviewer
+carrying the committed rules file verbatim, and the hero marker landing where the writer put it
+rather than at `build_commit_files`' fallback position. A live publish was not run: it writes a
+commit to the blog repository, and the placement is a pure function of the draft and the asset
+rows, which
+`test_the_hero_reference_replaces_the_marker_where_the_writer_put_it` takes from run 13994.
+
+Two traps in reading this lane's history. `OVER_BUDGET` is a substring of every export's own
+`parse_article` jsCode, so a grep across execution data matches every run including ones that
+never drafted — read the node's own `WORD_COUNT`/`PROBLEM`, not the blob. The over-budget cases
+are 13849 (1276 against 1200), 13622 (369 against 350) and 13491 (331 against 50); execution
+13844, which this change's proposal first cited, is an *authorization* failure in
+`create_article_ai` that produced no draft at all.
+
+Separately, this lane's model calls are the least reliable thing in the fleet right now: on
+2026-10-18 three of eight runs died in the gateway — `opencode-go/deepseek-v4.1-flash`
+answering `Duplicate 'call_id'`, and the `opencode-go/glm-5.3-flash` fallback answering
+`Model does not support this protocol`, which makes the fallback useless whenever the primary
+fails. Both are `datahub-local-core` LiteLLM settings, not this repository's, and they are why
+the numbers above were collected over several runs.
 
 ### MCP servers
 

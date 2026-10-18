@@ -760,7 +760,7 @@
       },
       {
         "parameters": {
-          "errorMessage": "={{ 'article draft failed for row ' + $('select_article_to_queue').item.json.row_number + ': ' + ($('execute_article_creator').item.json.ERROR || 'no reason returned') }}"
+          "errorMessage": "={{ 'article draft failed for row ' + $('build_failure').first().json.row_number + ': ' + $('build_failure').first().json.REASON }}"
         },
         "id": "8daecfe5-a44f-4450-ade2-e770ca73e0ca",
         "name": "fail_draft",
@@ -4207,6 +4207,316 @@
           5152,
           80
         ]
+      },
+      {
+        "id": "e813516a-c6f4-489b-a573-36e22abe90fc",
+        "name": "build_failure",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          3064,
+          -112
+        ],
+        "parameters": {
+          "jsCode": "// The failure path's only reporter. `check_draft_error` hands this the sub-workflow's answer,\n// which on the failure branch is `{ERROR}` alone - the creator returns no row fields - so the\n// row is read from the selector, the same read `fail_draft` used to make for its own message.\nconst row = $('select_article_to_queue').first().json;\nreturn [{ json: {\n  row_number: row.row_number,\n  TOPIC: row.TOPIC || '',\n  REASON: String($json.ERROR || 'no reason returned'),\n} }];"
+        }
+      },
+      {
+        "parameters": {
+          "operation": "update",
+          "documentId": {
+            "__rl": true,
+            "value": "1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI",
+            "mode": "list",
+            "cachedResultName": "content_planner",
+            "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit?usp=drivesdk"
+          },
+          "sheetName": {
+            "__rl": true,
+            "value": "article_queue",
+            "mode": "name",
+            "cachedResultName": "article_queue"
+          },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "row_number": "={{ $json.row_number }}",
+              "STATUS": "ERROR",
+              "ERROR": "={{ $json.REASON }}",
+              "UPDATE_DATE": "={{ (new Date()).toISOString() }}"
+            },
+            "matchingColumns": [
+              "row_number"
+            ],
+            "schema": [
+              {
+                "id": "ENTRY_ID",
+                "displayName": "ENTRY_ID",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "TOPIC",
+                "displayName": "TOPIC",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "DESCRIPTION",
+                "displayName": "DESCRIPTION",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "LINK",
+                "displayName": "LINK",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "CATEGORIES",
+                "displayName": "CATEGORIES",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "ASSET_TYPES",
+                "displayName": "ASSET_TYPES",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "MAX_WORDS",
+                "displayName": "MAX_WORDS",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "EXTRA_PROMPT",
+                "displayName": "EXTRA_PROMPT",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "PRIORITY",
+                "displayName": "PRIORITY",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "ORIGIN",
+                "displayName": "ORIGIN",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "STATUS",
+                "displayName": "STATUS",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": false
+              },
+              {
+                "id": "ARTICLE_STATUS",
+                "displayName": "ARTICLE_STATUS",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "ARTICLE_ROUND",
+                "displayName": "ARTICLE_ROUND",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "ARTICLE_FEEDBACK",
+                "displayName": "ARTICLE_FEEDBACK",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "ARTICLE_TITLE",
+                "displayName": "ARTICLE_TITLE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "ARTICLE_REF",
+                "displayName": "ARTICLE_REF",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "PUBLISHED_URL",
+                "displayName": "PUBLISHED_URL",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "COMMIT_REF",
+                "displayName": "COMMIT_REF",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "PUBLISHED_AT",
+                "displayName": "PUBLISHED_AT",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "EXECUTION_ID",
+                "displayName": "EXECUTION_ID",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": false
+              },
+              {
+                "id": "ERROR",
+                "displayName": "ERROR",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": false
+              },
+              {
+                "id": "UPDATE_DATE",
+                "displayName": "UPDATE_DATE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": false
+              }
+            ]
+          },
+          "options": {}
+        },
+        "id": "2b824c02-1f64-48da-b303-7e8544488226",
+        "name": "record_failed_draft",
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4.6,
+        "position": [
+          3216,
+          -112
+        ],
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "pGARJmt50qz64xOo",
+            "name": "Google Sheets account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "select": "channel",
+          "channelId": {
+            "__rl": true,
+            "value": "C08RQNXQV3P",
+            "mode": "list",
+            "cachedResultName": "workflows"
+          },
+          "text": "=Article draft failed for row {{ $('build_failure').first().json.row_number }} - {{ $('build_failure').first().json.TOPIC }}. The entry is marked ERROR and is not picked up again until someone puts it back to QUEUE. Reason: {{ $('build_failure').first().json.REASON }}",
+          "otherOptions": {
+            "includeLinkToWorkflow": true
+          }
+        },
+        "id": "815997fb-e93b-4ab5-a68b-84d3a0f46a21",
+        "name": "notify_draft_failed",
+        "webhookId": "05a2bdeb-9b96-4916-8426-43bce2f3c8f1",
+        "type": "n8n-nodes-base.slack",
+        "typeVersion": 2.3,
+        "position": [
+          3368,
+          -112
+        ],
+        "credentials": {
+          "slackApi": {
+            "id": "DszMmPE7WwOjHQjz",
+            "name": "Slack account"
+          }
+        }
       }
     ],
     "connections": {
@@ -4396,7 +4706,7 @@
           ],
           [
             {
-              "node": "fail_draft",
+              "node": "build_failure",
               "type": "main",
               "index": 0
             }
@@ -5096,6 +5406,39 @@
             }
           ]
         ]
+      },
+      "build_failure": {
+        "main": [
+          [
+            {
+              "node": "record_failed_draft",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "record_failed_draft": {
+        "main": [
+          [
+            {
+              "node": "notify_draft_failed",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "notify_draft_failed": {
+        "main": [
+          [
+            {
+              "node": "fail_draft",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
       }
     },
     "nodeGroups": [],
@@ -5294,7 +5637,7 @@
         ],
         [
           {
-            "node": "fail_draft",
+            "node": "build_failure",
             "type": "main",
             "index": 0
           }
@@ -5989,6 +6332,39 @@
         [
           {
             "node": "execute_visual_studio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "build_failure": {
+      "main": [
+        [
+          {
+            "node": "record_failed_draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "record_failed_draft": {
+      "main": [
+        [
+          {
+            "node": "notify_draft_failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "notify_draft_failed": {
+      "main": [
+        [
+          {
+            "node": "fail_draft",
             "type": "main",
             "index": 0
           }
@@ -6759,7 +7135,7 @@
     },
     {
       "parameters": {
-        "errorMessage": "={{ 'article draft failed for row ' + $('select_article_to_queue').item.json.row_number + ': ' + ($('execute_article_creator').item.json.ERROR || 'no reason returned') }}"
+        "errorMessage": "={{ 'article draft failed for row ' + $('build_failure').first().json.row_number + ': ' + $('build_failure').first().json.REASON }}"
       },
       "id": "8daecfe5-a44f-4450-ade2-e770ca73e0ca",
       "name": "fail_draft",
@@ -10206,6 +10582,316 @@
         5152,
         80
       ]
+    },
+    {
+      "id": "e813516a-c6f4-489b-a573-36e22abe90fc",
+      "name": "build_failure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3064,
+        -112
+      ],
+      "parameters": {
+        "jsCode": "// The failure path's only reporter. `check_draft_error` hands this the sub-workflow's answer,\n// which on the failure branch is `{ERROR}` alone - the creator returns no row fields - so the\n// row is read from the selector, the same read `fail_draft` used to make for its own message.\nconst row = $('select_article_to_queue').first().json;\nreturn [{ json: {\n  row_number: row.row_number,\n  TOPIC: row.TOPIC || '',\n  REASON: String($json.ERROR || 'no reason returned'),\n} }];"
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI",
+          "mode": "list",
+          "cachedResultName": "content_planner",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "article_queue",
+          "mode": "name",
+          "cachedResultName": "article_queue"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "row_number": "={{ $json.row_number }}",
+            "STATUS": "ERROR",
+            "ERROR": "={{ $json.REASON }}",
+            "UPDATE_DATE": "={{ (new Date()).toISOString() }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "ENTRY_ID",
+              "displayName": "ENTRY_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "TOPIC",
+              "displayName": "TOPIC",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "DESCRIPTION",
+              "displayName": "DESCRIPTION",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "LINK",
+              "displayName": "LINK",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "CATEGORIES",
+              "displayName": "CATEGORIES",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ASSET_TYPES",
+              "displayName": "ASSET_TYPES",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "MAX_WORDS",
+              "displayName": "MAX_WORDS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "EXTRA_PROMPT",
+              "displayName": "EXTRA_PROMPT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "PRIORITY",
+              "displayName": "PRIORITY",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ORIGIN",
+              "displayName": "ORIGIN",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "STATUS",
+              "displayName": "STATUS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "ARTICLE_STATUS",
+              "displayName": "ARTICLE_STATUS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ARTICLE_ROUND",
+              "displayName": "ARTICLE_ROUND",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ARTICLE_FEEDBACK",
+              "displayName": "ARTICLE_FEEDBACK",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ARTICLE_TITLE",
+              "displayName": "ARTICLE_TITLE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ARTICLE_REF",
+              "displayName": "ARTICLE_REF",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "PUBLISHED_URL",
+              "displayName": "PUBLISHED_URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "COMMIT_REF",
+              "displayName": "COMMIT_REF",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "PUBLISHED_AT",
+              "displayName": "PUBLISHED_AT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "EXECUTION_ID",
+              "displayName": "EXECUTION_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "ERROR",
+              "displayName": "ERROR",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "UPDATE_DATE",
+              "displayName": "UPDATE_DATE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2b824c02-1f64-48da-b303-7e8544488226",
+      "name": "record_failed_draft",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        3216,
+        -112
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "pGARJmt50qz64xOo",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C08RQNXQV3P",
+          "mode": "list",
+          "cachedResultName": "workflows"
+        },
+        "text": "=Article draft failed for row {{ $('build_failure').first().json.row_number }} - {{ $('build_failure').first().json.TOPIC }}. The entry is marked ERROR and is not picked up again until someone puts it back to QUEUE. Reason: {{ $('build_failure').first().json.REASON }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": true
+        }
+      },
+      "id": "815997fb-e93b-4ab5-a68b-84d3a0f46a21",
+      "name": "notify_draft_failed",
+      "webhookId": "05a2bdeb-9b96-4916-8426-43bce2f3c8f1",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        3368,
+        -112
+      ],
+      "credentials": {
+        "slackApi": {
+          "id": "DszMmPE7WwOjHQjz",
+          "name": "Slack account"
+        }
+      }
     }
   ],
   "pinData": {},

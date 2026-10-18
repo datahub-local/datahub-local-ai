@@ -182,6 +182,42 @@ def test_both_prompt_files_name_the_same_marker_form():
     )
 
 
+def test_the_reviewer_judges_only_the_checks_it_is_given():
+    """An invented check is a rule the drafter cannot be told about.
+
+    Measured 2026-10-18 (execution 14121): the gate enforced the entry's own description —
+    "Plain language and no deep Kubernetes detail" — against a Kubernetes-native subject, and
+    rejected four drafts for naming a custom resource, a controller, an admission webhook and
+    Helm: the vocabulary the subject is made of, and which the writer's own rules invite by
+    calling the reader a practitioner. No draft could satisfy it, so the run spent twenty
+    minutes and its bound and then failed.
+    """
+    reviewer = REVIEW_PROMPT.read_text(encoding="utf-8")
+    assert "Judge only the checks below" in reviewer, "the reviewer's scope is unbounded again"
+    assert "not checks" in reviewer, "the entry's context can be enforced as a check again"
+    assert "naming the primitives its subject is built from" in reviewer, (
+        "a draft can be rejected again for naming the primitives its subject is built from"
+    )
+
+
+def test_the_reviewer_is_not_asked_for_an_h1_the_body_cannot_carry():
+    """`parse_article` strips the H1 into TITLE, so the body can never contain one.
+
+    Two of execution 14121's four rejections were "the first line must be the title as an H1" —
+    a complaint the body cannot clear, and a drafting turn spent on each.
+    """
+    reviewer = REVIEW_PROMPT.read_text(encoding="utf-8")
+    assert "the body only" in reviewer, "the reviewer no longer knows what it is reading"
+    assert "an H1 is not required in it" in reviewer, "the H1 demand is back"
+    # And the claim is true of the graph: the reviewer is handed the stripped body.
+    node = next(n for n in json.loads(CREATOR.read_text(encoding="utf-8"))["nodes"]
+                if n["name"] == "download_article_review_prompt")
+    expr = node["parameters"]["workflowInputs"]["value"]["template_vars"]
+    assert "\"TEXT\": $('parse_article').item.json.TEXT" in expr, (
+        "the reviewer is no longer given the H1-stripped body this prompt describes"
+    )
+
+
 @pytest.mark.parametrize("label,document", list(_copies()))
 def test_the_reviewer_retries_a_transient_model_failure(label, document):
     """The gate's own model call is retried, exactly as the LinkedIn lane's is.

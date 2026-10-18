@@ -111,10 +111,40 @@ def test_the_claim_is_written_before_the_first_model_call():
 
 
 def test_the_draft_is_gated_before_anything_is_reviewed():
-    # A failed draft must reach stopAndError and no Slack message at all.
-    assert _targets("check_draft_error", 1) == ["fail_draft"]
-    assert not [t for t in _reachable("fail_draft") if t.startswith(("notify_", "upload_"))]
+    # A failed draft is recorded and reported, then stops. It must not reach a review notice -
+    # the run has no draft to review - and it must not leave the row reading as awaiting
+    # approval, which is what execution 14055 did for an hour (2026-10-18).
+    assert _targets("check_draft_error", 1) == ["build_failure"]
+    assert _targets("build_failure") == ["record_failed_draft"]
+    assert _targets("record_failed_draft") == ["notify_draft_failed"]
+    assert _targets("notify_draft_failed") == ["fail_draft"]
+    downstream = _reachable("build_failure")
+    assert "notify_article_review" not in downstream
+    assert "notification_retry_or_cancel" not in downstream
     assert _targets("check_draft_error", 0) == ["derive_slug"]
+
+
+def test_a_failed_draft_is_recorded_and_reported():
+    """The failure path writes the row and tells a human, because nothing else will.
+
+    The error workflow does not fire for a manual execution, so a failure that only stops is
+    invisible in the sheet, in Slack and in the logs at once.
+    """
+    cols = _nodes()["record_failed_draft"]["parameters"]["columns"]
+    assert cols["value"]["STATUS"] == "ERROR", "a failed run must not leave a live-looking status"
+    assert cols["value"]["ERROR"] == "={{ $json.REASON }}"
+    assert cols["matchingColumns"] == ["row_number"]
+    entry = next(s for s in cols["schema"] if s["id"] == "ERROR")
+    assert entry["removed"] is False, "the Sheets node would silently not write ERROR"
+    build = _js("build_failure")
+    assert "select_article_to_queue" in build and "REASON" in build, (
+        "the creator returns no row fields, so the row has to come from the selector"
+    )
+    message = _nodes()["fail_draft"]["parameters"]["errorMessage"]
+    assert "$('build_failure').first()" in message, "the report must not read through a paired item"
+    assert "$('execute_article_creator').item" not in message
+    notice = _nodes()["notify_draft_failed"]["parameters"]["text"]
+    assert "build_failure" in notice and "ERROR" in notice, "the notice names neither row nor reason"
 
 
 def test_the_rendered_asset_is_the_only_thing_that_gets_reviewed():

@@ -1,0 +1,21 @@
+{
+  "_comment": "The aspects the improvement pass reviews a draft by, loaded at run time via DownloadTemplate (template_name: datasets/article_aspects.json). Adding an aspect is a new entry here plus its prompt file; the graph holds no aspect id, so nothing else changes. A missing, unparsable or empty registry stops the run loudly: without its definitions the improvement pass must not run quietly on nothing.",
+  "_comment_prompts": "Each prompt is fetched by DownloadTemplate with template_name from this file, so a path here is a repository path relative to agents/n8n/.",
+  "aspects": [
+    {
+      "id": "structure",
+      "prompt": "prompts/article_aspect_structure.md",
+      "focus": "the plot, the arc and the fit to the shape the writer chose"
+    },
+    {
+      "id": "clarity",
+      "prompt": "prompts/article_aspect_clarity.md",
+      "focus": "terms, plain language and depth at the row's audience level"
+    },
+    {
+      "id": "flow",
+      "prompt": "prompts/article_aspect_flow.md",
+      "focus": "redundancy, transitions and pacing"
+    }
+  ]
+}

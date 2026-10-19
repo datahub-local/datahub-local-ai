@@ -1,10 +1,18 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "83d2696a-d245-485a-a2c4-eb9d6a554d9a",
+    "versionId": "30eb4c13-01c2-49cd-8599-4552c5a62232",
     "workflowId": "nPBkIpeObC1Om0LH",
     "nodes": [
       {
+        "id": "21668eec-5b4e-4520-80c1-706618ebe5e2",
+        "name": "main_trigger",
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          -17344,
+          -672
+        ],
         "parameters": {
           "workflowInputs": {
             "values": [
@@ -38,17 +46,17 @@
               }
             ]
           }
-        },
-        "id": "21668eec-5b4e-4520-80c1-706618ebe5e2",
-        "name": "main_trigger",
-        "type": "n8n-nodes-base.executeWorkflowTrigger",
-        "typeVersion": 1.1,
-        "position": [
-          -17344,
-          -992
-        ]
+        }
       },
       {
+        "id": "8b05e041-9f40-4e74-a32a-4ec5057f7684",
+        "name": "set_workflow_vars",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          -17120,
+          -672
+        ],
         "parameters": {
           "assignments": {
             "assignments": [
@@ -80,17 +88,17 @@
           },
           "includeOtherFields": true,
           "options": {}
-        },
-        "id": "8b05e041-9f40-4e74-a32a-4ec5057f7684",
-        "name": "set_workflow_vars",
-        "type": "n8n-nodes-base.set",
-        "typeVersion": 3.4,
-        "position": [
-          -17120,
-          -992
-        ]
+        }
       },
       {
+        "id": "0ca99bd7-06a7-432e-a0c6-af85f386fee1",
+        "name": "download_article_prompt",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          -16896,
+          -672
+        ],
         "parameters": {
           "workflowId": {
             "__rl": true,
@@ -130,17 +138,17 @@
             "convertFieldsToString": true
           },
           "options": {}
-        },
-        "id": "0ca99bd7-06a7-432e-a0c6-af85f386fee1",
-        "name": "download_article_prompt",
+        }
+      },
+      {
+        "id": "df25c640-319c-493c-b0df-b9ac01f0d448",
+        "name": "download_system_prompt",
         "type": "n8n-nodes-base.executeWorkflow",
         "typeVersion": 1.2,
         "position": [
-          -16896,
-          -992
-        ]
-      },
-      {
+          -16672,
+          -736
+        ],
         "parameters": {
           "workflowId": {
             "__rl": true,
@@ -180,25 +188,9 @@
             "convertFieldsToString": true
           },
           "options": {}
-        },
-        "id": "df25c640-319c-493c-b0df-b9ac01f0d448",
-        "name": "download_system_prompt",
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.2,
-        "position": [
-          -16672,
-          -992
-        ]
+        }
       },
       {
-        "parameters": {
-          "promptType": "define",
-          "text": "={{ $('download_system_prompt').item.json.output + '\\n\\n---\\n\\n' + $('download_article_prompt').item.json.output }}",
-          "needsFallback": true,
-          "options": {
-            "maxIterations": 20
-          }
-        },
         "id": "33284e9b-40ab-4e97-a604-277598c7f834",
         "name": "create_article_ai",
         "type": "@n8n/n8n-nodes-langchain.agent",
@@ -208,24 +200,40 @@
         "maxTries": 5,
         "waitBetweenTries": 5000,
         "position": [
-          -16320,
+          -16096,
           -992
-        ]
+        ],
+        "parameters": {
+          "promptType": "define",
+          "text": "={{ $('download_system_prompt').item.json.output + '\\n\\n---\\n\\n' + $('download_article_prompt').item.json.output }}",
+          "needsFallback": true,
+          "options": {
+            "maxIterations": 20
+          }
+        }
       },
       {
-        "parameters": {
-          "jsCode": "// The two things the caller needs out of the model's answer: the H1, which the row\n// stores as ARTICLE_TITLE and the entry point turns into the frozen slug, and the body,\n// which carries one `<!-- asset:<type> -->` marker per requested asset. The word budget\n// is checked here rather than trusted to the model: a mandatory count in a format is a\n// count that gets invented when the real one is missing.\n//\n// A problem is reported as data (`PROBLEM`), never thrown: a draft that ran long or came\n// back without a title is retried by the review loop below, and only a run that exhausts\n// its attempts reports the reason to the caller.\n//\n// MAX_WORDS is required. The entry point resolves the row's budget and the 1200 default,\n// so a value missing here is a caller bug: fail loudly rather than guess a bound.\nconst req = $('set_workflow_vars').first().json;\nconst max = Number(req.MAX_WORDS);\nif (!isFinite(max) || max <= 0) throw new Error('MAX_WORDS is required and must be a positive number');\n// An agent node answers `output` where a chain node answered `text`; the sub-workflow's\n// own contract stays the old names, so this is the one place the difference is absorbed.\nconst raw = String($json.output || $json.text || '');\nconst block = /<article>([\\s\\S]*?)<\\/article>/.exec(raw);\nconst inner = (block ? block[1] : raw).trim();\nconst HEAD = /^#\\s+(.+?)\\s*$/;\nlet title = '';\nconst body = [];\nfor (const line of inner.split('\\n')) {\n  if (!title && !body.length && HEAD.test(line.trim())) {\n    title = line.trim().replace(HEAD, '$1');\n    continue;\n  }\n  body.push(line);\n}\nconst text = body.join('\\n').trim();\n// A marker is an instruction to the publishing step, not prose the reader counts.\nconst words = text.replace(/<!--[\\s\\S]*?-->/g, ' ').split(/\\s+/).filter(Boolean).length;\n// The marker set is counted here rather than trusted to the review: how many markers a draft\n// carries is a count, and a count a model is asked for is a count it misses. Both drafts of\n// execution 14228 carried the same marker twice, the gate passed them, and the article ended up\n// referencing one illustration twice.\nconst requested = String($('main_trigger').first().json.ASSET_TYPES || '')\n  .split(',').map((s) => s.trim()).filter(Boolean);\nconst markers = (text.match(/<!--\\s*asset:[a-zA-Z0-9_]+\\s*-->/g) || [])\n  .map((m) => m.replace('<!--', '').replace('-->', '').replace('asset:', '').trim());\nconst wrongMarkers = [\n  ...requested.filter((t) => markers.filter((m) => m === t).length !== 1)\n    .map((t) => t + ' x' + markers.filter((m) => m === t).length),\n  ...markers.filter((m) => !requested.includes(m)).map((m) => m + ' not requested'),\n];\nlet problem = '';\nif (!text) problem = 'EMPTY_DRAFT: the model returned no article body';\nelse if (!title) problem = 'EMPTY_TITLE: the draft has no H1 title';\nelse if (words > max) problem = 'OVER_BUDGET: ' + words + ' words against MAX_WORDS=' + max;\nelse if (wrongMarkers.length) problem = 'MARKERS: ' + wrongMarkers.join(', ');\nreturn { json: { TITLE: title, TEXT: text, WORD_COUNT: words, MAX_WORDS: max, PROBLEM: problem } };"
-        },
         "id": "1ddafc37-25e0-4dd3-bfd8-c93d7c5af347",
         "name": "parse_article",
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          -15856,
-          -992
-        ]
+          -15632,
+          -736
+        ],
+        "parameters": {
+          "jsCode": "// The two things the caller needs out of the model's answer: the H1, which the row\n// stores as ARTICLE_TITLE and the entry point turns into the frozen slug, and the body,\n// which carries one `<!-- asset:<type> -->` marker per requested asset. The word budget\n// is checked here rather than trusted to the model: a mandatory count in a format is a\n// count that gets invented when the real one is missing.\n//\n// A problem is reported as data (`PROBLEM`), never thrown: a draft that ran long or came\n// back without a title is retried by the review loop below, and only a run that exhausts\n// its attempts reports the reason to the caller.\n//\n// MAX_WORDS is required. The entry point resolves the row's budget and the 1200 default,\n// so a value missing here is a caller bug: fail loudly rather than guess a bound.\nconst req = $('set_workflow_vars').first().json;\nconst max = Number(req.MAX_WORDS);\nif (!isFinite(max) || max <= 0) throw new Error('MAX_WORDS is required and must be a positive number');\n// An agent node answers `output` where a chain node answered `text`; the sub-workflow's\n// own contract stays the old names, so this is the one place the difference is absorbed.\nconst raw = String($json.output || $json.text || '');\nconst block = /<article>([\\s\\S]*?)<\\/article>/.exec(raw);\nconst inner = (block ? block[1] : raw).trim();\nconst HEAD = /^#\\s+(.+?)\\s*$/;\nlet title = '';\nconst body = [];\nfor (const line of inner.split('\\n')) {\n  if (!title && !body.length && HEAD.test(line.trim())) {\n    title = line.trim().replace(HEAD, '$1');\n    continue;\n  }\n  body.push(line);\n}\nconst text = body.join('\\n').trim();\n// A marker is an instruction to the publishing step, not prose the reader counts.\nconst words = text.replace(/<!--[\\s\\S]*?-->/g, ' ').split(/\\s+/).filter(Boolean).length;\n// The marker set is counted here rather than trusted to the review: how many markers a draft\n// carries is a count, and a count a model is asked for is a count it misses. Both drafts of\n// execution 14228 carried the same marker twice, the gate passed them, and the article ended up\n// referencing one illustration twice.\nconst requested = String($('main_trigger').first().json.ASSET_TYPES || '')\n  .split(',').map((s) => s.trim()).filter(Boolean);\nconst markers = (text.match(/<!--\\s*asset:[a-zA-Z0-9_]+\\s*-->/g) || [])\n  .map((m) => m.replace('<!--', '').replace('-->', '').replace('asset:', '').trim());\nconst wrongMarkers = [\n  ...requested.filter((t) => markers.filter((m) => m === t).length !== 1)\n    .map((t) => t + ' x' + markers.filter((m) => m === t).length),\n  ...markers.filter((m) => !requested.includes(m)).map((m) => m + ' not requested'),\n];\nlet problem = '';\nif (!text) problem = 'EMPTY_DRAFT: the model returned no article body';\nelse if (!title) problem = 'EMPTY_TITLE: the draft has no H1 title';\nelse if (words > max) problem = 'OVER_BUDGET: ' + words + ' words against MAX_WORDS=' + max;\nelse if (wrongMarkers.length) problem = 'MARKERS: ' + wrongMarkers.join(', ');\nreturn { json: { TITLE: title, TEXT: text, WORD_COUNT: words, MAX_WORDS: max, PROBLEM: problem } };"
+        }
       },
       {
+        "id": "f06b0cdb-0ca0-475f-bce7-d9b4d8e10eb6",
+        "name": "set_output",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          -14160,
+          -768
+        ],
         "parameters": {
           "assignments": {
             "assignments": [
@@ -256,17 +264,17 @@
             ]
           },
           "options": {}
-        },
-        "id": "f06b0cdb-0ca0-475f-bce7-d9b4d8e10eb6",
-        "name": "set_output",
-        "type": "n8n-nodes-base.set",
-        "typeVersion": 3.4,
-        "position": [
-          -15632,
-          -992
-        ]
+        }
       },
       {
+        "id": "d5e56f92-2855-4e67-b9a9-c60e6bb1fc50",
+        "name": "ai_model",
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.3,
+        "position": [
+          -16216,
+          -760
+        ],
         "parameters": {
           "model": {
             "__rl": true,
@@ -275,18 +283,10 @@
           },
           "builtInTools": {},
           "options": {
-            "maxRetries": 5,
-            "timeout": 120000
+            "timeout": 120000,
+            "maxRetries": 5
           }
         },
-        "id": "d5e56f92-2855-4e67-b9a9-c60e6bb1fc50",
-        "name": "ai_model",
-        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-        "typeVersion": 1.3,
-        "position": [
-          -16440,
-          -760
-        ],
         "credentials": {
           "openAiApi": {
             "id": "LitellmN8nAcct01",
@@ -295,6 +295,14 @@
         }
       },
       {
+        "id": "720198e0-9bcd-4ac3-92e0-b81eccc3eea8",
+        "name": "ai_model_fallback",
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.3,
+        "position": [
+          -16088,
+          -760
+        ],
         "parameters": {
           "model": {
             "__rl": true,
@@ -303,18 +311,10 @@
           },
           "builtInTools": {},
           "options": {
-            "maxRetries": 5,
-            "timeout": 120000
+            "timeout": 120000,
+            "maxRetries": 5
           }
         },
-        "id": "720198e0-9bcd-4ac3-92e0-b81eccc3eea8",
-        "name": "ai_model_fallback",
-        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-        "typeVersion": 1.3,
-        "position": [
-          -16312,
-          -760
-        ],
         "credentials": {
           "openAiApi": {
             "id": "LitellmN8nAcct01",
@@ -323,6 +323,14 @@
         }
       },
       {
+        "id": "13406702-c418-4b1e-9f5e-15d9dc588fc0",
+        "name": "read_page",
+        "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+        "typeVersion": 2,
+        "position": [
+          -15960,
+          -760
+        ],
         "parameters": {
           "name": "read_page",
           "description": "Fetch one URL and return its readable text. Use it on a link the other tools returned, or on a documentation URL.",
@@ -354,17 +362,17 @@
             "attemptToConvertTypes": false,
             "convertFieldsToString": true
           }
-        },
-        "id": "13406702-c418-4b1e-9f5e-15d9dc588fc0",
-        "name": "read_page",
+        }
+      },
+      {
+        "id": "f8553b78-c622-4720-8db6-09d1ceb456dc",
+        "name": "research_sources",
         "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
         "typeVersion": 2,
         "position": [
-          -16184,
+          -15832,
           -760
-        ]
-      },
-      {
+        ],
         "parameters": {
           "name": "research_sources",
           "description": "Search Hacker News and the author's RSS feeds for a subject. Returns a digest of titles, URLs, points and comment counts. Use it first; read a result with read_page before relying on it.",
@@ -396,19 +404,35 @@
             "attemptToConvertTypes": false,
             "convertFieldsToString": true
           }
-        },
-        "id": "f8553b78-c622-4720-8db6-09d1ceb456dc",
-        "name": "research_sources",
-        "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
-        "typeVersion": 2,
+        }
+      },
+      {
+        "id": "289ff372-3304-4c2c-997a-99d07ae73f66",
+        "name": "check_article_llm",
+        "type": "@n8n/n8n-nodes-langchain.chainLlm",
+        "typeVersion": 1.6,
+        "retryOnFail": true,
+        "maxTries": 5,
+        "waitBetweenTries": 5000,
         "position": [
-          -16056,
-          -760
-        ]
+          -15184,
+          -736
+        ],
+        "parameters": {
+          "promptType": "define",
+          "text": "={{ $('download_article_review_prompt').item.json.output }}",
+          "needsFallback": true
+        }
       },
       {
         "id": "06c7362b-bf4e-4715-946c-152a70485bef",
         "name": "download_article_review_prompt",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          -15408,
+          -736
+        ],
         "parameters": {
           "workflowId": {
             "__rl": true,
@@ -448,61 +472,66 @@
             "convertFieldsToString": true
           },
           "options": {}
-        },
-        "position": [
-          -15408,
-          -992
-        ],
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.2
-      },
-      {
-        "id": "289ff372-3304-4c2c-997a-99d07ae73f66",
-        "name": "check_article_llm",
-        "parameters": {
-          "promptType": "define",
-          "text": "={{ $('download_article_review_prompt').item.json.output }}",
-          "needsFallback": true
-        },
-        "position": [
-          -15184,
-          -992
-        ],
-        "type": "@n8n/n8n-nodes-langchain.chainLlm",
-        "typeVersion": 1.6,
-        "retryOnFail": true,
-        "maxTries": 5,
-        "waitBetweenTries": 5000
-      },
-      {
-        "id": "3c1b292c-9d8b-48c7-baba-365b1b9ada0e",
-        "name": "parse_article_check_output",
-        "parameters": {
-          "jsCode": "// The reviewer answers one verdict per draft as `<output>true|false</output>` and a short\n// `<explanation>`. The explanation is flattened to one line because it has two readers: the\n// next attempt's Reviewer Feedback block and the `MAX_RETRIES_EXCEEDED` report.\nfor (const item of $input.all()) {\n  const { text } = item.json;\n\n  const output = text.includes('<output>') && text.includes('</output>')\n    ? text.split('<output>')[1].split('</output>')[0].trim().toLowerCase()\n    : 'false';\n\n  const explanation = text.includes('<explanation>') && text.includes('</explanation>')\n    ? text.split('<explanation>')[1].split('</explanation>')[0].replace(/\\s+/g, ' ').trim()\n    : '';\n\n  item.json.output = output;\n  item.json.explanation = explanation;\n}\n\nreturn $input.all();"
-        },
-        "position": [
-          -14960,
-          -992
-        ],
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2
+        }
       },
       {
         "id": "7116b794-c002-41b6-95de-933574f03aa3",
         "name": "merge_article_verdict",
-        "parameters": {
-          "jsCode": "// The verdict the loop branches on. The reviewer's answer is combined with the parser's\n// deterministic checks, and the deterministic half wins: a count asked of a model is a\n// count that gets invented, so `PROBLEM` rejects the draft whatever the reviewer said \u2014\n// and the reason then names the real numbers rather than the reviewer's guess.\nconst parsed = $('parse_article').item.json;\nconst reviewerSays = String($json.output || '').trim() === 'true';\nconst reason = String($json.explanation || '').replace(/\\s+/g, ' ').trim();\nconst problem = String(parsed.PROBLEM || '');\n\nconst accepted = !problem && reviewerSays;\nlet explanation = '';\nif (problem) explanation = problem + (reason ? ' ' + reason : '');\nelse if (!reviewerSays) explanation = reason || 'the reviewer rejected the draft without a reason';\n\nreturn [{ json: { ...$json, output: accepted ? 'true' : 'false', explanation } }];"
-        },
-        "position": [
-          -14736,
-          -992
-        ],
         "type": "n8n-nodes-base.code",
-        "typeVersion": 2
+        "typeVersion": 2,
+        "position": [
+          -14608,
+          -736
+        ],
+        "parameters": {
+          "jsCode": "// The verdict the loop branches on. The reviewer's answer is combined with the parser's\n// deterministic checks, and the deterministic half wins: a count asked of a model is a\n// count that gets invented, so `PROBLEM` rejects the draft whatever the reviewer said —\n// and the reason then names the real numbers rather than the reviewer's guess.\nconst parsed = $('parse_article').item.json;\nconst reviewerSays = String($json.output || '').trim() === 'true';\nconst reason = String($json.explanation || '').replace(/\\s+/g, ' ').trim();\nconst problem = String(parsed.PROBLEM || '');\n\nconst accepted = !problem && reviewerSays;\nlet explanation = '';\nif (problem) explanation = problem + (reason ? ' ' + reason : '');\nelse if (!reviewerSays) explanation = reason || 'the reviewer rejected the draft without a reason';\n\nreturn [{ json: { ...$json, output: accepted ? 'true' : 'false', explanation } }];"
+        }
+      },
+      {
+        "id": "3c1b292c-9d8b-48c7-baba-365b1b9ada0e",
+        "name": "parse_article_check_output",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -14832,
+          -736
+        ],
+        "parameters": {
+          "jsCode": "// The reviewer answers one verdict per draft as `<output>true|false</output>` and a short\n// `<explanation>`. The explanation is flattened to one line because it has two readers: the\n// next attempt's Reviewer Feedback block and the `MAX_RETRIES_EXCEEDED` report.\nfor (const item of $input.all()) {\n  const { text } = item.json;\n\n  const output = text.includes('<output>') && text.includes('</output>')\n    ? text.split('<output>')[1].split('</output>')[0].trim().toLowerCase()\n    : 'false';\n\n  const explanation = text.includes('<explanation>') && text.includes('</explanation>')\n    ? text.split('<explanation>')[1].split('</explanation>')[0].replace(/\\s+/g, ' ').trim()\n    : '';\n\n  item.json.output = output;\n  item.json.explanation = explanation;\n}\n\nreturn $input.all();"
+        }
+      },
+      {
+        "id": "d0754c43-3343-4443-9461-99a9568224d9",
+        "name": "set_error_max_tries",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          -14160,
+          -576
+        ],
+        "parameters": {
+          "assignments": {
+            "assignments": [
+              {
+                "id": "0c752526-2e40-492e-8ac0-fece361b200d",
+                "name": "ERROR",
+                "value": "={{ \"MAX_RETRIES_EXCEEDED: \" + ($json.explanation || \"no reason returned by the reviewer\").slice(0, 300) }}",
+                "type": "string"
+              }
+            ]
+          },
+          "options": {}
+        }
       },
       {
         "id": "e24c4ec4-1ee7-4ddd-85ea-225bb592b09f",
         "name": "switch_article_check",
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.2,
+        "position": [
+          -14384,
+          -688
+        ],
         "parameters": {
           "rules": {
             "values": [
@@ -555,36 +584,7 @@
           "options": {
             "fallbackOutput": "extra"
           }
-        },
-        "position": [
-          -14512,
-          -992
-        ],
-        "type": "n8n-nodes-base.switch",
-        "typeVersion": 3.2
-      },
-      {
-        "id": "d0754c43-3343-4443-9461-99a9568224d9",
-        "name": "set_error_max_tries",
-        "parameters": {
-          "assignments": {
-            "assignments": [
-              {
-                "id": "0c752526-2e40-492e-8ac0-fece361b200d",
-                "name": "ERROR",
-                "value": "={{ \"MAX_RETRIES_EXCEEDED: \" + ($json.explanation || \"no reason returned by the reviewer\").slice(0, 300) }}",
-                "type": "string"
-              }
-            ]
-          },
-          "options": {}
-        },
-        "position": [
-          -14288,
-          -992
-        ],
-        "type": "n8n-nodes-base.set",
-        "typeVersion": 3.4
+        }
       },
       {
         "id": "5ef3a220-aeed-4581-b50b-f1e6cd65acef",
@@ -592,8 +592,8 @@
         "type": "n8n-nodes-base.if",
         "typeVersion": 2.2,
         "position": [
-          -16544,
-          -992
+          -16448,
+          -736
         ],
         "parameters": {
           "conditions": {
@@ -621,14 +621,6 @@
         }
       },
       {
-        "parameters": {
-          "promptType": "define",
-          "text": "={{ $('download_system_prompt').item.json.output + '\\n\\n---\\n\\n' + $('download_article_prompt').item.json.output }}",
-          "needsFallback": true,
-          "options": {
-            "maxIterations": 8
-          }
-        },
         "id": "873d2869-5810-4b17-829c-80b60171ab9f",
         "name": "create_article_ai_plain",
         "type": "@n8n/n8n-nodes-langchain.agent",
@@ -638,11 +630,27 @@
         "maxTries": 5,
         "waitBetweenTries": 5000,
         "position": [
-          -16544,
-          -768
-        ]
+          -16096,
+          -592
+        ],
+        "parameters": {
+          "promptType": "define",
+          "text": "={{ $('download_system_prompt').item.json.output + '\\n\\n---\\n\\n' + $('download_article_prompt').item.json.output }}",
+          "needsFallback": true,
+          "options": {
+            "maxIterations": 8
+          }
+        }
       },
       {
+        "id": "cfeaa1cd-c403-4ba3-89de-265012c13550",
+        "name": "download_ai_speak",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          -17344,
+          -1200
+        ],
         "parameters": {
           "workflowId": {
             "__rl": true,
@@ -682,17 +690,17 @@
             "convertFieldsToString": true
           },
           "options": {}
-        },
-        "id": "cfeaa1cd-c403-4ba3-89de-265012c13550",
-        "name": "download_ai_speak",
+        }
+      },
+      {
+        "id": "8f2fdc79-3d44-4b8d-b08a-296bad5ca5da",
+        "name": "download_article_structures",
         "type": "n8n-nodes-base.executeWorkflow",
         "typeVersion": 1.2,
         "position": [
-          -17344,
+          -17120,
           -1200
-        ]
-      },
-      {
+        ],
         "parameters": {
           "workflowId": {
             "__rl": true,
@@ -732,15 +740,7 @@
             "convertFieldsToString": true
           },
           "options": {}
-        },
-        "id": "8f2fdc79-3d44-4b8d-b08a-296bad5ca5da",
-        "name": "download_article_structures",
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.2,
-        "position": [
-          -17120,
-          -1200
-        ]
+        }
       }
     ],
     "connections": {
@@ -874,11 +874,22 @@
           ]
         ]
       },
-      "download_article_review_prompt": {
+      "parse_article_check_output": {
         "main": [
           [
             {
-              "node": "check_article_llm",
+              "node": "merge_article_verdict",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "merge_article_verdict": {
+        "main": [
+          [
+            {
+              "node": "switch_article_check",
               "type": "main",
               "index": 0
             }
@@ -896,22 +907,11 @@
           ]
         ]
       },
-      "parse_article_check_output": {
+      "download_article_review_prompt": {
         "main": [
           [
             {
-              "node": "merge_article_verdict",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "merge_article_verdict": {
-        "main": [
-          [
-            {
-              "node": "switch_article_check",
+              "node": "check_article_llm",
               "type": "main",
               "index": 0
             }
@@ -997,13 +997,13 @@
     },
     "nodeGroups": [],
     "authors": "no name",
-    "name": "Version 83d2696a",
-    "description": "",
+    "name": null,
+    "description": null,
     "autosaved": false,
-    "createdAt": "2026-10-16T13:34:12.001Z",
-    "updatedAt": "2026-10-16T13:34:13.626Z"
+    "createdAt": "2026-10-18T18:48:01.587Z",
+    "updatedAt": "2026-10-18T18:48:01.587Z"
   },
-  "activeVersionId": "83d2696a-d245-485a-a2c4-eb9d6a554d9a",
+  "activeVersionId": "30eb4c13-01c2-49cd-8599-4552c5a62232",
   "connections": {
     "main_trigger": {
       "main": [
@@ -1135,11 +1135,22 @@
         ]
       ]
     },
-    "download_article_review_prompt": {
+    "parse_article_check_output": {
       "main": [
         [
           {
-            "node": "check_article_llm",
+            "node": "merge_article_verdict",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "merge_article_verdict": {
+      "main": [
+        [
+          {
+            "node": "switch_article_check",
             "type": "main",
             "index": 0
           }
@@ -1157,22 +1168,11 @@
         ]
       ]
     },
-    "parse_article_check_output": {
+    "download_article_review_prompt": {
       "main": [
         [
           {
-            "node": "merge_article_verdict",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "merge_article_verdict": {
-      "main": [
-        [
-          {
-            "node": "switch_article_check",
+            "node": "check_article_llm",
             "type": "main",
             "index": 0
           }
@@ -1264,6 +1264,14 @@
   "nodeGroups": [],
   "nodes": [
     {
+      "id": "21668eec-5b4e-4520-80c1-706618ebe5e2",
+      "name": "main_trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -17344,
+        -672
+      ],
       "parameters": {
         "workflowInputs": {
           "values": [
@@ -1297,17 +1305,17 @@
             }
           ]
         }
-      },
-      "id": "21668eec-5b4e-4520-80c1-706618ebe5e2",
-      "name": "main_trigger",
-      "type": "n8n-nodes-base.executeWorkflowTrigger",
-      "typeVersion": 1.1,
-      "position": [
-        -17344,
-        -992
-      ]
+      }
     },
     {
+      "id": "8b05e041-9f40-4e74-a32a-4ec5057f7684",
+      "name": "set_workflow_vars",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -17120,
+        -672
+      ],
       "parameters": {
         "assignments": {
           "assignments": [
@@ -1339,17 +1347,17 @@
         },
         "includeOtherFields": true,
         "options": {}
-      },
-      "id": "8b05e041-9f40-4e74-a32a-4ec5057f7684",
-      "name": "set_workflow_vars",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        -17120,
-        -992
-      ]
+      }
     },
     {
+      "id": "0ca99bd7-06a7-432e-a0c6-af85f386fee1",
+      "name": "download_article_prompt",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -16896,
+        -672
+      ],
       "parameters": {
         "workflowId": {
           "__rl": true,
@@ -1389,17 +1397,17 @@
           "convertFieldsToString": true
         },
         "options": {}
-      },
-      "id": "0ca99bd7-06a7-432e-a0c6-af85f386fee1",
-      "name": "download_article_prompt",
+      }
+    },
+    {
+      "id": "df25c640-319c-493c-b0df-b9ac01f0d448",
+      "name": "download_system_prompt",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        -16896,
-        -992
-      ]
-    },
-    {
+        -16672,
+        -736
+      ],
       "parameters": {
         "workflowId": {
           "__rl": true,
@@ -1439,25 +1447,9 @@
           "convertFieldsToString": true
         },
         "options": {}
-      },
-      "id": "df25c640-319c-493c-b0df-b9ac01f0d448",
-      "name": "download_system_prompt",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        -16672,
-        -992
-      ]
+      }
     },
     {
-      "parameters": {
-        "promptType": "define",
-        "text": "={{ $('download_system_prompt').item.json.output + '\\n\\n---\\n\\n' + $('download_article_prompt').item.json.output }}",
-        "needsFallback": true,
-        "options": {
-          "maxIterations": 20
-        }
-      },
       "id": "33284e9b-40ab-4e97-a604-277598c7f834",
       "name": "create_article_ai",
       "type": "@n8n/n8n-nodes-langchain.agent",
@@ -1467,24 +1459,40 @@
       "maxTries": 5,
       "waitBetweenTries": 5000,
       "position": [
-        -16320,
+        -16096,
         -992
-      ]
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('download_system_prompt').item.json.output + '\\n\\n---\\n\\n' + $('download_article_prompt').item.json.output }}",
+        "needsFallback": true,
+        "options": {
+          "maxIterations": 20
+        }
+      }
     },
     {
-      "parameters": {
-        "jsCode": "// The two things the caller needs out of the model's answer: the H1, which the row\n// stores as ARTICLE_TITLE and the entry point turns into the frozen slug, and the body,\n// which carries one `<!-- asset:<type> -->` marker per requested asset. The word budget\n// is checked here rather than trusted to the model: a mandatory count in a format is a\n// count that gets invented when the real one is missing.\n//\n// A problem is reported as data (`PROBLEM`), never thrown: a draft that ran long or came\n// back without a title is retried by the review loop below, and only a run that exhausts\n// its attempts reports the reason to the caller.\n//\n// MAX_WORDS is required. The entry point resolves the row's budget and the 1200 default,\n// so a value missing here is a caller bug: fail loudly rather than guess a bound.\nconst req = $('set_workflow_vars').first().json;\nconst max = Number(req.MAX_WORDS);\nif (!isFinite(max) || max <= 0) throw new Error('MAX_WORDS is required and must be a positive number');\n// An agent node answers `output` where a chain node answered `text`; the sub-workflow's\n// own contract stays the old names, so this is the one place the difference is absorbed.\nconst raw = String($json.output || $json.text || '');\nconst block = /<article>([\\s\\S]*?)<\\/article>/.exec(raw);\nconst inner = (block ? block[1] : raw).trim();\nconst HEAD = /^#\\s+(.+?)\\s*$/;\nlet title = '';\nconst body = [];\nfor (const line of inner.split('\\n')) {\n  if (!title && !body.length && HEAD.test(line.trim())) {\n    title = line.trim().replace(HEAD, '$1');\n    continue;\n  }\n  body.push(line);\n}\nconst text = body.join('\\n').trim();\n// A marker is an instruction to the publishing step, not prose the reader counts.\nconst words = text.replace(/<!--[\\s\\S]*?-->/g, ' ').split(/\\s+/).filter(Boolean).length;\n// The marker set is counted here rather than trusted to the review: how many markers a draft\n// carries is a count, and a count a model is asked for is a count it misses. Both drafts of\n// execution 14228 carried the same marker twice, the gate passed them, and the article ended up\n// referencing one illustration twice.\nconst requested = String($('main_trigger').first().json.ASSET_TYPES || '')\n  .split(',').map((s) => s.trim()).filter(Boolean);\nconst markers = (text.match(/<!--\\s*asset:[a-zA-Z0-9_]+\\s*-->/g) || [])\n  .map((m) => m.replace('<!--', '').replace('-->', '').replace('asset:', '').trim());\nconst wrongMarkers = [\n  ...requested.filter((t) => markers.filter((m) => m === t).length !== 1)\n    .map((t) => t + ' x' + markers.filter((m) => m === t).length),\n  ...markers.filter((m) => !requested.includes(m)).map((m) => m + ' not requested'),\n];\nlet problem = '';\nif (!text) problem = 'EMPTY_DRAFT: the model returned no article body';\nelse if (!title) problem = 'EMPTY_TITLE: the draft has no H1 title';\nelse if (words > max) problem = 'OVER_BUDGET: ' + words + ' words against MAX_WORDS=' + max;\nelse if (wrongMarkers.length) problem = 'MARKERS: ' + wrongMarkers.join(', ');\nreturn { json: { TITLE: title, TEXT: text, WORD_COUNT: words, MAX_WORDS: max, PROBLEM: problem } };"
-      },
       "id": "1ddafc37-25e0-4dd3-bfd8-c93d7c5af347",
       "name": "parse_article",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -15856,
-        -992
-      ]
+        -15632,
+        -736
+      ],
+      "parameters": {
+        "jsCode": "// The two things the caller needs out of the model's answer: the H1, which the row\n// stores as ARTICLE_TITLE and the entry point turns into the frozen slug, and the body,\n// which carries one `<!-- asset:<type> -->` marker per requested asset. The word budget\n// is checked here rather than trusted to the model: a mandatory count in a format is a\n// count that gets invented when the real one is missing.\n//\n// A problem is reported as data (`PROBLEM`), never thrown: a draft that ran long or came\n// back without a title is retried by the review loop below, and only a run that exhausts\n// its attempts reports the reason to the caller.\n//\n// MAX_WORDS is required. The entry point resolves the row's budget and the 1200 default,\n// so a value missing here is a caller bug: fail loudly rather than guess a bound.\nconst req = $('set_workflow_vars').first().json;\nconst max = Number(req.MAX_WORDS);\nif (!isFinite(max) || max <= 0) throw new Error('MAX_WORDS is required and must be a positive number');\n// An agent node answers `output` where a chain node answered `text`; the sub-workflow's\n// own contract stays the old names, so this is the one place the difference is absorbed.\nconst raw = String($json.output || $json.text || '');\nconst block = /<article>([\\s\\S]*?)<\\/article>/.exec(raw);\nconst inner = (block ? block[1] : raw).trim();\nconst HEAD = /^#\\s+(.+?)\\s*$/;\nlet title = '';\nconst body = [];\nfor (const line of inner.split('\\n')) {\n  if (!title && !body.length && HEAD.test(line.trim())) {\n    title = line.trim().replace(HEAD, '$1');\n    continue;\n  }\n  body.push(line);\n}\nconst text = body.join('\\n').trim();\n// A marker is an instruction to the publishing step, not prose the reader counts.\nconst words = text.replace(/<!--[\\s\\S]*?-->/g, ' ').split(/\\s+/).filter(Boolean).length;\n// The marker set is counted here rather than trusted to the review: how many markers a draft\n// carries is a count, and a count a model is asked for is a count it misses. Both drafts of\n// execution 14228 carried the same marker twice, the gate passed them, and the article ended up\n// referencing one illustration twice.\nconst requested = String($('main_trigger').first().json.ASSET_TYPES || '')\n  .split(',').map((s) => s.trim()).filter(Boolean);\nconst markers = (text.match(/<!--\\s*asset:[a-zA-Z0-9_]+\\s*-->/g) || [])\n  .map((m) => m.replace('<!--', '').replace('-->', '').replace('asset:', '').trim());\nconst wrongMarkers = [\n  ...requested.filter((t) => markers.filter((m) => m === t).length !== 1)\n    .map((t) => t + ' x' + markers.filter((m) => m === t).length),\n  ...markers.filter((m) => !requested.includes(m)).map((m) => m + ' not requested'),\n];\nlet problem = '';\nif (!text) problem = 'EMPTY_DRAFT: the model returned no article body';\nelse if (!title) problem = 'EMPTY_TITLE: the draft has no H1 title';\nelse if (words > max) problem = 'OVER_BUDGET: ' + words + ' words against MAX_WORDS=' + max;\nelse if (wrongMarkers.length) problem = 'MARKERS: ' + wrongMarkers.join(', ');\nreturn { json: { TITLE: title, TEXT: text, WORD_COUNT: words, MAX_WORDS: max, PROBLEM: problem } };"
+      }
     },
     {
+      "id": "f06b0cdb-0ca0-475f-bce7-d9b4d8e10eb6",
+      "name": "set_output",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -14160,
+        -768
+      ],
       "parameters": {
         "assignments": {
           "assignments": [
@@ -1515,17 +1523,17 @@
           ]
         },
         "options": {}
-      },
-      "id": "f06b0cdb-0ca0-475f-bce7-d9b4d8e10eb6",
-      "name": "set_output",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        -15632,
-        -992
-      ]
+      }
     },
     {
+      "id": "d5e56f92-2855-4e67-b9a9-c60e6bb1fc50",
+      "name": "ai_model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -16216,
+        -760
+      ],
       "parameters": {
         "model": {
           "__rl": true,
@@ -1534,18 +1542,10 @@
         },
         "builtInTools": {},
         "options": {
-          "maxRetries": 5,
-          "timeout": 120000
+          "timeout": 120000,
+          "maxRetries": 5
         }
       },
-      "id": "d5e56f92-2855-4e67-b9a9-c60e6bb1fc50",
-      "name": "ai_model",
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-      "typeVersion": 1.3,
-      "position": [
-        -16440,
-        -760
-      ],
       "credentials": {
         "openAiApi": {
           "id": "LitellmN8nAcct01",
@@ -1554,6 +1554,14 @@
       }
     },
     {
+      "id": "720198e0-9bcd-4ac3-92e0-b81eccc3eea8",
+      "name": "ai_model_fallback",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -16088,
+        -760
+      ],
       "parameters": {
         "model": {
           "__rl": true,
@@ -1562,18 +1570,10 @@
         },
         "builtInTools": {},
         "options": {
-          "maxRetries": 5,
-          "timeout": 120000
+          "timeout": 120000,
+          "maxRetries": 5
         }
       },
-      "id": "720198e0-9bcd-4ac3-92e0-b81eccc3eea8",
-      "name": "ai_model_fallback",
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-      "typeVersion": 1.3,
-      "position": [
-        -16312,
-        -760
-      ],
       "credentials": {
         "openAiApi": {
           "id": "LitellmN8nAcct01",
@@ -1582,6 +1582,14 @@
       }
     },
     {
+      "id": "13406702-c418-4b1e-9f5e-15d9dc588fc0",
+      "name": "read_page",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2,
+      "position": [
+        -15960,
+        -760
+      ],
       "parameters": {
         "name": "read_page",
         "description": "Fetch one URL and return its readable text. Use it on a link the other tools returned, or on a documentation URL.",
@@ -1613,17 +1621,17 @@
           "attemptToConvertTypes": false,
           "convertFieldsToString": true
         }
-      },
-      "id": "13406702-c418-4b1e-9f5e-15d9dc588fc0",
-      "name": "read_page",
+      }
+    },
+    {
+      "id": "f8553b78-c622-4720-8db6-09d1ceb456dc",
+      "name": "research_sources",
       "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
       "typeVersion": 2,
       "position": [
-        -16184,
+        -15832,
         -760
-      ]
-    },
-    {
+      ],
       "parameters": {
         "name": "research_sources",
         "description": "Search Hacker News and the author's RSS feeds for a subject. Returns a digest of titles, URLs, points and comment counts. Use it first; read a result with read_page before relying on it.",
@@ -1655,19 +1663,35 @@
           "attemptToConvertTypes": false,
           "convertFieldsToString": true
         }
-      },
-      "id": "f8553b78-c622-4720-8db6-09d1ceb456dc",
-      "name": "research_sources",
-      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
-      "typeVersion": 2,
+      }
+    },
+    {
+      "id": "289ff372-3304-4c2c-997a-99d07ae73f66",
+      "name": "check_article_llm",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.6,
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
       "position": [
-        -16056,
-        -760
-      ]
+        -15184,
+        -736
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('download_article_review_prompt').item.json.output }}",
+        "needsFallback": true
+      }
     },
     {
       "id": "06c7362b-bf4e-4715-946c-152a70485bef",
       "name": "download_article_review_prompt",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -15408,
+        -736
+      ],
       "parameters": {
         "workflowId": {
           "__rl": true,
@@ -1707,61 +1731,66 @@
           "convertFieldsToString": true
         },
         "options": {}
-      },
-      "position": [
-        -15408,
-        -992
-      ],
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2
-    },
-    {
-      "id": "289ff372-3304-4c2c-997a-99d07ae73f66",
-      "name": "check_article_llm",
-      "parameters": {
-        "promptType": "define",
-        "text": "={{ $('download_article_review_prompt').item.json.output }}",
-        "needsFallback": true
-      },
-      "position": [
-        -15184,
-        -992
-      ],
-      "type": "@n8n/n8n-nodes-langchain.chainLlm",
-      "typeVersion": 1.6,
-      "retryOnFail": true,
-      "maxTries": 5,
-      "waitBetweenTries": 5000
-    },
-    {
-      "id": "3c1b292c-9d8b-48c7-baba-365b1b9ada0e",
-      "name": "parse_article_check_output",
-      "parameters": {
-        "jsCode": "// The reviewer answers one verdict per draft as `<output>true|false</output>` and a short\n// `<explanation>`. The explanation is flattened to one line because it has two readers: the\n// next attempt's Reviewer Feedback block and the `MAX_RETRIES_EXCEEDED` report.\nfor (const item of $input.all()) {\n  const { text } = item.json;\n\n  const output = text.includes('<output>') && text.includes('</output>')\n    ? text.split('<output>')[1].split('</output>')[0].trim().toLowerCase()\n    : 'false';\n\n  const explanation = text.includes('<explanation>') && text.includes('</explanation>')\n    ? text.split('<explanation>')[1].split('</explanation>')[0].replace(/\\s+/g, ' ').trim()\n    : '';\n\n  item.json.output = output;\n  item.json.explanation = explanation;\n}\n\nreturn $input.all();"
-      },
-      "position": [
-        -14960,
-        -992
-      ],
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2
+      }
     },
     {
       "id": "7116b794-c002-41b6-95de-933574f03aa3",
       "name": "merge_article_verdict",
-      "parameters": {
-        "jsCode": "// The verdict the loop branches on. The reviewer's answer is combined with the parser's\n// deterministic checks, and the deterministic half wins: a count asked of a model is a\n// count that gets invented, so `PROBLEM` rejects the draft whatever the reviewer said \u2014\n// and the reason then names the real numbers rather than the reviewer's guess.\nconst parsed = $('parse_article').item.json;\nconst reviewerSays = String($json.output || '').trim() === 'true';\nconst reason = String($json.explanation || '').replace(/\\s+/g, ' ').trim();\nconst problem = String(parsed.PROBLEM || '');\n\nconst accepted = !problem && reviewerSays;\nlet explanation = '';\nif (problem) explanation = problem + (reason ? ' ' + reason : '');\nelse if (!reviewerSays) explanation = reason || 'the reviewer rejected the draft without a reason';\n\nreturn [{ json: { ...$json, output: accepted ? 'true' : 'false', explanation } }];"
-      },
-      "position": [
-        -14736,
-        -992
-      ],
       "type": "n8n-nodes-base.code",
-      "typeVersion": 2
+      "typeVersion": 2,
+      "position": [
+        -14608,
+        -736
+      ],
+      "parameters": {
+        "jsCode": "// The verdict the loop branches on. The reviewer's answer is combined with the parser's\n// deterministic checks, and the deterministic half wins: a count asked of a model is a\n// count that gets invented, so `PROBLEM` rejects the draft whatever the reviewer said —\n// and the reason then names the real numbers rather than the reviewer's guess.\nconst parsed = $('parse_article').item.json;\nconst reviewerSays = String($json.output || '').trim() === 'true';\nconst reason = String($json.explanation || '').replace(/\\s+/g, ' ').trim();\nconst problem = String(parsed.PROBLEM || '');\n\nconst accepted = !problem && reviewerSays;\nlet explanation = '';\nif (problem) explanation = problem + (reason ? ' ' + reason : '');\nelse if (!reviewerSays) explanation = reason || 'the reviewer rejected the draft without a reason';\n\nreturn [{ json: { ...$json, output: accepted ? 'true' : 'false', explanation } }];"
+      }
+    },
+    {
+      "id": "3c1b292c-9d8b-48c7-baba-365b1b9ada0e",
+      "name": "parse_article_check_output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -14832,
+        -736
+      ],
+      "parameters": {
+        "jsCode": "// The reviewer answers one verdict per draft as `<output>true|false</output>` and a short\n// `<explanation>`. The explanation is flattened to one line because it has two readers: the\n// next attempt's Reviewer Feedback block and the `MAX_RETRIES_EXCEEDED` report.\nfor (const item of $input.all()) {\n  const { text } = item.json;\n\n  const output = text.includes('<output>') && text.includes('</output>')\n    ? text.split('<output>')[1].split('</output>')[0].trim().toLowerCase()\n    : 'false';\n\n  const explanation = text.includes('<explanation>') && text.includes('</explanation>')\n    ? text.split('<explanation>')[1].split('</explanation>')[0].replace(/\\s+/g, ' ').trim()\n    : '';\n\n  item.json.output = output;\n  item.json.explanation = explanation;\n}\n\nreturn $input.all();"
+      }
+    },
+    {
+      "id": "d0754c43-3343-4443-9461-99a9568224d9",
+      "name": "set_error_max_tries",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -14160,
+        -576
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0c752526-2e40-492e-8ac0-fece361b200d",
+              "name": "ERROR",
+              "value": "={{ \"MAX_RETRIES_EXCEEDED: \" + ($json.explanation || \"no reason returned by the reviewer\").slice(0, 300) }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      }
     },
     {
       "id": "e24c4ec4-1ee7-4ddd-85ea-225bb592b09f",
       "name": "switch_article_check",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -14384,
+        -688
+      ],
       "parameters": {
         "rules": {
           "values": [
@@ -1814,36 +1843,7 @@
         "options": {
           "fallbackOutput": "extra"
         }
-      },
-      "position": [
-        -14512,
-        -992
-      ],
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 3.2
-    },
-    {
-      "id": "d0754c43-3343-4443-9461-99a9568224d9",
-      "name": "set_error_max_tries",
-      "parameters": {
-        "assignments": {
-          "assignments": [
-            {
-              "id": "0c752526-2e40-492e-8ac0-fece361b200d",
-              "name": "ERROR",
-              "value": "={{ \"MAX_RETRIES_EXCEEDED: \" + ($json.explanation || \"no reason returned by the reviewer\").slice(0, 300) }}",
-              "type": "string"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "position": [
-        -14288,
-        -992
-      ],
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4
+      }
     },
     {
       "id": "5ef3a220-aeed-4581-b50b-f1e6cd65acef",
@@ -1851,8 +1851,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        -16544,
-        -992
+        -16448,
+        -736
       ],
       "parameters": {
         "conditions": {
@@ -1880,14 +1880,6 @@
       }
     },
     {
-      "parameters": {
-        "promptType": "define",
-        "text": "={{ $('download_system_prompt').item.json.output + '\\n\\n---\\n\\n' + $('download_article_prompt').item.json.output }}",
-        "needsFallback": true,
-        "options": {
-          "maxIterations": 8
-        }
-      },
       "id": "873d2869-5810-4b17-829c-80b60171ab9f",
       "name": "create_article_ai_plain",
       "type": "@n8n/n8n-nodes-langchain.agent",
@@ -1897,11 +1889,27 @@
       "maxTries": 5,
       "waitBetweenTries": 5000,
       "position": [
-        -16544,
-        -768
-      ]
+        -16096,
+        -592
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('download_system_prompt').item.json.output + '\\n\\n---\\n\\n' + $('download_article_prompt').item.json.output }}",
+        "needsFallback": true,
+        "options": {
+          "maxIterations": 8
+        }
+      }
     },
     {
+      "id": "cfeaa1cd-c403-4ba3-89de-265012c13550",
+      "name": "download_ai_speak",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -17344,
+        -1200
+      ],
       "parameters": {
         "workflowId": {
           "__rl": true,
@@ -1941,17 +1949,17 @@
           "convertFieldsToString": true
         },
         "options": {}
-      },
-      "id": "cfeaa1cd-c403-4ba3-89de-265012c13550",
-      "name": "download_ai_speak",
+      }
+    },
+    {
+      "id": "8f2fdc79-3d44-4b8d-b08a-296bad5ca5da",
+      "name": "download_article_structures",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        -17344,
+        -17120,
         -1200
-      ]
-    },
-    {
+      ],
       "parameters": {
         "workflowId": {
           "__rl": true,
@@ -1991,15 +1999,7 @@
           "convertFieldsToString": true
         },
         "options": {}
-      },
-      "id": "8f2fdc79-3d44-4b8d-b08a-296bad5ca5da",
-      "name": "download_article_structures",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        -17120,
-        -1200
-      ]
+      }
     }
   ],
   "pinData": {},
@@ -2022,6 +2022,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 0,
-  "updatedAt": "2026-10-16T13:34:35.801Z",
-  "versionId": "83d2696a-d245-485a-a2c4-eb9d6a554d9a"
+  "updatedAt": "2026-10-18T18:48:01.537Z",
+  "versionId": "30eb4c13-01c2-49cd-8599-4552c5a62232"
 }

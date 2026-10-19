@@ -82,12 +82,16 @@
       `image_content_generator` (prompt prefill). Attempted 2026-10-19: all five wrote and
       re-activated, then were rolled back to the pre-change graphs because 10.0 was not
       done; the live instance is back on the old graph until the push lands.
-- [ ] 10.2 Let `publish-images.yaml` rebuild the adapter on merge (run 39298318860,
-      in progress at 17:56 UTC) (it triggers on the
+- [x] 10.2 `publish-images.yaml` rebuilt the adapter (run 39298318860, success) and pinned
+      digest `sha256:f1ce6dbb…` in 726b843; the pi-render pod rolled at 18:04 and
+      `DEFAULT_STILL_OFFSETS` reads `[0.1,0.4,0.7]` inside it (it triggers on the
       adapter path, re-pins `agents/adapters/pi-render/deploy/session.yaml` by digest, and
       ArgoCD rolls it); confirm the running pod carries the new digest before 10.3
 - [x] 10.4 Smoke test: `POST /webhook/visual-studio-test` with `ASSET_TYPES=image` ran
       execution 14359 (`success`); `download_scene_rules` returned the file and the text
       "A scene is one beat" is in the run data
-- [ ] 10.3 Read one live post clip's `review-1.jpg` and confirm it shows an opening scene
+- [x] 10.3 Live clip run 14371 (`verify-intro-1019-2`, `animation_linkedin_video`,
+      `SCENES` blank) succeeded; its final `review-1.jpg` (3 s of 30) shows the opening
+      title "DuckDB — A variant type built in, so JSON columns query without a cast on
+      every field", so the subject is named before the content scenes and the critic sees it and confirm it shows an opening scene
       naming the subject

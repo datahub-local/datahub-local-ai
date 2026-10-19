@@ -280,9 +280,11 @@ def test_the_form_vocabulary_is_fetched_and_reaches_the_brief(label, doc):
     name = dl["parameters"]["workflowInputs"]["value"]["template_name"]
     assert name == "prompts/visual_forms.md"
     assert _targets(doc, "download_visual_forms", 0) == ["visual_forms"]
-    # The review prompt is fetched on the same chain, after the vocabulary and before the
-    # registry: it depends on nothing, and every node here reads what it needs by name.
-    assert _targets(doc, "visual_forms", 0) == ["download_review_prompt"]
+    # The scene contract is fetched on the same chain, then the review prompt and the
+    # registry: every node here reads what it needs by name.
+    assert _targets(doc, "visual_forms", 0) == ["download_scene_rules"]
+    assert _targets(doc, "download_scene_rules", 0) == ["scene_rules"]
+    assert _targets(doc, "scene_rules", 0) == ["download_review_prompt"]
     assert _targets(doc, "download_review_prompt", 0) == ["download_raster_review_prompt"]
     assert _targets(doc, "download_raster_review_prompt", 0) == ["download_registry"]
     body = _code(doc, "build_author_brief")
@@ -476,6 +478,42 @@ def test_a_multi_scene_request_opens_on_a_title_scene(label, doc):
     assert "scenes > 1" in body, f"{label}: the title scene must be gated on a multi-scene count"
     assert "title scene that names the subject" in body, label
     assert "(scenes + 1)" in body, f"{label}: the clip must carry the title beside the declared scenes"
+
+
+@pytest.mark.parametrize("label,doc", list(_copies()))
+def test_an_animated_clip_with_no_declared_count_opens_on_the_subject(label, doc):
+    # Run 14335 (2026-10-19) opened on a detail: the count-gated rule said nothing when the
+    # composer owned the storyboard, and only a human retry asked for the title.
+    body = _code(doc, "build_author_brief")
+    assert "scenes === 0 && a.INTRO_SCENE === true" in body, label
+    assert "before the content scenes the storyboard sets" in body, label
+    # The line reaches the video branch and no other: a deck, an SVG or a still carries no
+    # sequence, so none of them may be asked for a title scene.
+    assert "sceneLine,\n      introLine,\n      ...sceneBlock," in body, label
+    assert "deckPlanLine,\n      sceneLine,\n      introLine" not in body, label
+    assert "...vocab,\n      sceneLine,\n      ...sceneBlock,\n      styleLine,\n      'Use a " in body, label
+    # The declaration is data on the type, and it rides on the asset a review turn reads.
+    assert "INTRO_SCENE: t.introScene === true" in _code(doc, "parse_registry"), label
+    assert "INTRO_SCENE: a.INTRO_SCENE === true" in _code(doc, "agent_result"), label
+
+
+@pytest.mark.parametrize("label,doc", list(_copies()))
+def test_the_scene_contract_is_a_prompt_file(label, doc):
+    # A definition is not a count: the brief says how many and in what order, and the file
+    # says what a scene is. It is fetched like the motion rules and appended to every
+    # scene-bearing branch, so the composer never infers the unit from a number.
+    fetch = _node(doc, "download_scene_rules")
+    assert fetch["parameters"]["workflowInputs"]["value"]["template_name"] == "prompts/visual_scene.md"
+    body = _code(doc, "scene_rules")
+    assert "SCENE" in body
+    brief = _code(doc, "build_author_brief")
+    assert "$('scene_rules')" in brief, label
+    assert "...sceneBlock," in brief, label
+    # The deck, the SVG and the clip carry scenes; the still does not.
+    assert brief.count("...sceneBlock,") == 3, label
+    text = (ROOT / "prompts" / "visual_scene.md").read_text()
+    assert "A scene is one beat" in text
+    assert "additional to them" in text
 
 
 @pytest.mark.parametrize("label,doc", list(_copies()))
@@ -687,6 +725,7 @@ def _brief_nodes():
         "normalize_input": [{"json": dict(_REQUEST)}],
         "brand_tokens": [{"json": {"STYLE": "dark", "BRAND": "the brand block"}}],
         "visual_rules": [{"json": {"RULES": "the motion rules"}}],
+        "scene_rules": [{"json": {"SCENE": "the scene contract"}}],
         "visual_forms": [{"json": {"FORMS": "the form vocabulary"}}],
     }
 

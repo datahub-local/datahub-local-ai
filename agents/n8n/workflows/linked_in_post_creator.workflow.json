@@ -210,7 +210,7 @@
           -880
         ],
         "parameters": {
-          "jsCode": "// Randomly pick variety directives so consecutive posts never share the same shape.\n// Duplicated entries act as weights.\nconst pick = (arr) => arr[Math.floor(Math.random() * arr.length)];\n\n// The hook is the one the curator's judge classified from the article and stored on\n// the row; it is NOT re-picked here. The opening shape comes from the registry entry\n// for that id, so the hook the post opens on and the hook the visual was built for are\n// the same decision. When the row carries no hook (a hand-written row), the writer\n// chooses the shape that fits.\nconst reg = $('parse_hook_registry').first().json;\nconst BY_ID = reg.byId || {};\nconst hookId = String($('main_trigger').first().json.HOOK || '').trim().toUpperCase();\nconst entry = BY_ID[hookId] || null;\nconst hook = entry\n  ? hookId + ': ' + String(entry.opening || '')\n  : 'the opening shape that best fits the content';\n\nconst format = pick([\n  'PURE PROSE: no bullet points at all, 3-5 flowing paragraphs',\n  'PURE PROSE: no bullet points at all, 3-5 flowing paragraphs',\n  'PUNCHY: several very short paragraphs, at least two of them a single sentence',\n  'PUNCHY: several very short paragraphs, at least two of them a single sentence',\n  'ONE BULLET BLOCK: exactly one bullet list of 3-4 short items, with prose before and after',\n]);\n\n// The word target is a point inside [MIN_WORDS, MAX_WORDS], not a percentage of MAX.\n// A percentage of MAX can fall below MIN - 40% of 300 is 120 against a minimum of 180 -\n// and the directives are declared MANDATORY in the prompt, so the model follows the\n// contradiction down and writes short.\nconst MIN_WORDS = $('main_trigger').first().json.MIN_WORDS || 150;\nconst MAX_WORDS = $('main_trigger').first().json.MAX_WORDS || 200;\nconst span = Math.max(0, MAX_WORDS - MIN_WORDS);\nconst target = (frac) => Math.round(MIN_WORDS + span * frac);\n\nconst lengthBand = pick([\n  ['SHORT', 0.15],\n  ['MEDIUM', 0.5],\n  ['MEDIUM', 0.5],\n  ['FULL', 0.9],\n]);\nconst length = lengthBand[0] + ': aim for about ' + target(lengthBand[1]) +\n  ' words, never fewer than ' + MIN_WORDS + ' and never more than ' + MAX_WORDS;\n\nconst closing = pick([\n  'DIRECT QUESTION: end the body with one specific question to technical peers',\n  'DIRECT QUESTION: end the body with one specific question to technical peers',\n  'SHARED EXPERIENCE: end by inviting others to share how they handle it, phrased as a statement, no question mark',\n  'HOT TAKE: end the body on a blunt one-line statement, no question, no invitation',\n  'HOT TAKE: end the body on a blunt one-line statement, no question, no invitation',\n  'NONE: end when the argument is complete, with no closing question or invitation',\n]);\n\nconst VARIETY_DIRECTIVES = [\n  `- Hook — ${hook}.`,\n  `- Format — ${format}.`,\n  `- Length — ${length}.`,\n  `- Closing — ${closing}. The \"Source here\" line and hashtags always follow the body regardless.`,\n].join('\\n');\n\nreturn [{ json: { ...$input.first().json, VARIETY_DIRECTIVES } }];\n"
+          "jsCode": "// Randomly pick variety directives so consecutive posts never share the same shape.\n// The options and their weights live in prompts/linkedin_variety.md; this node selects\n// them and formats the line the drafter reads.\n\n// The hook is the one the curator's judge classified from the article and stored on\n// the row; it is NOT re-picked here. The opening shape comes from the registry entry\n// for that id, so the hook the post opens on and the hook the visual was built for are\n// the same decision. When the row carries no hook (a hand-written row), the writer\n// chooses the shape that fits.\nconst reg = $('parse_hook_registry').first().json;\nconst BY_ID = reg.byId || {};\nconst hookId = String($('main_trigger').first().json.HOOK || '').trim().toUpperCase();\nconst entry = BY_ID[hookId] || null;\nconst hook = entry\n  ? hookId + ': ' + String(entry.opening || '')\n  : 'the opening shape that best fits the content';\n\nconst text = String($('variety_directives').first().json.TEXT || '');\n\n// One option set per section, as `weight | band | directive`. The band is used by the\n// length section; the weight duplicates an option in the draw (MEDIUM twice, etc.).\nconst section = (name) => {\n  const lines = text.split('\\n');\n  const start = lines.findIndex((l) => l.trim() === '## ' + name);\n  if (start < 0) return [];\n  const out = [];\n  for (let i = start + 1; i < lines.length; i++) {\n    const line = lines[i].trim();\n    if (line.startsWith('## ')) break;\n    if (!line) continue;\n    const parts = line.split('|').map((s) => s.trim());\n    if (parts.length !== 3) continue;\n    out.push({ weight: Math.max(1, Math.round(Number(parts[0]) || 1)), key: parts[1], text: parts[2] });\n  }\n  return out;\n};\nconst group = (name) => {\n  const options = section(name);\n  if (!options.length) throw new Error('prompts/linkedin_variety.md carries no ' + name + ' options');\n  return options;\n};\nconst pick = (options) => {\n  const pool = [];\n  for (const o of options) for (let i = 0; i < o.weight; i++) pool.push(o);\n  return pool[Math.floor(Math.random() * pool.length)];\n};\n\nconst format = pick(group('format')).text;\nconst band = pick(group('length'));\nconst closing = pick(group('closing')).text;\n\n// The word target is a point inside [MIN_WORDS, MAX_WORDS], not a percentage of MAX.\n// A percentage of MAX can fall below MIN - 40% of 300 is 120 against a minimum of 180 -\n// and the directives are declared MANDATORY in the prompt, so the model follows the\n// contradiction down and writes short.\nconst MIN_WORDS = $('main_trigger').first().json.MIN_WORDS || 150;\nconst MAX_WORDS = $('main_trigger').first().json.MAX_WORDS || 200;\nconst span = Math.max(0, MAX_WORDS - MIN_WORDS);\nconst target = (frac) => Math.round(MIN_WORDS + span * frac);\nconst length = band.key + ': aim for about ' + target(Number(band.text)) +\n  ' words, never fewer than ' + MIN_WORDS + ' and never more than ' + MAX_WORDS;\n\nconst VARIETY_DIRECTIVES = [\n  `- Hook — ${hook}.`,\n  `- Format — ${format}.`,\n  `- Length — ${length}.`,\n  `- Closing — ${closing}. The \"Source here\" line and hashtags always follow the body regardless.`,\n].join('\\n');\n\nreturn [{ json: { ...$input.first().json, VARIETY_DIRECTIVES } }];\n"
         }
       },
       {
@@ -714,6 +714,69 @@
           },
           "options": {}
         }
+      },
+      {
+        "id": "f35d82fc-7543-4143-a5bc-559d65a8e42d",
+        "name": "download_variety_directives",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          -16672,
+          -656
+        ],
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "qUfjfWLGEjV96ljf",
+            "mode": "list",
+            "cachedResultName": "DownloadTemplate",
+            "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "template_name": "prompts/linkedin_variety.md",
+              "template_vars": "={{ {} }}"
+            },
+            "matchingColumns": [],
+            "schema": [
+              {
+                "id": "template_name",
+                "displayName": "template_name",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string"
+              },
+              {
+                "id": "template_vars",
+                "displayName": "template_vars",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "object"
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "a654f097-dacb-40e1-b9b9-36bbbae8e57e",
+        "name": "variety_directives",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -16448,
+          -656
+        ],
+        "parameters": {
+          "jsCode": "// prompts/linkedin_variety.md is the one copy of the variety option sets. It is fetched\n// once; set_variety_directives selects from it and formats the directives.\nreturn [{ json: { TEXT: String($json.output || '') } }];\n"
+        }
       }
     ],
     "connections": {
@@ -928,7 +991,7 @@
         "main": [
           [
             {
-              "node": "set_variety_directives",
+              "node": "download_variety_directives",
               "type": "main",
               "index": 0
             }
@@ -940,6 +1003,28 @@
           [
             {
               "node": "download_post_rules_prompt",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "download_variety_directives": {
+        "main": [
+          [
+            {
+              "node": "variety_directives",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "variety_directives": {
+        "main": [
+          [
+            {
+              "node": "set_variety_directives",
               "type": "main",
               "index": 0
             }
@@ -1168,7 +1253,7 @@
       "main": [
         [
           {
-            "node": "set_variety_directives",
+            "node": "download_variety_directives",
             "type": "main",
             "index": 0
           }
@@ -1180,6 +1265,28 @@
         [
           {
             "node": "download_post_rules_prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "download_variety_directives": {
+      "main": [
+        [
+          {
+            "node": "variety_directives",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "variety_directives": {
+      "main": [
+        [
+          {
+            "node": "set_variety_directives",
             "type": "main",
             "index": 0
           }
@@ -1402,7 +1509,7 @@
         -880
       ],
       "parameters": {
-        "jsCode": "// Randomly pick variety directives so consecutive posts never share the same shape.\n// Duplicated entries act as weights.\nconst pick = (arr) => arr[Math.floor(Math.random() * arr.length)];\n\n// The hook is the one the curator's judge classified from the article and stored on\n// the row; it is NOT re-picked here. The opening shape comes from the registry entry\n// for that id, so the hook the post opens on and the hook the visual was built for are\n// the same decision. When the row carries no hook (a hand-written row), the writer\n// chooses the shape that fits.\nconst reg = $('parse_hook_registry').first().json;\nconst BY_ID = reg.byId || {};\nconst hookId = String($('main_trigger').first().json.HOOK || '').trim().toUpperCase();\nconst entry = BY_ID[hookId] || null;\nconst hook = entry\n  ? hookId + ': ' + String(entry.opening || '')\n  : 'the opening shape that best fits the content';\n\nconst format = pick([\n  'PURE PROSE: no bullet points at all, 3-5 flowing paragraphs',\n  'PURE PROSE: no bullet points at all, 3-5 flowing paragraphs',\n  'PUNCHY: several very short paragraphs, at least two of them a single sentence',\n  'PUNCHY: several very short paragraphs, at least two of them a single sentence',\n  'ONE BULLET BLOCK: exactly one bullet list of 3-4 short items, with prose before and after',\n]);\n\n// The word target is a point inside [MIN_WORDS, MAX_WORDS], not a percentage of MAX.\n// A percentage of MAX can fall below MIN - 40% of 300 is 120 against a minimum of 180 -\n// and the directives are declared MANDATORY in the prompt, so the model follows the\n// contradiction down and writes short.\nconst MIN_WORDS = $('main_trigger').first().json.MIN_WORDS || 150;\nconst MAX_WORDS = $('main_trigger').first().json.MAX_WORDS || 200;\nconst span = Math.max(0, MAX_WORDS - MIN_WORDS);\nconst target = (frac) => Math.round(MIN_WORDS + span * frac);\n\nconst lengthBand = pick([\n  ['SHORT', 0.15],\n  ['MEDIUM', 0.5],\n  ['MEDIUM', 0.5],\n  ['FULL', 0.9],\n]);\nconst length = lengthBand[0] + ': aim for about ' + target(lengthBand[1]) +\n  ' words, never fewer than ' + MIN_WORDS + ' and never more than ' + MAX_WORDS;\n\nconst closing = pick([\n  'DIRECT QUESTION: end the body with one specific question to technical peers',\n  'DIRECT QUESTION: end the body with one specific question to technical peers',\n  'SHARED EXPERIENCE: end by inviting others to share how they handle it, phrased as a statement, no question mark',\n  'HOT TAKE: end the body on a blunt one-line statement, no question, no invitation',\n  'HOT TAKE: end the body on a blunt one-line statement, no question, no invitation',\n  'NONE: end when the argument is complete, with no closing question or invitation',\n]);\n\nconst VARIETY_DIRECTIVES = [\n  `- Hook — ${hook}.`,\n  `- Format — ${format}.`,\n  `- Length — ${length}.`,\n  `- Closing — ${closing}. The \"Source here\" line and hashtags always follow the body regardless.`,\n].join('\\n');\n\nreturn [{ json: { ...$input.first().json, VARIETY_DIRECTIVES } }];\n"
+        "jsCode": "// Randomly pick variety directives so consecutive posts never share the same shape.\n// The options and their weights live in prompts/linkedin_variety.md; this node selects\n// them and formats the line the drafter reads.\n\n// The hook is the one the curator's judge classified from the article and stored on\n// the row; it is NOT re-picked here. The opening shape comes from the registry entry\n// for that id, so the hook the post opens on and the hook the visual was built for are\n// the same decision. When the row carries no hook (a hand-written row), the writer\n// chooses the shape that fits.\nconst reg = $('parse_hook_registry').first().json;\nconst BY_ID = reg.byId || {};\nconst hookId = String($('main_trigger').first().json.HOOK || '').trim().toUpperCase();\nconst entry = BY_ID[hookId] || null;\nconst hook = entry\n  ? hookId + ': ' + String(entry.opening || '')\n  : 'the opening shape that best fits the content';\n\nconst text = String($('variety_directives').first().json.TEXT || '');\n\n// One option set per section, as `weight | band | directive`. The band is used by the\n// length section; the weight duplicates an option in the draw (MEDIUM twice, etc.).\nconst section = (name) => {\n  const lines = text.split('\\n');\n  const start = lines.findIndex((l) => l.trim() === '## ' + name);\n  if (start < 0) return [];\n  const out = [];\n  for (let i = start + 1; i < lines.length; i++) {\n    const line = lines[i].trim();\n    if (line.startsWith('## ')) break;\n    if (!line) continue;\n    const parts = line.split('|').map((s) => s.trim());\n    if (parts.length !== 3) continue;\n    out.push({ weight: Math.max(1, Math.round(Number(parts[0]) || 1)), key: parts[1], text: parts[2] });\n  }\n  return out;\n};\nconst group = (name) => {\n  const options = section(name);\n  if (!options.length) throw new Error('prompts/linkedin_variety.md carries no ' + name + ' options');\n  return options;\n};\nconst pick = (options) => {\n  const pool = [];\n  for (const o of options) for (let i = 0; i < o.weight; i++) pool.push(o);\n  return pool[Math.floor(Math.random() * pool.length)];\n};\n\nconst format = pick(group('format')).text;\nconst band = pick(group('length'));\nconst closing = pick(group('closing')).text;\n\n// The word target is a point inside [MIN_WORDS, MAX_WORDS], not a percentage of MAX.\n// A percentage of MAX can fall below MIN - 40% of 300 is 120 against a minimum of 180 -\n// and the directives are declared MANDATORY in the prompt, so the model follows the\n// contradiction down and writes short.\nconst MIN_WORDS = $('main_trigger').first().json.MIN_WORDS || 150;\nconst MAX_WORDS = $('main_trigger').first().json.MAX_WORDS || 200;\nconst span = Math.max(0, MAX_WORDS - MIN_WORDS);\nconst target = (frac) => Math.round(MIN_WORDS + span * frac);\nconst length = band.key + ': aim for about ' + target(Number(band.text)) +\n  ' words, never fewer than ' + MIN_WORDS + ' and never more than ' + MAX_WORDS;\n\nconst VARIETY_DIRECTIVES = [\n  `- Hook — ${hook}.`,\n  `- Format — ${format}.`,\n  `- Length — ${length}.`,\n  `- Closing — ${closing}. The \"Source here\" line and hashtags always follow the body regardless.`,\n].join('\\n');\n\nreturn [{ json: { ...$input.first().json, VARIETY_DIRECTIVES } }];\n"
       }
     },
     {
@@ -1905,6 +2012,69 @@
           "convertFieldsToString": true
         },
         "options": {}
+      }
+    },
+    {
+      "id": "f35d82fc-7543-4143-a5bc-559d65a8e42d",
+      "name": "download_variety_directives",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -16672,
+        -656
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "qUfjfWLGEjV96ljf",
+          "mode": "list",
+          "cachedResultName": "DownloadTemplate",
+          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "template_name": "prompts/linkedin_variety.md",
+            "template_vars": "={{ {} }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "template_name",
+              "displayName": "template_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "template_vars",
+              "displayName": "template_vars",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "a654f097-dacb-40e1-b9b9-36bbbae8e57e",
+      "name": "variety_directives",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -16448,
+        -656
+      ],
+      "parameters": {
+        "jsCode": "// prompts/linkedin_variety.md is the one copy of the variety option sets. It is fetched\n// once; set_variety_directives selects from it and formats the directives.\nreturn [{ json: { TEXT: String($json.output || '') } }];\n"
       }
     }
   ],

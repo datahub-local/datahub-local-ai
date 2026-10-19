@@ -141,6 +141,18 @@ def test_the_animation_types_are_composer_authored(registry):
         assert entry.get("durationSeconds", 0) > 0, f"{tid} declares no duration"
 
 
+def test_a_sequencing_type_declares_an_intro_scene(registry):
+    """The post lane sends no scene count, so a clip that sequences content carries the
+    requirement itself; a loop, a diagram, a still and a deck do not (run 14335 opened
+    on a detail and only a human retry asked for the title)."""
+    by_id = {t["id"]: t for t in registry["types"]}
+    for tid in ("animation", "animation_linkedin", "animation_linkedin_video"):
+        assert by_id[tid].get("introScene") is True, tid
+    for tid in ("tiles", "tiles_wide", "svg", "svg_wide", "deck", "image",
+                "image_wide", "launch_card"):
+        assert "introScene" not in by_id[tid], f"{tid} is not a sequence"
+
+
 def test_no_animated_type_mandates_a_frozen_frame(registry):
     """Nothing may require the frame to stop; the brief asks for an ambient idle."""
     for t in registry["types"]:

@@ -310,7 +310,9 @@ def test_the_writer_only_gets_tools_when_the_entry_has_no_source():
     and hit `Max iterations (12)` with no draft. The retry fix cannot help a first attempt, so
     the tool surface itself is split: the tools belong to the agent that needs to research.
     """
-    assert _edges("download_system_prompt") == ["if_needs_research"]
+    assert _edges("download_system_prompt") == ["download_tool_prompts"]
+    assert _edges("download_tool_prompts") == ["tool_prompts"]
+    assert _edges("tool_prompts") == ["if_needs_research"]
     assert _edges("if_needs_research", 0) == ["create_article_ai"]
     assert _edges("if_needs_research", 1) == ["create_article_ai_plain"]
     assert _edges("create_article_ai") == ["parse_article"]

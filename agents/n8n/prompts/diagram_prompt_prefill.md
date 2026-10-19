@@ -1,0 +1,1 @@
+{{ DIAGRAM_TYPE }} diagram of {{ DIAGRAM_TOPIC }}. Show at most 4-6 key elements. If flow matters, use A -> B -> C. Style: {{ VISUAL_STYLE }}. Palette: {{ COLOR_PRESET }}. Clean vector lines, short labels.

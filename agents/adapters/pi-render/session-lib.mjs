@@ -427,7 +427,9 @@ export function transcodeArgs(format, { fps, width, height, frames, durationSeco
 // makes, not something this server knows about. What this server owns is the render, so it
 // hands back stills of it: a browser screenshot for an authored document, frames for a clip.
 // No model call, and no new dependency: Chromium and ffmpeg are what the render already uses.
-export const DEFAULT_STILL_OFFSETS = [0.25, 0.5, 0.75];
+// The first sample is the opening scene: a clip is briefed to introduce its subject there,
+// and a quarter of a 30 s clip (7.5 s) skipped it, so a cold open was never in a still.
+export const DEFAULT_STILL_OFFSETS = [0.1, 0.4, 0.7];
 
 // The seek that reaches a clip's final frame. ffmpeg's `-sseof` shorter than one frame
 // interval exits 0 and writes NOTHING: on the 8 fps artifact this pipeline derives from 24

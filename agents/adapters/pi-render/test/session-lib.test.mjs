@@ -365,7 +365,9 @@ test("stillArgs samples a clip and always includes its final frame", () => {
   assert.deepEqual(jobs.map((j) => j.output), ["review-1.jpg", "review-2.jpg", "review-3.jpg", "review-final.jpg"]);
   assert.ok(jobs.every((j) => j.command === "ffmpeg" && j.mime === "image/jpeg"));
   // The offsets are the declared duration's, and the last frame is seeked from the end.
-  assert.ok(jobs[0].args.includes("7.5"), "a quarter of thirty seconds");
+  // The first sample is the opening scene, where a clip is briefed to name its subject: a
+  // quarter of thirty seconds (7.5) skipped it, so the first still now lands at 3.0.
+  assert.ok(jobs[0].args.includes("3"), "a tenth of thirty seconds reaches the opening");
   assert.ok(jobs[3].args.includes("-sseof"), "the final frame is not a timestamp guess");
   // A clip whose duration is unknown still yields its final frame rather than nothing.
   const bare = stillArgs({ format: "gif", runDir: "/runs/x" });

@@ -90,6 +90,12 @@
                 "name": "=colorPresetsDatasetPath",
                 "value": "={{ ($env[\"BACKUP_GITHUB_REPO_PATH\"] || \"agents/n8n\").replace(/\\/+$/, \"\") }}/datasets/diagram_color_presets.json",
                 "type": "string"
+              },
+              {
+                "id": "assign-009",
+                "name": "prefillPath",
+                "value": "={{ ($env[\"BACKUP_GITHUB_REPO_PATH\"] || \"agents/n8n\").replace(/\\/+$/, \"\") }}/prompts/diagram_prompt_prefill.md",
+                "type": "string"
               }
             ]
           },
@@ -142,7 +148,7 @@
           320
         ],
         "parameters": {
-          "jsCode": "// GitHub node returns file content as base64 in $json.content\nconst decode = (b64) => Buffer.from(b64.replace(/\\n/g, ''), 'base64').toString('utf8');\n\nconst diagramTypesRaw = decode($('Fetch: Diagram Types Dataset').first().json.content);\nconst promptTemplate = decode($('Fetch: Prompt Template').first().json.content);\nconst visualStylesRaw = decode($('Fetch: Visual Styles Dataset').first().json.content);\nconst colorPresetsRaw = decode($('Fetch: Color Presets Dataset').first().json.content);\nconst config = $('Init: Set GitHub Config').first().json;\n\nconst diagramTypes = JSON.parse(diagramTypesRaw);\nconst visualStyles = JSON.parse(visualStylesRaw);\nconst colorPresets = JSON.parse(colorPresetsRaw);\n\nreturn [{\n  diagramTypes,\n  visualStyles,\n  colorPresets,\n  promptTemplate,\n  diagramDescription: config.diagramDescription,\n  githubOwner: config.githubOwner,\n  githubRepo: config.githubRepo,\n  githubBranch: config.githubBranch\n}];"
+          "jsCode": "// GitHub node returns file content as base64 in $json.content\nconst decode = (b64) => Buffer.from(b64.replace(/\\n/g, ''), 'base64').toString('utf8');\n\nconst diagramTypesRaw = decode($('Fetch: Diagram Types Dataset').first().json.content);\nconst promptTemplate = decode($('Fetch: Prompt Template').first().json.content);\nconst promptPrefill = decode($('Fetch: Prompt Prefill').first().json.content);\nconst visualStylesRaw = decode($('Fetch: Visual Styles Dataset').first().json.content);\nconst colorPresetsRaw = decode($('Fetch: Color Presets Dataset').first().json.content);\nconst config = $('Init: Set GitHub Config').first().json;\n\nconst diagramTypes = JSON.parse(diagramTypesRaw);\nconst visualStyles = JSON.parse(visualStylesRaw);\nconst colorPresets = JSON.parse(colorPresetsRaw);\n\nreturn [{\n  diagramTypes,\n  visualStyles,\n  colorPresets,\n  promptTemplate,\n  promptPrefill,\n  diagramDescription: config.diagramDescription,\n  githubOwner: config.githubOwner,\n  githubRepo: config.githubRepo,\n  githubBranch: config.githubBranch\n}];"
         }
       },
       {
@@ -475,7 +481,7 @@
           320
         ],
         "parameters": {
-          "jsCode": "const styleSelection = $input.first().json;\nconst buildData = $('Build: Diagram Prompt').first().json;\n\n// Extract visual style id from selection (format: \"emoji id — Name\")\nconst visualStyleRaw = styleSelection['Visual Style'] || '';\nconst visualStyleId = visualStyleRaw.replace(/^\\S+\\s+/, '').split(' — ')[0].trim();\nconst visualStyleObj = buildData.visualStyles.find(s => s.id === visualStyleId) || {};\nconst visualStyleName = visualStyleObj.name || visualStyleId;\nconst visualStyleDescription = visualStyleObj.description || '';\n\n// Extract color preset id from selection (format: \"emoji id — Name\")\nconst colorPresetRaw = styleSelection['Color Preset'] || '';\nconst colorPresetId = colorPresetRaw.replace(/^\\S+\\s+/, '').split(' — ')[0].trim();\nconst colorPresetObj = buildData.colorPresets.find(c => c.id === colorPresetId) || {};\nconst colorPresetName = colorPresetObj.name || colorPresetId;\nconst colorPresetDescription = colorPresetObj.description || '';\n\n// Substitute all placeholders — prompt is fully agnostic, all content comes from the datasets\nlet prompt = buildData.promptTemplate;\nprompt = prompt.replace(/\\{\\{DIAGRAM_TYPE\\}\\}/g, buildData.diagramTypeName);\nprompt = prompt.replace(/\\{\\{DIAGRAM_TYPE_DESCRIPTION\\}\\}/g, buildData.diagramTypeDescription + ' ' + buildData.styleHint);\nprompt = prompt.replace(/\\{\\{DIAGRAM_TOPIC\\}\\}/g, buildData.diagramDescription);\nprompt = prompt.replace(/\\{\\{VISUAL_STYLE\\}\\}/g, visualStyleName);\nprompt = prompt.replace(/\\{\\{VISUAL_STYLE_DESCRIPTION\\}\\}/g, visualStyleDescription);\nprompt = prompt.replace(/\\{\\{COLOR_PRESET\\}\\}/g, colorPresetName + ': ' + colorPresetDescription);\nprompt = prompt.replace(/\\{\\{DIAGRAM_CONTEXT\\}\\}/g, buildData.additionalContext);\n\n// FEEDBACK is left unsubstituted in promptWithFeedbackSlot so a retry can fill it;\n// the first pass renders it empty, which the template tells the model to ignore.\nconst promptWithFeedbackSlot = prompt;\nprompt = prompt.replace(/\\{\\{FEEDBACK\\}\\}/g, '');\n\n// Build a concise suggested image prompt (pre-filled in the edit form)\nconst suggestedImagePrompt = `\"${buildData.diagramTypeName} diagram of ${buildData.diagramDescription}. Show at most 4-6 key elements. If flow matters, use A -> B -> C. Style: ${visualStyleName}. Palette: ${colorPresetName}. Clean vector lines, short labels.\"`;\n\nreturn [{\n  diagramTypeId: buildData.diagramTypeId,\n  diagramTypeName: buildData.diagramTypeName,\n  diagramDescription: buildData.diagramDescription,\n  visualStyleId,\n  visualStyleName,\n  colorPresetId,\n  colorPresetName,\n  model: buildData.model,\n  additionalContext: buildData.additionalContext,\n  generatedSystemPrompt: prompt,\n  promptWithFeedbackSlot,\n  suggestedImagePrompt\n}];"
+          "jsCode": "const styleSelection = $input.first().json;\nconst buildData = $('Build: Diagram Prompt').first().json;\n\n// Extract visual style id from selection (format: \"emoji id — Name\")\nconst visualStyleRaw = styleSelection['Visual Style'] || '';\nconst visualStyleId = visualStyleRaw.replace(/^\\S+\\s+/, '').split(' — ')[0].trim();\nconst visualStyleObj = buildData.visualStyles.find(s => s.id === visualStyleId) || {};\nconst visualStyleName = visualStyleObj.name || visualStyleId;\nconst visualStyleDescription = visualStyleObj.description || '';\n\n// Extract color preset id from selection (format: \"emoji id — Name\")\nconst colorPresetRaw = styleSelection['Color Preset'] || '';\nconst colorPresetId = colorPresetRaw.replace(/^\\S+\\s+/, '').split(' — ')[0].trim();\nconst colorPresetObj = buildData.colorPresets.find(c => c.id === colorPresetId) || {};\nconst colorPresetName = colorPresetObj.name || colorPresetId;\nconst colorPresetDescription = colorPresetObj.description || '';\n\n// Substitute all placeholders — prompt is fully agnostic, all content comes from the datasets\nlet prompt = buildData.promptTemplate;\nprompt = prompt.replace(/\\{\\{DIAGRAM_TYPE\\}\\}/g, buildData.diagramTypeName);\nprompt = prompt.replace(/\\{\\{DIAGRAM_TYPE_DESCRIPTION\\}\\}/g, buildData.diagramTypeDescription + ' ' + buildData.styleHint);\nprompt = prompt.replace(/\\{\\{DIAGRAM_TOPIC\\}\\}/g, buildData.diagramDescription);\nprompt = prompt.replace(/\\{\\{VISUAL_STYLE\\}\\}/g, visualStyleName);\nprompt = prompt.replace(/\\{\\{VISUAL_STYLE_DESCRIPTION\\}\\}/g, visualStyleDescription);\nprompt = prompt.replace(/\\{\\{COLOR_PRESET\\}\\}/g, colorPresetName + ': ' + colorPresetDescription);\nprompt = prompt.replace(/\\{\\{DIAGRAM_CONTEXT\\}\\}/g, buildData.additionalContext);\n\n// FEEDBACK is left unsubstituted in promptWithFeedbackSlot so a retry can fill it;\n// the first pass renders it empty, which the template tells the model to ignore.\nconst promptWithFeedbackSlot = prompt;\nprompt = prompt.replace(/\\{\\{FEEDBACK\\}\\}/g, '');\n\n// The suggested prompt is a prompt file (prompts/diagram_prompt_prefill.md), not a literal\n// here; the edit form pre-fills with it and the human may change it before generation.\nconst suggestedImagePrompt = '\"' + String(buildData.promptPrefill || '')\n  .replace(/\\{\\{DIAGRAM_TYPE\\}\\}/g, buildData.diagramTypeName)\n  .replace(/\\{\\{DIAGRAM_TOPIC\\}\\}/g, buildData.diagramDescription)\n  .replace(/\\{\\{VISUAL_STYLE\\}\\}/g, visualStyleName)\n  .replace(/\\{\\{COLOR_PRESET\\}\\}/g, colorPresetName)\n  .trim() + '\"';\n\nreturn [{\n  diagramTypeId: buildData.diagramTypeId,\n  diagramTypeName: buildData.diagramTypeName,\n  diagramDescription: buildData.diagramDescription,\n  visualStyleId,\n  visualStyleName,\n  colorPresetId,\n  colorPresetName,\n  model: buildData.model,\n  additionalContext: buildData.additionalContext,\n  generatedSystemPrompt: prompt,\n  promptWithFeedbackSlot,\n  suggestedImagePrompt\n}];"
         }
       },
       {
@@ -602,7 +608,7 @@
           288
         ],
         "parameters": {
-          "numberInputs": 4
+          "numberInputs": 5
         }
       },
       {
@@ -795,6 +801,40 @@
             "name": "LiteLLM account"
           }
         }
+      },
+      {
+        "id": "c91f3d0e-6901-473b-b3d7-cd018613a432",
+        "name": "Fetch: Prompt Prefill",
+        "webhookId": "c3d4e5f6-0000-4000-8000-000000000099",
+        "type": "n8n-nodes-base.github",
+        "typeVersion": 1,
+        "position": [
+          2176,
+          800
+        ],
+        "parameters": {
+          "resource": "file",
+          "operation": "get",
+          "owner": {
+            "__rl": true,
+            "value": "={{ $('Init: Set GitHub Config').first().json.githubOwner }}",
+            "mode": "name"
+          },
+          "repository": {
+            "__rl": true,
+            "value": "={{ $('Init: Set GitHub Config').first().json.githubRepo }}",
+            "mode": "name"
+          },
+          "filePath": "{{ $('Init: Set GitHub Config').first().json.prefillPath }}",
+          "asBinaryProperty": false,
+          "additionalParameters": {}
+        },
+        "credentials": {
+          "githubApi": {
+            "id": "x1DjxYsMLFm3vUiv",
+            "name": "GitHub account"
+          }
+        }
       }
     ],
     "connections": {
@@ -829,6 +869,11 @@
             },
             {
               "node": "Fetch: Color Presets Dataset",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Fetch: Prompt Prefill",
               "type": "main",
               "index": 0
             }
@@ -1112,6 +1157,17 @@
             }
           ]
         ]
+      },
+      "Fetch: Prompt Prefill": {
+        "main": [
+          [
+            {
+              "node": "Merge Github",
+              "type": "main",
+              "index": 4
+            }
+          ]
+        ]
       }
     },
     "nodeGroups": [],
@@ -1155,6 +1211,11 @@
           },
           {
             "node": "Fetch: Color Presets Dataset",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch: Prompt Prefill",
             "type": "main",
             "index": 0
           }
@@ -1438,6 +1499,17 @@
           }
         ]
       ]
+    },
+    "Fetch: Prompt Prefill": {
+      "main": [
+        [
+          {
+            "node": "Merge Github",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
     }
   },
   "createdAt": "2026-04-28T13:50:57.156Z",
@@ -1535,6 +1607,12 @@
               "name": "=colorPresetsDatasetPath",
               "value": "={{ ($env[\"BACKUP_GITHUB_REPO_PATH\"] || \"agents/n8n\").replace(/\\/+$/, \"\") }}/datasets/diagram_color_presets.json",
               "type": "string"
+            },
+            {
+              "id": "assign-009",
+              "name": "prefillPath",
+              "value": "={{ ($env[\"BACKUP_GITHUB_REPO_PATH\"] || \"agents/n8n\").replace(/\\/+$/, \"\") }}/prompts/diagram_prompt_prefill.md",
+              "type": "string"
             }
           ]
         },
@@ -1587,7 +1665,7 @@
         320
       ],
       "parameters": {
-        "jsCode": "// GitHub node returns file content as base64 in $json.content\nconst decode = (b64) => Buffer.from(b64.replace(/\\n/g, ''), 'base64').toString('utf8');\n\nconst diagramTypesRaw = decode($('Fetch: Diagram Types Dataset').first().json.content);\nconst promptTemplate = decode($('Fetch: Prompt Template').first().json.content);\nconst visualStylesRaw = decode($('Fetch: Visual Styles Dataset').first().json.content);\nconst colorPresetsRaw = decode($('Fetch: Color Presets Dataset').first().json.content);\nconst config = $('Init: Set GitHub Config').first().json;\n\nconst diagramTypes = JSON.parse(diagramTypesRaw);\nconst visualStyles = JSON.parse(visualStylesRaw);\nconst colorPresets = JSON.parse(colorPresetsRaw);\n\nreturn [{\n  diagramTypes,\n  visualStyles,\n  colorPresets,\n  promptTemplate,\n  diagramDescription: config.diagramDescription,\n  githubOwner: config.githubOwner,\n  githubRepo: config.githubRepo,\n  githubBranch: config.githubBranch\n}];"
+        "jsCode": "// GitHub node returns file content as base64 in $json.content\nconst decode = (b64) => Buffer.from(b64.replace(/\\n/g, ''), 'base64').toString('utf8');\n\nconst diagramTypesRaw = decode($('Fetch: Diagram Types Dataset').first().json.content);\nconst promptTemplate = decode($('Fetch: Prompt Template').first().json.content);\nconst promptPrefill = decode($('Fetch: Prompt Prefill').first().json.content);\nconst visualStylesRaw = decode($('Fetch: Visual Styles Dataset').first().json.content);\nconst colorPresetsRaw = decode($('Fetch: Color Presets Dataset').first().json.content);\nconst config = $('Init: Set GitHub Config').first().json;\n\nconst diagramTypes = JSON.parse(diagramTypesRaw);\nconst visualStyles = JSON.parse(visualStylesRaw);\nconst colorPresets = JSON.parse(colorPresetsRaw);\n\nreturn [{\n  diagramTypes,\n  visualStyles,\n  colorPresets,\n  promptTemplate,\n  promptPrefill,\n  diagramDescription: config.diagramDescription,\n  githubOwner: config.githubOwner,\n  githubRepo: config.githubRepo,\n  githubBranch: config.githubBranch\n}];"
       }
     },
     {
@@ -1920,7 +1998,7 @@
         320
       ],
       "parameters": {
-        "jsCode": "const styleSelection = $input.first().json;\nconst buildData = $('Build: Diagram Prompt').first().json;\n\n// Extract visual style id from selection (format: \"emoji id — Name\")\nconst visualStyleRaw = styleSelection['Visual Style'] || '';\nconst visualStyleId = visualStyleRaw.replace(/^\\S+\\s+/, '').split(' — ')[0].trim();\nconst visualStyleObj = buildData.visualStyles.find(s => s.id === visualStyleId) || {};\nconst visualStyleName = visualStyleObj.name || visualStyleId;\nconst visualStyleDescription = visualStyleObj.description || '';\n\n// Extract color preset id from selection (format: \"emoji id — Name\")\nconst colorPresetRaw = styleSelection['Color Preset'] || '';\nconst colorPresetId = colorPresetRaw.replace(/^\\S+\\s+/, '').split(' — ')[0].trim();\nconst colorPresetObj = buildData.colorPresets.find(c => c.id === colorPresetId) || {};\nconst colorPresetName = colorPresetObj.name || colorPresetId;\nconst colorPresetDescription = colorPresetObj.description || '';\n\n// Substitute all placeholders — prompt is fully agnostic, all content comes from the datasets\nlet prompt = buildData.promptTemplate;\nprompt = prompt.replace(/\\{\\{DIAGRAM_TYPE\\}\\}/g, buildData.diagramTypeName);\nprompt = prompt.replace(/\\{\\{DIAGRAM_TYPE_DESCRIPTION\\}\\}/g, buildData.diagramTypeDescription + ' ' + buildData.styleHint);\nprompt = prompt.replace(/\\{\\{DIAGRAM_TOPIC\\}\\}/g, buildData.diagramDescription);\nprompt = prompt.replace(/\\{\\{VISUAL_STYLE\\}\\}/g, visualStyleName);\nprompt = prompt.replace(/\\{\\{VISUAL_STYLE_DESCRIPTION\\}\\}/g, visualStyleDescription);\nprompt = prompt.replace(/\\{\\{COLOR_PRESET\\}\\}/g, colorPresetName + ': ' + colorPresetDescription);\nprompt = prompt.replace(/\\{\\{DIAGRAM_CONTEXT\\}\\}/g, buildData.additionalContext);\n\n// FEEDBACK is left unsubstituted in promptWithFeedbackSlot so a retry can fill it;\n// the first pass renders it empty, which the template tells the model to ignore.\nconst promptWithFeedbackSlot = prompt;\nprompt = prompt.replace(/\\{\\{FEEDBACK\\}\\}/g, '');\n\n// Build a concise suggested image prompt (pre-filled in the edit form)\nconst suggestedImagePrompt = `\"${buildData.diagramTypeName} diagram of ${buildData.diagramDescription}. Show at most 4-6 key elements. If flow matters, use A -> B -> C. Style: ${visualStyleName}. Palette: ${colorPresetName}. Clean vector lines, short labels.\"`;\n\nreturn [{\n  diagramTypeId: buildData.diagramTypeId,\n  diagramTypeName: buildData.diagramTypeName,\n  diagramDescription: buildData.diagramDescription,\n  visualStyleId,\n  visualStyleName,\n  colorPresetId,\n  colorPresetName,\n  model: buildData.model,\n  additionalContext: buildData.additionalContext,\n  generatedSystemPrompt: prompt,\n  promptWithFeedbackSlot,\n  suggestedImagePrompt\n}];"
+        "jsCode": "const styleSelection = $input.first().json;\nconst buildData = $('Build: Diagram Prompt').first().json;\n\n// Extract visual style id from selection (format: \"emoji id — Name\")\nconst visualStyleRaw = styleSelection['Visual Style'] || '';\nconst visualStyleId = visualStyleRaw.replace(/^\\S+\\s+/, '').split(' — ')[0].trim();\nconst visualStyleObj = buildData.visualStyles.find(s => s.id === visualStyleId) || {};\nconst visualStyleName = visualStyleObj.name || visualStyleId;\nconst visualStyleDescription = visualStyleObj.description || '';\n\n// Extract color preset id from selection (format: \"emoji id — Name\")\nconst colorPresetRaw = styleSelection['Color Preset'] || '';\nconst colorPresetId = colorPresetRaw.replace(/^\\S+\\s+/, '').split(' — ')[0].trim();\nconst colorPresetObj = buildData.colorPresets.find(c => c.id === colorPresetId) || {};\nconst colorPresetName = colorPresetObj.name || colorPresetId;\nconst colorPresetDescription = colorPresetObj.description || '';\n\n// Substitute all placeholders — prompt is fully agnostic, all content comes from the datasets\nlet prompt = buildData.promptTemplate;\nprompt = prompt.replace(/\\{\\{DIAGRAM_TYPE\\}\\}/g, buildData.diagramTypeName);\nprompt = prompt.replace(/\\{\\{DIAGRAM_TYPE_DESCRIPTION\\}\\}/g, buildData.diagramTypeDescription + ' ' + buildData.styleHint);\nprompt = prompt.replace(/\\{\\{DIAGRAM_TOPIC\\}\\}/g, buildData.diagramDescription);\nprompt = prompt.replace(/\\{\\{VISUAL_STYLE\\}\\}/g, visualStyleName);\nprompt = prompt.replace(/\\{\\{VISUAL_STYLE_DESCRIPTION\\}\\}/g, visualStyleDescription);\nprompt = prompt.replace(/\\{\\{COLOR_PRESET\\}\\}/g, colorPresetName + ': ' + colorPresetDescription);\nprompt = prompt.replace(/\\{\\{DIAGRAM_CONTEXT\\}\\}/g, buildData.additionalContext);\n\n// FEEDBACK is left unsubstituted in promptWithFeedbackSlot so a retry can fill it;\n// the first pass renders it empty, which the template tells the model to ignore.\nconst promptWithFeedbackSlot = prompt;\nprompt = prompt.replace(/\\{\\{FEEDBACK\\}\\}/g, '');\n\n// The suggested prompt is a prompt file (prompts/diagram_prompt_prefill.md), not a literal\n// here; the edit form pre-fills with it and the human may change it before generation.\nconst suggestedImagePrompt = '\"' + String(buildData.promptPrefill || '')\n  .replace(/\\{\\{DIAGRAM_TYPE\\}\\}/g, buildData.diagramTypeName)\n  .replace(/\\{\\{DIAGRAM_TOPIC\\}\\}/g, buildData.diagramDescription)\n  .replace(/\\{\\{VISUAL_STYLE\\}\\}/g, visualStyleName)\n  .replace(/\\{\\{COLOR_PRESET\\}\\}/g, colorPresetName)\n  .trim() + '\"';\n\nreturn [{\n  diagramTypeId: buildData.diagramTypeId,\n  diagramTypeName: buildData.diagramTypeName,\n  diagramDescription: buildData.diagramDescription,\n  visualStyleId,\n  visualStyleName,\n  colorPresetId,\n  colorPresetName,\n  model: buildData.model,\n  additionalContext: buildData.additionalContext,\n  generatedSystemPrompt: prompt,\n  promptWithFeedbackSlot,\n  suggestedImagePrompt\n}];"
       }
     },
     {
@@ -2047,7 +2125,7 @@
         288
       ],
       "parameters": {
-        "numberInputs": 4
+        "numberInputs": 5
       }
     },
     {
@@ -2238,6 +2316,40 @@
         "openAiApi": {
           "id": "LitellmN8nAcct01",
           "name": "LiteLLM account"
+        }
+      }
+    },
+    {
+      "id": "c91f3d0e-6901-473b-b3d7-cd018613a432",
+      "name": "Fetch: Prompt Prefill",
+      "webhookId": "c3d4e5f6-0000-4000-8000-000000000099",
+      "type": "n8n-nodes-base.github",
+      "typeVersion": 1,
+      "position": [
+        2176,
+        800
+      ],
+      "parameters": {
+        "resource": "file",
+        "operation": "get",
+        "owner": {
+          "__rl": true,
+          "value": "={{ $('Init: Set GitHub Config').first().json.githubOwner }}",
+          "mode": "name"
+        },
+        "repository": {
+          "__rl": true,
+          "value": "={{ $('Init: Set GitHub Config').first().json.githubRepo }}",
+          "mode": "name"
+        },
+        "filePath": "{{ $('Init: Set GitHub Config').first().json.prefillPath }}",
+        "asBinaryProperty": false,
+        "additionalParameters": {}
+      },
+      "credentials": {
+        "githubApi": {
+          "id": "x1DjxYsMLFm3vUiv",
+          "name": "GitHub account"
         }
       }
     }

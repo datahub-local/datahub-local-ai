@@ -22,6 +22,19 @@ job, required inputs or tools, bounded steps, no-result behavior, and required
 output. Put deterministic logic in code and durable rationale in documentation;
 do not turn prompts into tutorials, copied schemas, or background essays.
 
+**Every instruction a model reads is declared in a prompt file or the authoring
+brief.** In n8n that is `agents/n8n/prompts/*.md`, fetched by `DownloadTemplate`
+with its placeholders filled; in Sympozium it is `systemPromptFile` /
+`schedule.taskFile`. The brief (megaprompt) is assembled in a Code node from those
+files plus values, and may own selection and formatting — never a rule, a
+definition or an example that exists nowhere else. An inline instruction in a Code
+node, a model node's `text`, an HTTP body or a tool description is a gap: the model
+reads it and a reviewer does not, and editing the prompt file cannot fix it. A
+definition the model must follow — what a scene is, what a form means — is written
+where the model reads it, never inferred from a count or a field name.
+`agents/n8n/scripts/test_prompt_sources.py` fails a new inline prompt unless it is
+recorded in its allowlist with a reason.
+
 ## Naming conventions
 
 Sub-projects follow a consistent structure:
@@ -931,9 +944,13 @@ The judge returns `hook` and a `visual` intent in the same call that reads the a
 `admit_to_backlog` writes them as the `HOOK`, `VISUAL_FORM`, `POST_MEDIA` and `SCENES`
 columns (`POST_MEDIA` is `ANIMATED` or `STATIC`). `LinkedIn Post Creator`'s `set_variety_directives` reads `HOOK` and maps it through
 the registry — it no longer re-picks a hook at random, and `classify_content` is retired. A
-list-shaped article (a roundup, a state-of — the `ROUNDUP` hook) declares
-a scene count, so it is authored as one item per scene in the existing `animation_linkedin`
-type, with no new media kind. A queued row that predates the columns is re-judged by the
+list-shaped article (a roundup, a state-of — the `ROUNDUP` hook) *may* declare
+a scene count — the file defaults every hook to 0 and the judge sets it — so it is authored
+as one item per scene in the existing `animation_linkedin` type, with no new media kind.
+Because the lane usually sends no count, an intro cannot key on one: the three animation
+types declare `introScene`, and `build_author_brief` asks for an opening title naming the
+subject whether `SCENES` is declared or blank (run 14335 opened cold on 2026-10-19, and only
+a human retry asked for the title). A queued row that predates the columns is re-judged by the
 curator itself (`select_unclassified_queue` → a bounded loop, 12 rows a run) so the
 backlog is backfilled over a few days and a row that slips through is repaired on the next
 run; an unreadable verdict leaves the row unclassified rather than recording a guess. The
@@ -1255,6 +1272,21 @@ was an empty file referenced at a path the site does not serve, from a URL that 
   passed them. The entry point now passes `REQUESTED_ASSETS`, and `parse_article` **counts the markers
   in code** (`MARKERS: svg_wide x2`, `… x0`, `… not requested`), because how many markers a draft
   carries is a count and a count is not a judgement.
+
+**The republish exposed a fifth defect one layer below the branch: the fetched bytes were the word
+`database`.** Run 14259 (2026-10-19) took the fetch branch correctly, the signed URL served 14,338
+bytes, and the published SVG was **8 bytes spelling `database`** (`content-length: 8`, GitHub blob
+`ab1891c9…`). n8n is deployed in queue mode, where the default binary data mode is `database`: the
+payload lives in the store and the item's `binary.data.data` is the literal placeholder `database`,
+with the real handle in `binary.data.id`. `asset_bytes_from_download` base64-encoded
+`bin.data` — `Buffer.from('database')` is `ZGF0YWJhc2U=` — so every agent-authored publish would
+have committed that word. Read a payload with `helpers.getBinaryDataBuffer`, which is an RPC method
+in the task-runner sandbox too, and which Visual Studio's `encode_stills` already used successfully
+(run 14342, four stills). The node's guard now also rejects an empty buffer, and
+`test_the_fetched_asset_bytes_are_read_from_the_binary_store` executes the committed `jsCode`
+against an item shaped exactly like the live one — placeholder in `data`, bytes only behind the
+helper. A textual assertion cannot see this class: the old code read plausibly and the JSON was
+valid.
 
 **The lane is otherwise unexercised by CI.** Nothing here has a live gate: the wiring is
 asserted offline in `agents/n8n/scripts/test_article_review_gate.py` and

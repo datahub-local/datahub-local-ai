@@ -333,7 +333,7 @@
         ],
         "parameters": {
           "name": "read_page",
-          "description": "Fetch one URL and return its readable text. Use it on a link the other tools returned, or on a documentation URL.",
+          "description": "={{ $('tool_prompts').first().json.READ_PAGE }}",
           "workflowId": {
             "__rl": true,
             "value": "09xEuVQj207pjK4x",
@@ -375,7 +375,7 @@
         ],
         "parameters": {
           "name": "research_sources",
-          "description": "Search Hacker News and the author's RSS feeds for a subject. Returns a digest of titles, URLs, points and comment counts. Use it first; read a result with read_page before relying on it.",
+          "description": "={{ $('tool_prompts').first().json.RESEARCH_SOURCES }}",
           "workflowId": {
             "__rl": true,
             "value": "3YctNv7fJl17sOT3",
@@ -741,6 +741,69 @@
           },
           "options": {}
         }
+      },
+      {
+        "id": "89930ff0-fea0-4e84-b0a1-623871a038aa",
+        "name": "download_tool_prompts",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          -16672,
+          -1040
+        ],
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "qUfjfWLGEjV96ljf",
+            "mode": "list",
+            "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
+            "cachedResultName": "DownloadTemplate"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "template_name": "prompts/article_tools.md",
+              "template_vars": "={{ {} }}"
+            },
+            "matchingColumns": [],
+            "schema": [
+              {
+                "id": "template_name",
+                "displayName": "template_name",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string"
+              },
+              {
+                "id": "template_vars",
+                "displayName": "template_vars",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "object"
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "00ac4bd3-0f11-4df4-9b3a-d7dc25a447e4",
+        "name": "tool_prompts",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -16448,
+          -1040
+        ],
+        "parameters": {
+          "jsCode": "// prompts/article_tools.md is the one copy of the two tool descriptions. A missing\n// section fails the run: a tool with no description is a capability the model cannot use.\nconst text = String($json.output || '');\nconst section = (name) => {\n  const lines = text.split('\\n');\n  const start = lines.findIndex((l) => l.trim() === '## ' + name);\n  if (start < 0) return '';\n  const out = [];\n  for (let i = start + 1; i < lines.length; i++) {\n    if (lines[i].trim().startsWith('## ')) break;\n    out.push(lines[i]);\n  }\n  return out.join('\\n').trim();\n};\nconst out = { RESEARCH_SOURCES: section('research_sources'), READ_PAGE: section('read_page') };\nfor (const [k, v] of Object.entries(out)) {\n  if (!v) throw new Error('prompts/article_tools.md carries no ' + k + ' section');\n}\nreturn [{ json: out }];\n"
+        }
       }
     ],
     "connections": {
@@ -781,7 +844,7 @@
         "main": [
           [
             {
-              "node": "if_needs_research",
+              "node": "download_tool_prompts",
               "type": "main",
               "index": 0
             }
@@ -993,6 +1056,28 @@
             }
           ]
         ]
+      },
+      "download_tool_prompts": {
+        "main": [
+          [
+            {
+              "node": "tool_prompts",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "tool_prompts": {
+        "main": [
+          [
+            {
+              "node": "if_needs_research",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
       }
     },
     "nodeGroups": [],
@@ -1042,7 +1127,7 @@
       "main": [
         [
           {
-            "node": "if_needs_research",
+            "node": "download_tool_prompts",
             "type": "main",
             "index": 0
           }
@@ -1249,6 +1334,28 @@
         [
           {
             "node": "download_article_prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "download_tool_prompts": {
+      "main": [
+        [
+          {
+            "node": "tool_prompts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "tool_prompts": {
+      "main": [
+        [
+          {
+            "node": "if_needs_research",
             "type": "main",
             "index": 0
           }
@@ -1592,7 +1699,7 @@
       ],
       "parameters": {
         "name": "read_page",
-        "description": "Fetch one URL and return its readable text. Use it on a link the other tools returned, or on a documentation URL.",
+        "description": "={{ $('tool_prompts').first().json.READ_PAGE }}",
         "workflowId": {
           "__rl": true,
           "value": "09xEuVQj207pjK4x",
@@ -1634,7 +1741,7 @@
       ],
       "parameters": {
         "name": "research_sources",
-        "description": "Search Hacker News and the author's RSS feeds for a subject. Returns a digest of titles, URLs, points and comment counts. Use it first; read a result with read_page before relying on it.",
+        "description": "={{ $('tool_prompts').first().json.RESEARCH_SOURCES }}",
         "workflowId": {
           "__rl": true,
           "value": "3YctNv7fJl17sOT3",
@@ -1999,6 +2106,69 @@
           "convertFieldsToString": true
         },
         "options": {}
+      }
+    },
+    {
+      "id": "89930ff0-fea0-4e84-b0a1-623871a038aa",
+      "name": "download_tool_prompts",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -16672,
+        -1040
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "qUfjfWLGEjV96ljf",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
+          "cachedResultName": "DownloadTemplate"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "template_name": "prompts/article_tools.md",
+            "template_vars": "={{ {} }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "template_name",
+              "displayName": "template_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "template_vars",
+              "displayName": "template_vars",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "00ac4bd3-0f11-4df4-9b3a-d7dc25a447e4",
+      "name": "tool_prompts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -16448,
+        -1040
+      ],
+      "parameters": {
+        "jsCode": "// prompts/article_tools.md is the one copy of the two tool descriptions. A missing\n// section fails the run: a tool with no description is a capability the model cannot use.\nconst text = String($json.output || '');\nconst section = (name) => {\n  const lines = text.split('\\n');\n  const start = lines.findIndex((l) => l.trim() === '## ' + name);\n  if (start < 0) return '';\n  const out = [];\n  for (let i = start + 1; i < lines.length; i++) {\n    if (lines[i].trim().startsWith('## ')) break;\n    out.push(lines[i]);\n  }\n  return out.join('\\n').trim();\n};\nconst out = { RESEARCH_SOURCES: section('research_sources'), READ_PAGE: section('read_page') };\nfor (const [k, v] of Object.entries(out)) {\n  if (!v) throw new Error('prompts/article_tools.md carries no ' + k + ' section');\n}\nreturn [{ json: out }];\n"
       }
     }
   ],

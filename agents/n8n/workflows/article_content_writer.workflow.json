@@ -1165,6 +1165,17 @@
           }
         ]
       ]
+    },
+    "select_final_draft": {
+      "main": [
+        [
+          {
+            "node": "derive_slug",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "createdAt": "2026-10-16T03:27:31.927Z",

@@ -159,9 +159,22 @@ def test_the_improvement_chain_is_wired_in_order():
     assert targets("switch_improved_ok", 0) == ["select_final_draft"]
     assert targets("switch_improved_ok", 1) == ["select_final_draft"]
     assert targets("switch_improved_ok", 2) == ["download_improver_prompt"], "the retry re-renders"
-    # one reviewer per aspect, never a switch between the fan-out and the merge
+    # One reviewer per aspect, never a switch between the fan-out and the merge.
     assert targets("split_aspects") == ["download_aspect_prompt"]
     assert len((conn.get("download_aspect_prompt") or {}).get("main") or []) == 1
+    # The convergence node feeds the chain that stores and uploads the draft. This edge was
+    # missing when the chain replaced the old `check_draft_error -> derive_slug` edge: execution
+    # 14382 (2026-10-19) improved the draft, ended at `select_final_draft` as `success`, and
+    # stored, uploaded and reviewed nothing.
+    assert targets("select_final_draft") == ["derive_slug"]
+    assert targets("derive_slug") == ["store_draft"]
+    seen, queue = {"select_final_draft"}, ["select_final_draft"]
+    while queue:
+        for nxt in targets(queue.pop()):
+            if nxt not in seen:
+                seen.add(nxt)
+                queue.append(nxt)
+    assert "notify_article_review" in seen, "the improved draft does not reach the review"
 
 
 def test_the_improver_is_an_agent_with_no_tools_and_both_models():

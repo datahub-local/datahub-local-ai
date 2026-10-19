@@ -122,7 +122,9 @@ def test_the_draft_is_gated_before_anything_is_reviewed():
     downstream = _reachable("build_failure")
     assert "notify_article_review" not in downstream
     assert "notification_retry_or_cancel" not in downstream
-    assert _targets("check_draft_error", 0) == ["derive_slug"]
+    assert _targets("check_draft_error", 0) == ["read_draft_for_improvement"], (
+        "a draft that passed the gate must enter the improvement pass"
+    )
 
 
 def test_a_thrown_failure_is_reported_like_a_returned_one():
@@ -167,32 +169,30 @@ def test_a_failed_draft_is_recorded_and_reported():
     assert "build_failure" in notice and "ERROR" in notice, "the notice names neither row nor reason"
 
 
-def test_the_human_retry_passes_the_draft_the_human_rejected():
-    """The sub-workflow holds a draft only within one invocation, so the retry must hand it one.
+def test_the_human_retry_improves_the_draft_the_human_read():
+    """The retry re-enters the improvement pass, handed the draft the human read.
 
-    `PREVIOUS_DRAFT` inside `Article Creator` reads `parse_article`, which has not run when a
-    human answers the approval and `switch_article_retry` loops back into the same call node: the
-    block renders empty and `article_writer.md` reads an empty block as "this is the first
-    attempt: write a fresh draft". Measured on run 14178 (2026-10-18) — 14180, the first
-    authoring, carried its rejected draft into the internal retry, while the two human rounds
-    14187 and 14191 each regenerated the whole article from feedback that named one section.
-
-    A node reading its own earlier runs is the mechanism, and it is measured rather than assumed:
-    a probe cycle on 2026-10-18 (execution 14195) had `$('step').last()` answer the *previous*
-    run's value on the second pass, not the row being built.
+    The edge used to loop back into `execute_article_creator`, which regenerated the whole
+    article against feedback naming one section (run 14178, 2026-10-18: two human rounds, two
+    fresh articles). `build_improvement_context` reads `select_final_draft`'s own earlier run,
+    so the edit starts from the draft of record; a node reading its own earlier runs is
+    measured rather than assumed (a probe cycle on 2026-10-18, execution 14195, had
+    `$('step').last()` answer the previous run's value on the second pass).
     """
-    assert "execute_article_creator" in _targets("switch_article_retry"), (
-        "the human's Retry no longer re-enters the call node this test is about"
+    assert _targets("switch_article_retry", 0) == ["build_improvement_context"], (
+        "the human's Retry no longer re-enters the improvement pass"
     )
-    call = _nodes()["execute_article_creator"]["parameters"]["workflowInputs"]
-    expr = call["value"]["PREVIOUS_DRAFT"]
-    assert "$('execute_article_creator')" in expr, "the human retry sends no draft"
-    assert ".last()" in expr, "a third human round would re-send the first draft"
-    assert "$('execute_article_creator').item" not in expr, "a paired-item read through the wait"
-    assert "isExecuted" in expr, "the first pass runs this node too, and an unguarded read throws"
-    assert "PREVIOUS_DRAFT" in [s["id"] for s in call["schema"]], (
-        "the field is not mapped, so n8n drops it on the way to the sub-workflow"
-    )
+    assert "execute_article_creator" not in _targets("switch_article_retry")
+    code = _js("build_improvement_context")
+    assert "$('select_final_draft').isExecuted" in code, "the draft the human read is not preferred"
+    assert "$('execute_article_creator').isExecuted" in code, "the first pass has no fallback"
+    assert "$('read_draft_for_improvement')" in code, "a resumed review has no stored draft"
+    assert "select_final_draft').last()" in code, "a second round would re-send the first draft"
+    # the carry is the improvement context's, not the sub-workflow's
+    assert "PREVIOUS_DRAFT" not in _nodes()["execute_article_creator"]["parameters"]["workflowInputs"]["value"]
+    assert "PREVIOUS_DRAFT" not in [
+        s["id"] for s in _nodes()["execute_article_creator"]["parameters"]["workflowInputs"]["schema"]
+    ]
 
 
 def test_the_rendered_asset_is_the_only_thing_that_gets_reviewed():
@@ -351,7 +351,7 @@ Airflow still schedules the dlt ingest at 01:00 with the dbt build after it, bot
 What I take away: the incremental key deserves more scrutiny than the incremental strategy."""
 
 
-def _run_code_node(name, scope, input_items=None):
+def _run_code_node(name, scope, input_items=None, expect_error=False):
     """Execute a committed Code node's jsCode with a stubbed n8n context.
 
     n8n runs a Code node body inside an async wrapper, so ``new Function`` is the shape that
@@ -387,6 +387,8 @@ def _run_code_node(name, scope, input_items=None):
         done = subprocess.run(["node", path], capture_output=True, text=True, check=False)
     finally:
         Path(path).unlink()
+    if expect_error:
+        return done
     assert done.returncode == 0, done.stderr
     return json.loads(done.stdout)
 
@@ -717,11 +719,18 @@ def test_the_hero_every_run_asks_for_is_the_wide_frame():
 
 def test_the_only_continue_regular_output_is_normalised_downstream():
     # A non-AI node forwards its input unchanged on failure, so the flag has to be set by a
-    # following node rather than read off the failed one.
+    # following node rather than read off the failed one. `review_aspect_llm` is the aspect
+    # reviewer: a failed call forwards the downloaded prompt, so `merge_aspect_findings` reads
+    # only the reviewer's own `text` field and never the input, and the rest of the aspects run.
     lenient = [n["name"] for n in _doc()["nodes"] if n.get("onError") == "continueRegularOutput"]
-    assert lenient == ["download_content"]
+    assert lenient == ["download_content", "review_aspect_llm"]
     assert _targets("download_content") == ["set_link_flags"]
     assert "LINK_USED" in _js("set_link_flags")
+    assert _targets("review_aspect_llm") == ["merge_aspect_findings"]
+    merge = _js("merge_aspect_findings")
+    assert ".text || ''" in merge and "output" not in merge, (
+        "the merge reads the forwarded prompt instead of the reviewer's answer"
+    )
 
 
 def test_the_schedule_is_declared_and_the_handler_is_this_repositorys():
@@ -750,3 +759,179 @@ def test_an_overlapping_trigger_skips_a_fresh_claim_and_recovers_a_stale_one():
     assert "STALE_CLAIM_HOURS" in code
     assert "Date.now() - claimedAt" in code
     assert "return false" in code
+
+
+# --------------------------------------------------------------- the improvement pass
+
+def test_the_three_draft_consumers_read_the_converged_draft():
+    """One convergence node, or the better draft is stored and a worse one is uploaded.
+
+    `derive_slug`, `store_draft` and `draft_to_file` used to read `execute_article_creator`
+    directly. A pass that produced its draft anywhere else would leave the slug, the DataTable
+    row and the reviewed file pointing at the gate-passed draft the improvement replaced.
+    """
+    slug = _nodes()["derive_slug"]["parameters"]["jsCode"]
+    store = _nodes()["store_draft"]["parameters"]["columns"]["value"]
+    draft_file = _js("draft_to_file")
+    assert "$('select_final_draft').first().json.title" in slug
+    assert store["ARTICLE_TEXT"] == "={{ $('select_final_draft').item.json.text }}"
+    assert "$('select_final_draft').first().json.text" in draft_file
+    for code in (slug, draft_file):
+        assert "execute_article_creator" not in code, "a consumer still reads the sub-workflow"
+    assert "execute_article_creator" not in store["ARTICLE_TEXT"]
+
+
+def test_the_review_message_names_the_improvement():
+    """The reviewer sees the motion: whether the draft was improved, and what the aspects said."""
+    message = _nodes()["notify_article_review"]["parameters"]["message"]
+    assert "select_final_draft" in message and "IMPROVED" in message
+    assert "FINDINGS_SUMMARY" in message
+    # the anchor the message has always carried stays, so the row is still identifiable
+    assert "row_number" in message and "DRAFT_TITLE" in message
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason=NODE_REQUIRED)
+def test_an_improved_draft_wins_and_a_rejected_one_falls_back():
+    """Precedence is resolution in one node: improved-passed, otherwise the gate-passed draft."""
+
+    def select(item):
+        return _run_code_node(
+            "select_final_draft",
+            {
+                "build_improvement_context": [
+                    {"BASE_TEXT": "Base body.", "BASE_TITLE": "Base Title", "BASE_WORD_COUNT": 2,
+                     "ENTRY_ID": "e1", "AUDIENCE": "LOW"}
+                ],
+                "merge_aspect_findings": [{"FINDINGS_SUMMARY": "structure: 1, clarity: none, flow: none"}],
+            },
+            [item],
+        )["out"][0]["json"]
+
+    improved = select({"IMPROVED_TEXT": "Improved body.", "IMPROVED_TITLE": "Improved Title",
+                       "WORD_COUNT": 2, "PROBLEM": ""})
+    assert improved["IMPROVED"] == "IMPROVED"
+    assert improved["text"] == "Improved body." and improved["title"] == "Improved Title"
+    assert improved["FINDINGS_SUMMARY"].startswith("structure: 1")
+
+    fallback = select({"IMPROVED_TEXT": "Too long.", "IMPROVED_TITLE": "Improved Title",
+                       "WORD_COUNT": 99, "PROBLEM": "OVER_BUDGET: 99 words against MAX_WORDS=2"})
+    assert fallback["IMPROVED"] == "FALLBACK"
+    assert fallback["text"] == "Base body." and fallback["title"] == "Base Title"
+    assert "OVER_BUDGET" in fallback["IMPROVEMENT_NOTE"], "the fallback hides why it fell back"
+
+    failed = select({"error": {"message": "Max iterations (8) reached"}})
+    assert failed["IMPROVED"] == "FAILED"
+    assert failed["text"] == "Base body."
+    assert "Max iterations" in failed["IMPROVEMENT_NOTE"]
+
+    nothing = select({"HAS_ANY": False, "FINDINGS_SUMMARY": "structure: none, clarity: none, flow: none"})
+    assert nothing["IMPROVED"] == "NONE"
+    assert nothing["text"] == "Base body."
+
+
+def _creator_js(name):
+    creator = json.loads((WORKFLOWS / "article_creator.workflow.json").read_text(encoding="utf-8"))
+    return next(n for n in creator["nodes"] if n["name"] == name)["parameters"]["jsCode"]
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason=NODE_REQUIRED)
+def test_the_improvement_re_check_is_the_writers_counter_with_the_same_verdicts():
+    """Budget and markers are counted in code in both places, and the two counters agree.
+
+    The check is a twin of `parse_article` because the improved draft never goes back through
+    the sub-workflow's gate. Two counters that disagree would deliver a draft the drafting gate
+    would have rejected, or reject one it would have accepted -- so they run on the same fixture
+    and must answer the same thing.
+    """
+    ctx = {"MAX_WORDS": 10, "ASSET_TYPES": "svg_wide", "BASE_TITLE": "A Title", "ENTRY_ID": "e1"}
+
+    def improved(body):
+        return _run_code_node("check_improved_draft", {"build_improvement_context": [ctx]},
+                              [{"output": "<article>\n" + body + "\n</article>"}])["out"][0]["json"]
+
+    def drafted(body):
+        harness_scope = {"set_workflow_vars": [{"MAX_WORDS": 10}], "main_trigger": [{"ASSET_TYPES": "svg_wide"}]}
+        harness = textwrap.dedent(
+            """
+            const scope = %s;
+            const incoming = %s;
+            const $ = (n) => {
+              const items = scope[n].map((json) => ({ json }));
+              return { first: () => items[0], all: () => items, item: items[0] };
+            };
+            const $input = { all: () => incoming.map((json) => ({ json })), first: () => ({ json: incoming[0] }) };
+            const $json = incoming[0];
+            const fn = new Function('$', '$input', '$json', %s);
+            process.stdout.write(JSON.stringify(fn($, $input, $json)));
+            """
+        ) % (json.dumps(harness_scope),
+             json.dumps([{"output": "<article>\n" + body + "\n</article>"}]),
+             json.dumps(_creator_js("parse_article")))
+        with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as fh:
+            fh.write(harness)
+            path = fh.name
+        try:
+            done = subprocess.run(["node", path], capture_output=True, text=True, check=False)
+        finally:
+            Path(path).unlink()
+        assert done.returncode == 0, done.stderr
+        return json.loads(done.stdout)["json"]["PROBLEM"]
+
+    fixtures = (
+        "# A Title\nOpening.\n\n<!-- asset:svg_wide -->\n\n## S\nBody.",
+        "# A Title\nOpening.\n\n<!-- asset:svg_wide -->\n\n## S\n<!-- asset:svg_wide -->\n\nBody.",
+        "# A Title\nOpening.\n\n## S\nBody.",
+        "# A Title\nOpening.\n\n<!-- asset:image_wide -->\n\n## S\nBody.",
+        "# A Title\n" + "word " * 20 + "\n\n<!-- asset:svg_wide -->",
+    )
+    for body in fixtures:
+        got = improved(body)["PROBLEM"]
+        want = drafted(body)
+        assert got.split(":")[0] == want.split(":")[0], (got, want)
+        if got:
+            assert got == want, (got, want)
+    # the twin really ran: no problem for the correct fixture, a budget problem for the long one
+    assert improved(fixtures[0])["PROBLEM"] == ""
+    assert improved(fixtures[4])["PROBLEM"].startswith("OVER_BUDGET")
+    assert improved(fixtures[1])["PROBLEM"] == "MARKERS: svg_wide x2"
+
+
+LEVELS = ("NONE", "LOW", "MEDIUM", "ADVANCED")
+
+
+def test_the_audience_levels_agree_with_the_committed_definitions():
+    """The enum is three copies by necessity: the definitions file, the graph's const and the
+    board default. A new level fails here until every copy carries it (the FORMS pattern)."""
+    selector = _js("select_article_to_queue")
+    match = re.search(r"const AUDIENCE_LEVELS = \[(.*?)\];", selector)
+    assert match, "the selector no longer holds the level enum"
+    in_graph = re.findall(r"'([A-Z]+)'", match.group(1))
+    assert tuple(in_graph) == LEVELS, in_graph
+    definitions = (BASE / "prompts" / "article_audiences.md").read_text(encoding="utf-8")
+    assert tuple(re.findall(r"^## (\S+)$", definitions, re.MULTILINE)) == LEVELS
+    board = json.loads((BASE / "datasets" / "board_intake.json").read_text(encoding="utf-8"))
+    assert board["defaults"]["audience"] == "NONE", "the intake default is not today's reader"
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason=NODE_REQUIRED)
+def test_a_blank_audience_is_the_general_reader_and_an_unknown_one_is_refused():
+    def run(cell):
+        return _run_code_node(
+            "select_article_to_queue",
+            {"validate_categories": [{"row_number": 1, "ENTRY_ID": "e1", "ASSET_TYPES": "svg_wide",
+                                      "ARTICLE_STATUS": "", "AUDIENCE": cell}]},
+            [],
+        )["out"][0]["json"]
+
+    assert run("")["AUDIENCE"] == "NONE"
+    assert run(None)["AUDIENCE"] == "NONE"
+    assert run(" medium ")["AUDIENCE"] == "MEDIUM"
+    done = _run_code_node(
+        "select_article_to_queue",
+        {"validate_categories": [{"row_number": 1, "ENTRY_ID": "e1", "ASSET_TYPES": "svg_wide",
+                                  "ARTICLE_STATUS": "", "AUDIENCE": "EXPERT"}]},
+        [],
+        expect_error=True,
+    )
+    assert done.returncode != 0, "a mistyped level was read as NONE"
+    assert 'AUDIENCE "EXPERT"' in done.stderr and "ADVANCED" in done.stderr, done.stderr

@@ -315,3 +315,23 @@ def test_the_reviewer_retries_a_transient_model_failure(label, document):
     assert node.get("retryOnFail") is True, f"{label}: the reviewer does not retry"
     assert node.get("maxTries") == 5, f"{label}: the reviewer's retry bound changed"
     assert node.get("waitBetweenTries") == 5000, f"{label}: the reviewer's retry wait changed"
+
+
+def test_the_gate_scales_its_term_check_with_the_rows_audience():
+    """The satisfiability rule: a gate may not demand explanations the level says are redundant.
+
+    Before this, every draft was judged as if for a reader new to the subject, so an ADVANCED
+    row would be refused for using its own vocabulary — the 2026-10-18 failure (four drafts
+    rejected for naming a custom resource) with a different cause.
+    """
+    reviewer = REVIEW_PROMPT.read_text(encoding="utf-8")
+    assert "{{ AUDIENCE }}" in reviewer and "{{ AUDIENCES }}" in reviewer
+    assert "when the row's audience level does not already know it" in reviewer, (
+        "the term check is level-blind again"
+    )
+    assert "a term the level assumes is a failure to explain" in reviewer
+    node = next(n for n in json.loads(CREATOR.read_text(encoding="utf-8"))["nodes"]
+                if n["name"] == "download_article_review_prompt")
+    supplied = set(VAR_KEY_RE.findall(node["parameters"]["workflowInputs"]["value"]["template_vars"]))
+    assert {"AUDIENCE", "AUDIENCES"} <= supplied, "the gate is told the level by neither half"
+    assert "$('download_article_audiences')" in node["parameters"]["workflowInputs"]["value"]["template_vars"]

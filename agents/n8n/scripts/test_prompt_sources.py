@@ -116,6 +116,11 @@ def test_every_downloaded_prompt_exists(workflow, label, doc):
         target = _template_of(doc, node["name"])
         if not target:
             continue
+        # A name that is an expression is a path carried by data, not a literal: the aspect
+        # fan-out downloads whichever prompt `datasets/article_aspects.json` names, and
+        # `test_article_aspects.py` asserts every one of those files exists.
+        if target.lstrip().startswith("{{"):
+            continue
         assert (ROOT / target).is_file(), f"{workflow}/{label}: {node['name']} downloads missing {target}"
 
 

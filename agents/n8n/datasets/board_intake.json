@@ -5,11 +5,12 @@
   "repo": "datahub-local",
   "label": "post",
   "state": "open",
-  "_comment_defaults": "What an imported row carries besides the issue's own title, body and link. CATEGORIES must name one of agents/n8n/datasets/blog_categories.json or the article lane refuses the row before it drafts; ASSET_TYPES is the article lane's default pair (a raster hero plus a diagram); MAX_WORDS and PRIORITY are the same defaults a hand-authored row starts from. Every one of them is a field on the appended article_queue row, so a human can change it per row after import.",
+  "_comment_defaults": "What an imported row carries besides the issue's own title, body and link. CATEGORIES must name one of agents/n8n/datasets/blog_categories.json or the article lane refuses the row before it drafts; ASSET_TYPES is the article lane's default pair (a raster hero plus a diagram); AUDIENCE is the reader level, one of NONE, LOW, MEDIUM or ADVANCED from prompts/article_audiences.md (blank reads as NONE); MAX_WORDS and PRIORITY are the same defaults a hand-authored row starts from. Every one of them is a field on the appended article_queue row, so a human can change it per row after import.",
   "defaults": {
     "categories": "General",
     "asset_types": "image,svg",
     "max_words": 1200,
-    "priority": "MEDIUM"
+    "priority": "MEDIUM",
+    "audience": "NONE"
   }
 }

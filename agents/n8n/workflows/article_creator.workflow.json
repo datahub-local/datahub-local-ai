@@ -43,6 +43,9 @@
               },
               {
                 "name": "PREVIOUS_DRAFT"
+              },
+              {
+                "name": "AUDIENCE"
               }
             ]
           }
@@ -83,6 +86,12 @@
                 "name": "MAX_TRIES",
                 "value": 3,
                 "type": "number"
+              },
+              {
+                "id": "c3a4b5d6-e7f8-4a9b-8c1d-2e3f4a5b6c7d",
+                "name": "AUDIENCE",
+                "value": "={{ String($('main_trigger').first().json.AUDIENCE || 'NONE').trim().toUpperCase() }}",
+                "type": "string"
               }
             ]
           },
@@ -111,7 +120,7 @@
             "mappingMode": "defineBelow",
             "value": {
               "template_name": "prompts/article_writer.md",
-              "template_vars": "={{ {\n\"TOPIC\": $('main_trigger').first().json.TOPIC,\n\"DESCRIPTION\": $('main_trigger').first().json.DESCRIPTION,\n\"URL\": $('main_trigger').first().json.URL || \"\",\n\"MAX_WORDS\": $('main_trigger').first().json.MAX_WORDS,\n\"ASSET_TYPES\": $('main_trigger').first().json.ASSET_TYPES || \"\",\n\"EXTRA_PROMPT\": $('main_trigger').first().json.EXTRA_PROMPT || \"\",\n\"CONTENT\": $('main_trigger').first().json.CONTENT || \"\",\n\"FEEDBACK\": ($('main_trigger').first().json.FEEDBACK || \"\") + ($json.explanation ? \"\\nInternal review rejected the previous draft with: \" + $json.explanation : \"\"),\n\"PREVIOUS_DRAFT\": $('parse_article').isExecuted ? $('parse_article').last().json.TEXT : ($('main_trigger').first().json.PREVIOUS_DRAFT || \"\"),\n\"STRUCTURES\": $('download_article_structures').first().json.output,\n} }}"
+              "template_vars": "={{ {\n\"TOPIC\": $('main_trigger').first().json.TOPIC,\n\"DESCRIPTION\": $('main_trigger').first().json.DESCRIPTION,\n\"URL\": $('main_trigger').first().json.URL || \"\",\n\"MAX_WORDS\": $('main_trigger').first().json.MAX_WORDS,\n\"ASSET_TYPES\": $('main_trigger').first().json.ASSET_TYPES || \"\",\n\"EXTRA_PROMPT\": $('main_trigger').first().json.EXTRA_PROMPT || \"\",\n\"CONTENT\": $('main_trigger').first().json.CONTENT || \"\",\n\"AUDIENCE\": $('set_workflow_vars').first().json.AUDIENCE,\n\"AUDIENCES\": $('download_article_audiences').first().json.output,\n\"FEEDBACK\": ($('main_trigger').first().json.FEEDBACK || \"\") + ($json.explanation ? \"\\nInternal review rejected the previous draft with: \" + $json.explanation : \"\"),\n\"PREVIOUS_DRAFT\": $('parse_article').isExecuted ? $('parse_article').last().json.TEXT : \"\",\n\"STRUCTURES\": $('download_article_structures').first().json.output,\n} }}"
             },
             "matchingColumns": [],
             "schema": [
@@ -445,7 +454,7 @@
             "mappingMode": "defineBelow",
             "value": {
               "template_name": "prompts/article_review.md",
-              "template_vars": "={{ {\n\"TITLE\": $('parse_article').item.json.TITLE,\n\"TEXT\": $('parse_article').item.json.TEXT,\n\"WORD_COUNT\": $('parse_article').item.json.WORD_COUNT,\n\"MAX_WORDS\": $('parse_article').item.json.MAX_WORDS,\n\"TOPIC\": $('main_trigger').first().json.TOPIC,\n\"DESCRIPTION\": $('main_trigger').first().json.DESCRIPTION,\n\"URL\": $('main_trigger').first().json.URL || \"\",\n\"ASSET_TYPES\": $('main_trigger').first().json.ASSET_TYPES || \"\",\n\"EXTRA_PROMPT\": $('main_trigger').first().json.EXTRA_PROMPT || \"\",\n\"FEEDBACK\": $('main_trigger').first().json.FEEDBACK || \"\",\n\"RULES\": $('download_system_prompt').first().json.output,\n\"CONTENT\": $('main_trigger').first().json.CONTENT || \"\"\n} }}"
+              "template_vars": "={{ {\n\"TITLE\": $('parse_article').item.json.TITLE,\n\"TEXT\": $('parse_article').item.json.TEXT,\n\"WORD_COUNT\": $('parse_article').item.json.WORD_COUNT,\n\"MAX_WORDS\": $('parse_article').item.json.MAX_WORDS,\n\"AUDIENCE\": $('set_workflow_vars').first().json.AUDIENCE,\n\"AUDIENCES\": $('download_article_audiences').first().json.output,\n\"TOPIC\": $('main_trigger').first().json.TOPIC,\n\"DESCRIPTION\": $('main_trigger').first().json.DESCRIPTION,\n\"URL\": $('main_trigger').first().json.URL || \"\",\n\"ASSET_TYPES\": $('main_trigger').first().json.ASSET_TYPES || \"\",\n\"EXTRA_PROMPT\": $('main_trigger').first().json.EXTRA_PROMPT || \"\",\n\"FEEDBACK\": $('main_trigger').first().json.FEEDBACK || \"\",\n\"RULES\": $('download_system_prompt').first().json.output,\n\"CONTENT\": $('main_trigger').first().json.CONTENT || \"\"\n} }}"
             },
             "matchingColumns": [],
             "schema": [
@@ -804,6 +813,56 @@
         "parameters": {
           "jsCode": "// prompts/article_tools.md is the one copy of the two tool descriptions. A missing\n// section fails the run: a tool with no description is a capability the model cannot use.\nconst text = String($json.output || '');\nconst section = (name) => {\n  const lines = text.split('\\n');\n  const start = lines.findIndex((l) => l.trim() === '## ' + name);\n  if (start < 0) return '';\n  const out = [];\n  for (let i = start + 1; i < lines.length; i++) {\n    if (lines[i].trim().startsWith('## ')) break;\n    out.push(lines[i]);\n  }\n  return out.join('\\n').trim();\n};\nconst out = { RESEARCH_SOURCES: section('research_sources'), READ_PAGE: section('read_page') };\nfor (const [k, v] of Object.entries(out)) {\n  if (!v) throw new Error('prompts/article_tools.md carries no ' + k + ' section');\n}\nreturn [{ json: out }];\n"
         }
+      },
+      {
+        "id": "a1f2b3c4-d5e6-4f70-8192-a3b4c5d6e7f8",
+        "name": "download_article_audiences",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          -16960,
+          -1200
+        ],
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "qUfjfWLGEjV96ljf",
+            "mode": "list",
+            "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
+            "cachedResultName": "DownloadTemplate"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "template_name": "prompts/article_audiences.md",
+              "template_vars": "={{ {} }}"
+            },
+            "matchingColumns": [],
+            "schema": [
+              {
+                "id": "template_name",
+                "displayName": "template_name",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string"
+              },
+              {
+                "id": "template_vars",
+                "displayName": "template_vars",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "object"
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true
+          },
+          "options": {}
+        }
       }
     ],
     "connections": {
@@ -1050,7 +1109,7 @@
         "main": [
           [
             {
-              "node": "download_article_prompt",
+              "node": "download_article_audiences",
               "type": "main",
               "index": 0
             }
@@ -1073,6 +1132,17 @@
           [
             {
               "node": "if_needs_research",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "download_article_audiences": {
+        "main": [
+          [
+            {
+              "node": "download_article_prompt",
               "type": "main",
               "index": 0
             }
@@ -1333,7 +1403,7 @@
       "main": [
         [
           {
-            "node": "download_article_prompt",
+            "node": "download_article_audiences",
             "type": "main",
             "index": 0
           }
@@ -1356,6 +1426,17 @@
         [
           {
             "node": "if_needs_research",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "download_article_audiences": {
+      "main": [
+        [
+          {
+            "node": "download_article_prompt",
             "type": "main",
             "index": 0
           }
@@ -1409,6 +1490,9 @@
             },
             {
               "name": "PREVIOUS_DRAFT"
+            },
+            {
+              "name": "AUDIENCE"
             }
           ]
         }
@@ -1449,6 +1533,12 @@
               "name": "MAX_TRIES",
               "value": 3,
               "type": "number"
+            },
+            {
+              "id": "c3a4b5d6-e7f8-4a9b-8c1d-2e3f4a5b6c7d",
+              "name": "AUDIENCE",
+              "value": "={{ String($('main_trigger').first().json.AUDIENCE || 'NONE').trim().toUpperCase() }}",
+              "type": "string"
             }
           ]
         },
@@ -1477,7 +1567,7 @@
           "mappingMode": "defineBelow",
           "value": {
             "template_name": "prompts/article_writer.md",
-            "template_vars": "={{ {\n\"TOPIC\": $('main_trigger').first().json.TOPIC,\n\"DESCRIPTION\": $('main_trigger').first().json.DESCRIPTION,\n\"URL\": $('main_trigger').first().json.URL || \"\",\n\"MAX_WORDS\": $('main_trigger').first().json.MAX_WORDS,\n\"ASSET_TYPES\": $('main_trigger').first().json.ASSET_TYPES || \"\",\n\"EXTRA_PROMPT\": $('main_trigger').first().json.EXTRA_PROMPT || \"\",\n\"CONTENT\": $('main_trigger').first().json.CONTENT || \"\",\n\"FEEDBACK\": ($('main_trigger').first().json.FEEDBACK || \"\") + ($json.explanation ? \"\\nInternal review rejected the previous draft with: \" + $json.explanation : \"\"),\n\"PREVIOUS_DRAFT\": $('parse_article').isExecuted ? $('parse_article').last().json.TEXT : ($('main_trigger').first().json.PREVIOUS_DRAFT || \"\"),\n\"STRUCTURES\": $('download_article_structures').first().json.output,\n} }}"
+            "template_vars": "={{ {\n\"TOPIC\": $('main_trigger').first().json.TOPIC,\n\"DESCRIPTION\": $('main_trigger').first().json.DESCRIPTION,\n\"URL\": $('main_trigger').first().json.URL || \"\",\n\"MAX_WORDS\": $('main_trigger').first().json.MAX_WORDS,\n\"ASSET_TYPES\": $('main_trigger').first().json.ASSET_TYPES || \"\",\n\"EXTRA_PROMPT\": $('main_trigger').first().json.EXTRA_PROMPT || \"\",\n\"CONTENT\": $('main_trigger').first().json.CONTENT || \"\",\n\"AUDIENCE\": $('set_workflow_vars').first().json.AUDIENCE,\n\"AUDIENCES\": $('download_article_audiences').first().json.output,\n\"FEEDBACK\": ($('main_trigger').first().json.FEEDBACK || \"\") + ($json.explanation ? \"\\nInternal review rejected the previous draft with: \" + $json.explanation : \"\"),\n\"PREVIOUS_DRAFT\": $('parse_article').isExecuted ? $('parse_article').last().json.TEXT : \"\",\n\"STRUCTURES\": $('download_article_structures').first().json.output,\n} }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -1811,7 +1901,7 @@
           "mappingMode": "defineBelow",
           "value": {
             "template_name": "prompts/article_review.md",
-            "template_vars": "={{ {\n\"TITLE\": $('parse_article').item.json.TITLE,\n\"TEXT\": $('parse_article').item.json.TEXT,\n\"WORD_COUNT\": $('parse_article').item.json.WORD_COUNT,\n\"MAX_WORDS\": $('parse_article').item.json.MAX_WORDS,\n\"TOPIC\": $('main_trigger').first().json.TOPIC,\n\"DESCRIPTION\": $('main_trigger').first().json.DESCRIPTION,\n\"URL\": $('main_trigger').first().json.URL || \"\",\n\"ASSET_TYPES\": $('main_trigger').first().json.ASSET_TYPES || \"\",\n\"EXTRA_PROMPT\": $('main_trigger').first().json.EXTRA_PROMPT || \"\",\n\"FEEDBACK\": $('main_trigger').first().json.FEEDBACK || \"\",\n\"RULES\": $('download_system_prompt').first().json.output,\n\"CONTENT\": $('main_trigger').first().json.CONTENT || \"\"\n} }}"
+            "template_vars": "={{ {\n\"TITLE\": $('parse_article').item.json.TITLE,\n\"TEXT\": $('parse_article').item.json.TEXT,\n\"WORD_COUNT\": $('parse_article').item.json.WORD_COUNT,\n\"MAX_WORDS\": $('parse_article').item.json.MAX_WORDS,\n\"AUDIENCE\": $('set_workflow_vars').first().json.AUDIENCE,\n\"AUDIENCES\": $('download_article_audiences').first().json.output,\n\"TOPIC\": $('main_trigger').first().json.TOPIC,\n\"DESCRIPTION\": $('main_trigger').first().json.DESCRIPTION,\n\"URL\": $('main_trigger').first().json.URL || \"\",\n\"ASSET_TYPES\": $('main_trigger').first().json.ASSET_TYPES || \"\",\n\"EXTRA_PROMPT\": $('main_trigger').first().json.EXTRA_PROMPT || \"\",\n\"FEEDBACK\": $('main_trigger').first().json.FEEDBACK || \"\",\n\"RULES\": $('download_system_prompt').first().json.output,\n\"CONTENT\": $('main_trigger').first().json.CONTENT || \"\"\n} }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -2169,6 +2259,56 @@
       ],
       "parameters": {
         "jsCode": "// prompts/article_tools.md is the one copy of the two tool descriptions. A missing\n// section fails the run: a tool with no description is a capability the model cannot use.\nconst text = String($json.output || '');\nconst section = (name) => {\n  const lines = text.split('\\n');\n  const start = lines.findIndex((l) => l.trim() === '## ' + name);\n  if (start < 0) return '';\n  const out = [];\n  for (let i = start + 1; i < lines.length; i++) {\n    if (lines[i].trim().startsWith('## ')) break;\n    out.push(lines[i]);\n  }\n  return out.join('\\n').trim();\n};\nconst out = { RESEARCH_SOURCES: section('research_sources'), READ_PAGE: section('read_page') };\nfor (const [k, v] of Object.entries(out)) {\n  if (!v) throw new Error('prompts/article_tools.md carries no ' + k + ' section');\n}\nreturn [{ json: out }];\n"
+      }
+    },
+    {
+      "id": "a1f2b3c4-d5e6-4f70-8192-a3b4c5d6e7f8",
+      "name": "download_article_audiences",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        -16960,
+        -1200
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "qUfjfWLGEjV96ljf",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
+          "cachedResultName": "DownloadTemplate"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "template_name": "prompts/article_audiences.md",
+            "template_vars": "={{ {} }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "template_name",
+              "displayName": "template_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "template_vars",
+              "displayName": "template_vars",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
       }
     }
   ],

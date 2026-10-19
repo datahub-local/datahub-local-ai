@@ -133,7 +133,7 @@ def test_the_board_config_names_the_repo_and_the_label():
 def test_an_imported_row_is_the_issues_own_data_with_the_lane_defaults():
     cfg = {
         "categories": "OSS", "asset_types": "image,svg", "max_words": 1200, "priority": "MEDIUM",
-        "run_at": "2026-10-18T10:00:00.000Z",
+        "audience": "LOW", "run_at": "2026-10-18T10:00:00.000Z",
     }
     issues = [{
         "number": 80, "title": "Post about how to use sympozium", "body": "Explain it",
@@ -155,10 +155,13 @@ def test_an_imported_row_is_the_issues_own_data_with_the_lane_defaults():
     assert row["ASSET_TYPES"] == "image,svg"
     assert row["MAX_WORDS"] == 1200
     assert row["PRIORITY"] == "MEDIUM"
+    assert row["AUDIENCE"] == "LOW"
     assert row["NEW_COUNT"] == 1
     # A category the blog does not know would be refused by the article lane before it
     # drafts, so the default has to be one of the taxonomy.
     assert BOARD_CFG["defaults"]["categories"] in BLOG_CATEGORIES
+    # The audience default is a reader level; the article lane refuses anything else, naming it.
+    assert BOARD_CFG["defaults"]["audience"] == "NONE"
 
 
 def test_an_issue_already_in_the_queue_is_not_imported_again():
@@ -219,13 +222,18 @@ def test_the_appended_row_reaches_article_queue():
         assert node["parameters"]["sheetName"]["value"] == "article_queue"
         mapped = node["parameters"]["columns"]["value"]
         for column in ("ENTRY_ID", "TOPIC", "DESCRIPTION", "LINK", "CATEGORIES", "ASSET_TYPES",
-                       "MAX_WORDS", "PRIORITY", "ORIGIN", "STATUS", "UPDATE_DATE"):
+                       "MAX_WORDS", "PRIORITY", "AUDIENCE", "ORIGIN", "STATUS", "UPDATE_DATE"):
             assert column in mapped, column
+    # The Content-Board-Curator lesson: defineBelow without a schema entry is not written at all.
+    for copy in ("nodes", "activeVersion.nodes"):
+        columns = _node(BOARD, "append_article_queue", copy)["parameters"]["columns"]
+        entry = next(s for s in columns["schema"] if s["id"] == "AUDIENCE")
+        assert entry["removed"] is False, f"{copy}: the Sheets node would silently not write AUDIENCE"
 
 
 ARTICLE_QUEUE_COLUMNS = (
     "ENTRY_ID", "TOPIC", "DESCRIPTION", "STATUS", "PRIORITY", "ORIGIN", "LINK",
-    "CATEGORIES", "ASSET_TYPES", "MAX_WORDS", "EXTRA_PROMPT", "ARTICLE_STATUS",
+    "CATEGORIES", "ASSET_TYPES", "MAX_WORDS", "AUDIENCE", "EXTRA_PROMPT", "ARTICLE_STATUS",
     "ARTICLE_ROUND", "ARTICLE_FEEDBACK", "ARTICLE_TITLE", "ARTICLE_REF",
     "PUBLISHED_URL", "COMMIT_REF", "PUBLISHED_AT", "EXECUTION_ID", "ERROR",
     "UPDATE_DATE",

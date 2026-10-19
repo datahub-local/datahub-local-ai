@@ -8,6 +8,12 @@ Judge only the checks below, plus the Reviewer Feedback. The Topic and Descripti
 
 Return `<output>true</output>` when the draft satisfies every check, `<output>false</output>` when it breaks any. Always follow it with `<explanation>...</explanation>`, kept short: if false, name only the main failures and what to change; if true, confirm briefly why it passed.
 
+## Audience
+
+The row's audience level is {{ AUDIENCE }}. The term check below reads at that level: a term the level's reader already knows is not a failure, and demanding an explanation for it is not a rejection. The definitions follow, and only this article's level governs.
+
+{{ AUDIENCES }}
+
 ## Checks
 
 - Length: the body is at most {{ MAX_WORDS }} words and it is {{ WORD_COUNT }}. Over budget is a failure; say how many words to cut.
@@ -16,7 +22,7 @@ Return `<output>true</output>` when the draft satisfies every check, `<output>fa
 - The subject is named as the entry's inputs spell it.
 - The opening names the subject and the problem it answers, in the reader's world. A definition of the category, or "In this article", is a failure.
 - The close points at what to read or do next. A closing paragraph that restates the article, or that only summarises it, is a failure.
-- A term the subject is built from - a custom resource, a controller, a sidecar - is explained where it first appears: what it is, or what it is for. Using it as if the reader already knows it is a failure. Naming it is not.
+- A term the subject is built from - a custom resource, a controller, a sidecar - is explained where it first appears when the row's audience level does not already know it: what it is, or what it is for. Using it as if the reader already knows it is a failure. Naming it is not, and a term the level assumes is a failure to explain.
 - No AI-speak from the list in the rules, used as filler, and none of its robotic scaffolding as a heading or a section opener.
 - Markdown only: no front matter, no metadata block, no wrapper code fence.
 - `##` subheadings only where the structure has more than two parts, and no bullet-point padding: a list only where the items are genuinely parallel.

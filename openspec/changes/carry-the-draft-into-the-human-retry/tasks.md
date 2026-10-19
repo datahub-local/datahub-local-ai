@@ -63,6 +63,13 @@
 
 - [ ] 5.1 Drive one article human retry and read the retry's `download_article_prompt` output: the
   previous-draft block carries the draft, and the new draft keeps what the feedback did not name.
+  **Superseded** by `add-article-audience-and-improvement-pass`: the article human retry no longer
+  re-enters `execute_article_creator` at all — its edge goes to `build_improvement_context`, which
+  is handed the draft of record (`select_final_draft`'s own last run, else the stored
+  `article_drafts` row), so the sub-workflow's caller-side `PREVIOUS_DRAFT` mapping is removed and
+  this behaviour is exercised by that change's 6.2 instead. The requirement itself still holds
+  (a human retry is handed the draft the human rejected), with the improvement pass as receiver;
+  the LinkedIn half of this change is untouched.
 
 ## 6. Documentation
 

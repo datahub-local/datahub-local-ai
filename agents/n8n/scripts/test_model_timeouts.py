@@ -27,6 +27,7 @@ MODEL_TYPE = "@n8n/n8n-nodes-langchain.lmChatOpenAi"
 FLOOR_MS = 120000
 
 EXPECTED_FILES = {
+    "article_content_writer.workflow.json",
     "article_creator.workflow.json",
     "content_feed_curator.workflow.json",
     "image_content_generator.workflow.json",

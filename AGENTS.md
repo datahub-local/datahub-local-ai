@@ -1288,6 +1288,77 @@ against an item shaped exactly like the live one — placeholder in `data`, byte
 helper. A textual assertion cannot see this class: the old code read plausibly and the JSON was
 valid.
 
+**A draft is improved before the human sees it.** `Article Content Writer` runs one improvement
+pass between `check_draft_error` and `derive_slug`: five `DownloadTemplate` fetches, then
+`build_improvement_context` (one item always; **throws** when `datasets/article_aspects.json` is
+missing, unparsable or empty — the semantic-registry rule), `split_aspects` fans one item per
+registry aspect, `download_aspect_prompt` fetches that aspect's own file by expression
+(`template_name: "={{ $json.ASPECT_PROMPT }}"`, [UNVERIFIED] until the first live run; the
+documented fallback is fixed download nodes per aspect, at the cost of duplicating the enum into
+the graph), `review_aspect_llm` reviews the draft, `merge_aspect_findings` merges the
+`<findings>` blocks tagged by aspect, and `if_has_findings` skips the improver when there is
+nothing to apply. `improve_article` is an agent with **no tools** (`maxIterations: 8`, the
+measured no-tools floor) that edits only what a finding or the feedback names;
+`check_improved_draft` counts the budget and the asset markers **in code** — the twin of
+`parse_article`, held together by a test that runs both on one fixture and asserts the same
+verdicts — and `switch_improved_ok` retries once with the objective problem, after which
+`select_final_draft` is the single convergence node `derive_slug`, `store_draft` and
+`draft_to_file` read (nothing else in the lane may read the sub-workflow's answer). The findings
+are **advisory, never gates**: the only gates stay the drafting gate, the re-check and the
+human, because a judgement gate a drafter cannot read is unfixable by construction (the 14055
+lesson) and the pass exists to *apply* judgement, which is only safe on the advisory side.
+
+**The aspects are a registry, not a graph enum.** `datasets/article_aspects.json` lists
+`structure`, `clarity` and `flow`, each with its prompt file and focus; adding one is a dataset
+entry plus a prompt file, and the graph holds no aspect id. Correctness is deliberately absent —
+facts, budget and markers stay with the drafting gate and the re-check, so an aspect finding can
+never contradict a correctness check. One reviewer call per aspect, and `merge_aspect_findings`
+reads the reviewer's own `text` field rather than its input: a chain node carrying
+`continueRegularOutput` forwards its input on failure, and that input is the downloaded prompt,
+which contains the literal `<findings>none</findings>` the instruction asks for.
+
+**The audience is one column, four levels, one file.** `article_queue.AUDIENCE` is
+`NONE | LOW | MEDIUM | ADVANCED`; blank reads as `NONE`, so no row needs a backfill.
+`prompts/article_audiences.md` is the only copy of what each level means, and
+`article_writer_system.md` points at the task prompt's Audience section instead of restating the
+`NONE` reader. `select_article_to_queue` uppercases and trims the cell and **refuses** an unknown
+level naming it — a mistyped level read as `NONE` would publish advanced orientation to a general
+reader and nothing would ever say so — and the enum exists in three copies by necessity (the
+definitions file, that const, and `board_intake.json`'s `defaults.audience`), held together by
+tests that fail until all three agree. The board intake writes the default and a person edits
+the cell; no model is consulted, because the audience is a person's decision like the board idea
+itself.
+
+**The Slack Retry re-enters the improvement pass**, not the drafting call.
+`build_improvement_context` resolves the draft of record in this order: `select_final_draft`'s
+own last run (a human retry improves the draft the human read, in the same execution),
+`execute_article_creator`'s answer (the first pass of this execution), then the `article_drafts`
+row (`read_draft_for_improvement`, `alwaysOutputData` so a missing row cannot stop the chain).
+The call node's `PREVIOUS_DRAFT` mapping is gone — the sub-workflow now runs at most once per
+execution, so it was dead — and the sub-workflow keeps only its internal `parse_article`-based
+carry. `IMPROVED` / `FALLBACK` / `FAILED` / `NONE` and the per-aspect findings count ride to
+`notify_article_review`, whose message names them, because the reviewer sees the motion. A
+re-presented review resumed in a **later execution** reaches this via `switch_phase`, where the
+stored-row source covers it.
+
+**Push order, and it matters.** The new files first (`article_audiences.md`,
+`article_improver.md`, the three aspect prompts, `article_aspects.json`) — inert until fetched,
+but they must exist before the graph that fetches them is applied or the first run dies at the
+404. Then the graphs (`content_board_curator`, `article_creator`, `article_content_writer` in one
+`--changes` batch, guarded with `--require-edge`). Then the edits to `article_writer.md`,
+`article_writer_system.md` and `article_review.md`: a pushed prompt naming a placeholder the
+graph does not pass stops every run, while a graph passing one the prompt ignores is harmless.
+The `AUDIENCE` column is added to the `article_queue` page by hand before the first append —
+writing a column the sheet lacks is [UNVERIFIED] and not relied on.
+
+**The pass is cheap and degrades rather than blocking.** +4 model calls per accepted draft in
+the common case (three aspects + the improver; +1 on an objective retry), the improver skipped
+when there is nothing to apply. Every new payload is prose, so the queue-mode binary placeholder
+trap does not apply and the studio's storage rule is untouched. An aspect that exhausts its
+retries contributes no findings and the rest run; a failed improver falls back to the gate-passed
+draft; an improved draft that drifts over budget or drops a marker is retried once and then falls
+back **recorded** — a failed improvement costs the improvement, never the draft.
+
 **The lane is otherwise unexercised by CI.** Nothing here has a live gate: the wiring is
 asserted offline in `agents/n8n/scripts/test_article_review_gate.py` and
 `test_article_entry_point.py`, and the behaviour was measured by hand on 2026-10-18 — the

@@ -51,6 +51,8 @@ CALLER_VARS = frozenset(
         "FEEDBACK",
         "PREVIOUS_DRAFT",
         "STRUCTURES",
+        "AUDIENCE",
+        "AUDIENCES",
     }
 )
 
@@ -66,6 +68,7 @@ TRIGGER_VARS = frozenset(
         "EXTRA_PROMPT",
         "FEEDBACK",
         "PREVIOUS_DRAFT",
+        "AUDIENCE",
     }
 )
 
@@ -222,26 +225,107 @@ def test_the_retry_carries_the_draft_the_review_rejected():
     assert "isExecuted" in expr, "an unguarded read throws when the first attempt renders this"
 
 
-def test_the_human_retry_falls_back_to_the_draft_the_caller_sent():
-    """A human retry is a new invocation, so the draft has to arrive on the trigger.
+def test_the_retry_edits_its_own_attempt_and_nothing_else():
+    """Inside one invocation the internal retry edits the draft the gate just rejected.
 
-    Inside one invocation `parse_article` holds the draft the gate just rejected; a human answer
-    to the approval loops back into the call node as a *new* invocation, where it has not run and
-    the block renders empty — and the prompt reads an empty block as "write a fresh draft".
-    Measured on run 14178 (2026-10-18): executions 14187 and 14191, two human rounds, each
-    regenerating the whole article against feedback that named one section.
+    The human-retry carry moved to the entry point's improvement pass (this change hands the
+    reviewer the draft it read), so the sub-workflow's block holds only `parse_article`'s own
+    last run: reading `item` through the switch cannot resolve, `first()` would make a third
+    attempt edit the first attempt's draft, and an unguarded read throws on attempt one.
     """
     expr = _node("download_article_prompt")["parameters"]["workflowInputs"]["value"]["template_vars"]
-    assert "$('main_trigger').first().json.PREVIOUS_DRAFT" in expr, (
-        "the caller's draft is not the fallback, so a human retry writes from scratch"
+    assert "PREVIOUS_DRAFT" in expr
+    assert "$('parse_article').last()" in expr, "the retry must carry the draft just rejected"
+    assert "$('parse_article').item" not in expr, (
+        "the loop's paired-item lineage runs back through switch_article_check and cannot resolve"
     )
-    # the in-run draft still wins: the internal reviewer's retry must edit its own attempt
-    assert expr.index("$('parse_article').isExecuted") < expr.index("$('main_trigger').first().json.PREVIOUS_DRAFT")
+    assert "$('parse_article').first()" not in expr, (
+        "a third attempt would edit the first attempt's draft and never converge"
+    )
+    assert "isExecuted" in expr, "an unguarded read throws when the first attempt renders this"
+    assert "$('main_trigger').first().json.PREVIOUS_DRAFT" not in expr, (
+        "the caller-side carry belongs to the entry point's improvement pass now"
+    )
 
 
 def test_creator_fetches_both_prompt_files():
     assert _downloaded("download_article_prompt")[0] == "prompts/article_writer.md"
     assert _downloaded("download_system_prompt")[0] == "prompts/article_writer_system.md"
+    assert _downloaded("download_article_audiences")[0] == "prompts/article_audiences.md"
+    assert _downloaded("download_article_audiences")[1] == set(), (
+        "the audience file is fetched with an empty vars object, so a placeholder in it kills every run"
+    )
+
+
+LEVELS = ("NONE", "LOW", "MEDIUM", "ADVANCED")
+
+
+def test_the_audience_vocabulary_is_one_committed_file():
+    """Four levels, one definition each, and no placeholder in a file fetched with empty vars."""
+    text = (PROMPTS / "article_audiences.md").read_text(encoding="utf-8")
+    assert "{{" not in text and "}}" not in text
+    headings = re.findall(r"^## (\S+)$", text, re.MULTILINE)
+    assert headings == list(LEVELS), headings
+    # The general reader moved here verbatim: every blank row keeps today's articles.
+    none = text.split("## NONE", 1)[1].split("## LOW", 1)[0]
+    assert "new to the subject" in none
+    assert "Explain every term the first time it appears" in none
+
+
+def test_the_writer_is_told_its_rows_audience_above_the_shape_rules():
+    text = TASK_PROMPT.read_text(encoding="utf-8")
+    assert "{{ AUDIENCE }}" in text and "{{ AUDIENCES }}" in text
+    assert text.index("## Audience") < text.index("## Shape"), (
+        "the audience must outrank the shape rules, not follow them"
+    )
+    assert "only this article's level governs" in text
+    # the two halves agree: the prompt declares it and the fetch supplies it
+    _name, supplied = _downloaded("download_article_prompt")
+    assert {"AUDIENCE", "AUDIENCES"} <= supplied
+
+
+def test_the_system_prompt_points_at_the_task_prompts_audience():
+    """The reader paragraph is not copied into two files that can drift."""
+    text = SYSTEM_PROMPT.read_text(encoding="utf-8")
+    assert "The task prompt's Audience section defines this article's reader" in text
+    assert "an engineer from another field, or a practitioner who has never touched this one" not in text, (
+        "the NONE definition is back in the rules file as well as the audience file"
+    )
+
+
+def test_every_aspect_prompt_is_declared_and_fetchable():
+    """The registry names each prompt, and the graph fetches whichever one it names.
+
+    Adding an aspect is a dataset entry plus a prompt file, so the files and the registry are
+    asserted against each other here; the fan-out itself is `test_article_aspects.py`.
+    """
+    registry = json.loads((DATASETS / "article_aspects.json").read_text(encoding="utf-8"))
+    assert "{{" not in (DATASETS / "article_aspects.json").read_text(encoding="utf-8")
+    ids = [a["id"] for a in registry["aspects"]]
+    assert ids == ["structure", "clarity", "flow"], ids
+    for aspect in registry["aspects"]:
+        assert (BASE / aspect["prompt"]).is_file(), aspect["prompt"]
+        assert aspect["focus"].strip(), aspect["id"]
+        declared = _placeholders(BASE / aspect["prompt"])
+        assert "DRAFT" in declared, aspect["id"]
+        assert {"AUDIENCE", "DRAFT", "TITLE"} <= declared, aspect["id"]
+        # download_aspect_prompt lives in the entry point; this is the set it may supply.
+        assert not declared - {"TITLE", "DRAFT", "TOPIC", "DESCRIPTION", "AUDIENCE",
+                               "AUDIENCES", "STRUCTURES"}, f"{aspect['id']}: {declared}"
+
+
+def test_the_improver_carries_the_edit_contract():
+    """The improver edits what a finding names and never researches or rewrites from scratch."""
+    text = (PROMPTS / "article_improver.md").read_text(encoding="utf-8")
+    declared = _placeholders(PROMPTS / "article_improver.md")
+    assert declared == {
+        "TITLE", "DRAFT", "FINDINGS", "FEEDBACK", "PROBLEM",
+        "AUDIENCE", "AUDIENCES", "STRUCTURES", "MAX_WORDS", "ASSET_TYPES",
+    }, declared
+    assert "Keep every sentence no finding and no feedback names" in text
+    assert "You do not research" in text
+    assert "<!-- asset:<id> -->" in text
+    assert "at most {{ MAX_WORDS }} words" in text
 
 
 # A tool node's type is not free. The v3.1 agent hands a tool call to the workflow engine, which
@@ -381,3 +465,17 @@ def test_creator_enforces_the_budget_itself():
     assert "MAX_WORDS" in code
     assert "OVER_BUDGET" in code
     assert "EMPTY_DRAFT" in code
+
+
+def test_the_creator_fetches_the_audiences_before_rendering_the_writer_prompt():
+    """The definitions must exist before the prompt that declares AUDIENCES is rendered."""
+    assert _edges("download_article_structures") == ["download_article_audiences"]
+    assert _edges("download_article_audiences") == ["download_article_prompt"]
+    # The level is normalised once, in the node every prompt below reads it from, so a caller
+    # that sends a lower-case level does not have to be trusted to have uppercased it.
+    assignments = {
+        a["name"]: a["value"]
+        for a in _node("set_workflow_vars")["parameters"]["assignments"]["assignments"]
+    }
+    assert "AUDIENCE" in assignments
+    assert "toUpperCase" in assignments["AUDIENCE"] and "NONE" in assignments["AUDIENCE"]

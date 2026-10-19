@@ -8,6 +8,12 @@ Write one article for the blog.
 - Length budget: at most {{ MAX_WORDS }} words of body text, title and markers excluded
 - Requested visual assets: {{ ASSET_TYPES }}
 
+## Audience
+
+The row's audience level is {{ AUDIENCE }}. Write at the depth that level names, and take it as a floor rather than a ceiling: what that reader already knows is not explained, and what they do not know is explained where it first appears. The whole vocabulary follows; only this article's level governs.
+
+{{ AUDIENCES }}
+
 ## Extra Rules
 
 {{ EXTRA_PROMPT }}

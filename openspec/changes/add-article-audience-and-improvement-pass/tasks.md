@@ -222,8 +222,13 @@ All of section 3 is **both graph copies** in `article_content_writer.workflow.js
     and still stored and posted it — the degradation path working end to end. Both improvement
     models were raised to `options.timeout: 240000` (the AGENTS floor is a floor, not a cap).
   - Execution 14468 (top level, 240 s) recorded `IMPROVED` with `structure: 5, clarity: none,
-    flow: none`, 1153 words, a clean re-check, and is `waiting` on `notify_article_review` for the
-    human.
+    flow: none`, 1153 words, a clean re-check, and waited on `notify_article_review`. The human
+    approval **resumed it** (`waiting` → `running`) and it advanced through
+    `switch_article_accept`, `update_article_approved` and `split_pending_types` before the run
+    was cancelled on a stale `lastNodeExecuted` read (the API's persisted data lags a resumed
+    run by minutes — recorded in AGENTS). The asset phase therefore started but did not finish,
+    and the publish half is still unmeasured; the approval mechanism itself is proven for a
+    top-level execution.
 - **Still open:** 6.2 (a human retry with feedback), 6.3 (an over-budget improvement falling
   back), 6.5 (a blank row reads `NONE`, an invalid value is refused — the refusal is covered
   offline), and the publish half after the review is approved.

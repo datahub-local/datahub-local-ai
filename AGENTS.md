@@ -1382,6 +1382,14 @@ probe during a wait drafted row 200, a different pending idea, because row 2 was
 `WAITING_APPROVAL`. A test row has to be the only `QUEUE` row, and the failure path recorded row
 200 as `ERROR` when the drafting gate rejected its four drafts.
 
+**A resumed execution's persisted data lags the live one.** After the Slack approval,
+`GET /executions/{id}?includeData=true` kept answering `lastNodeExecuted: notify_article_review`
+for minutes while the run had already passed `update_article_approved` and reached
+`split_pending_types`; the newer checkpoint only appeared once the execution was cancelled
+(2026-10-19, execution 14468). Read the execution's `status` and wait, or read
+`executionData.nodeExecutionStack`, before calling a resumed run stuck — cancelling a live run on
+one stale read loses the phase it had reached.
+
 **The lane is otherwise unexercised by CI.** Nothing here has a live gate: the wiring is
 asserted offline in `agents/n8n/scripts/test_article_review_gate.py` and
 `test_article_entry_point.py`, and the behaviour was measured by hand on 2026-10-18 — the

@@ -212,6 +212,18 @@ All of section 3 is **both graph copies** in `article_content_writer.workflow.js
   already `WAITING_APPROVAL`. The drafting gate rejected four drafts there (`MAX_RETRIES_EXCEEDED`:
   it never explained the subject and invented a fact) and the failure path recorded row 200 as
   `ERROR`. That is the 2026-10-18 reporter working, not a regression; row 200 waits for a person.
+- **Two more live runs, both informative.** The review of 14402 could not be resumed: a
+  `sendAndWait` inside a **sub-execution** (started by the probe's `executeWorkflow`) never
+  received the Slack callback, and the execution stayed `waiting` after the approval. Cancelled
+  with `POST /executions/{id}/stop`, and the lane re-run as a **top-level** execution by a
+  temporary `webhook` trigger connected to `read_article_queue` — the shape a real trigger takes.
+  - Execution 14450 (top level) recorded `IMPROVED: FAILED — Request timed out.`: the improver
+    exceeded the 120 s model budget on the full-draft edit, fell back to the gate-passed draft,
+    and still stored and posted it — the degradation path working end to end. Both improvement
+    models were raised to `options.timeout: 240000` (the AGENTS floor is a floor, not a cap).
+  - Execution 14468 (top level, 240 s) recorded `IMPROVED` with `structure: 5, clarity: none,
+    flow: none`, 1153 words, a clean re-check, and is `waiting` on `notify_article_review` for the
+    human.
 - **Still open:** 6.2 (a human retry with feedback), 6.3 (an over-budget improvement falling
   back), 6.5 (a blank row reads `NONE`, an invalid value is refused — the refusal is covered
-  offline).
+  offline), and the publish half after the review is approved.

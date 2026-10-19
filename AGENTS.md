@@ -1299,6 +1299,11 @@ duplicating the enum into the graph), `review_aspect_llm` reviews the draft, `me
 `<findings>` blocks tagged by aspect, and `if_has_findings` skips the improver when there is
 nothing to apply. `improve_article` is an agent with **no tools** (`maxIterations: 8`, the
 measured no-tools floor) that edits only what a finding or the feedback names;
+The two improvement model nodes carry `options.timeout: 240000`, not the 120 s floor: the
+improver edits the whole draft, and at 120 s it answered `Request timed out` (execution 14450),
+which fell back to the gate-passed draft exactly as designed; the same edit completed at 240 s
+(execution 14468, 1153 words). Keep the multiplier in mind — the model node's own retries multiply
+with it.
 `check_improved_draft` counts the budget and the asset markers **in code** — the twin of
 `parse_article`, held together by a test that runs both on one fixture and asserts the same
 verdicts — and `switch_improved_ok` retries once with the objective problem, after which

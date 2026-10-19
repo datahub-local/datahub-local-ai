@@ -346,6 +346,16 @@ naming five, and the `PUT` that followed changed nothing. The `Visual Studio` an
 workflow created through the API does not, and a create body should leave it out
 rather than promise a setting the API will drop.
 
+**An API-created Google Sheets write node needs `columns.schema`, which the UI
+supplies and the API does not.** With `mappingMode: defineBelow` and a `value`
+map, the node throws `columns.schema is required when columns.mappingMode is
+defineBelow` before writing anything. `Content Board Curator` failed its first
+two scheduled runs on exactly that (14174 and 14322, the latter caught by the
+error workflow), so `append_article_queue` had never written a row. Build the
+schema from the sheet header — every column, `removed: false` only for the ones
+an update writes, plus `row_number` (`readOnly`; `removed: true` on append) —
+and `test_content_board_curator.py` now fails on a write node without one.
+
 **The UI is a writer the API cannot mirror, so the nightly backup is the only
 reconciler.** Two directions, both measured on the 2026-10-17 backup, which
 rewrote eight exports after the workflows were opened in the editor:
@@ -431,6 +441,10 @@ Eight structural things worth knowing before editing an export:
   over the first one's rows. It was safe to set because the consumer pulls both
   tabs with `$('node').all()` rather than consuming the stream — check that
   before setting it, or the change is a correctness bug rather than a saving.
+  The same trap hit `Content Board Curator` on 2026-10-19: four open issues made
+  a 198-row `article_queue` read come back as 792 items (execution 14349), and
+  `executeOnce` on `read_article_queue` took it to 202. Its dedupe used a Set, so
+  no duplicate row was appended, but the ceiling saw every stale row four times.
   Note this bug is invisible in the export: nothing records a node's effective
   input cardinality, so it is read off the connection graph or not at all. A
   node `notes` claiming otherwise is the same second-copy-of-a-decision problem

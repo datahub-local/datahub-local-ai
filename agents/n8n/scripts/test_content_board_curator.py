@@ -200,17 +200,50 @@ def test_nothing_new_still_lets_the_ceiling_run():
 def test_the_queue_empty_still_lets_the_ceiling_run():
     # read_article_queue carries alwaysOutputData; without it the chain would stop at an
     # empty queue and the ceiling would never run on a first or quiet day.
-    assert _node(BOARD, "read_article_queue")["alwaysOutputData"] is True
+    for copy in ("nodes", "activeVersion.nodes"):
+        node = _node(BOARD, "read_article_queue", copy)
+        assert node["alwaysOutputData"] is True
+        # A Sheets read past 4.1 runs once per input item, and this one's input is one item
+        # per issue: without executeOnce the whole queue came back once per open issue
+        # (measured 2026-10-19, execution 14349: 792 items for 198 rows).
+        assert node["executeOnce"] is True
+        # The append must keep every row: it consumes the item stream, it does not read
+        # the sheet through $('node').all().
+        assert not _node(BOARD, "append_article_queue", copy).get("executeOnce")
 
 
 def test_the_appended_row_reaches_article_queue():
-    node = _node(BOARD, "append_article_queue")
-    assert node["parameters"]["operation"] == "append"
-    assert node["parameters"]["sheetName"]["value"] == "article_queue"
-    mapped = node["parameters"]["columns"]["value"]
-    for column in ("ENTRY_ID", "TOPIC", "DESCRIPTION", "LINK", "CATEGORIES", "ASSET_TYPES",
-                   "MAX_WORDS", "PRIORITY", "ORIGIN", "STATUS", "UPDATE_DATE"):
-        assert column in mapped, column
+    for copy in ("nodes", "activeVersion.nodes"):
+        node = _node(BOARD, "append_article_queue", copy)
+        assert node["parameters"]["operation"] == "append"
+        assert node["parameters"]["sheetName"]["value"] == "article_queue"
+        mapped = node["parameters"]["columns"]["value"]
+        for column in ("ENTRY_ID", "TOPIC", "DESCRIPTION", "LINK", "CATEGORIES", "ASSET_TYPES",
+                       "MAX_WORDS", "PRIORITY", "ORIGIN", "STATUS", "UPDATE_DATE"):
+            assert column in mapped, column
+
+
+ARTICLE_QUEUE_COLUMNS = (
+    "ENTRY_ID", "TOPIC", "DESCRIPTION", "STATUS", "PRIORITY", "ORIGIN", "LINK",
+    "CATEGORIES", "ASSET_TYPES", "MAX_WORDS", "EXTRA_PROMPT", "ARTICLE_STATUS",
+    "ARTICLE_ROUND", "ARTICLE_FEEDBACK", "ARTICLE_TITLE", "ARTICLE_REF",
+    "PUBLISHED_URL", "COMMIT_REF", "PUBLISHED_AT", "EXECUTION_ID", "ERROR",
+    "UPDATE_DATE",
+)
+
+
+def test_both_queue_writes_describe_the_whole_sheet():
+    # `defineBelow` without `columns.schema` is a runtime error on append (hit live
+    # 2026-10-19, execution 14322), not a UI-only nicety: n8n validates the schema
+    # against the live header before it writes.
+    for copy in ("nodes", "activeVersion.nodes"):
+        for name in ("append_article_queue", "cancel_stale_articles"):
+            schema = _node(BOARD, name, copy)["parameters"]["columns"].get("schema") or []
+            ids = [s["id"] for s in schema]
+            assert ids, f"{copy} {name} has no columns.schema"
+            missing = [c for c in ARTICLE_QUEUE_COLUMNS if c not in ids]
+            assert not missing, f"{copy} {name} schema is missing {missing}"
+            assert "row_number" in ids
 
 
 # --------------------------------------------------------------------------- ceiling

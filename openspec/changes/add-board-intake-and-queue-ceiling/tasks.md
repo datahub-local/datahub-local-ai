@@ -78,7 +78,13 @@
 - [ ] 5.3 Let the nightly backup rewrite both files as full exports (the curator file already is
   one; the board file gains its id and `activeVersion`), and confirm `pytest
   agents/n8n/scripts/` stays green afterwards.
-- [ ] 5.4 Force one run (editor *Execute workflow*, or the 12:15 tick) and read the outcome back
+- [x] 5.4 Force one run (editor *Execute workflow*, or the 12:15 tick) and read the outcome back
   from `article_queue`: the four open `post` issues imported once, `ORIGIN=BOARD`, no duplicates
   on a second run, and the Slack notice naming the count. This is the only check that proves the
-  GitHub node's filter actually restricts to the label.
+  GitHub node's filter actually restricts to the label. **Measured 2026-10-19** with `n8n
+  execute --id`: runs 14349 and 14355 succeeded, the second imported 0 and the read carried four
+  `gh-` rows, one per open issue; the Slack notice named the four titles. Getting there fixed
+  two defects the first runs exposed: the API-created `append_article_queue` had no
+  `columns.schema` and threw before writing (14174, 14322), and `read_article_queue` returned
+  every row once per issue because a Sheets read past 4.1 fans out over its input — `executeOnce`
+  took 792 items for 198 rows down to 202.

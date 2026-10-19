@@ -125,19 +125,19 @@ All of section 3 is **both graph copies** in `article_content_writer.workflow.js
   the active sub-workflows re-published.
 - [x] 5.3 Push the prompt edits (`article_writer.md`, `article_writer_system.md`,
   `article_review.md`) — after the graphs, per D11.
-- [ ] 5.4 Add the `AUDIENCE` column to the live `article_queue` page; set one test row's cell to
+- [x] 5.4 Add the `AUDIENCE` column to the live `article_queue` page; set one test row's cell to
   `ADVANCED`.
 
 ## 6. Behaviour
 
-- [ ] 6.1 First pass with findings: three aspect calls answer, the improver edits, the re-check
+- [x] 6.1 First pass with findings: three aspect calls answer, the improver edits, the re-check
    passes, the review message names `IMPROVED` and the findings count.
 - [ ] 6.2 A human retry: the edge re-enters `build_improvement_context`, the improvement
    prompt carries the draft the human read and the feedback, and the next draft keeps what the
    feedback did not name.
 - [ ] 6.3 An over-budget improvement (force with `EXTRA_PROMPT` pushing past `MAX_WORDS`): the
    re-check rejects in code, one retry, then `IMPROVED: FALLBACK` with the gate-passed draft.
-- [ ] 6.4 An `ADVANCED` row: the drafting prompt carries the level, the gate does not demand
+- [x] 6.4 An `ADVANCED` row: the drafting prompt carries the level, the gate does not demand
    field-basics explanations, the clarity aspect reviews at the level.
 - [ ] 6.5 A blank `AUDIENCE` row: the article reads exactly as today (`NONE` default), and an
    invalid value refuses the row naming the value.
@@ -186,7 +186,32 @@ All of section 3 is **both graph copies** in `article_content_writer.workflow.js
   carries the same nodes, parameters and connections — checked node by node, not by name count.
   Apply log: no `MISMATCH`, no `DRIFT`, `active` unchanged on both. The entry point stays
   inactive by design (manual runs from the editor).
-- **Still open:** 1.8/5.4 (the `AUDIENCE` column on the live `article_queue` page — a person's
-  step) and section 6 (the behaviour runs: findings applied, nothing to apply, human retry,
-  objective fallback, an `ADVANCED` row). `download_aspect_prompt`'s dynamic `template_name`
-  remains [UNVERIFIED] until 6.1's run.
+- **The column is live** (5.4): `article_queue` carries `AUDIENCE`, and the test row 2 reads
+  `ADVANCED`.
+- **6.1 measured live — and 6.4 with it.** The Sympozium entry (row 2, `ADVANCED`) was cleared
+  from the blog (`alvsanand` `c0b56bf`) and re-run as execution **14402** (2026-10-19): the three
+  aspect calls answered, `structure` returned 4 findings and `clarity`/`flow` none, the improver
+  edited the draft to 994 words, `check_improved_draft` found no problem, `select_final_draft`
+  reported `IMPROVED` with `structure: 4, clarity: none, flow: none`, the draft was stored,
+  uploaded and posted for review, and the execution sits `waiting` on `notify_article_review`.
+  The dynamic `template_name` is therefore **verified**: `download_aspect_prompt` fetched each
+  registry path by expression.
+- **The first live run found a graph bug the offline suite could not see.** Execution 14382
+  improved the draft (structure 3 findings, 1090 words, `IMPROVED`) and then ended at
+  `select_final_draft` as `success`: the improvement chain replaced
+  `check_draft_error -> derive_slug` and nothing wired `select_final_draft` to it. `derive_slug`
+  kept its own outgoing edges, so the isolation check counted it as touched.
+  - Fixed in the export and live (`7c73c4d`), and `test_workflow_invariants.py` gained
+    `test_every_node_is_reachable_from_a_trigger` — a forward walk over every edge type from
+    every trigger, with `ai_*` sub-nodes excluded because they are reached from their consumer.
+    It fails on execution 14382's graph and passes on this one.
+- **A second run fired too early and drafted a different row.** While 14382's successor was still
+  being recovered (the queue recovery had marked the `waitForSubWorkflow: false` child `crashed`,
+  then it resumed to `waiting`), a sync probe started execution 14417, which `pick_candidate`
+  pointed at the lowest `QUEUE` row — row 200, a different pending idea — because row 2 was
+  already `WAITING_APPROVAL`. The drafting gate rejected four drafts there (`MAX_RETRIES_EXCEEDED`:
+  it never explained the subject and invented a fact) and the failure path recorded row 200 as
+  `ERROR`. That is the 2026-10-18 reporter working, not a regression; row 200 waits for a person.
+- **Still open:** 6.2 (a human retry with feedback), 6.3 (an over-budget improvement falling
+  back), 6.5 (a blank row reads `NONE`, an invalid value is refused — the refusal is covered
+  offline).

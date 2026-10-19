@@ -103,6 +103,51 @@ def test_no_node_is_left_unconnected(path):
 
 
 @pytest.mark.parametrize("path", EXPORTS, ids=lambda p: p.name)
+def test_every_node_is_reachable_from_a_trigger(path):
+    """A chain whose entry edge was replaced is invisible to the isolation check.
+
+    `test_no_node_is_left_unconnected` counts a node as touched when it has an edge in *either*
+    direction, so a successor that kept its own outgoing edges looks connected while nothing
+    reaches it: execution 14382 (2026-10-19) improved its draft, ended at `select_final_draft`
+    as `success`, and stored nothing because the new chain replaced
+    `check_draft_error -> derive_slug` and nothing wired the convergence node to it. Walk every
+    connection type, not only `main`, because a model or tool sub-node is reached over
+    `ai_languageModel` / `ai_tool`.
+    """
+    for label, nodes, connections in _copies(path):
+        triggers = [
+            n["name"]
+            for n in nodes
+            if "trigger" in n["type"].lower() or n["type"].endswith("webhook")
+        ]
+        assert triggers, f"{label}: no trigger node at all"
+        # A model or tool sub-node is reached *from* its consumer over `ai_*`, so walking
+        # forward never arrives at it. It is attached by definition once it feeds something.
+        subnodes = {
+            source
+            for source, kinds in connections.items()
+            for ctype, branches in kinds.items()
+            if ctype != "main" and any(branch for branch in branches or [])
+        }
+        seen, queue = set(triggers), list(triggers)
+        while queue:
+            for kinds in (connections.get(queue.pop()) or {}).values():
+                for branch in kinds or []:
+                    for edge in branch or []:
+                        if edge["node"] not in seen:
+                            seen.add(edge["node"])
+                            queue.append(edge["node"])
+        unreachable = [
+            n["name"]
+            for n in nodes
+            if n["name"] not in seen
+            and n["name"] not in subnodes
+            and "stickyNote" not in n["type"]
+        ]
+        assert not unreachable, f"{label}: nodes no path reaches from a trigger: {unreachable}"
+
+
+@pytest.mark.parametrize("path", EXPORTS, ids=lambda p: p.name)
 def test_no_two_nodes_share_a_position(path):
     for label, nodes, _ in _copies(path):
         by_position = {}

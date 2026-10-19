@@ -1293,9 +1293,9 @@ pass between `check_draft_error` and `derive_slug`: five `DownloadTemplate` fetc
 `build_improvement_context` (one item always; **throws** when `datasets/article_aspects.json` is
 missing, unparsable or empty — the semantic-registry rule), `split_aspects` fans one item per
 registry aspect, `download_aspect_prompt` fetches that aspect's own file by expression
-(`template_name: "={{ $json.ASPECT_PROMPT }}"`, [UNVERIFIED] until the first live run; the
-documented fallback is fixed download nodes per aspect, at the cost of duplicating the enum into
-the graph), `review_aspect_llm` reviews the draft, `merge_aspect_findings` merges the
+(`template_name: "={{ $json.ASPECT_PROMPT }}"`, verified live on execution 14402 — three aspects
+fetched and answered; the documented fallback is fixed download nodes per aspect, at the cost of
+duplicating the enum into the graph), `review_aspect_llm` reviews the draft, `merge_aspect_findings` merges the
 `<findings>` blocks tagged by aspect, and `if_has_findings` skips the improver when there is
 nothing to apply. `improve_article` is an agent with **no tools** (`maxIterations: 8`, the
 measured no-tools floor) that edits only what a finding or the feedback names;
@@ -1358,6 +1358,23 @@ trap does not apply and the studio's storage rule is untouched. An aspect that e
 retries contributes no findings and the rest run; a failed improver falls back to the gate-passed
 draft; an improved draft that drifts over budget or drops a marker is retried once and then falls
 back **recorded** — a failed improvement costs the improvement, never the draft.
+
+**A chain whose entry edge was replaced is invisible to the isolation check.** Execution 14382
+(2026-10-19) improved its draft, ended at `select_final_draft` as `success`, and stored, uploaded
+and reviewed nothing: the new improvement chain had replaced `check_draft_error -> derive_slug`
+and nothing wired the convergence node to it, while `derive_slug` kept its own outgoing edges so
+`test_no_node_is_left_unconnected` counted it as touched. `test_workflow_invariants.py` now walks
+every edge type forward from every trigger and fails on any node no path reaches — `ai_*`
+sub-nodes excluded, because a model or tool is reached *from* its consumer.
+
+**Firing the entry point with a probe needs care in queue mode.** `executeWorkflow` with
+`waitForSubWorkflow: false` can have its child execution marked `crashed` by the queue recovery
+before the worker picks it up, and then resumed minutes later — execution 14402 did exactly that,
+reaching `waiting` on the review after being reported `crashed`. Read the newest execution again
+before firing another, and remember `pick_candidate` takes the **lowest** `QUEUE` row: a second
+probe during a wait drafted row 200, a different pending idea, because row 2 was already
+`WAITING_APPROVAL`. A test row has to be the only `QUEUE` row, and the failure path recorded row
+200 as `ERROR` when the drafting gate rejected its four drafts.
 
 **The lane is otherwise unexercised by CI.** Nothing here has a live gate: the wiring is
 asserted offline in `agents/n8n/scripts/test_article_review_gate.py` and

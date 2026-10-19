@@ -1,10 +1,18 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "79bfe2ea-384a-4731-84e2-9dd4a96954d1",
+    "versionId": "5e11df0f-4132-4eb1-9198-99059d5056b6",
     "workflowId": "2pSrRNmYR2jkX1JG",
     "nodes": [
       {
+        "id": "7cae92bd-497a-4c0a-97a2-8027b6e8c98f",
+        "name": "main_trigger",
+        "type": "n8n-nodes-base.executeWorkflowTrigger",
+        "typeVersion": 1.1,
+        "position": [
+          0,
+          -48
+        ],
         "parameters": {
           "workflowInputs": {
             "values": [
@@ -34,23 +42,9 @@
               }
             ]
           }
-        },
-        "id": "7cae92bd-497a-4c0a-97a2-8027b6e8c98f",
-        "name": "main_trigger",
-        "type": "n8n-nodes-base.executeWorkflowTrigger",
-        "typeVersion": 1.1,
-        "position": [
-          0,
-          -48
-        ]
+        }
       },
       {
-        "parameters": {
-          "httpMethod": "POST",
-          "path": "visual-studio",
-          "responseMode": "lastNode",
-          "options": {}
-        },
         "id": "6bc445a7-6d22-4d9c-80dd-3b7eea06520e",
         "name": "api_trigger",
         "webhookId": "29f4c520-f7d8-44e1-a4ea-03c8027909a8",
@@ -59,9 +53,24 @@
         "position": [
           0,
           -240
-        ]
+        ],
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "visual-studio",
+          "responseMode": "lastNode",
+          "options": {}
+        }
       },
       {
+        "id": "8d389943-187d-4a35-9c0f-1d9e46fd2617",
+        "name": "form_trigger",
+        "webhookId": "a7c1f5d2-93b4-4c6e-8d20-51f0b7e9a314",
+        "type": "n8n-nodes-base.formTrigger",
+        "typeVersion": 2.2,
+        "position": [
+          0,
+          144
+        ],
         "parameters": {
           "formTitle": "Visual Studio",
           "formDescription": "Produce a set of visual assets from one source text.",
@@ -98,21 +107,9 @@
             ]
           },
           "options": {}
-        },
-        "id": "8d389943-187d-4a35-9c0f-1d9e46fd2617",
-        "name": "form_trigger",
-        "webhookId": "a7c1f5d2-93b4-4c6e-8d20-51f0b7e9a314",
-        "type": "n8n-nodes-base.formTrigger",
-        "typeVersion": 2.2,
-        "position": [
-          0,
-          144
-        ]
+        }
       },
       {
-        "parameters": {
-          "jsCode": "const raw = $input.first().json || {};\nconst src = Object.assign({}, raw.body || {}, raw.query || {}, raw);\nconst v = (k) => { const x = src[k]; return x == null ? '' : String(x).trim(); };\nconst content = v('CONTENT');\nif (!content) throw new Error('CONTENT is required');\n// FORCE pins the form; STYLE names a brand scheme and is resolved (and defaulted)\n// in brand_tokens, where the scheme names live, so an unknown value fails there.\nconst FORCES = ['auto', 'diagram', 'story', 'data', 'poster', 'code', 'chart', 'timeline', 'quote', 'ui', 'manga', 'retro', 'launch', 'tiles'];\nconst force = v('FORCE') || 'auto';\nif (!FORCES.includes(force)) throw new Error('unknown FORCE: ' + force + ' (expected one of ' + FORCES.join(', ') + ')');\n// An optional scene plan: a list-shaped article asks for one item per scene. A blank\n// or non-positive value leaves the scene count to the composer's own storyboard.\nconst scenesRaw = parseInt(v('SCENES'), 10);\nconst scenes = (isFinite(scenesRaw) && scenesRaw > 0) ? Math.min(scenesRaw, 12) : '';\n// How many review turns one asset may spend before it ships with its findings recorded.\nconst REVIEW_CYCLES = 2;\nreturn [{ json: {\n  REVIEW_ROUND: 0,\n    REVIEW_CYCLES,\n    RUN_ID: String($execution.id),\n  CONTENT: content,\n  ASSET_TYPES: v('ASSET_TYPES'),\n  FEEDBACK: v('FEEDBACK'),\n  // Free text the caller owns, appended to the brief after the content and the\n  // rules. Never parsed.\n  EXTRA_PROMPT: v('EXTRA_PROMPT'),\n  // A session to continue, when the caller names one. Blank means this run is a\n  // first authoring, with an identifier scoped to the run so it stays isolated.\n  SESSION_ID: v('SESSION_ID'),\n  FORCE: force,\n  SCENES: scenes,\n  STYLE: v('STYLE'),\n} }];\n"
-        },
         "id": "ba7855cf-ba87-4597-9937-cc2cf764a849",
         "name": "normalize_input",
         "type": "n8n-nodes-base.code",
@@ -120,9 +117,20 @@
         "position": [
           224,
           48
-        ]
+        ],
+        "parameters": {
+          "jsCode": "const raw = $input.first().json || {};\nconst src = Object.assign({}, raw.body || {}, raw.query || {}, raw);\nconst v = (k) => { const x = src[k]; return x == null ? '' : String(x).trim(); };\nconst content = v('CONTENT');\nif (!content) throw new Error('CONTENT is required');\n// FORCE pins the form; STYLE names a brand scheme and is resolved (and defaulted)\n// in brand_tokens, where the scheme names live, so an unknown value fails there.\nconst FORCES = ['auto', 'diagram', 'story', 'data', 'poster', 'code', 'chart', 'timeline', 'quote', 'ui', 'manga', 'retro', 'launch', 'tiles'];\nconst force = v('FORCE') || 'auto';\nif (!FORCES.includes(force)) throw new Error('unknown FORCE: ' + force + ' (expected one of ' + FORCES.join(', ') + ')');\n// An optional scene plan: a list-shaped article asks for one item per scene. A blank\n// or non-positive value leaves the scene count to the composer's own storyboard.\nconst scenesRaw = parseInt(v('SCENES'), 10);\nconst scenes = (isFinite(scenesRaw) && scenesRaw > 0) ? Math.min(scenesRaw, 12) : '';\n// How many review turns one asset may spend before it ships with its findings recorded.\nconst REVIEW_CYCLES = 2;\nreturn [{ json: {\n  REVIEW_ROUND: 0,\n    REVIEW_CYCLES,\n    RUN_ID: String($execution.id),\n  CONTENT: content,\n  ASSET_TYPES: v('ASSET_TYPES'),\n  FEEDBACK: v('FEEDBACK'),\n  // Free text the caller owns, appended to the brief after the content and the\n  // rules. Never parsed.\n  EXTRA_PROMPT: v('EXTRA_PROMPT'),\n  // A session to continue, when the caller names one. Blank means this run is a\n  // first authoring, with an identifier scoped to the run so it stays isolated.\n  SESSION_ID: v('SESSION_ID'),\n  FORCE: force,\n  SCENES: scenes,\n  STYLE: v('STYLE'),\n} }];\n"
+        }
       },
       {
+        "id": "7efb6c59-c706-4c9f-87a1-3fe042fee600",
+        "name": "download_registry",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          2240,
+          48
+        ],
         "parameters": {
           "workflowId": {
             "__rl": true,
@@ -162,20 +170,9 @@
             "convertFieldsToString": true
           },
           "options": {}
-        },
-        "id": "7efb6c59-c706-4c9f-87a1-3fe042fee600",
-        "name": "download_registry",
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.2,
-        "position": [
-          2240,
-          48
-        ]
+        }
       },
       {
-        "parameters": {
-          "jsCode": "const cfg = JSON.parse($('download_registry').first().json.output || '{}');\nconst req = $('normalize_input').first().json;\nconst types = Array.isArray(cfg.types) ? cfg.types : [];\nconst byId = new Map(types.map((t) => [t.id, t]));\nconst budget = cfg.budget || {};\nconst cap = Number(cfg.max_types_per_request || 3);\nlet requested = req.ASSET_TYPES\n  ? req.ASSET_TYPES.split(',').map((s) => s.trim()).filter(Boolean)\n  : (cfg.default_types || []);\nrequested = [...new Set(requested)];\nconst out = [];\nconst shaped = (t, extra) => {\n  const b = Object.assign({}, budget, t.budget || {});\n  const paired = t.paired || {};\n  const fps = Number(b.fps || 12);\n  const frames = Number(b.frames || 36);\n  return Object.assign({}, req, {\n    ASSET_TYPE: t.id, NAME: t.name || t.id, AUTHOR: t.author, BRAND_KIND: t.brandKind || 'diagrammatic',\n    RENDER_MODE: t.render, FORMAT: t.format, ASPECT: t.aspect || '4:5', FORM: t.form || '',\n    RASTER_REVIEW_ROUND: 0,\n    FPS: fps, FRAMES: frames, VIEWPORT: Number(b.viewport || 1200),\n    // A type that declares no length still declares one: the container is completed here,\n    // where the registry becomes the request, rather than left to a consumer's fallback --\n    // the authoring brief refuses an item that carries no declaration.\n    DURATION_SECONDS: Number(t.durationSeconds) || frames / fps,\n    SCENE_SECONDS: Number(t.secondsPerScene || 0),\n    PAIRED_FORMAT: paired.format || '', PAIRED_ASSET_TYPE: paired.assetType || '',\n  }, extra);\n};\nconst note = (id, status, error) => out.push({ json: Object.assign({}, req, {\n  ASSET_TYPE: id, NAME: id, AUTHOR: null, BRAND_KIND: '', RENDER_MODE: '', FORMAT: '', ASPECT: '', FORM: '', RASTER_REVIEW_ROUND: 0,\n  FPS: 0, FRAMES: 0, VIEWPORT: 0, DURATION_SECONDS: 0, STATUS: status, ERROR: error }) });\nfor (const id of requested.slice(0, cap)) {\n  const t = byId.get(id);\n  if (!t) { note(id, 'UNKNOWN', 'unknown asset type: ' + id); continue; }\n  const kind = t.brandKind || 'diagrammatic';\n  if (kind !== 'diagrammatic' && kind !== 'photographic') throw new Error('unknown brandKind for ' + t.id + ': ' + t.brandKind);\n  // An unavailable type must not take its author branch: null its author so it\n  // falls through to the report path with a STATUS and reason.\n  if (t.available === false) {\n    out.push({ json: shaped(t, { AUTHOR: null, STATUS: 'UNAVAILABLE', ERROR: t.unavailableReason || ('unavailable: ' + t.id) }) });\n    continue;\n  }\n  out.push({ json: shaped(t, { STATUS: '' }) });\n}\nfor (const id of requested.slice(cap)) note(id, 'SKIPPED', 'over the per-request cap of ' + cap);\nreturn out;\n"
-        },
         "id": "6e9b25a7-acc3-4561-8291-ebfc534eacd0",
         "name": "parse_registry",
         "type": "n8n-nodes-base.code",
@@ -183,9 +180,20 @@
         "position": [
           2464,
           48
-        ]
+        ],
+        "parameters": {
+          "jsCode": "const cfg = JSON.parse($('download_registry').first().json.output || '{}');\nconst req = $('normalize_input').first().json;\nconst types = Array.isArray(cfg.types) ? cfg.types : [];\nconst byId = new Map(types.map((t) => [t.id, t]));\nconst budget = cfg.budget || {};\nconst cap = Number(cfg.max_types_per_request || 3);\nlet requested = req.ASSET_TYPES\n  ? req.ASSET_TYPES.split(',').map((s) => s.trim()).filter(Boolean)\n  : (cfg.default_types || []);\nrequested = [...new Set(requested)];\nconst out = [];\nconst shaped = (t, extra) => {\n  const b = Object.assign({}, budget, t.budget || {});\n  const paired = t.paired || {};\n  const fps = Number(b.fps || 12);\n  const frames = Number(b.frames || 36);\n  return Object.assign({}, req, {\n    ASSET_TYPE: t.id, NAME: t.name || t.id, AUTHOR: t.author, BRAND_KIND: t.brandKind || 'diagrammatic',\n    RENDER_MODE: t.render, FORMAT: t.format, ASPECT: t.aspect || '4:5', FORM: t.form || '',\n    RASTER_REVIEW_ROUND: 0,\n    FPS: fps, FRAMES: frames, VIEWPORT: Number(b.viewport || 1200),\n    // A type that declares no length still declares one: the container is completed here,\n    // where the registry becomes the request, rather than left to a consumer's fallback --\n    // the authoring brief refuses an item that carries no declaration.\n    DURATION_SECONDS: Number(t.durationSeconds) || frames / fps,\n    SCENE_SECONDS: Number(t.secondsPerScene || 0),\n    PAIRED_FORMAT: paired.format || '', PAIRED_ASSET_TYPE: paired.assetType || '',\n  }, extra);\n};\nconst note = (id, status, error) => out.push({ json: Object.assign({}, req, {\n  ASSET_TYPE: id, NAME: id, AUTHOR: null, BRAND_KIND: '', RENDER_MODE: '', FORMAT: '', ASPECT: '', FORM: '', RASTER_REVIEW_ROUND: 0,\n  FPS: 0, FRAMES: 0, VIEWPORT: 0, DURATION_SECONDS: 0, STATUS: status, ERROR: error }) });\nfor (const id of requested.slice(0, cap)) {\n  const t = byId.get(id);\n  if (!t) { note(id, 'UNKNOWN', 'unknown asset type: ' + id); continue; }\n  const kind = t.brandKind || 'diagrammatic';\n  if (kind !== 'diagrammatic' && kind !== 'photographic') throw new Error('unknown brandKind for ' + t.id + ': ' + t.brandKind);\n  // An unavailable type must not take its author branch: null its author so it\n  // falls through to the report path with a STATUS and reason.\n  if (t.available === false) {\n    out.push({ json: shaped(t, { AUTHOR: null, STATUS: 'UNAVAILABLE', ERROR: t.unavailableReason || ('unavailable: ' + t.id) }) });\n    continue;\n  }\n  out.push({ json: shaped(t, { STATUS: '' }) });\n}\nfor (const id of requested.slice(cap)) note(id, 'SKIPPED', 'over the per-request cap of ' + cap);\nreturn out;\n"
+        }
       },
       {
+        "id": "f509c99a-ffe1-4061-8d1d-c2b748bcbfc8",
+        "name": "ai_model",
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.3,
+        "position": [
+          4040,
+          312
+        ],
         "parameters": {
           "model": {
             "__rl": true,
@@ -198,14 +206,6 @@
             "timeout": 120000
           }
         },
-        "id": "f509c99a-ffe1-4061-8d1d-c2b748bcbfc8",
-        "name": "ai_model",
-        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-        "typeVersion": 1.3,
-        "position": [
-          4040,
-          312
-        ],
         "credentials": {
           "openAiApi": {
             "id": "LitellmN8nAcct01",
@@ -214,6 +214,14 @@
         }
       },
       {
+        "id": "ce5284fe-f18e-43df-8107-02cfe1511c59",
+        "name": "ai_model_fallback",
+        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+        "typeVersion": 1.3,
+        "position": [
+          4168,
+          312
+        ],
         "parameters": {
           "model": {
             "__rl": true,
@@ -226,14 +234,6 @@
             "timeout": 120000
           }
         },
-        "id": "ce5284fe-f18e-43df-8107-02cfe1511c59",
-        "name": "ai_model_fallback",
-        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-        "typeVersion": 1.3,
-        "position": [
-          4168,
-          312
-        ],
         "credentials": {
           "openAiApi": {
             "id": "LitellmN8nAcct01",
@@ -242,6 +242,14 @@
         }
       },
       {
+        "id": "135dc3bb-bf36-48e5-a833-889670a83b0e",
+        "name": "if_raster",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          3584,
+          320
+        ],
         "parameters": {
           "conditions": {
             "options": {
@@ -265,17 +273,17 @@
             ]
           },
           "options": {}
-        },
-        "id": "135dc3bb-bf36-48e5-a833-889670a83b0e",
-        "name": "if_raster",
-        "type": "n8n-nodes-base.if",
-        "typeVersion": 2.2,
-        "position": [
-          3584,
-          320
-        ]
+        }
       },
       {
+        "id": "905b3160-d051-4a9e-a002-9c126db41d0f",
+        "name": "download_raster_prompt",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          3808,
+          256
+        ],
         "parameters": {
           "workflowId": {
             "__rl": true,
@@ -316,22 +324,9 @@
           },
           "mode": "each",
           "options": {}
-        },
-        "id": "905b3160-d051-4a9e-a002-9c126db41d0f",
-        "name": "download_raster_prompt",
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.2,
-        "position": [
-          3808,
-          256
-        ]
+        }
       },
       {
-        "parameters": {
-          "promptType": "define",
-          "text": "={{ $json.output }}",
-          "needsFallback": true
-        },
         "id": "e766ecf3-5903-49e0-b934-43d40b43ce31",
         "name": "raster_director",
         "type": "@n8n/n8n-nodes-langchain.chainLlm",
@@ -339,9 +334,22 @@
         "position": [
           4032,
           96
-        ]
+        ],
+        "parameters": {
+          "promptType": "define",
+          "text": "={{ $json.output }}",
+          "needsFallback": true
+        }
       },
       {
+        "id": "f0241d3f-52ae-40e9-a5ce-d914c1bd5df6",
+        "name": "generate_image",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          4384,
+          96
+        ],
         "parameters": {
           "method": "POST",
           "url": "http://datahub-local-core-data-litellm.data.svc.cluster.local:4000/openrouter/images",
@@ -352,14 +360,6 @@
           "jsonBody": "={\n  \"model\": \"google/gemini-3.1-flash-image\",\n  \"prompt\": {{ $json.text.toJsonString() }},\n  \"aspect_ratio\": {{ $('if_raster').all()[$itemIndex].json.ASPECT.toJsonString() }},\n  \"resolution\": \"1K\"\n}",
           "options": {}
         },
-        "id": "f0241d3f-52ae-40e9-a5ce-d914c1bd5df6",
-        "name": "generate_image",
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.4,
-        "position": [
-          4384,
-          96
-        ],
         "credentials": {
           "httpBearerAuth": {
             "id": "LitellmN8nBera01",
@@ -368,9 +368,6 @@
         }
       },
       {
-        "parameters": {
-          "jsCode": "const src = $('if_raster').all();\nconst dir = $('raster_director').all();\nreturn $input.all().map((it, i) => {\n  const a = src[i].json;\n  const resp = it.json || {};\n  const d0 = (resp.data && resp.data[0]) || {};\n  const b64 = d0.b64_json || '';\n  const media = d0.media_type || 'image/png';\n  const out = Object.assign({}, a, {\n    STATUS: b64 ? 'RENDERED' : 'ERROR',\n    PROMPT: (dir[i] && dir[i].json.text) || '',\n    IMAGE: b64 ? ('data:' + media + ';base64,' + b64) : '',\n    CONTENT_TYPE: b64 ? media : '',\n  });\n  if (!b64) out.ERROR = 'image model returned no image';\n  return { json: out };\n});"
-        },
         "id": "c6d2dd55-598d-4dc7-9730-6b9a179f5aae",
         "name": "raster_result",
         "type": "n8n-nodes-base.code",
@@ -378,10 +375,12 @@
         "position": [
           4608,
           96
-        ]
+        ],
+        "parameters": {
+          "jsCode": "const src = $('if_raster').all();\nconst dir = $('raster_director').all();\nreturn $input.all().map((it, i) => {\n  const a = src[i].json;\n  const resp = it.json || {};\n  const d0 = (resp.data && resp.data[0]) || {};\n  const b64 = d0.b64_json || '';\n  const media = d0.media_type || 'image/png';\n  const out = Object.assign({}, a, {\n    STATUS: b64 ? 'RENDERED' : 'ERROR',\n    PROMPT: (dir[i] && dir[i].json.text) || '',\n    IMAGE: b64 ? ('data:' + media + ';base64,' + b64) : '',\n    CONTENT_TYPE: b64 ? media : '',\n  });\n  if (!b64) out.ERROR = 'image model returned no image';\n  return { json: out };\n});"
+        }
       },
       {
-        "parameters": {},
         "id": "8fea4c5d-f2a8-4226-9421-a4653c92163e",
         "name": "ready_pass",
         "type": "n8n-nodes-base.noOp",
@@ -389,12 +388,10 @@
         "position": [
           5728,
           528
-        ]
+        ],
+        "parameters": {}
       },
       {
-        "parameters": {
-          "numberInputs": 3
-        },
         "id": "615cdff5-2ae8-49b2-ad11-978fc3141653",
         "name": "merge_branches",
         "type": "n8n-nodes-base.merge",
@@ -402,12 +399,12 @@
         "position": [
           5952,
           16
-        ]
+        ],
+        "parameters": {
+          "numberInputs": 3
+        }
       },
       {
-        "parameters": {
-          "jsCode": "// The run's outcome, built from the merged assets. The row that used to record it is\n// gone: nothing read it, and an agent asset's bytes live in Garage, so the object key and\n// the resolved session id are carried here instead. The caller needs the key to fetch the\n// bytes and the session id to continue the thread, and neither should be reconstructed\n// from the run id -- that would be a second copy of two derivations.\n//\n// A raster asset is the one that still carries its bytes, as the data URL the image model\n// returned: those bytes are made inside n8n, so no store can fetch them, and nothing reads\n// its key. That is why this graph uploads nothing itself any more, and why a still run\n// carries its own data URL in execution_data where an agent run carries none. The measured\n// costs are in AGENTS.md rather than here: a number beside the code is a second copy of a\n// measurement, and this one was wrong when it was a guess.\nconst items = $('merge_branches').all().map((i) => i.json);\nconst req = $('normalize_input').first().json;\n// build_author_brief resolves the session id and only runs on the agent branch, so a\n// raster run falls back to the caller's own value.\nlet sessionId = String(req.SESSION_ID || '');\ntry {\n  sessionId = String($('build_author_brief').first().json.SESSION_ID || sessionId);\n} catch (e) {}\nreturn [{ json: {\n  RUN_ID: req.RUN_ID,\n  SESSION_ID: sessionId,\n  STATUS: items.some((i) => i.ERROR) ? (items.every((i) => i.ERROR) ? 'FAILED' : 'PARTIAL') : 'COMPLETE',\n  ASSETS: items,\n} }];\n"
-        },
         "id": "6407cf3b-1d85-49d3-983c-21f2d02f9ef0",
         "name": "set_result",
         "type": "n8n-nodes-base.code",
@@ -415,9 +412,20 @@
         "position": [
           6176,
           32
-        ]
+        ],
+        "parameters": {
+          "jsCode": "// The run's outcome, built from the merged assets. The row that used to record it is\n// gone: nothing read it, and an agent asset's bytes live in Garage, so the object key and\n// the resolved session id are carried here instead. The caller needs the key to fetch the\n// bytes and the session id to continue the thread, and neither should be reconstructed\n// from the run id -- that would be a second copy of two derivations.\n//\n// A raster asset is the one that still carries its bytes, as the data URL the image model\n// returned: those bytes are made inside n8n, so no store can fetch them, and nothing reads\n// its key. That is why this graph uploads nothing itself any more, and why a still run\n// carries its own data URL in execution_data where an agent run carries none. The measured\n// costs are in AGENTS.md rather than here: a number beside the code is a second copy of a\n// measurement, and this one was wrong when it was a guess.\nconst items = $('merge_branches').all().map((i) => i.json);\nconst req = $('normalize_input').first().json;\n// build_author_brief resolves the session id and only runs on the agent branch, so a\n// raster run falls back to the caller's own value.\nlet sessionId = String(req.SESSION_ID || '');\ntry {\n  sessionId = String($('build_author_brief').first().json.SESSION_ID || sessionId);\n} catch (e) {}\nreturn [{ json: {\n  RUN_ID: req.RUN_ID,\n  SESSION_ID: sessionId,\n  STATUS: items.some((i) => i.ERROR) ? (items.every((i) => i.ERROR) ? 'FAILED' : 'PARTIAL') : 'COMPLETE',\n  ASSETS: items,\n} }];\n"
+        }
       },
       {
+        "id": "f17239ca-e010-4e5c-ad90-2bf03db6f60b",
+        "name": "if_agent",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          2688,
+          48
+        ],
         "parameters": {
           "conditions": {
             "options": {
@@ -441,20 +449,9 @@
             ]
           },
           "options": {}
-        },
-        "id": "f17239ca-e010-4e5c-ad90-2bf03db6f60b",
-        "name": "if_agent",
-        "type": "n8n-nodes-base.if",
-        "typeVersion": 2.2,
-        "position": [
-          2688,
-          48
-        ]
+        }
       },
       {
-        "parameters": {
-          "jsCode": "// Turn the request into the composer's brief and the session request. The brief is\n// the caller's CONTENT, the requested form and style, the type's declared frame, the\n// shared motion rules and any correction or extra direction the caller supplied.\n// Whether a turn authors or edits is the adapter's call, taken from the session\n// directory itself; the brief never claims one, so a named session with no directory\n// is not told to keep a composition that does not exist.\n// A caller that names a session is used as given; a caller that names none gets an\n// id scoped to this run, so a later run cannot overwrite its artifact before it is\n// fetched. Everything here is data-driven, so a type is retuned from the registry\n// without touching the adapter.\nconst a = $input.first().json;\nconst req = $('normalize_input').first().json;\nconst brand = $('brand_tokens').first().json;\nconst rules = String($('visual_rules').first().json.RULES || '').trim();\nconst safe = (s) => String(s || '').replace(/[^A-Za-z0-9._-]/g, '').slice(0, 40);\n// A named session is used as given; a blank one is scoped to this run.\nconst sessionId = safe(req.SESSION_ID) || (safe(a.ASSET_TYPE) + '-' + safe(req.RUN_ID)) || 'default';\nconst base = ($env.PI_RENDER_URL || '').replace(/\\/+$/, '');\nconst utils = ($env.MCP_UTILS_URL || '').replace(/\\/+$/, '');\n// A deck is authored as one self-contained HTML file; the same turn renders it to\n// the paired video, so no transcode happens after the turn.\nconst isDeck = String(a.RENDER_MODE || '') === 'deck';\nconst FORMATS = ['mp4', 'gif', 'webp', 'png', 'svg'];\nconst format = isDeck ? 'html' : (FORMATS.includes(a.FORMAT) ? a.FORMAT : 'mp4');\n// The container is the request's, never this node's invention. A review turn's item is\n// asset-shaped and carries the request's declaration (agent_result copies it onto the\n// asset), so a correction turn keeps the container of the turn it corrects. Before this\n// the four silent defaults below fired at once and a tiles_wide request (16:9 / 1280 /\n// 12s / 360) was corrected at 1080x1350 / 3s / 24 frames (measured 2026-10-17, run\n// 13785). A missing declaration is an error naming the field: a plausible default is\n// indistinguishable from the caller's request once the run has produced an artifact.\nconst declared = (field, value) => {\n  const n = Number(value);\n  if (!Number.isFinite(n) || n <= 0) throw new Error('the request declared no ' + field + '; the authoring brief cannot re-declare a container');\n  return n;\n};\nconst aspectMatch = /^([0-9.]+):([0-9.]+)$/.exec(String(a.ASPECT || '').trim());\nif (!aspectMatch || !(Number(aspectMatch[1]) > 0) || !(Number(aspectMatch[2]) > 0)) {\n  throw new Error('the request declared no ASPECT; the authoring brief cannot re-declare a container');\n}\nconst aw = Number(aspectMatch[1]);\nconst ah = Number(aspectMatch[2]);\nconst width = declared('VIEWPORT', a.VIEWPORT);\nconst height = Math.round(width * ah / aw);\n// A type may declare the shape it means -- a diagram type is a diagram -- and that is\n// stronger than the caller's FORCE, because choosing the type is choosing its shape.\n// A type that declares none takes the caller's FORCE; with neither, the composer chooses.\nconst force = String(a.FORM || req.FORCE || 'auto');\n// The form vocabulary is one committed file, fetched like the motion rules and\n// appended to the brief so a forced form arrives with its meaning; the workflow does\n// not restate the definitions.\nconst forms = String($('visual_forms').first().json.FORMS || '').trim();\nconst vocab = forms ? ['Form vocabulary:', forms] : [];\nconst form = force === 'auto'\n  ? 'Choose the form that fits the content best.'\n  : 'Use the ' + force + ' form; do not substitute another.';\nconst scenes = Math.max(0, Math.round(Number(req.SCENES) || 0));\n// One declared scene is the whole clip. A longer sequence opens on a title scene\n// that names the subject, so it is introduced rather than starting cold; the\n// caller's scenes follow it, and the clip carries one more scene than was asked.\nconst sceneLine = scenes > 0\n  ? 'Render exactly ' + scenes + ' scenes, one item per scene, in the order the storyboard sets'\n    + (scenes > 1 ? ', opening on a title scene that names the subject before them (' + (scenes + 1) + ' scenes in all).' : '.')\n  : '';\n// The declared duration is the floor. A caller that names a scene count gives each\n// scene at least the type's declared scene length, so a multi-scene clip is never\n// compressed into the single-scene time.\nconst declaredFrames = Math.max(1, declared('FRAMES', a.FRAMES));\nconst declaredSeconds = Math.max(1, declared('DURATION_SECONDS', a.DURATION_SECONDS));\nconst sceneSeconds = Math.max(0, Number(a.SCENE_SECONDS) || 0);\nconst seconds = Math.max(declaredSeconds, scenes * sceneSeconds);\n// Extending the clip keeps the declared sampling rate instead of speeding it up.\nconst frames = seconds > declaredSeconds ? Math.max(1, Math.round(declaredFrames * seconds / declaredSeconds)) : declaredFrames;\nconst rate = Math.max(0.1, frames / seconds);\nconst planLine = 'Plan first: state a short storyboard with the form, the scenes and the order they play in, then author the composition.';\nconst deckPlanLine = 'Plan first: state a short plan with the arc and the per-slide content, then author the deck to it.';\nconst stillPlanLine = 'Plan first: state the card in one line - the brand lockup, the headline, the supporting line, the feature chips, the interface window and the call to action - then author the composition.';\nconst stillSceneLine = scenes > 0 ? 'The card carries the declared ' + scenes + ' items as that many parts of the same card, in the order given; they are not sequenced over time.' : '';\nconst sampling = ['gif', 'webp'].includes(format)\n  ? 'Animate slowly and deliberately: reveal a few elements in sequence, each held long enough to read, rather than many quick changes. The clip is sampled into a low-frame-rate file, so fast or busy motion is lost.'\n  : 'Animate deliberately: a few clear beats, each held long enough to read, rather than many quick changes.';\nconst styleLine = 'Style: use the brand\\'s ' + brand.STYLE + ' scheme; do not introduce a colour or typeface the brand block below does not define.';\n// Appended last, in this order: the shared motion rules (the framework's craft, one\n// committed copy), a reviewer's correction when one is present, and the caller's\n// extra direction when one is present. Nothing here is parsed; all three are prose\n// the composer reads.\nconst tail = [];\nif (rules) tail.push('Motion rules (apply to every scene):', rules);\n// A reviewer's correction arrives on the item: the caller's own FEEDBACK on the first turn,\n// and the critic's findings on a review turn.\nconst feedback = String(a.FEEDBACK || req.FEEDBACK || '').trim();\nif (feedback) tail.push('Correction from a reviewer - fix this in this attempt:', feedback);\nif (req.EXTRA_PROMPT) tail.push('Extra direction from the caller:', req.EXTRA_PROMPT);\nconst brandBlock = ['', 'Brand block:', brand.BRAND];\nconst brief = isDeck\n  ? [\n      req.CONTENT,\n      '',\n      deckPlanLine,\n      sceneLine,\n      'Author ONE self-contained HTML presentation and write it to `out.html` in this directory: a single file with no external stylesheet, script, font or network request, whose navigation works with no server. Preserve the text\\'s own structure, one idea per slide.',\n      'Then author a HyperFrames composition of that same plan to `index.html` and render it to `out.mp4` in this same directory, at ' + width + 'x' + height + ' (' + a.ASPECT + ') over about ' + seconds + ' seconds, so the slides and their order match the deck.',\n      styleLine,\n      ...tail,\n      ...brandBlock,\n    ].join('\\n')\n  : format === 'svg'\n  ? [\n      req.CONTENT,\n      '',\n      'Author ONE self-contained animated SVG and write it to `out.svg`. Do not render and do not write index.html.',\n      form,\n      ...vocab,\n      sceneLine,\n      styleLine,\n      'Use a ' + width + 'x' + height + ' (' + a.ASPECT + ') viewBox.',\n      'Animate with CSS @keyframes inside a <style> element, or with SMIL; no external stylesheet, no script, no network. Reveal a few elements in sequence, each held long enough to read.',\n      'Reference the brand typefaces by name with a system fallback, and keep the file well-formed XML with every animated element ending visible.',\n      ...tail,\n      ...brandBlock,\n    ].join('\\n')\n  : format === 'png'\n  ? [\n      req.CONTENT,\n      '',\n      stillPlanLine,\n      form,\n      ...vocab,\n      stillSceneLine,\n      styleLine,\n      'Compose ONE still card at ' + width + 'x' + height + ' (' + a.ASPECT + '), with the whole card complete and legible in the final frame of the composition.',\n      'Entrances may run, but nothing may leave, dim or hide before the end: the artifact is that final frame, so everything the card carries must still be there in it.',\n      ...tail,\n      ...brandBlock,\n    ].join('\\n')\n  : [\n      req.CONTENT,\n      '',\n      planLine,\n      form,\n      ...vocab,\n      sceneLine,\n      styleLine,\n      'Render a ' + width + 'x' + height + ' (' + a.ASPECT + ') composition that runs about ' + seconds + ' seconds.',\n      sampling,\n      ...tail,\n      ...brandBlock,\n    ].join('\\n');\nconst pairedFormat = isDeck ? (a.PAIRED_FORMAT || 'mp4') : '';\nreturn [{ json: Object.assign({}, a, {\n  FORCE: force, SCENES: scenes, STYLE: brand.STYLE,\n  REVIEW_ROUND: Math.max(0, Number(a.REVIEW_ROUND || 0)),\n  FORMAT: format, FPS: rate, WIDTH: width, HEIGHT: height, FRAMES: frames, DURATION_SECONDS: seconds, RATE: rate,\n  SESSION_ID: sessionId,\n  AUTHOR_URL: base ? base + '/v1/chat/completions' : '',\n  ARTIFACT_URL: base ? base + '/artifacts/' + sessionId + '/out.' + format : '',\n  ARTIFACT_KEY: 'visual-studio/' + safe(req.RUN_ID) + '-' + safe(a.ASSET_TYPE) + '.' + format,\n  STORE_URL: utils ? utils + '/mcp' : '',\n  PAIRED_FORMAT: pairedFormat,\n  PAIRED_ARTIFACT_URL: (isDeck && base) ? base + '/artifacts/' + sessionId + '/out.' + pairedFormat : '',\n  PAIRED_ARTIFACT_KEY: isDeck ? 'visual-studio/' + safe(req.RUN_ID) + '-' + safe(a.ASSET_TYPE) + '.' + pairedFormat : '',\n  AUTHOR_BODY: JSON.stringify({ messages: [{ role: 'user', content: brief }], session_id: sessionId, format: format, fps: rate, width: width, height: height, frames: frames, durationSeconds: seconds }),\n}) }];\n"
-        },
         "id": "f4190f9c-1117-48cc-8ce7-85b3652ea99d",
         "name": "build_author_brief",
         "type": "n8n-nodes-base.code",
@@ -462,9 +459,25 @@
         "position": [
           2912,
           -336
-        ]
+        ],
+        "parameters": {
+          "jsCode": "// Turn the request into the composer's brief and the session request. The brief is\n// the caller's CONTENT, the requested form and style, the type's declared frame, the\n// shared motion rules and any correction or extra direction the caller supplied.\n// Whether a turn authors or edits is the adapter's call, taken from the session\n// directory itself; the brief never claims one, so a named session with no directory\n// is not told to keep a composition that does not exist.\n// A caller that names a session is used as given; a caller that names none gets an\n// id scoped to this run, so a later run cannot overwrite its artifact before it is\n// fetched. Everything here is data-driven, so a type is retuned from the registry\n// without touching the adapter.\nconst a = $input.first().json;\nconst req = $('normalize_input').first().json;\nconst brand = $('brand_tokens').first().json;\nconst rules = String($('visual_rules').first().json.RULES || '').trim();\nconst safe = (s) => String(s || '').replace(/[^A-Za-z0-9._-]/g, '').slice(0, 40);\n// A named session is used as given; a blank one is scoped to this run.\nconst sessionId = safe(req.SESSION_ID) || (safe(a.ASSET_TYPE) + '-' + safe(req.RUN_ID)) || 'default';\nconst base = ($env.PI_RENDER_URL || '').replace(/\\/+$/, '');\nconst utils = ($env.MCP_UTILS_URL || '').replace(/\\/+$/, '');\n// A deck is authored as one self-contained HTML file; the same turn renders it to\n// the paired video, so no transcode happens after the turn.\nconst isDeck = String(a.RENDER_MODE || '') === 'deck';\nconst FORMATS = ['mp4', 'gif', 'webp', 'png', 'svg'];\nconst format = isDeck ? 'html' : (FORMATS.includes(a.FORMAT) ? a.FORMAT : 'mp4');\n// The container is the request's, never this node's invention. A review turn's item is\n// asset-shaped and carries the request's declaration (agent_result copies it onto the\n// asset), so a correction turn keeps the container of the turn it corrects. Before this\n// the four silent defaults below fired at once and a tiles_wide request (16:9 / 1280 /\n// 12s / 360) was corrected at 1080x1350 / 3s / 24 frames (measured 2026-10-17, run\n// 13785). A missing declaration is an error naming the field: a plausible default is\n// indistinguishable from the caller's request once the run has produced an artifact.\nconst declared = (field, value) => {\n  const n = Number(value);\n  if (!Number.isFinite(n) || n <= 0) throw new Error('the request declared no ' + field + '; the authoring brief cannot re-declare a container');\n  return n;\n};\nconst aspectMatch = /^([0-9.]+):([0-9.]+)$/.exec(String(a.ASPECT || '').trim());\nif (!aspectMatch || !(Number(aspectMatch[1]) > 0) || !(Number(aspectMatch[2]) > 0)) {\n  throw new Error('the request declared no ASPECT; the authoring brief cannot re-declare a container');\n}\nconst aw = Number(aspectMatch[1]);\nconst ah = Number(aspectMatch[2]);\nconst width = declared('VIEWPORT', a.VIEWPORT);\nconst height = Math.round(width * ah / aw);\n// A type may declare the shape it means -- a diagram type is a diagram -- and that is\n// stronger than the caller's FORCE, because choosing the type is choosing its shape.\n// A type that declares none takes the caller's FORCE; with neither, the composer chooses.\nconst force = String(a.FORM || req.FORCE || 'auto');\n// The form vocabulary is one committed file, fetched like the motion rules and\n// appended to the brief so a forced form arrives with its meaning; the workflow does\n// not restate the definitions.\nconst forms = String($('visual_forms').first().json.FORMS || '').trim();\nconst vocab = forms ? ['Form vocabulary:', forms] : [];\nconst form = force === 'auto'\n  ? 'Choose the form that fits the content best.'\n  : 'Use the ' + force + ' form; do not substitute another.';\nconst scenes = Math.max(0, Math.round(Number(req.SCENES) || 0));\n// One declared scene is the whole clip. A longer sequence opens on a title scene\n// that names the subject, so it is introduced rather than starting cold; the\n// caller's scenes follow it, and the clip carries one more scene than was asked.\nconst sceneLine = scenes > 0\n  ? 'Render exactly ' + scenes + ' scenes, one item per scene, in the order the storyboard sets'\n    + (scenes > 1 ? ', opening on a title scene that names the subject before them (' + (scenes + 1) + ' scenes in all).' : '.')\n  : '';\n// The declared duration is the floor. A caller that names a scene count gives each\n// scene at least the type's declared scene length, so a multi-scene clip is never\n// compressed into the single-scene time.\nconst declaredFrames = Math.max(1, declared('FRAMES', a.FRAMES));\nconst declaredSeconds = Math.max(1, declared('DURATION_SECONDS', a.DURATION_SECONDS));\nconst sceneSeconds = Math.max(0, Number(a.SCENE_SECONDS) || 0);\nconst seconds = Math.max(declaredSeconds, scenes * sceneSeconds);\n// Extending the clip keeps the declared sampling rate instead of speeding it up.\nconst frames = seconds > declaredSeconds ? Math.max(1, Math.round(declaredFrames * seconds / declaredSeconds)) : declaredFrames;\nconst rate = Math.max(0.1, frames / seconds);\nconst planLine = 'Plan first: state a short storyboard with the form, the scenes and the order they play in, then author the composition.';\nconst deckPlanLine = 'Plan first: state a short plan with the arc and the per-slide content, then author the deck to it.';\nconst stillPlanLine = 'Plan first: state the card in one line - the brand lockup, the headline, the supporting line, the feature chips, the interface window and the call to action - then author the composition.';\nconst stillSceneLine = scenes > 0 ? 'The card carries the declared ' + scenes + ' items as that many parts of the same card, in the order given; they are not sequenced over time.' : '';\nconst sampling = ['gif', 'webp'].includes(format)\n  ? 'Animate slowly and deliberately: reveal a few elements in sequence, each held long enough to read, rather than many quick changes. The clip is sampled into a low-frame-rate file, so fast or busy motion is lost.'\n  : 'Animate deliberately: a few clear beats, each held long enough to read, rather than many quick changes.';\nconst styleLine = 'Style: use the brand\\'s ' + brand.STYLE + ' scheme; do not introduce a colour or typeface the brand block below does not define.';\n// Appended last, in this order: the shared motion rules (the framework's craft, one\n// committed copy), a reviewer's correction when one is present, and the caller's\n// extra direction when one is present. Nothing here is parsed; all three are prose\n// the composer reads.\nconst tail = [];\nif (rules) tail.push('Motion rules (apply to every scene):', rules);\n// A reviewer's correction arrives on the item: the caller's own FEEDBACK on the first turn,\n// and the critic's findings on a review turn.\nconst feedback = String(a.FEEDBACK || req.FEEDBACK || '').trim();\nif (feedback) tail.push('Correction from a reviewer - fix this in this attempt:', feedback);\nif (req.EXTRA_PROMPT) tail.push('Extra direction from the caller:', req.EXTRA_PROMPT);\nconst brandBlock = ['', 'Brand block:', brand.BRAND];\nconst brief = isDeck\n  ? [\n      req.CONTENT,\n      '',\n      deckPlanLine,\n      sceneLine,\n      'Author ONE self-contained HTML presentation and write it to `out.html` in this directory: a single file with no external stylesheet, script, font or network request, whose navigation works with no server. Preserve the text\\'s own structure, one idea per slide.',\n      'Then author a HyperFrames composition of that same plan to `index.html` and render it to `out.mp4` in this same directory, at ' + width + 'x' + height + ' (' + a.ASPECT + ') over about ' + seconds + ' seconds, so the slides and their order match the deck.',\n      styleLine,\n      ...tail,\n      ...brandBlock,\n    ].join('\\n')\n  : format === 'svg'\n  ? [\n      req.CONTENT,\n      '',\n      'Author ONE self-contained animated SVG and write it to `out.svg`. Do not render and do not write index.html.',\n      form,\n      ...vocab,\n      sceneLine,\n      styleLine,\n      'Use a ' + width + 'x' + height + ' (' + a.ASPECT + ') viewBox.',\n      'Animate with CSS @keyframes inside a <style> element, or with SMIL; no external stylesheet, no script, no network. Reveal a few elements in sequence, each held long enough to read.',\n      'Reference the brand typefaces by name with a system fallback, and keep the file well-formed XML with every animated element ending visible.',\n      ...tail,\n      ...brandBlock,\n    ].join('\\n')\n  : format === 'png'\n  ? [\n      req.CONTENT,\n      '',\n      stillPlanLine,\n      form,\n      ...vocab,\n      stillSceneLine,\n      styleLine,\n      'Compose ONE still card at ' + width + 'x' + height + ' (' + a.ASPECT + '), with the whole card complete and legible in the final frame of the composition.',\n      'Entrances may run, but nothing may leave, dim or hide before the end: the artifact is that final frame, so everything the card carries must still be there in it.',\n      ...tail,\n      ...brandBlock,\n    ].join('\\n')\n  : [\n      req.CONTENT,\n      '',\n      planLine,\n      form,\n      ...vocab,\n      sceneLine,\n      styleLine,\n      'Render a ' + width + 'x' + height + ' (' + a.ASPECT + ') composition that runs about ' + seconds + ' seconds.',\n      sampling,\n      ...tail,\n      ...brandBlock,\n    ].join('\\n');\nconst pairedFormat = isDeck ? (a.PAIRED_FORMAT || 'mp4') : '';\nreturn [{ json: Object.assign({}, a, {\n  FORCE: force, SCENES: scenes, STYLE: brand.STYLE,\n  REVIEW_ROUND: Math.max(0, Number(a.REVIEW_ROUND || 0)),\n  FORMAT: format, FPS: rate, WIDTH: width, HEIGHT: height, FRAMES: frames, DURATION_SECONDS: seconds, RATE: rate,\n  SESSION_ID: sessionId,\n  AUTHOR_URL: base ? base + '/v1/chat/completions' : '',\n  ARTIFACT_URL: base ? base + '/artifacts/' + sessionId + '/out.' + format : '',\n  ARTIFACT_KEY: 'visual-studio/' + safe(req.RUN_ID) + '-' + safe(a.ASSET_TYPE) + '.' + format,\n  STORE_URL: utils ? utils + '/mcp' : '',\n  PAIRED_FORMAT: pairedFormat,\n  PAIRED_ARTIFACT_URL: (isDeck && base) ? base + '/artifacts/' + sessionId + '/out.' + pairedFormat : '',\n  PAIRED_ARTIFACT_KEY: isDeck ? 'visual-studio/' + safe(req.RUN_ID) + '-' + safe(a.ASSET_TYPE) + '.' + pairedFormat : '',\n  AUTHOR_BODY: JSON.stringify({ messages: [{ role: 'user', content: brief }], session_id: sessionId, format: format, fps: rate, width: width, height: height, frames: frames, durationSeconds: seconds }),\n}) }];\n"
+        }
       },
       {
+        "id": "e0286e3f-7244-4d0a-b4f9-ff65d1048013",
+        "name": "execute_author",
+        "notes": "A failed or unconfigured authoring call must not block the other assets, so the error is continued and agent_result turns the missing binary into that asset's ERROR. See agent_result.notes and the 'continueRegularOutput makes a failure invisible' rule in AGENTS.md.",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "retryOnFail": true,
+        "maxTries": 2,
+        "waitBetweenTries": 20000,
+        "onError": "continueRegularOutput",
+        "position": [
+          3136,
+          -448
+        ],
         "parameters": {
           "method": "POST",
           "url": "={{ $json.AUTHOR_URL }}",
@@ -474,25 +487,9 @@
           "options": {
             "timeout": 1200000
           }
-        },
-        "id": "e0286e3f-7244-4d0a-b4f9-ff65d1048013",
-        "name": "execute_author",
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.4,
-        "retryOnFail": true,
-        "maxTries": 2,
-        "waitBetweenTries": 20000,
-        "position": [
-          3136,
-          -448
-        ],
-        "onError": "continueRegularOutput",
-        "notes": "A failed or unconfigured authoring call must not block the other assets, so the error is continued and agent_result turns the missing binary into that asset's ERROR. See agent_result.notes and the 'continueRegularOutput makes a failure invisible' rule in AGENTS.md."
+        }
       },
       {
-        "parameters": {
-          "jsCode": "// The rendered artifact(s) the session produced, as the asset, plus the composer's own\n// report kept as STORYBOARD so a bad visual is diagnosable from the run record. The\n// bytes are deliberately not here: the temp-bucket server fetched each artifact from\n// the session and stored it, and what comes back is the object key and its size. That\n// is what keeps a 60 MB render out of this execution's record - n8n persists binaries\n// as well as JSON, so a run whose payload is the asset stores the asset twice. The\n// workflow never sees the agent's composition markup, only this report. A deck is two\n// files from one turn, so two stores ran and two assets come out.\nconst a = $('build_author_brief').first().json;\nconst report = (() => {\n  try {\n    const resp = $('execute_author').first().json || {};\n    const msg = resp.choices && resp.choices[0] && resp.choices[0].message;\n    const content = msg && msg.content;\n    return typeof content === 'string' ? content.slice(0, 6000) : '';\n  } catch (e) { return ''; }\n})();\n// What the session reported about the artifact's container. The declared values below are\n// the request's, which the conformance in the session makes the artifact's by construction;\n// this is what it was actually served at, and it names the authored frame where the two\n// differed (measured 2026-10-17, run 13762: a 16:9 / 12s type served at 1080x1350 / 3s).\nconst conformance = (() => {\n  try {\n    const resp = $('execute_author').first().json || {};\n    const c = resp.conformance;\n    return c && typeof c === 'object' ? c : {};\n  } catch (e) { return {}; }\n})();\nconst base = {\n  ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: '', PROMPT: '', CONTENT_TYPE: '', ERROR: '', STORYBOARD: report,\n  // The container the request declared, carried on the asset beside what the runtime\n  // delivered. The review loop builds its items from this asset, so a correction turn\n  // reads the declaration here instead of re-inventing one (measured 2026-10-17, run\n  // 13785: a 16:9 / 12s / 360-frame type was corrected at 1080x1350 / 3s / 24 frames\n  // because these five were absent from the asset).\n  ASPECT: a.ASPECT || '', VIEWPORT: String(Number(a.VIEWPORT) || ''),\n  FRAMES: String(Number(a.FRAMES) || ''), DURATION_SECONDS: String(Number(a.DURATION_SECONDS) || ''),\n  FPS: String(Number(a.FPS) || ''),\n  DURATION_MS: String(Math.round((Number(a.DURATION_SECONDS) || 0) * 1000)),\n  FRAME_COUNT: String(Number(a.FRAMES) || ''), WIDTH: a.WIDTH || '', HEIGHT: a.HEIGHT || '',\n  CONFORMED: conformance.fit || '', AUTHORED_FRAME: conformance.authored || '', SHORT: conformance.short === true,\n  IMAGE: '', S3_KEY: '', S3_BYTES: 0,\n};\nconst describe = (v, fallback) => {\n  if (typeof v === 'string' && v) return v;\n  if (v && typeof v === 'object' && typeof v.message === 'string') return v.message;\n  if (v != null) return JSON.stringify(v);\n  return fallback;\n};\n// One store answer: `key=<object> bytes=<size> content-type=<type>`, or a line starting\n// ERROR:. Split the way a caller does - whitespace, then the first '=' - so a change to\n// prose on the server arrives here as a missing key rather than a silently wrong value.\nconst stored = (node) => {\n  try {\n    const resp = $(node).first().json || {};\n    const content = resp.result && resp.result.content;\n    const text = content && content[0] && content[0].text;\n    if (typeof text !== 'string') return { ERROR: 'the temp-bucket server answered no text' };\n    if (text.indexOf('ERROR:') === 0) return { ERROR: text.slice(0, 500) };\n    const pairs = {};\n    for (const part of text.trim().split(/\\s+/)) {\n      const eq = part.indexOf('=');\n      if (eq > 0) pairs[part.slice(0, eq)] = part.slice(eq + 1);\n    }\n    if (!pairs.key) return { ERROR: 'the temp-bucket server answered no key: ' + text.slice(0, 400) };\n    return { KEY: pairs.key, BYTES: Number(pairs.bytes || 0), CONTENT_TYPE: pairs['content-type'] || '' };\n  } catch (e) {\n    // The node did not run at all, which for the paired store means this is not a deck.\n    return { ERROR: describe(e && e.message, 'the artifact was not stored') };\n  }\n};\nif (!a.AUTHOR_URL) {\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: 'PI_RENDER_URL is not configured' }) }];\n}\nif (!a.STORE_URL) {\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: 'MCP_UTILS_URL is not configured' }) }];\n}\nconst primary = stored('store_artifact');\nconst items = [primary.KEY\n  ? Object.assign({}, base, {\n      STATUS: 'RENDERED', CONTENT_TYPE: primary.CONTENT_TYPE || 'application/octet-stream',\n      S3_KEY: primary.KEY, S3_BYTES: primary.BYTES,\n    })\n  : Object.assign({}, base, { STATUS: 'ERROR', ERROR: primary.ERROR })];\n// A deck's paired video is stored by its own call, after the deck itself.\nif (a.PAIRED_ARTIFACT_URL) {\n  const paired = stored('store_paired_artifact');\n  const pairedBase = Object.assign({}, base, {\n    ASSET_TYPE: a.PAIRED_ASSET_TYPE || (a.ASSET_TYPE + '_video'),\n    RENDER_MODE: 'video', FORMAT: a.PAIRED_FORMAT || 'mp4', PAIRED_OF: a.ASSET_TYPE,\n  });\n  items.push(paired.KEY\n    ? Object.assign({}, pairedBase, {\n        STATUS: 'RENDERED', CONTENT_TYPE: paired.CONTENT_TYPE || 'video/mp4',\n        S3_KEY: paired.KEY, S3_BYTES: paired.BYTES,\n      })\n    : Object.assign({}, pairedBase, { STATUS: 'ERROR', ERROR: paired.ERROR }));\n}\nreturn items.map((json) => ({ json }));\n"
-        },
         "id": "20f42e27-8199-4da2-9602-cf7fa50d3786",
         "name": "agent_result",
         "type": "n8n-nodes-base.code",
@@ -500,9 +497,20 @@
         "position": [
           4096,
           -448
-        ]
+        ],
+        "parameters": {
+          "jsCode": "// The rendered artifact(s) the session produced, as the asset, plus the composer's own\n// report kept as STORYBOARD so a bad visual is diagnosable from the run record. The\n// bytes are deliberately not here: the temp-bucket server fetched each artifact from\n// the session and stored it, and what comes back is the object key and its size. That\n// is what keeps a 60 MB render out of this execution's record - n8n persists binaries\n// as well as JSON, so a run whose payload is the asset stores the asset twice. The\n// workflow never sees the agent's composition markup, only this report. A deck is two\n// files from one turn, so two stores ran and two assets come out.\nconst a = $('build_author_brief').first().json;\nconst report = (() => {\n  try {\n    const resp = $('execute_author').first().json || {};\n    const msg = resp.choices && resp.choices[0] && resp.choices[0].message;\n    const content = msg && msg.content;\n    return typeof content === 'string' ? content.slice(0, 6000) : '';\n  } catch (e) { return ''; }\n})();\n// What the session reported about the artifact's container. The declared values below are\n// the request's, which the conformance in the session makes the artifact's by construction;\n// this is what it was actually served at, and it names the authored frame where the two\n// differed (measured 2026-10-17, run 13762: a 16:9 / 12s type served at 1080x1350 / 3s).\nconst conformance = (() => {\n  try {\n    const resp = $('execute_author').first().json || {};\n    const c = resp.conformance;\n    return c && typeof c === 'object' ? c : {};\n  } catch (e) { return {}; }\n})();\nconst base = {\n  ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: '', PROMPT: '', CONTENT_TYPE: '', ERROR: '', STORYBOARD: report,\n  // The container the request declared, carried on the asset beside what the runtime\n  // delivered. The review loop builds its items from this asset, so a correction turn\n  // reads the declaration here instead of re-inventing one (measured 2026-10-17, run\n  // 13785: a 16:9 / 12s / 360-frame type was corrected at 1080x1350 / 3s / 24 frames\n  // because these five were absent from the asset).\n  ASPECT: a.ASPECT || '', VIEWPORT: String(Number(a.VIEWPORT) || ''),\n  FRAMES: String(Number(a.FRAMES) || ''), DURATION_SECONDS: String(Number(a.DURATION_SECONDS) || ''),\n  FPS: String(Number(a.FPS) || ''),\n  DURATION_MS: String(Math.round((Number(a.DURATION_SECONDS) || 0) * 1000)),\n  FRAME_COUNT: String(Number(a.FRAMES) || ''), WIDTH: a.WIDTH || '', HEIGHT: a.HEIGHT || '',\n  CONFORMED: conformance.fit || '', AUTHORED_FRAME: conformance.authored || '', SHORT: conformance.short === true,\n  IMAGE: '', S3_KEY: '', S3_BYTES: 0,\n};\nconst describe = (v, fallback) => {\n  if (typeof v === 'string' && v) return v;\n  if (v && typeof v === 'object' && typeof v.message === 'string') return v.message;\n  if (v != null) return JSON.stringify(v);\n  return fallback;\n};\n// One store answer: `key=<object> bytes=<size> content-type=<type>`, or a line starting\n// ERROR:. Split the way a caller does - whitespace, then the first '=' - so a change to\n// prose on the server arrives here as a missing key rather than a silently wrong value.\nconst stored = (node) => {\n  try {\n    const resp = $(node).first().json || {};\n    const content = resp.result && resp.result.content;\n    const text = content && content[0] && content[0].text;\n    if (typeof text !== 'string') return { ERROR: 'the temp-bucket server answered no text' };\n    if (text.indexOf('ERROR:') === 0) return { ERROR: text.slice(0, 500) };\n    const pairs = {};\n    for (const part of text.trim().split(/\\s+/)) {\n      const eq = part.indexOf('=');\n      if (eq > 0) pairs[part.slice(0, eq)] = part.slice(eq + 1);\n    }\n    if (!pairs.key) return { ERROR: 'the temp-bucket server answered no key: ' + text.slice(0, 400) };\n    return { KEY: pairs.key, BYTES: Number(pairs.bytes || 0), CONTENT_TYPE: pairs['content-type'] || '' };\n  } catch (e) {\n    // The node did not run at all, which for the paired store means this is not a deck.\n    return { ERROR: describe(e && e.message, 'the artifact was not stored') };\n  }\n};\nif (!a.AUTHOR_URL) {\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: 'PI_RENDER_URL is not configured' }) }];\n}\nif (!a.STORE_URL) {\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: 'MCP_UTILS_URL is not configured' }) }];\n}\nconst primary = stored('store_artifact');\nconst items = [primary.KEY\n  ? Object.assign({}, base, {\n      STATUS: 'RENDERED', CONTENT_TYPE: primary.CONTENT_TYPE || 'application/octet-stream',\n      S3_KEY: primary.KEY, S3_BYTES: primary.BYTES,\n    })\n  : Object.assign({}, base, { STATUS: 'ERROR', ERROR: primary.ERROR })];\n// A deck's paired video is stored by its own call, after the deck itself.\nif (a.PAIRED_ARTIFACT_URL) {\n  const paired = stored('store_paired_artifact');\n  const pairedBase = Object.assign({}, base, {\n    ASSET_TYPE: a.PAIRED_ASSET_TYPE || (a.ASSET_TYPE + '_video'),\n    RENDER_MODE: 'video', FORMAT: a.PAIRED_FORMAT || 'mp4', PAIRED_OF: a.ASSET_TYPE,\n  });\n  items.push(paired.KEY\n    ? Object.assign({}, pairedBase, {\n        STATUS: 'RENDERED', CONTENT_TYPE: paired.CONTENT_TYPE || 'video/mp4',\n        S3_KEY: paired.KEY, S3_BYTES: paired.BYTES,\n      })\n    : Object.assign({}, pairedBase, { STATUS: 'ERROR', ERROR: paired.ERROR }));\n}\nreturn items.map((json) => ({ json }));\n"
+        }
       },
       {
+        "id": "c0377a0b-b1c2-42b9-b0ca-4df8b613bc59",
+        "name": "download_brand",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          448,
+          48
+        ],
         "parameters": {
           "workflowId": {
             "__rl": true,
@@ -546,20 +554,9 @@
             "convertFieldsToString": true
           },
           "options": {}
-        },
-        "id": "c0377a0b-b1c2-42b9-b0ca-4df8b613bc59",
-        "name": "download_brand",
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.2,
-        "position": [
-          448,
-          48
-        ]
+        }
       },
       {
-        "parameters": {
-          "jsCode": "// The brand, read once from datasets/brand.json (the only copy), resolved to the\n// requested scheme and shaped for its two consumers: the authoring brief for the\n// composer and the raster prompt. This node also owns the STYLE check, because the\n// scheme names are data here and nowhere else, so an unknown STYLE fails naming it.\nconst raw = $('download_brand').first().json.output || '{}';\nlet b;\ntry {\n  b = JSON.parse(raw);\n} catch (e) {\n  throw new Error('datasets/brand.json is not valid JSON: ' + e.message);\n}\nconst req = $('normalize_input').first().json;\nconst schemeName = String(req.STYLE || b.defaultScheme || '');\nconst scheme = b.schemes && b.schemes[schemeName];\nif (!scheme) throw new Error('unknown STYLE: ' + schemeName + ' (brand declares: ' + Object.keys(b.schemes || {}).join(', ') + ')');\nconst typo = b.typography || {};\nconst BRAND = [\n  'Brand palette (' + schemeName + ' scheme, use only these roles):',\n  'background ' + scheme.shell + ', text ' + scheme.ink + ', muted text ' + scheme.inkMuted + ',',\n  'accent ' + scheme.accent + ', accent-strong ' + scheme.accentStrong + ', accent-deep ' + scheme.accentDeep + '.',\n  'Typefaces: ' + typo.text + ' for text, ' + typo.code + ' for code.',\n].join('\\n');\nreturn [{ json: {\n  STYLE: schemeName,\n  BRAND,\n  ART_DIRECTION: String((b.photographic || {}).artDirection || ''),\n} }];\n"
-        },
         "id": "c2415487-ca30-4143-831b-19243a190267",
         "name": "brand_tokens",
         "type": "n8n-nodes-base.code",
@@ -567,9 +564,20 @@
         "position": [
           672,
           48
-        ]
+        ],
+        "parameters": {
+          "jsCode": "// The brand, read once from datasets/brand.json (the only copy), resolved to the\n// requested scheme and shaped for its two consumers: the authoring brief for the\n// composer and the raster prompt. This node also owns the STYLE check, because the\n// scheme names are data here and nowhere else, so an unknown STYLE fails naming it.\nconst raw = $('download_brand').first().json.output || '{}';\nlet b;\ntry {\n  b = JSON.parse(raw);\n} catch (e) {\n  throw new Error('datasets/brand.json is not valid JSON: ' + e.message);\n}\nconst req = $('normalize_input').first().json;\nconst schemeName = String(req.STYLE || b.defaultScheme || '');\nconst scheme = b.schemes && b.schemes[schemeName];\nif (!scheme) throw new Error('unknown STYLE: ' + schemeName + ' (brand declares: ' + Object.keys(b.schemes || {}).join(', ') + ')');\nconst typo = b.typography || {};\nconst BRAND = [\n  'Brand palette (' + schemeName + ' scheme, use only these roles):',\n  'background ' + scheme.shell + ', text ' + scheme.ink + ', muted text ' + scheme.inkMuted + ',',\n  'accent ' + scheme.accent + ', accent-strong ' + scheme.accentStrong + ', accent-deep ' + scheme.accentDeep + '.',\n  'Typefaces: ' + typo.text + ' for text, ' + typo.code + ' for code.',\n].join('\\n');\nreturn [{ json: {\n  STYLE: schemeName,\n  BRAND,\n  ART_DIRECTION: String((b.photographic || {}).artDirection || ''),\n} }];\n"
+        }
       },
       {
+        "id": "b1a7c3e2-4d5f-4a6b-8c9d-0e1f2a3b4c5d",
+        "name": "download_visual_rules",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          896,
+          48
+        ],
         "parameters": {
           "workflowId": {
             "__rl": true,
@@ -613,17 +621,17 @@
             "convertFieldsToString": true
           },
           "options": {}
-        },
-        "id": "b1a7c3e2-4d5f-4a6b-8c9d-0e1f2a3b4c5d",
-        "name": "download_visual_rules",
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.2,
-        "position": [
-          896,
-          48
-        ]
+        }
       },
       {
+        "id": "d3c9e5a4-6f7b-4c8d-9e0f-2a3b4c5d6e7f",
+        "name": "if_deck",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          3584,
+          -448
+        ],
         "parameters": {
           "conditions": {
             "options": {
@@ -647,20 +655,9 @@
             ]
           },
           "options": {}
-        },
-        "id": "d3c9e5a4-6f7b-4c8d-9e0f-2a3b4c5d6e7f",
-        "name": "if_deck",
-        "type": "n8n-nodes-base.if",
-        "typeVersion": 2.2,
-        "position": [
-          3584,
-          -448
-        ]
+        }
       },
       {
-        "parameters": {
-          "jsCode": "// prompts/visual_motion_rules.md is the one copy of the motion grammar. It is\n// fetched once and handed to build_author_brief, which appends it to every brief.\nreturn [{ json: { RULES: String($json.output || '') } }];\n"
-        },
         "id": "c2b8d4f3-5e6a-4b7c-9d0e-1f2a3b4c5d6e",
         "name": "visual_rules",
         "type": "n8n-nodes-base.code",
@@ -668,9 +665,20 @@
         "position": [
           1120,
           48
-        ]
+        ],
+        "parameters": {
+          "jsCode": "// prompts/visual_motion_rules.md is the one copy of the motion grammar. It is\n// fetched once and handed to build_author_brief, which appends it to every brief.\nreturn [{ json: { RULES: String($json.output || '') } }];\n"
+        }
       },
       {
+        "id": "d3c9e5a4-6f7b-4c8d-9e1f-2a3b4c5d6e7f",
+        "name": "download_visual_forms",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          1344,
+          48
+        ],
         "parameters": {
           "workflowId": {
             "__rl": true,
@@ -714,20 +722,9 @@
             "convertFieldsToString": true
           },
           "options": {}
-        },
-        "id": "d3c9e5a4-6f7b-4c8d-9e1f-2a3b4c5d6e7f",
-        "name": "download_visual_forms",
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.2,
-        "position": [
-          1344,
-          48
-        ]
+        }
       },
       {
-        "parameters": {
-          "jsCode": "// prompts/visual_forms.md is the one copy of the form vocabulary. It is fetched\n// once and handed to build_author_brief, which appends it to every brief.\nreturn [{ json: { FORMS: String($json.output || '') } }];\n"
-        },
         "id": "e4d0f6b5-7a8c-4d9e-8f2a-3b4c5d6e7f80",
         "name": "visual_forms",
         "type": "n8n-nodes-base.code",
@@ -735,9 +732,22 @@
         "position": [
           1568,
           48
-        ]
+        ],
+        "parameters": {
+          "jsCode": "// prompts/visual_forms.md is the one copy of the form vocabulary. It is fetched\n// once and handed to build_author_brief, which appends it to every brief.\nreturn [{ json: { FORMS: String($json.output || '') } }];\n"
+        }
       },
       {
+        "id": "68237f50-4e6d-442f-9018-7f65d59c807d",
+        "name": "store_artifact",
+        "notes": "The session's finished artifact, stored by the temp-bucket server; continued on error for the same reason as execute_author, and agent_result reports it as this asset's ERROR.",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "onError": "continueRegularOutput",
+        "position": [
+          3360,
+          -448
+        ],
         "parameters": {
           "method": "POST",
           "url": "={{ $('build_author_brief').item.json.STORE_URL }}",
@@ -756,19 +766,19 @@
           "options": {
             "timeout": 300000
           }
-        },
-        "id": "68237f50-4e6d-442f-9018-7f65d59c807d",
-        "name": "store_artifact",
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.4,
-        "position": [
-          3360,
-          -448
-        ],
-        "onError": "continueRegularOutput",
-        "notes": "The session's finished artifact, stored by the temp-bucket server; continued on error for the same reason as execute_author, and agent_result reports it as this asset's ERROR."
+        }
       },
       {
+        "id": "e4d0f6b5-7a8c-4d9e-8f1a-3b4c5d6e7f80",
+        "name": "store_paired_artifact",
+        "notes": "The deck's paired video, stored after the deck. Continued on error for the same reason as store_artifact: agent_result keeps the deck and reports the missing pair rather than failing the run.",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "onError": "continueRegularOutput",
+        "position": [
+          3808,
+          -528
+        ],
         "parameters": {
           "method": "POST",
           "url": "={{ $('build_author_brief').item.json.STORE_URL }}",
@@ -787,22 +797,9 @@
           "options": {
             "timeout": 300000
           }
-        },
-        "id": "e4d0f6b5-7a8c-4d9e-8f1a-3b4c5d6e7f80",
-        "name": "store_paired_artifact",
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.4,
-        "position": [
-          3808,
-          -528
-        ],
-        "onError": "continueRegularOutput",
-        "notes": "The deck's paired video, stored after the deck. Continued on error for the same reason as store_artifact: agent_result keeps the deck and reports the missing pair rather than failing the run."
+        }
       },
       {
-        "parameters": {
-          "jsCode": "// The stills the authoring turn left behind, one item each, addressed by the session's own\n// artifact route. The session only renders and reports what it rendered; looking at it is\n// this workflow's job (execution 13720 was the lesson: an asset shipped with a label printed\n// on top of its own heading, because nothing in the pipeline ever looked).\nconst asset = $input.first().json || {};\nconst resp = $('execute_author').first().json || {};\nconst session = String($('build_author_brief').first().json.SESSION_ID || '');\nconst round = Math.max(0, Number($('build_author_brief').first().json.REVIEW_ROUND || 0));\nconst base = String($env.PI_RENDER_URL || '').replace(/\\/+$/, '');\nconst stills = Array.isArray(resp.stills) ? resp.stills : [];\n// Nothing to look at, or nothing to judge with, is not a defect: the review reports that it\n// could not run rather than failing the asset it was meant to check.\nconst prompt = String($('download_review_prompt').first().json.output || '').trim();\nconst reason = !prompt ? 'the review prompt is empty'\n  : !base || !session ? 'the session is not addressed'\n  : !stills.length ? 'the render left no still' : '';\nif (reason) {\n  return [{ json: { ...asset, REVIEW_ROUND: round, STILL_NAME: '', STILL_URL: '', REVIEWED: false, REVIEW_REASON: reason } }];\n}\nreturn stills.map((name) => ({\n  json: { ...asset, REVIEW_ROUND: round, STILL_NAME: name, STILL_URL: base + '/artifacts/' + encodeURIComponent(session) + '/' + name },\n}));\n"
-        },
         "id": "f85a3cbb-6195-4e7f-d354-bf912e6ca175",
         "name": "prepare_stills",
         "type": "n8n-nodes-base.code",
@@ -810,9 +807,20 @@
         "position": [
           4384,
           -448
-        ]
+        ],
+        "parameters": {
+          "jsCode": "// The stills the authoring turn left behind, one item each, addressed by the session's own\n// artifact route. The session only renders and reports what it rendered; looking at it is\n// this workflow's job (execution 13720 was the lesson: an asset shipped with a label printed\n// on top of its own heading, because nothing in the pipeline ever looked).\nconst asset = $input.first().json || {};\nconst resp = $('execute_author').first().json || {};\nconst session = String($('build_author_brief').first().json.SESSION_ID || '');\nconst round = Math.max(0, Number($('build_author_brief').first().json.REVIEW_ROUND || 0));\nconst base = String($env.PI_RENDER_URL || '').replace(/\\/+$/, '');\nconst stills = Array.isArray(resp.stills) ? resp.stills : [];\n// Nothing to look at, or nothing to judge with, is not a defect: the review reports that it\n// could not run rather than failing the asset it was meant to check.\nconst prompt = String($('download_review_prompt').first().json.output || '').trim();\nconst reason = !prompt ? 'the review prompt is empty'\n  : !base || !session ? 'the session is not addressed'\n  : !stills.length ? 'the render left no still' : '';\nif (reason) {\n  return [{ json: { ...asset, REVIEW_ROUND: round, STILL_NAME: '', STILL_URL: '', REVIEWED: false, REVIEW_REASON: reason } }];\n}\nreturn stills.map((name) => ({\n  json: { ...asset, REVIEW_ROUND: round, STILL_NAME: name, STILL_URL: base + '/artifacts/' + encodeURIComponent(session) + '/' + name },\n}));\n"
+        }
       },
       {
+        "id": "a96b4dcc-72a6-4f80-e465-c023f7db0e86",
+        "name": "if_stills",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          4608,
+          -448
+        ],
         "parameters": {
           "conditions": {
             "options": {
@@ -837,17 +845,17 @@
           },
           "looseTypeValidation": true,
           "options": {}
-        },
-        "id": "a96b4dcc-72a6-4f80-e465-c023f7db0e86",
-        "name": "if_stills",
-        "type": "n8n-nodes-base.if",
-        "typeVersion": 2.2,
-        "position": [
-          4608,
-          -448
-        ]
+        }
       },
       {
+        "id": "b07c5edd-83b7-4091-f576-d134a8ec1f97",
+        "name": "fetch_still",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          4832,
+          -528
+        ],
         "parameters": {
           "url": "={{ $json.STILL_URL }}",
           "options": {
@@ -858,20 +866,9 @@
             },
             "timeout": 30000
           }
-        },
-        "id": "b07c5edd-83b7-4091-f576-d134a8ec1f97",
-        "name": "fetch_still",
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.4,
-        "position": [
-          4832,
-          -528
-        ]
+        }
       },
       {
-        "parameters": {
-          "jsCode": "// The critic gets one request: the grammar, what the composer was asked for, and every still\n// the render left. The brief is the authoring request's own brief, whole -- a critic that\n// judges against a paraphrase judges the paraphrase.\nconst items = $input.all();\nconst a = $('prepare_stills').first().json;\nconst prompt = String($('download_review_prompt').first().json.output || '').trim();\nif (!prompt) throw new Error('the review prompt is empty; refusing to review without it');\nlet brief = '';\ntry {\n  const body = JSON.parse(String($('build_author_brief').first().json.AUTHOR_BODY || '{}'));\n  brief = String((((body.messages || [])[0] || {}).content) || '');\n} catch (e) {\n  brief = '';\n}\nconst frames = [];\nfor (let i = 0; i < items.length; i++) {\n  const bin = (items[i].binary || {}).data;\n  if (!bin) continue;\n  const buf = await this.helpers.getBinaryDataBuffer(i, 'data');\n  frames.push('data:' + (bin.mimeType || 'image/png') + ';base64,' + buf.toString('base64'));\n}\nif (!frames.length) throw new Error('the stills could not be read; refusing to review without them');\nconst content = [{ type: 'text', text: prompt + '\\n\\n---\\n\\nThe brief the composer was given:\\n' + brief }];\nfor (const url of frames) content.push({ type: 'image_url', image_url: { url } });\nreturn [{ json: {\n  ...a,\n  STILL_COUNT: frames.length,\n  CRITIQUE_BODY: JSON.stringify({ model: 'opencode-go/glm-5.3-flash', messages: [{ role: 'user', content }] }),\n} }];\n"
-        },
         "id": "c18d6fee-94c8-42a2-a687-e245b9fd2a08",
         "name": "encode_stills",
         "type": "n8n-nodes-base.code",
@@ -879,9 +876,22 @@
         "position": [
           5056,
           -528
-        ]
+        ],
+        "parameters": {
+          "jsCode": "// The critic gets one request: the grammar, what the composer was asked for, and every still\n// the render left. The brief is the authoring request's own brief, whole -- a critic that\n// judges against a paraphrase judges the paraphrase.\nconst items = $input.all();\nconst a = $('prepare_stills').first().json;\nconst prompt = String($('download_review_prompt').first().json.output || '').trim();\nif (!prompt) throw new Error('the review prompt is empty; refusing to review without it');\nlet brief = '';\ntry {\n  const body = JSON.parse(String($('build_author_brief').first().json.AUTHOR_BODY || '{}'));\n  brief = String((((body.messages || [])[0] || {}).content) || '');\n} catch (e) {\n  brief = '';\n}\nconst frames = [];\nfor (let i = 0; i < items.length; i++) {\n  const bin = (items[i].binary || {}).data;\n  if (!bin) continue;\n  const buf = await this.helpers.getBinaryDataBuffer(i, 'data');\n  frames.push('data:' + (bin.mimeType || 'image/png') + ';base64,' + buf.toString('base64'));\n}\nif (!frames.length) throw new Error('the stills could not be read; refusing to review without them');\nconst content = [{ type: 'text', text: prompt + '\\n\\n---\\n\\nThe brief the composer was given:\\n' + brief }];\nfor (const url of frames) content.push({ type: 'image_url', image_url: { url } });\nreturn [{ json: {\n  ...a,\n  STILL_COUNT: frames.length,\n  CRITIQUE_BODY: JSON.stringify({ model: 'opencode-go/glm-5.3-flash', messages: [{ role: 'user', content }] }),\n} }];\n"
+        }
       },
       {
+        "id": "d29e7f00-a5d9-43b3-b798-f356ca0e3b19",
+        "name": "critique",
+        "notes": "A critic that cannot be reached must not fail the run it was checking: on error this node forwards its input unchanged (n8n adds no `json.error` for a non-AI node), so `parse_verdict` reads no answer, records the review as unreadable and passes it -- the artifact ships with `REVIEW.unreadable` true. The first live review (2026-10-17, execution 13762) proved the cost of not having this: the critic's second call hit the node timeout and the whole authoring run errored, taking an asset that had already been fixed once with it. 300s, not 120: a four-still critique took 102s on the first call and over 120s on the second.",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "onError": "continueRegularOutput",
+        "position": [
+          5280,
+          -528
+        ],
         "parameters": {
           "method": "POST",
           "url": "http://datahub-local-core-data-litellm.data.svc.cluster.local:4000/v1/chat/completions",
@@ -894,27 +904,14 @@
             "timeout": 300000
           }
         },
-        "id": "d29e7f00-a5d9-43b3-b798-f356ca0e3b19",
-        "name": "critique",
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.4,
-        "position": [
-          5280,
-          -528
-        ],
         "credentials": {
           "httpBearerAuth": {
             "id": "LitellmN8nBera01",
             "name": "LiteLLM account (bearer)"
           }
-        },
-        "onError": "continueRegularOutput",
-        "notes": "A critic that cannot be reached must not fail the run it was checking: on error this node forwards its input unchanged (n8n adds no `json.error` for a non-AI node), so `parse_verdict` reads no answer, records the review as unreadable and passes it -- the artifact ships with `REVIEW.unreadable` true. The first live review (2026-10-17, execution 13762) proved the cost of not having this: the critic's second call hit the node timeout and the whole authoring run errored, taking an asset that had already been fixed once with it. 300s, not 120: a four-still critique took 102s on the first call and over 120s on the second."
+        }
       },
       {
-        "parameters": {
-          "jsCode": "// The critic's verdict, read tolerantly. Anything unreadable is a pass with the raw answer\n// recorded: treating it as \"keep fixing\" is how a model that cannot hold the format spends\n// every cycle and still ships the same defect.\nconst resp = $input.first().json || {};\nconst a = $('encode_stills').first().json;\nconst raw = String((((resp.choices || [])[0] || {}).message || {}).content || '').trim();\nlet verdict = 'ok';\nlet findings = [];\nlet unreadable = true;\nconst start = raw.indexOf('{');\nconst end = raw.lastIndexOf('}');\nif (start !== -1 && end > start) {\n  try {\n    const parsed = JSON.parse(raw.slice(start, end + 1));\n    const named = (Array.isArray(parsed.findings) ? parsed.findings : [])\n      .map((f) => ({ where: String((f && f.where) || '').trim(), what: String((f && f.what) || '').trim(), fix: String((f && f.fix) || '').trim() }))\n      .filter((f) => f.fix || f.what);\n    if (String(parsed.verdict || '').trim().toLowerCase() === 'fix' && named.length) {\n      verdict = 'fix';\n      findings = named;\n    }\n    unreadable = false;\n  } catch (e) {\n    unreadable = true;\n  }\n}\nconst round = Math.max(0, Number(a.REVIEW_ROUND || 0));\nconst cycles = Math.max(0, Number($('normalize_input').first().json.REVIEW_CYCLES || 0));\nconst findingsText = findings.map((f, i) => (i + 1) + '. ' + (f.where ? f.where + ': ' : '') + (f.what || 'a defect') + ' - ' + f.fix).join('\\n');\nreturn [{ json: {\n  ...a,\n  VERDICT: verdict,\n  FINDINGS_TEXT: findingsText,\n  UNREADABLE: unreadable,\n  // The loop's whole decision, as data: fix what the critic named, while the budget allows.\n  RETRY: verdict === 'fix' && round < cycles,\n  REVIEW_REASON: unreadable ? 'the critic did not answer, or its answer could not be read' : '',\n  REVIEW: JSON.stringify({ round: round + 1, verdict, findings, unreadable, raw: raw.slice(0, 2000) }),\n} }];\n"
-        },
         "id": "e3af8011-b6ea-44c4-c809-04717f1f4c2a",
         "name": "parse_verdict",
         "type": "n8n-nodes-base.code",
@@ -922,9 +919,20 @@
         "position": [
           5504,
           -528
-        ]
+        ],
+        "parameters": {
+          "jsCode": "// The critic's verdict, read tolerantly. Anything unreadable is a pass with the raw answer\n// recorded: treating it as \"keep fixing\" is how a model that cannot hold the format spends\n// every cycle and still ships the same defect.\nconst resp = $input.first().json || {};\nconst a = $('encode_stills').first().json;\nconst raw = String((((resp.choices || [])[0] || {}).message || {}).content || '').trim();\nlet verdict = 'ok';\nlet findings = [];\nlet unreadable = true;\nconst start = raw.indexOf('{');\nconst end = raw.lastIndexOf('}');\nif (start !== -1 && end > start) {\n  try {\n    const parsed = JSON.parse(raw.slice(start, end + 1));\n    const named = (Array.isArray(parsed.findings) ? parsed.findings : [])\n      .map((f) => ({ where: String((f && f.where) || '').trim(), what: String((f && f.what) || '').trim(), fix: String((f && f.fix) || '').trim() }))\n      .filter((f) => f.fix || f.what);\n    if (String(parsed.verdict || '').trim().toLowerCase() === 'fix' && named.length) {\n      verdict = 'fix';\n      findings = named;\n    }\n    unreadable = false;\n  } catch (e) {\n    unreadable = true;\n  }\n}\nconst round = Math.max(0, Number(a.REVIEW_ROUND || 0));\nconst cycles = Math.max(0, Number($('normalize_input').first().json.REVIEW_CYCLES || 0));\nconst findingsText = findings.map((f, i) => (i + 1) + '. ' + (f.where ? f.where + ': ' : '') + (f.what || 'a defect') + ' - ' + f.fix).join('\\n');\nreturn [{ json: {\n  ...a,\n  VERDICT: verdict,\n  FINDINGS_TEXT: findingsText,\n  UNREADABLE: unreadable,\n  // The loop's whole decision, as data: fix what the critic named, while the budget allows.\n  RETRY: verdict === 'fix' && round < cycles,\n  REVIEW_REASON: unreadable ? 'the critic did not answer, or its answer could not be read' : '',\n  REVIEW: JSON.stringify({ round: round + 1, verdict, findings, unreadable, raw: raw.slice(0, 2000) }),\n} }];\n"
+        }
       },
       {
+        "id": "f4b09122-c7fb-45d5-d918-1582f2a05d3b",
+        "name": "if_review_findings",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          5728,
+          -528
+        ],
         "parameters": {
           "conditions": {
             "options": {
@@ -949,20 +957,9 @@
           },
           "looseTypeValidation": true,
           "options": {}
-        },
-        "id": "f4b09122-c7fb-45d5-d918-1582f2a05d3b",
-        "name": "if_review_findings",
-        "type": "n8n-nodes-base.if",
-        "typeVersion": 2.2,
-        "position": [
-          5728,
-          -528
-        ]
+        }
       },
       {
-        "parameters": {
-          "jsCode": "// The next authoring turn, with the critic's findings as the reviewer's correction. The\n// session id is unchanged, so the adapter edits the composition in place rather than\n// authoring a new one, and the round is incremented for the bound the gate reads.\nconst a = $input.first().json;\nreturn [{ json: {\n  ...a,\n  FEEDBACK: a.FINDINGS_TEXT || '',\n  REVIEW_ROUND: Math.max(0, Number(a.REVIEW_ROUND || 0)) + 1,\n} }];\n"
-        },
         "id": "05c2a344-d80c-46e6-ea29-2693a1b6e4c3",
         "name": "review_feedback",
         "type": "n8n-nodes-base.code",
@@ -970,9 +967,20 @@
         "position": [
           5952,
           -336
-        ]
+        ],
+        "parameters": {
+          "jsCode": "// The next authoring turn, with the critic's findings as the reviewer's correction. The\n// session id is unchanged, so the adapter edits the composition in place rather than\n// authoring a new one, and the round is incremented for the bound the gate reads.\nconst a = $input.first().json;\nreturn [{ json: {\n  ...a,\n  FEEDBACK: a.FINDINGS_TEXT || '',\n  REVIEW_ROUND: Math.max(0, Number(a.REVIEW_ROUND || 0)) + 1,\n} }];\n"
+        }
       },
       {
+        "id": "e74f2baa-5084-4d6e-c243-af801d5b9c64",
+        "name": "download_review_prompt",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          1792,
+          48
+        ],
         "parameters": {
           "workflowId": {
             "__rl": true,
@@ -1009,17 +1017,17 @@
             ]
           },
           "options": {}
-        },
-        "id": "e74f2baa-5084-4d6e-c243-af801d5b9c64",
-        "name": "download_review_prompt",
+        }
+      },
+      {
+        "id": "17a3f5cc-6d80-4b91-e354-0c8294fb1d76",
+        "name": "download_raster_review_prompt",
         "type": "n8n-nodes-base.executeWorkflow",
         "typeVersion": 1.2,
         "position": [
-          1792,
+          2016,
           48
-        ]
-      },
-      {
+        ],
         "parameters": {
           "workflowId": {
             "__rl": true,
@@ -1056,20 +1064,9 @@
             ]
           },
           "options": {}
-        },
-        "id": "17a3f5cc-6d80-4b91-e354-0c8294fb1d76",
-        "name": "download_raster_review_prompt",
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.2,
-        "position": [
-          2016,
-          48
-        ]
+        }
       },
       {
-        "parameters": {
-          "jsCode": "// The raster's review request, from the bytes this execution already holds. A raster is made\n// inside n8n (no store can fetch bytes n8n created), so unlike an authored composition there is\n// nothing to fetch back and no still to make: the data URL the image model returned is what the\n// critic looks at. A render that produced no image is not reviewed, and says so.\nconst a = $input.first().json || {};\nconst round = Math.max(0, Number(a.RASTER_REVIEW_ROUND || 0));\nconst prompt = String($('download_raster_review_prompt').first().json.output || '').trim();\nconst image = String(a.IMAGE || '');\nconst reason = !prompt ? 'the review prompt is empty' : !image ? 'the image model returned no image' : '';\nif (reason) {\n  return [{ json: { ...a, RASTER_REVIEW_ROUND: round, REVIEWED: false, REVIEW_REASON: reason, CRITIQUE_BODY: '' } }];\n}\nconst text = [\n  prompt,\n  '---',\n  'The image prompt this was generated from:',\n  String(a.PROMPT || '(not recorded)'),\n  '---',\n  'The source text it illustrates:',\n  String(a.CONTENT || ''),\n].join('\\n\\n');\nreturn [{ json: {\n  ...a,\n  RASTER_REVIEW_ROUND: round,\n  REVIEWED: true,\n  CRITIQUE_BODY: JSON.stringify({ model: 'opencode-go/glm-5.3-flash', messages: [{ role: 'user', content: [\n    { type: 'text', text },\n    { type: 'image_url', image_url: { url: image } },\n  ] }] }),\n} }];\n"
-        },
         "id": "28b4a6dd-7e91-4ca2-f465-1d93a50c2e87",
         "name": "prepare_raster_review",
         "type": "n8n-nodes-base.code",
@@ -1077,9 +1074,20 @@
         "position": [
           4832,
           96
-        ]
+        ],
+        "parameters": {
+          "jsCode": "// The raster's review request, from the bytes this execution already holds. A raster is made\n// inside n8n (no store can fetch bytes n8n created), so unlike an authored composition there is\n// nothing to fetch back and no still to make: the data URL the image model returned is what the\n// critic looks at. A render that produced no image is not reviewed, and says so.\nconst a = $input.first().json || {};\nconst round = Math.max(0, Number(a.RASTER_REVIEW_ROUND || 0));\nconst prompt = String($('download_raster_review_prompt').first().json.output || '').trim();\nconst image = String(a.IMAGE || '');\nconst reason = !prompt ? 'the review prompt is empty' : !image ? 'the image model returned no image' : '';\nif (reason) {\n  return [{ json: { ...a, RASTER_REVIEW_ROUND: round, REVIEWED: false, REVIEW_REASON: reason, CRITIQUE_BODY: '' } }];\n}\nconst text = [\n  prompt,\n  '---',\n  'The image prompt this was generated from:',\n  String(a.PROMPT || '(not recorded)'),\n  '---',\n  'The source text it illustrates:',\n  String(a.CONTENT || ''),\n].join('\\n\\n');\nreturn [{ json: {\n  ...a,\n  RASTER_REVIEW_ROUND: round,\n  REVIEWED: true,\n  CRITIQUE_BODY: JSON.stringify({ model: 'opencode-go/glm-5.3-flash', messages: [{ role: 'user', content: [\n    { type: 'text', text },\n    { type: 'image_url', image_url: { url: image } },\n  ] }] }),\n} }];\n"
+        }
       },
       {
+        "id": "39c5b7ee-8fa2-4db3-a576-2e04b61d3f98",
+        "name": "if_raster_review",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          5056,
+          96
+        ],
         "parameters": {
           "conditions": {
             "options": {
@@ -1104,17 +1112,19 @@
           },
           "looseTypeValidation": true,
           "options": {}
-        },
-        "id": "39c5b7ee-8fa2-4db3-a576-2e04b61d3f98",
-        "name": "if_raster_review",
-        "type": "n8n-nodes-base.if",
-        "typeVersion": 2.2,
-        "position": [
-          5056,
-          96
-        ]
+        }
       },
       {
+        "id": "4ad6c8ff-90b3-4ec4-b687-3f15c72e4a09",
+        "name": "critique_raster",
+        "notes": "A critic that cannot be reached must not fail the run it was checking: on error this node forwards its input unchanged (n8n adds no `json.error` for a non-AI node), so `parse_verdict` reads no answer, records the review as unreadable and passes it -- the artifact ships with `REVIEW.unreadable` true. The first live review (2026-10-17, execution 13762) proved the cost of not having this: the critic's second call hit the node timeout and the whole authoring run errored, taking an asset that had already been fixed once with it. 300s, not 120: a four-still critique took 102s on the first call and over 120s on the second.",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "onError": "continueRegularOutput",
+        "position": [
+          5280,
+          160
+        ],
         "parameters": {
           "method": "POST",
           "url": "http://datahub-local-core-data-litellm.data.svc.cluster.local:4000/v1/chat/completions",
@@ -1127,27 +1137,14 @@
             "timeout": 300000
           }
         },
-        "id": "4ad6c8ff-90b3-4ec4-b687-3f15c72e4a09",
-        "name": "critique_raster",
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.4,
-        "position": [
-          5280,
-          160
-        ],
         "credentials": {
           "httpBearerAuth": {
             "id": "LitellmN8nBera01",
             "name": "LiteLLM account (bearer)"
           }
-        },
-        "onError": "continueRegularOutput",
-        "notes": "A critic that cannot be reached must not fail the run it was checking: on error this node forwards its input unchanged (n8n adds no `json.error` for a non-AI node), so `parse_verdict` reads no answer, records the review as unreadable and passes it -- the artifact ships with `REVIEW.unreadable` true. The first live review (2026-10-17, execution 13762) proved the cost of not having this: the critic's second call hit the node timeout and the whole authoring run errored, taking an asset that had already been fixed once with it. 300s, not 120: a four-still critique took 102s on the first call and over 120s on the second."
+        }
       },
       {
-        "parameters": {
-          "jsCode": "// The same tolerant read as the composition half: an unreadable verdict is a pass with the raw\n// answer kept, because the other direction spends every cycle and ships the same defect.\nconst resp = $input.first().json || {};\nconst a = $('prepare_raster_review').first().json;\nconst raw = String((((resp.choices || [])[0] || {}).message || {}).content || '').trim();\nlet verdict = 'ok';\nlet findings = [];\nlet unreadable = true;\nconst start = raw.indexOf('{');\nconst end = raw.lastIndexOf('}');\nif (start !== -1 && end > start) {\n  try {\n    const parsed = JSON.parse(raw.slice(start, end + 1));\n    const named = (Array.isArray(parsed.findings) ? parsed.findings : [])\n      .map((f) => ({ where: String((f && f.where) || '').trim(), what: String((f && f.what) || '').trim(), fix: String((f && f.fix) || '').trim() }))\n      .filter((f) => f.fix || f.what);\n    if (String(parsed.verdict || '').trim().toLowerCase() === 'fix' && named.length) {\n      verdict = 'fix';\n      findings = named;\n    }\n    unreadable = false;\n  } catch (e) {\n    unreadable = true;\n  }\n}\nconst round = Math.max(0, Number(a.RASTER_REVIEW_ROUND || 0));\nconst cycles = Math.max(0, Number($('normalize_input').first().json.REVIEW_CYCLES || 0));\nconst findingsText = findings.map((f, i) => (i + 1) + '. ' + (f.where ? f.where + ': ' : '') + (f.what || 'a defect') + ' - ' + f.fix).join('\\n');\nreturn [{ json: {\n  ...a,\n  VERDICT: verdict,\n  FINDINGS_TEXT: findingsText,\n  UNREADABLE: unreadable,\n  RETRY: verdict === 'fix' && round < cycles,\n  REVIEW_REASON: unreadable ? 'the critic did not answer, or its answer could not be read' : '',\n  REVIEW: JSON.stringify({ round: round + 1, verdict, findings, unreadable, raw: raw.slice(0, 2000) }),\n} }];\n"
-        },
         "id": "5be7d900-a1c4-4fd5-c798-4026d83f5b1a",
         "name": "parse_raster_verdict",
         "type": "n8n-nodes-base.code",
@@ -1155,9 +1152,20 @@
         "position": [
           5504,
           160
-        ]
+        ],
+        "parameters": {
+          "jsCode": "// The same tolerant read as the composition half: an unreadable verdict is a pass with the raw\n// answer kept, because the other direction spends every cycle and ships the same defect.\nconst resp = $input.first().json || {};\nconst a = $('prepare_raster_review').first().json;\nconst raw = String((((resp.choices || [])[0] || {}).message || {}).content || '').trim();\nlet verdict = 'ok';\nlet findings = [];\nlet unreadable = true;\nconst start = raw.indexOf('{');\nconst end = raw.lastIndexOf('}');\nif (start !== -1 && end > start) {\n  try {\n    const parsed = JSON.parse(raw.slice(start, end + 1));\n    const named = (Array.isArray(parsed.findings) ? parsed.findings : [])\n      .map((f) => ({ where: String((f && f.where) || '').trim(), what: String((f && f.what) || '').trim(), fix: String((f && f.fix) || '').trim() }))\n      .filter((f) => f.fix || f.what);\n    if (String(parsed.verdict || '').trim().toLowerCase() === 'fix' && named.length) {\n      verdict = 'fix';\n      findings = named;\n    }\n    unreadable = false;\n  } catch (e) {\n    unreadable = true;\n  }\n}\nconst round = Math.max(0, Number(a.RASTER_REVIEW_ROUND || 0));\nconst cycles = Math.max(0, Number($('normalize_input').first().json.REVIEW_CYCLES || 0));\nconst findingsText = findings.map((f, i) => (i + 1) + '. ' + (f.where ? f.where + ': ' : '') + (f.what || 'a defect') + ' - ' + f.fix).join('\\n');\nreturn [{ json: {\n  ...a,\n  VERDICT: verdict,\n  FINDINGS_TEXT: findingsText,\n  UNREADABLE: unreadable,\n  RETRY: verdict === 'fix' && round < cycles,\n  REVIEW_REASON: unreadable ? 'the critic did not answer, or its answer could not be read' : '',\n  REVIEW: JSON.stringify({ round: round + 1, verdict, findings, unreadable, raw: raw.slice(0, 2000) }),\n} }];\n"
+        }
       },
       {
+        "id": "6cf8ea11-b2d5-40e6-d8a9-5137e94a6c2b",
+        "name": "if_raster_findings",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          5728,
+          160
+        ],
         "parameters": {
           "conditions": {
             "options": {
@@ -1182,20 +1190,9 @@
           },
           "looseTypeValidation": true,
           "options": {}
-        },
-        "id": "6cf8ea11-b2d5-40e6-d8a9-5137e94a6c2b",
-        "name": "if_raster_findings",
-        "type": "n8n-nodes-base.if",
-        "typeVersion": 2.2,
-        "position": [
-          5728,
-          160
-        ]
+        }
       },
       {
-        "parameters": {
-          "jsCode": "// The fix for a raster is a rewritten image prompt, so the finding goes back to the prompt\n// writer: `visual_raster.md` already carries the reviewer's feedback block, and re-fetching it\n// with this feedback is what puts the change into the next prompt. The round is incremented for\n// the bound the gate reads.\nconst a = $input.first().json;\nreturn [{ json: {\n  ...a,\n  FEEDBACK: a.FINDINGS_TEXT || '',\n  RASTER_REVIEW_ROUND: Math.max(0, Number(a.RASTER_REVIEW_ROUND || 0)) + 1,\n} }];\n"
-        },
         "id": "7d09fb22-c3e6-41f7-e9ba-6248f05b7d3c",
         "name": "raster_feedback",
         "type": "n8n-nodes-base.code",
@@ -1203,7 +1200,10 @@
         "position": [
           5952,
           432
-        ]
+        ],
+        "parameters": {
+          "jsCode": "// The fix for a raster is a rewritten image prompt, so the finding goes back to the prompt\n// writer: `visual_raster.md` already carries the reviewer's feedback block, and re-fetching it\n// with this feedback is what puts the change into the next prompt. The round is incremented for\n// the bound the gate reads.\nconst a = $input.first().json;\nreturn [{ json: {\n  ...a,\n  FEEDBACK: a.FINDINGS_TEXT || '',\n  RASTER_REVIEW_ROUND: Math.max(0, Number(a.RASTER_REVIEW_ROUND || 0)) + 1,\n} }];\n"
+        }
       }
     ],
     "connections": {
@@ -1745,13 +1745,13 @@
     },
     "nodeGroups": [],
     "authors": "no name",
-    "name": "Version 79bfe2ea",
-    "description": "",
-    "autosaved": true,
-    "createdAt": "2026-10-17T20:05:52.024Z",
-    "updatedAt": "2026-10-17T20:05:53.962Z"
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "createdAt": "2026-10-18T09:55:43.802Z",
+    "updatedAt": "2026-10-18T09:55:43.802Z"
   },
-  "activeVersionId": "79bfe2ea-384a-4731-84e2-9dd4a96954d1",
+  "activeVersionId": "5e11df0f-4132-4eb1-9198-99059d5056b6",
   "connections": {
     "main_trigger": {
       "main": [
@@ -2297,6 +2297,14 @@
   "nodeGroups": [],
   "nodes": [
     {
+      "id": "7cae92bd-497a-4c0a-97a2-8027b6e8c98f",
+      "name": "main_trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        -48
+      ],
       "parameters": {
         "workflowInputs": {
           "values": [
@@ -2326,23 +2334,9 @@
             }
           ]
         }
-      },
-      "id": "7cae92bd-497a-4c0a-97a2-8027b6e8c98f",
-      "name": "main_trigger",
-      "type": "n8n-nodes-base.executeWorkflowTrigger",
-      "typeVersion": 1.1,
-      "position": [
-        0,
-        -48
-      ]
+      }
     },
     {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "visual-studio",
-        "responseMode": "lastNode",
-        "options": {}
-      },
       "id": "6bc445a7-6d22-4d9c-80dd-3b7eea06520e",
       "name": "api_trigger",
       "webhookId": "29f4c520-f7d8-44e1-a4ea-03c8027909a8",
@@ -2351,9 +2345,24 @@
       "position": [
         0,
         -240
-      ]
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "visual-studio",
+        "responseMode": "lastNode",
+        "options": {}
+      }
     },
     {
+      "id": "8d389943-187d-4a35-9c0f-1d9e46fd2617",
+      "name": "form_trigger",
+      "webhookId": "a7c1f5d2-93b4-4c6e-8d20-51f0b7e9a314",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        144
+      ],
       "parameters": {
         "formTitle": "Visual Studio",
         "formDescription": "Produce a set of visual assets from one source text.",
@@ -2390,21 +2399,9 @@
           ]
         },
         "options": {}
-      },
-      "id": "8d389943-187d-4a35-9c0f-1d9e46fd2617",
-      "name": "form_trigger",
-      "webhookId": "a7c1f5d2-93b4-4c6e-8d20-51f0b7e9a314",
-      "type": "n8n-nodes-base.formTrigger",
-      "typeVersion": 2.2,
-      "position": [
-        0,
-        144
-      ]
+      }
     },
     {
-      "parameters": {
-        "jsCode": "const raw = $input.first().json || {};\nconst src = Object.assign({}, raw.body || {}, raw.query || {}, raw);\nconst v = (k) => { const x = src[k]; return x == null ? '' : String(x).trim(); };\nconst content = v('CONTENT');\nif (!content) throw new Error('CONTENT is required');\n// FORCE pins the form; STYLE names a brand scheme and is resolved (and defaulted)\n// in brand_tokens, where the scheme names live, so an unknown value fails there.\nconst FORCES = ['auto', 'diagram', 'story', 'data', 'poster', 'code', 'chart', 'timeline', 'quote', 'ui', 'manga', 'retro', 'launch', 'tiles'];\nconst force = v('FORCE') || 'auto';\nif (!FORCES.includes(force)) throw new Error('unknown FORCE: ' + force + ' (expected one of ' + FORCES.join(', ') + ')');\n// An optional scene plan: a list-shaped article asks for one item per scene. A blank\n// or non-positive value leaves the scene count to the composer's own storyboard.\nconst scenesRaw = parseInt(v('SCENES'), 10);\nconst scenes = (isFinite(scenesRaw) && scenesRaw > 0) ? Math.min(scenesRaw, 12) : '';\n// How many review turns one asset may spend before it ships with its findings recorded.\nconst REVIEW_CYCLES = 2;\nreturn [{ json: {\n  REVIEW_ROUND: 0,\n    REVIEW_CYCLES,\n    RUN_ID: String($execution.id),\n  CONTENT: content,\n  ASSET_TYPES: v('ASSET_TYPES'),\n  FEEDBACK: v('FEEDBACK'),\n  // Free text the caller owns, appended to the brief after the content and the\n  // rules. Never parsed.\n  EXTRA_PROMPT: v('EXTRA_PROMPT'),\n  // A session to continue, when the caller names one. Blank means this run is a\n  // first authoring, with an identifier scoped to the run so it stays isolated.\n  SESSION_ID: v('SESSION_ID'),\n  FORCE: force,\n  SCENES: scenes,\n  STYLE: v('STYLE'),\n} }];\n"
-      },
       "id": "ba7855cf-ba87-4597-9937-cc2cf764a849",
       "name": "normalize_input",
       "type": "n8n-nodes-base.code",
@@ -2412,9 +2409,20 @@
       "position": [
         224,
         48
-      ]
+      ],
+      "parameters": {
+        "jsCode": "const raw = $input.first().json || {};\nconst src = Object.assign({}, raw.body || {}, raw.query || {}, raw);\nconst v = (k) => { const x = src[k]; return x == null ? '' : String(x).trim(); };\nconst content = v('CONTENT');\nif (!content) throw new Error('CONTENT is required');\n// FORCE pins the form; STYLE names a brand scheme and is resolved (and defaulted)\n// in brand_tokens, where the scheme names live, so an unknown value fails there.\nconst FORCES = ['auto', 'diagram', 'story', 'data', 'poster', 'code', 'chart', 'timeline', 'quote', 'ui', 'manga', 'retro', 'launch', 'tiles'];\nconst force = v('FORCE') || 'auto';\nif (!FORCES.includes(force)) throw new Error('unknown FORCE: ' + force + ' (expected one of ' + FORCES.join(', ') + ')');\n// An optional scene plan: a list-shaped article asks for one item per scene. A blank\n// or non-positive value leaves the scene count to the composer's own storyboard.\nconst scenesRaw = parseInt(v('SCENES'), 10);\nconst scenes = (isFinite(scenesRaw) && scenesRaw > 0) ? Math.min(scenesRaw, 12) : '';\n// How many review turns one asset may spend before it ships with its findings recorded.\nconst REVIEW_CYCLES = 2;\nreturn [{ json: {\n  REVIEW_ROUND: 0,\n    REVIEW_CYCLES,\n    RUN_ID: String($execution.id),\n  CONTENT: content,\n  ASSET_TYPES: v('ASSET_TYPES'),\n  FEEDBACK: v('FEEDBACK'),\n  // Free text the caller owns, appended to the brief after the content and the\n  // rules. Never parsed.\n  EXTRA_PROMPT: v('EXTRA_PROMPT'),\n  // A session to continue, when the caller names one. Blank means this run is a\n  // first authoring, with an identifier scoped to the run so it stays isolated.\n  SESSION_ID: v('SESSION_ID'),\n  FORCE: force,\n  SCENES: scenes,\n  STYLE: v('STYLE'),\n} }];\n"
+      }
     },
     {
+      "id": "7efb6c59-c706-4c9f-87a1-3fe042fee600",
+      "name": "download_registry",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        2240,
+        48
+      ],
       "parameters": {
         "workflowId": {
           "__rl": true,
@@ -2454,20 +2462,9 @@
           "convertFieldsToString": true
         },
         "options": {}
-      },
-      "id": "7efb6c59-c706-4c9f-87a1-3fe042fee600",
-      "name": "download_registry",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        2240,
-        48
-      ]
+      }
     },
     {
-      "parameters": {
-        "jsCode": "const cfg = JSON.parse($('download_registry').first().json.output || '{}');\nconst req = $('normalize_input').first().json;\nconst types = Array.isArray(cfg.types) ? cfg.types : [];\nconst byId = new Map(types.map((t) => [t.id, t]));\nconst budget = cfg.budget || {};\nconst cap = Number(cfg.max_types_per_request || 3);\nlet requested = req.ASSET_TYPES\n  ? req.ASSET_TYPES.split(',').map((s) => s.trim()).filter(Boolean)\n  : (cfg.default_types || []);\nrequested = [...new Set(requested)];\nconst out = [];\nconst shaped = (t, extra) => {\n  const b = Object.assign({}, budget, t.budget || {});\n  const paired = t.paired || {};\n  const fps = Number(b.fps || 12);\n  const frames = Number(b.frames || 36);\n  return Object.assign({}, req, {\n    ASSET_TYPE: t.id, NAME: t.name || t.id, AUTHOR: t.author, BRAND_KIND: t.brandKind || 'diagrammatic',\n    RENDER_MODE: t.render, FORMAT: t.format, ASPECT: t.aspect || '4:5', FORM: t.form || '',\n    RASTER_REVIEW_ROUND: 0,\n    FPS: fps, FRAMES: frames, VIEWPORT: Number(b.viewport || 1200),\n    // A type that declares no length still declares one: the container is completed here,\n    // where the registry becomes the request, rather than left to a consumer's fallback --\n    // the authoring brief refuses an item that carries no declaration.\n    DURATION_SECONDS: Number(t.durationSeconds) || frames / fps,\n    SCENE_SECONDS: Number(t.secondsPerScene || 0),\n    PAIRED_FORMAT: paired.format || '', PAIRED_ASSET_TYPE: paired.assetType || '',\n  }, extra);\n};\nconst note = (id, status, error) => out.push({ json: Object.assign({}, req, {\n  ASSET_TYPE: id, NAME: id, AUTHOR: null, BRAND_KIND: '', RENDER_MODE: '', FORMAT: '', ASPECT: '', FORM: '', RASTER_REVIEW_ROUND: 0,\n  FPS: 0, FRAMES: 0, VIEWPORT: 0, DURATION_SECONDS: 0, STATUS: status, ERROR: error }) });\nfor (const id of requested.slice(0, cap)) {\n  const t = byId.get(id);\n  if (!t) { note(id, 'UNKNOWN', 'unknown asset type: ' + id); continue; }\n  const kind = t.brandKind || 'diagrammatic';\n  if (kind !== 'diagrammatic' && kind !== 'photographic') throw new Error('unknown brandKind for ' + t.id + ': ' + t.brandKind);\n  // An unavailable type must not take its author branch: null its author so it\n  // falls through to the report path with a STATUS and reason.\n  if (t.available === false) {\n    out.push({ json: shaped(t, { AUTHOR: null, STATUS: 'UNAVAILABLE', ERROR: t.unavailableReason || ('unavailable: ' + t.id) }) });\n    continue;\n  }\n  out.push({ json: shaped(t, { STATUS: '' }) });\n}\nfor (const id of requested.slice(cap)) note(id, 'SKIPPED', 'over the per-request cap of ' + cap);\nreturn out;\n"
-      },
       "id": "6e9b25a7-acc3-4561-8291-ebfc534eacd0",
       "name": "parse_registry",
       "type": "n8n-nodes-base.code",
@@ -2475,9 +2472,20 @@
       "position": [
         2464,
         48
-      ]
+      ],
+      "parameters": {
+        "jsCode": "const cfg = JSON.parse($('download_registry').first().json.output || '{}');\nconst req = $('normalize_input').first().json;\nconst types = Array.isArray(cfg.types) ? cfg.types : [];\nconst byId = new Map(types.map((t) => [t.id, t]));\nconst budget = cfg.budget || {};\nconst cap = Number(cfg.max_types_per_request || 3);\nlet requested = req.ASSET_TYPES\n  ? req.ASSET_TYPES.split(',').map((s) => s.trim()).filter(Boolean)\n  : (cfg.default_types || []);\nrequested = [...new Set(requested)];\nconst out = [];\nconst shaped = (t, extra) => {\n  const b = Object.assign({}, budget, t.budget || {});\n  const paired = t.paired || {};\n  const fps = Number(b.fps || 12);\n  const frames = Number(b.frames || 36);\n  return Object.assign({}, req, {\n    ASSET_TYPE: t.id, NAME: t.name || t.id, AUTHOR: t.author, BRAND_KIND: t.brandKind || 'diagrammatic',\n    RENDER_MODE: t.render, FORMAT: t.format, ASPECT: t.aspect || '4:5', FORM: t.form || '',\n    RASTER_REVIEW_ROUND: 0,\n    FPS: fps, FRAMES: frames, VIEWPORT: Number(b.viewport || 1200),\n    // A type that declares no length still declares one: the container is completed here,\n    // where the registry becomes the request, rather than left to a consumer's fallback --\n    // the authoring brief refuses an item that carries no declaration.\n    DURATION_SECONDS: Number(t.durationSeconds) || frames / fps,\n    SCENE_SECONDS: Number(t.secondsPerScene || 0),\n    PAIRED_FORMAT: paired.format || '', PAIRED_ASSET_TYPE: paired.assetType || '',\n  }, extra);\n};\nconst note = (id, status, error) => out.push({ json: Object.assign({}, req, {\n  ASSET_TYPE: id, NAME: id, AUTHOR: null, BRAND_KIND: '', RENDER_MODE: '', FORMAT: '', ASPECT: '', FORM: '', RASTER_REVIEW_ROUND: 0,\n  FPS: 0, FRAMES: 0, VIEWPORT: 0, DURATION_SECONDS: 0, STATUS: status, ERROR: error }) });\nfor (const id of requested.slice(0, cap)) {\n  const t = byId.get(id);\n  if (!t) { note(id, 'UNKNOWN', 'unknown asset type: ' + id); continue; }\n  const kind = t.brandKind || 'diagrammatic';\n  if (kind !== 'diagrammatic' && kind !== 'photographic') throw new Error('unknown brandKind for ' + t.id + ': ' + t.brandKind);\n  // An unavailable type must not take its author branch: null its author so it\n  // falls through to the report path with a STATUS and reason.\n  if (t.available === false) {\n    out.push({ json: shaped(t, { AUTHOR: null, STATUS: 'UNAVAILABLE', ERROR: t.unavailableReason || ('unavailable: ' + t.id) }) });\n    continue;\n  }\n  out.push({ json: shaped(t, { STATUS: '' }) });\n}\nfor (const id of requested.slice(cap)) note(id, 'SKIPPED', 'over the per-request cap of ' + cap);\nreturn out;\n"
+      }
     },
     {
+      "id": "f509c99a-ffe1-4061-8d1d-c2b748bcbfc8",
+      "name": "ai_model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        4040,
+        312
+      ],
       "parameters": {
         "model": {
           "__rl": true,
@@ -2490,14 +2498,6 @@
           "timeout": 120000
         }
       },
-      "id": "f509c99a-ffe1-4061-8d1d-c2b748bcbfc8",
-      "name": "ai_model",
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-      "typeVersion": 1.3,
-      "position": [
-        4040,
-        312
-      ],
       "credentials": {
         "openAiApi": {
           "id": "LitellmN8nAcct01",
@@ -2506,6 +2506,14 @@
       }
     },
     {
+      "id": "ce5284fe-f18e-43df-8107-02cfe1511c59",
+      "name": "ai_model_fallback",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        4168,
+        312
+      ],
       "parameters": {
         "model": {
           "__rl": true,
@@ -2518,14 +2526,6 @@
           "timeout": 120000
         }
       },
-      "id": "ce5284fe-f18e-43df-8107-02cfe1511c59",
-      "name": "ai_model_fallback",
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-      "typeVersion": 1.3,
-      "position": [
-        4168,
-        312
-      ],
       "credentials": {
         "openAiApi": {
           "id": "LitellmN8nAcct01",
@@ -2534,6 +2534,14 @@
       }
     },
     {
+      "id": "135dc3bb-bf36-48e5-a833-889670a83b0e",
+      "name": "if_raster",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3584,
+        320
+      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -2557,17 +2565,17 @@
           ]
         },
         "options": {}
-      },
-      "id": "135dc3bb-bf36-48e5-a833-889670a83b0e",
-      "name": "if_raster",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        3584,
-        320
-      ]
+      }
     },
     {
+      "id": "905b3160-d051-4a9e-a002-9c126db41d0f",
+      "name": "download_raster_prompt",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        3808,
+        256
+      ],
       "parameters": {
         "workflowId": {
           "__rl": true,
@@ -2608,22 +2616,9 @@
         },
         "mode": "each",
         "options": {}
-      },
-      "id": "905b3160-d051-4a9e-a002-9c126db41d0f",
-      "name": "download_raster_prompt",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        3808,
-        256
-      ]
+      }
     },
     {
-      "parameters": {
-        "promptType": "define",
-        "text": "={{ $json.output }}",
-        "needsFallback": true
-      },
       "id": "e766ecf3-5903-49e0-b934-43d40b43ce31",
       "name": "raster_director",
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
@@ -2631,9 +2626,22 @@
       "position": [
         4032,
         96
-      ]
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.output }}",
+        "needsFallback": true
+      }
     },
     {
+      "id": "f0241d3f-52ae-40e9-a5ce-d914c1bd5df6",
+      "name": "generate_image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        4384,
+        96
+      ],
       "parameters": {
         "method": "POST",
         "url": "http://datahub-local-core-data-litellm.data.svc.cluster.local:4000/openrouter/images",
@@ -2644,14 +2652,6 @@
         "jsonBody": "={\n  \"model\": \"google/gemini-3.1-flash-image\",\n  \"prompt\": {{ $json.text.toJsonString() }},\n  \"aspect_ratio\": {{ $('if_raster').all()[$itemIndex].json.ASPECT.toJsonString() }},\n  \"resolution\": \"1K\"\n}",
         "options": {}
       },
-      "id": "f0241d3f-52ae-40e9-a5ce-d914c1bd5df6",
-      "name": "generate_image",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        4384,
-        96
-      ],
       "credentials": {
         "httpBearerAuth": {
           "id": "LitellmN8nBera01",
@@ -2660,9 +2660,6 @@
       }
     },
     {
-      "parameters": {
-        "jsCode": "const src = $('if_raster').all();\nconst dir = $('raster_director').all();\nreturn $input.all().map((it, i) => {\n  const a = src[i].json;\n  const resp = it.json || {};\n  const d0 = (resp.data && resp.data[0]) || {};\n  const b64 = d0.b64_json || '';\n  const media = d0.media_type || 'image/png';\n  const out = Object.assign({}, a, {\n    STATUS: b64 ? 'RENDERED' : 'ERROR',\n    PROMPT: (dir[i] && dir[i].json.text) || '',\n    IMAGE: b64 ? ('data:' + media + ';base64,' + b64) : '',\n    CONTENT_TYPE: b64 ? media : '',\n  });\n  if (!b64) out.ERROR = 'image model returned no image';\n  return { json: out };\n});"
-      },
       "id": "c6d2dd55-598d-4dc7-9730-6b9a179f5aae",
       "name": "raster_result",
       "type": "n8n-nodes-base.code",
@@ -2670,10 +2667,12 @@
       "position": [
         4608,
         96
-      ]
+      ],
+      "parameters": {
+        "jsCode": "const src = $('if_raster').all();\nconst dir = $('raster_director').all();\nreturn $input.all().map((it, i) => {\n  const a = src[i].json;\n  const resp = it.json || {};\n  const d0 = (resp.data && resp.data[0]) || {};\n  const b64 = d0.b64_json || '';\n  const media = d0.media_type || 'image/png';\n  const out = Object.assign({}, a, {\n    STATUS: b64 ? 'RENDERED' : 'ERROR',\n    PROMPT: (dir[i] && dir[i].json.text) || '',\n    IMAGE: b64 ? ('data:' + media + ';base64,' + b64) : '',\n    CONTENT_TYPE: b64 ? media : '',\n  });\n  if (!b64) out.ERROR = 'image model returned no image';\n  return { json: out };\n});"
+      }
     },
     {
-      "parameters": {},
       "id": "8fea4c5d-f2a8-4226-9421-a4653c92163e",
       "name": "ready_pass",
       "type": "n8n-nodes-base.noOp",
@@ -2681,12 +2680,10 @@
       "position": [
         5728,
         528
-      ]
+      ],
+      "parameters": {}
     },
     {
-      "parameters": {
-        "numberInputs": 3
-      },
       "id": "615cdff5-2ae8-49b2-ad11-978fc3141653",
       "name": "merge_branches",
       "type": "n8n-nodes-base.merge",
@@ -2694,12 +2691,12 @@
       "position": [
         5952,
         16
-      ]
+      ],
+      "parameters": {
+        "numberInputs": 3
+      }
     },
     {
-      "parameters": {
-        "jsCode": "// The run's outcome, built from the merged assets. The row that used to record it is\n// gone: nothing read it, and an agent asset's bytes live in Garage, so the object key and\n// the resolved session id are carried here instead. The caller needs the key to fetch the\n// bytes and the session id to continue the thread, and neither should be reconstructed\n// from the run id -- that would be a second copy of two derivations.\n//\n// A raster asset is the one that still carries its bytes, as the data URL the image model\n// returned: those bytes are made inside n8n, so no store can fetch them, and nothing reads\n// its key. That is why this graph uploads nothing itself any more, and why a still run\n// carries its own data URL in execution_data where an agent run carries none. The measured\n// costs are in AGENTS.md rather than here: a number beside the code is a second copy of a\n// measurement, and this one was wrong when it was a guess.\nconst items = $('merge_branches').all().map((i) => i.json);\nconst req = $('normalize_input').first().json;\n// build_author_brief resolves the session id and only runs on the agent branch, so a\n// raster run falls back to the caller's own value.\nlet sessionId = String(req.SESSION_ID || '');\ntry {\n  sessionId = String($('build_author_brief').first().json.SESSION_ID || sessionId);\n} catch (e) {}\nreturn [{ json: {\n  RUN_ID: req.RUN_ID,\n  SESSION_ID: sessionId,\n  STATUS: items.some((i) => i.ERROR) ? (items.every((i) => i.ERROR) ? 'FAILED' : 'PARTIAL') : 'COMPLETE',\n  ASSETS: items,\n} }];\n"
-      },
       "id": "6407cf3b-1d85-49d3-983c-21f2d02f9ef0",
       "name": "set_result",
       "type": "n8n-nodes-base.code",
@@ -2707,9 +2704,20 @@
       "position": [
         6176,
         32
-      ]
+      ],
+      "parameters": {
+        "jsCode": "// The run's outcome, built from the merged assets. The row that used to record it is\n// gone: nothing read it, and an agent asset's bytes live in Garage, so the object key and\n// the resolved session id are carried here instead. The caller needs the key to fetch the\n// bytes and the session id to continue the thread, and neither should be reconstructed\n// from the run id -- that would be a second copy of two derivations.\n//\n// A raster asset is the one that still carries its bytes, as the data URL the image model\n// returned: those bytes are made inside n8n, so no store can fetch them, and nothing reads\n// its key. That is why this graph uploads nothing itself any more, and why a still run\n// carries its own data URL in execution_data where an agent run carries none. The measured\n// costs are in AGENTS.md rather than here: a number beside the code is a second copy of a\n// measurement, and this one was wrong when it was a guess.\nconst items = $('merge_branches').all().map((i) => i.json);\nconst req = $('normalize_input').first().json;\n// build_author_brief resolves the session id and only runs on the agent branch, so a\n// raster run falls back to the caller's own value.\nlet sessionId = String(req.SESSION_ID || '');\ntry {\n  sessionId = String($('build_author_brief').first().json.SESSION_ID || sessionId);\n} catch (e) {}\nreturn [{ json: {\n  RUN_ID: req.RUN_ID,\n  SESSION_ID: sessionId,\n  STATUS: items.some((i) => i.ERROR) ? (items.every((i) => i.ERROR) ? 'FAILED' : 'PARTIAL') : 'COMPLETE',\n  ASSETS: items,\n} }];\n"
+      }
     },
     {
+      "id": "f17239ca-e010-4e5c-ad90-2bf03db6f60b",
+      "name": "if_agent",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2688,
+        48
+      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -2733,20 +2741,9 @@
           ]
         },
         "options": {}
-      },
-      "id": "f17239ca-e010-4e5c-ad90-2bf03db6f60b",
-      "name": "if_agent",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        2688,
-        48
-      ]
+      }
     },
     {
-      "parameters": {
-        "jsCode": "// Turn the request into the composer's brief and the session request. The brief is\n// the caller's CONTENT, the requested form and style, the type's declared frame, the\n// shared motion rules and any correction or extra direction the caller supplied.\n// Whether a turn authors or edits is the adapter's call, taken from the session\n// directory itself; the brief never claims one, so a named session with no directory\n// is not told to keep a composition that does not exist.\n// A caller that names a session is used as given; a caller that names none gets an\n// id scoped to this run, so a later run cannot overwrite its artifact before it is\n// fetched. Everything here is data-driven, so a type is retuned from the registry\n// without touching the adapter.\nconst a = $input.first().json;\nconst req = $('normalize_input').first().json;\nconst brand = $('brand_tokens').first().json;\nconst rules = String($('visual_rules').first().json.RULES || '').trim();\nconst safe = (s) => String(s || '').replace(/[^A-Za-z0-9._-]/g, '').slice(0, 40);\n// A named session is used as given; a blank one is scoped to this run.\nconst sessionId = safe(req.SESSION_ID) || (safe(a.ASSET_TYPE) + '-' + safe(req.RUN_ID)) || 'default';\nconst base = ($env.PI_RENDER_URL || '').replace(/\\/+$/, '');\nconst utils = ($env.MCP_UTILS_URL || '').replace(/\\/+$/, '');\n// A deck is authored as one self-contained HTML file; the same turn renders it to\n// the paired video, so no transcode happens after the turn.\nconst isDeck = String(a.RENDER_MODE || '') === 'deck';\nconst FORMATS = ['mp4', 'gif', 'webp', 'png', 'svg'];\nconst format = isDeck ? 'html' : (FORMATS.includes(a.FORMAT) ? a.FORMAT : 'mp4');\n// The container is the request's, never this node's invention. A review turn's item is\n// asset-shaped and carries the request's declaration (agent_result copies it onto the\n// asset), so a correction turn keeps the container of the turn it corrects. Before this\n// the four silent defaults below fired at once and a tiles_wide request (16:9 / 1280 /\n// 12s / 360) was corrected at 1080x1350 / 3s / 24 frames (measured 2026-10-17, run\n// 13785). A missing declaration is an error naming the field: a plausible default is\n// indistinguishable from the caller's request once the run has produced an artifact.\nconst declared = (field, value) => {\n  const n = Number(value);\n  if (!Number.isFinite(n) || n <= 0) throw new Error('the request declared no ' + field + '; the authoring brief cannot re-declare a container');\n  return n;\n};\nconst aspectMatch = /^([0-9.]+):([0-9.]+)$/.exec(String(a.ASPECT || '').trim());\nif (!aspectMatch || !(Number(aspectMatch[1]) > 0) || !(Number(aspectMatch[2]) > 0)) {\n  throw new Error('the request declared no ASPECT; the authoring brief cannot re-declare a container');\n}\nconst aw = Number(aspectMatch[1]);\nconst ah = Number(aspectMatch[2]);\nconst width = declared('VIEWPORT', a.VIEWPORT);\nconst height = Math.round(width * ah / aw);\n// A type may declare the shape it means -- a diagram type is a diagram -- and that is\n// stronger than the caller's FORCE, because choosing the type is choosing its shape.\n// A type that declares none takes the caller's FORCE; with neither, the composer chooses.\nconst force = String(a.FORM || req.FORCE || 'auto');\n// The form vocabulary is one committed file, fetched like the motion rules and\n// appended to the brief so a forced form arrives with its meaning; the workflow does\n// not restate the definitions.\nconst forms = String($('visual_forms').first().json.FORMS || '').trim();\nconst vocab = forms ? ['Form vocabulary:', forms] : [];\nconst form = force === 'auto'\n  ? 'Choose the form that fits the content best.'\n  : 'Use the ' + force + ' form; do not substitute another.';\nconst scenes = Math.max(0, Math.round(Number(req.SCENES) || 0));\n// One declared scene is the whole clip. A longer sequence opens on a title scene\n// that names the subject, so it is introduced rather than starting cold; the\n// caller's scenes follow it, and the clip carries one more scene than was asked.\nconst sceneLine = scenes > 0\n  ? 'Render exactly ' + scenes + ' scenes, one item per scene, in the order the storyboard sets'\n    + (scenes > 1 ? ', opening on a title scene that names the subject before them (' + (scenes + 1) + ' scenes in all).' : '.')\n  : '';\n// The declared duration is the floor. A caller that names a scene count gives each\n// scene at least the type's declared scene length, so a multi-scene clip is never\n// compressed into the single-scene time.\nconst declaredFrames = Math.max(1, declared('FRAMES', a.FRAMES));\nconst declaredSeconds = Math.max(1, declared('DURATION_SECONDS', a.DURATION_SECONDS));\nconst sceneSeconds = Math.max(0, Number(a.SCENE_SECONDS) || 0);\nconst seconds = Math.max(declaredSeconds, scenes * sceneSeconds);\n// Extending the clip keeps the declared sampling rate instead of speeding it up.\nconst frames = seconds > declaredSeconds ? Math.max(1, Math.round(declaredFrames * seconds / declaredSeconds)) : declaredFrames;\nconst rate = Math.max(0.1, frames / seconds);\nconst planLine = 'Plan first: state a short storyboard with the form, the scenes and the order they play in, then author the composition.';\nconst deckPlanLine = 'Plan first: state a short plan with the arc and the per-slide content, then author the deck to it.';\nconst stillPlanLine = 'Plan first: state the card in one line - the brand lockup, the headline, the supporting line, the feature chips, the interface window and the call to action - then author the composition.';\nconst stillSceneLine = scenes > 0 ? 'The card carries the declared ' + scenes + ' items as that many parts of the same card, in the order given; they are not sequenced over time.' : '';\nconst sampling = ['gif', 'webp'].includes(format)\n  ? 'Animate slowly and deliberately: reveal a few elements in sequence, each held long enough to read, rather than many quick changes. The clip is sampled into a low-frame-rate file, so fast or busy motion is lost.'\n  : 'Animate deliberately: a few clear beats, each held long enough to read, rather than many quick changes.';\nconst styleLine = 'Style: use the brand\\'s ' + brand.STYLE + ' scheme; do not introduce a colour or typeface the brand block below does not define.';\n// Appended last, in this order: the shared motion rules (the framework's craft, one\n// committed copy), a reviewer's correction when one is present, and the caller's\n// extra direction when one is present. Nothing here is parsed; all three are prose\n// the composer reads.\nconst tail = [];\nif (rules) tail.push('Motion rules (apply to every scene):', rules);\n// A reviewer's correction arrives on the item: the caller's own FEEDBACK on the first turn,\n// and the critic's findings on a review turn.\nconst feedback = String(a.FEEDBACK || req.FEEDBACK || '').trim();\nif (feedback) tail.push('Correction from a reviewer - fix this in this attempt:', feedback);\nif (req.EXTRA_PROMPT) tail.push('Extra direction from the caller:', req.EXTRA_PROMPT);\nconst brandBlock = ['', 'Brand block:', brand.BRAND];\nconst brief = isDeck\n  ? [\n      req.CONTENT,\n      '',\n      deckPlanLine,\n      sceneLine,\n      'Author ONE self-contained HTML presentation and write it to `out.html` in this directory: a single file with no external stylesheet, script, font or network request, whose navigation works with no server. Preserve the text\\'s own structure, one idea per slide.',\n      'Then author a HyperFrames composition of that same plan to `index.html` and render it to `out.mp4` in this same directory, at ' + width + 'x' + height + ' (' + a.ASPECT + ') over about ' + seconds + ' seconds, so the slides and their order match the deck.',\n      styleLine,\n      ...tail,\n      ...brandBlock,\n    ].join('\\n')\n  : format === 'svg'\n  ? [\n      req.CONTENT,\n      '',\n      'Author ONE self-contained animated SVG and write it to `out.svg`. Do not render and do not write index.html.',\n      form,\n      ...vocab,\n      sceneLine,\n      styleLine,\n      'Use a ' + width + 'x' + height + ' (' + a.ASPECT + ') viewBox.',\n      'Animate with CSS @keyframes inside a <style> element, or with SMIL; no external stylesheet, no script, no network. Reveal a few elements in sequence, each held long enough to read.',\n      'Reference the brand typefaces by name with a system fallback, and keep the file well-formed XML with every animated element ending visible.',\n      ...tail,\n      ...brandBlock,\n    ].join('\\n')\n  : format === 'png'\n  ? [\n      req.CONTENT,\n      '',\n      stillPlanLine,\n      form,\n      ...vocab,\n      stillSceneLine,\n      styleLine,\n      'Compose ONE still card at ' + width + 'x' + height + ' (' + a.ASPECT + '), with the whole card complete and legible in the final frame of the composition.',\n      'Entrances may run, but nothing may leave, dim or hide before the end: the artifact is that final frame, so everything the card carries must still be there in it.',\n      ...tail,\n      ...brandBlock,\n    ].join('\\n')\n  : [\n      req.CONTENT,\n      '',\n      planLine,\n      form,\n      ...vocab,\n      sceneLine,\n      styleLine,\n      'Render a ' + width + 'x' + height + ' (' + a.ASPECT + ') composition that runs about ' + seconds + ' seconds.',\n      sampling,\n      ...tail,\n      ...brandBlock,\n    ].join('\\n');\nconst pairedFormat = isDeck ? (a.PAIRED_FORMAT || 'mp4') : '';\nreturn [{ json: Object.assign({}, a, {\n  FORCE: force, SCENES: scenes, STYLE: brand.STYLE,\n  REVIEW_ROUND: Math.max(0, Number(a.REVIEW_ROUND || 0)),\n  FORMAT: format, FPS: rate, WIDTH: width, HEIGHT: height, FRAMES: frames, DURATION_SECONDS: seconds, RATE: rate,\n  SESSION_ID: sessionId,\n  AUTHOR_URL: base ? base + '/v1/chat/completions' : '',\n  ARTIFACT_URL: base ? base + '/artifacts/' + sessionId + '/out.' + format : '',\n  ARTIFACT_KEY: 'visual-studio/' + safe(req.RUN_ID) + '-' + safe(a.ASSET_TYPE) + '.' + format,\n  STORE_URL: utils ? utils + '/mcp' : '',\n  PAIRED_FORMAT: pairedFormat,\n  PAIRED_ARTIFACT_URL: (isDeck && base) ? base + '/artifacts/' + sessionId + '/out.' + pairedFormat : '',\n  PAIRED_ARTIFACT_KEY: isDeck ? 'visual-studio/' + safe(req.RUN_ID) + '-' + safe(a.ASSET_TYPE) + '.' + pairedFormat : '',\n  AUTHOR_BODY: JSON.stringify({ messages: [{ role: 'user', content: brief }], session_id: sessionId, format: format, fps: rate, width: width, height: height, frames: frames, durationSeconds: seconds }),\n}) }];\n"
-      },
       "id": "f4190f9c-1117-48cc-8ce7-85b3652ea99d",
       "name": "build_author_brief",
       "type": "n8n-nodes-base.code",
@@ -2754,9 +2751,25 @@
       "position": [
         2912,
         -336
-      ]
+      ],
+      "parameters": {
+        "jsCode": "// Turn the request into the composer's brief and the session request. The brief is\n// the caller's CONTENT, the requested form and style, the type's declared frame, the\n// shared motion rules and any correction or extra direction the caller supplied.\n// Whether a turn authors or edits is the adapter's call, taken from the session\n// directory itself; the brief never claims one, so a named session with no directory\n// is not told to keep a composition that does not exist.\n// A caller that names a session is used as given; a caller that names none gets an\n// id scoped to this run, so a later run cannot overwrite its artifact before it is\n// fetched. Everything here is data-driven, so a type is retuned from the registry\n// without touching the adapter.\nconst a = $input.first().json;\nconst req = $('normalize_input').first().json;\nconst brand = $('brand_tokens').first().json;\nconst rules = String($('visual_rules').first().json.RULES || '').trim();\nconst safe = (s) => String(s || '').replace(/[^A-Za-z0-9._-]/g, '').slice(0, 40);\n// A named session is used as given; a blank one is scoped to this run.\nconst sessionId = safe(req.SESSION_ID) || (safe(a.ASSET_TYPE) + '-' + safe(req.RUN_ID)) || 'default';\nconst base = ($env.PI_RENDER_URL || '').replace(/\\/+$/, '');\nconst utils = ($env.MCP_UTILS_URL || '').replace(/\\/+$/, '');\n// A deck is authored as one self-contained HTML file; the same turn renders it to\n// the paired video, so no transcode happens after the turn.\nconst isDeck = String(a.RENDER_MODE || '') === 'deck';\nconst FORMATS = ['mp4', 'gif', 'webp', 'png', 'svg'];\nconst format = isDeck ? 'html' : (FORMATS.includes(a.FORMAT) ? a.FORMAT : 'mp4');\n// The container is the request's, never this node's invention. A review turn's item is\n// asset-shaped and carries the request's declaration (agent_result copies it onto the\n// asset), so a correction turn keeps the container of the turn it corrects. Before this\n// the four silent defaults below fired at once and a tiles_wide request (16:9 / 1280 /\n// 12s / 360) was corrected at 1080x1350 / 3s / 24 frames (measured 2026-10-17, run\n// 13785). A missing declaration is an error naming the field: a plausible default is\n// indistinguishable from the caller's request once the run has produced an artifact.\nconst declared = (field, value) => {\n  const n = Number(value);\n  if (!Number.isFinite(n) || n <= 0) throw new Error('the request declared no ' + field + '; the authoring brief cannot re-declare a container');\n  return n;\n};\nconst aspectMatch = /^([0-9.]+):([0-9.]+)$/.exec(String(a.ASPECT || '').trim());\nif (!aspectMatch || !(Number(aspectMatch[1]) > 0) || !(Number(aspectMatch[2]) > 0)) {\n  throw new Error('the request declared no ASPECT; the authoring brief cannot re-declare a container');\n}\nconst aw = Number(aspectMatch[1]);\nconst ah = Number(aspectMatch[2]);\nconst width = declared('VIEWPORT', a.VIEWPORT);\nconst height = Math.round(width * ah / aw);\n// A type may declare the shape it means -- a diagram type is a diagram -- and that is\n// stronger than the caller's FORCE, because choosing the type is choosing its shape.\n// A type that declares none takes the caller's FORCE; with neither, the composer chooses.\nconst force = String(a.FORM || req.FORCE || 'auto');\n// The form vocabulary is one committed file, fetched like the motion rules and\n// appended to the brief so a forced form arrives with its meaning; the workflow does\n// not restate the definitions.\nconst forms = String($('visual_forms').first().json.FORMS || '').trim();\nconst vocab = forms ? ['Form vocabulary:', forms] : [];\nconst form = force === 'auto'\n  ? 'Choose the form that fits the content best.'\n  : 'Use the ' + force + ' form; do not substitute another.';\nconst scenes = Math.max(0, Math.round(Number(req.SCENES) || 0));\n// One declared scene is the whole clip. A longer sequence opens on a title scene\n// that names the subject, so it is introduced rather than starting cold; the\n// caller's scenes follow it, and the clip carries one more scene than was asked.\nconst sceneLine = scenes > 0\n  ? 'Render exactly ' + scenes + ' scenes, one item per scene, in the order the storyboard sets'\n    + (scenes > 1 ? ', opening on a title scene that names the subject before them (' + (scenes + 1) + ' scenes in all).' : '.')\n  : '';\n// The declared duration is the floor. A caller that names a scene count gives each\n// scene at least the type's declared scene length, so a multi-scene clip is never\n// compressed into the single-scene time.\nconst declaredFrames = Math.max(1, declared('FRAMES', a.FRAMES));\nconst declaredSeconds = Math.max(1, declared('DURATION_SECONDS', a.DURATION_SECONDS));\nconst sceneSeconds = Math.max(0, Number(a.SCENE_SECONDS) || 0);\nconst seconds = Math.max(declaredSeconds, scenes * sceneSeconds);\n// Extending the clip keeps the declared sampling rate instead of speeding it up.\nconst frames = seconds > declaredSeconds ? Math.max(1, Math.round(declaredFrames * seconds / declaredSeconds)) : declaredFrames;\nconst rate = Math.max(0.1, frames / seconds);\nconst planLine = 'Plan first: state a short storyboard with the form, the scenes and the order they play in, then author the composition.';\nconst deckPlanLine = 'Plan first: state a short plan with the arc and the per-slide content, then author the deck to it.';\nconst stillPlanLine = 'Plan first: state the card in one line - the brand lockup, the headline, the supporting line, the feature chips, the interface window and the call to action - then author the composition.';\nconst stillSceneLine = scenes > 0 ? 'The card carries the declared ' + scenes + ' items as that many parts of the same card, in the order given; they are not sequenced over time.' : '';\nconst sampling = ['gif', 'webp'].includes(format)\n  ? 'Animate slowly and deliberately: reveal a few elements in sequence, each held long enough to read, rather than many quick changes. The clip is sampled into a low-frame-rate file, so fast or busy motion is lost.'\n  : 'Animate deliberately: a few clear beats, each held long enough to read, rather than many quick changes.';\nconst styleLine = 'Style: use the brand\\'s ' + brand.STYLE + ' scheme; do not introduce a colour or typeface the brand block below does not define.';\n// Appended last, in this order: the shared motion rules (the framework's craft, one\n// committed copy), a reviewer's correction when one is present, and the caller's\n// extra direction when one is present. Nothing here is parsed; all three are prose\n// the composer reads.\nconst tail = [];\nif (rules) tail.push('Motion rules (apply to every scene):', rules);\n// A reviewer's correction arrives on the item: the caller's own FEEDBACK on the first turn,\n// and the critic's findings on a review turn.\nconst feedback = String(a.FEEDBACK || req.FEEDBACK || '').trim();\nif (feedback) tail.push('Correction from a reviewer - fix this in this attempt:', feedback);\nif (req.EXTRA_PROMPT) tail.push('Extra direction from the caller:', req.EXTRA_PROMPT);\nconst brandBlock = ['', 'Brand block:', brand.BRAND];\nconst brief = isDeck\n  ? [\n      req.CONTENT,\n      '',\n      deckPlanLine,\n      sceneLine,\n      'Author ONE self-contained HTML presentation and write it to `out.html` in this directory: a single file with no external stylesheet, script, font or network request, whose navigation works with no server. Preserve the text\\'s own structure, one idea per slide.',\n      'Then author a HyperFrames composition of that same plan to `index.html` and render it to `out.mp4` in this same directory, at ' + width + 'x' + height + ' (' + a.ASPECT + ') over about ' + seconds + ' seconds, so the slides and their order match the deck.',\n      styleLine,\n      ...tail,\n      ...brandBlock,\n    ].join('\\n')\n  : format === 'svg'\n  ? [\n      req.CONTENT,\n      '',\n      'Author ONE self-contained animated SVG and write it to `out.svg`. Do not render and do not write index.html.',\n      form,\n      ...vocab,\n      sceneLine,\n      styleLine,\n      'Use a ' + width + 'x' + height + ' (' + a.ASPECT + ') viewBox.',\n      'Animate with CSS @keyframes inside a <style> element, or with SMIL; no external stylesheet, no script, no network. Reveal a few elements in sequence, each held long enough to read.',\n      'Reference the brand typefaces by name with a system fallback, and keep the file well-formed XML with every animated element ending visible.',\n      ...tail,\n      ...brandBlock,\n    ].join('\\n')\n  : format === 'png'\n  ? [\n      req.CONTENT,\n      '',\n      stillPlanLine,\n      form,\n      ...vocab,\n      stillSceneLine,\n      styleLine,\n      'Compose ONE still card at ' + width + 'x' + height + ' (' + a.ASPECT + '), with the whole card complete and legible in the final frame of the composition.',\n      'Entrances may run, but nothing may leave, dim or hide before the end: the artifact is that final frame, so everything the card carries must still be there in it.',\n      ...tail,\n      ...brandBlock,\n    ].join('\\n')\n  : [\n      req.CONTENT,\n      '',\n      planLine,\n      form,\n      ...vocab,\n      sceneLine,\n      styleLine,\n      'Render a ' + width + 'x' + height + ' (' + a.ASPECT + ') composition that runs about ' + seconds + ' seconds.',\n      sampling,\n      ...tail,\n      ...brandBlock,\n    ].join('\\n');\nconst pairedFormat = isDeck ? (a.PAIRED_FORMAT || 'mp4') : '';\nreturn [{ json: Object.assign({}, a, {\n  FORCE: force, SCENES: scenes, STYLE: brand.STYLE,\n  REVIEW_ROUND: Math.max(0, Number(a.REVIEW_ROUND || 0)),\n  FORMAT: format, FPS: rate, WIDTH: width, HEIGHT: height, FRAMES: frames, DURATION_SECONDS: seconds, RATE: rate,\n  SESSION_ID: sessionId,\n  AUTHOR_URL: base ? base + '/v1/chat/completions' : '',\n  ARTIFACT_URL: base ? base + '/artifacts/' + sessionId + '/out.' + format : '',\n  ARTIFACT_KEY: 'visual-studio/' + safe(req.RUN_ID) + '-' + safe(a.ASSET_TYPE) + '.' + format,\n  STORE_URL: utils ? utils + '/mcp' : '',\n  PAIRED_FORMAT: pairedFormat,\n  PAIRED_ARTIFACT_URL: (isDeck && base) ? base + '/artifacts/' + sessionId + '/out.' + pairedFormat : '',\n  PAIRED_ARTIFACT_KEY: isDeck ? 'visual-studio/' + safe(req.RUN_ID) + '-' + safe(a.ASSET_TYPE) + '.' + pairedFormat : '',\n  AUTHOR_BODY: JSON.stringify({ messages: [{ role: 'user', content: brief }], session_id: sessionId, format: format, fps: rate, width: width, height: height, frames: frames, durationSeconds: seconds }),\n}) }];\n"
+      }
     },
     {
+      "id": "e0286e3f-7244-4d0a-b4f9-ff65d1048013",
+      "name": "execute_author",
+      "notes": "A failed or unconfigured authoring call must not block the other assets, so the error is continued and agent_result turns the missing binary into that asset's ERROR. See agent_result.notes and the 'continueRegularOutput makes a failure invisible' rule in AGENTS.md.",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 20000,
+      "onError": "continueRegularOutput",
+      "position": [
+        3136,
+        -448
+      ],
       "parameters": {
         "method": "POST",
         "url": "={{ $json.AUTHOR_URL }}",
@@ -2766,25 +2779,9 @@
         "options": {
           "timeout": 1200000
         }
-      },
-      "id": "e0286e3f-7244-4d0a-b4f9-ff65d1048013",
-      "name": "execute_author",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "retryOnFail": true,
-      "maxTries": 2,
-      "waitBetweenTries": 20000,
-      "position": [
-        3136,
-        -448
-      ],
-      "onError": "continueRegularOutput",
-      "notes": "A failed or unconfigured authoring call must not block the other assets, so the error is continued and agent_result turns the missing binary into that asset's ERROR. See agent_result.notes and the 'continueRegularOutput makes a failure invisible' rule in AGENTS.md."
+      }
     },
     {
-      "parameters": {
-        "jsCode": "// The rendered artifact(s) the session produced, as the asset, plus the composer's own\n// report kept as STORYBOARD so a bad visual is diagnosable from the run record. The\n// bytes are deliberately not here: the temp-bucket server fetched each artifact from\n// the session and stored it, and what comes back is the object key and its size. That\n// is what keeps a 60 MB render out of this execution's record - n8n persists binaries\n// as well as JSON, so a run whose payload is the asset stores the asset twice. The\n// workflow never sees the agent's composition markup, only this report. A deck is two\n// files from one turn, so two stores ran and two assets come out.\nconst a = $('build_author_brief').first().json;\nconst report = (() => {\n  try {\n    const resp = $('execute_author').first().json || {};\n    const msg = resp.choices && resp.choices[0] && resp.choices[0].message;\n    const content = msg && msg.content;\n    return typeof content === 'string' ? content.slice(0, 6000) : '';\n  } catch (e) { return ''; }\n})();\n// What the session reported about the artifact's container. The declared values below are\n// the request's, which the conformance in the session makes the artifact's by construction;\n// this is what it was actually served at, and it names the authored frame where the two\n// differed (measured 2026-10-17, run 13762: a 16:9 / 12s type served at 1080x1350 / 3s).\nconst conformance = (() => {\n  try {\n    const resp = $('execute_author').first().json || {};\n    const c = resp.conformance;\n    return c && typeof c === 'object' ? c : {};\n  } catch (e) { return {}; }\n})();\nconst base = {\n  ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: '', PROMPT: '', CONTENT_TYPE: '', ERROR: '', STORYBOARD: report,\n  // The container the request declared, carried on the asset beside what the runtime\n  // delivered. The review loop builds its items from this asset, so a correction turn\n  // reads the declaration here instead of re-inventing one (measured 2026-10-17, run\n  // 13785: a 16:9 / 12s / 360-frame type was corrected at 1080x1350 / 3s / 24 frames\n  // because these five were absent from the asset).\n  ASPECT: a.ASPECT || '', VIEWPORT: String(Number(a.VIEWPORT) || ''),\n  FRAMES: String(Number(a.FRAMES) || ''), DURATION_SECONDS: String(Number(a.DURATION_SECONDS) || ''),\n  FPS: String(Number(a.FPS) || ''),\n  DURATION_MS: String(Math.round((Number(a.DURATION_SECONDS) || 0) * 1000)),\n  FRAME_COUNT: String(Number(a.FRAMES) || ''), WIDTH: a.WIDTH || '', HEIGHT: a.HEIGHT || '',\n  CONFORMED: conformance.fit || '', AUTHORED_FRAME: conformance.authored || '', SHORT: conformance.short === true,\n  IMAGE: '', S3_KEY: '', S3_BYTES: 0,\n};\nconst describe = (v, fallback) => {\n  if (typeof v === 'string' && v) return v;\n  if (v && typeof v === 'object' && typeof v.message === 'string') return v.message;\n  if (v != null) return JSON.stringify(v);\n  return fallback;\n};\n// One store answer: `key=<object> bytes=<size> content-type=<type>`, or a line starting\n// ERROR:. Split the way a caller does - whitespace, then the first '=' - so a change to\n// prose on the server arrives here as a missing key rather than a silently wrong value.\nconst stored = (node) => {\n  try {\n    const resp = $(node).first().json || {};\n    const content = resp.result && resp.result.content;\n    const text = content && content[0] && content[0].text;\n    if (typeof text !== 'string') return { ERROR: 'the temp-bucket server answered no text' };\n    if (text.indexOf('ERROR:') === 0) return { ERROR: text.slice(0, 500) };\n    const pairs = {};\n    for (const part of text.trim().split(/\\s+/)) {\n      const eq = part.indexOf('=');\n      if (eq > 0) pairs[part.slice(0, eq)] = part.slice(eq + 1);\n    }\n    if (!pairs.key) return { ERROR: 'the temp-bucket server answered no key: ' + text.slice(0, 400) };\n    return { KEY: pairs.key, BYTES: Number(pairs.bytes || 0), CONTENT_TYPE: pairs['content-type'] || '' };\n  } catch (e) {\n    // The node did not run at all, which for the paired store means this is not a deck.\n    return { ERROR: describe(e && e.message, 'the artifact was not stored') };\n  }\n};\nif (!a.AUTHOR_URL) {\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: 'PI_RENDER_URL is not configured' }) }];\n}\nif (!a.STORE_URL) {\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: 'MCP_UTILS_URL is not configured' }) }];\n}\nconst primary = stored('store_artifact');\nconst items = [primary.KEY\n  ? Object.assign({}, base, {\n      STATUS: 'RENDERED', CONTENT_TYPE: primary.CONTENT_TYPE || 'application/octet-stream',\n      S3_KEY: primary.KEY, S3_BYTES: primary.BYTES,\n    })\n  : Object.assign({}, base, { STATUS: 'ERROR', ERROR: primary.ERROR })];\n// A deck's paired video is stored by its own call, after the deck itself.\nif (a.PAIRED_ARTIFACT_URL) {\n  const paired = stored('store_paired_artifact');\n  const pairedBase = Object.assign({}, base, {\n    ASSET_TYPE: a.PAIRED_ASSET_TYPE || (a.ASSET_TYPE + '_video'),\n    RENDER_MODE: 'video', FORMAT: a.PAIRED_FORMAT || 'mp4', PAIRED_OF: a.ASSET_TYPE,\n  });\n  items.push(paired.KEY\n    ? Object.assign({}, pairedBase, {\n        STATUS: 'RENDERED', CONTENT_TYPE: paired.CONTENT_TYPE || 'video/mp4',\n        S3_KEY: paired.KEY, S3_BYTES: paired.BYTES,\n      })\n    : Object.assign({}, pairedBase, { STATUS: 'ERROR', ERROR: paired.ERROR }));\n}\nreturn items.map((json) => ({ json }));\n"
-      },
       "id": "20f42e27-8199-4da2-9602-cf7fa50d3786",
       "name": "agent_result",
       "type": "n8n-nodes-base.code",
@@ -2792,9 +2789,20 @@
       "position": [
         4096,
         -448
-      ]
+      ],
+      "parameters": {
+        "jsCode": "// The rendered artifact(s) the session produced, as the asset, plus the composer's own\n// report kept as STORYBOARD so a bad visual is diagnosable from the run record. The\n// bytes are deliberately not here: the temp-bucket server fetched each artifact from\n// the session and stored it, and what comes back is the object key and its size. That\n// is what keeps a 60 MB render out of this execution's record - n8n persists binaries\n// as well as JSON, so a run whose payload is the asset stores the asset twice. The\n// workflow never sees the agent's composition markup, only this report. A deck is two\n// files from one turn, so two stores ran and two assets come out.\nconst a = $('build_author_brief').first().json;\nconst report = (() => {\n  try {\n    const resp = $('execute_author').first().json || {};\n    const msg = resp.choices && resp.choices[0] && resp.choices[0].message;\n    const content = msg && msg.content;\n    return typeof content === 'string' ? content.slice(0, 6000) : '';\n  } catch (e) { return ''; }\n})();\n// What the session reported about the artifact's container. The declared values below are\n// the request's, which the conformance in the session makes the artifact's by construction;\n// this is what it was actually served at, and it names the authored frame where the two\n// differed (measured 2026-10-17, run 13762: a 16:9 / 12s type served at 1080x1350 / 3s).\nconst conformance = (() => {\n  try {\n    const resp = $('execute_author').first().json || {};\n    const c = resp.conformance;\n    return c && typeof c === 'object' ? c : {};\n  } catch (e) { return {}; }\n})();\nconst base = {\n  ASSET_TYPE: a.ASSET_TYPE, RENDER_MODE: a.RENDER_MODE || '', FORMAT: a.FORMAT || '',\n  STATUS: '', PROMPT: '', CONTENT_TYPE: '', ERROR: '', STORYBOARD: report,\n  // The container the request declared, carried on the asset beside what the runtime\n  // delivered. The review loop builds its items from this asset, so a correction turn\n  // reads the declaration here instead of re-inventing one (measured 2026-10-17, run\n  // 13785: a 16:9 / 12s / 360-frame type was corrected at 1080x1350 / 3s / 24 frames\n  // because these five were absent from the asset).\n  ASPECT: a.ASPECT || '', VIEWPORT: String(Number(a.VIEWPORT) || ''),\n  FRAMES: String(Number(a.FRAMES) || ''), DURATION_SECONDS: String(Number(a.DURATION_SECONDS) || ''),\n  FPS: String(Number(a.FPS) || ''),\n  DURATION_MS: String(Math.round((Number(a.DURATION_SECONDS) || 0) * 1000)),\n  FRAME_COUNT: String(Number(a.FRAMES) || ''), WIDTH: a.WIDTH || '', HEIGHT: a.HEIGHT || '',\n  CONFORMED: conformance.fit || '', AUTHORED_FRAME: conformance.authored || '', SHORT: conformance.short === true,\n  IMAGE: '', S3_KEY: '', S3_BYTES: 0,\n};\nconst describe = (v, fallback) => {\n  if (typeof v === 'string' && v) return v;\n  if (v && typeof v === 'object' && typeof v.message === 'string') return v.message;\n  if (v != null) return JSON.stringify(v);\n  return fallback;\n};\n// One store answer: `key=<object> bytes=<size> content-type=<type>`, or a line starting\n// ERROR:. Split the way a caller does - whitespace, then the first '=' - so a change to\n// prose on the server arrives here as a missing key rather than a silently wrong value.\nconst stored = (node) => {\n  try {\n    const resp = $(node).first().json || {};\n    const content = resp.result && resp.result.content;\n    const text = content && content[0] && content[0].text;\n    if (typeof text !== 'string') return { ERROR: 'the temp-bucket server answered no text' };\n    if (text.indexOf('ERROR:') === 0) return { ERROR: text.slice(0, 500) };\n    const pairs = {};\n    for (const part of text.trim().split(/\\s+/)) {\n      const eq = part.indexOf('=');\n      if (eq > 0) pairs[part.slice(0, eq)] = part.slice(eq + 1);\n    }\n    if (!pairs.key) return { ERROR: 'the temp-bucket server answered no key: ' + text.slice(0, 400) };\n    return { KEY: pairs.key, BYTES: Number(pairs.bytes || 0), CONTENT_TYPE: pairs['content-type'] || '' };\n  } catch (e) {\n    // The node did not run at all, which for the paired store means this is not a deck.\n    return { ERROR: describe(e && e.message, 'the artifact was not stored') };\n  }\n};\nif (!a.AUTHOR_URL) {\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: 'PI_RENDER_URL is not configured' }) }];\n}\nif (!a.STORE_URL) {\n  return [{ json: Object.assign({}, base, { STATUS: 'ERROR', ERROR: 'MCP_UTILS_URL is not configured' }) }];\n}\nconst primary = stored('store_artifact');\nconst items = [primary.KEY\n  ? Object.assign({}, base, {\n      STATUS: 'RENDERED', CONTENT_TYPE: primary.CONTENT_TYPE || 'application/octet-stream',\n      S3_KEY: primary.KEY, S3_BYTES: primary.BYTES,\n    })\n  : Object.assign({}, base, { STATUS: 'ERROR', ERROR: primary.ERROR })];\n// A deck's paired video is stored by its own call, after the deck itself.\nif (a.PAIRED_ARTIFACT_URL) {\n  const paired = stored('store_paired_artifact');\n  const pairedBase = Object.assign({}, base, {\n    ASSET_TYPE: a.PAIRED_ASSET_TYPE || (a.ASSET_TYPE + '_video'),\n    RENDER_MODE: 'video', FORMAT: a.PAIRED_FORMAT || 'mp4', PAIRED_OF: a.ASSET_TYPE,\n  });\n  items.push(paired.KEY\n    ? Object.assign({}, pairedBase, {\n        STATUS: 'RENDERED', CONTENT_TYPE: paired.CONTENT_TYPE || 'video/mp4',\n        S3_KEY: paired.KEY, S3_BYTES: paired.BYTES,\n      })\n    : Object.assign({}, pairedBase, { STATUS: 'ERROR', ERROR: paired.ERROR }));\n}\nreturn items.map((json) => ({ json }));\n"
+      }
     },
     {
+      "id": "c0377a0b-b1c2-42b9-b0ca-4df8b613bc59",
+      "name": "download_brand",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        448,
+        48
+      ],
       "parameters": {
         "workflowId": {
           "__rl": true,
@@ -2838,20 +2846,9 @@
           "convertFieldsToString": true
         },
         "options": {}
-      },
-      "id": "c0377a0b-b1c2-42b9-b0ca-4df8b613bc59",
-      "name": "download_brand",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        448,
-        48
-      ]
+      }
     },
     {
-      "parameters": {
-        "jsCode": "// The brand, read once from datasets/brand.json (the only copy), resolved to the\n// requested scheme and shaped for its two consumers: the authoring brief for the\n// composer and the raster prompt. This node also owns the STYLE check, because the\n// scheme names are data here and nowhere else, so an unknown STYLE fails naming it.\nconst raw = $('download_brand').first().json.output || '{}';\nlet b;\ntry {\n  b = JSON.parse(raw);\n} catch (e) {\n  throw new Error('datasets/brand.json is not valid JSON: ' + e.message);\n}\nconst req = $('normalize_input').first().json;\nconst schemeName = String(req.STYLE || b.defaultScheme || '');\nconst scheme = b.schemes && b.schemes[schemeName];\nif (!scheme) throw new Error('unknown STYLE: ' + schemeName + ' (brand declares: ' + Object.keys(b.schemes || {}).join(', ') + ')');\nconst typo = b.typography || {};\nconst BRAND = [\n  'Brand palette (' + schemeName + ' scheme, use only these roles):',\n  'background ' + scheme.shell + ', text ' + scheme.ink + ', muted text ' + scheme.inkMuted + ',',\n  'accent ' + scheme.accent + ', accent-strong ' + scheme.accentStrong + ', accent-deep ' + scheme.accentDeep + '.',\n  'Typefaces: ' + typo.text + ' for text, ' + typo.code + ' for code.',\n].join('\\n');\nreturn [{ json: {\n  STYLE: schemeName,\n  BRAND,\n  ART_DIRECTION: String((b.photographic || {}).artDirection || ''),\n} }];\n"
-      },
       "id": "c2415487-ca30-4143-831b-19243a190267",
       "name": "brand_tokens",
       "type": "n8n-nodes-base.code",
@@ -2859,9 +2856,20 @@
       "position": [
         672,
         48
-      ]
+      ],
+      "parameters": {
+        "jsCode": "// The brand, read once from datasets/brand.json (the only copy), resolved to the\n// requested scheme and shaped for its two consumers: the authoring brief for the\n// composer and the raster prompt. This node also owns the STYLE check, because the\n// scheme names are data here and nowhere else, so an unknown STYLE fails naming it.\nconst raw = $('download_brand').first().json.output || '{}';\nlet b;\ntry {\n  b = JSON.parse(raw);\n} catch (e) {\n  throw new Error('datasets/brand.json is not valid JSON: ' + e.message);\n}\nconst req = $('normalize_input').first().json;\nconst schemeName = String(req.STYLE || b.defaultScheme || '');\nconst scheme = b.schemes && b.schemes[schemeName];\nif (!scheme) throw new Error('unknown STYLE: ' + schemeName + ' (brand declares: ' + Object.keys(b.schemes || {}).join(', ') + ')');\nconst typo = b.typography || {};\nconst BRAND = [\n  'Brand palette (' + schemeName + ' scheme, use only these roles):',\n  'background ' + scheme.shell + ', text ' + scheme.ink + ', muted text ' + scheme.inkMuted + ',',\n  'accent ' + scheme.accent + ', accent-strong ' + scheme.accentStrong + ', accent-deep ' + scheme.accentDeep + '.',\n  'Typefaces: ' + typo.text + ' for text, ' + typo.code + ' for code.',\n].join('\\n');\nreturn [{ json: {\n  STYLE: schemeName,\n  BRAND,\n  ART_DIRECTION: String((b.photographic || {}).artDirection || ''),\n} }];\n"
+      }
     },
     {
+      "id": "b1a7c3e2-4d5f-4a6b-8c9d-0e1f2a3b4c5d",
+      "name": "download_visual_rules",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        896,
+        48
+      ],
       "parameters": {
         "workflowId": {
           "__rl": true,
@@ -2905,17 +2913,17 @@
           "convertFieldsToString": true
         },
         "options": {}
-      },
-      "id": "b1a7c3e2-4d5f-4a6b-8c9d-0e1f2a3b4c5d",
-      "name": "download_visual_rules",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        896,
-        48
-      ]
+      }
     },
     {
+      "id": "d3c9e5a4-6f7b-4c8d-9e0f-2a3b4c5d6e7f",
+      "name": "if_deck",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3584,
+        -448
+      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -2939,20 +2947,9 @@
           ]
         },
         "options": {}
-      },
-      "id": "d3c9e5a4-6f7b-4c8d-9e0f-2a3b4c5d6e7f",
-      "name": "if_deck",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        3584,
-        -448
-      ]
+      }
     },
     {
-      "parameters": {
-        "jsCode": "// prompts/visual_motion_rules.md is the one copy of the motion grammar. It is\n// fetched once and handed to build_author_brief, which appends it to every brief.\nreturn [{ json: { RULES: String($json.output || '') } }];\n"
-      },
       "id": "c2b8d4f3-5e6a-4b7c-9d0e-1f2a3b4c5d6e",
       "name": "visual_rules",
       "type": "n8n-nodes-base.code",
@@ -2960,9 +2957,20 @@
       "position": [
         1120,
         48
-      ]
+      ],
+      "parameters": {
+        "jsCode": "// prompts/visual_motion_rules.md is the one copy of the motion grammar. It is\n// fetched once and handed to build_author_brief, which appends it to every brief.\nreturn [{ json: { RULES: String($json.output || '') } }];\n"
+      }
     },
     {
+      "id": "d3c9e5a4-6f7b-4c8d-9e1f-2a3b4c5d6e7f",
+      "name": "download_visual_forms",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1344,
+        48
+      ],
       "parameters": {
         "workflowId": {
           "__rl": true,
@@ -3006,20 +3014,9 @@
           "convertFieldsToString": true
         },
         "options": {}
-      },
-      "id": "d3c9e5a4-6f7b-4c8d-9e1f-2a3b4c5d6e7f",
-      "name": "download_visual_forms",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        1344,
-        48
-      ]
+      }
     },
     {
-      "parameters": {
-        "jsCode": "// prompts/visual_forms.md is the one copy of the form vocabulary. It is fetched\n// once and handed to build_author_brief, which appends it to every brief.\nreturn [{ json: { FORMS: String($json.output || '') } }];\n"
-      },
       "id": "e4d0f6b5-7a8c-4d9e-8f2a-3b4c5d6e7f80",
       "name": "visual_forms",
       "type": "n8n-nodes-base.code",
@@ -3027,9 +3024,22 @@
       "position": [
         1568,
         48
-      ]
+      ],
+      "parameters": {
+        "jsCode": "// prompts/visual_forms.md is the one copy of the form vocabulary. It is fetched\n// once and handed to build_author_brief, which appends it to every brief.\nreturn [{ json: { FORMS: String($json.output || '') } }];\n"
+      }
     },
     {
+      "id": "68237f50-4e6d-442f-9018-7f65d59c807d",
+      "name": "store_artifact",
+      "notes": "The session's finished artifact, stored by the temp-bucket server; continued on error for the same reason as execute_author, and agent_result reports it as this asset's ERROR.",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "onError": "continueRegularOutput",
+      "position": [
+        3360,
+        -448
+      ],
       "parameters": {
         "method": "POST",
         "url": "={{ $('build_author_brief').item.json.STORE_URL }}",
@@ -3048,19 +3058,19 @@
         "options": {
           "timeout": 300000
         }
-      },
-      "id": "68237f50-4e6d-442f-9018-7f65d59c807d",
-      "name": "store_artifact",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        3360,
-        -448
-      ],
-      "onError": "continueRegularOutput",
-      "notes": "The session's finished artifact, stored by the temp-bucket server; continued on error for the same reason as execute_author, and agent_result reports it as this asset's ERROR."
+      }
     },
     {
+      "id": "e4d0f6b5-7a8c-4d9e-8f1a-3b4c5d6e7f80",
+      "name": "store_paired_artifact",
+      "notes": "The deck's paired video, stored after the deck. Continued on error for the same reason as store_artifact: agent_result keeps the deck and reports the missing pair rather than failing the run.",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "onError": "continueRegularOutput",
+      "position": [
+        3808,
+        -528
+      ],
       "parameters": {
         "method": "POST",
         "url": "={{ $('build_author_brief').item.json.STORE_URL }}",
@@ -3079,22 +3089,9 @@
         "options": {
           "timeout": 300000
         }
-      },
-      "id": "e4d0f6b5-7a8c-4d9e-8f1a-3b4c5d6e7f80",
-      "name": "store_paired_artifact",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        3808,
-        -528
-      ],
-      "onError": "continueRegularOutput",
-      "notes": "The deck's paired video, stored after the deck. Continued on error for the same reason as store_artifact: agent_result keeps the deck and reports the missing pair rather than failing the run."
+      }
     },
     {
-      "parameters": {
-        "jsCode": "// The stills the authoring turn left behind, one item each, addressed by the session's own\n// artifact route. The session only renders and reports what it rendered; looking at it is\n// this workflow's job (execution 13720 was the lesson: an asset shipped with a label printed\n// on top of its own heading, because nothing in the pipeline ever looked).\nconst asset = $input.first().json || {};\nconst resp = $('execute_author').first().json || {};\nconst session = String($('build_author_brief').first().json.SESSION_ID || '');\nconst round = Math.max(0, Number($('build_author_brief').first().json.REVIEW_ROUND || 0));\nconst base = String($env.PI_RENDER_URL || '').replace(/\\/+$/, '');\nconst stills = Array.isArray(resp.stills) ? resp.stills : [];\n// Nothing to look at, or nothing to judge with, is not a defect: the review reports that it\n// could not run rather than failing the asset it was meant to check.\nconst prompt = String($('download_review_prompt').first().json.output || '').trim();\nconst reason = !prompt ? 'the review prompt is empty'\n  : !base || !session ? 'the session is not addressed'\n  : !stills.length ? 'the render left no still' : '';\nif (reason) {\n  return [{ json: { ...asset, REVIEW_ROUND: round, STILL_NAME: '', STILL_URL: '', REVIEWED: false, REVIEW_REASON: reason } }];\n}\nreturn stills.map((name) => ({\n  json: { ...asset, REVIEW_ROUND: round, STILL_NAME: name, STILL_URL: base + '/artifacts/' + encodeURIComponent(session) + '/' + name },\n}));\n"
-      },
       "id": "f85a3cbb-6195-4e7f-d354-bf912e6ca175",
       "name": "prepare_stills",
       "type": "n8n-nodes-base.code",
@@ -3102,9 +3099,20 @@
       "position": [
         4384,
         -448
-      ]
+      ],
+      "parameters": {
+        "jsCode": "// The stills the authoring turn left behind, one item each, addressed by the session's own\n// artifact route. The session only renders and reports what it rendered; looking at it is\n// this workflow's job (execution 13720 was the lesson: an asset shipped with a label printed\n// on top of its own heading, because nothing in the pipeline ever looked).\nconst asset = $input.first().json || {};\nconst resp = $('execute_author').first().json || {};\nconst session = String($('build_author_brief').first().json.SESSION_ID || '');\nconst round = Math.max(0, Number($('build_author_brief').first().json.REVIEW_ROUND || 0));\nconst base = String($env.PI_RENDER_URL || '').replace(/\\/+$/, '');\nconst stills = Array.isArray(resp.stills) ? resp.stills : [];\n// Nothing to look at, or nothing to judge with, is not a defect: the review reports that it\n// could not run rather than failing the asset it was meant to check.\nconst prompt = String($('download_review_prompt').first().json.output || '').trim();\nconst reason = !prompt ? 'the review prompt is empty'\n  : !base || !session ? 'the session is not addressed'\n  : !stills.length ? 'the render left no still' : '';\nif (reason) {\n  return [{ json: { ...asset, REVIEW_ROUND: round, STILL_NAME: '', STILL_URL: '', REVIEWED: false, REVIEW_REASON: reason } }];\n}\nreturn stills.map((name) => ({\n  json: { ...asset, REVIEW_ROUND: round, STILL_NAME: name, STILL_URL: base + '/artifacts/' + encodeURIComponent(session) + '/' + name },\n}));\n"
+      }
     },
     {
+      "id": "a96b4dcc-72a6-4f80-e465-c023f7db0e86",
+      "name": "if_stills",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4608,
+        -448
+      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -3129,17 +3137,17 @@
         },
         "looseTypeValidation": true,
         "options": {}
-      },
-      "id": "a96b4dcc-72a6-4f80-e465-c023f7db0e86",
-      "name": "if_stills",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        4608,
-        -448
-      ]
+      }
     },
     {
+      "id": "b07c5edd-83b7-4091-f576-d134a8ec1f97",
+      "name": "fetch_still",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        4832,
+        -528
+      ],
       "parameters": {
         "url": "={{ $json.STILL_URL }}",
         "options": {
@@ -3150,20 +3158,9 @@
           },
           "timeout": 30000
         }
-      },
-      "id": "b07c5edd-83b7-4091-f576-d134a8ec1f97",
-      "name": "fetch_still",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        4832,
-        -528
-      ]
+      }
     },
     {
-      "parameters": {
-        "jsCode": "// The critic gets one request: the grammar, what the composer was asked for, and every still\n// the render left. The brief is the authoring request's own brief, whole -- a critic that\n// judges against a paraphrase judges the paraphrase.\nconst items = $input.all();\nconst a = $('prepare_stills').first().json;\nconst prompt = String($('download_review_prompt').first().json.output || '').trim();\nif (!prompt) throw new Error('the review prompt is empty; refusing to review without it');\nlet brief = '';\ntry {\n  const body = JSON.parse(String($('build_author_brief').first().json.AUTHOR_BODY || '{}'));\n  brief = String((((body.messages || [])[0] || {}).content) || '');\n} catch (e) {\n  brief = '';\n}\nconst frames = [];\nfor (let i = 0; i < items.length; i++) {\n  const bin = (items[i].binary || {}).data;\n  if (!bin) continue;\n  const buf = await this.helpers.getBinaryDataBuffer(i, 'data');\n  frames.push('data:' + (bin.mimeType || 'image/png') + ';base64,' + buf.toString('base64'));\n}\nif (!frames.length) throw new Error('the stills could not be read; refusing to review without them');\nconst content = [{ type: 'text', text: prompt + '\\n\\n---\\n\\nThe brief the composer was given:\\n' + brief }];\nfor (const url of frames) content.push({ type: 'image_url', image_url: { url } });\nreturn [{ json: {\n  ...a,\n  STILL_COUNT: frames.length,\n  CRITIQUE_BODY: JSON.stringify({ model: 'opencode-go/glm-5.3-flash', messages: [{ role: 'user', content }] }),\n} }];\n"
-      },
       "id": "c18d6fee-94c8-42a2-a687-e245b9fd2a08",
       "name": "encode_stills",
       "type": "n8n-nodes-base.code",
@@ -3171,9 +3168,22 @@
       "position": [
         5056,
         -528
-      ]
+      ],
+      "parameters": {
+        "jsCode": "// The critic gets one request: the grammar, what the composer was asked for, and every still\n// the render left. The brief is the authoring request's own brief, whole -- a critic that\n// judges against a paraphrase judges the paraphrase.\nconst items = $input.all();\nconst a = $('prepare_stills').first().json;\nconst prompt = String($('download_review_prompt').first().json.output || '').trim();\nif (!prompt) throw new Error('the review prompt is empty; refusing to review without it');\nlet brief = '';\ntry {\n  const body = JSON.parse(String($('build_author_brief').first().json.AUTHOR_BODY || '{}'));\n  brief = String((((body.messages || [])[0] || {}).content) || '');\n} catch (e) {\n  brief = '';\n}\nconst frames = [];\nfor (let i = 0; i < items.length; i++) {\n  const bin = (items[i].binary || {}).data;\n  if (!bin) continue;\n  const buf = await this.helpers.getBinaryDataBuffer(i, 'data');\n  frames.push('data:' + (bin.mimeType || 'image/png') + ';base64,' + buf.toString('base64'));\n}\nif (!frames.length) throw new Error('the stills could not be read; refusing to review without them');\nconst content = [{ type: 'text', text: prompt + '\\n\\n---\\n\\nThe brief the composer was given:\\n' + brief }];\nfor (const url of frames) content.push({ type: 'image_url', image_url: { url } });\nreturn [{ json: {\n  ...a,\n  STILL_COUNT: frames.length,\n  CRITIQUE_BODY: JSON.stringify({ model: 'opencode-go/glm-5.3-flash', messages: [{ role: 'user', content }] }),\n} }];\n"
+      }
     },
     {
+      "id": "d29e7f00-a5d9-43b3-b798-f356ca0e3b19",
+      "name": "critique",
+      "notes": "A critic that cannot be reached must not fail the run it was checking: on error this node forwards its input unchanged (n8n adds no `json.error` for a non-AI node), so `parse_verdict` reads no answer, records the review as unreadable and passes it -- the artifact ships with `REVIEW.unreadable` true. The first live review (2026-10-17, execution 13762) proved the cost of not having this: the critic's second call hit the node timeout and the whole authoring run errored, taking an asset that had already been fixed once with it. 300s, not 120: a four-still critique took 102s on the first call and over 120s on the second.",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "onError": "continueRegularOutput",
+      "position": [
+        5280,
+        -528
+      ],
       "parameters": {
         "method": "POST",
         "url": "http://datahub-local-core-data-litellm.data.svc.cluster.local:4000/v1/chat/completions",
@@ -3186,27 +3196,14 @@
           "timeout": 300000
         }
       },
-      "id": "d29e7f00-a5d9-43b3-b798-f356ca0e3b19",
-      "name": "critique",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        5280,
-        -528
-      ],
       "credentials": {
         "httpBearerAuth": {
           "id": "LitellmN8nBera01",
           "name": "LiteLLM account (bearer)"
         }
-      },
-      "onError": "continueRegularOutput",
-      "notes": "A critic that cannot be reached must not fail the run it was checking: on error this node forwards its input unchanged (n8n adds no `json.error` for a non-AI node), so `parse_verdict` reads no answer, records the review as unreadable and passes it -- the artifact ships with `REVIEW.unreadable` true. The first live review (2026-10-17, execution 13762) proved the cost of not having this: the critic's second call hit the node timeout and the whole authoring run errored, taking an asset that had already been fixed once with it. 300s, not 120: a four-still critique took 102s on the first call and over 120s on the second."
+      }
     },
     {
-      "parameters": {
-        "jsCode": "// The critic's verdict, read tolerantly. Anything unreadable is a pass with the raw answer\n// recorded: treating it as \"keep fixing\" is how a model that cannot hold the format spends\n// every cycle and still ships the same defect.\nconst resp = $input.first().json || {};\nconst a = $('encode_stills').first().json;\nconst raw = String((((resp.choices || [])[0] || {}).message || {}).content || '').trim();\nlet verdict = 'ok';\nlet findings = [];\nlet unreadable = true;\nconst start = raw.indexOf('{');\nconst end = raw.lastIndexOf('}');\nif (start !== -1 && end > start) {\n  try {\n    const parsed = JSON.parse(raw.slice(start, end + 1));\n    const named = (Array.isArray(parsed.findings) ? parsed.findings : [])\n      .map((f) => ({ where: String((f && f.where) || '').trim(), what: String((f && f.what) || '').trim(), fix: String((f && f.fix) || '').trim() }))\n      .filter((f) => f.fix || f.what);\n    if (String(parsed.verdict || '').trim().toLowerCase() === 'fix' && named.length) {\n      verdict = 'fix';\n      findings = named;\n    }\n    unreadable = false;\n  } catch (e) {\n    unreadable = true;\n  }\n}\nconst round = Math.max(0, Number(a.REVIEW_ROUND || 0));\nconst cycles = Math.max(0, Number($('normalize_input').first().json.REVIEW_CYCLES || 0));\nconst findingsText = findings.map((f, i) => (i + 1) + '. ' + (f.where ? f.where + ': ' : '') + (f.what || 'a defect') + ' - ' + f.fix).join('\\n');\nreturn [{ json: {\n  ...a,\n  VERDICT: verdict,\n  FINDINGS_TEXT: findingsText,\n  UNREADABLE: unreadable,\n  // The loop's whole decision, as data: fix what the critic named, while the budget allows.\n  RETRY: verdict === 'fix' && round < cycles,\n  REVIEW_REASON: unreadable ? 'the critic did not answer, or its answer could not be read' : '',\n  REVIEW: JSON.stringify({ round: round + 1, verdict, findings, unreadable, raw: raw.slice(0, 2000) }),\n} }];\n"
-      },
       "id": "e3af8011-b6ea-44c4-c809-04717f1f4c2a",
       "name": "parse_verdict",
       "type": "n8n-nodes-base.code",
@@ -3214,9 +3211,20 @@
       "position": [
         5504,
         -528
-      ]
+      ],
+      "parameters": {
+        "jsCode": "// The critic's verdict, read tolerantly. Anything unreadable is a pass with the raw answer\n// recorded: treating it as \"keep fixing\" is how a model that cannot hold the format spends\n// every cycle and still ships the same defect.\nconst resp = $input.first().json || {};\nconst a = $('encode_stills').first().json;\nconst raw = String((((resp.choices || [])[0] || {}).message || {}).content || '').trim();\nlet verdict = 'ok';\nlet findings = [];\nlet unreadable = true;\nconst start = raw.indexOf('{');\nconst end = raw.lastIndexOf('}');\nif (start !== -1 && end > start) {\n  try {\n    const parsed = JSON.parse(raw.slice(start, end + 1));\n    const named = (Array.isArray(parsed.findings) ? parsed.findings : [])\n      .map((f) => ({ where: String((f && f.where) || '').trim(), what: String((f && f.what) || '').trim(), fix: String((f && f.fix) || '').trim() }))\n      .filter((f) => f.fix || f.what);\n    if (String(parsed.verdict || '').trim().toLowerCase() === 'fix' && named.length) {\n      verdict = 'fix';\n      findings = named;\n    }\n    unreadable = false;\n  } catch (e) {\n    unreadable = true;\n  }\n}\nconst round = Math.max(0, Number(a.REVIEW_ROUND || 0));\nconst cycles = Math.max(0, Number($('normalize_input').first().json.REVIEW_CYCLES || 0));\nconst findingsText = findings.map((f, i) => (i + 1) + '. ' + (f.where ? f.where + ': ' : '') + (f.what || 'a defect') + ' - ' + f.fix).join('\\n');\nreturn [{ json: {\n  ...a,\n  VERDICT: verdict,\n  FINDINGS_TEXT: findingsText,\n  UNREADABLE: unreadable,\n  // The loop's whole decision, as data: fix what the critic named, while the budget allows.\n  RETRY: verdict === 'fix' && round < cycles,\n  REVIEW_REASON: unreadable ? 'the critic did not answer, or its answer could not be read' : '',\n  REVIEW: JSON.stringify({ round: round + 1, verdict, findings, unreadable, raw: raw.slice(0, 2000) }),\n} }];\n"
+      }
     },
     {
+      "id": "f4b09122-c7fb-45d5-d918-1582f2a05d3b",
+      "name": "if_review_findings",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        5728,
+        -528
+      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -3241,20 +3249,9 @@
         },
         "looseTypeValidation": true,
         "options": {}
-      },
-      "id": "f4b09122-c7fb-45d5-d918-1582f2a05d3b",
-      "name": "if_review_findings",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        5728,
-        -528
-      ]
+      }
     },
     {
-      "parameters": {
-        "jsCode": "// The next authoring turn, with the critic's findings as the reviewer's correction. The\n// session id is unchanged, so the adapter edits the composition in place rather than\n// authoring a new one, and the round is incremented for the bound the gate reads.\nconst a = $input.first().json;\nreturn [{ json: {\n  ...a,\n  FEEDBACK: a.FINDINGS_TEXT || '',\n  REVIEW_ROUND: Math.max(0, Number(a.REVIEW_ROUND || 0)) + 1,\n} }];\n"
-      },
       "id": "05c2a344-d80c-46e6-ea29-2693a1b6e4c3",
       "name": "review_feedback",
       "type": "n8n-nodes-base.code",
@@ -3262,9 +3259,20 @@
       "position": [
         5952,
         -336
-      ]
+      ],
+      "parameters": {
+        "jsCode": "// The next authoring turn, with the critic's findings as the reviewer's correction. The\n// session id is unchanged, so the adapter edits the composition in place rather than\n// authoring a new one, and the round is incremented for the bound the gate reads.\nconst a = $input.first().json;\nreturn [{ json: {\n  ...a,\n  FEEDBACK: a.FINDINGS_TEXT || '',\n  REVIEW_ROUND: Math.max(0, Number(a.REVIEW_ROUND || 0)) + 1,\n} }];\n"
+      }
     },
     {
+      "id": "e74f2baa-5084-4d6e-c243-af801d5b9c64",
+      "name": "download_review_prompt",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1792,
+        48
+      ],
       "parameters": {
         "workflowId": {
           "__rl": true,
@@ -3301,17 +3309,17 @@
           ]
         },
         "options": {}
-      },
-      "id": "e74f2baa-5084-4d6e-c243-af801d5b9c64",
-      "name": "download_review_prompt",
+      }
+    },
+    {
+      "id": "17a3f5cc-6d80-4b91-e354-0c8294fb1d76",
+      "name": "download_raster_review_prompt",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        1792,
+        2016,
         48
-      ]
-    },
-    {
+      ],
       "parameters": {
         "workflowId": {
           "__rl": true,
@@ -3348,20 +3356,9 @@
           ]
         },
         "options": {}
-      },
-      "id": "17a3f5cc-6d80-4b91-e354-0c8294fb1d76",
-      "name": "download_raster_review_prompt",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        2016,
-        48
-      ]
+      }
     },
     {
-      "parameters": {
-        "jsCode": "// The raster's review request, from the bytes this execution already holds. A raster is made\n// inside n8n (no store can fetch bytes n8n created), so unlike an authored composition there is\n// nothing to fetch back and no still to make: the data URL the image model returned is what the\n// critic looks at. A render that produced no image is not reviewed, and says so.\nconst a = $input.first().json || {};\nconst round = Math.max(0, Number(a.RASTER_REVIEW_ROUND || 0));\nconst prompt = String($('download_raster_review_prompt').first().json.output || '').trim();\nconst image = String(a.IMAGE || '');\nconst reason = !prompt ? 'the review prompt is empty' : !image ? 'the image model returned no image' : '';\nif (reason) {\n  return [{ json: { ...a, RASTER_REVIEW_ROUND: round, REVIEWED: false, REVIEW_REASON: reason, CRITIQUE_BODY: '' } }];\n}\nconst text = [\n  prompt,\n  '---',\n  'The image prompt this was generated from:',\n  String(a.PROMPT || '(not recorded)'),\n  '---',\n  'The source text it illustrates:',\n  String(a.CONTENT || ''),\n].join('\\n\\n');\nreturn [{ json: {\n  ...a,\n  RASTER_REVIEW_ROUND: round,\n  REVIEWED: true,\n  CRITIQUE_BODY: JSON.stringify({ model: 'opencode-go/glm-5.3-flash', messages: [{ role: 'user', content: [\n    { type: 'text', text },\n    { type: 'image_url', image_url: { url: image } },\n  ] }] }),\n} }];\n"
-      },
       "id": "28b4a6dd-7e91-4ca2-f465-1d93a50c2e87",
       "name": "prepare_raster_review",
       "type": "n8n-nodes-base.code",
@@ -3369,9 +3366,20 @@
       "position": [
         4832,
         96
-      ]
+      ],
+      "parameters": {
+        "jsCode": "// The raster's review request, from the bytes this execution already holds. A raster is made\n// inside n8n (no store can fetch bytes n8n created), so unlike an authored composition there is\n// nothing to fetch back and no still to make: the data URL the image model returned is what the\n// critic looks at. A render that produced no image is not reviewed, and says so.\nconst a = $input.first().json || {};\nconst round = Math.max(0, Number(a.RASTER_REVIEW_ROUND || 0));\nconst prompt = String($('download_raster_review_prompt').first().json.output || '').trim();\nconst image = String(a.IMAGE || '');\nconst reason = !prompt ? 'the review prompt is empty' : !image ? 'the image model returned no image' : '';\nif (reason) {\n  return [{ json: { ...a, RASTER_REVIEW_ROUND: round, REVIEWED: false, REVIEW_REASON: reason, CRITIQUE_BODY: '' } }];\n}\nconst text = [\n  prompt,\n  '---',\n  'The image prompt this was generated from:',\n  String(a.PROMPT || '(not recorded)'),\n  '---',\n  'The source text it illustrates:',\n  String(a.CONTENT || ''),\n].join('\\n\\n');\nreturn [{ json: {\n  ...a,\n  RASTER_REVIEW_ROUND: round,\n  REVIEWED: true,\n  CRITIQUE_BODY: JSON.stringify({ model: 'opencode-go/glm-5.3-flash', messages: [{ role: 'user', content: [\n    { type: 'text', text },\n    { type: 'image_url', image_url: { url: image } },\n  ] }] }),\n} }];\n"
+      }
     },
     {
+      "id": "39c5b7ee-8fa2-4db3-a576-2e04b61d3f98",
+      "name": "if_raster_review",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        5056,
+        96
+      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -3396,17 +3404,19 @@
         },
         "looseTypeValidation": true,
         "options": {}
-      },
-      "id": "39c5b7ee-8fa2-4db3-a576-2e04b61d3f98",
-      "name": "if_raster_review",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        5056,
-        96
-      ]
+      }
     },
     {
+      "id": "4ad6c8ff-90b3-4ec4-b687-3f15c72e4a09",
+      "name": "critique_raster",
+      "notes": "A critic that cannot be reached must not fail the run it was checking: on error this node forwards its input unchanged (n8n adds no `json.error` for a non-AI node), so `parse_verdict` reads no answer, records the review as unreadable and passes it -- the artifact ships with `REVIEW.unreadable` true. The first live review (2026-10-17, execution 13762) proved the cost of not having this: the critic's second call hit the node timeout and the whole authoring run errored, taking an asset that had already been fixed once with it. 300s, not 120: a four-still critique took 102s on the first call and over 120s on the second.",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "onError": "continueRegularOutput",
+      "position": [
+        5280,
+        160
+      ],
       "parameters": {
         "method": "POST",
         "url": "http://datahub-local-core-data-litellm.data.svc.cluster.local:4000/v1/chat/completions",
@@ -3419,27 +3429,14 @@
           "timeout": 300000
         }
       },
-      "id": "4ad6c8ff-90b3-4ec4-b687-3f15c72e4a09",
-      "name": "critique_raster",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        5280,
-        160
-      ],
       "credentials": {
         "httpBearerAuth": {
           "id": "LitellmN8nBera01",
           "name": "LiteLLM account (bearer)"
         }
-      },
-      "onError": "continueRegularOutput",
-      "notes": "A critic that cannot be reached must not fail the run it was checking: on error this node forwards its input unchanged (n8n adds no `json.error` for a non-AI node), so `parse_verdict` reads no answer, records the review as unreadable and passes it -- the artifact ships with `REVIEW.unreadable` true. The first live review (2026-10-17, execution 13762) proved the cost of not having this: the critic's second call hit the node timeout and the whole authoring run errored, taking an asset that had already been fixed once with it. 300s, not 120: a four-still critique took 102s on the first call and over 120s on the second."
+      }
     },
     {
-      "parameters": {
-        "jsCode": "// The same tolerant read as the composition half: an unreadable verdict is a pass with the raw\n// answer kept, because the other direction spends every cycle and ships the same defect.\nconst resp = $input.first().json || {};\nconst a = $('prepare_raster_review').first().json;\nconst raw = String((((resp.choices || [])[0] || {}).message || {}).content || '').trim();\nlet verdict = 'ok';\nlet findings = [];\nlet unreadable = true;\nconst start = raw.indexOf('{');\nconst end = raw.lastIndexOf('}');\nif (start !== -1 && end > start) {\n  try {\n    const parsed = JSON.parse(raw.slice(start, end + 1));\n    const named = (Array.isArray(parsed.findings) ? parsed.findings : [])\n      .map((f) => ({ where: String((f && f.where) || '').trim(), what: String((f && f.what) || '').trim(), fix: String((f && f.fix) || '').trim() }))\n      .filter((f) => f.fix || f.what);\n    if (String(parsed.verdict || '').trim().toLowerCase() === 'fix' && named.length) {\n      verdict = 'fix';\n      findings = named;\n    }\n    unreadable = false;\n  } catch (e) {\n    unreadable = true;\n  }\n}\nconst round = Math.max(0, Number(a.RASTER_REVIEW_ROUND || 0));\nconst cycles = Math.max(0, Number($('normalize_input').first().json.REVIEW_CYCLES || 0));\nconst findingsText = findings.map((f, i) => (i + 1) + '. ' + (f.where ? f.where + ': ' : '') + (f.what || 'a defect') + ' - ' + f.fix).join('\\n');\nreturn [{ json: {\n  ...a,\n  VERDICT: verdict,\n  FINDINGS_TEXT: findingsText,\n  UNREADABLE: unreadable,\n  RETRY: verdict === 'fix' && round < cycles,\n  REVIEW_REASON: unreadable ? 'the critic did not answer, or its answer could not be read' : '',\n  REVIEW: JSON.stringify({ round: round + 1, verdict, findings, unreadable, raw: raw.slice(0, 2000) }),\n} }];\n"
-      },
       "id": "5be7d900-a1c4-4fd5-c798-4026d83f5b1a",
       "name": "parse_raster_verdict",
       "type": "n8n-nodes-base.code",
@@ -3447,9 +3444,20 @@
       "position": [
         5504,
         160
-      ]
+      ],
+      "parameters": {
+        "jsCode": "// The same tolerant read as the composition half: an unreadable verdict is a pass with the raw\n// answer kept, because the other direction spends every cycle and ships the same defect.\nconst resp = $input.first().json || {};\nconst a = $('prepare_raster_review').first().json;\nconst raw = String((((resp.choices || [])[0] || {}).message || {}).content || '').trim();\nlet verdict = 'ok';\nlet findings = [];\nlet unreadable = true;\nconst start = raw.indexOf('{');\nconst end = raw.lastIndexOf('}');\nif (start !== -1 && end > start) {\n  try {\n    const parsed = JSON.parse(raw.slice(start, end + 1));\n    const named = (Array.isArray(parsed.findings) ? parsed.findings : [])\n      .map((f) => ({ where: String((f && f.where) || '').trim(), what: String((f && f.what) || '').trim(), fix: String((f && f.fix) || '').trim() }))\n      .filter((f) => f.fix || f.what);\n    if (String(parsed.verdict || '').trim().toLowerCase() === 'fix' && named.length) {\n      verdict = 'fix';\n      findings = named;\n    }\n    unreadable = false;\n  } catch (e) {\n    unreadable = true;\n  }\n}\nconst round = Math.max(0, Number(a.RASTER_REVIEW_ROUND || 0));\nconst cycles = Math.max(0, Number($('normalize_input').first().json.REVIEW_CYCLES || 0));\nconst findingsText = findings.map((f, i) => (i + 1) + '. ' + (f.where ? f.where + ': ' : '') + (f.what || 'a defect') + ' - ' + f.fix).join('\\n');\nreturn [{ json: {\n  ...a,\n  VERDICT: verdict,\n  FINDINGS_TEXT: findingsText,\n  UNREADABLE: unreadable,\n  RETRY: verdict === 'fix' && round < cycles,\n  REVIEW_REASON: unreadable ? 'the critic did not answer, or its answer could not be read' : '',\n  REVIEW: JSON.stringify({ round: round + 1, verdict, findings, unreadable, raw: raw.slice(0, 2000) }),\n} }];\n"
+      }
     },
     {
+      "id": "6cf8ea11-b2d5-40e6-d8a9-5137e94a6c2b",
+      "name": "if_raster_findings",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        5728,
+        160
+      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -3474,20 +3482,9 @@
         },
         "looseTypeValidation": true,
         "options": {}
-      },
-      "id": "6cf8ea11-b2d5-40e6-d8a9-5137e94a6c2b",
-      "name": "if_raster_findings",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        5728,
-        160
-      ]
+      }
     },
     {
-      "parameters": {
-        "jsCode": "// The fix for a raster is a rewritten image prompt, so the finding goes back to the prompt\n// writer: `visual_raster.md` already carries the reviewer's feedback block, and re-fetching it\n// with this feedback is what puts the change into the next prompt. The round is incremented for\n// the bound the gate reads.\nconst a = $input.first().json;\nreturn [{ json: {\n  ...a,\n  FEEDBACK: a.FINDINGS_TEXT || '',\n  RASTER_REVIEW_ROUND: Math.max(0, Number(a.RASTER_REVIEW_ROUND || 0)) + 1,\n} }];\n"
-      },
       "id": "7d09fb22-c3e6-41f7-e9ba-6248f05b7d3c",
       "name": "raster_feedback",
       "type": "n8n-nodes-base.code",
@@ -3495,7 +3492,10 @@
       "position": [
         5952,
         432
-      ]
+      ],
+      "parameters": {
+        "jsCode": "// The fix for a raster is a rewritten image prompt, so the finding goes back to the prompt\n// writer: `visual_raster.md` already carries the reviewer's feedback block, and re-fetching it\n// with this feedback is what puts the change into the next prompt. The round is incremented for\n// the bound the gate reads.\nconst a = $input.first().json;\nreturn [{ json: {\n  ...a,\n  FEEDBACK: a.FINDINGS_TEXT || '',\n  RASTER_REVIEW_ROUND: Math.max(0, Number(a.RASTER_REVIEW_ROUND || 0)) + 1,\n} }];\n"
+      }
     }
   ],
   "pinData": {},
@@ -3521,6 +3521,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 2,
-  "updatedAt": "2026-10-17T20:05:52.018Z",
-  "versionId": "79bfe2ea-384a-4731-84e2-9dd4a96954d1"
+  "updatedAt": "2026-10-18T09:55:43.798Z",
+  "versionId": "5e11df0f-4132-4eb1-9198-99059d5056b6"
 }

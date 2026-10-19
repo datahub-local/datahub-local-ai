@@ -4275,7 +4275,7 @@
         384
       ],
       "parameters": {
-        "jsCode": "// The fetched bytes, as base64 for the blob API, carrying the same fields the local branch\n// already had so the two paths converge on one shape.\nconst j = $('plan_asset_uploads').all().find((i) => i.json.S3_KEY === $('asset_publish_url').first().json.S3_KEY).json;\nconst bin = ($input.first().binary || {}).data;\nif (!bin) throw new Error('the signed url served no bytes for ' + j.ASSET_TYPE);\nreturn [{ json: { ...j, FILE_BASE64: Buffer.from(bin.data).toString('base64'), FILE_BYTES: bin.data.length, NEEDS_FETCH: false } }];\n"
+        "jsCode": "// The fetched bytes, as base64 for the blob API, carrying the same fields the local branch\n// already had so the two paths converge on one shape. In queue mode the payload lives in the\n// binary store and binary.data.data is the literal \"database\", so the bytes are read through\n// the helper rather than the item field.\nconst j = $('plan_asset_uploads').all().find((i) => i.json.S3_KEY === $('asset_publish_url').first().json.S3_KEY).json;\nconst bin = ($input.first().binary || {}).data;\nif (!bin) throw new Error('the signed url served no bytes for ' + j.ASSET_TYPE);\nconst buf = await helpers.getBinaryDataBuffer(0, 'data');\nif (!buf.length) throw new Error('the signed url served no bytes for ' + j.ASSET_TYPE);\nreturn [{ json: { ...j, FILE_BASE64: buf.toString('base64'), FILE_BYTES: buf.length, NEEDS_FETCH: false } }];\n"
       }
     },
     {

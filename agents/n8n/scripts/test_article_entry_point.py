@@ -17,6 +17,7 @@ mode that is silent at run time, which is why they are pinned rather than review
     re-authored.
 """
 
+import base64
 import json
 import re
 import shutil
@@ -255,6 +256,55 @@ def test_a_raster_is_stored_and_an_agent_asset_is_refetched():
     assert _targets("if_asset_needs_fetch", 0) == ["presign_asset_publish"]
     assert _targets("if_asset_needs_fetch", 1) == ["create_blobs"]
     assert "create_blobs" in _reachable("asset_bytes_from_download")
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason=NODE_REQUIRED)
+def test_the_fetched_asset_bytes_are_read_from_the_binary_store():
+    """In queue mode the payload is not on the item, and the item says so in one word.
+
+    Measured on execution 14259 (2026-10-19): the fetch branch ran, the signed URL served
+    14,338 bytes, and the published SVG was 8 bytes reading `database` — the literal value
+    `binary.data.data` carries in this deployment, which the commit then base64-encoded. The
+    bytes are read through `helpers.getBinaryDataBuffer`, the helper `encode_stills` in
+    Visual Studio already uses for the same reason.
+    """
+    payload = b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720"></svg>'
+    harness = textwrap.dedent(
+        """
+        (async () => {
+          const scope = {
+            plan_asset_uploads: [{ S3_KEY: 'visual-studio/14304-svg_wide.svg', ASSET_TYPE: 'svg_wide' }],
+            asset_publish_url: [{ S3_KEY: 'visual-studio/14304-svg_wide.svg' }],
+          };
+          const payload = Buffer.from('%s', 'base64');
+          const incoming = [{
+            json: { ...scope.plan_asset_uploads[0], NEEDS_FETCH: true },
+            binary: { data: { data: 'database', id: 'database:fake', mimeType: 'image/svg+xml', bytes: payload.length } },
+          }];
+          const $ = (n) => {
+            const items = scope[n].map((json) => ({ json }));
+            return { first: () => items[0], all: () => items, item: items[0] };
+          };
+          const $input = { all: () => incoming, first: () => incoming[0] };
+          const $json = incoming[0].json;
+          const helpers = { getBinaryDataBuffer: async () => payload };
+          const fn = new Function('$', '$input', '$json', 'helpers', 'return (async function(){' + %s + '})()');
+          const out = await fn($, $input, $json, helpers);
+          process.stdout.write(JSON.stringify(out));
+        })();
+        """
+    ) % (base64.b64encode(payload).decode(), json.dumps(_js("asset_bytes_from_download")))
+    with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as fh:
+        fh.write(harness)
+        path = fh.name
+    try:
+        done = subprocess.run(["node", path], capture_output=True, text=True, check=False)
+    finally:
+        Path(path).unlink()
+    assert done.returncode == 0, done.stderr
+    item = json.loads(done.stdout)[0]["json"]
+    assert base64.b64decode(item["FILE_BASE64"]) == payload, "the placeholder was committed instead of the bytes"
+    assert item["FILE_BYTES"] == len(payload)
 
 
 def test_the_draft_row_is_upserted_so_a_round_does_not_accumulate_rows():

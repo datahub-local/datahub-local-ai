@@ -1,7 +1,7 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "f44df91b-baa8-43c1-8937-73098e963385",
+    "versionId": "97f0d3a2-0cfb-4eab-b783-08d09c8b0f6b",
     "workflowId": "PaeHFdCsdoVbQx11",
     "nodes": [
       {
@@ -1037,10 +1037,10 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-10-18T16:11:10.491Z",
-    "updatedAt": "2026-10-18T16:11:10.491Z"
+    "createdAt": "2026-10-19T17:55:44.032Z",
+    "updatedAt": "2026-10-19T17:55:44.032Z"
   },
-  "activeVersionId": "f44df91b-baa8-43c1-8937-73098e963385",
+  "activeVersionId": "97f0d3a2-0cfb-4eab-b783-08d09c8b0f6b",
   "connections": {
     "create_post_ai": {
       "main": [
@@ -2098,6 +2098,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 0,
-  "updatedAt": "2026-10-18T16:11:10.493Z",
-  "versionId": "f44df91b-baa8-43c1-8937-73098e963385"
+  "updatedAt": "2026-10-19T17:55:44.027Z",
+  "versionId": "97f0d3a2-0cfb-4eab-b783-08d09c8b0f6b"
 }

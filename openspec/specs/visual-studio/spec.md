@@ -278,8 +278,14 @@ be rendered as one item per scene. WHEN the request declares more than one scene
 the brief SHALL also ask for an opening title scene that names the subject, placed
 before the declared scenes, so the authored visual carries the declared count plus
 the title. WHEN the request declares exactly one scene, the brief SHALL NOT ask for
-a title scene. When the request declares no scene count, the composer SHALL choose
-its own storyboard.
+a title scene.
+
+When the request declares no scene count, the composer SHALL choose its own
+storyboard. If the requested type declares that it sequences content
+(`introScene`), the brief SHALL still ask for an opening title scene that names the
+subject — the company, product or technology the post is about — before the content
+scenes; the content scene count remains the composer's. A type that does not declare
+`introScene` SHALL NOT be asked for one.
 
 #### Scenario: A declared scene count is honoured
 
@@ -300,7 +306,19 @@ its own storyboard.
 #### Scenario: No scene count leaves the storyboard to the composer
 
 - **WHEN** a request declares no scene count
-- **THEN** the composer plans its own scenes
+- **THEN** the composer plans its own content scenes
+
+#### Scenario: An animated clip introduces its subject
+
+- **WHEN** a request declares no scene count and the type declares `introScene`
+- **THEN** the brief asks for an opening title scene that names the subject
+- **AND** the content scenes remain the composer's
+
+#### Scenario: A type that is not a sequence gets no title
+
+- **WHEN** a request declares no scene count and the type does not declare
+  `introScene` (a tiling loop, an SVG, a still, a deck)
+- **THEN** the brief asks for no title scene
 
 ### Requirement: A request and a type may ask for effects
 

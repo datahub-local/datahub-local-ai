@@ -77,5 +77,5 @@
   one invocation), the run 14178 measurements, the probe that proved a node reads its own earlier
   runs, and that no prompt file changed so no push order applies. **Landed** beside the retry
   paragraph in the `#### Article Creator` subsection.
-- [ ] 6.2 Archive once 4.2 and 5.1 have landed:
+- [x] 6.2 Archive once 4.2 and 5.1 have landed:
   `openspec archive carry-the-draft-into-the-human-retry`.

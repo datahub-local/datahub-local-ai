@@ -77,7 +77,7 @@ place.
   `test_article_review_gate.py`, `test_content_board_curator.py` extended; new
   `test_article_aspects.py`. `test_model_timeouts.py`, `test_prompt_sources.py`,
   `test_workflow_invariants.py`, `test_code_nodes_parse.py` sweep the new nodes automatically.
-- **Cross-change**: the active `carry-the-draft-into-the-human-retry` change owns the article
+- **Cross-change**: `carry-the-draft-into-the-human-retry` (archived 2026-10-20) owns the article
   retry wiring this change rewires; its article-half test moves here and its requirement still
   holds — the receiver of the carried draft becomes the improvement pass. The LinkedIn half is
   untouched.

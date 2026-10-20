@@ -41,7 +41,7 @@ Read off the exports and the live-lane history before authoring anything:
   storing and uploading the worse one. The chain therefore ends in one convergence node
   (`select_final_draft`) shaped like `set_output` (`{text, title, word_count, …}`) that becomes
   the single draft source for every consumer.
-- **The active `carry-the-draft-into-the-human-retry` change owns the wiring being rewired.** Its
+- **The `carry-the-draft-into-the-human-retry` change (archived 2026-10-20) owns the wiring being rewired.** Its
   article-half (`PREVIOUS_DRAFT` on `execute_article_creator`) becomes dead the moment the retry
   edge stops re-entering the drafting call: within one execution the sub-workflow now runs at
   most once, so the mapping is always empty when evaluated. Its requirement — a human retry is
@@ -305,7 +305,7 @@ the queue-mode placeholder trap does not apply, and the studio storage rule is u
 - **The improvement chain adds ~13 nodes to a 76-node entry graph.** → Accepted: the entry owns
   review, so it owns improvement; every node is one of four already-proven shapes (download,
   code, chain, agent). `test_workflow_invariants.py` sweeps names, edges and positions.
-- **Interaction with the active `carry-the-draft-into-the-human-retry` change.** → Its
+- **Interaction with the `carry-the-draft-into-the-human-retry` change (archived 2026-10-20).** → Its
   article-half test is rewritten here and its requirement still holds (Gate findings); its
   LinkedIn half is untouched. Its unarchived 5.1 task is superseded by this change's behaviour
   tasks; note that in its `tasks.md` when archiving.

@@ -87,7 +87,7 @@ def test_a_type_may_pin_the_form_it_means(registry):
     # arrays and prompts/visual_forms.md are one list (test_hook_registry.py pins that), and a
     # typo here would reach the composer as prose it may ignore.
     text = (PROMPTS / "visual_forms.md").read_text(encoding="utf-8")
-    known = set(re.findall(r"^- `([a-z_]+)`:", text, re.M))
+    known = set(re.findall(r"^- `([a-z_]+)`:", text, re.MULTILINE))
     assert known, "the form vocabulary could not be read"
     for t in registry["types"]:
         if "form" in t:

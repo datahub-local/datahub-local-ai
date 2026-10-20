@@ -159,7 +159,7 @@
  committed as an extra asset. It is why the stale row had to go, and it wants its own fix: the
  commit path should read the requested set the gate already computes.
 
-- [ ] 4.18 A type can pin the composition form it means. The registry had no form field, so a
+- [x] 4.18 A type can pin the composition form it means. The registry had no form field, so a
   diagram could only be *hoped* for: `FORCE` is one value per request, and the article's brief
   sends none, leaving the choice to the composer (it picked `diagram` for this subject, by choice
   rather than by contract)

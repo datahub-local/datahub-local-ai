@@ -232,3 +232,10 @@ All of section 3 is **both graph copies** in `article_content_writer.workflow.js
 - **Still open:** 6.2 (a human retry with feedback), 6.3 (an over-budget improvement falling
   back), 6.5 (a blank row reads `NONE`, an invalid value is refused — the refusal is covered
   offline), and the publish half after the review is approved.
+- **The retry requirement is `MODIFIED` here, not only `ADDED`.** Archiving
+  `carry-the-draft-into-the-human-retry` on 2026-10-20 merged its requirement into
+  `openspec/specs/content-writer/spec.md` verbatim, which states that a human retry re-enters the
+  drafting sub-workflow — true when it was written, false since this change moved the retry edge
+  to `build_improvement_context` (5.2's guard names exactly that edge). The delta here rewrites it
+  to the shipped behaviour, so the spec converges when this change archives; without it the spec
+  describes a graph that no longer exists.

@@ -1,7 +1,7 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "5633ca91-3d9c-4fac-8597-1e637c4a6879",
+    "versionId": "6ac63887-4115-4db4-bcc9-7d3ed2dd056b",
     "workflowId": "RCSPaKMKsckAnJ9B",
     "nodes": [
       {
@@ -200,6 +200,7 @@
         "notes": "The dedupe source and the ceiling's input, read once at the top. alwaysOutputData: an empty queue is a normal first run, and the intake still has to append to it.",
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
+        "executeOnce": true,
         "alwaysOutputData": true,
         "position": [
           1100,
@@ -233,8 +234,7 @@
             "id": "pGARJmt50qz64xOo",
             "name": "Google Sheets account"
           }
-        },
-        "executeOnce": true
+        }
       },
       {
         "id": "b1a0c0de-0008-4a10-9a11-000000000008",
@@ -1133,10 +1133,10 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-10-18T08:48:59.936Z",
-    "updatedAt": "2026-10-18T08:48:59.936Z"
+    "createdAt": "2026-10-19T18:32:43.300Z",
+    "updatedAt": "2026-10-19T18:32:43.300Z"
   },
-  "activeVersionId": "5633ca91-3d9c-4fac-8597-1e637c4a6879",
+  "activeVersionId": "6ac63887-4115-4db4-bcc9-7d3ed2dd056b",
   "connections": {
     "schedule_trigger": {
       "main": [
@@ -1499,6 +1499,7 @@
       "notes": "The dedupe source and the ceiling's input, read once at the top. alwaysOutputData: an empty queue is a normal first run, and the intake still has to append to it.",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
+      "executeOnce": true,
       "alwaysOutputData": true,
       "position": [
         1100,
@@ -1532,8 +1533,7 @@
           "id": "pGARJmt50qz64xOo",
           "name": "Google Sheets account"
         }
-      },
-      "executeOnce": true
+      }
     },
     {
       "id": "b1a0c0de-0008-4a10-9a11-000000000008",
@@ -2295,6 +2295,6 @@
   },
   "tags": [],
   "triggerCount": 1,
-  "updatedAt": "2026-10-18T08:48:59.930Z",
-  "versionId": "5633ca91-3d9c-4fac-8597-1e637c4a6879"
+  "updatedAt": "2026-10-19T18:32:43.294Z",
+  "versionId": "6ac63887-4115-4db4-bcc9-7d3ed2dd056b"
 }

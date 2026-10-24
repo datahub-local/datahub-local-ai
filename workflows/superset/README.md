@@ -35,7 +35,9 @@ workflows/superset/
 ## Workflow
 
 1. Edit the YAML under `projects/<project>/dashboard_export/`.
-2. Rebuild the bundles (reproducible zips — no diff churn on rebuild):
+2. Rebuild the bundles (deterministic contents and timestamps; the deflate stream belongs to
+   the interpreter that builds, so a rebuild on another Python is a binary diff with identical
+   contents):
 
    ```bash
    python3 scripts/build_bundles.py

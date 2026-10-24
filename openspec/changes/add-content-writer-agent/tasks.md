@@ -142,6 +142,15 @@
  and connection hashes equal for both workflows, and every parameter of every touched node equal;
  the only differences are `settings.binaryMode` and node positions, both UI-owned and reconciled by
  the 02:00 backup.
+ **Residue read 2026-10-22: the push landed, the sheet cell did not.** `datasets/visual_types.json`
+ and `prompts/visual_raster.md` are committed (`git status agents/n8n/` clean), so both halves a
+ run fetches from `main` are live. The graph carries the pair (`if_assets_blocked`,
+ `notify_assets_blocked` in the 101-node export) and the studio's `ASPECT` expression. The test
+ row was never pointed at the wide pair: the rows that reached the lane since are board imports
+ carrying their own `ASSET_TYPES` (`image,svg` on rows 200 and 201), which is the intended
+ per-row override and not a fallback. The remaining act is a sheet edit no run will report, so
+ the box stays open on that alone.
+
  **One coupling had to be closed before applying.** The hero rule is duplicated in
  `select_article_to_queue` and in the publish gate, and a gate that prepends a type the selector did
  not ask for blocks every run forever. Both now read the same predicate: either raster counts as a
@@ -199,4 +208,13 @@
  /api/v1/workflows/sKsjxDDW40TATaS6/deactivate` answered `200`, the read-back is `active: False,
  activeVersionId: null` with all 78 nodes intact, and the export still says `True` until the 02:00
  backup reconciles it. Re-arm only when 6.2–6.5 have passed.
+ **Armed again and left armed by the owner, 2026-10-22.** The workflow was found live
+ `active: true` with the same cron (last updated 2026-10-19T20:44Z; that edit is the
+ improvement-pass apply, which did not report an activation, so who armed it is not recorded).
+ Two ticks have run since, and each selected exactly one row and drafted it — 14570 on 2026-10-20
+ took row 200 (`gh-79`), 14734 on 2026-10-22 took row 201 (`gh-80`), both `IMPROVED` and both
+ left `WAITING_APPROVAL` — so the "at most one entry per trigger" half of this task is measured.
+ The owner chose on 2026-10-22 to leave it armed; the 6.2–6.5 gate on re-arming was therefore
+ overridden rather than met, and the two drafts are waiting on a Slack review.
+
 - [ ] 6.7 Verify the research path through the entry point, on one row each: (a) a subject the web has — the draft cites a page the writer fetched during the run and cites nothing else; (b) a subject it does not — the draft cites nothing, says no source was found, and is still produced. Both were exercised against `Article Creator` by probe and are recorded in the design's measurements; this task is the same two runs end to end, where the row state and the Slack review are part of the evidence. Also record how often `ai_model` fails on a tool-attached call and whether any run exhausts `maxIterations`

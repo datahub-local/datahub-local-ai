@@ -5,8 +5,12 @@ Writes release/files/<project>.zip for every project that has a dashboard_export
 directory. The release chart packages these zips as ConfigMaps consumed by the
 Superset dashboard sidecar (datahub-local-core).
 
-Zips are reproducible (fixed timestamps, sorted entries) so rebuilding without
-changes leaves the working tree clean.
+Zips are deterministic for the interpreter that builds them (fixed timestamps,
+sorted entries), not across interpreters: the deflate stream is that zlib's, so a
+rebuild on a different Python can differ byte-wise while every entry decompresses
+identically. Measured 2026-10-22: the committed bodega.zip differs in compressed
+size for 35 of 39 entries against a rebuild here, contents equal, and this
+interpreter links zlib-ng.
 
 Also refuses to build a dataset that reads bronze. Trino grants `superset` full
 access to every medallion catalog, so nothing else stops it, and bronze holds

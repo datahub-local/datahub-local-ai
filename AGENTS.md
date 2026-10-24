@@ -11,7 +11,7 @@ A monorepo of data workflow definitions for a local/homelab Datahub stack. Sub-p
 - `workflows/airflow/` — Airflow DAGs that orchestrate the dlt + dbt tasks via Kubernetes pods
 - `workflows/dbt/` — dbt Core pipelines on **Trino** (homelab) / **DuckDB** (local), Iceberg + Apache Polaris, medallion architecture; a thin Python `dbt_runner` wraps `dbt build`
 - `workflows/dlt/` — [dlt](https://dlthub.com) ingest/export pipelines (CSV → bronze; silver/gold → Postgres) that run *around* dbt
-- `workflows/superset/` — Superset dashboard export bundles per project (`workflows/superset/projects/<name>/dashboard_export/` YAML) plus a Helm release (`workflows/superset/release/`) that ships them as ConfigMaps labeled `superset_dashboard=1` for the dashboard sidecar in datahub-local-core. After editing YAML: `python3 workflows/superset/scripts/build_bundles.py` rebuilds the reproducible zips under `release/files/`, then `helmfile apply` from `workflows/superset/release/` deploys them. Object `uuid`s are the stable identity across re-imports — never regenerate them once deployed.
+- `workflows/superset/` — Superset dashboard export bundles per project (`workflows/superset/projects/<name>/dashboard_export/` YAML) plus a Helm release (`workflows/superset/release/`) that ships them as ConfigMaps labeled `superset_dashboard=1` for the dashboard sidecar in datahub-local-core. After editing YAML: `python3 workflows/superset/scripts/build_bundles.py` rebuilds the zips under `release/files/` — the build refuses a dataset that reads bronze, and the archive is deterministic in contents and timestamps but not byte-for-byte across interpreters, because the deflate stream is the building zlib's — then `helmfile apply` from `workflows/superset/release/` deploys them. Object `uuid`s are the stable identity across re-imports — never regenerate them once deployed.
 
 ## AI prompt policy
 
@@ -141,12 +141,15 @@ How each half is held today:
 - **dbt: structural.** `raw_invoices` is a **source**, not a model, and
   `dbt_project.yml` materialises only into `+database: silver` or `gold`. No
   dbt model can land in bronze.
-- **Superset: convention only.** Trino's `rules.json` grants `superset` full
-  access to `bronze|silver|gold|memory|test`, so nothing stops a virtual dataset
-  selecting from bronze. Every dataset under
-  `workflows/superset/projects/*/dashboard_export/` must therefore be checked by
-  review; today all eleven read silver or gold. Narrowing the Trino rule is the
-  enforcing fix if this is ever violated.
+- **Superset: at build time.** `scripts/build_bundles.py` refuses to build a
+  project whose dataset YAML selects from `bronze.` or declares
+  `catalog: bronze`, and it matches the raw YAML so the check holds whatever
+  shape an export takes. A bundle therefore cannot be produced from the landing
+  zone, and every committed dataset reads silver or gold. What it does not
+  cover is a dataset edited in the running Superset rather than in
+  `projects/`: the sidecar imports the bundles, but nothing else stops a UI
+  edit, and Trino's `rules.json` still grants `superset` the bronze catalog —
+  narrowing that rule is the enforcing fix for that path.
 
 Trino's access-control file lists users explicitly with **no catch-all**, so an
 unlisted user is denied every statement — verified: an invented name fails even
@@ -266,10 +269,15 @@ every n8n pod for 7 days matches nothing at `log_level: info`), so an unwired
 failure is invisible in Slack, in the logs and in Prometheus at once. Thirteen of
 fifteen workflows were in that state, for months.
 
-Nothing enforces this. There is no schema, no CI gate and no admission webhook
-on a workflow export, so it is review and this rule. When adding a workflow,
-state in the PR which of the three categories it is and how its failure
-surfaces.
+`test_workflow_invariants.py` enforces the mechanical half of the rule, so the wiring is no
+longer review-only: an entry point (a schedule, webhook or form trigger) must set
+`settings.errorWorkflow`, a workflow that only a parent workflow calls must leave it unset — or
+one failure posts twice — an error handler must set none, and the target must be a workflow in
+the repository, must be **active**, and must itself carry an error trigger. What remains review
+is the judgement the triggers cannot see: whether a workflow belongs in the category its triggers
+put it in, and what a manual-only workflow's failures are worth, since n8n does not invoke an
+error workflow for a manual execution. When adding a workflow, state in the PR which of the three
+categories it is and how its failure surfaces.
 
 **A workflow edit is not done until it is tidy.** Two halves, and only the first is
 automatable. `agents/n8n/scripts/test_workflow_invariants.py` holds the objective part,
@@ -1453,9 +1461,9 @@ the same row in one run (two writes, `EXPIRED` and `CANCELED`, would otherwise r
 escapes both (an old article rewritten recently did, in the first version). Both reads
 carry `alwaysOutputData`: n8n does not execute a zero-item node, so without it a quiet board
 would stop the chain before the ceiling ran — the same failure shape as a filter emptying a
-chain. The intake is **live** (created `RCSPaKMKsckAnJ9B`, active, error workflow wired); its
-committed file is still a **create body** until the nightly backup rewrites it as a full export,
-which is why the invariant test that compares the two graph copies skips it for now.
+chain. The intake is **live** (created `RCSPaKMKsckAnJ9B`, active, error workflow wired), and
+since the 2026-10-20 backup its committed file is a full export carrying its id and
+`activeVersion`, so the two-copy invariant and the rest apply to it like any other workflow.
 
 ### MCP servers
 

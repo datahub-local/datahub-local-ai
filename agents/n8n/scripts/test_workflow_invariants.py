@@ -3,7 +3,9 @@
 A workflow edit is not done until the graph is tidy. Most of that is judgement -- node
 names, grouping, how it reads in the editor -- but these are objective, and each one has
 bitten: the two copies of a graph drifting apart, a node nothing connects, a reference
-left behind by a rename, a call to a workflow that is not in the repository.
+left behind by a rename, a call to a workflow that is not in the repository, a failure
+nothing reports (or one reported twice because a sub-workflow notified as well as its
+caller).
 
 Parametrized over every export, like ``test_workflow_exports.py`` and
 ``test_workflow_expressions.py``, so it holds for the next workflow too rather than for
@@ -43,6 +45,36 @@ def _ids():
 
 
 IDS = _ids()
+
+# Node types that make a workflow an entry point, and the one that makes it an error handler.
+# `manualTrigger` is deliberately absent: n8n does not invoke `settings.errorWorkflow` for a
+# manual execution, so a manual run is not something an error workflow can report.
+ENTRY_TRIGGERS = {
+    "n8n-nodes-base.scheduleTrigger",
+    "n8n-nodes-base.webhook",
+    "n8n-nodes-base.formTrigger",
+}
+ERROR_TRIGGER = "n8n-nodes-base.errorTrigger"
+
+
+def _triggers(data):
+    return {node["type"] for node in data.get("nodes") or []}
+
+
+def _callers():
+    """Workflow id -> the workflows whose nodes call it, so a sub-workflow is distinguishable."""
+    callers = {}
+    for path in EXPORTS:
+        data = json.loads(path.read_text())
+        for node in data.get("nodes") or []:
+            target = (node.get("parameters") or {}).get("workflowId")
+            # A dynamic id (`={{ $workflow.id }}`) is a loop over workflows, not a call.
+            if isinstance(target, dict) and isinstance(target.get("value"), str) and not target["value"].startswith("="):
+                callers.setdefault(target["value"], set()).add(data.get("name"))
+    return callers
+
+
+CALLERS = _callers()
 
 
 def _copies(path):
@@ -263,3 +295,44 @@ def test_every_called_workflow_exists_in_the_repository(path):
         if wid not in IDS
     ]
     assert not missing, f"references a workflow the repository does not have: {missing}"
+
+
+@pytest.mark.parametrize("path", EXPORTS, ids=lambda p: p.name)
+def test_a_failing_workflow_reports_exactly_once(path):
+    """An entry point notifies, a sub-workflow raises, and an error handler never reports itself.
+
+    A workflow with no error handling fails silently in Slack, in the logs and in Prometheus at
+    once, and the other direction is no better: an error workflow set on both a sub-workflow and
+    its caller posts the same failure twice.
+    """
+    data = _document(path)
+    triggers = _triggers(data)
+    handler = (data.get("settings") or {}).get("errorWorkflow")
+    if ERROR_TRIGGER in triggers:
+        assert not handler, "an error handler must not carry settings.errorWorkflow"
+    elif triggers & ENTRY_TRIGGERS:
+        assert handler, "an entry point without settings.errorWorkflow fails silently"
+    else:
+        assert not handler or data.get("id") not in CALLERS, (
+            "a sub-workflow propagates to its caller; its own settings.errorWorkflow would report twice"
+        )
+
+
+@pytest.mark.parametrize("path", EXPORTS, ids=lambda p: p.name)
+def test_an_error_handler_is_active_and_is_a_handler(path):
+    """A handler that is inactive, or not a handler, reports nothing while looking wired.
+
+    Hit 2026-09-28: the target existed, was named, and was deactivated, so n8n answered "is not
+    active and cannot be executed" and the failure went unreported.
+    """
+    data = _document(path)
+    handler = (data.get("settings") or {}).get("errorWorkflow")
+    if not handler:
+        return
+    assert handler != data.get("id"), "a workflow cannot be its own error handler"
+    filename = IDS.get(handler)
+    assert filename, f"settings.errorWorkflow -> {handler} is not a workflow in the repository"
+    target = json.loads((WORKFLOWS / filename).read_text())
+    assert target.get("active"), f"{target.get('name')} is inactive, so its failures are not reported"
+    assert ERROR_TRIGGER in _triggers(target), f"{target.get('name')} carries no error trigger"
+

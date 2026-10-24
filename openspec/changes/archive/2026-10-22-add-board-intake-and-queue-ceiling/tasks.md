@@ -75,9 +75,14 @@
   Read back and diffed against the export: nodes, connections and settings equal (the export
   gained the two n8n-generated `webhookId`s). **The GitHub read is not yet exercised by a run** —
   see 5.4.
-- [ ] 5.3 Let the nightly backup rewrite both files as full exports (the curator file already is
+- [x] 5.3 Let the nightly backup rewrite both files as full exports (the curator file already is
   one; the board file gains its id and `activeVersion`), and confirm `pytest
-  agents/n8n/scripts/` stays green afterwards.
+  agents/n8n/scripts/` stays green afterwards. **Done by the 2026-10-20 backup** (`4f1ca8f`):
+  `content_board_curator.workflow.json` now carries `id RCSPaKMKsckAnJ9B`, `active: true` and an
+  `activeVersion` whose 15 nodes and connections are equal to the top level, so the two-copy
+  invariant covers it. `pytest agents/n8n/scripts/` was green afterwards and is on 2026-10-22
+  (**844 passed**); the stale "create body, invariant skips it" sentence in `AGENTS.md` is
+  corrected.
 - [x] 5.4 Force one run (editor *Execute workflow*, or the 12:15 tick) and read the outcome back
   from `article_queue`: the four open `post` issues imported once, `ORIGIN=BOARD`, no duplicates
   on a second run, and the Slack notice naming the count. This is the only check that proves the

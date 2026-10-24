@@ -13,6 +13,7 @@ every graph are checked where the export carries two.
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -175,6 +176,28 @@ def test_the_improvement_chain_is_wired_in_order():
                 seen.add(nxt)
                 queue.append(nxt)
     assert "notify_article_review" in seen, "the improved draft does not reach the review"
+
+
+def test_the_retry_is_bounded_at_two_attempts():
+    """`gte` over `$runIndex + 1` reads as attempts, so the bound of 2 means one retry.
+
+    The drafting loop's `MAX_TRIES = 3` admits four drafts because it compares `gt`; copying that
+    idiom here would silently grant a second retry, and every retry is another full-draft edit.
+    """
+    context = _node("build_improvement_context")["parameters"]["jsCode"]
+    assert re.search(r"IMPROVE_MAX_ATTEMPTS:\s*2\b", context), "the bound moved or was dropped"
+    switch = _node("switch_improved_ok")["parameters"]
+    rules = switch["rules"]["values"]
+    assert [r["conditions"]["conditions"][0]["id"] for r in rules] == [
+        "improved-ok",
+        "improved-bound",
+    ]
+    bound = rules[1]["conditions"]["conditions"][0]
+    assert bound["leftValue"] == "={{ $runIndex + 1 }}"
+    assert "IMPROVE_MAX_ATTEMPTS" in bound["rightValue"], "the bound is a literal, not the context"
+    assert bound["operator"]["operation"] == "gte", "gt would admit a third attempt"
+    # Output 2 is the fallback, and it is the only edge back into the improver.
+    assert switch["options"]["fallbackOutput"] == "extra"
 
 
 def test_the_improver_is_an_agent_with_no_tools_and_both_models():

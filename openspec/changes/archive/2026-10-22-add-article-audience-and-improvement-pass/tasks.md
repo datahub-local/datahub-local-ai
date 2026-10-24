@@ -29,8 +29,8 @@
   `content_board_curator.workflow.json`: `build_intake_rows` carries `AUDIENCE`,
   `append_article_queue` gains the value map entry and the `columns.schema` entry with
   `removed: false`. Both graph copies.
-- [ ] 1.8 The `article_queue` page: add the `AUDIENCE` column by hand (setup step; a write to a
-  column the sheet lacks is [UNVERIFIED] and not relied on).
+- [x] 1.8 The `article_queue` page: add the `AUDIENCE` column by hand (setup step; a write to a
+  column the sheet lacks is [UNVERIFIED] and not relied on). Done live in 5.4.
 
 ## 2. The aspect registry and its prompts
 
@@ -132,15 +132,18 @@ All of section 3 is **both graph copies** in `article_content_writer.workflow.js
 
 - [x] 6.1 First pass with findings: three aspect calls answer, the improver edits, the re-check
    passes, the review message names `IMPROVED` and the findings count.
-- [ ] 6.2 A human retry: the edge re-enters `build_improvement_context`, the improvement
-   prompt carries the draft the human read and the feedback, and the next draft keeps what the
-   feedback did not name.
-- [ ] 6.3 An over-budget improvement (force with `EXTRA_PROMPT` pushing past `MAX_WORDS`): the
-   re-check rejects in code, one retry, then `IMPROVED: FALLBACK` with the gate-passed draft.
+- [ ] 6.2 [UNVERIFIED] A human retry: the edge re-enters `build_improvement_context`, the
+   improvement prompt carries the draft the human read and the feedback, and the next draft
+   keeps what the feedback did not name.
+- [ ] 6.3 [UNVERIFIED] An over-budget improvement (force with `EXTRA_PROMPT` pushing past
+   `MAX_WORDS`): the re-check rejects in code, one retry, then `IMPROVED: FALLBACK` with the
+   gate-passed draft.
 - [x] 6.4 An `ADVANCED` row: the drafting prompt carries the level, the gate does not demand
    field-basics explanations, the clarity aspect reviews at the level.
-- [ ] 6.5 A blank `AUDIENCE` row: the article reads exactly as today (`NONE` default), and an
-   invalid value refuses the row naming the value.
+- [x] 6.5 A blank `AUDIENCE` row: the article reads exactly as today (`NONE` default), and an
+   invalid value refuses the row naming the value. Both branches are proven by executing the
+   committed `jsCode` on shaped items (4.3), not by a live run; the positive case is 6.4's live
+   `ADVANCED` row.
 
 ## 7. Documentation
 
@@ -148,8 +151,9 @@ All of section 3 is **both graph copies** in `article_content_writer.workflow.js
   code re-check, degradation taxonomy), the audience flow (one file, three enum copies held by
   tests, push order), and the moved carry-the-draft test. Note in
   `carry-the-draft-into-the-human-retry/tasks.md` that its 5.1 is superseded here.
-- [ ] 7.2 Archive once 4.7, 5.2 and 6.1–6.3 have landed:
-  `openspec archive add-article-audience-and-improvement-pass`.
+- [x] 7.2 Archived 2026-10-22 (`openspec archive add-article-audience-and-improvement-pass`)
+  once 4.7, 5.2 and 6.1/6.4 had landed, with 6.2/6.3 recorded as unmeasured and 6.5 closed on its
+  offline proof — see the closing note.
 
 ## Implementation notes (offline half, 2026-10-19)
 
@@ -239,3 +243,52 @@ All of section 3 is **both graph copies** in `article_content_writer.workflow.js
   to `build_improvement_context` (5.2's guard names exactly that edge). The delta here rewrites it
   to the shipped behaviour, so the spec converges when this change archives; without it the spec
   describes a graph that no longer exists.
+
+## Closing note (2026-10-22)
+
+The owner chose to archive without further live runs, so this change ships with two behaviour
+tasks recorded as unmeasured rather than asserted: **6.2** (a human retry carrying the draft the
+human read into the improvement pass) and **6.3** (an over-budget improvement rejected by
+`check_improved_draft`, retried once, then `IMPROVED: FALLBACK`). Both are wired and asserted
+offline (`test_article_entry_point.py`, including the committed `jsCode` executed against shaped
+items), and the same fallback shape is measured live in the sibling direction: execution 14450
+recorded `IMPROVED: FAILED — Request timed out.` for a timeout rather than an over-budget draft,
+which exercises `select_final_draft`'s fallback precedence without the re-check's rejection.
+
+6.5 closes on its offline proof. Also still unmeasured from the earlier notes: the publish half
+of the lane after an approved review (the asset phase reached `split_pending_types` in execution
+14468 before that run was cancelled on a stale read) — that is the asset and commit path this
+change does not touch.
+
+**6.3's decision is now pinned offline, only its run is missing.** `switch_improved_ok` is a
+declarative Switch, so no test could execute its bound; `test_the_retry_is_bounded_at_two_attempts`
+reads it instead — the `gte` operator over `$runIndex + 1` against the context's
+`IMPROVE_MAX_ATTEMPTS: 2`, and the fallback output as the only edge back into the improver. It
+fails on the `gt`/`3` shape the drafting loop uses, which would have admitted a third attempt
+silently. What stays unmeasured is the live path through it: a draft the improver takes over
+budget, the re-check naming it, one retry, and `IMPROVED: FALLBACK` on the row.
+
+Gates re-run on archiving: `uv run -- pytest agents/n8n/scripts/ -q` → **844 passed**,
+`uv run -- ruff check agents/n8n/` → clean, `openspec validate --all` → **16 passed, 0 failed**.
+
+### Correction: the schedule is live, and it has been running the improvement pass
+
+The design note "`Article Content Writer` is deactivated live … runs are manual from the editor"
+was false by the time this change archived. Read off the API on 2026-10-22: the workflow is
+`active: true` with its `0 0 8 * * 2,4` cron armed (last updated 2026-10-19T20:44Z, who armed it
+is not recorded), and it has fired twice since the improvement pass landed:
+
+- **Execution 14570** (2026-10-20 08:00Z, `trigger`): row 200 (`gh-79`) drafted, `IMPROVED`
+  with `structure: 5, clarity: none, flow: none`, 1060 words, stored and posted; the row reads
+  `WAITING_APPROVAL`.
+- **Execution 14734** (2026-10-22 08:00Z, `trigger`): row 201 (`gh-80`) drafted, `IMPROVED`
+  with `structure: 4, clarity: none, flow: none`, 832 words, stored and posted; the row reads
+  `WAITING_APPROVAL`.
+
+Both are `waiting` on `notify_article_review`, so two drafts are queued for a human. This is a
+second and third live pass through the aspect fan-out and the improver, on the scheduled path
+rather than a hand-fired webhook, and it is the only evidence that the improvement pass survives
+the trigger a real run uses. It does not close 6.2 (both runs are still at round 1, no retry has
+been answered) or 6.3 (neither draft went over budget).
+
+

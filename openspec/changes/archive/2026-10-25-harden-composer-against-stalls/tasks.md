@@ -190,7 +190,9 @@
    `if_animation_retry` took the false output, `execute_image_creator` ran and the run reached
    `notification_accept_image` — the still path with its own approval. Nothing timed the run out
    and it was never parked. That is the half the old wiring could not do for a *failure*.
- - *Still missing: an answer of `Retry animation`.* It needs a second failure of the same kind.
+ - *Still missing: an answer of `Retry animation`.* **Carried open into the archive by the
+   owner's decision, 2026-10-25**: the remaining half is recorded as unverified rather than
+   asserted from the offline suite. It needs a second failure of the same kind.
    The owner chose the **Monday 2026-10-26 16:00 UTC tick** over a manual editor run. Arm the
    fault once `select_article_to_post` has picked its row (the session id is `lips-<row_number>`),
    which is the whole window before the text approval is answered, then **remove it before the

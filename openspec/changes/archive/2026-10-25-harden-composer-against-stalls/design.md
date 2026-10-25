@@ -266,7 +266,12 @@ end, not automated.
 
 - `openspec validate --all` passes with this change present.
 - The gateway change is applied and its effect is read back from the config and from a probe
-  that stalls (a stream that waits longer than 30 s without dying).
+  that stalls (a stream that waits longer than 30 s without dying). **Met in part, and the
+  probe half is `[UNVERIFIED]`:** the setting is in the applied ConfigMap with no Router
+  warning and a streaming call completes (1.3, 1.4), but an inter-chunk stall cannot be
+  induced from this stack, so nothing has ever waited past 30 s against the real gateway.
+  The change tolerates the stall on configuration plus the code path in `stream_with_fallbacks`,
+  and that gap is archived rather than closed.
 - The composer's `settings.json` is present in a session pod and carries the configured values,
   read back with a shell into a live session.
 - A forced stall inside the retry window produces a completed turn, and a stall longer than the

@@ -2118,6 +2118,21 @@ Three things about that pair are not obvious:
   answer for "not listening here"; the allowlist is about scope, not about
   refusing a person, so the 2026-09-04 argument for a visible refusal does not
   apply to it.
+- **The channel Deployment is created once and never updated, so a change to
+  `slackOptions` or `channelAccessControl` needs it deleted.**
+  `agent_controller.go` calls `buildChannelDeployment` only on `IsNotFound` —
+  the existing-Deployment branch just reads `ReadyReplicas` — so the env it
+  bakes (`SLACK_ALLOWED_TRIGGERS`, `SLACK_ALLOWED_CHATS`, the sender lists) is
+  whatever the spec said the day the pod first appeared. Measured 2026-10-25:
+  Ensemble, generated `Agent` and the controller's own view all carried
+  `[mention, channel]` + `allowedChats`, while the sidecar read
+  `mention,dm` and dropped the first plain message
+  `trigger not allowed: kind=channel`. `kubectl delete deploy
+  <instance>-channel-slack` and the reconciler recreates it from the current
+  spec in about ten seconds; a pod restart does not help, because the
+  Deployment's template is what carries the env and nothing rewrites it. Check
+  `kubectl get deploy … -o json | jq '.spec.template.spec.containers[0].env'`
+  after any inbound change, not the `Agent`.
 - **The prompt said "the one message that mentioned you"** and the run now also
   starts on a message that names nobody, so it says "the one message that
   started this run". A prompt describing a trigger that no longer exists is the

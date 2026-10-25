@@ -1416,10 +1416,10 @@ asserted offline in `agents/n8n/scripts/test_article_review_gate.py` and
 over-budget retry that published (13994: 462/400 → 412/400 → 345/400, accepted), the bound
 reporting `MAX_RETRIES_EXCEEDED: <the reviewer's own words>` (13892, 13913), the reviewer
 carrying the committed rules file verbatim, and the hero marker landing where the writer put it
-rather than at `build_commit_files`' fallback position. A live publish was not run: it writes a
-commit to the blog repository, and the placement is a pure function of the draft and the asset
-rows, which
-`test_the_hero_reference_replaces_the_marker_where_the_writer_put_it` takes from run 13994.
+rather than at `build_commit_files`' fallback position. The publish path itself did run live,
+twice — 14228 and 14259 — and each published a defect rather than passing, so the placement is
+not the only open half: **no commit has gone out through the fixed path since those fixes**, and
+the next real article is its first verification, not a re-test.
 
 Two traps in reading this lane's history. `OVER_BUDGET` is a substring of every export's own
 `parse_article` jsCode, so a grep across execution data matches every run including ones that

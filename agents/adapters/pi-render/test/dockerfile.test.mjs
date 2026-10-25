@@ -41,37 +41,49 @@ test("the adapter installs HyperFrames from its own manifest", () => {
   assert.ok(pkg.dependencies.hyperframes, "the toolchain manifest has no hyperframes dependency");
 });
 
-test("the image fetches the framework's full skill set at the pinned release", () => {
-  // The npm dist ships three skills; the rest come from the repository's skills/ tree.
-  assert.ok(
-    pkg.dependencies["@hyperframes/shader-transitions"],
-    "the transition primitives are not a vendored dependency"
-  );
-  // The fetch runs at build time, so the tool that fetches must be installed: the
-  // node slim base purges its own curl and shipped an image with none.
-  assert.match(dockerfile, /^\s*curl\s*\\$/m, "curl is not installed, so the skill fetch cannot run");
-  assert.match(dockerfile, /codeload\.github\.com\/heygen-com\/hyperframes/);
-  assert.match(dockerfile, /--wildcards[^\n]*skills\/\*/);
-  // One release for the engine and its primitives, maintained by Renovate in
-  // package.json; the skill fetch reads that pin instead of keeping a second copy.
+test("the contract comes from the engine binary, not a fetched skill tree", () => {
+  // The npm package is the only upstream artifact this image trusts: its version is in the
+  // lockfile, so it moves when a bump is accepted and not when upstream reorganises a
+  // repository. What this replaces: the build fetched `skills/` from the release tag and
+  // asserted eight directories, and v0.8.185 consolidated them, so every build failed on a
+  // layout that had nothing to do with this adapter.
   assert.equal(
     pkg.dependencies.hyperframes,
     pkg.dependencies["@hyperframes/shader-transitions"],
     "the engine and the transition primitives are on different releases"
   );
-  assert.match(
-    dockerfile,
-    /\.dependencies\.hyperframes/,
-    "the skill fetch does not read the pinned release from package.json"
+  assert.ok(
+    pkg.dependencies["@hyperframes/shader-transitions"],
+    "the transition primitives are not a vendored dependency"
   );
-  assert.match(dockerfile, /refs\/tags\/v\$\{HYPERFRAMES_VERSION\}/);
+  assert.ok(
+    !/codeload\.github\.com/.test(dockerfile),
+    "the build fetches from a release tag again; that tree is upstream's to move"
+  );
+  assert.ok(!/^\s*curl\s*\\$/m.test(dockerfile), "the build installs curl for a fetch that does not exist");
+  assert.ok(
+    !/dist\/skills/.test(dockerfile),
+    "the build copies a skill tree again; the guide reads the binary's docs instead"
+  );
+  assert.match(dockerfile, /hyperframes docs "\$topic"/);
+  assert.match(dockerfile, /missing docs topic in the engine/);
   assert.ok(
     !/ARG HYPERFRAMES_VERSION=/.test(dockerfile),
     "a second hyperframes pin came back in the Dockerfile"
   );
-  for (const skill of ["hyperframes-core", "hyperframes-animation", "hyperframes-keyframes"]) {
-    assert.ok(dockerfile.includes(skill), `the build does not assert the ${skill} skill`);
+});
+
+test("every docs topic the guide names is one the build asserts", () => {
+  // The guide and the engine drifted the moment upstream consolidated its skill tree at
+  // v0.8.185: the guide still sent the composer to hyperframes-core/-animation, and only the
+  // image build noticed. The same pair is read here, so a removed topic fails offline.
+  const guide = readFileSync(join(here, "..", "prompts", "authoring.md"), "utf8");
+  const named = [...new Set(guide.match(/hyperframes docs ([a-z][a-z-]*)/g) ?? [])].map((m) =>
+    m.replace("hyperframes docs ", "")
+  );
+  assert.ok(named.length > 0, "the guide names no docs topic, so this check would be vacuous");
+  assert.ok(named.includes("compositions"), "the guide does not name the composition contract");
+  for (const topic of named) {
+    assert.match(dockerfile, new RegExp(`\\b${topic}\\b`), `the guide names "${topic}", which the build does not assert`);
   }
-  // A missing skill must fail the build, not ship a subset quietly.
-  assert.match(dockerfile, /missing skill in the image/);
 });

@@ -4,39 +4,49 @@
 
 ### Requirement: The composer carries the framework's full authoring capability
 
-The authoring image SHALL carry the rendering framework's complete authoring capability at one
-pinned release, **as that release defines it** — when the release ships one entry skill with
-reference files, the image SHALL carry the entry skill and the references the composer is directed
-to, and SHALL NOT preserve a retired skill layout. The image SHALL NOT rely on the package
-manager's default distribution, which carries only a subset. The image SHALL include the
-framework's transition primitives locally, because the render runs with no network. The presence
-of every skill and reference the composer's guide names SHALL be asserted during the image build,
-and a mismatch between the guide's named paths and the asserted set SHALL fail before the image is
-published.
+The authoring image SHALL take the rendering framework's authoring contract from the installed
+engine itself — the documentation the pinned release serves — rather than from a tree fetched out
+of an upstream repository. Its release SHALL be pinned once, and it SHALL NOT rely on the package
+manager's default distribution of skills. The image SHALL include the framework's transition
+primitives locally, because the render runs with no network. Every documentation topic the
+composer's guide names SHALL be asserted during the image build, and a mismatch between the
+guide's named topics and that set SHALL fail before the image is published.
+
+#### Scenario: The contract is the installed version's
+
+- **WHEN** the composer needs the framework's composition contract or its timeline rules
+- **THEN** it reads them from the engine binary at the pinned release
+- **AND** the guidance cannot describe a version other than the one that renders
 
 #### Scenario: A motion rule is available
 
 - **WHEN** the composer needs the framework's motion knowledge
-- **THEN** the skill or reference that release provides for it is present in the image
-- **AND** it was fetched at the same pinned release as the engine
+- **THEN** the brief carries the committed grammar from `visual_motion_rules.md`
+- **AND** the image is not required to carry a motion skill for it
 
 #### Scenario: A missing skill fails the build
 
-- **WHEN** the expected skill set is not present after the build step
-- **THEN** the build fails naming the missing path
-- **AND** an image carrying a subset is not published
+- **WHEN** the documentation the guide names is not served by the pinned engine
+- **THEN** the build fails naming the topic
+- **AND** no image is published whose guide points at documentation the engine does not have
 
-#### Scenario: The guide and the image cannot drift
+#### Scenario: A missing topic fails the build
 
-- **WHEN** the composer's guide names a skill or reference file
-- **THEN** that path is inside the set the image build asserts
-- **AND** a path outside it fails the offline test suite rather than the composer's first turn
+- **WHEN** a documentation topic the guide names is not served by the pinned engine
+- **THEN** the build fails naming the topic
+- **AND** an image whose guide points at missing documentation is not published
 
-#### Scenario: A release restructures its skill tree
+#### Scenario: The guide and the build cannot drift
 
-- **WHEN** the pinned release no longer ships a path the image or the guide expects
-- **THEN** the build fails naming it
-- **AND** the guide is rewritten against the new layout rather than the retired one being restored
+- **WHEN** the composer's guide names a documentation topic
+- **THEN** that topic is in the set the image build asserts
+- **AND** a topic outside it fails the offline test suite rather than the composer's first turn
+
+#### Scenario: An upstream restructure cannot break the build
+
+- **WHEN** the upstream project moves, renames or retires files in its repository
+- **THEN** the image build is unaffected
+- **AND** only an engine release this repository accepts can change what the composer reads
 
 #### Scenario: Effects need no network at author time
 

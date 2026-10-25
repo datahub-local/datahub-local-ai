@@ -42,42 +42,48 @@ Three concrete consequences, each reproduced rather than inferred:
 Nothing is updated by this proposal's own writing: PR 33 is left as it is. This change is the
 work that makes the engine bump mergeable and keeps the image and the guide in step afterwards.
 
+The first implementation asserted the paths that survive at the tag. The owner then asked
+whether the adapter could depend on the engine binary instead of upstream's skill *files*, so the
+image no longer fetches a repository tree at all: the contract comes from
+`hyperframes docs <topic>`, which the installed package serves.
+
 ## What Changes
 
-- **The image asserts the skill set the pinned release actually ships**, including the
-  `references/` the guide sends the composer to, and keeps the "a missing skill fails the build"
-  property. The list becomes a consequence of the tag, not a copy of the 21-skill layout that
-  upstream retired.
-- **The guide is rewritten against the consolidated skill**: one entry skill, the references the
-  composer needs for the forms this studio authors, the CLI as `hyperframes` (not `npx`), and an
-  explicit statement that the turn always renders — the framework's interactive stop-at-preview
-  loop does not apply inside this adapter.
-- **A drift test ties the guide to the image.** The skill paths `prompts/authoring.md` names must
-  be a subset of the set the Dockerfile asserts, so the next upstream restructure fails offline
-  in `Test Agents` instead of at the composer's first read.
+- **The contract comes from the engine binary, not a fetched skill tree.** The build drops the
+  GitHub fetch, its `curl`, the tag extraction and the skill-path assertions, and instead asserts
+  that the pinned release serves every docs topic the composer's guide names. Unknown topics exit
+  non-zero, so a missing one fails the build naming it.
+- **The guide is rewritten against the binary**: which `hyperframes docs` topics to read, the CLI
+  as `hyperframes` (not `npx`), and an explicit statement that the turn always renders — the
+  framework's interactive stop-at-preview loop does not apply inside this adapter.
+- **A drift test ties the guide to the build.** The docs topics `prompts/authoring.md` names must
+  be the ones the Dockerfile asserts, so a removed topic fails offline in `Test Agents` instead
+  of at the composer's first read.
 - **The documentation that states the old layout is corrected**: `agents/adapters/pi-render/README.md`
-  (skill-set paragraph), `agents/render-samples/README.md` (which skill carries the contract),
-  and the two `AGENTS.md` passages naming the six skills and claiming the render has no size
-  flag — `render --help` at 0.8.195 lists `--resolution` presets, so that claim needs to say what
-  is actually true (presets exist; arbitrary frames are still conformed after the render).
-- **The Pi bump rides along** (1.2.0 → 1.4.0) with the engine bump, since it is the same Renovate
-  group and its compatibility is already checked.
+  (contract source, skill paragraph), `agents/render-samples/README.md`, and the two `AGENTS.md`
+  passages naming the six skills and claiming the render has no size flag — `render --help` at
+  0.8.195 lists `--resolution` presets, so that claim needs to say what is actually true (presets
+  exist; arbitrary frames are still conformed after the render).
+- **The Pi half rides along** (1.2.0 → 1.4.0) with the engine bump, since it is the same Renovate
+  group and its compatibility is already checked — and the loop is run with skills and extensions
+  discovery disabled, so no skill ecosystem can reintroduce a second contract behind the engine's
+  docs.
 
 ## Capabilities
 
 ### Modified Capabilities
 
-- `agent-authored-compositions`: the authoring image carries the framework's capability as the
-  pinned release defines it, the guide's named skills are inside what the image ships, and a turn
+- `agent-authored-compositions`: the authoring image takes the framework's contract from the
+  installed engine, the guide's named documentation is inside what the image ships, and a turn
   always produces a rendered artifact regardless of the framework's interactive preview gate.
 
 ## Impact
 
-- `agents/adapters/pi-render/Dockerfile`: the expected-skill list and the reference files it
-  asserts; the Pi pin moves to 1.4.0.
+- `agents/adapters/pi-render/Dockerfile`: the fetch removed, a docs-topic assertion added, and the
+  Pi pin moved to 1.4.0.
 - `agents/adapters/pi-render/package.json` + `package-lock.json`: engine and transition primitives
   at the chosen release (Renovate's edit, kept).
-- `agents/adapters/pi-render/prompts/authoring.md`: rewritten against the consolidated skill.
+- `agents/adapters/pi-render/prompts/authoring.md`: rewritten against the engine's own docs.
 - `agents/adapters/pi-render/test/dockerfile.test.mjs`: asserts the guide↔image relationship
   instead of three hardcoded skill names.
 - `agents/adapters/pi-render/README.md`, `agents/render-samples/README.md`, `AGENTS.md`: the

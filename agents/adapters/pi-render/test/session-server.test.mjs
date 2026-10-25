@@ -31,13 +31,22 @@ let serverLog = "";
 // handed, so the test can assert the author/edit instruction the server chose.
 const STUB_PI = `#!/usr/bin/env node
 const fs = require("node:fs");
+const { spawnSync } = require("node:child_process");
 fs.writeFileSync("index.html", "<div>stub</div>");
 fs.writeFileSync("out.html", "<html>stub deck</html>");
 fs.writeFileSync("out.mp4", Buffer.from([0, 0, 0, 0x18, 0x66, 0x74, 0x79, 0x70]));
 fs.writeFileSync("out.png", Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
 fs.writeFileSync("review-1.png", Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
 fs.writeFileSync("prompt.txt", process.argv.at(-1) || "");
+fs.writeFileSync("args.log", process.argv.slice(2).join("\\n"));
 fs.appendFileSync("prompts.log", (process.argv.at(-1) || "") + "\\n---TURN---\\n");
+// A format change needs a render ffmpeg can read; the eight-byte header above is only
+// enough for the paths that must NOT transcode. The test that asks for png says so.
+if ((process.argv.at(-1) || "").includes("VALID_MP4")) {
+  const made = spawnSync("ffmpeg", ["-loglevel", "error", "-f", "lavfi", "-i",
+    "color=c=black:s=64x64:d=1:r=30", "-pix_fmt", "yuv420p", "-y", "out.mp4"]);
+  if (made.status !== 0) process.exit(3);
+}
 // The failure path: Pi reports a stalled model call as one word of its own, and
 // names no endpoint unless the server adds it.
 if ((process.argv.at(-1) || "").includes("FAIL_PROBE")) {
@@ -226,6 +235,23 @@ test("a second run does not overwrite the first", async () => {
   assert.equal(second.status, 200);
 });
 
+test("Pi runs with tools but without skill or extension discovery", async () => {
+  // Tools are the job. Discovery is not: no skills or extensions are installed, and one
+  // found in the run directory or HOME would be a second, unversioned contract beside the
+  // engine's own docs. This asserts the flags rather than trusting the arg list by eye.
+  const res = await fetch(`${base}/v1/chat/completions`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "make a card" }], session_id: "run_args" }),
+  });
+  assert.equal(res.status, 200);
+  const args = await readFile(join(workspace, "runs", "run_args", "args.log"), "utf8");
+  for (const flag of ["--no-prompt-templates", "--no-skills", "--no-extensions"]) {
+    assert.ok(args.includes(flag), `Pi was not run with ${flag}`);
+  }
+  assert.ok(!args.includes("--no-tools"), "Pi was run without tools; authoring needs them");
+});
+
 test("the second turn in a session is an edit, not a fresh authoring", async () => {
   // The server follows the directory, not the caller: after turn 1 wrote
   // index.html, turn 2 must be told to edit it in place.
@@ -339,10 +365,13 @@ test("a still that was not written this turn is not offered, and the earlier fra
 });
 
 test("a still png type hands back its artifact as the still", { skip: !hasFfmpeg && "ffmpeg is not installed" }, async () => {
+  // A png is the transcode's output, so this is the one case where the render must be a
+  // clip ffmpeg can read; VALID_MP4 makes the stub write one. Without ffmpeg there is no
+  // png at all, which is what the skip says.
   const res = await fetch(`${base}/v1/chat/completions`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ messages: [{ role: "user", content: "make a card" }], session_id: "run_png", format: "png" }),
+    body: JSON.stringify({ messages: [{ role: "user", content: "make a card VALID_MP4" }], session_id: "run_png", format: "png" }),
   });
   assert.equal(res.status, 200);
   const body = await res.json();

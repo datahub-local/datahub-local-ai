@@ -119,9 +119,11 @@ EOF
 )"
 
 set +e
-# --no-skills and --no-tools are deliberately NOT passed: reading the skills and
-# running the engine is the entire job. --no-session and --no-prompt-templates
-# stay, as upstream, because neither applies to a one-shot authoring run.
+# --no-tools is deliberately NOT passed: writing the composition and running the engine is
+# the entire job. Skills and extensions ARE disabled, because nothing installs them into
+# this image and the contract comes from the engine's own docs — a skill picked up from the
+# run directory or HOME would be a second, unversioned source of it. --no-session and
+# --no-prompt-templates stay, as upstream, because neither applies to a one-shot run.
 #
 # Output goes to stdout AND the capture file. Upstream writes it to a file only,
 # which makes a long run unobservable: `kubectl logs` stays empty until the process
@@ -136,7 +138,7 @@ set +e
 # file by a wrapper subshell, which works in every shell.
 rc_file="${TMPDIR:-/tmp}/pi-exit-code"
 set +e
-( pi --print --no-session --no-prompt-templates \
+( pi --print --no-session --no-prompt-templates --no-skills --no-extensions \
     --provider sympozium --model "$MODEL_NAME" "$PROMPT" 2>&1; \
   echo "$?" > "$rc_file" ) | tee "$work_path"
 set -e

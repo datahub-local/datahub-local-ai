@@ -25,16 +25,11 @@ FROM node:22-bookworm-slim
 #
 # jq is not optional either: the adapter contract builds the result payload with
 # it (`jq --arg`, so LLM output cannot forge a result structure).
-#
-# curl is for the build only: the npm dist ships three skills, so the full skill
-# set is fetched from the engine's repository at the pinned tag below. The node
-# slim base purges the curl it installs for its own build, so it is re-added here.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
     ffmpeg \
     jq \
     ca-certificates \
-    curl \
     fonts-dejavu-core \
     fontconfig \
     libgbm1 \
@@ -70,7 +65,7 @@ COPY vendor/gsap.min.js ./vendor/gsap.min.js
 # lifecycle scripts disabled. It is pure JS — verified to install and run on this
 # image's Debian/glibc, not only on Alpine.
 RUN npm install --global --ignore-scripts --no-audit --no-fund \
-    @earendil-works/pi-coding-agent@1.2.0
+    @earendil-works/pi-coding-agent@1.4.0
 
 # Move the engine to a stable, documented path so the prompt and the entrypoint
 # do not depend on the build directory.
@@ -78,31 +73,18 @@ RUN mkdir -p /opt/hyperframes /opt/pi-render/prompts \
     && cp -r /app/node_modules /opt/hyperframes/node_modules \
     && ln -s /opt/hyperframes/node_modules/.bin/hyperframes /usr/local/bin/hyperframes \
     && mkdir -p /opt/hyperframes/vendor \
-    && cp /app/vendor/gsap.min.js /opt/hyperframes/vendor/gsap.min.js \
-    && mkdir -p /opt/hyperframes/skills \
-    && cp -r /opt/hyperframes/node_modules/hyperframes/dist/skills/. /opt/hyperframes/skills/ \
-    && test -f /opt/hyperframes/skills/hyperframes/SKILL.md
+    && cp /app/vendor/gsap.min.js /opt/hyperframes/vendor/gsap.min.js
 
-# The npm dist ships only three skills (hyperframes, hyperframes-cli, media-use). The
-# framework's full authoring set — the animation rules and scene blueprints, keyframes,
-# the registry, creative direction, the studio and the core contract — lives in the
-# repository's skills/ tree, so it is fetched here at the same pinned release. The
-# release tag is read from package.json's `hyperframes` pin, so the engine version has
-# one source (Renovate maintains it) and cannot drift from the skill fetch. The build
-# has network; the render does not.
-RUN HYPERFRAMES_VERSION="$(jq -r '.dependencies.hyperframes' package.json | sed 's/^[~^]//')" \
-    && test -n "$HYPERFRAMES_VERSION" \
-    && curl -fsSL \
-    "https://codeload.github.com/heygen-com/hyperframes/tar.gz/refs/tags/v${HYPERFRAMES_VERSION}" \
-    -o /tmp/hyperframes-src.tgz \
-    && tar -xzf /tmp/hyperframes-src.tgz -C /tmp --wildcards --no-anchored 'skills/*' \
-    --transform 's#^hyperframes-[^/]*/##' \
-    && cp -r /tmp/skills/. /opt/hyperframes/skills/ \
-    && rm -rf /tmp/hyperframes-src.tgz /tmp/skills \
-    && for skill in hyperframes hyperframes-cli hyperframes-core hyperframes-animation \
-    hyperframes-keyframes hyperframes-registry hyperframes-creative hyperframes-studio; do \
-    test -f "/opt/hyperframes/skills/$skill/SKILL.md" \
-    || { echo "missing skill in the image: $skill" >&2; exit 1; }; \
+# The composer's contract comes from the engine binary, not from a skill tree. Upstream
+# retired the separate authoring skills at v0.8.185 and folded them into one entry skill,
+# which broke this build's fetch-and-assert step; a repo layout is a moving target, while
+# the npm package is pinned in the lockfile and only moves when a bump is accepted. So the
+# build asserts the documentation topics the guide sends the composer to instead, and
+# `hyperframes docs <topic>` exits non-zero for one the pinned release does not have.
+# Every topic the guide names is listed here; the adapter's tests fail if the two disagree.
+RUN for topic in compositions data-attributes gsap rendering troubleshooting; do \
+    hyperframes docs "$topic" > /dev/null \
+    || { echo "missing docs topic in the engine: $topic" >&2; exit 1; }; \
     done
 
 # The transition primitives are a runtime dependency of the image, vendored at build

@@ -36,11 +36,11 @@ the adapter contract on top.
 | Change                                              | Why                                                                                                   |
 | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | `jq`                                                | the adapter contract builds the result payload with it; the Debian base does not carry it             |
-| `@earendil-works/pi-coding-agent@0.84.4`            | the agent loop, pinned and installed with lifecycle scripts disabled, exactly as upstream installs it |
+| `@earendil-works/pi-coding-agent@1.4.0`              | the agent loop, pinned and installed with lifecycle scripts disabled, exactly as upstream installs it |
 | the engine moved to `/opt/hyperframes`              | so the prompt and the entrypoint do not depend on the base image's `WORKDIR`                          |
 | `prompts/authoring.md` at `/opt/pi-render/prompts/` | the instruction is a file, read at run time, not inlined in shell                                     |
 | `--no-tools` **dropped**                            | so the agent can write the composition and run the engine                                             |
-| `--no-skills` **dropped**                           | so the agent can read the skills that ship in the image                                               |
+| `--no-skills`, `--no-extensions` **passed**       | nothing installs them; a skill found at run time would be a second, unversioned contract    |
 
 Deliberately **not** carried over: `git`. Upstream's Pi image has it because Pi offers
 a repo-cloning tool; nothing in this adapter or the authoring loop calls it, and a
@@ -48,10 +48,10 @@ tool nothing uses is a surface to keep patched for no reason.
 
 **The two version pins are maintained by Renovate, not by hand.** The engine is pinned
 once, in `package.json` (`hyperframes`, with `@hyperframes/shader-transitions` on the
-same release), and the Dockerfile reads that pin for the skill fetch. The agent loop is
-pinned in the Dockerfile (`@earendil-works/pi-coding-agent@0.84.4`) and is extracted
+same release); nothing else reads that pin at build time. The agent loop is
+pinned in the Dockerfile (`@earendil-works/pi-coding-agent@1.4.0`) and is extracted
 there by a `customManagers` regex in the root `renovate.json`. All three are grouped
-into one `pi-render toolchain` PR, so the engine and the skills it fetches cannot move
+into one `pi-render toolchain` PR, so the engine and the loop cannot move
 apart. That extraction needs the Dockerfile to stop being ignored, so `renovate.json`
 also disables the built-in `dockerfile` manager: a Dockerfile edit does not start
 proposing `node` / `debian` / `uv` bumps.
@@ -253,9 +253,10 @@ Job cannot raise its 1Gi, and a session cannot reach a model outside a hardcoded
 allowlist. Both are in the section above.
 
 `session-server.mjs` is derived from the maintainer's reference for the contract. Three
-deltas: Pi's **tools and skills are enabled** (that is the whole job here, and the
-maintained adapters disable both), the toolchain is pointed at our vendored engine and
-browser, and each turn gets the authoring method appended to the caller's brief. The
+deltas: Pi's **tools are enabled** (that is the whole job here, and the maintained adapters
+disable them) while **skills and extensions are disabled**, the toolchain is pointed at our
+vendored engine and browser, and each turn gets the authoring method appended to the caller's
+brief. The
 contract itself is upstream's shape — a `/healthz` readiness probe, `POST
 /v1/chat/completions` with SSE framing, bounded request and output, serialized turns
 because Pi's session file is shared, and client-disconnect cancellation.
@@ -284,10 +285,11 @@ a second request:
    taken: scaled to the declared frame and **cover-cropped** when the authored aspect
    differs, trimmed to the declared length and never extended (a held last frame is the
    frozen tail the composition rules forbid, so a short render is delivered short). The
-   engine has **no viewport or size flag** — `hyperframes render --help` v0.8.158 lists
-   none — so the composition's own `data-width`/`data-height` is the frame it renders at
-   and a wrong one cannot be re-rendered right; conforming after the render is the only
-   place the declared frame can be delivered. The response carries what was done as
+   composition's own `data-width`/`data-height` is the frame it renders at, so the declared
+   frame must be authored there; `render --resolution` only picks a fixed preset that is an
+   integer multiple of the composition, so it cannot express an arbitrary declared frame and
+   is not a substitute. A frame that still differs is conformed after the render. The response
+   carries what was done as
    `conformance` (`frame`, `authored`, `fit` of `none|crop|scale|unknown`,
    `durationSeconds`, `authoredSeconds`, `short`), and a render whose container cannot be
    read is conformed rather than trusted. A render that already matches is served
@@ -355,14 +357,14 @@ source, and the variable is honoured the day a passthrough exists.
 ### The composer's guide is sandbox facts
 
 `prompts/authoring.md` names only what the brief cannot and the framework does not: the
-working directory, `hyperframes` on `PATH`, the skills path, the vendored GSAP, no network
-at render, how to run the render, and that the composer cannot see images. The composition
-contract, the motion method, the pacing numbers and the pre-render review were removed on
-2026-10-11 (`openspec/changes/upgrade-visual-studio-authoring/`): they were our own harness
-competing with the framework's own skills, and their pacing rules mandated the frozen final
-frame the framework names as a cheap-motion tell. The framework's skills own the contract;
-`hyperframes lint` and `check` are the automated gate; the motion grammar lives in
-`agents/n8n/prompts/visual_motion_rules.md`, carried by the brief.
+working directory, `hyperframes` on `PATH`, which `hyperframes docs` topics to read, the
+vendored GSAP, no network at render, how to run the render, and that the composer cannot see
+images. The composition contract, the motion method, the pacing numbers and the pre-render
+review were removed on 2026-10-11 (`openspec/changes/upgrade-visual-studio-authoring/`): they
+were our own harness competing with the framework's own guidance, and their pacing rules
+mandated the frozen final frame the framework names as a cheap-motion tell. The engine's own
+documentation owns the contract; `hyperframes lint` and `check` are the automated gate; the
+motion grammar lives in `agents/n8n/prompts/visual_motion_rules.md`, carried by the brief.
 `test/authoring-prompt.test.mjs` keeps the method and the review from coming back.
 
 ### Why the guide requires a motion sidecar
@@ -484,10 +486,13 @@ descriptor exists to catch.
   breaks this image, and there is no upstream conformance run for it.
 - **No conformance suite has been run against it.** The upstream adapters pass one;
   this image has not, so treat it as experimental.
-- **The full skill set is fetched from the repository at the pinned release.** The npm
-  package's `dist/skills/` ships three skills (`hyperframes`, `hyperframes-cli`,
-  `media-use`); the rest — including `hyperframes-core`, `hyperframes-animation`,
-  `hyperframes-keyframes`, `hyperframes-registry`, `hyperframes-creative` and
-  `hyperframes-studio` — are fetched from `heygen-com/hyperframes` at the same tag during
-  `docker build`, and the build fails if any is missing. This supersedes the earlier
-  "`hyperframes-core` is not bundled" limitation.
+- **The contract comes from the engine binary, not a skill tree.** The image installs the
+  engine from `package.json` and nothing else; the composer reads
+  `hyperframes docs compositions|data-attributes|gsap|rendering|troubleshooting`, which the
+  binary serves and which the build asserts exist at the pinned release. This replaces the
+  fetched skill tree (retired by upstream at v0.8.185, which broke the build): a git tag's
+  directory layout is upstream's to move, while the npm package only moves when a bump is
+  accepted in the lockfile. Motion craft is the one thing the binary does not carry, and it
+  comes from the committed `agents/n8n/prompts/visual_motion_rules.md` via the brief.
+  `test/dockerfile.test.mjs` fails offline if the guide names a topic the build does not
+  assert.

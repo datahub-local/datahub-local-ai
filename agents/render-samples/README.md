@@ -19,7 +19,7 @@ agents collaborates to build a project."*
 
 | File | What |
 | ---- | ---- |
-| `index.html` | The composition — authored by an agent following the `hyperframes-core` skill contract |
+| `index.html` | The composition — authored by an agent after reading the engine's own contract (`hyperframes docs compositions`) |
 | `agent-flow.mp4` | The render: 1080×1350, 270 frames, 9.0 s, H.264 |
 | `agent-flow.gif` | A 10 fps preview |
 
@@ -37,9 +37,9 @@ brief ──▶ agent + hyperframes skills ──▶ index.html ──▶ lint/c
                                           (the artifact)    (the gate)    (the engine)
 ```
 
-1. The agent reads the HyperFrames skill (`hyperframes-core` for the composition
-   contract, `hyperframes-animation` for motion) — installed by
-   `hyperframes skills`, which is what makes this reproducible rather than ad hoc.
+1. The agent reads the engine's own contract — `hyperframes docs compositions` for the
+   structure, `hyperframes docs data-attributes` for timing, `hyperframes docs gsap` for the
+   timeline — so the guidance is the version that is installed, not a copy.
 2. It writes `index.html`: one paused timeline registered at
    `window.__timelines["main"]`, timing on `data-*` attributes, `class="clip"` on
    timed elements.

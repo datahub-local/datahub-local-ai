@@ -10,7 +10,9 @@ guide, `prompts/authoring.md`, names the skill paths it should read inside `/opt
 
 Upstream restructured that tree between v0.8.184 and v0.8.185. Everything below was measured on
 2026-10-25 against the published release tarballs and the npm dist, not read off a changelog,
-because the restructure is not announced in the release notes.
+because the restructure is not announced in the release notes. The first implementation asserted
+the paths that survive at the tag; the owner then chose the binary-only direction in D1, so the
+tree is not fetched at all and the findings below are the evidence for that choice.
 
 ## Gate findings
 
@@ -42,6 +44,17 @@ because the restructure is not announced in the release notes.
   and review pass; otherwise stop at the preview and wait."* The skill also says to run the CLI as
   `npx hyperframes`. Both are written for an interactive desktop session; this adapter is a
   headless turn whose only output is `<run>/out.<ext>` and whose caller fails on a missing file.
+- **The binary carries the contract itself.** `hyperframes docs <topic>` serves it from the
+  installed package: `compositions` (61 lines: root attributes, nested compositions, variables),
+  `data-attributes` (29: timing, media, element visibility), `gsap` (26: timeline registration),
+  `rendering`, `troubleshooting`, `examples`. An unknown topic exits 1
+  (`Unknown topic: …`, followed by the available list), so a build step can assert the set.
+  `hyperframes catalog` browses the registry; `lint`/`check --json` report findings with `Fix:`
+  lines. The server already sets `HYPERFRAMES_SKIP_SKILLS=1`, which is what silences the CLI's
+  "N skills out of date" notice on every other command.
+- **The npm dist ships the entry skill and all its references** (`hyperframes`,
+  `hyperframes-cli`, `media-use`, and `dist/skills/hyperframes/references/*`), so a
+  package-only variant was available; it does not ship `hyperframes-registry`.
 - **The CLI surface this adapter uses is unchanged at 0.8.195.** `render -o`, `-f`, `--format`,
   `--low-memory-mode`, `--strict`, and `lint` / `check` (including `--json`, `--samples`,
   `--range`, `--at`) all still exist. New: `--resolution` with presets (`landscape`, `portrait`,
@@ -64,9 +77,9 @@ because the restructure is not announced in the release notes.
 ## Goals / Non-Goals
 
 **Goals**
-- The engine bump builds an image whose skill set is what upstream ships at that release.
-- The composer's guide names only paths that image actually contains, and cannot drift from it
-  silently again.
+- The engine bump builds an image that depends on no upstream repository layout.
+- The composer's guide names only documentation the installed binary serves, and cannot drift
+  from it silently again.
 - An authoring turn still returns a rendered artifact, whatever the framework's interactive
   work loop says.
 
@@ -77,29 +90,42 @@ because the restructure is not announced in the release notes.
 
 ## Decisions
 
-### D1. Follow the consolidation; do not fork the retired skills
+### D1. The contract comes from the engine binary, not from a skill tree
 
-The six skills were upstream's text about upstream's engine. Copying them into this repository
-would freeze guidance that no longer matches 0.8.195 and would be a second copy with no owner.
-The composer's committed motion grammar is already `agents/n8n/prompts/visual_motion_rules.md`,
-carried in the brief, so the essential rules survive a thinner skill tree.
+The image installs the engine from `package.json` and nothing else. The composer is sent to
+`hyperframes docs compositions|data-attributes|gsap|rendering` (and `troubleshooting` after a
+failure), which the installed release serves. This removes the class of failure this change
+exists for: a git tag's directory layout is upstream's to move — as v0.8.185 showed — while the
+npm package is pinned in the lockfile and moves only when a bump is accepted, in the same PR
+that changes the engine. It also deletes the build's `curl` fetch, the tag extraction and the
+skill-path assertions.
 
-### D2. The image asserts what the tag ships, and keeps failing loudly
+Rejected, with their measurements: **fetching the repo tree** (what PR #33's bump broke on, and
+what this change first implemented) keeps the richest prose but re-arms the same trap at the next
+restructure; **shipping only the npm dist's skills** removes the fetch and keeps the prose but
+still binds the guide to paths inside a package that is free to reorganise them, and this studio
+uses none of the retired type/caption/film material.
 
-The `Dockerfile`'s expected set becomes the skills the guide actually uses — at minimum
-`hyperframes` (entry, contract, work loop), `hyperframes-cli` (lint/render), and
-`hyperframes-registry` (effects before hand-authoring) — plus the reference files the guide names
-(e.g. `skills/hyperframes/references/motion.md`, `format.md`, `runtimes.md`). The loop and its
-`exit 1` stay: an upstream restructure must still stop the build, and the failure must name the
-missing path rather than ship a subset.
+The same rule is applied to the agent loop: `pi` is run with `--no-skills` and `--no-extensions`
+beside the existing `--no-prompt-templates`, so discovery cannot introduce a second, unversioned
+contract from the image, the run directory or `HOME`. Tools stay enabled — writing the
+composition and running the engine is the job.
 
-### D3. A drift test ties the guide to the image
+### D2. The build asserts the docs topics; the guide may name no others
 
-`test/dockerfile.test.mjs` reads `prompts/authoring.md`, extracts every `hyperframes*` skill path
-and `references/*.md` it names, and asserts each appears in the Dockerfile's asserted set. The
-defect this change exists for is exactly that pair drifting, and the test runs in
-`Test Agents` — offline, before `publish-images`. Keep the existing pin-equality and
-skill-fetch assertions.
+`docker build` runs `hyperframes docs "$topic"` for every topic the guide names and fails naming
+one the release does not serve (unknown topics exit 1). `test/dockerfile.test.mjs` reads both
+files and fails offline if the guide names a topic the Dockerfile does not assert — the same
+guide-to-image drift, now over a surface the engine owns. No copy of the topic list lives in a
+third place.
+
+### D3. Motion craft is the one thing the binary does not carry, and it is already ours
+
+`agents/n8n/prompts/visual_motion_rules.md` is the committed motion grammar and is appended to
+every brief, so the retired `hyperframes-animation` skill's job is covered without it. What is
+not recovered is the per-kind `references/types/*.md` and the review/storyboard process — both
+upstream's interactive method rather than this studio's, and the studio's own brief and critic
+already own that path.
 
 ### D4. The guide overrides the framework's preview gate
 
@@ -126,44 +152,56 @@ at all.
 
 ### D7. 0.8.184 is the stopgap, not the destination
 
-If the engine needs a fix before this change lands, pin `hyperframes` and
-`@hyperframes/shader-transitions` at 0.8.184 — the last release with all 21 skills — which
-builds unchanged. It buys nothing the composer is waiting for, and any later bump meets the same
-wall, so it is recorded here rather than adopted.
+If a release were needed before this change lands, pin `hyperframes` and
+`@hyperframes/shader-transitions` at 0.8.184 — the last release carrying all 21 skills — which
+built unchanged under the fetched-tree design. It is recorded for the record, not adopted.
+
+### D8. The SVG outputs are outside the engine's gate, and the guide says so
+
+Measured 2026-10-25: `hyperframes lint` on a plain animated SVG reports three errors
+(`data-width`/`data-height`, composition attributes, timeline registration), because the engine
+validates HTML compositions only. The guide's blanket "lint → render → check" therefore
+contradicted the SVG brief, and the first live `svg` turn resolved it by writing an HTML document
+into `out.svg` (35,529 bytes starting `<!DOCTYPE html>`; the composer said the engine's static
+guard required the wrapper). The guide now states the exception: for `out.svg`, author
+well-formed SVG XML, write no `index.html`, and run no lint/render/check. `svg`/`svg_wide` are
+the article's diagram formats, so dropping them is not an option; well-formedness is what the
+offline side can check, and the composition's quality stays with the caller's critic.
 
 ## Risks
 
-- **A thinner skill tree is a quality risk, not just a path change.** The retired
-  `hyperframes-animation` carried the atomic motion rules and scene blueprints as a skill; at
-  0.8.195 those live in `references/motion.md` and in the brief's committed grammar. Whether the
-  composer still produces comparable motion is unmeasured until an asset is authored on the new
-  image — a task, not an assumption.
+- **The binary's docs are shorter than the retired skills.** `docs compositions` (61 lines) plus
+  `data-attributes` (29), `gsap` (26) and the `lint`/`check` gate are what the composer gets
+  instead of the contract skill and its references; whether that is enough for a first-pass
+  composition is measured by the per-type probe, not assumed.
 - **`check` has grown.** Contrast verification is on by default at 0.8.195 and the finding set is
   larger than 0.8.158's. A composition that passed before may now fail its own gate; the guide
   already says to fix every error before rendering, so the risk is a longer authoring turn, not a
   wrong artifact.
-- **The drift test only sees names.** Upstream can rewrite `references/motion.md` without moving
-  it, which no offline assertion can catch; the live authoring probe is the only cover.
+- **The drift test only sees topic names.** Upstream can rewrite the content behind a topic
+  without moving it, which no offline assertion can catch; the live authoring probe is the only
+  cover.
 
 ## Open Questions
 
-- Whether the consolidated skill's references cover the forms this studio authors (`diagram`,
-  `story`, `data`, `poster`, `ui`, `manga`, `tiles`), or whether the brief's `FORM` vocabulary now
-  needs a pointer to the matching `references/` file. Resolved by reading the tag's references
-  during implementation, and recorded there.
-- Whether to pass `--skill <path>` to Pi so the composer need not resolve paths itself. Not
-  proposed here: the guide's file reads work today, and Pi (1.4.0) has no reason to change.
+- Whether `hyperframes docs` coverage is enough without the retired motion skill. The brief still
+  carries the committed motion grammar, so the open half is the composition mechanics (timeline
+  registration, attributes), which `docs compositions` + `docs gsap` + `check` should cover —
+  measured by the per-type probe (5.3/5.4).
+- Whether the composer should also be given `hyperframes catalog` guidance for named effects.
+  The guide names it; the vendored `@hyperframes/shader-transitions` remains the always-available
+  surface, and the probe will show whether the composer reaches for it.
 
 ## Definition of Done
 
-- `agents/adapters/pi-render` builds from a clean checkout at the pinned release, and the build
-  fails naming the path when a guide-named skill is absent.
-- `node --test 'test/*.test.mjs'` passes, including the new guide↔image test, which fails if
-  `authoring.md` names a path outside the asserted set.
-- One asset of each authored family (`animation_linkedin_video`, `svg_wide`, `deck`) is authored
-  and rendered on the new image; each artifact's `ffprobe` frame, rate and duration match the
-  declared container, the stills review runs, and the motion is judged by a person against the
-  committed grammar.
+- `agents/adapters/pi-render` builds from a clean checkout at the pinned release, with no fetch
+  from an upstream repository, and the build fails naming the topic when a guide-named docs topic
+  is absent from the installed engine.
+- `node --test 'test/*.test.mjs'` passes, including the guide↔build test, which fails if
+  `authoring.md` names a docs topic the Dockerfile does not assert.
+- One asset of each authored family is authored and rendered on the new image; each artifact's
+  `ffprobe` frame, rate and duration match the declared container, the stills review runs, and the
+  motion is judged by a person against the committed grammar.
 - `README.md`, `agents/render-samples/README.md` and the two `AGENTS.md` passages describe the
-  layout and the CLI that the image actually has.
+  contract source and the CLI that the image actually has.
 - Every claim that could not be measured is marked `[UNVERIFIED]` in `tasks.md`.

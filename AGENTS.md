@@ -590,10 +590,11 @@ states them and nothing made the delivered file match them — measured on run 1
 (2026-10-17), a `tiles_wide` request for 16:9 / 1280 / 12 s / 360 frames came back as
 `ffprobe` **1080×1350, 30 fps, 90 frames, 3.000 s** while the record's `WIDTH 1280` /
 `HEIGHT 720` / `FRAME_COUNT 360` / `DURATION_MS 12000` asserted the request, so the record
-described a file nobody had. `hyperframes render` has **no viewport or size flag** (v0.8.158),
-so the composition's own `data-width` is the frame and a wrong one can only be conformed
-afterwards. The session therefore probes the engine's output with `ffprobe` and, when the
-frame, rate or length differ, re-encodes **before** the stills — `scale=W:H:force_original_aspect_ratio=increase`
+described a file nobody had. `hyperframes render` has **no flag for an arbitrary frame**
+(v0.8.195's `--resolution` only picks a fixed preset that is an integer multiple of the
+composition), so the composition's own `data-width` is the frame and a wrong one can only be
+conformed afterwards. The session therefore probes the engine's output with `ffprobe` and,
+when the frame, rate or length differ, re-encodes **before** the stills — `scale=W:H:force_original_aspect_ratio=increase`
 then `crop=W:H`, because a declared frame means *filled* and an aspect mismatch is covered and
 cropped rather than letterboxed, and `-t <declared seconds>`, which trims and never extends: a
 held last frame is the frozen tail the motion rules forbid, so a short render is delivered short
@@ -723,10 +724,17 @@ the automated gate. The **brief carries the motion grammar**, from the one commi
 change, live on push, and it is not restated in the workflow. The brief also carries the
 request's `FEEDBACK` (a reviewer's correction) and `EXTRA_PROMPT` (the caller's free
 direction) verbatim, appended last, so a rejection reaches the composer on the next turn.
-The image **fetches the framework's full skill set at the pinned release** in `docker
-build` (`hyperframes-animation`, `-keyframes`, `-registry`, `-creative`, `-studio`,
-`-core`) — the npm dist ships only three — asserts each `SKILL.md` exists so a subset
-cannot ship quietly, and vendors `@hyperframes/shader-transitions` from the same release.
+The image **installs the engine from `package.json` and takes its contract from the
+binary**: the composer runs `hyperframes docs compositions|data-attributes|gsap|rendering`
+(and `troubleshooting` when a render fails), and `docker build` asserts those topics exist at
+the pinned release. It vendors `@hyperframes/shader-transitions` from the same release. There
+is no fetched skill tree: upstream retired and consolidated its skills at v0.8.185, which
+broke the build's fetch-and-assert step, and a repository layout is not something this
+adapter should depend on. The npm package is the only upstream artifact here, so it moves
+only when a bump is accepted; the guide names only topics the build asserts, and
+`test/dockerfile.test.mjs` fails offline if the two disagree. Motion craft, the one thing
+the binary does not carry, comes from `agents/n8n/prompts/visual_motion_rules.md` via the
+brief.
 Its egress policy admits 443, so the session reaches the registry at author time (verified
 `raw.githubusercontent.com` → 200 from the session pod, 2026-10-11); the vendored
 primitives remain the always-available effects surface.

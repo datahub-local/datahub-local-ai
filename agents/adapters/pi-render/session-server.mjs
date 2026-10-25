@@ -261,6 +261,12 @@ function runPi(prompt, sessionID, onOutput, signal, cwd = workDir) {
     const args = [
       "--print",
       "--no-prompt-templates",
+      // Tools stay enabled — writing the composition and running the engine is the job —
+      // but discovery is off: no skills or extensions are installed anywhere this pod can
+      // see, and a skill found in the run directory or HOME would compete with the engine's
+      // own documentation, which is the only contract this adapter relies on.
+      "--no-skills",
+      "--no-extensions",
       "--provider",
       "sympozium",
       "--model",

@@ -832,10 +832,14 @@ render time. Rationale and the rollout are in
 **Failure and retention.** `settings.errorWorkflow` points at `Visual Studio Error`, which
 posts the reason to the `workflows` Slack channel and removes the run's temp files; the
 studio's own graph has no Slack, no schedule, no GitHub node and one terminal node. A
-failed composer costs one asset, not the run: `execute_author`, `store_artifact` and
-`store_paired_artifact` continue on error and `agent_result` turns the empty result into
-that asset's `ERROR` (for a deck, the deck is kept and the missing paired video is
-reported). `Visual Studio Prune` runs daily at 04:00 UTC and deletes rows of
+failed composer costs one asset, not the run: `execute_author` carries
+`continueErrorOutput` and `neverError`, so a 4xx body or a transport failure reaches
+`agent_result` as the asset's `ERROR` — `authoring failed: <the session's own reason>` — while
+`store_artifact` and `store_paired_artifact` keep continuing on error for the failure they
+alone can see (for a deck, the deck is kept and the missing paired video is reported). Before
+2026-10-24 the authoring call forwarded its input and set no `json.error`, so the asset named
+the store's 404 on an artifact that was never rendered and the session's reason (`EEXIST`,
+a stalled model call) was lost. `Visual Studio Prune` runs daily at 04:00 UTC and deletes rows of
 `TemporalFiles` whose `updatedAt` is older than an hour — the same rule `File Webhook`
 applies on request, and the reason a quiet week cannot leave its rows behind — and the
 bucket objects under `visual-studio/` older than **two days** — the delete is proven by

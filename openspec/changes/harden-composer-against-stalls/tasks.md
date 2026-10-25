@@ -170,6 +170,42 @@
  `LinkedIn Post Sharing` driven to a failed animation, which is a real draft, real Slack
  approvals and a real branch decision. It stays open as a live check for the owner rather than
  being asserted from the offline suite.
+
+ **Two of the three halves measured live 2026-10-24, on execution 14801** (row 106,
+ `POST_MEDIA=ANIMATED`, `VISUAL_FORM=diagram`): a real draft that had been waiting at
+ `notification_accept` since the Friday 10:30 tick, and a failure injected in the composer's own
+ sandbox.
+ - *The failure needed no graph edit.* A **regular file** at `/tmp/aivideo/runs/lips-106` makes
+   the turn answer `400 {"error":{"message":"EEXIST: file already exists, mkdir …"}}` in **1.2 ms**
+   (measured first on a throwaway session id), so the run takes the real path with the real
+   graph. A read-only run directory does **not** fail the turn: `stageVendorAssets` catches its
+   own write errors. `execute_author` spent its `maxTries: 2` and answered in ~21 s.
+ - *The form, and only it.* Studio run 14878 reported `STATUS: FAILED` with the asset `ERROR: …
+   /artifacts/lips-106/out.mp4 answered HTTP 404. Nothing was stored.`; `check_animation_result`
+   carried `animated media unavailable: <that>`; `if_animation_ok` took the false output;
+   `notify_animation_failed` has one runtime entry and was the last node that ran;
+   `execute_image_creator` had **not** executed.
+ - *No answer takes the still.* Nothing was answered: at 20:18 UTC, 30 minutes to the second
+   after the node ran, the execution went `running`, resumed with no `data.Action`,
+   `if_animation_retry` took the false output, `execute_image_creator` ran and the run reached
+   `notification_accept_image` — the still path with its own approval. Nothing timed the run out
+   and it was never parked. That is the half the old wiring could not do for a *failure*.
+ - *Still missing: an answer of `Retry animation`.* It needs a second failure of the same kind.
+   The owner chose the **Monday 2026-10-26 16:00 UTC tick** over a manual editor run. Arm the
+   fault once `select_article_to_post` has picked its row (the session id is `lips-<row_number>`),
+   which is the whole window before the text approval is answered, then **remove it before the
+   form is answered** or the retry fails on the same injection. The retry then authors in
+   `lips-<row>`, `FEEDBACK` opens with `the previous attempt failed: …`, and the run continues to
+   `notification_accept_animation`.
+
+ **Found while injecting, and not fixed here:** a failed authoring call's own reason never reaches
+ the asset. `execute_author` carries `continueRegularOutput`, so it forwards its input and sets no
+ `json.error` (the 2026-09-28 rule), `store_artifact` then fails on the missing artifact and
+ `agent_result` records *that* — which is why the form named a `404` on `out.mp4` and not the
+ session's `EEXIST`. The session server logs nothing for a pre-turn failure (`piFailure` covers a
+ Pi turn, not staging), so the cause was visible only in the injected file and in n8n's retry
+ count. Naming the cause means reading `execute_author`'s own error while still emitting an item
+ for the store to fail on.
 - [x] 4.4 Confirm the fallback notice's wording survives the rewiring: the failure is still
   named in Slack with the article, the reason and what happens next
  **Verified offline 2026-10-16, from the applied node.** `notify_animation_failed`'s message
@@ -208,6 +244,39 @@
  endpoint, so a stalled model call and a bad brief would read the same), and 4.5's tests hold
  it. No `MEMORY.md` change was needed: the composer section's failure paragraph already
  describes the shape.
+- [x] 4.6 Carry a failed authoring call's own reason onto the asset, which the spec's "reported
+  rather than left for the caller to discover as a missing artifact" requires and execution
+  14801 broke (found while injecting 4.3's fault)
+ **Landed in the export and the adapter, not yet applied or deployed.**
+ - *The graph.* `execute_author` moves to `continueErrorOutput` and gains
+   `options.response.response.neverError: true`, with its error output wired to `agent_result`
+   beside `store_artifact`'s success path. `agent_result` prefers
+   `$('execute_author').first().json.error.message` and reports `authoring failed: <reason>`,
+   falling back to the store's verdict when the authoring call succeeded.
+ - *Why both settings.* `neverError` is what puts the session's 400 body (`EEXIST: …`) in the
+   item; `continueErrorOutput` is what carries a transport failure, which has no body. Read off
+   the installed image (`HttpRequestV3.node.js`: `neverError` sets `requestOptions.simple =
+   false`, so a non-2xx resolves instead of throwing) — which also means `retryOnFail` no longer
+   retries a 4xx. That is acceptable here rather than overlooked: this session answers only
+   `200`, `400` and `404`, and a 400 is its verdict after its own five attempts, so a retry
+   repeats a decision rather than riding out a transient. Transport failures still throw and
+   still spend `maxTries: 2`.
+ - *The log half.* The adapter logged nothing for a pre-turn failure, so the reason existed only
+   in the response body. `session-server.mjs`'s request catch now logs
+   `turn failed: <message>`; `test/session-server.test.mjs` reproduces execution 14801's
+   injection (a regular file where the run directory belongs at `runs/<id>`) and asserts both
+   the 400 body and the log line. 62 tests: 61 pass, 1 skipped (no ffmpeg here).
+ - *Tested offline.* `test_the_asset_names_the_authoring_failure_rather_than_the_missing_artifact`
+   executes the committed `agent_result` on the three shapes — 4xx body, transport error, success
+   — and the 4xx case reproduces the live defect exactly under the old code (`ERROR:
+   /artifacts/lips-106/out.mp4 answered HTTP 404. Nothing was stored.`). The wiring test fails on
+   the old export too. `pytest agents/n8n/scripts/` **894 passed**, `ruff` clean, `node --test`
+   **61/0**.
+ - *Not measured.* The form's text after the change: the next failed authoring call has to name
+   the session's reason in Slack, and the error output's runtime `json.error` shape for a
+   transport failure is asserted from the 2026-10-18 probe, not re-probed here. The image also
+   has to be published and the graph applied for either half to be live — 4.3's Monday retry is
+   the natural run to read both from.
 
 ## 6. Recovery of run 13648 (operator, not automated)
 
@@ -217,5 +286,10 @@
   **Owner action, 2026-10-16.** The row is set back to `QUEUE` there, so the next publishing run
   selects it. `[UNVERIFIED]` from this repository: it holds no credential for that sheet, and the
   evidence is the run that picks the row up, not the edit.
-- [ ] 6.2 If the row is republished, note that it is re-drafted and re-reviewed from scratch:
+- [x] 6.2 If the row is republished, note that it is re-drafted and re-reviewed from scratch:
   the stopped execution took its approved draft and the unapproved still with it
+  **Condition never arose, checked 2026-10-24.** Row 72 has not been selected since the owner
+  re-queued it: the workflow's executions after 2026-10-16 are 14801 (2026-10-23, row 106) and
+  none in between, so nothing was republished and there is no note to attach. The note itself
+  stays here for the run that does pick it up: 13648's draft and its unapproved still went with
+  the stopped execution, so that run drafts and reviews from scratch rather than resuming.

@@ -23,6 +23,8 @@ const hasFfmpeg = spawnSync("ffmpeg", ["-version"], { stdio: "ignore" }).status 
 
 let dir;
 let child;
+let workspace;
+let serverLog = "";
 
 // A stand-in for Pi: it writes the two files the real agent writes, in its cwd
 // (the per-run directory), and reports on stdout. It also records the prompt it was
@@ -87,7 +89,7 @@ async function waitForHealth(timeoutMs = 10000) {
 before(async () => {
   dir = await mkdtemp(join(tmpdir(), "pi-render-"));
   const home = join(dir, "home");
-  const workspace = join(dir, "workspace");
+  workspace = join(dir, "workspace");
   const bin = join(dir, "bin");
   const vendor = join(dir, "vendor");
   await mkdir(home, { recursive: true });
@@ -112,6 +114,9 @@ before(async () => {
       OPENAI_API_KEY: "stub",
     },
     stdio: ["ignore", "pipe", "pipe"],
+  });
+  child.stderr.on("data", (chunk) => {
+    serverLog += chunk.toString();
   });
   await startGateway(gatewayPort);
   await waitForHealth();
@@ -265,6 +270,28 @@ test("a failed turn names the model endpoint and Pi's own reason", async () => {
   assert.match(error.message, /Pi exited 9/);
   assert.ok(error.message.includes(gatewayBase), `the endpoint is named: ${error.message}`);
   assert.ok(error.message.includes("stream terminated by peer"), `the reason is carried: ${error.message}`);
+});
+
+
+test("a pre-turn failure is logged, not only answered", async () => {
+  // The failure injection that exercised the studio's fallback was a regular file where the
+  // run directory belongs, and this is that shape: the turn dies before Pi starts, so Pi's
+  // output says nothing and the 400 body is the only account -- which the caller may drop.
+  await mkdir(join(workspace, "runs"), { recursive: true });
+  await writeFile(join(workspace, "runs", "run_blocked"), "");
+  const res = await fetch(`${base}/v1/chat/completions`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "make a card" }], session_id: "run_blocked" }),
+  });
+  assert.equal(res.status, 400);
+  const { error } = await res.json();
+  assert.match(error.message, /EEXIST/);
+  const deadline = Date.now() + 2000;
+  while (Date.now() < deadline && !/turn failed: .*EEXIST/.test(serverLog)) {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  assert.match(serverLog, /sympozium pi render session: turn failed: .*EEXIST/, "the pod log names the reason");
 });
 
 

@@ -317,14 +317,21 @@ def test_the_storyboard_reaches_the_response(label, doc):
 
 
 @pytest.mark.parametrize("label,doc", list(_copies()))
-def test_a_failed_composer_is_continued_and_handled(label, doc):
-    # continueRegularOutput makes a failure invisible unless a downstream node
-    # consumes the empty result, so both halves are required.
-    assert _node(doc, "execute_author").get("onError") == "continueRegularOutput"
+def test_a_failed_composer_reports_its_own_reason(label, doc):
+    # continueRegularOutput hid the failure *and* dropped its reason: the store then failed on
+    # an artifact that was never rendered, so the asset named a 404 on out.mp4 where the
+    # session had answered `EEXIST` (measured 2026-10-24, execution 14801). `neverError`
+    # delivers a 4xx body as data and the error output carries a transport failure, so both
+    # reach agent_result; the stores keep continuing on error for the same reason as before.
+    author = _node(doc, "execute_author")
+    assert author.get("onError") == "continueErrorOutput"
+    assert author["parameters"]["options"]["response"]["response"]["neverError"] is True
+    assert _targets(doc, "execute_author", 0) == ["store_artifact"]
+    assert _targets(doc, "execute_author", 1) == ["agent_result"], "the reason must reach the asset"
     assert _node(doc, "store_artifact").get("onError") == "continueRegularOutput"
+    assert _node(doc, "store_paired_artifact").get("onError") == "continueRegularOutput"
     code = _code(doc, "agent_result")
-    assert "STATUS: 'ERROR'" in code
-    assert "PI_RENDER_URL" in code
+    assert "authoring failed" in code and "execute_author" in code
 
 
 @pytest.mark.parametrize("label,doc", list(_copies()))
@@ -728,6 +735,46 @@ def _brief_nodes():
         "scene_rules": [{"json": {"SCENE": "the scene contract"}}],
         "visual_forms": [{"json": {"FORMS": "the form vocabulary"}}],
     }
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason=NODE_REQUIRED)
+def test_the_asset_names_the_authoring_failure_rather_than_the_missing_artifact():
+    # Three shapes of the same call: a 4xx body, a transport failure, and a success. The first
+    # two are why the asset's ERROR must prefer the authoring call over the store's own verdict.
+    doc = json.loads(STUDIO.read_text())
+    cases = [
+        {
+            # The session answered before any turn started: `neverError` puts the body in the item.
+            "execute_author": [{"json": {"error": {"message": "EEXIST: file already exists, mkdir '/tmp/x/runs/lips-106'"}}}],
+            "store_artifact": [{"json": {"result": {"content": [
+                {"text": "ERROR: /artifacts/lips-106/out.mp4 answered HTTP 404. Nothing was stored."}
+            ]}}}],
+        },
+        {
+            # A transport failure reaches the error output as `{error}` and the store never ran.
+            "execute_author": [{"json": {"error": {"message": "timeout of 1200000ms exceeded", "name": "Error"}}}],
+        },
+        {
+            "execute_author": [{"json": {"choices": [{"message": {"content": "storyboard"}}]}}],
+            "store_artifact": [{"json": {"result": {"content": [
+                {"text": "key=visual-studio/14801-tiles_wide.mp4 bytes=9 content-type=video/mp4"}
+            ]}}}],
+        },
+    ]
+    out = _exec_code([
+        {
+            "code": _code(doc, "agent_result"),
+            "nodes": {"build_author_brief": [{"json": dict(_TILES_WIDE)}], **case},
+            "env": _ENV,
+            "execution": {"id": "14801"},
+        }
+        for case in cases
+    ])
+    body, transport, ok = (case["items"][0]["json"] for case in out)
+    assert body["STATUS"] == "ERROR" and "EEXIST" in body["ERROR"], body["ERROR"]
+    assert "404" not in body["ERROR"], "the symptom outranks the cause"
+    assert transport["STATUS"] == "ERROR" and "timeout" in transport["ERROR"].lower(), transport["ERROR"]
+    assert ok["STATUS"] == "RENDERED" and ok["S3_KEY"] == "visual-studio/14801-tiles_wide.mp4"
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason=NODE_REQUIRED)

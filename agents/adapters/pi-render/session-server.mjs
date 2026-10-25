@@ -575,6 +575,10 @@ http
       res.writeHead(200, { "content-type": "application/json", "content-length": Buffer.byteLength(body) }).end(body);
     } catch (err) {
       const message = err instanceof Error ? err.message : "session request failed";
+      // A pre-turn failure (staging, an unreadable workspace) leaves no trace in Pi's own
+      // output, and the caller only sees a 400 it may not record -- so the pod log is the
+      // operator's only evidence of why a turn never started.
+      console.error(`sympozium pi render session: turn failed: ${message}`);
       if (res.headersSent) {
         writeSSE(res, { error: { message, type: "harness_session_error" } });
         if (!res.writableEnded) res.end("data: [DONE]\n\n");

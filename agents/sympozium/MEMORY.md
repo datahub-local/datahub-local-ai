@@ -86,7 +86,7 @@ cleanly, and fails silently or not at all:
 | An MCP `project:` naming a directory that does not exist           | Pod crash-loops on `no such project`                                                                                                                                                                                                                           |
 | A wrong MCP server or tool name                                    | The tool silently never appears. See *Tool names are not guessable*                                                                                                                                                                                            |
 | Non-ASCII inside an indented `prompts/delivery/` block             | An empty `status.result`. `grep -nP '^\s+.*[^\x00-\x7F]'`                                                                                                                                                                                                      |
-| `allowedSenders`/`allowedChats` unset on the inbound-bound persona | An open door on the one ensemble that takes inbound messages                                                                                                                                                                                                   |
+| `allowedChats` unset on the inbound-bound persona                   | An open door on the one ensemble that takes inbound messages; `allowedSenders` is unset on purpose (2026-09-04) and does not need one                                                                                                                                                                                          |
 | `provider` ↔ `baseURL` ↔ `authRefs` coherence                      | The three live in two files and the controller matches `provider` byte for byte with no case folding. A miss is a run with no credential, or a metered model pointed at Ollama's `.svc` port — not a startup error. This check was written and never committed |
 | A prompt file referenced by nobody                                 | Dead file, harmless                                                                                                                                                                                                                                            |
 
@@ -2063,7 +2063,9 @@ sender id names a person, not the agent — same reason as `channelConfigs` — 
 is in `VALUES_ONLY_KEYS`. `validate.py` failed a channel-bound persona whose
 ensemble set neither `allowedSenders` nor `allowedChats`, and warned on a missing
 `denyMessage`; both are unguarded now. An unset `denyMessage` drops a rejected
-sender in silence and reads as a broken agent rather than a refusal.
+sender in silence and reads as a broken agent rather than a refusal. That holds
+for a *sender* refusal; a *chat* refusal is now the one in place and it is
+silent on purpose — see *The oracle listens in `#agent-oracle` only* below.
 
 **As of 2026-09-04 `allowedSenders` is deliberately unset: the oracle is open to
 the whole Slack workspace.** It had been pinned to one operator id since the
@@ -2093,6 +2095,38 @@ of the single Ollama slot. Two consequences to watch rather than assume away:
 reader means anyone who can DM the bot can have it read a channel it is in.
 Re-pin `allowedSenders` if either becomes a problem; the values comment states
 how, and that user ids are not @handles.
+
+### The oracle listens in `#agent-oracle` only, and needs no mention (2026-10-25)
+
+`allowedChats: [C0CC1563FA5]` scopes inbound to `#agent-oracle`, and
+`allowedTriggers: [mention, channel]` makes a plain message start a run there.
+Three things about that pair are not obvious:
+
+- **`channel` is what makes a plain message count; `mention` has to stay.**
+  `channels/slack/gating.go` classifies any message whose text carries
+  `<@botID>` as `mention`, whatever chat it is in, so an `@homelab` in
+  `#agent-oracle` is dropped unless `mention` is in the set. `channel` alone
+  reads as "the bot ignores being mentioned".
+- **`dm` went, because a DM chat id is not an allowed chat.** Keeping it would
+  be a trigger that access control always rejects.
+- **`denyMessage` went with the scoping, and that is deliberate.** The router
+  answers a chat-denied message with `denyMessage` when it is set
+  (`channel_router.go`, `if denyMsg != ""`), and the `@homelab` app is a member
+  of eight channels — `workflows`, `monitoring`, `github-notifications` and the
+  three `monitoring-ai-*`. A denial message would post into every one of them on
+  the first human message. Empty means silently dropped, which is the correct
+  answer for "not listening here"; the allowlist is about scope, not about
+  refusing a person, so the 2026-09-04 argument for a visible refusal does not
+  apply to it.
+- **The prompt said "the one message that mentioned you"** and the run now also
+  starts on a message that names nobody, so it says "the one message that
+  started this run". A prompt describing a trigger that no longer exists is the
+  same second copy of a decision as a comment beside a value.
+
+`#agent-hermes` (`C0CBX92B6PQ`) is Hermes's channel and stays Hermes's: core
+sets `SLACK_ALLOWED_CHANNELS` and `SLACK_FREE_RESPONSE_CHANNELS` to it on the
+same `@homelab` app, and both listeners on one app's Socket Mode connections
+would answer the same message. Two channels, two agents.
 
 ## The MCP servers left this repository (2026-09-04)
 

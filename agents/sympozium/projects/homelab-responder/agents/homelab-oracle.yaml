@@ -12,7 +12,7 @@ slackOptions:
   threadStickiness: true
   allowedTriggers:
     - mention
-    - dm
+    - channel
 
 # What a question resolved to, so a follow-up starts from the object rather than
 # from the words. Rationale in ../../../MEMORY.md.

@@ -2,10 +2,11 @@
 
 One persona, and the only channel-bound one in this repository. It is split into
 its own ensemble because ensemble-level settings apply to every persona inside,
-and the trust boundary here is inbound: an @-mention from Slack starts a run, and
-such a run gets **no `toolPolicy`** at all. Its real bounds are therefore
-`mcpServers[].toolsAllow`, which filters at the server and survives that path,
-and mounting no skill sidecar, which leaves `execute_command` nothing to execute.
+and the trust boundary here is inbound: a message in `#agent-oracle` starts a run
+(no @-mention needed), and such a run gets **no `toolPolicy`** at all. Its real
+bounds are therefore `mcpServers[].toolsAllow`, which filters at the server and
+survives that path, and mounting no skill sidecar, which leaves
+`execute_command` nothing to execute.
 
 That is also why the Slack sender allowlist is **unset** — anyone in the
 workspace may ask it something (2026-09-04). `allowedSenders` never was the

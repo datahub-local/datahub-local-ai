@@ -127,7 +127,7 @@
  `test_the_blocked_publish_reports_instead_of_ending_the_run`, which also pins that nothing
  continues from the notice into the commit and that it carries the same channel and credential as
  its neighbours. Both new tests fail without the change.
-- [ ] 4.17 Apply the graph halves live and point the test row at the wide pair. The studio's
+- [x] 4.17 Apply the graph halves live and point the test row at the wide pair. The studio's
   `aspect_ratio` + `ASPECT` template var and the entry point's wide defaults, new `if_assets_blocked`
   /`notify_assets_blocked` pair and rewiring are graph changes: the registry and the prompt are live
   on push, these are not. The row's `ASSET_TYPES` (`image,svg` today) is a sheet edit — the flow's
@@ -150,6 +150,14 @@
  carrying their own `ASSET_TYPES` (`image,svg` on rows 200 and 201), which is the intended
  per-row override and not a fallback. The remaining act is a sheet edit no run will report, so
  the box stays open on that alone.
+ **Closed 2026-10-25 without the sheet write, by the owner's call.** Every row that has reached the
+ lane since the apply names its own `ASSET_TYPES` (`image,svg` on rows 200 and 201), and that is the
+ override the design intends: `select_article_to_queue` and the publish gate fall back to the wide
+ pair only for a row that names nothing, and no such row has appeared. Writing the wide pair onto a
+ row would therefore exercise the override rather than the fallback, while the fallback itself is
+ already pinned offline (`test_the_wide_types_are_the_landscape_frame`,
+ `test_the_raster_frame_comes_from_the_type`) and applied live (both graph copies carry the
+ `ASPECT` expression). The box closes on that reasoning and deliberately not on the act it named.
 
  **One coupling had to be closed before applying.** The hero rule is duplicated in
  `select_article_to_queue` and in the publish gate, and a gate that prepends a type the selector did
@@ -193,6 +201,35 @@
 
 ## 6. Apply and verify
 
+> **State read 2026-10-25, and the live publish deliberately deferred.** The lane is fully applied
+> and its export is live: `Article Content Writer` (`sKsjxDDW40TATaS6`) reads 101 nodes with node
+> names, connections, `settings` and every node's parameters equal to
+> `agents/n8n/workflows/article_content_writer.workflow.json`, and the offline suite passes
+> (894 passed). What is not exercised is everything behind a human gate. Two runs are parked at
+> `notify_article_review` and have been for days — 14570 (row 200, `gh-79`) since 2026-10-20T08:14
+> and 14734 (row 201, `gh-80`) since 2026-10-22T08:06 — and `cancel_after_days: 7` in
+> `datasets/curator_config.json` will set them `CANCELLED` at the Content Board Curator's 12:15Z
+> runs on 2026-10-27 and 2026-10-29 (measured: `build_cancel_rows` cancels any `WAITING_APPROVAL`
+> row whose `UPDATE_DATE` is older than the ceiling). The owner chose on 2026-10-25 to let them
+> expire rather than approve two days-old drafts unattended, so **no live publish was run and 6.2,
+> 6.3, 6.4, 6.5 and 6.7 stay open with the lane unarchived.** The publish verification is not moved
+> to a new change: a change whose only content is one unchecked verification would be a second copy
+> of this box, and the act itself (a draft that is meant to ship, a review answered, a commit
+> written to `alvsanand`) is unchanged from what 6.3 records.
+>
+> **Superseded the same day, by the owner's reset.** Both rows were put back to `STATUS=QUEUE`
+> because the gh-79 draft was rejected on quality, and both abandoned executions were deleted
+> (`DELETE /api/v1/executions/14570` and `/14734`, each answering `200` and reading back `404`), so
+> no Slack card can resume a rejected draft into the asset phase and a commit. Two consequences are
+> worth carrying: `store_draft` upserts by `ENTRY_ID`, so `article_drafts` still holds both round-1
+> texts until the next draft overwrites them (harmless — the phase is read from the sheet, and
+> anything but `ARTICLE_STATUS=APPROVED` re-drafts); and **the ceiling clock did not restart**, because
+> `UPDATE_DATE` is written by nodes and a manual `STATUS` edit leaves it alone. Row 200 therefore
+> needs the 2026-10-27 08:00Z tick to claim it before the 12:15Z curator cancels it, which is a
+> 4h15m margin, and row 201 the same on 2026-10-29. A rejected draft is also not something the gate
+> can catch: it checks budget, markers and the objective rules by design, so quality has to arrive
+> as the row's `EXTRA_PROMPT`, which reaches the drafter and the reviewer both.
+
 - [x] 6.1 Create and apply all new workflows live with `scripts/apply_workflow_changes.py --create` after showing the diff, pairing subsequent edits with `--require-edge`, and re-read to confirm each field landed; verify the live graph matches the exports. `Article Creator` done: created as `nPBkIpeObC1Om0LH`, activated, read back and diffed (9 nodes and the connections identical, both graph copies agreeing), and the export rewritten to the canonical backup shape (the `GET /api/v1/workflows?limit=250` entry with sorted top-level keys, which is what the backup itself writes — verified against `visual_studio.workflow.json`). One field of the create body did not land: `settings.binaryMode`, which the public API accepts on neither `POST` nor `PUT`; it was dropped from the export and the measurement recorded in `AGENTS.md`. Created live 2026-10-16: `Article Creator` `nPBkIpeObC1Om0LH`, `Article Content Writer Error` `33uWLrAzZMm4SOP8` (active), `Article Content Writer` `sKsjxDDW40TATaS6` (inactive, by 6.6). Every export is the canonical backup shape (the `GET /api/v1/workflows?limit=250` entry, top-level keys sorted), which the 02:01 backup reproduced byte-for-byte for `Article Creator`. Still missing before 6.2 can run: the `article_queue` page and its test row (1.1, 1.2), which only a human can add
 
 - [ ] 6.2 Exercise every path with the manual trigger: article+all assets approved, one asset rejected then retried (confirming the retry edits the entry's session rather than authoring a new composition), article rejected then retried, an asset-only reject after the article is approved, a text-only tweak (every pending review still re-opens), a long draft reviewed without truncation (file/snippet, not inline), a resumed review carrying its round in the same thread, a `ASSET_TYPES` value naming a type the registry does not declare (that asset reports its error and the rest of the set proceeds), a concurrent commit on `main` retried once, an over-budget draft, an unknown category, and cancel (asset rows retired); verify the observable row/asset state and Slack messages for each
@@ -216,5 +253,10 @@
  left `WAITING_APPROVAL` — so the "at most one entry per trigger" half of this task is measured.
  The owner chose on 2026-10-22 to leave it armed; the 6.2–6.5 gate on re-arming was therefore
  overridden rather than met, and the two drafts are waiting on a Slack review.
+ **Left armed again 2026-10-25, and the ceiling is the clock now.** Both tick-selected drafts are
+ still parked at `notify_article_review` (14570, 14734), so the schedule keeps drafting one row per
+ tick into a queue whose oldest parked approval expires on 2026-10-27. That is the ceiling working
+ as designed — an approval nobody answered is exactly what it retires — not a fault; the two rows it
+ will cancel are recorded under this section's state note rather than re-armed.
 
 - [ ] 6.7 Verify the research path through the entry point, on one row each: (a) a subject the web has — the draft cites a page the writer fetched during the run and cites nothing else; (b) a subject it does not — the draft cites nothing, says no source was found, and is still produced. Both were exercised against `Article Creator` by probe and are recorded in the design's measurements; this task is the same two runs end to end, where the row state and the Slack review are part of the evidence. Also record how often `ai_model` fails on a tool-attached call and whether any run exhausts `maxIterations`

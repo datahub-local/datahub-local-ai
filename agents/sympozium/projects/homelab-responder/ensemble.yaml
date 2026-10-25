@@ -16,7 +16,7 @@ spec:
     threadStickiness: true
     allowedTriggers:
       - mention
-      - dm
+      - channel
 
 defaults:
   provider: openrouter

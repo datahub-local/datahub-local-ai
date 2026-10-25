@@ -107,20 +107,61 @@ Renovate group moves them.
   prompt carries `VALID_MP4`, which that test sends); and `test/authoring-prompt.test.mjs` still
   required the guide to name `/opt/hyperframes/skills/`, which is now the failure it should
   catch — it asserts the docs topics and that no numbered step invokes `npx` instead.
-- [ ] 5.3 Author one asset per agent-authored type on the new image — `animation`,
+- [x] 5.3 Author one asset per agent-authored type on the new image — `animation`,
   `animation_linkedin`, `animation_linkedin_video`, `tiles`, `tiles_wide`, `svg`, `svg_wide`,
   `deck`, `launch_card` — through a local session against the gateway, and keep every artifact,
   its stills, the response, the brief and `ffprobe` under one folder for review.
-  **Running (2026-10-25 06:24 UTC).** `/tmp/opencode/pi-render-probe-20261025/`: `results/<type>/`
-  per type and `summary.md`. The raster `image`/`image_wide` types are not here — they are
-  Gemini-authored by the `LinkedIn Image Creator` path, not by this adapter.
-- [ ] 5.4 Judge the motion of 5.3's animated artifacts against
+  **Landed 2026-10-25, all nine ok**, engine 0.8.195 + pi 1.4.0, session driven natively against
+  the gateway: `/tmp/opencode/pi-render-probe-20261025/results/<type>/` plus `summary.md`.
+  Measured container per type: `animation` 1280×720 / 30 fps / 900 f / 30.000 s; `animation_linkedin`
+  776×970 / 48 f `16/3` fps (9 s, `fit: scale`); `animation_linkedin_video` 1080×1350 / 30 / 900 /
+  30.000 s; `tiles` 1080×1350 / 30 / 360 / 12.000 s; `tiles_wide` 1280×720 / 30 / 360 / 12.000 s;
+  `svg` 1080×1350 and `svg_wide` 1280×720, both well-formed SVG XML (132 and 44 animation/style
+  hits, no HTML wrapper — the D8 fix took); `deck` self-contained 12.3 kB `out.html` with no
+  external reference plus its paired `out.mp4` at 1280×720 / 30 / 900 / 30.000 s; `launch_card`
+  1280×670 png (663 distinct colours in a 64-px sample, so the final frame is content, not a blank
+  page). Durations 71–779 s per type, ~48 min for the sweep. Two data notes, neither caused by
+  this change: the registry declares `animation_linkedin` as 8 fps/48 frames/9 s, which is
+  arithmetically 5.33 fps — the file honours the declared frame count at the declared duration;
+  and an SVG's container is unreadable by `ffprobe`, so its conformance note is `fit: unknown` by
+  design. The raster `image`/`image_wide` types are not here — they are Gemini-authored by the
+  `LinkedIn Image Creator` path, not by this adapter.
+- [x] 5.4 Judge the motion of 5.3's animated artifacts against
   `agents/n8n/prompts/visual_motion_rules.md` by eye, and record whether `hyperframes docs` plus
-  `lint`/`check` were enough without the retired motion skill. `[UNVERIFIED]` until run.
-- [ ] 5.5 Confirm Pi 1.4.0 in the image resumes a 1.2.0 transcript or fails loudly. `[UNVERIFIED]`
-  — the session TTL is 7 days, so a stale transcript is the only way to meet it.
-- [ ] 5.6 Publish through `publish-images`, confirm the adapter image is re-pinned in
+  `lint`/`check` were enough without the retired motion skill.
+  **Judged by the owner 2026-10-25: all nine ok.** "Some minor visual errors in linked gif but it
+  is usual due to the use of a small resolution" — so `animation_linkedin`'s 776×970 / 48-frame
+  budget is the cost, not the authored motion. That settles the open question in `design.md`: the
+  engine's docs plus `lint`/`check`, with the brief's committed motion grammar, are enough without
+  the retired `hyperframes-animation` skill. Contact sheets at
+  `/tmp/opencode/pi-render-probe-20261025/motion-sheets/` (9 frames per clip) and the measured
+  no-frozen-tail check (15/15 distinct frames in the last 0.5 s on `animation`,
+  `animation_linkedin_video`, `tiles`, `tiles_wide`, `deck`) are what the judgment was made on.
+- [x] 5.5 Confirm Pi 1.4.0 in the image resumes a 1.2.0 transcript or fails loudly.
+  **Landed 2026-10-25 — it resumes, and the transcript format is unchanged.** The live session pod
+  (`datahub-local-ai-pi-render-55d9d98bfd-7nb9d`, image `31a9b1ae`, pi 1.4.0) still held
+  `/tmp/pi-sessions/2026-10-21T10-44-38-788Z_lips-103.jsonl` — a 209-line `version: 3` transcript
+  written by pi 1.2.0 on 2026-10-21, i.e. the actual pre-upgrade format. Copied to a private
+  session dir, then resumed with the same `--session-id`, the `--print` flags the server passes,
+  from the transcript's recorded cwd: pi 1.4.0 emitted **no warning**, loaded the history and
+  answered with the thread's own subject (a 30 s vertical HyperFrames video about Docker Sandboxes,
+  reviewer corrections included — a phrase present 14 times in the old transcript and nowhere in
+  the prompt), then appended the new user and assistant entries (209 → 211 lines). The session
+  lookup is **project-scoped by cwd**: the same id run from `/tmp` printed
+  `No project session found with id …; creating a new session` and answered without history, so a
+  resume must run from the run directory the transcript records — which is what the server does.
+  Probe files removed from the pod afterwards.
+- [x] 5.6 Publish through `publish-images`, confirm the adapter image is re-pinned in
   `agents/adapters/pi-render/deploy`, and that the session Deployment rolls onto it.
+  **Landed.** First publish (run `40174080018`, triggered by `5a61d5b`) pushed pin `28cbac1`
+  (`6861d628…`) on top of the Renovate merge `8ffdba6`; that image reported **0.8.195**, i.e. the
+  publish job raced the merge. The second run (`40174239730`, for `8ffdba6`) re-pinned to
+  `sha256:31a9b1ae…` in `9c3723c`, which carries **0.8.196**, pi 1.4.0, the SVG exception,
+  `--no-extensions` and no skills directory — the digest was pulled and asked, not assumed. The
+  same commit sets `agents/sympozium/values` `sympozium_pi_render.digest`; ArgoCD synced
+  `datahub-local-ai-sympozium` to `9c3723c` and the Deployment rolled onto `31a9b1ae`.
+  Worth knowing for next time: `publish-images` builds the branch tip, so a merge landing while a
+  publish runs needs a second run before the pin means what it says.
 
 ## 6. Stopgap (not taken)
 

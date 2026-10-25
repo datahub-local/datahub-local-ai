@@ -184,10 +184,12 @@ offline side can check, and the composition's quality stays with the caller's cr
 
 ## Open Questions
 
-- Whether `hyperframes docs` coverage is enough without the retired motion skill. The brief still
-  carries the committed motion grammar, so the open half is the composition mechanics (timeline
-  registration, attributes), which `docs compositions` + `docs gsap` + `check` should cover —
-  measured by the per-type probe (5.3/5.4).
+- ~~Whether `hyperframes docs` coverage is enough without the retired motion skill.~~ **Answered
+  2026-10-25: yes.** The owner judged all nine probe assets ok against the committed grammar
+  (5.3/5.4); the only defect named was the LinkedIn GIF's small-resolution artefacts, which are
+  the 776×970 / 48-frame budget rather than the authored motion. The brief still carries the
+  motion grammar, so what the engine had to supply was the composition mechanics — and
+  `docs compositions` + `docs gsap` + `lint`/`check` did.
 - Whether the composer should also be given `hyperframes catalog` guidance for named effects.
   The guide names it; the vendored `@hyperframes/shader-transitions` remains the always-available
   surface, and the probe will show whether the composer reaches for it.

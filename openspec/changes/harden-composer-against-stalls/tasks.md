@@ -247,7 +247,7 @@
 - [x] 4.6 Carry a failed authoring call's own reason onto the asset, which the spec's "reported
   rather than left for the caller to discover as a missing artifact" requires and execution
   14801 broke (found while injecting 4.3's fault)
- **Landed in the export and the adapter, not yet applied or deployed.**
+ **Landed in the export and the adapter, applied live 2026-10-25.**
  - *The graph.* `execute_author` moves to `continueErrorOutput` and gains
    `options.response.response.neverError: true`, with its error output wired to `agent_result`
    beside `store_artifact`'s success path. `agent_result` prefers
@@ -272,11 +272,23 @@
    /artifacts/lips-106/out.mp4 answered HTTP 404. Nothing was stored.`). The wiring test fails on
    the old export too. `pytest agents/n8n/scripts/` **894 passed**, `ruff` clean, `node --test`
    **61/0**.
- - *Not measured.* The form's text after the change: the next failed authoring call has to name
-   the session's reason in Slack, and the error output's runtime `json.error` shape for a
-   transport failure is asserted from the 2026-10-18 probe, not re-probed here. The image also
-   has to be published and the graph applied for either half to be live — 4.3's Monday retry is
-   the natural run to read both from.
+ - *Applied 2026-10-25.* Committed `b45d82c`, pushed; `Test Agents` green and `Publish and rebuild
+   images` green, which committed the digest pin `4faf0e7`. The graph went in through
+   `apply_workflow_changes.py --changes` with three `--require-edge` guards: connections
+   `0->store_artifact | 1->agent_result`, `onError: continueErrorOutput`, `neverError: true` and
+   the new `jsCode`; read back live, then deactivate/activate republished it
+   (`activeVersionId 5ec48b4a…`), and a full field/connection/settings diff against the export is
+   **empty** at 47 nodes with `active: true`. ArgoCD synced `4faf0e7`, the session Deployment now
+   runs digest `46d95d34…`, and the restarted pod's binary carries the new line.
+ - *Probed live, the log half only.* A regular file at `/tmp/aivideo/runs/probe-log-1` (a
+   throwaway id, removed afterwards) made the turn answer
+   `400 {"error":{"message":"EEXIST: file already exists, mkdir '/tmp/aivideo/runs/probe-log-1'"}}`
+   and the pod logged `sympozium pi render session: turn failed: EEXIST: …` — the exact trace that
+   did not exist for execution 14801.
+ - *Not measured.* The form's text after the change: Monday's 16:00 UTC tick is the run to read
+   `authoring failed: <the session's reason>` from, and with it the error output's runtime
+   `json.error` shape for a transport failure, which is asserted here from the 2026-10-18 probe
+   rather than re-probed.
 
 ## 6. Recovery of run 13648 (operator, not automated)
 

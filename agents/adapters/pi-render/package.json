@@ -8,7 +8,7 @@
     "node": ">=22"
   },
   "dependencies": {
-    "@hyperframes/shader-transitions": "0.8.196",
-    "hyperframes": "0.8.196"
+    "@hyperframes/shader-transitions": "0.8.205",
+    "hyperframes": "0.8.205"
   }
 }

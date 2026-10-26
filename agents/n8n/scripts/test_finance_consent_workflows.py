@@ -120,6 +120,18 @@ def test_watch_advice_distinguishes_a_dead_consent_from_a_bank_fault():
     assert "'EXPIRED'" in code and "re-link" in code, "a dead consent must still say re-link"
 
 
+@pytest.mark.parametrize("label,nodes", _copies(WATCH), ids=lambda v: v if isinstance(v, str) else "")
+def test_the_probe_outlasts_a_slow_bank_failure(label, nodes):
+    # Measured 2026-10-26: Openbank answers the balances call with 400 ASPSP_ERROR after
+    # 13.1s and 16.6s, and the 12:00 run crossed 30s, so the node aborted and the BANK_FAULT
+    # transition was never posted. A timeout is also what a hand edit mistyped as 60ms on the
+    # live node the same day, which cannot observe anything at all.
+    probe = _node(nodes, "Probe Balances")
+    assert probe, f"{label}: expected the balances probe"
+    timeout = probe["parameters"]["options"]["timeout"]
+    assert timeout >= 60000, f"{label}: the probe must outlast the ASPSP's slow failure, got {timeout}"
+
+
 def test_watch_workflow_is_twelve_hourly_on_the_data_plane():
     data = json.loads(WATCH.read_text())
     assert (data.get("settings") or {}).get("errorWorkflow"), "the watch is an entry point and must report"

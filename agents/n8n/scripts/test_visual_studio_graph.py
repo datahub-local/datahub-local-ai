@@ -150,6 +150,23 @@ def test_the_review_is_bounded_and_its_verdict_is_data(label, doc):
 
 
 @pytest.mark.parametrize("label,doc", list(_copies()))
+def test_the_authoring_answer_is_read_from_its_success_output(label, doc):
+    # $('node').first() does not mean output 0: n8n walks upstream from the reading node and
+    # takes the index of the connection it finds, so once execute_author's error output fed
+    # agent_result (2026-10-25) the unqualified read resolved to output 1 -- empty on success.
+    # prepare_stills threw on the undefined .json and killed a run whose asset was already
+    # stored, and agent_result's guarded reads silently recorded an empty STORYBOARD (14997).
+    readers = [n for n in doc["nodes"] if "$('execute_author')" in ((n.get("parameters") or {}).get("jsCode") or "")]
+    assert readers, "expected a node to read the authoring answer"
+    for node in readers:
+        code = node["parameters"]["jsCode"]
+        assert "$('execute_author').first()" not in code, (
+            f"{label}: {node['name']} reads execute_author without pinning its success output"
+        )
+        assert "$('execute_author').first(0)" in code
+
+
+@pytest.mark.parametrize("label,doc", list(_copies()))
 def test_the_raster_branch_reaches_the_merge(label, doc):
     assert _targets(doc, "download_raster_prompt", 0) == ["raster_director"]
     assert _targets(doc, "raster_director", 0) == ["generate_image"]

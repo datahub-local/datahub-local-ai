@@ -483,6 +483,28 @@ Eight structural things worth knowing before editing an export:
   items: there is nothing more to read. A Merge cannot express the join either — append runs per
   input and `combine` merges fields rather than listing items — so a multi-type caller is a
   per-type caller.
+- **`$('node').first()` does not mean output 0: it means *the output the graph connects that
+  node to*, resolved by walking upstream from the reading node.** `execute_author` carries
+  `continueErrorOutput`, and on 2026-10-25 its error output was wired into `agent_result` so a
+  failed authoring reaches the asset as `ERROR`; that one edge made every `$('execute_author')`
+  read resolve to output **1**, which is empty on success — `getNodeConnectionIndexes` returns
+  the first connection it meets while scanning `agent_result`'s inputs, and stamping
+  `sourceIndex` from it. `prepare_stills` then threw `Cannot read properties of undefined
+  (reading 'json')` **after** the asset had rendered and stored (execution 14997, 4.6 MB mp4 at
+  `visual-studio/14997-animation_linkedin_video.mp4`), the caller `LinkedIn Post Sharing` died
+  with it (14981), and the reads wrapped in `try/catch` silently recorded an empty `STORYBOARD`
+  and `CONFORMED` on the asset. Pin the output (`first(0)`) wherever the answer that matters is
+  the success one, and treat a `first()`/`all()` with no argument as a graph dependency that a
+  rewire can change under you — `test_visual_studio_graph.py` now fails on an unpinned read.
+- **A hand-edited node timeout is an outage of whatever that node was watching.** `Probe
+  Balances` in `EnableBanking Consent Watch` was set to **`60`** on the live instance on
+  2026-10-26 12:02 — taken for 60 s, it is 60 ms — and the 12:02 retry answered `timeout of
+  60ms exceeded` while the 12:00 run had answered `30000ms exceeded`. Two things followed: the
+  watch could never reach the `BANK_FAULT` branch, so the bank's real failure posted nothing,
+  and the export sat at `30000` until the nightly backup would have written the typo back into
+  git. The probe is `120000` now, which is the point: measured the same day, Openbank answers
+  the balances call with `400 ASPSP_ERROR` after **13.1 s and 16.6 s**, and a 30 s window
+  closed before the answer did. `test_finance_consent_workflows.py` holds the floor.
 - **An agent's tool node must implement `execute`, and the obvious node does not.** n8n's v3
   agent hands a tool call to the workflow engine, which runs the node through its own executor,
   so a tool node carrying only `supplyData` fails on **every** call with `The node

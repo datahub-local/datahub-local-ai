@@ -538,6 +538,10 @@ def test_the_scene_contract_is_a_prompt_file(label, doc):
     text = (ROOT / "prompts" / "visual_scene.md").read_text()
     assert "A scene is one beat" in text
     assert "additional to them" in text
+    # The copy budget: a clip is watched, so a scene carries one short line and the
+    # detail stays in the post text rather than competing with the motion.
+    assert "six words at most" in text
+    assert "post text" in text
 
 
 @pytest.mark.parametrize("label,doc", list(_copies()))

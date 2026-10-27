@@ -1,7 +1,7 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "217dbef5-9c9c-4d64-aea7-014bba1bd40f",
+    "versionId": "b08fdcb5-b7a9-43c2-88a7-05d583b1be3c",
     "workflowId": "aLkMPugqXplEW4BL",
     "nodes": [
       {
@@ -170,6 +170,9 @@
         "notes": "The keep-alive and the liveness signal in one call: Enable Banking refreshes the ASPSP token during data fetches.",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.2,
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 5000,
         "position": [
           976,
           288
@@ -309,10 +312,10 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-09-30T17:48:18.174Z",
-    "updatedAt": "2026-09-30T17:48:18.174Z"
+    "createdAt": "2026-10-26T20:19:00.081Z",
+    "updatedAt": "2026-10-26T20:19:00.081Z"
   },
-  "activeVersionId": "217dbef5-9c9c-4d64-aea7-014bba1bd40f",
+  "activeVersionId": "b08fdcb5-b7a9-43c2-88a7-05d583b1be3c",
   "connections": {
     "Get Stable Secret": {
       "main": [
@@ -572,6 +575,9 @@
       "notes": "The keep-alive and the liveness signal in one call: Enable Banking refreshes the ASPSP token during data fetches.",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
       "position": [
         976,
         288
@@ -620,10 +626,11 @@
       }
     }
   ],
-  "pinData": null,
+  "pinData": {},
   "settings": {
     "errorWorkflow": "fejq5nN6LP3F820w",
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "binaryMode": "separate"
   },
   "shared": [
     {
@@ -655,6 +662,6 @@
   },
   "tags": [],
   "triggerCount": 1,
-  "updatedAt": "2026-09-30T17:48:18.151Z",
-  "versionId": "217dbef5-9c9c-4d64-aea7-014bba1bd40f"
+  "updatedAt": "2026-10-26T20:19:00.069Z",
+  "versionId": "b08fdcb5-b7a9-43c2-88a7-05d583b1be3c"
 }

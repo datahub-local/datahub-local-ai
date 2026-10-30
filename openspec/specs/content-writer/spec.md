@@ -369,13 +369,18 @@ The writer SHALL be able to search for the entry's subject and to read a page it
 
 ### Requirement: Assets are produced and reviewed as a set
 
-The system SHALL request the entry's visual asset set from the `visual-studio` capability, naming types from that capability's registry. The `image` type SHALL always be requested and is the article's hero — the image social platforms preview when the page carries no `og:image`, which this blog does not emit; a blank `ASSET_TYPES` SHALL resolve to `image,svg`, and a declared list SHALL add to the hero rather than replace it. The request SHALL carry the entry's session identity, so a later request for the same entry continues the same authoring. Each asset SHALL be recorded as its own row in `article_assets` with a review state distinct from the article review state and from every other asset's, and SHALL be sent to Slack for that asset's approval.
+The system SHALL request the entry's visual asset set from the `visual-studio` capability, naming types from that capability's registry. A raster hero SHALL always be requested and is the article's hero — the image social platforms preview when the page carries no `og:image`, which this blog does not emit; a blank `ASSET_TYPES` SHALL resolve to `image_wide,svg_wide`, and a declared list SHALL add to the hero rather than replace it. This lane SHALL request wide frames only: a row naming the portrait `image` or `svg` SHALL be normalized to `image_wide` or `svg_wide` before the set is requested, because the article is read in a text column and a 4:5 asset is a phone poster there. The request SHALL carry the entry's session identity, so a later request for the same entry continues the same authoring. Each asset SHALL be recorded as its own row in `article_assets` with a review state distinct from the article review state and from every other asset's, and SHALL be sent to Slack for that asset's approval.
 
 #### Scenario: Asset set produced
 - **WHEN** an article draft exists for the entry
 - **THEN** the requested assets are produced, each with a row in `article_assets`
 - **AND** each asset's review state is awaiting review
 - **AND** each asset is sent to Slack for approval
+
+#### Scenario: A portrait type is requested
+- **WHEN** the entry's `ASSET_TYPES` names `image` or `svg`
+- **THEN** the request asks for `image_wide` or `svg_wide` instead
+- **AND** no 4:5 asset is produced for the article
 
 #### Scenario: One asset fails
 - **WHEN** one asset cannot be produced
@@ -504,6 +509,7 @@ Two runs MUST NOT work the same entry: an actionable entry is claimed before any
 #### Scenario: Stale claim recovered
 - **WHEN** an entry is claimed but no run is live
 - **THEN** the claim is recoverable so the entry becomes actionable again
+- **AND** it is resumed before a fresh entry is started, so a stuck one cannot starve behind new work
 
 ### Requirement: Pending work is determined by a defined predicate
 

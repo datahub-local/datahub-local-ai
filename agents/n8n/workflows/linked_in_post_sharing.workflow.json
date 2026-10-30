@@ -188,7 +188,7 @@
           "workflowInputs": {
             "mappingMode": "defineBelow",
             "value": {
-              "MAX_WORDS": "={{ $('select_article_to_post').item.json.MAX_WORDS.toNumber() || 300 }}",
+              "MAX_WORDS": "={{ Number($('select_article_to_post').item.json.MAX_WORDS) || 300 }}",
               "URL": "={{ $('select_article_to_post').item.json.URL }}",
               "EXTRA_PROMPT": "={{ $('select_article_to_post').item.json.EXTRA_PROMPT }}",
               "CONTENT": "={{ $('download_content').item.json.contentMkdown }}",
@@ -2841,6 +2841,7 @@
       },
       {
         "parameters": {
+          "errorType": "errorMessage",
           "errorMessage": "={{ $json.ERROR || $json.error || 'post failed' }} ({{ $('select_article_to_post').item.json.URL }})"
         },
         "id": "939bb31c-0d9b-49cf-945b-3013c366c509",
@@ -2900,7 +2901,8 @@
           "options": {
             "response": {
               "response": {
-                "responseFormat": "file"
+                "responseFormat": "file",
+                "outputPropertyName": "data"
               }
             },
             "timeout": 600000
@@ -2957,7 +2959,8 @@
             "limitWaitTime": {
               "values": {
                 "resumeAmount": 30,
-                "resumeUnit": "minutes"
+                "resumeUnit": "minutes",
+                "limitType": "afterTimeInterval"
               }
             },
             "appendAttribution": true
@@ -4457,7 +4460,7 @@
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "MAX_WORDS": "={{ $('select_article_to_post').item.json.MAX_WORDS.toNumber() || 300 }}",
+            "MAX_WORDS": "={{ Number($('select_article_to_post').item.json.MAX_WORDS) || 300 }}",
             "URL": "={{ $('select_article_to_post').item.json.URL }}",
             "EXTRA_PROMPT": "={{ $('select_article_to_post').item.json.EXTRA_PROMPT }}",
             "CONTENT": "={{ $('download_content').item.json.contentMkdown }}",
@@ -7110,6 +7113,7 @@
     },
     {
       "parameters": {
+        "errorType": "errorMessage",
         "errorMessage": "={{ $json.ERROR || $json.error || 'post failed' }} ({{ $('select_article_to_post').item.json.URL }})"
       },
       "id": "939bb31c-0d9b-49cf-945b-3013c366c509",
@@ -7169,7 +7173,8 @@
         "options": {
           "response": {
             "response": {
-              "responseFormat": "file"
+              "responseFormat": "file",
+              "outputPropertyName": "data"
             }
           },
           "timeout": 600000
@@ -7226,7 +7231,8 @@
           "limitWaitTime": {
             "values": {
               "resumeAmount": 30,
-              "resumeUnit": "minutes"
+              "resumeUnit": "minutes",
+              "limitType": "afterTimeInterval"
             }
           },
           "appendAttribution": true

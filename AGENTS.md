@@ -1277,6 +1277,17 @@ keeps it: a page lead image is a legitimate still, a still nobody asked for is n
 rule — `POST_MEDIA` and its unconditional animation govern `content_queue`, and the article lane has
 no motion flag at all; what it has is the requested set, and the hero is the first type in it.
 
+**The article lane has no portrait frame, and the intake default used to be one.** `image` and `svg`
+are the LinkedIn feed's 4:5 pair; the blog is read in a text column, so a 4:5 asset there is a phone
+poster. `board_intake.json` defaulted every imported row to `image,svg`, and `select_article_to_queue`
+counted `image` as a hero, so no wide frame was ever prepended — row gh-80, imported from the board,
+was authored as a **928x1152** png (studio execution 15286), and that was the article's lead image
+at 80% width in a text column. The intake default is `image_wide,svg_wide` now, and the selector
+normalizes `image` to `image_wide` and `svg` to `svg_wide` before it derives the set: the sheet still
+carries rows written under the old default, and a fix that only touched the default would leave them
+portrait. Both halves are one rule in one node, and the spec's older requirement — `image` is the
+hero, blank resolves to `image,svg` — said the opposite and was corrected with it.
+
 **An SVG commits with an `.svg` extension, which the content type does not give you by splitting it.**
 `build_commit_files` derived the extension as `CONTENT_TYPE.split('/')[1]`, and an SVG asset reports
 `image/svg+xml` — so the path came out `docs/img/<slug>-svg_wide.svg+xml` and the article referenced
@@ -1419,10 +1430,19 @@ sub-nodes excluded, because a model or tool is reached *from* its consumer.
 `waitForSubWorkflow: false` can have its child execution marked `crashed` by the queue recovery
 before the worker picks it up, and then resumed minutes later — execution 14402 did exactly that,
 reaching `waiting` on the review after being reported `crashed`. Read the newest execution again
-before firing another, and remember `pick_candidate` takes the **lowest** `QUEUE` row: a second
-probe during a wait drafted row 200, a different pending idea, because row 2 was already
-`WAITING_APPROVAL`. A test row has to be the only `QUEUE` row, and the failure path recorded row
-200 as `ERROR` when the drafting gate rejected its four drafts.
+before firing another, and remember `pick_candidate` resumes the oldest **stale** claim before it
+takes the lowest `QUEUE` row: a second probe during a wait drafted row 200, a different pending
+idea, because row 2 was already `WAITING_APPROVAL` and, once stale, is what the next run picks.
+A test row has to be the only actionable row, and the failure path recorded row 200 as `ERROR`
+when the drafting gate rejected its four drafts.
+
+**A stuck entry is resumed before a new one is started, and the four-hour window is the proxy for
+"no run is live".** `pick_candidate` preferred a fresh `QUEUE` row, so an entry left `IN_PROGRESS`
+behind an unanswered review starved whenever the board kept importing — and the 7-day ceiling then
+*cancelled* it rather than completing it. The order is now stale claim, then lowest `QUEUE` row.
+The window's cost is accepted and stated in the node: a review a person is still sitting on is
+indistinguishable from one whose run died, so past four hours it is re-drafted. The alternative —
+asking n8n whether an execution is alive — does not exist.
 
 **A resumed execution's persisted data lags the live one.** After the Slack approval,
 `GET /executions/{id}?includeData=true` kept answering `lastNodeExecuted: notify_article_review`

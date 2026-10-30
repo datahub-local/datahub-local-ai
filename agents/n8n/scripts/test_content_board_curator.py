@@ -128,11 +128,25 @@ def test_the_board_config_names_the_repo_and_the_label():
     assert BOARD_CFG["label"] == "post"
     assert BOARD_CFG["owner"] and BOARD_CFG["repo"]
     assert BOARD_CFG["state"] == "open"
+    # The article is read in a text column, so its default pair is the wide frame. The 4:5
+    # pair is the LinkedIn feed's, and a row imported with it published a phone poster.
+    assert BOARD_CFG["defaults"]["asset_types"] == "image_wide,svg_wide"
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason=NODE_REQUIRED)
+def test_the_board_config_falls_back_to_the_wide_pair():
+    # parse_board_config defaults every key, so a dataset that omits asset_types must still
+    # yield a frame the article lane can publish.
+    out = _items(_run(_js(BOARD, "parse_board_config"), {
+        "download_board_config": [{"output": "{}"}],
+        "download_curator_config": [{"output": "{}"}],
+    }))[0]
+    assert out["asset_types"] == "image_wide,svg_wide"
 
 
 def test_an_imported_row_is_the_issues_own_data_with_the_lane_defaults():
     cfg = {
-        "categories": "OSS", "asset_types": "image,svg", "max_words": 1200, "priority": "MEDIUM",
+        "categories": "OSS", "asset_types": "image_wide,svg_wide", "max_words": 1200, "priority": "MEDIUM",
         "audience": "LOW", "run_at": "2026-10-18T10:00:00.000Z",
     }
     issues = [{
@@ -152,7 +166,7 @@ def test_an_imported_row_is_the_issues_own_data_with_the_lane_defaults():
     assert row["STATUS"] == "QUEUE"
     assert row["UPDATE_DATE"] == cfg["run_at"]
     assert row["CATEGORIES"] == "OSS"
-    assert row["ASSET_TYPES"] == "image,svg"
+    assert row["ASSET_TYPES"] == "image_wide,svg_wide"
     assert row["MAX_WORDS"] == 1200
     assert row["PRIORITY"] == "MEDIUM"
     assert row["AUDIENCE"] == "LOW"

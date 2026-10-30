@@ -14,7 +14,11 @@ twice, at the top level and inside ``activeVersion``.
 
 import json
 import re
+import shutil
+import subprocess
 from pathlib import Path
+
+import pytest
 
 BASE = Path(__file__).resolve().parents[1]
 DATASETS = BASE / "datasets"
@@ -207,6 +211,49 @@ def test_the_curator_self_heals_unclassified_rows():
         assert "select_unclassified_queue" in read_targets, label
         # the backfill loop must close: parse -> update -> loop
         assert "loop_backfill_queue" in _targets(doc["connections"], "update_backfill_columns"), label
+
+
+def _run_selector(document, rows):
+    """Execute the committed selector's jsCode against a fixture of sheet rows.
+
+    The node logs a summary, so console.log is redirected before the result is written:
+    a stray line on stdout would be parsed as the answer.
+    """
+    code = _node(document, "select_unclassified_queue")["parameters"]["jsCode"]
+    script = (
+        "console.log = (...a) => console.error(...a);\n"
+        "const ROWS = JSON.parse(process.argv[1]);\n"
+        "const $input = { all: () => ROWS.map((json) => ({ json })) };\n"
+        "function __n8n() {\n" + code + "\n}\n"
+        "process.stdout.write(JSON.stringify(__n8n()));\n"
+    )
+    done = subprocess.run(
+        ["node", "-e", script, json.dumps(rows)], capture_output=True, text=True, check=False
+    )
+    assert done.returncode == 0, done.stderr.strip()[:400]
+    return [item["json"] for item in json.loads(done.stdout)]
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is required to run the selector")
+def test_the_self_heal_classifies_a_hand_queued_row_too():
+    """ORIGIN is not a reason to leave a queued row without a hook.
+
+    Row 126 of ``content_queue`` was hand-queued with ``HOOK``, ``VISUAL_FORM``,
+    ``POST_MEDIA`` and ``SCENES`` all blank, and the selector filtered on
+    ``ORIGIN === 'AUTO'``: it emitted nothing, ``loop_backfill_queue`` never executed,
+    and the row would have published a still with no opening hook (2026-10-30).
+    """
+    rows = [
+        {"row_number": 1, "URL": "u-auto", "STATUS": "QUEUE", "ORIGIN": "AUTO", "HOOK": ""},
+        {"row_number": 2, "URL": "u-manual", "STATUS": "QUEUE", "ORIGIN": "MANUAL", "HOOK": ""},
+        {"row_number": 3, "URL": "u-done", "STATUS": "QUEUE", "ORIGIN": "AUTO", "HOOK": "BENCHMARK"},
+        {"row_number": 4, "URL": "u-pub", "STATUS": "PUBLISHED", "ORIGIN": "AUTO", "HOOK": ""},
+        {"row_number": 5, "URL": "u-expired", "STATUS": "EXPIRED", "ORIGIN": "MANUAL", "HOOK": ""},
+    ]
+    for label, doc in _copies(CURATOR):
+        got = _run_selector(doc, rows)
+        assert [r["row_number"] for r in got] == [1, 2], f"{label}: {got}"
+        assert [r["url"] for r in got] == ["u-auto", "u-manual"], label
 
 
 def test_the_sheets_nodes_write_post_media_from_the_row():

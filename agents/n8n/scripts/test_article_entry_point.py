@@ -24,6 +24,7 @@ import shutil
 import subprocess
 import tempfile
 import textwrap
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -559,9 +560,38 @@ def test_the_hero_a_row_does_not_name_is_animated():
     assert run("animation")["REQUESTED_ASSETS"] == "svg_wide,animation"
     assert run("tiles_wide")["REQUESTED_ASSETS"] == "svg_wide,tiles_wide"
     assert run("")["REQUESTED_ASSETS"] == "svg_wide"
-    # A row that names its own raster keeps that choice.
-    assert run("image")["REQUESTED_ASSETS"] == "image"
+    # A row that names its own wide raster keeps that choice.
     assert run("image_wide")["REQUESTED_ASSETS"] == "image_wide"
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason=NODE_REQUIRED)
+def test_the_article_lane_never_requests_the_portrait_pair():
+    """A 4:5 asset is a phone poster in a text column, so the lane normalizes it away.
+
+    Measured 2026-10-30: row gh-80, imported from the board, carried the intake default
+    `image,svg`; `select_article_to_queue` counted `image` as a hero, the writer put that marker
+    where the lead image goes, and the studio authored a 928x1152 png for a post read at 80%
+    width. The intake default is the wide pair now, and this is the backstop for a row that
+    already carries the portrait ids.
+    """
+
+    def run(types):
+        return _run_code_node(
+            "select_article_to_queue",
+            {
+                "validate_categories": [
+                    {"row_number": 1, "ENTRY_ID": "e1", "ASSET_TYPES": types, "ARTICLE_STATUS": ""}
+                ]
+            },
+            [],
+        )["out"][0]["json"]
+
+    assert run("image,svg")["REQUESTED_ASSETS"] == "image_wide,svg_wide"
+    assert run("image")["REQUESTED_ASSETS"] == "image_wide"
+    assert run("svg")["REQUESTED_ASSETS"] == "svg_wide"
+    # Normalizing collapses the pair rather than requesting both frames.
+    assert run("image,image_wide")["REQUESTED_ASSETS"] == "image_wide"
+    assert run("svg,svg_wide")["REQUESTED_ASSETS"] == "svg_wide"
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason=NODE_REQUIRED)
@@ -759,6 +789,30 @@ def test_an_overlapping_trigger_skips_a_fresh_claim_and_recovers_a_stale_one():
     assert "STALE_CLAIM_HOURS" in code
     assert "Date.now() - claimedAt" in code
     assert "return false" in code
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason=NODE_REQUIRED)
+def test_a_stale_claim_is_resumed_before_a_fresh_row():
+    """The entry in flight is finished before a new one is started.
+
+    Row 4 was left `IN_PROGRESS` with `ARTICLE_STATUS=APPROVED` when its run was cancelled. With
+    a fresh row in the sheet, QUEUE-first starts that one and leaves row 4 to the ceiling, which
+    cancels it rather than completing it. The stale claim is the work a human is already waiting
+    on, so it wins.
+    """
+    now = datetime.now(UTC)
+    fresh = {"row_number": 9, "ENTRY_ID": "e9", "STATUS": "QUEUE", "TOPIC": "new",
+             "UPDATE_DATE": now.isoformat()}
+    stale = {"row_number": 4, "ENTRY_ID": "e4", "STATUS": "IN_PROGRESS",
+             "ARTICLE_STATUS": "APPROVED", "TOPIC": "old",
+             "UPDATE_DATE": (now - timedelta(hours=5)).isoformat()}
+    out = _run_code_node("pick_candidate", {}, [fresh, stale])["out"]
+    assert [i["json"]["ENTRY_ID"] for i in out] == ["e4"]
+
+    # A claim inside the window still belongs to a live run and is skipped.
+    live = dict(stale, UPDATE_DATE=(now - timedelta(hours=1)).isoformat())
+    out = _run_code_node("pick_candidate", {}, [fresh, live])["out"]
+    assert [i["json"]["ENTRY_ID"] for i in out] == ["e9"]
 
 
 # --------------------------------------------------------------- the improvement pass

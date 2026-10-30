@@ -11,6 +11,8 @@ live bug.
 """
 
 import json
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -514,3 +516,41 @@ def test_the_animation_is_located_by_key_and_downloaded(label, document):
     assert download["type"] == "n8n-nodes-base.httpRequest"
     assert download["parameters"]["options"]["response"]["response"]["outputPropertyName"] == "data"
     assert "$json.URL" in download["parameters"]["url"]
+
+
+@pytest.mark.parametrize("label,document", list(_copies(SHARING)))
+def test_a_post_failure_reports_its_reason(label, document):
+    """Without ``errorType`` the node throws a generic stop and the reason is lost."""
+    stop = _nodes(document)["stop_and_error"]
+    assert stop["parameters"].get("errorType") == "errorMessage"
+    assert "$json.ERROR" in stop["parameters"]["errorMessage"]
+
+
+def _eval_expression(expression, cell):
+    """Run an n8n expression body with ``$()`` stubbed to one sheet row."""
+    body = expression.strip()
+    assert body.startswith("={{") and body.endswith("}}"), expression
+    body = body[3:-2]
+    script = (
+        "const $ = () => ({ item: { json: { MAX_WORDS: process.argv[1] } } });\n"
+        f"process.stdout.write(JSON.stringify({body}));\n"
+    )
+    done = subprocess.run(["node", "-e", script, cell], capture_output=True, text=True, check=False)
+    assert done.returncode == 0, f"{expression} threw on {cell!r}: {done.stderr.strip()[:300]}"
+    return json.loads(done.stdout)
+
+
+@pytest.mark.parametrize("label,document", list(_copies(SHARING)))
+def test_a_prose_max_words_cell_falls_back_instead_of_failing_the_run(label, document):
+    """``MAX_WORDS`` is a person's cell, and ``.toNumber()`` throws on prose.
+
+    Row 126 of ``content_queue`` was hand-queued with a column shift, so the cell
+    held an instruction; ``toNumber()`` raised ``cannot convert to number`` and the
+    ``|| 300`` beside it could never run, because the throw happens first
+    (execution 15351, 2026-10-30).
+    """
+    value = _nodes(document)["execute_post_creator"]["parameters"]["workflowInputs"]["value"]
+    expression = value["MAX_WORDS"]
+    assert _eval_expression(expression, "Use the five questions as the spine.") == 300
+    assert _eval_expression(expression, "") == 300
+    assert _eval_expression(expression, "1200") == 1200

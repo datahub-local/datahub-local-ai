@@ -960,6 +960,17 @@ finding survived — Prometheus 91.1% with its action, `pg_get_top_queries` fail
 7 machines answered, the stale apt cache as one bullet naming all seven, amd-2
 degraded, updates/reboot/io, UPS. `endpoint-warden`'s 32 bullets became 2.
 
+**Shipping it is a push, not a `helmfile apply`.** `datahub-local-ai-sympozium` is
+the ArgoCD application over `https://github.com/datahub-local/datahub-local-ai.git`
+at `agents/sympozium/`, target revision `HEAD`, auto-sync, and no Helm release of
+that name exists in the cluster — `helmfile apply` fails on a missing `helm diff`
+plugin and `helmfile sync` fails on `NetworkPolicy/datahub-local-ai-pi-render-callers`
+carrying no Helm ownership annotations. So the local helmfile is a render gate
+(`helmfile template`, which is what CI runs) and `main` is the deploy. A prompt
+change therefore reaches the fleet on the next scheduled tick, not immediately: the
+sync updated the Ensemble's `agentConfigs[].systemPrompt` and the Agent's embedded
+postRun script, and fired no run.
+
 ## The report names its agent; it never invents a time
 
 Nothing in this fleet returns the current time — verified: the runtime injects no

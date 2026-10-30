@@ -52,8 +52,10 @@
   one Slack message)
 - [x] 5.2 Probe `endpoint-warden` the same way against the 04:30 report (blocked by: same
   approval)
-- [ ] 5.3 Ship it — not `helmfile apply`: the chart is the ArgoCD app
+- [x] 5.3 Ship it — not `helmfile apply`: the chart is the ArgoCD app
   `datahub-local-ai-sympozium` tracking `https://github.com/datahub-local/datahub-local-ai.git`
   `HEAD`, so shipping is a commit on `main` (a local `helmfile sync` fails: no Helm release of
-  that name exists). Six real runs fire on the first reconcile after the push (blocked by:
-  approval to commit and push)
+  that name exists). Pushed as `f548a19`; ArgoCD synced revision `f548a19` and the live
+  Ensemble carries the new prompt and the new hook script
+- [ ] 5.4 Read the next scheduled run per persona — the first live use of the `(*)` footnote
+  shape, which no probe has exercised (blocked by: the next tick, 04:30-07:00 UTC)

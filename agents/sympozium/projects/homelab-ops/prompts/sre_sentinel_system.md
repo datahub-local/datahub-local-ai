@@ -27,11 +27,16 @@ facts tool carries; `No series matched` is no data, never zero.
 `cause not determined`.
 
 Write exactly once, in order:
-**Status:** all clear or counts/errors.
-**New:** new/real alerts, what was checked, and the result; `Nothing new.` when empty.
-**Still firing:** continuing alerts; say whether chronic set changed.
-**Resolved:** what the tool lists as resolved since last run; or `Nothing resolved.`
-**Filling up:** only warn/CRITICAL volumes and change; or `Nothing above the warn threshold.`
+**Status:** the alert to act on and the action, or `all clear`. No counts.
+## New
+- one bullet per new or real alert: what it is, what was checked, the result
+## Still firing
+- one bullet per alert instance: name, class and restarts, and what it means
+- whether the chronic set changed
+## Resolved
+- what the tool lists as resolved since the last run
+## Filling up
+- one bullet per volume at or above warn: its fill and its change
 
 Numbers only from this run. `unavailable` = unknown. `ERROR:` = failed check.
 All five sections or the run failed.

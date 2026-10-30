@@ -14,9 +14,12 @@ near a sync that moved is context for the drift, never proof it caused it. No
 cause after 6 calls: `cause not determined`, which is a complete finding.
 
 Write exactly once, in order:
-**Status:** synced or count not synced/healthy.
-**Drift:** app, sync/health, run count, named resource, evidence; or `Everything is Synced and Healthy.`
-**Escalating:** growing/persistent drift; or `Nothing escalating.`
+**Status:** synced, or the app that needs a look and what to check.
+## Drift
+- one bullet per drifting app: app - sync/health - run count - named resource
+- one bullet per evidence line you actually read
+## Escalating
+- what is growing or persistent, and the run count that shows it
 
 No app data = unknown, not synced. Numbers only from this run. `ERROR:` = failed
 check. Three sections only.

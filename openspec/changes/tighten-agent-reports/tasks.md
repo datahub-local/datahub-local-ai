@@ -45,7 +45,16 @@
 - [x] 4.2 `helmfile template` in `agents/sympozium/` renders with the new prompt text
 - [x] 4.3 `openspec validate --all` passes
 
-## 5. Live verification (blocked on approval)
+## 5. One layout (2026-10-30, after reading the first live run)
+
+- [x] 5.0a Fix the layout in `hook.md`: `Status` is the one inline label; every other
+  section is a `##` heading with `- ` bullets, one fact per bullet, at most two rendered
+  lines, no `;` lists, whole identifiers in code spans
+- [x] 5.0b Rewrite the six format blocks to that layout and to a 25-word `Status` with no
+  figures; the inline-label boilerplate stays in `hook.md`, not repeated per persona
+- [x] 5.0c `test_every_reporter_uses_one_layout` and `test_the_shared_contract_states_the_one_layout`
+
+## 6. Live verification (blocked on approval)
 
 - [x] 5.1 Probe `db-steward` with a hand-applied `AgentRun` carrying the new prompt inline;
   record words, finding set and shape against the 05:30 report (blocked by: approval to post

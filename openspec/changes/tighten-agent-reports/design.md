@@ -140,7 +140,7 @@ section nor one it records as clean-only. The clean-only labels gain a `CLEAN_SE
 constant in `deliver-slack.py` beside `FINDING_SECTIONS`, so the pairing is in code rather
 than in a list inside a test that nobody reads when they add a section.
 
-### D5. The drop order is stated, because a cap with no order loses the wrong thing
+### D6. The drop order is stated, because a cap with no order loses the wrong thing
 
 "At most 250 words" on a day with six findings is unsatisfiable unless the prompt says what
 to cut. The order is: healthy sections to one line, then the smaller figures inside a
@@ -149,7 +149,26 @@ The precedent is `endpoint-warden`'s own `unavailable` rule and `sre-sentinel`'s
 determined`: absence has to be expressible, or a mandatory format gets filled with invented
 content.
 
-### D6. The cap is enforced by the prompt, not by truncating the message
+### D7. One layout, because six shapes is six things to learn
+
+The 17:17 live run settled it: four personas wrote a bold heading on its own line and two
+wrote `**Label:** text…` inline, in the same fleet. Measured over the same six reports, the
+longest single line was **509 characters** (`sre-sentinel`'s `Still firing`, ~6 wrapped
+lines of undifferentiated text), and three more passed 400. Bullets were used by accident —
+`endpoint-warden` had them under `Findings` and inline prose under `Fleet` and `Maintenance`
+in one report.
+
+So the layout is fixed: `Status` is the one label a sentence sits on (it carries the verdict
+emoji, and `Verdict.prefix` inserts it there), and every other section is a `##` heading on
+its own line followed by `- ` bullets, one fact per bullet, at most two rendered lines,
+split rather than wrapped, no `;`-joined enumerations, and a copyable name always a whole
+identifier in a code span — `monitoring/…-prometheus-0` was the counter-example, a name
+nobody can paste.
+
+This is also why the shared layout lives in `hook.md` and not in six formats: the one thing
+all six had in common was that they disagreed.
+
+### D8. The cap is enforced by the prompt, not by truncating the message
 
 The hook already truncates a failed run's error at 1,500 characters because that text is
 not a report. Truncating a report would cut at an arbitrary point and could delete the one
@@ -157,7 +176,7 @@ finding the report exists to carry — the worst possible failure mode for a mon
 channel, and invisible to every test. The prompt owns the budget; the test owns the
 consistency of the prompts; the live probe owns whether the model obeys.
 
-### D7. Verification is a probe run against the same state, not a re-read of the old reports
+### D9. Verification is a probe run against the same state, not a re-read of the old reports
 
 Acceptance asks for the same underlying event, before and after. The before is the stored
 run (`db-steward` 05:30, `endpoint-warden` 04:30 UTC, both today). The after is a
@@ -185,13 +204,15 @@ message per persona and no apply; the apply itself stays a separate, approved st
 
 ## Definition of Done
 
-- `hook.md` states the shape, the 250-word cap, the grouping rules and the drop order.
-- The three fat personas state a per-section line budget consistent with the cap; the
-  other three inherit the shared rule unchanged.
+- `hook.md` states the shape, the 250-word cap, the one layout, the grouping rules, the
+  gap footnote and the drop order.
+- All six personas write `**Status:**` plus `##` headings with bullets; no persona states a
+  competing cap.
 - `agents/sympozium/tests/test_report_shape.py` passes and fails without the change.
 - `helmfile template` in `agents/sympozium/` renders.
 - `openspec validate --all` passes.
 - A probe `AgentRun` for `db-steward` and `endpoint-warden` returns ≤250 words, keeps every
   finding the old report carried, and reads as a lead plus sections; the measured
   before/after is recorded in `MEMORY.md`.
-- The apply is proposed, not performed.
+- Shipped: the commit is on `main` and ArgoCD synced it; the six scheduled runs that follow
+  are the first live use of the gap footnote and the layout.

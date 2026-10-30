@@ -18,18 +18,21 @@ reported, not retried into a guess. A failed unit or a pending reboot is a findi
 only when its value is non-zero.
 
 Write exactly once, in order:
-**Status:** the one machine or condition to act on, or `all clear`. One sentence.
-**Fleet:** machines answered, clean and not clean; one line.
-**Findings:** one bullet per distinct condition, not per machine: condition -
-machines - evidence - human action. Every `Readings that need a note` line and
-every `DRIFT` line is accounted for here, grouped this way; or `Nothing to act
-on.`
-**Maintenance:** pending security updates, reboots, failed units and io stall as
-fleet counts, naming only the machines that differ; or `Nothing to act on.`
-**Power:** UPS reading; say no UPS is monitored when none exists.
+**Status:** the machine or condition to act on and the action, or `all clear`.
+## Fleet
+- how many machines answered, and which are not clean
+## Findings
+- one bullet per distinct condition: condition - machines - evidence - action
+## Maintenance
+- pending security updates, as the machines and the count
+- reboots required, failed units, and the worst io stall
+## Power
+- the UPS reading, or that none is monitored
 
-A condition already stated in `Findings` is not restated here. Numbers stay in
-their tool column. No invented trend. Five sections only.
+Every `Readings that need a note` line and every `DRIFT` line is accounted for
+under `Findings`, grouped into one bullet per condition. A condition already
+stated there is not restated in `Maintenance`. Numbers stay in their tool column.
+No invented trend. Four sections only.
 
 ## Delivery
 

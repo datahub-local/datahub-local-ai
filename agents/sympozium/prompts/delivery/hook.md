@@ -19,13 +19,19 @@ memory: later runs read a guessed date back as fact.
 
 ### Shape
 
-Line one is the outcome: `**Status:**` then one sentence saying what a person has
-to act on this run, or that nothing needs action. Never a figure that appears
-again below, and never a section that opens on its label alone.
+Line one is the outcome: `**Status:**` then one sentence naming what a person has
+to act on this run, or that nothing needs action, and the action. At most 25
+words, no figures — they belong in the section below. This is the one label that
+is not a heading: its sentence sits on it.
 
-Then your own format's sections, in its order, under its exact labels. The whole
-report is at most 250 words. Your format may state a tighter cap; it never
-raises this one.
+Every other section is a `##` heading on its own line, then `- ` bullets:
+
+    ## Cache
+    - 3.3MiB used, 0 evictions in 1h
+    - `maxmemory` unset, so no ceiling exists
+
+The whole report is at most 250 words. Your format may state a tighter cap; it
+never raises this one.
 
 A check that failed, or a figure no tool answered, is a **gap**, and gaps are not
 part of the outcome. Write the outcome, end that line with `(*)`, and list every
@@ -38,20 +44,22 @@ gap once in one footnote block after your last section:
 Keep the literal `ERROR:` in the footnote for a failed check; it is what carries
 the red verdict. No gap: no `(*)` and no footnote.
 
-- One fact, once. A section that would repeat what an earlier section said leaves
-  it out, and says nothing about leaving it out.
+- One fact, one bullet, at most two rendered lines. Split it into two bullets
+  rather than let it wrap.
 - One condition on several machines is one bullet: the machines as a comma list,
   and the cause and the action once. Never one bullet per machine per check.
 - Name the worst and count the rest — `worst prometheus 81.9% (+1.9pp), 30 others
   0.8-55.7%` — never a tool's whole column.
-- A bullet is one line where it can be, never more than two. No paragraph over
-  three lines.
+- Never a `;`-joined list of facts. One per bullet, or one per line.
+- A name you can copy goes in a code span, whole: `monitoring/…-prometheus-0` is
+  not a name, `prometheus-0` in namespace `monitoring` is. Never truncate a name
+  in the middle.
 - State the reading, not the reassurance. `0 evictions` is the reading; why that
   is fine is commentary.
 - Name the source, never quote it: `facts_volume_fill`, not a pasted row.
-- Over 250 words: cut healthy detail to one line first, then the smaller figures,
-  then shorten machine lists. Never drop a finding, an action, the outcome line,
-  or a gap you already marked `(*)`.
+- Over 250 words: cut whole healthy bullets first, then the smaller figures.
+  Never drop a finding, an action, the outcome line, or a gap you already marked
+  `(*)`.
 
 ### Formatting
 

@@ -29,7 +29,8 @@ _spec.loader.exec_module(deliver)
 CAP = 250
 
 _FORMAT = re.compile(r"Write exactly once.*?(?=\n## Delivery|\Z)", re.DOTALL)
-_LABEL = re.compile(r"\*\*([A-Za-z][A-Za-z ]{0,20}?):?\*\*")
+_HEADING = re.compile(r"^## +([A-Za-z][A-Za-z ]{0,20}?)\s*$", re.MULTILINE)
+_INLINE_LABEL = re.compile(r"\*\*([A-Za-z][A-Za-z ]{0,20}?):?\*\*")
 _ANY_CAP = re.compile(r"at most (\d+) words")
 
 
@@ -40,23 +41,35 @@ def reporters() -> list[Path]:
     return found
 
 
-def labels(prompt: Path) -> list[str]:
+def formats(prompt: Path) -> str:
     block = _FORMAT.search(prompt.read_text())
     assert block, f"{prompt.name} has no `Write exactly once` format block"
-    return [m.group(1).strip().lower() for m in _LABEL.finditer(block.group(0))]
+    return block.group(0)
+
+
+def labels(prompt: Path) -> list[str]:
+    """`status` plus the `##` headings, which is the shape the hook renders."""
+    return ["status"] + [m.group(1).strip().lower() for m in _HEADING.finditer(formats(prompt))]
 
 
 def test_the_shared_contract_states_the_shape_and_the_cap():
     hook = _HOOK.read_text()
     assert "### Shape" in hook
     assert "at most 250 words" in hook
-    # The two rules that answer the measured failures: one bullet per condition
-    # across machines, and a stated drop order so a cap never eats a finding.
+    # The three rules that answer the measured failures: one bullet per fact
+    # across machines, a stated drop order, and a gap that is not a clause in
+    # the outcome sentence.
     assert "one bullet per machine per check" in hook
     assert "Never drop a finding" in hook
-    # A failed check is a gap, not a clause in the outcome sentence.
     assert "(*) `pg_get_top_queries` failed" in hook
     assert "No gap: no `(*)` and no footnote." in hook
+
+
+def test_the_shared_contract_states_the_one_layout():
+    hook = _HOOK.read_text()
+    assert "Every other section is a `##` heading on its own line, then `- ` bullets" in hook
+    assert "One fact, one bullet" in hook
+    assert "at most 25" in hook
 
 
 def test_every_reporter_receives_the_shared_shape_and_raises_no_other_cap():
@@ -69,9 +82,21 @@ def test_every_reporter_receives_the_shared_shape_and_raises_no_other_cap():
     assert _ANY_CAP.search(hook)
 
 
-def test_every_reporter_leads_with_its_outcome():
+def test_every_reporter_uses_one_layout():
+    """Status is the one label its sentence sits on; every other label is `##`.
+
+    Two conventions in one fleet is the defect this pins: four personas wrote a
+    heading and two wrote `**Label:** inline`, so no two reports scanned alike.
+    """
     for prompt in reporters():
-        assert labels(prompt)[0] == "status", f"{prompt.name} does not open on Status"
+        block = formats(prompt)
+        # The one inline label is Status, and it is the first line of the format.
+        assert block.split("\n", 1)[1].startswith("**Status:**"), (
+            f"{prompt.name} does not open its format on the Status line"
+        )
+        inline = {m.group(1) for m in _INLINE_LABEL.finditer(block)}
+        assert inline == {"Status"}, f"{prompt.name} writes inline labels: {sorted(inline)}"
+        assert _HEADING.search(block), f"{prompt.name} has no ## section"
 
 
 def test_every_section_label_is_one_the_verdict_knows():
@@ -88,10 +113,14 @@ def test_no_label_is_both_a_finding_and_clean():
 def test_a_populated_finding_section_warns_and_a_clean_one_does_not():
     for prompt in reporters():
         for label in labels(prompt):
-            body = deliver.Mrkdwn.convert(f"**{label.title()}:** 3 pending")
+            body = deliver.Mrkdwn.convert(
+                f"**Status:** all clear\n\n## {label.title()}\n- 3 pending"
+            )
+            # `Still firing` is not a finding section by name; it warns by its own
+            # rule, which a non-chronic bullet triggers.
             expected = (
                 deliver.Verdict.WARNING
-                if label in deliver.Verdict.FINDING_SECTIONS
+                if label in deliver.Verdict.FINDING_SECTIONS or label == "still firing"
                 else deliver.Verdict.OK
             )
             assert deliver.Verdict.classify(body) == expected, f"{prompt.name}: {label}"

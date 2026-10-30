@@ -953,6 +953,25 @@ and `Verdict.prefix` puts the emoji *inside* the Status line after its label
 for. Both are pinned in `test_deliver_slack.py`, and the contract's two new lines
 in `test_report_shape.py`.
 
+**One layout, because six shapes is six things to learn.** The 17:17 run of all
+six settled it: four personas wrote a bold heading on its own line and two wrote
+`**Label:** text…` inline, in one fleet. Longest single line, same run:
+**509 chars** (`sre-sentinel`'s `Still firing`), then 444, 407, 296. Bullets were
+used by accident — `endpoint-warden` had them under `Findings` and inline prose
+under `Fleet` and `Maintenance` in the same report. So: `Status` is the one label a
+sentence sits on (it carries the verdict emoji, and `Verdict.prefix` inserts it
+there), and every other section is `## Label` on its own line, then `- ` bullets —
+one fact per bullet, at most two rendered lines, split rather than wrapped, no
+`;`-joined lists, and a copyable name always a whole identifier in a code span
+(`monitoring/…-prometheus-0` was the counter-example: a name nobody can paste).
+`test_every_reporter_uses_one_layout` fails on any persona that writes an inline
+label that is not `Status`.
+
+**The Status line lost its figures.** It read as a paragraph carrying the number,
+the verdict word and the reason (`91.3%, CRITICAL, with 3d of headroom…`). It is now
+the decision only, at most 25 words, with the figures in the section below — a
+reader who wants the number scrolls one line.
+
 **Measured on two probe runs** (`AgentRun` with the new prompt inline, same
 cluster state minutes after the scheduled reports of 2026-10-30): `db-steward`
 692 → **211** words, `endpoint-warden` 614 → **221**, both under the cap, and every

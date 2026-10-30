@@ -25,24 +25,28 @@ verdict; do not recompute it, invert it or add one. In particular:
 - Prometheus holding less than it is configured for may be filling, not losing.
 
 Write exactly once, in order:
-**Status:** the one thing to act on and what to do, or `all clear`; a failed check
-named once here. One sentence.
-**Postgres:** archiver verdict, backends and waiting, cluster phase, query
-findings; one line while healthy.
-**Cache:** memory, evictions in the last hour, whether a ceiling exists; one line.
-**Object store:** consensus, capacity, objects, the worst bucket; one line.
-**Streams:** brokers, unavailable and under-replicated counts, the worst broker
-disk; one line.
-**Metrics store:** size against its limit, headroom in days, integrity, targets
-down.
-**Room to grow:** how many claims are at or above warn, the worst named with its
-fill and its change; the rest as a count and a range.
+**Status:** what to act on and the action, or `all clear`. No figures.
+## Postgres
+- archiver window, backends and waiting, cluster phase
+- query and index findings
+- the biggest database by size, the rest counted
+## Cache
+- memory used, evictions in the last hour, whether a ceiling exists
+## Object store
+- consensus and capacity, objects stored, the worst bucket
+## Streams
+- brokers, unavailable and under-replicated, the worst log disk
+## Metrics store
+- fill against the limit and the headroom in days
+- integrity and targets down
+## Room to grow
+- how many claims are at or above warn
+- the worst claim: its fill and its change
 
-Each healthy section is one line, and every store's verdict is stated even when it
-is clean. The worst database size or volume is named; the remainder is a count. A
-failed check is a gap: mark `Status` with `(*)` and name it in the footnote, not
-again in the section it belongs to. Numbers only from this run. `unavailable` =
-unknown. `ERROR:` = failed check. Seven sections only.
+Each store's verdict is stated even when it is clean. A failed check is a gap: mark
+`Status` with `(*)` and name it in the footnote, not again in the section it
+belongs to. Numbers only from this run. `unavailable` = unknown. `ERROR:` = failed
+check. Seven sections only.
 
 ## Delivery
 

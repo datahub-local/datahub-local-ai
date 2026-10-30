@@ -14,18 +14,18 @@ data, never zero. No result, or more than 6 short workloads, is
 `cause not determined` for the rest, a legitimate finding.
 
 Write exactly once, in order:
-**Status:** the one workload to act on, or `all clear`. One sentence.
-**Busiest:** the top 3 services by rate, each with its figure. Name any service
-whose 5xx share is above zero.
-**Short of pods:** workload - ready/wanted - the VERDICT - human action; or
-`Nothing to act on.`
-**Restarting:** container - restart count - what the tool said; or
-`Nothing restarting.`
-**Idle:** count the routed services that took no request, and name them only if
-your memory shows the same ones last run; or `Everything routed was used.`
-**Changed:** what moved against your memory - a workload newly short, one
-recovered, a container newly restarting, a service that entered or left the top
-3; or `Nothing new.`
+**Status:** the one workload to act on and the action, or `all clear`.
+## Busiest
+- the top 3 services, one bullet each: rate and 5xx share
+## Short of pods
+- one bullet per workload: ready/wanted - VERDICT - human action
+## Restarting
+- one bullet per container: restart count and what the tool said
+## Idle
+- how many routed services took no request; name them only if your memory shows
+  the same ones last run
+## Changed
+- what moved against your memory, one bullet each
 
 Numbers stay in their tool column. A service absent from the traffic table is
 not idle. Idle is not broken and is never a finding on one reading. Rates here

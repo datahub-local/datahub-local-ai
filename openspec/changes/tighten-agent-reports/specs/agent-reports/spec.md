@@ -34,7 +34,7 @@ budget SHALL be 250 words. A persona's own format section MUST NOT contradict it
 - **WHEN** a persona's format states a tighter cap than the contract
 - **THEN** the tighter cap governs that report
 
-### Requirement: A repeated reading is stated once
+### Requirement: A repeat of one reading across machines is one bullet
 
 A report SHALL state each fact once, and a condition that holds on several machines or for
 several members of a set SHALL be written as one bullet naming the members, its cause and
@@ -50,6 +50,25 @@ given in another section.
 - **WHEN** a tool returns more readings than fit the budget
 - **THEN** the worst reading is named with its value and the change
 - **AND** the remainder is reported as a count with its range
+
+### Requirement: Every report uses one layout
+
+Every report SHALL use a single layout, so a reader who has skimmed one report can skim the
+next: the outcome line, then one `##` heading per section on its own line, then `- ` bullets
+under it. Each bullet SHALL carry exactly one fact and MUST NOT exceed two rendered lines; a
+fact too long for that is split into two bullets rather than left to wrap. A fact SHALL NOT
+be packed into a `;`-joined list. A name a reader may copy SHALL be a whole identifier in a
+code span, and MUST NOT be truncated in the middle.
+
+#### Scenario: A section holding several facts
+- **WHEN** a section reports more than one fact
+- **THEN** each fact is its own bullet
+- **AND** no bullet runs past two rendered lines
+
+#### Scenario: A section holding one fact
+- **WHEN** a section reports a single fact
+- **THEN** it is still one bullet under its heading, not an inline label
+- **AND** `Status` remains the only label a sentence sits on
 
 ### Requirement: A gap is a footnote, not a clause in the outcome
 

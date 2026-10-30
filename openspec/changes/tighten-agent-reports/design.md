@@ -83,7 +83,7 @@ because that is the shape *per report type* and a persona is the only place that
 its report is about. The alternative — a single shared section template — would delete the
 per-report structure the reader is meant to learn, which is the opposite of the issue.
 
-### D2. 250 words, because that is where the three fat reports land and the thin ones lose nothing
+### D2. 300 words, raised from 250 on the first one-bullet-per-fact measurement
 
 The cap is a property of the reader, not of a persona: one Slack message, read on a phone,
 one screen. 250 words is ~1.4 KB of mrkdwn and is roughly twice the median of the three
@@ -142,7 +142,7 @@ than in a list inside a test that nobody reads when they add a section.
 
 ### D6. The drop order is stated, because a cap with no order loses the wrong thing
 
-"At most 250 words" on a day with six findings is unsatisfiable unless the prompt says what
+"At most 300 words" on a day with six findings is unsatisfiable unless the prompt says what
 to cut. The order is: healthy sections to one line, then the smaller figures inside a
 section, then the machine lists shortened — never a finding, an action, or the status line.
 The precedent is `endpoint-warden`'s own `unavailable` rule and `sre-sentinel`'s `cause not
@@ -204,7 +204,7 @@ message per persona and no apply; the apply itself stays a separate, approved st
 
 ## Definition of Done
 
-- `hook.md` states the shape, the 250-word cap, the one layout, the grouping rules, the
+- `hook.md` states the shape, the 300-word cap, the one layout, the grouping rules, the
   gap footnote and the drop order.
 - All six personas write `**Status:**` plus `##` headings with bullets; no persona states a
   competing cap.

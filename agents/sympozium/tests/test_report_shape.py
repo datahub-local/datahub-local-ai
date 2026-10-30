@@ -26,7 +26,7 @@ sys.modules["deliver_slack"] = deliver
 _spec.loader.exec_module(deliver)
 
 # The one budget, stated once in the contract every reporter receives.
-CAP = 250
+CAP = 300
 
 _FORMAT = re.compile(r"Write exactly once.*?(?=\n## Delivery|\Z)", re.DOTALL)
 _HEADING = re.compile(r"^## +([A-Za-z][A-Za-z ]{0,20}?)\s*$", re.MULTILINE)
@@ -55,7 +55,7 @@ def labels(prompt: Path) -> list[str]:
 def test_the_shared_contract_states_the_shape_and_the_cap():
     hook = _HOOK.read_text()
     assert "### Shape" in hook
-    assert "at most 250 words" in hook
+    assert "at most 300 words" in hook
     # The three rules that answer the measured failures: one bullet per fact
     # across machines, a stated drop order, and a gap that is not a clause in
     # the outcome sentence.
@@ -69,7 +69,10 @@ def test_the_shared_contract_states_the_one_layout():
     hook = _HOOK.read_text()
     assert "Every other section is a `##` heading on its own line, then `- ` bullets" in hook
     assert "One fact, one bullet" in hook
-    assert "at most 25" in hook
+    assert "at most 25" in hook.lower()
+    # The marker anchors the footnote block; anywhere else and it truncates a section.
+    assert "`(*)` ends the `Status` line and nothing else" in hook
+    assert "never paste one over 40" in hook
 
 
 def test_every_reporter_receives_the_shared_shape_and_raises_no_other_cap():

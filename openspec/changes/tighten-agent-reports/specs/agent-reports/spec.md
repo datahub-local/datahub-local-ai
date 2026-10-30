@@ -23,7 +23,7 @@ figures that appear again in the sections below.
 
 Every report SHALL fit a stated word budget, and the budget SHALL be stated once, in the
 delivery contract every reporting persona receives, rather than restated per persona. The
-budget SHALL be 250 words. A persona's own format section MUST NOT contradict it.
+budget SHALL be 300 words. A persona's own format section MUST NOT contradict it.
 
 #### Scenario: A run would exceed the budget
 - **WHEN** the figures a run gathered would not fit the budget
@@ -58,7 +58,13 @@ next: the outcome line, then one `##` heading per section on its own line, then 
 under it. Each bullet SHALL carry exactly one fact and MUST NOT exceed two rendered lines; a
 fact too long for that is split into two bullets rather than left to wrap. A fact SHALL NOT
 be packed into a `;`-joined list. A name a reader may copy SHALL be a whole identifier in a
-code span, and MUST NOT be truncated in the middle.
+code span, MUST NOT be truncated in the middle, and MUST NOT be pasted whole above
+roughly 40 characters — such an identifier SHALL be named as its object and its namespace.
+
+#### Scenario: A long identifier
+- **WHEN** an identifier is longer than a reader can scan on one line
+- **THEN** it is written as the object and its namespace
+- **AND** it is never shortened with an ellipsis
 
 #### Scenario: A section holding several facts
 - **WHEN** a section reports more than one fact

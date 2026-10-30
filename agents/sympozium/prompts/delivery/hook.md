@@ -30,7 +30,7 @@ Every other section is a `##` heading on its own line, then `- ` bullets:
     - 3.3MiB used, 0 evictions in 1h
     - `maxmemory` unset, so no ceiling exists
 
-The whole report is at most 250 words. Your format may state a tighter cap; it
+The whole report is at most 300 words. Your format may state a tighter cap; it
 never raises this one.
 
 A check that failed, or a figure no tool answered, is a **gap**, and gaps are not
@@ -51,13 +51,15 @@ the red verdict. No gap: no `(*)` and no footnote.
 - Name the worst and count the rest — `worst prometheus 81.9% (+1.9pp), 30 others
   0.8-55.7%` — never a tool's whole column.
 - Never a `;`-joined list of facts. One per bullet, or one per line.
-- A name you can copy goes in a code span, whole: `monitoring/…-prometheus-0` is
-  not a name, `prometheus-0` in namespace `monitoring` is. Never truncate a name
-  in the middle.
+- A name you can copy goes in a code span, whole: `prometheus-0` in namespace
+  `monitoring`. Never truncate a name in the middle, and never paste one over 40
+  characters whole — name the object and its namespace instead of the long string.
+- `(*)` ends the `Status` line and nothing else. No bullet carries it, and a line
+  never starts with it except the footnote itself.
 - State the reading, not the reassurance. `0 evictions` is the reading; why that
   is fine is commentary.
 - Name the source, never quote it: `facts_volume_fill`, not a pasted row.
-- Over 250 words: cut whole healthy bullets first, then the smaller figures.
+- Over 300 words: cut whole healthy bullets first, then the smaller figures.
   Never drop a finding, an action, the outcome line, or a gap you already marked
   `(*)`.
 

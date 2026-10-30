@@ -909,7 +909,7 @@ So the shape is one contract and three formats:
 
 - `prompts/delivery/hook.md` carries the shared half, because it is the only text
   all six reporters already receive through `{{ DELIVERY }}`: line one is the
-  outcome under `**Status:**`, the whole report is at most **250 words**, one fact
+  outcome under `**Status:**`, the whole report is at most **300 words**, one fact
   appears once, one condition across machines is one bullet with the machines
   listed, name the worst and count the rest, state the reading and not the
   reassurance, and — when over — cut healthy detail, then figures, then machine
@@ -918,11 +918,12 @@ So the shape is one contract and three formats:
   (`db-steward`, `endpoint-warden`, `service-janitor`) gained a per-section line
   budget. `endpoint-warden` and `workload-watch` gained a `Status` lead they never
   had, so the emoji lands on line one instead of on `Fleet`/`Busiest`.
-- 250 is where the three reports that already read well sit doubled: it is headroom
-  for a bad day (`sre-sentinel`'s median 217 is two-thirds of it), not a target. It
-  cuts `db-steward` 64% and `endpoint-warden` 59% from their medians. 150 would
-  force five sentinel sections into clauses on a three-alert day, which loses more
-  than the length costs.
+- The cap started at 250 and moved to **300** on measurement, not on taste: with
+  one bullet per fact, `db-steward`'s seven stores landed at 298 — 48 over — while
+  the other five sat at 144-240. Seven headings over one bullet each is 15 lines
+  before any content, so 250 was a budget for a report with five sections. 300 keeps
+  that report legal without raising what the other five actually write. 150 is still
+  out: it would force five sentinel sections into clauses on a three-alert day.
 
 **The trap is the label.** `Verdict.classify` derives the emoji from the `Status`
 line and from `FINDING_SECTIONS`, so a section renamed or invented in a prompt
@@ -966,6 +967,17 @@ one fact per bullet, at most two rendered lines, split rather than wrapped, no
 (`monitoring/…-prometheus-0` was the counter-example: a name nobody can paste).
 `test_every_reporter_uses_one_layout` fails on any persona that writes an inline
 label that is not `Status`.
+
+**A merge patch replaces the list, and a stale snapshot is a revert.** Patching the
+temporary cron for a demo, I built the patch from an Ensemble snapshot taken 30
+minutes earlier: `--type merge` replaces `spec.agentConfigs` whole, so the patch
+carried the *old* `systemPrompt` of all six personas and silently undid the layout
+change while the diff looked like a schedule edit. Three personas then ran with
+prompts that no longer existed in git, and their reports showed it. Patch a list
+member by index with `--type json` (`/spec/agentConfigs/<i>/schedule/cron`), or
+re-read the object in the same command that patches it. ArgoCD does not self-heal
+drift here (`syncPolicy.automated` has no `selfHeal`), so nothing put it back: the
+repository was right and the cluster was wrong until the render was applied again.
 
 **The Status line lost its figures.** It read as a paragraph carrying the number,
 the verdict word and the reason (`91.3%, CRITICAL, with 3d of headroom…`). It is now

@@ -27,7 +27,7 @@ how much to write and the answer drifts with the day's state.
 
 - **The shared delivery contract gains a shape**, in the one file every reporter already
   receives (`prompts/delivery/hook.md`): line one is the outcome, the whole report is at
-  most 250 words, one fact appears once, the same condition on many machines is one bullet
+  most 300 words, one fact appears once, the same condition on many machines is one bullet
   with the machines listed, name the worst and count the rest, and an over-budget report
   drops healthy detail before it drops a finding.
 - **The three fat report formats are rewritten to that shape** — `db-steward`,
@@ -61,7 +61,7 @@ behaviour changes.
 - `agents/sympozium/projects/homelab-ops/prompts/{db_steward,endpoint_warden,service_janitor}_system.md`
   — format rewritten, sections and labels unchanged.
 - `agents/sympozium/tests/test_report_shape.py` — new.
-- `agents/sympozium/MEMORY.md` — why the cap is 250 and what the baseline was.
+- `agents/sympozium/MEMORY.md` — why the cap is 300 and what the baseline was.
 - **Not applied by this change.** A prompt is rendered into the `Agent` at install, so a
   `helmfile apply` is what ships it, and the ensemble controller starts a run for every
   persona an apply touches. The apply and the live before/after probe are a separate,

@@ -3,7 +3,7 @@
 ## 1. The shared shape
 
 - [x] 1.1 Add a `### Shape` section to `agents/sympozium/prompts/delivery/hook.md`: line one
-  is the outcome under `**Status:**`; the whole report is at most 250 words; sections and
+  is the outcome under `**Status:**`; the whole report is at most 300 words; sections and
   their order come from the persona's own format; one fact appears once; a condition shared
   by N machines is one bullet with the machines listed; name the worst and count the rest;
   no reassurance, only readings; the drop order when over budget
@@ -31,7 +31,7 @@
   `FINDING_SECTIONS`, so every label the prompts write is known to the classifier in one
   place, and say why in its docstring
 - [x] 3.2 Add `agents/sympozium/tests/test_report_shape.py`: every reporter prompt declares
-  the 250-word budget through the shared file, every bolded label in its format block is
+  the 300-word budget through the shared file, every bolded label in its format block is
   known to `Verdict`, a finding section is not renamed, and `endpoint_warden` no longer asks
   for an unsummarised dump
 - [x] 3.3 Run `uv run pytest agents/sympozium/tests/` and confirm the new tests fail against
@@ -39,7 +39,7 @@
 
 ## 4. Rationale and gates
 
-- [x] 4.1 Record the baseline table, the 250-word argument and the label-freeze trap in
+- [x] 4.1 Record the baseline table, the 300-word argument and the label-freeze trap in
   `agents/sympozium/MEMORY.md`, with a pointer from `README.md` if the delivery section
   needs it
 - [x] 4.2 `helmfile template` in `agents/sympozium/` renders with the new prompt text
@@ -53,6 +53,9 @@
 - [x] 5.0b Rewrite the six format blocks to that layout and to a 25-word `Status` with no
   figures; the inline-label boilerplate stays in `hook.md`, not repeated per persona
 - [x] 5.0c `test_every_reporter_uses_one_layout` and `test_the_shared_contract_states_the_one_layout`
+- [x] 5.0d Raise the cap to 300 after the layout measurement (`db-steward` 298 with seven
+  sections), keep `(*)` on the `Status` line only, and forbid pasting an identifier over 40
+  characters — name the object and its namespace
 
 ## 6. Live verification (blocked on approval)
 

@@ -53,6 +53,9 @@
 - [x] 5.0b Rewrite the six format blocks to that layout and to a 25-word `Status` with no
   figures; the inline-label boilerplate stays in `hook.md`, not repeated per persona
 - [x] 5.0c `test_every_reporter_uses_one_layout` and `test_the_shared_contract_states_the_one_layout`
+- [x] 5.0e `db-steward`'s Cache/Object store/Streams become one `## Stores` section with one
+  bullet per store (`stores` added to `Verdict.CLEAN_SECTIONS`); a footnote exists only when a
+  gap exists, and a reading plus its action are two bullets once the pair would wrap
 - [x] 5.0d Raise the cap to 300 after the layout measurement (`db-steward` 298 with seven
   sections), keep `(*)` on the `Status` line only, and forbid pasting an identifier over 40
   characters — name the object and its namespace

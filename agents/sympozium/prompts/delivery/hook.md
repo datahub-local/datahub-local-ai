@@ -42,10 +42,12 @@ gap once in one footnote block after your last section:
     (*) `pg_get_top_queries` failed: `ERROR:` `pg_stat_statements` is not installed.
 
 Keep the literal `ERROR:` in the footnote for a failed check; it is what carries
-the red verdict. No gap: no `(*)` and no footnote.
+the red verdict. **A footnote exists only when there is a gap**: no gap means no
+`(*)`, no footnote block, and never a line saying that nothing was unused.
 
 - One fact, one bullet, at most two rendered lines. Split it into two bullets
-  rather than let it wrap.
+  rather than let it wrap, and when a reading and the action it implies would run
+  past two lines together, they are two bullets: the reading, then `action: …`.
 - One condition on several machines is one bullet: the machines as a comma list,
   and the cause and the action once. Never one bullet per machine per check.
 - Name the worst and count the rest — `worst prometheus 81.9% (+1.9pp), 30 others

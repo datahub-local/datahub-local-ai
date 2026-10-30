@@ -30,12 +30,10 @@ Write exactly once, in order:
 - archiver window, backends and waiting, cluster phase
 - query and index findings
 - the biggest database by size, the rest counted
-## Cache
-- memory used, evictions in the last hour, whether a ceiling exists
-## Object store
-- consensus and capacity, objects stored, the worst bucket
-## Streams
-- brokers, unavailable and under-replicated, the worst log disk
+## Stores
+- cache: memory used, evictions in the last hour, whether a ceiling exists
+- object store: consensus and capacity, objects stored, the worst bucket
+- streams: brokers, unavailable and under-replicated, the worst log disk
 ## Metrics store
 - fill against the limit and the headroom in days
 - integrity and targets down

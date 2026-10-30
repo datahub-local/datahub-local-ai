@@ -62,7 +62,8 @@ def test_the_shared_contract_states_the_shape_and_the_cap():
     assert "one bullet per machine per check" in hook
     assert "Never drop a finding" in hook
     assert "(*) `pg_get_top_queries` failed" in hook
-    assert "No gap: no `(*)` and no footnote." in hook
+    assert "A footnote exists only when there is a gap" in hook
+    assert "never a line saying that nothing was unused" in hook
 
 
 def test_the_shared_contract_states_the_one_layout():
@@ -73,6 +74,8 @@ def test_the_shared_contract_states_the_one_layout():
     # The marker anchors the footnote block; anywhere else and it truncates a section.
     assert "`(*)` ends the `Status` line and nothing else" in hook
     assert "never paste one over 40" in hook
+    # A reading and its action are two bullets once the pair would wrap.
+    assert "the reading, then `action:" in hook
 
 
 def test_every_reporter_receives_the_shared_shape_and_raises_no_other_cap():

@@ -979,6 +979,16 @@ re-read the object in the same command that patches it. ArgoCD does not self-hea
 drift here (`syncPolicy.automated` has no `selfHeal`), so nothing put it back: the
 repository was right and the cluster was wrong until the render was applied again.
 
+**A footnote exists only when there is a gap.** `gitops-auditor` read "no gap, no
+marker" as something to report and wrote `(*) Not marked: all checks returned data.`
+— a footnote on a clean run, which is exactly the padding the contract forbids. The
+rule now says a footnote exists because of a gap, and a line explaining that nothing
+was unused is padding.
+
+**A reading and its action are two bullets once they would wrap.** Two bullets still
+reached 263-286 characters carrying a fact and the action it implies, which is three
+lines on a phone. They are two bullets now: the reading, then `action: <what to do>`.
+
 **The Status line lost its figures.** It read as a paragraph carrying the number,
 the verdict word and the reason (`91.3%, CRITICAL, with 3d of headroom…`). It is now
 the decision only, at most 25 words, with the figures in the section below — a

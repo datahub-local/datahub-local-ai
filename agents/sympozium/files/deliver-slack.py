@@ -278,6 +278,7 @@ class Verdict:
             "object store",
             "streams",
             "metrics store",
+            "stores",
             "power",
             "resolved",
         }

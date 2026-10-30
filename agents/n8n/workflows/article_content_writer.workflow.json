@@ -4222,7 +4222,7 @@
       },
       {
         "parameters": {
-          "jsCode": "// The failure path's reporter, for both ways a run can fail here: the creator *returning* a\n// reason as data (`ERROR`, read by `check_draft_error`) and the creator *throwing* (`onError:\n// continueErrorOutput`, which n8n hands over with `json.error` set). The row comes from the\n// selector either way, because the creator's own answer carries no row fields.\nconst row = $('select_article_to_queue').first().json;\nconst thrown = $json.error && $json.error.message;\nreturn [{ json: {\n  row_number: row.row_number,\n  TOPIC: row.TOPIC || '',\n  REASON: String($json.ERROR || thrown || 'no reason returned'),\n} }];"
+          "jsCode": "// The failure path's reporter, for both ways a run can fail here: the creator *returning* a\n// reason as data (`ERROR`, read by `check_draft_error`) and the creator *throwing* (`onError:\n// continueErrorOutput`, which n8n hands over with `json.error` set). The row comes from the\n// selector either way, because the creator's own answer carries no row fields.\nconst row = $('select_article_to_queue').first().json;\n// `error` is the object n8n documents on some paths and the bare message string on others:\n// execution 15434 (2026-10-30) was handed a string by the executeWorkflow node, so reading only\n// `.message` reported \"no reason returned\" for a failure whose reason was in hand.\nconst err = $json.error;\nconst thrown = typeof err === 'string' ? err.trim() : (err && (err.message || err.description));\nreturn [{ json: {\n  row_number: row.row_number,\n  TOPIC: row.TOPIC || '',\n  REASON: String($json.ERROR || thrown || 'no reason returned'),\n} }];"
         },
         "id": "e813516a-c6f4-489b-a573-36e22abe90fc",
         "name": "build_failure",
@@ -11792,7 +11792,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// The failure path's reporter, for both ways a run can fail here: the creator *returning* a\n// reason as data (`ERROR`, read by `check_draft_error`) and the creator *throwing* (`onError:\n// continueErrorOutput`, which n8n hands over with `json.error` set). The row comes from the\n// selector either way, because the creator's own answer carries no row fields.\nconst row = $('select_article_to_queue').first().json;\nconst thrown = $json.error && $json.error.message;\nreturn [{ json: {\n  row_number: row.row_number,\n  TOPIC: row.TOPIC || '',\n  REASON: String($json.ERROR || thrown || 'no reason returned'),\n} }];"
+        "jsCode": "// The failure path's reporter, for both ways a run can fail here: the creator *returning* a\n// reason as data (`ERROR`, read by `check_draft_error`) and the creator *throwing* (`onError:\n// continueErrorOutput`, which n8n hands over with `json.error` set). The row comes from the\n// selector either way, because the creator's own answer carries no row fields.\nconst row = $('select_article_to_queue').first().json;\n// `error` is the object n8n documents on some paths and the bare message string on others:\n// execution 15434 (2026-10-30) was handed a string by the executeWorkflow node, so reading only\n// `.message` reported \"no reason returned\" for a failure whose reason was in hand.\nconst err = $json.error;\nconst thrown = typeof err === 'string' ? err.trim() : (err && (err.message || err.description));\nreturn [{ json: {\n  row_number: row.row_number,\n  TOPIC: row.TOPIC || '',\n  REASON: String($json.ERROR || thrown || 'no reason returned'),\n} }];"
       },
       "id": "e813516a-c6f4-489b-a573-36e22abe90fc",
       "name": "build_failure",

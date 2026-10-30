@@ -1243,9 +1243,17 @@ call itself throws, so execution 14145 (`Max iterations (12) reached`) stopped t
 now carries `onError: continueErrorOutput`, and its second output joins the returned-failure branch at
 `build_failure`. Unlike `continueRegularOutput` — where n8n forwards the node's input and sets no
 `json.error` (the 2026-09-28 note) — `continueErrorOutput` **does** set it: a probe measured
-`{"message":"connect ECONNREFUSED 127.0.0.1:9","name":"Error","stack":…}` on the error output, so
-`build_failure` reads `$json.ERROR` or `$json.error.message` and the row carries the real reason
-either way.
+`{"message":"connect ECONNREFUSED 127.0.0.1:9","name":"Error","stack":…}` on the error output.
+
+**That field is not always an object, so the reporter reads both shapes.** Execution 15434
+(2026-10-30) failed with `Missing Prompt Variables : WORD_LIMIT` inside the creator and reached
+`fail_draft` as *"no reason returned"*: `execute_article_creator` handed the reason over as
+`error: "<message>\n"` — the bare string, not the object the probe measured — so a reporter reading
+only `$json.error.message` reported a failure it knew the reason for as unknown, marked the row
+`ERROR` with that text and posted it to Slack. `build_failure` now takes a string `error` as the
+reason and falls back to `.message`/`.description` otherwise;
+`test_the_reported_reason_survives_error_arriving_as_a_string` executes the committed node against
+both shapes. Treat the shape as measured per call path, not as a documented contract.
 
 **The article is written for a reader who is new to the subject, and it has a spine.** Until
 2026-10-18 the rules said *"the reader is a practitioner, not a buyer"* and said nothing about the
@@ -1262,7 +1270,11 @@ as `{{ STRUCTURES }}`: seven named shapes — *introduction to a thing* (why the
 else is out there and where it stops → why this one → what it does best → how it is built), *a
 decision and what it cost*, *an incident and the rule it produced*, *a comparison*, *a myth
 corrected*, *getting started*, *the state of a thing*. The writer picks by fit, and `EXTRA_PROMPT`
-can name one, the way the post lane's extra rules can name a subject.
+can name one, the way the post lane's extra rules can name a subject. A template registry with
+counted sections, numbering and code floors was built on 2026-10-30 and reverted the same day: run
+15259's draft failed every count it added, and the next draft satisfied all of them while still
+carrying `<install-manifest-from-the-docs>` where a command belonged, because the entry's source
+material held no commands to quote. Structure was never the binding constraint.
 
 **The AI-speak list is one file, fetched by both lanes.** `prompts/ai_speak.md` holds the banned
 words, the filler phrases and the robotic scaffolding, and each lane injects it into its own rules

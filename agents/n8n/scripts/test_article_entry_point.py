@@ -69,6 +69,32 @@ def _js(name):
     return _nodes()[name]["parameters"]["jsCode"]
 
 
+def _run_entry_code(name, scope, incoming):
+    """Execute a committed Code node of the entry point with a stubbed n8n context."""
+    harness = textwrap.dedent(
+        """
+        const scope = %s; const incoming = %s;
+        const $ = (n) => {
+          if (!(n in scope)) throw new Error('the test did not provide node ' + n);
+          const items = scope[n].map((json) => ({ json }));
+          return { first: () => items[0], all: () => items, item: items[0] };
+        };
+        const $json = incoming[0];
+        const fn = new Function('$', 'console', '$json', %s);
+        process.stdout.write(JSON.stringify(fn($, console, $json)));
+        """
+    ) % (json.dumps(scope), json.dumps(incoming), json.dumps(_js(name)))
+    with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as fh:
+        fh.write(harness)
+        path = fh.name
+    try:
+        done = subprocess.run(["node", path], capture_output=True, text=True, check=False)
+    finally:
+        Path(path).unlink()
+    assert done.returncode == 0, done.stderr
+    return json.loads(done.stdout)
+
+
 def test_the_new_references_are_addressed_by_name():
     nodes = _nodes()
     sheet_refs = [
@@ -145,6 +171,37 @@ def test_a_thrown_failure_is_reported_like_a_returned_one():
     build = _js("build_failure")
     assert "$json.ERROR" in build, "the reason a *returned* failure carries is no longer read"
     assert "$json.error" in build, "the reason a *thrown* failure carries is no longer read"
+
+
+def test_the_reported_reason_survives_error_arriving_as_a_string():
+    """`json.error` is an object on some paths and the bare message string on others.
+
+    Measured on execution 15434 (2026-10-30): the creator threw `Missing Prompt Variables :
+    WORD_LIMIT`, `execute_article_creator` handed that over as `error: "<message>\n"`, and a
+    reporter reading only `$json.error.message` recorded `no reason returned` — a real failure
+    whose reason was in hand, reported as unknown, and the row marked ERROR with that text.
+    """
+    row = {"row_number": 4, "TOPIC": "Post about how to use sympozium", "ERROR": ""}
+    reason = _run_entry_code(
+        "build_failure",
+        {"select_article_to_queue": [row]},
+        [{**row, "error": "Missing Prompt Variables : WORD_LIMIT\n"}],
+    )[0]["json"]["REASON"]
+    assert reason == "Missing Prompt Variables : WORD_LIMIT", reason
+
+
+def test_a_returned_and_a_thrown_failure_both_report_their_reason():
+    row = {"row_number": 4, "TOPIC": "t", "ERROR": ""}
+    scope = {"select_article_to_queue": [row]}
+    thrown = _run_entry_code(
+        "build_failure", scope, [{**row, "error": {"message": "connect ECONNREFUSED"}}]
+    )[0]["json"]["REASON"]
+    returned = _run_entry_code("build_failure", scope, [{**row, "ERROR": "MARKERS: svg_wide x0"}])[
+        0
+    ]["json"]["REASON"]
+    assert thrown == "connect ECONNREFUSED", thrown
+    assert returned == "MARKERS: svg_wide x0", returned
+    assert _run_entry_code("build_failure", scope, [row])[0]["json"]["REASON"] == "no reason returned"
 
 
 def test_a_failed_draft_is_recorded_and_reported():

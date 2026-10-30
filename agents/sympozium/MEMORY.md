@@ -979,6 +979,12 @@ re-read the object in the same command that patches it. ArgoCD does not self-hea
 drift here (`syncPolicy.automated` has no `selfHeal`), so nothing put it back: the
 repository was right and the cluster was wrong until the render was applied again.
 
+**Final measured shape** (18:45 run, all six, after the layout and the 300 cap):
+`db-steward` 297 words / 5 sections / 21 bullets, `endpoint-warden` 225 / 4 / 12,
+`sre-sentinel` 216 / 4 / 11, `service-janitor` 193 / 3 / 7, `workload-watch` 182 / 5 / 11,
+`gitops-auditor` 155 / 2 / 9. Every report opens on `**Status:**` and carries no other
+inline label; longest single line 248 chars (down from 509).
+
 **A footnote exists only when there is a gap.** `gitops-auditor` read "no gap, no
 marker" as something to report and wrote `(*) Not marked: all checks returned data.`
 — a footnote on a clean run, which is exactly the padding the contract forbids. The

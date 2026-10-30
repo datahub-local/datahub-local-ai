@@ -274,7 +274,7 @@ def test_full_report_round_trip(monkeypatch):
     text = sent["text"]
     assert text.startswith("*DB Steward | homelab-ops | heartbeat, daily*")
     assert "*Headline*" in text
-    assert "*Status:* healthy" in text
+    assert f"*Status:* {STATUS.WARNING} healthy" in text
     assert "`increase(m[1h])=0`" in text
     assert "<https://example.test/n|notes>" in text
     assert "##" not in text and "**" not in text
@@ -368,9 +368,32 @@ def test_prose_with_a_colon_is_not_a_section():
     assert STATUS.classify(body) == STATUS.OK
 
 
+def test_the_gap_footnote_is_not_counted_as_the_section_above_it():
+    """`(*)` opens the gap block, and the section above must not inherit it.
+
+    Counting it as content would make a clean last section read as populated,
+    which is exactly what the verdict is computed from.
+    """
+    body = "*Status:* all clear.\n\n*Power:* No UPS is monitored.\n\n(*) facts_x unavailable."
+    assert STATUS.classify(body) == STATUS.OK
+
+
+def test_a_failed_check_in_the_footnote_still_turns_the_report_red():
+    body = (
+        "*Status:* Prometheus at 91%. (*)\n\n*Metrics store:* 36.5GiB of 40.0GiB.\n\n"
+        "(*) `pg_get_top_queries` failed: `ERROR:` `pg_stat_statements` is not installed."
+    )
+    assert STATUS.classify(body) == STATUS.ERROR
+
+
 def test_prefix_puts_the_emoji_on_the_status_line():
     body = "*Status:* all clear.\n\n*New:* Nothing new."
-    assert STATUS.prefix(body) == f"{STATUS.OK} *Status:* all clear.\n\n*New:* Nothing new."
+    assert STATUS.prefix(body) == f"*Status:* {STATUS.OK} all clear.\n\n*New:* Nothing new."
+
+
+def test_prefix_puts_the_emoji_after_a_plain_label_too():
+    body = "Status: all clear.\nNew: Nothing new."
+    assert STATUS.prefix(body) == f"Status: {STATUS.OK} all clear.\nNew: Nothing new."
 
 
 def test_prefix_adds_an_emoji_when_no_status_section_exists():
@@ -412,7 +435,9 @@ def test_verdict_is_on_the_real_report(monkeypatch):
         "**Status:** healthy\n\n**Postgres:** healthy\n\n**Room to grow:** Nothing above the warn threshold.",
     )
     assert deliver.main() == 0
-    assert sent["text"].startswith(f"*DB Steward | homelab-ops | heartbeat, daily*\n\n{STATUS.OK} ")
+    assert sent["text"].startswith(
+        f"*DB Steward | homelab-ops | heartbeat, daily*\n\n*Status:* {STATUS.OK} healthy"
+    )
 
 
 # -- Failed runs ------------------------------------------------------------
@@ -474,7 +499,7 @@ def test_a_failed_run_with_no_detail_still_says_so():
 
 def test_exit_code_zero_is_an_ordinary_report():
     text = deliver.Report("**Status:** healthy", "A | b | c", "0").message()
-    assert text.endswith(f"{STATUS.OK} *Status:* healthy")
+    assert text.endswith(f"*Status:* {STATUS.OK} healthy")
 
 
 def test_a_missing_exit_code_is_a_success():

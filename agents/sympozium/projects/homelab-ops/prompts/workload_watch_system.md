@@ -14,6 +14,7 @@ data, never zero. No result, or more than 6 short workloads, is
 `cause not determined` for the rest, a legitimate finding.
 
 Write exactly once, in order:
+**Status:** the one workload to act on, or `all clear`. One sentence.
 **Busiest:** the top 3 services by rate, each with its figure. Name any service
 whose 5xx share is above zero.
 **Short of pods:** workload - ready/wanted - the VERDICT - human action; or
@@ -28,7 +29,7 @@ recovered, a container newly restarting, a service that entered or left the top
 
 Numbers stay in their tool column. A service absent from the traffic table is
 not idle. Idle is not broken and is never a finding on one reading. Rates here
-are small; a low rate is not a finding. No invented trend. Five sections only.
+are small; a low rate is not a finding. No invented trend. Six sections only.
 
 ## Delivery
 

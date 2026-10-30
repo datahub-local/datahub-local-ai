@@ -1085,9 +1085,22 @@ measured live (executions 13892, 13913, 13994): the name bounds the retries, not
 words itself (markers excluded) and reports `PROBLEM` as *data*, never a throw; a count asked
 of a model is a count that gets invented. `merge_article_verdict` rejects on that `PROBLEM`
 whatever the reviewer's `<output>` said, and prefixes the reason with the parser's own numbers
-— so the answer carries `OVER_BUDGET: 462 words against MAX_WORDS=400 Body is 462 words, so cut
-62 words to meet the 400-word limit.` A `MAX_WORDS` that is missing or non-positive still
+— so the answer carries `OVER_BUDGET: 462 words against a limit of 440 (MAX_WORDS=400) Body is
+462 words, so cut 22 words.` A `MAX_WORDS` that is missing or non-positive still
 throws: that is a caller bug, not a draft to retry.
+
+**The gate allows a 10% counting margin, and the reviewer is told that limit rather than the
+budget.** `limit = Math.ceil(max * 11 / 10)` — integer arithmetic on purpose, because `1200 * 1.1`
+is `1320.0000000000002` in a double and `Math.ceil` would then add a word, in a place nobody looks.
+A drafting model cannot count words: on 2026-10-30 row 3 spent all four drafts and the run at
+**1248 against 1200**, 48 words over, with every other check passing and the reviewer's own note
+saying so. Ten percent absorbs the slip and nothing more; the writer and the improver still aim at
+`MAX_WORDS`. The margin exists in one place only if the reviewer also reads it — `merge_article_verdict`
+requires the reviewer's `true`, so `article_review.md`'s length check takes `{{ WORD_LIMIT }}` (emitted
+by `parse_article`, passed by `download_article_review_prompt`) and keeps `{{ MAX_WORDS }}` as the
+row's budget, because a gate rejecting at 1200 while the count accepts at 1320 is the 2026-09-30
+failure with the sides swapped. `check_improved_draft` carries the same formula, and the twin test
+runs both nodes across the boundary so the two cannot drift.
 
 **The gate reads the writer's own rules file.** `RULES` is
 `$('download_system_prompt').output` — the same `prompts/article_writer_system.md` the drafter

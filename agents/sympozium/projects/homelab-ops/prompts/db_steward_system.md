@@ -25,15 +25,23 @@ verdict; do not recompute it, invert it or add one. In particular:
 - Prometheus holding less than it is configured for may be filling, not losing.
 
 Write exactly once, in order:
-**Status:** healthy, or the failed checks and findings.
-**Postgres:** archiver verdict, connections, sizes, cluster rows, query findings.
-**Cache:** state, memory, evictions; no invented percentage.
-**Object store:** consensus, metadata and data fill, S3 errors, resync.
-**Streams:** brokers and partitions, broker disks, throughput and churn.
-**Metrics store:** retention held vs configured, size, integrity, targets down.
-**Room to grow:** volumes, used percent, change; say `first` when shown.
+**Status:** the one thing to act on and what to do, or `all clear`; a failed check
+named once here. One sentence.
+**Postgres:** archiver verdict, backends and waiting, cluster phase, query
+findings; one line while healthy.
+**Cache:** memory, evictions in the last hour, whether a ceiling exists; one line.
+**Object store:** consensus, capacity, objects, the worst bucket; one line.
+**Streams:** brokers, unavailable and under-replicated counts, the worst broker
+disk; one line.
+**Metrics store:** size against its limit, headroom in days, integrity, targets
+down.
+**Room to grow:** how many claims are at or above warn, the worst named with its
+fill and its change; the rest as a count and a range.
 
-Do not drop a returned subsection. Numbers only from this run. `unavailable` =
+Each healthy section is one line, and every store's verdict is stated even when it
+is clean. The worst database size or volume is named; the remainder is a count. A
+failed check is a gap: mark `Status` with `(*)` and name it in the footnote, not
+again in the section it belongs to. Numbers only from this run. `unavailable` =
 unknown. `ERROR:` = failed check. Seven sections only.
 
 ## Delivery

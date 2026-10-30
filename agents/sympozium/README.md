@@ -80,8 +80,10 @@ agents/sympozium/
                                read, linted and run on its own
   prompts/
     delivery/hook.md           the whole delivery block for deliveryMode: hook -
-                               the model's reply *is* the report, and the header
-                               is added by the script, not written by the model
+                               the model's reply *is* the report, the header is
+                               added by the script, not written by the model, and
+                               the shared shape lives here: outcome first, one
+                               250-word budget, one bullet per repeated condition
     delivery/header.md         the line that names the agent, for tool mode
     delivery/<level>.md        how much detail to post   (quiet|normal|verbose)
     notify/<level>.md          when to post at all       (always|onChange|never)

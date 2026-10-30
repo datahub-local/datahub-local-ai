@@ -937,6 +937,9 @@ def test_the_improvement_re_check_is_the_writers_counter_with_the_same_verdicts(
         "# A Title\nOpening.\n\n## S\nBody.",
         "# A Title\nOpening.\n\n<!-- asset:image_wide -->\n\n## S\nBody.",
         "# A Title\n" + "word " * 20 + "\n\n<!-- asset:svg_wide -->",
+        # the counting margin's boundary: MAX_WORDS=10 allows eleven words and not twelve, in both
+        "# A Title\n" + "word " * 11 + "\n\n<!-- asset:svg_wide -->",
+        "# A Title\n" + "word " * 12 + "\n\n<!-- asset:svg_wide -->",
     )
     for body in fixtures:
         got = improved(body)["PROBLEM"]
@@ -948,6 +951,10 @@ def test_the_improvement_re_check_is_the_writers_counter_with_the_same_verdicts(
     assert improved(fixtures[0])["PROBLEM"] == ""
     assert improved(fixtures[4])["PROBLEM"].startswith("OVER_BUDGET")
     assert improved(fixtures[1])["PROBLEM"] == "MARKERS: svg_wide x2"
+    # and the margin is the same in both halves
+    assert improved(fixtures[5])["PROBLEM"] == "" and drafted(fixtures[5]) == ""
+    assert improved(fixtures[6])["PROBLEM"].startswith("OVER_BUDGET")
+    assert drafted(fixtures[6]).startswith("OVER_BUDGET")
 
 
 LEVELS = ("NONE", "LOW", "MEDIUM", "ADVANCED")

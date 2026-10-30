@@ -265,6 +265,52 @@ def test_a_duplicated_marker_is_a_problem_in_code():
     )
 
 
+@pytest.mark.skipif(shutil.which("node") is None, reason=NODE_REQUIRED)
+def test_a_draft_inside_the_counting_margin_is_the_budget_met():
+    """The gate allows a 10% counting margin and rejects past it.
+
+    Row 3 (2026-10-30) spent four drafts and ended `MAX_RETRIES_EXCEEDED`: the last one was 1248
+    words against `MAX_WORDS=1200`, 48 words over, with every other check passing. A drafting model
+    cannot count words, so the count stays in code and the tolerance absorbs the slip. Past the
+    limit the reason names the limit, so the retry is told the number the gate enforces.
+    """
+
+    def parsed(words):
+        body = "# A Title\n" + "word " * words + "\n\n<!-- asset:svg_wide -->"
+        item = _run_code_node(
+            "parse_article",
+            {"set_workflow_vars": [{"MAX_WORDS": 100}], "main_trigger": [{"ASSET_TYPES": "svg_wide"}]},
+            [{"output": "<article>\n" + body + "\n</article>"}],
+        )["json"]
+        assert item["WORD_COUNT"] == words, (item["WORD_COUNT"], words)
+        return item
+
+    at_limit = parsed(110)
+    assert at_limit["WORD_LIMIT"] == 110
+    assert at_limit["PROBLEM"] == ""
+    assert parsed(111)["PROBLEM"] == "OVER_BUDGET: 111 words against a limit of 110 (MAX_WORDS=100)"
+
+
+@pytest.mark.parametrize("label,document", list(_copies()))
+def test_the_reviewer_is_told_the_limit_the_code_enforces(label, document):
+    """`merge_article_verdict` requires the reviewer's own `true`.
+
+    A reviewer still checking `MAX_WORDS` would reject a draft the margin accepts, and the margin
+    would then exist in code and nowhere in effect — the 2026-09-30 shape, where a gate enforced a
+    number the other half did not use.
+    """
+    nodes = _nodes(document)
+    check = next(
+        line for line in REVIEW_PROMPT.read_text(encoding="utf-8").splitlines()
+        if line.startswith("- Length:")
+    )
+    assert "{{ WORD_LIMIT }}" in check and "{{ WORD_COUNT }}" in check, check
+    supplied = nodes["download_article_review_prompt"]["parameters"]["workflowInputs"]["value"][
+        "template_vars"]
+    assert "$('parse_article').item.json.WORD_LIMIT" in supplied, label
+    assert "WORD_LIMIT: limit" in nodes["parse_article"]["parameters"]["jsCode"], label
+
+
 def test_the_reviewer_judges_only_the_checks_it_is_given():
     """An invented check is a rule the drafter cannot be told about.
 

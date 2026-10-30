@@ -16,7 +16,7 @@ The row's audience level is {{ AUDIENCE }}. The term check below reads at that l
 
 ## Checks
 
-- Length: the body is at most {{ MAX_WORDS }} words and it is {{ WORD_COUNT }}. Over budget is a failure; say how many words to cut.
+- Length: the body is at most {{ WORD_LIMIT }} words and it is {{ WORD_COUNT }}. Over that limit is a failure; say how many words to cut. The row's budget is {{ MAX_WORDS }}; the limit is the budget plus a counting margin, and the code rejects at the limit, not at the budget.
 - Every requested asset marker is present exactly once, alone on its own line, in the form `<!-- asset:<id> -->` with the type id in place of `<id>`, for these types: {{ ASSET_TYPES }}. The HTML comment is the marker; a bare type id is not, and neither is any other form. A requested type with no marker, a marker naming a type not requested, or a duplicated marker is a failure.
 - Every fact, number, quotation, date, release and citation is present in the Source Material or the entry's inputs. An invented one is a failure; a citation of a URL that is not the source link is a failure.
 - The subject is named as the entry's inputs spell it.
@@ -50,7 +50,7 @@ HIGHEST PRIORITY. A human rejected a previous draft and asked for these changes.
 - Topic: {{ TOPIC }}
 - Description: {{ DESCRIPTION }}
 - Source link: {{ URL }}
-- Length budget: {{ MAX_WORDS }} words
+- Length budget: {{ MAX_WORDS }} words (limit {{ WORD_LIMIT }})
 
 The block below is the body only. Its H1 is the `Title:` above and is not part of the body, so an H1 is not required in it — judge the body as given.
 

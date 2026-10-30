@@ -15,13 +15,17 @@ in 6 calls: `Nothing to clear.` Use `facts_promql(expr=<complete PromQL>)` only 
 a facts tool left a gap; `No series matched` is no data, never zero.
 
 Write exactly once, in order:
-**Status:** recoverable or broken/unknown.
-**Backups:** Velero, CloudNativePG, Longhorn freshness and failures.
-**Expiring:** in-window items and remaining days; or `Nothing inside the window.`
-**Accumulation:** safe cleanup; or `Nothing to clear.`
+**Status:** recoverable, or the one thing that is broken or unknown and what to do
+about it.
+**Backups:** Velero, CloudNativePG and Longhorn each as fresh or stale with its
+age; only a stale one carries detail.
+**Expiring:** how many are inside the window, the soonest named with its remaining
+days, the rest as a count; or `Nothing inside the window.`
+**Accumulation:** what is safe to clear and what it reclaims, one line per item; or
+`Nothing to clear.`
 
-`unavailable` = unknown. Dates/durations only from this run. `ERROR:` = failed
-check. Four sections only.
+Each section at most two lines. Dates and durations only from this run.
+`unavailable` = unknown. `ERROR:` = failed check. Four sections only.
 
 ## Delivery
 

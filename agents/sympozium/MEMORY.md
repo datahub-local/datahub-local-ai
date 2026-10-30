@@ -888,6 +888,78 @@ budget. **A fallback inside the same provider's quota is not a fallback.** Both
 runs that died also share `cron: "0 7,19"`, the one schedule collision left in
 the fleet, so the fleet's only two evening runs fail as a pair.
 
+## Reports are shaped once, and the length is a budget (2026-10-30)
+
+Readability was never a prompt's job here, so nothing bounded a report and two
+personas drifted to 5 KB. Measured over the last ten stored runs each, from live
+`AgentRun.status.result`: `db-steward` 614/692/781 words (min/median/max),
+`endpoint-warden` 474/614/876, `service-janitor` 257/305/350, `sre-sentinel`
+163/217/295, `workload-watch` 148/158/232, `gitops-auditor` 18/30/207.
+
+The three fat ones were fat by instruction, not by state. `db-steward`'s
+`Postgres` section said "sizes", so the model transcribed 16 databases and 31
+volume claims; `endpoint-warden` said "Report every line the tool printed under
+`Readings that need a note` … none of them summarised away", so 16 bullets were
+mandatory, and `Maintenance` then restated the same four conditions per machine —
+32 bullets for four facts, twice a run. **A cap written beside that sentence would
+be a rule the model cannot satisfy**, the 2026-10-18 drafting-gate lesson in a new
+place: the sentence has to go, not gain a budget.
+
+So the shape is one contract and three formats:
+
+- `prompts/delivery/hook.md` carries the shared half, because it is the only text
+  all six reporters already receive through `{{ DELIVERY }}`: line one is the
+  outcome under `**Status:**`, the whole report is at most **250 words**, one fact
+  appears once, one condition across machines is one bullet with the machines
+  listed, name the worst and count the rest, state the reading and not the
+  reassurance, and — when over — cut healthy detail, then figures, then machine
+  lists, and never a finding, an action or the outcome line.
+- Each persona's own format keeps its sections and labels, and three of them
+  (`db-steward`, `endpoint-warden`, `service-janitor`) gained a per-section line
+  budget. `endpoint-warden` and `workload-watch` gained a `Status` lead they never
+  had, so the emoji lands on line one instead of on `Fleet`/`Busiest`.
+- 250 is where the three reports that already read well sit doubled: it is headroom
+  for a bad day (`sre-sentinel`'s median 217 is two-thirds of it), not a target. It
+  cuts `db-steward` 64% and `endpoint-warden` 59% from their medians. 150 would
+  force five sentinel sections into clauses on a three-alert day, which loses more
+  than the length costs.
+
+**The trap is the label.** `Verdict.classify` derives the emoji from the `Status`
+line and from `FINDING_SECTIONS`, so a section renamed or invented in a prompt
+changes the verdict silently — a finding under an unknown label posts with a green
+check, and nothing else in this repository reads a prompt. `Verdict.CLEAN_SECTIONS`
+now names the other labels the prompts write, and
+`tests/test_report_shape.py` fails on a label that is in neither set, on a reporter
+that does not open on `Status`, on a prompt that raises the cap, and on a populated
+finding section that classifies clean. Six of its seven tests fail against the
+prompts as they were.
+
+The cap is enforced by the prompt, not by the hook: truncating a report would cut
+at an arbitrary point and can delete the one finding it exists to carry, invisibly.
+The hook's only length constant stays `DETAIL_LIMIT`, and it applies to a failed
+run's error.
+
+**A gap is a footnote, not a clause in the outcome.** The first probe put a
+40-word `Status` sentence on line one carrying both the storage finding and a
+missing `pg_stat_statements`; the outcome is the one line a reader acts on, so
+`Status` now ends with `(*)` and every failed check or unanswered figure is listed
+once under that marker after the last section, keeping the literal `ERROR:` that
+carries the red verdict. Two code consequences, both in `deliver-slack.py`:
+`_sections` treats a `(*)` line as a block boundary belonging to no section — the
+footnote is otherwise appended to the section above it, and a clean `Power` line
+that only said "no UPS is monitored" would read as populated and post a warning —
+and `Verdict.prefix` puts the emoji *inside* the Status line after its label
+(`*Status:* ⚠️ …`) rather than in front of it, which is the field a reader scans
+for. Both are pinned in `test_deliver_slack.py`, and the contract's two new lines
+in `test_report_shape.py`.
+
+**Measured on two probe runs** (`AgentRun` with the new prompt inline, same
+cluster state minutes after the scheduled reports of 2026-10-30): `db-steward`
+692 → **211** words, `endpoint-warden` 614 → **221**, both under the cap, and every
+finding survived — Prometheus 91.1% with its action, `pg_get_top_queries` failed,
+7 machines answered, the stale apt cache as one bullet naming all seven, amd-2
+degraded, updates/reboot/io, UPS. `endpoint-warden`'s 32 bullets became 2.
+
 ## The report names its agent; it never invents a time
 
 Nothing in this fleet returns the current time — verified: the runtime injects no

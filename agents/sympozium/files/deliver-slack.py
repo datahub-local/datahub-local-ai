@@ -262,6 +262,27 @@ class Verdict:
         }
     )
 
+    # The sections that never warn on their own: the verdict line, the clean-only
+    # report sections, and `Still firing`, which warns by its own rule above. A
+    # prompt may not use a label outside FINDING_SECTIONS | CLEAN_SECTIONS, or the
+    # report posts with a verdict computed from a label nothing classified.
+    CLEAN_SECTIONS = frozenset(
+        {
+            "status",
+            "still firing",
+            "fleet",
+            "busiest",
+            "changed",
+            "postgres",
+            "cache",
+            "object store",
+            "streams",
+            "metrics store",
+            "power",
+            "resolved",
+        }
+    )
+
     # What every persona writes where a section is clean. A section holding only
     # one of these is empty, whatever else the wording is.
     NOTHING = re.compile(
@@ -289,21 +310,30 @@ class Verdict:
 
     @classmethod
     def prefix(cls, body: str) -> str:
-        """Prepend the emoji to the Status line, on the line as it stands.
+        """Put the emoji inside the Status line, after its label.
 
-        The model keeps writing its own `Status:` sentence; this only puts the
-        symbol in front of it. When the model wrote no Status section the emoji
-        still has to appear, so it goes on the first line instead of being lost.
+        `*Status:* ⚠️ ...` reads as the labelled field it is, and a reader
+        scanning the channel sees the label first and the verdict on it. The
+        model keeps writing its own sentence; this only adds the symbol. When the
+        model wrote no Status section the emoji still has to appear, so it goes
+        in front of the first line that has text rather than on a line of its own.
         """
         emoji = cls.classify(body)
         lines = body.split("\n")
         for i, line in enumerate(lines):
-            found = cls._label(line)
-            if found and found[0] == "status":
-                head = line.lstrip()
-                indent = line[: len(line) - len(head)]
-                lines[i] = f"{indent}{emoji} {head}"
-                return "\n".join(lines)
+            head = line.lstrip()
+            indent = line[: len(line) - len(head)]
+            match = cls.LABEL.match(head)
+            if not match:
+                continue
+            label = match.group("bold") or match.group("plain")
+            if (label or "").strip().lower() != "status":
+                continue
+            group = "bold_body" if match.group("bold_body") is not None else "plain_body"
+            cut = len(indent) + match.start(group)
+            rest = line[cut:].strip()
+            lines[i] = f"{line[:cut]}{emoji} {rest}".rstrip()
+            return "\n".join(lines)
         # No Status section: put the emoji on the first line that has text,
         # rather than on a line of its own above a blank.
         for i, line in enumerate(lines):
@@ -324,13 +354,27 @@ class Verdict:
             body = match.group("plain_body")
         return label.strip().lower(), (body or "").strip()
 
+    # The marker that opens the gap footnote, which the prompt asks for when a
+    # check failed or a tool answered nothing. It belongs to no section: counting
+    # it as content would make the section above it read as populated, and the
+    # verdict is computed from exactly that.
+    FOOTNOTE = "(*)"
+
     @classmethod
     def _sections(cls, body: str) -> dict[str, str]:
         """Map lowercase label -> its content, concatenating a repeated label."""
         sections: dict[str, str] = {}
         current: str | None = None
         buf: list[str] = []
+        in_footnote = False
         for line in body.split("\n"):
+            if line.strip().startswith(cls.FOOTNOTE):
+                if current is not None:
+                    sections[current] = "\n".join(buf).strip()
+                current, buf, in_footnote = None, [], True
+                continue
+            if in_footnote:
+                continue
             found = cls._label(line)
             if found:
                 if current is not None:

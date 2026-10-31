@@ -1,0 +1,36 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "litellm/opencode-go/deepseek-v4.1-flash",
+  "update": "disable",
+  "plugins": ["opencode-plugin-litellm@1.8.1"],
+  "instructions": ["/opt/opencode/AGENTS.md"],
+  "mcp": {
+    "servers": {
+      "fc": {
+        "type": "remote",
+        "url": "{env:OPENCODE_FIRECRAWL_MCP_URL}",
+        "oauth": false,
+        "codemode": false,
+        "timeout": {
+          "startup": 30000,
+          "catalog": 30000,
+          "execution": 600000
+        }
+      }
+    }
+  },
+  "permissions": [
+    { "action": "webfetch", "resource": "*", "effect": "deny" },
+    { "action": "websearch", "resource": "*", "effect": "deny" },
+    { "action": "read", "resource": "*.env", "effect": "deny" },
+    { "action": "read", "resource": "*.env.*", "effect": "deny" },
+    { "action": "external_directory", "resource": "*", "effect": "deny" },
+    { "action": "external_directory", "resource": "/workspace/*", "effect": "allow" },
+    { "action": "external_directory", "resource": "/tmp/*", "effect": "allow" },
+    { "action": "external_directory", "resource": "/opt/data/.config/opencode/*", "effect": "allow" },
+    { "action": "question", "resource": "*", "effect": "allow" },
+    { "action": "fc_firecrawl_scrape", "resource": "*", "effect": "allow" },
+    { "action": "fc_firecrawl_search", "resource": "*", "effect": "allow" },
+    { "action": "fc_firecrawl_map", "resource": "*", "effect": "allow" }
+  ]
+}

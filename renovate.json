@@ -22,6 +22,30 @@
       ],
       "datasourceTemplate": "npm",
       "depNameTemplate": "@earendil-works/pi-coding-agent"
+    },
+    {
+      "customType": "regex",
+      "description": "The OpenCode adapter pins the OpenCode release and every toolchain tarball as an ARG with a `# renovate:` line above it, so one manager covers them all",
+      "fileMatch": [
+        "(^|/)agents/adapters/opencode/Dockerfile$"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=github-releases depName=(?<depName>\\S+)\\s+ARG \\w+=(?<currentValue>\\S+)"
+      ],
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^(?:kustomize/)?v?(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "description": "The LiteLLM plugin is pinned in the adapter's baked OpenCode config",
+      "fileMatch": [
+        "(^|/)agents/adapters/opencode/opencode\\.json$"
+      ],
+      "matchStrings": [
+        "\"opencode-plugin-litellm@(?<currentValue>[^\"]+)\""
+      ],
+      "datasourceTemplate": "npm",
+      "depNameTemplate": "opencode-plugin-litellm"
     }
   ],
   "packageRules": [

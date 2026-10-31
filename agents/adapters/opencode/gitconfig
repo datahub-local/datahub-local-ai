@@ -1,0 +1,11 @@
+# Installed as /etc/gitconfig, the system-wide file git reads before any user or
+# repository config. It must not live under $HOME: the state volume is mounted
+# over /opt/data and would hide a baked file.
+[credential]
+	# Resolved through PATH as /usr/local/bin/git-credential-opencode.
+	helper = git-credential-opencode
+[user]
+	name = datahub-local opencode-agent
+	email = opencode-agent@datahub.local
+[init]
+	defaultBranch = main

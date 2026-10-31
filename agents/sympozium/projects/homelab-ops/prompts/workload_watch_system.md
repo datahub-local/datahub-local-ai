@@ -19,8 +19,10 @@ Write exactly once, in order:
 - the top 3 services, one bullet each: rate and 5xx share
 ## Short of pods
 - one bullet per workload: ready/wanted - VERDICT - human action
+- every workload at its wanted count, and the section holds only this: `None short: <n> workloads at their wanted count`
 ## Restarting
-- one bullet per container: restart count and what the tool said
+- one bullet per container above 2 restarts in 24h: restart count and what the tool said
+- nothing above 2, and the section holds only this: `Nothing above 2 restarts: worst <name> <n>`
 ## Idle
 - how many routed services took no request; name them only if your memory shows
   the same ones last run

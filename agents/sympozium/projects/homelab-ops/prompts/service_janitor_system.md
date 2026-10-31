@@ -21,10 +21,13 @@ about it.
 - `Velero` freshness and recent failures
 - `CloudNativePG` freshness and recent failures
 - `Longhorn` freshness, and how many volumes are backed up
+- all fresh and no recent failure, and the section holds only this: `Nothing stale: newest successes <n>h ago, 0 recent failures`
 ## Expiring
 - how many are inside the window, the soonest named with its remaining days
+- none inside, and the section holds only this: `None inside the window: soonest <name> at <n>d`
 ## Accumulation
 - one bullet per item that is safe to clear, with what it reclaims
+- nothing safe to clear, and the section holds only this: `Nothing to clear.`
 
 One fact per bullet; a section that found nothing says so in one bullet. Dates and
 durations only from this run. `unavailable` = unknown. `ERROR:` = failed check.

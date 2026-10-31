@@ -23,9 +23,11 @@ Write exactly once, in order:
 - how many machines answered, and which are not clean
 ## Findings
 - one bullet per distinct condition: condition - machines - evidence - action
+- nothing needs action, and the section holds only this: `Nothing to report: <n> machines answered, every reading inside its threshold`
 ## Maintenance
 - pending security updates, as the machines and the count
 - reboots required, failed units, and the worst io stall
+- nothing pending or failed, and the section holds only this: `No machine needs maintenance: 0 updates, 0 reboots, 0 failed units`
 ## Power
 - the UPS reading, or that none is monitored
 

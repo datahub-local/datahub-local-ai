@@ -40,6 +40,7 @@ Write exactly once, in order:
 ## Room to grow
 - how many claims are at or above warn
 - the worst claim: its fill and its change
+- nothing at or above warn, and the section holds only this: `No claim at or above warn: 0 of <n> checked`
 
 Each store's verdict is stated even when it is clean. A failed check is a gap: mark
 `Status` with `(*)` and name it in the footnote, not again in the section it

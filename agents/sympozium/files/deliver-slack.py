@@ -221,6 +221,13 @@ class Verdict:
                  the alert tool did not label `chronic` or `-`
         OK       everything else
 
+    `hook.md` states the other half of this rule, because the classifier reads
+    only the wording: a finding section with nothing to act on holds one bullet
+    opening with `Nothing`, `None` or `No <thing>`, and no commentary. Without
+    that, a clean run carrying three explanatory bullets posted a warning — the
+    gitops-auditor report of 2026-10-31 opened `No drifting application` and
+    `Nothing growing`, then added a second bullet to each and wore the symbol.
+
     `Still firing` is excluded from the blanket rule on purpose: chronic alerts
     fire permanently here, so a run whose only continuing items are chronic is a
     clean run, and treating it as a warning would make every run a warning. The
@@ -243,7 +250,10 @@ class Verdict:
     )
 
     # The sections whose populated form is a finding. `Still firing` is handled
-    # by its own rule, and `Status` is the verdict line itself.
+    # by its own rule, and `Status` is the verdict line itself. `Idle` is not
+    # here on purpose: its own prompt says an idle service is never a finding on
+    # one reading, so a warning from it made every workload-watch run a warning
+    # while its status line said all clear.
     FINDING_SECTIONS = frozenset(
         {
             "new",
@@ -256,7 +266,6 @@ class Verdict:
             "maintenance",
             "short of pods",
             "restarting",
-            "idle",
             "filling up",
             "room to grow",
         }
@@ -281,6 +290,7 @@ class Verdict:
             "stores",
             "power",
             "resolved",
+            "idle",
         }
     )
 

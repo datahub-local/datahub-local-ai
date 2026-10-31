@@ -1018,6 +1018,48 @@ change therefore reaches the fleet on the next scheduled tick, not immediately: 
 sync updated the Ensemble's `agentConfigs[].systemPrompt` and the Agent's embedded
 postRun script, and fired no run.
 
+**The verdict is only as good as the section's empty form (2026-10-31).** The
+classifier reads prose, and the prompts said what a finding section carries but
+never what it looks like when nothing is wrong — so a clean run wrote a clean
+sentence plus its evidence and posted a warning. Measured over the last eight
+stored runs per persona, classified with the committed hook:
+
+| persona | warns | emoji contradicted its own `Status` |
+| ------- | ----- | ----------------------------------- |
+| `gitops-auditor` | 8/8 | **3/3 clean runs** |
+| `workload-watch` | 8/8 | **4** |
+| `service-janitor` | 8/8 | **2** |
+| `db-steward`, `endpoint-warden`, `sre-sentinel` | 8/8 each | 0 — real findings |
+
+`gitops-auditor-schedule-203` is the shape: `Status: All ten applications are
+Synced and Healthy` and `- No drifting application: …`, then a second bullet
+(`Every row shows runs drifted as -`) and `- Worth watching, not a finding: …`.
+`NOTHING` matches a line's opening, so only the first bullet counted as clean and
+the two after it read as findings. `workload-watch` was worse in kind: its `Idle`
+section is *defined* as never a finding (`12 routed services took no request`) and
+was in `FINDING_SECTIONS`, so every run that reported the count warned.
+
+The fix is split the way the classifier is: **`hook.md` states the contract** (a
+finding section with nothing to act on holds one bullet opening with `Nothing`,
+`None` or `No <thing>`, the reading may follow after a colon, and no commentary,
+cluster description or tool-timeout note belongs there — judgement is the `Status`
+line and a gap is a `(*)` footnote), **each persona format states its own empty
+form**, and `Idle` moved to `CLEAN_SECTIONS` because its prompt already says it
+is not a finding. `Restarting` stayed a finding and its prompt gained a threshold
+(above 2 restarts in 24h), so the 103-restart firecrawl loop still warns while the
+controller-manager's occasional 2 does not. `test_every_finding_section_states_an
+_empty_form` fails on any finding section whose format states none — six sections
+had none when it was written.
+
+`gitops-auditor` also carried a rule it could not satisfy: "never repeat a call"
+against a `facts_argocd_drift` that timed out twice in run 203. Obeying it yields
+no data at all, so the primary facts call may now be retried once, with a second
+failure reported as a gap; investigation calls still never repeat.
+
+Still open, and not this change's: `endpoint-warden` posts a warning on every run
+because the apt cache is stale on all seven nodes — a permanent finding is a bug
+in the prompt or the fleet, and the threshold is a decision rather than a defect.
+
 ## The report names its agent; it never invents a time
 
 Nothing in this fleet returns the current time — verified: the runtime injects no

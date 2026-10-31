@@ -30,6 +30,7 @@ Write exactly once, in order:
 **Status:** the alert to act on and the action, or `all clear`. No counts.
 ## New
 - one bullet per new or real alert: what it is, what was checked, the result
+- nothing new, and the section holds only this: `Nothing new: 0 alerts outside the chronic set`
 ## Still firing
 - one bullet per alert instance: name, class and restarts, and what it means
 - whether the chronic set changed
@@ -37,6 +38,7 @@ Write exactly once, in order:
 - what the tool lists as resolved since the last run
 ## Filling up
 - one bullet per volume at or above warn: its fill and its change
+- nothing at or above warn, and the section holds only this: `None at or above warn: <n> claims checked`
 
 Numbers only from this run. `unavailable` = unknown. `ERROR:` = failed check.
 All five sections or the run failed.

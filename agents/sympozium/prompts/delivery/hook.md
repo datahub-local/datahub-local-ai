@@ -30,6 +30,19 @@ Every other section is a `##` heading on its own line, then `- ` bullets:
     - 3.3MiB used, 0 evictions in 1h
     - `maxmemory` unset, so no ceiling exists
 
+A section your format marks as a finding only exists when something needs action.
+When nothing there does, its one bullet opens with `Nothing`, `None` or `No <thing>`,
+and the reading showing why may follow after a colon:
+
+    ## Drift
+    - Nothing drifting: 10 applications Synced and Healthy, 0 carrying a run count
+
+The verdict emoji is computed from those openings, so a finding section whose
+bullets all start some other way reads as a finding whatever `Status` says. Never
+put commentary there — `worth watching`, `not a finding`, `recurring`, a cluster
+description, or a note that a tool timed out. Judgement belongs on the `Status`
+line, and a failed or unanswered check is the `(*)` footnote.
+
 The whole report is at most 300 words. Your format may state a tighter cap; it
 never raises this one.
 

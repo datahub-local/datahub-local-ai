@@ -52,6 +52,20 @@ def labels(prompt: Path) -> list[str]:
     return ["status"] + [m.group(1).strip().lower() for m in _HEADING.finditer(formats(prompt))]
 
 
+def _section_text(block: str, label: str) -> str:
+    """The format block's instructions for one `##` heading."""
+    out: list[str] = []
+    active = False
+    for line in block.splitlines():
+        match = _HEADING.match(line)
+        if match:
+            active = match.group(1).strip().lower() == label
+            continue
+        if active:
+            out.append(line)
+    return "\n".join(out)
+
+
 def test_the_shared_contract_states_the_shape_and_the_cap():
     hook = _HOOK.read_text()
     assert "### Shape" in hook
@@ -64,6 +78,10 @@ def test_the_shared_contract_states_the_shape_and_the_cap():
     assert "(*) `pg_get_top_queries` failed" in hook
     assert "A footnote exists only when there is a gap" in hook
     assert "never a line saying that nothing was unused" in hook
+    # The half the classifier reads: a clean finding section opens on one of its
+    # nothing-forms, and commentary there is what turns a clean run into a warning.
+    assert "its one bullet opens with `Nothing`, `None` or `No <thing>`" in hook
+    assert "Never\nput commentary there" in hook
 
 
 def test_the_shared_contract_states_the_one_layout():
@@ -130,6 +148,46 @@ def test_a_populated_finding_section_warns_and_a_clean_one_does_not():
                 else deliver.Verdict.OK
             )
             assert deliver.Verdict.classify(body) == expected, f"{prompt.name}: {label}"
+
+
+def test_every_finding_section_states_an_empty_form():
+    """A finding section warns on any wording but its empty form, so it must have one.
+
+    The classifier reads prose, and the model writes whatever a prompt leaves open:
+    `gitops-auditor` opened `No drifting application` and `Nothing growing`, added a
+    second bullet to each, and a clean run posted a warning. A section is only
+    satisfiable if the prompt says what it looks like when nothing is wrong.
+    """
+    for prompt in reporters():
+        block = formats(prompt)
+        for label in labels(prompt):
+            if label not in deliver.Verdict.FINDING_SECTIONS:
+                continue
+            section = _section_text(block, label)
+            assert re.search(r"\b(Nothing|None|No )", section), (
+                f"{prompt.name}'s finding section {label!r} states no empty form"
+            )
+
+
+def test_idle_is_a_reading_not_a_finding():
+    """`workload-watch` says an idle service is never a finding; the code agreed not.
+
+    Its status line read `all clear — every workload has its wanted pods ready`
+    while the Idle count carried the warning symbol, on four of eight runs.
+    """
+    body = deliver.Mrkdwn.convert(
+        "**Status:** all clear\n\n## Idle\n- 12 routed services took no request in 24h"
+    )
+    assert deliver.Verdict.classify(body) == deliver.Verdict.OK
+    assert "idle" not in deliver.Verdict.FINDING_SECTIONS
+
+
+def test_a_restart_above_the_stated_threshold_still_warns():
+    body = deliver.Mrkdwn.convert(
+        "**Status:** one container loops\n\n## Restarting\n"
+        "- `sympozium-mcp-firecrawl` restarted 103 times in 24h"
+    )
+    assert deliver.Verdict.classify(body) == deliver.Verdict.WARNING
 
 
 def test_the_report_that_mandated_a_dump_now_mandates_grouping():

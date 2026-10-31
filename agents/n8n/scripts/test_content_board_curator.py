@@ -113,7 +113,10 @@ def test_the_board_is_read_by_label_and_never_written():
     assert node["type"] == "n8n-nodes-base.github"
     params = node["parameters"]
     # Listing issues of a repository is the `getIssues` operation, not an `issue` one.
-    assert (params["resource"], params["operation"]) == ("repository", "getIssues")
+    # The editor drops a parameter holding its default (`getIssues` is the default for
+    # `repository`), so assert the effective value rather than the field's presence.
+    assert params["resource"] == "repository"
+    assert params.get("operation", "getIssues") == "getIssues"
     assert params["owner"]["value"] == "={{ $json.owner }}"
     assert params["repository"]["value"] == "={{ $json.repo }}"
     filters = params["getRepositoryIssuesFilters"]

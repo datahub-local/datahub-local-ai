@@ -1,10 +1,16 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "6ac63887-4115-4db4-bcc9-7d3ed2dd056b",
+    "versionId": "54a9b655-14f9-4cc7-8c77-237ccdf60371",
     "workflowId": "RCSPaKMKsckAnJ9B",
     "nodes": [
       {
+        "parameters": {
+          "content": "## Content Board Curator\n\n**Daily 12:15.** The homelab's GitHub board keeps the ideas: open issues labelled `post` on `datahub-local/datahub-local`. This workflow is the read-only bridge from that board into the blog lane's `article_queue`, plus the queue's own age ceiling.\n\n**Import.** Each labelled issue becomes one `article_queue` row: `ENTRY_ID` `gh-<number>`, the issue title as `TOPIC`, the body as `DESCRIPTION`, the issue URL as `LINK`, and the defaults from `datasets/board_intake.json` for `CATEGORIES` / `ASSET_TYPES` / `MAX_WORDS` / `PRIORITY`, `ORIGIN=BOARD`, `STATUS=QUEUE`. An issue already in the queue (by `ENTRY_ID` or `LINK`) is skipped, so the board is never written to and an issue stays open until a human closes it.\n\n**Ceiling.** Any `article_queue` row still QUEUE, IN_PROGRESS or WAITING_APPROVAL whose last update is older than `cancel_after_days` (from `datasets/curator_config.json`, the same value Content Feed Curator uses) is set CANCELLED - a stuck run or an unanswered approval, not a live one, because the clock is the row's own UPDATE_DATE.\n\n**Env vars:** none beyond the two credentials. The board is public, so the GitHub read needs no special scope.",
+          "height": 560,
+          "width": 480,
+          "color": 4
+        },
         "id": "b1a0c0de-0001-4a10-9a11-000000000001",
         "name": "Sticky Note",
         "type": "n8n-nodes-base.stickyNote",
@@ -12,24 +18,9 @@
         "position": [
           0,
           -640
-        ],
-        "parameters": {
-          "content": "## Content Board Curator\n\n**Daily 12:15.** The homelab's GitHub board keeps the ideas: open issues labelled `post` on `datahub-local/datahub-local`. This workflow is the read-only bridge from that board into the blog lane's `article_queue`, plus the queue's own age ceiling.\n\n**Import.** Each labelled issue becomes one `article_queue` row: `ENTRY_ID` `gh-<number>`, the issue title as `TOPIC`, the body as `DESCRIPTION`, the issue URL as `LINK`, and the defaults from `datasets/board_intake.json` for `CATEGORIES` / `ASSET_TYPES` / `MAX_WORDS` / `PRIORITY`, `ORIGIN=BOARD`, `STATUS=QUEUE`. An issue already in the queue (by `ENTRY_ID` or `LINK`) is skipped, so the board is never written to and an issue stays open until a human closes it.\n\n**Ceiling.** Any `article_queue` row still QUEUE, IN_PROGRESS or WAITING_APPROVAL whose last update is older than `cancel_after_days` (from `datasets/curator_config.json`, the same value Content Feed Curator uses) is set CANCELLED - a stuck run or an unanswered approval, not a live one, because the clock is the row's own UPDATE_DATE.\n\n**Env vars:** none beyond the two credentials. The board is public, so the GitHub read needs no special scope.",
-          "height": 560,
-          "width": 480,
-          "color": 4
-        }
+        ]
       },
       {
-        "id": "b1a0c0de-0002-4a10-9a11-000000000002",
-        "name": "schedule_trigger",
-        "notes": "Daily 12:15. Fifteen minutes after Content Feed Curator, so the two writes to content_planner never overlap; the exact minute is not load-bearing, the article lane drains on its own schedule.",
-        "type": "n8n-nodes-base.scheduleTrigger",
-        "typeVersion": 1.2,
-        "position": [
-          0,
-          0
-        ],
         "parameters": {
           "rule": {
             "interval": [
@@ -39,17 +30,18 @@
               }
             ]
           }
-        }
-      },
-      {
-        "id": "b1a0c0de-0003-4a10-9a11-000000000003",
-        "name": "download_board_config",
-        "type": "n8n-nodes-base.executeWorkflow",
+        },
+        "id": "b1a0c0de-0002-4a10-9a11-000000000002",
+        "name": "schedule_trigger",
+        "type": "n8n-nodes-base.scheduleTrigger",
         "typeVersion": 1.2,
         "position": [
-          220,
-          0
+          0,
+          -80
         ],
+        "notes": "Daily 12:15. Fifteen minutes after Content Feed Curator, so the two writes to content_planner never overlap; the exact minute is not load-bearing, the article lane drains on its own schedule."
+      },
+      {
         "parameters": {
           "workflowId": {
             "__rl": true,
@@ -89,17 +81,17 @@
             "convertFieldsToString": true
           },
           "options": {}
-        }
-      },
-      {
-        "id": "b1a0c0de-0004-4a10-9a11-000000000004",
-        "name": "download_curator_config",
+        },
+        "id": "b1a0c0de-0003-4a10-9a11-000000000003",
+        "name": "download_board_config",
         "type": "n8n-nodes-base.executeWorkflow",
         "typeVersion": 1.2,
         "position": [
-          440,
-          0
-        ],
+          224,
+          16
+        ]
+      },
+      {
         "parameters": {
           "workflowId": {
             "__rl": true,
@@ -139,36 +131,32 @@
             "convertFieldsToString": true
           },
           "options": {}
-        }
+        },
+        "id": "b1a0c0de-0004-4a10-9a11-000000000004",
+        "name": "download_curator_config",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          448,
+          16
+        ]
       },
       {
+        "parameters": {
+          "jsCode": "// Merge the two fetched config files into one item every downstream node reads via\n// $('parse_board_config').first().json. board_intake.json describes the board and the\n// defaults an imported row carries; curator_config.json owns cancel_after_days, because the\n// ceiling is one policy for both queues and a second copy would be a second thing to keep\n// in step. A missing file degrades to the defaults; a malformed one is loud, the same way\n// parse_curator_config treats its file.\nconst readText = (raw) => (raw == null ? '' : String(raw));\nconst parse = (raw, name) => {\n  if (!raw) return {};\n  try {\n    return JSON.parse(raw);\n  } catch (e) {\n    throw new Error('datasets/' + name + ' is not valid JSON: ' + e.message);\n  }\n};\nconst b = parse(readText($('download_board_config').first().json.output), 'board_intake.json');\nconst c = parse(readText($('download_curator_config').first().json.output), 'curator_config.json');\nconst str = (v, d) => (v == null || String(v).trim() === '' ? d : String(v).trim());\nconst num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);\nconst def = b.defaults && typeof b.defaults === 'object' ? b.defaults : {};\n\nconst out = {\n  owner: str(b.owner, 'datahub-local'),\n  repo: str(b.repo, 'datahub-local'),\n  label: str(b.label, 'post'),\n  state: str(b.state, 'open'),\n  categories: str(def.categories, 'General'),\n  asset_types: str(def.asset_types, 'image_wide,svg_wide'),\n  max_words: num(def.max_words, 1200),\n  priority: str(def.priority, 'MEDIUM'),\n  // The level is a person's decision, so the intake only carries the configured default;\n  // a mistyped value is refused by the article lane, which owns the vocabulary.\n  audience: str(def.audience, 'NONE').toUpperCase(),\n  cancel_after_days: Math.max(1, num(c.cancel_after_days, 7)),\n  run_at: new Date().toISOString(),\n};\nconsole.log(\n  'parse_board_config: ' + out.owner + '/' + out.repo + ' label=' + out.label + ' cancel_after=' +\n    out.cancel_after_days + 'd'\n);\nreturn [{ json: out }];\n"
+        },
         "id": "b1a0c0de-0005-4a10-9a11-000000000005",
         "name": "parse_board_config",
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          660,
-          0
-        ],
-        "parameters": {
-          "jsCode": "// Merge the two fetched config files into one item every downstream node reads via\n// $('parse_board_config').first().json. board_intake.json describes the board and the\n// defaults an imported row carries; curator_config.json owns cancel_after_days, because the\n// ceiling is one policy for both queues and a second copy would be a second thing to keep\n// in step. A missing file degrades to the defaults; a malformed one is loud, the same way\n// parse_curator_config treats its file.\nconst readText = (raw) => (raw == null ? '' : String(raw));\nconst parse = (raw, name) => {\n  if (!raw) return {};\n  try {\n    return JSON.parse(raw);\n  } catch (e) {\n    throw new Error('datasets/' + name + ' is not valid JSON: ' + e.message);\n  }\n};\nconst b = parse(readText($('download_board_config').first().json.output), 'board_intake.json');\nconst c = parse(readText($('download_curator_config').first().json.output), 'curator_config.json');\nconst str = (v, d) => (v == null || String(v).trim() === '' ? d : String(v).trim());\nconst num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);\nconst def = b.defaults && typeof b.defaults === 'object' ? b.defaults : {};\n\nconst out = {\n  owner: str(b.owner, 'datahub-local'),\n  repo: str(b.repo, 'datahub-local'),\n  label: str(b.label, 'post'),\n  state: str(b.state, 'open'),\n  categories: str(def.categories, 'General'),\n  asset_types: str(def.asset_types, 'image_wide,svg_wide'),\n  max_words: num(def.max_words, 1200),\n  priority: str(def.priority, 'MEDIUM'),\n  // The level is a person's decision, so the intake only carries the configured default;\n  // a mistyped value is refused by the article lane, which owns the vocabulary.\n  audience: str(def.audience, 'NONE').toUpperCase(),\n  cancel_after_days: Math.max(1, num(c.cancel_after_days, 7)),\n  run_at: new Date().toISOString(),\n};\nconsole.log(\n  'parse_board_config: ' + out.owner + '/' + out.repo + ' label=' + out.label + ' cancel_after=' +\n    out.cancel_after_days + 'd'\n);\nreturn [{ json: out }];\n"
-        }
+          672,
+          16
+        ]
       },
       {
-        "id": "b1a0c0de-0006-4a10-9a11-000000000006",
-        "name": "list_board_issues",
-        "webhookId": "30dbd330-8c77-4288-907b-51540904fd62",
-        "notes": "GET /repos/{owner}/{repo}/issues?labels=<label>&state=<state>. alwaysOutputData: an empty board (or no labelled issue) must not stop the run, or the queue's own ceiling would never run on a quiet week. Read-only - the workflow never comments on, labels or closes an issue.",
-        "type": "n8n-nodes-base.github",
-        "typeVersion": 1,
-        "alwaysOutputData": true,
-        "position": [
-          880,
-          0
-        ],
         "parameters": {
           "resource": "repository",
-          "operation": "getIssues",
           "owner": {
             "__rl": true,
             "value": "={{ $json.owner }}",
@@ -181,31 +169,31 @@
           },
           "returnAll": true,
           "getRepositoryIssuesFilters": {
-            "state": "={{ $json.state }}",
             "labels": "={{ $json.label }}",
+            "state": "={{ $json.state }}",
             "sort": "created",
             "direction": "asc"
           }
         },
+        "id": "b1a0c0de-0006-4a10-9a11-000000000006",
+        "name": "list_board_issues",
+        "webhookId": "30dbd330-8c77-4288-907b-51540904fd62",
+        "type": "n8n-nodes-base.github",
+        "typeVersion": 1,
+        "alwaysOutputData": true,
+        "position": [
+          896,
+          16
+        ],
         "credentials": {
           "githubApi": {
             "id": "x1DjxYsMLFm3vUiv",
             "name": "GitHub account"
           }
-        }
+        },
+        "notes": "GET /repos/{owner}/{repo}/issues?labels=<label>&state=<state>. alwaysOutputData: an empty board (or no labelled issue) must not stop the run, or the queue's own ceiling would never run on a quiet week. Read-only - the workflow never comments on, labels or closes an issue."
       },
       {
-        "id": "b1a0c0de-0007-4a10-9a11-000000000007",
-        "name": "read_article_queue",
-        "notes": "The dedupe source and the ceiling's input, read once at the top. alwaysOutputData: an empty queue is a normal first run, and the intake still has to append to it.",
-        "type": "n8n-nodes-base.googleSheets",
-        "typeVersion": 4.6,
-        "executeOnce": true,
-        "alwaysOutputData": true,
-        "position": [
-          1100,
-          0
-        ],
         "parameters": {
           "documentId": {
             "__rl": true,
@@ -229,35 +217,38 @@
             }
           }
         },
+        "id": "b1a0c0de-0007-4a10-9a11-000000000007",
+        "name": "read_article_queue",
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4.6,
+        "executeOnce": true,
+        "alwaysOutputData": true,
+        "position": [
+          1120,
+          16
+        ],
         "credentials": {
           "googleSheetsOAuth2Api": {
             "id": "pGARJmt50qz64xOo",
             "name": "Google Sheets account"
           }
-        }
+        },
+        "notes": "The dedupe source and the ceiling's input, read once at the top. alwaysOutputData: an empty queue is a normal first run, and the intake still has to append to it."
       },
       {
+        "parameters": {
+          "jsCode": "// One item per issue the queue does not already carry. ENTRY_ID is stable (gh-<number>), so\n// the same open issue is skipped on every later run; LINK is checked too, in case a human\n// added the same idea by hand. Pull requests come back from the issues endpoint as well and\n// are dropped by their own marker - a PR is not an article idea.\nconst cfg = $('parse_board_config').first().json;\nconst issues = $('list_board_issues').all().map((i) => i.json);\nconst queue = $('read_article_queue').all().map((i) => i.json);\nconst seenId = new Set(queue.map((r) => String(r.ENTRY_ID || '').trim()).filter(Boolean));\nconst seenLink = new Set(queue.map((r) => String(r.LINK || '').trim()).filter(Boolean));\nconst runAt = cfg.run_at;\n\nconst rows = [];\nfor (const it of issues) {\n  if (!it || it.pull_request) continue;\n  const number = it.number;\n  if (number == null || number === '') continue;\n  const entry = 'gh-' + number;\n  const link = String(it.html_url || it.url || '');\n  if (seenId.has(entry) || (link && seenLink.has(link))) continue;\n  seenId.add(entry);\n  if (link) seenLink.add(link);\n  rows.push({\n    json: {\n      ENTRY_ID: entry,\n      TOPIC: String(it.title || '').trim(),\n      DESCRIPTION: String(it.body || '').trim(),\n      LINK: link,\n      CATEGORIES: cfg.categories,\n      ASSET_TYPES: cfg.asset_types,\n      MAX_WORDS: cfg.max_words,\n      PRIORITY: cfg.priority,\n      AUDIENCE: cfg.audience,\n      ORIGIN: 'BOARD',\n      STATUS: 'QUEUE',\n      UPDATE_DATE: runAt,\n    },\n  });\n}\n\nconst titles = rows.map((r) => String(r.json.TOPIC).slice(0, 60));\nconsole.log('build_intake_rows: ' + rows.length + ' new of ' + issues.length + ' issue(s) read');\nfor (const t of titles.slice(0, 10)) console.log('  add ' + t);\n\n// One item even when nothing is new: if_has_new needs an input to branch on, and the\n// downstream ceiling still has to run. Every real row carries the same NEW_COUNT so the\n// append receives all of them.\nif (!rows.length) return [{ json: { NEW_COUNT: 0, NEW_TITLES: '' } }];\nreturn rows.map((r) =>\n  ({ json: { ...r.json, NEW_COUNT: rows.length, NEW_TITLES: titles.join(' | ') } })\n);\n"
+        },
         "id": "b1a0c0de-0008-4a10-9a11-000000000008",
         "name": "build_intake_rows",
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          1320,
-          0
-        ],
-        "parameters": {
-          "jsCode": "// One item per issue the queue does not already carry. ENTRY_ID is stable (gh-<number>), so\n// the same open issue is skipped on every later run; LINK is checked too, in case a human\n// added the same idea by hand. Pull requests come back from the issues endpoint as well and\n// are dropped by their own marker - a PR is not an article idea.\nconst cfg = $('parse_board_config').first().json;\nconst issues = $('list_board_issues').all().map((i) => i.json);\nconst queue = $('read_article_queue').all().map((i) => i.json);\nconst seenId = new Set(queue.map((r) => String(r.ENTRY_ID || '').trim()).filter(Boolean));\nconst seenLink = new Set(queue.map((r) => String(r.LINK || '').trim()).filter(Boolean));\nconst runAt = cfg.run_at;\n\nconst rows = [];\nfor (const it of issues) {\n  if (!it || it.pull_request) continue;\n  const number = it.number;\n  if (number == null || number === '') continue;\n  const entry = 'gh-' + number;\n  const link = String(it.html_url || it.url || '');\n  if (seenId.has(entry) || (link && seenLink.has(link))) continue;\n  seenId.add(entry);\n  if (link) seenLink.add(link);\n  rows.push({\n    json: {\n      ENTRY_ID: entry,\n      TOPIC: String(it.title || '').trim(),\n      DESCRIPTION: String(it.body || '').trim(),\n      LINK: link,\n      CATEGORIES: cfg.categories,\n      ASSET_TYPES: cfg.asset_types,\n      MAX_WORDS: cfg.max_words,\n      PRIORITY: cfg.priority,\n      AUDIENCE: cfg.audience,\n      ORIGIN: 'BOARD',\n      STATUS: 'QUEUE',\n      UPDATE_DATE: runAt,\n    },\n  });\n}\n\nconst titles = rows.map((r) => String(r.json.TOPIC).slice(0, 60));\nconsole.log('build_intake_rows: ' + rows.length + ' new of ' + issues.length + ' issue(s) read');\nfor (const t of titles.slice(0, 10)) console.log('  add ' + t);\n\n// One item even when nothing is new: if_has_new needs an input to branch on, and the\n// downstream ceiling still has to run. Every real row carries the same NEW_COUNT so the\n// append receives all of them.\nif (!rows.length) return [{ json: { NEW_COUNT: 0, NEW_TITLES: '' } }];\nreturn rows.map((r) =>\n  ({ json: { ...r.json, NEW_COUNT: rows.length, NEW_TITLES: titles.join(' | ') } })\n);\n"
-        }
+          1344,
+          16
+        ]
       },
       {
-        "id": "b1a0c0de-0009-4a10-9a11-000000000009",
-        "name": "if_has_new",
-        "type": "n8n-nodes-base.if",
-        "typeVersion": 2.2,
-        "position": [
-          1540,
-          0
-        ],
         "parameters": {
           "conditions": {
             "options": {
@@ -281,18 +272,17 @@
           },
           "looseTypeValidation": true,
           "options": {}
-        }
+        },
+        "id": "b1a0c0de-0009-4a10-9a11-000000000009",
+        "name": "if_has_new",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          1568,
+          16
+        ]
       },
       {
-        "id": "b1a0c0de-0010-4a10-9a11-000000000010",
-        "name": "append_article_queue",
-        "notes": "Appends only the columns the row owns; every lifecycle column is written blank so the article lane starts the row from a known state. ENTRY_ID is the issue number, which is what makes the next run's dedupe exact.",
-        "type": "n8n-nodes-base.googleSheets",
-        "typeVersion": 4.6,
-        "position": [
-          1760,
-          -80
-        ],
         "parameters": {
           "operation": "append",
           "documentId": {
@@ -582,35 +572,36 @@
           },
           "options": {}
         },
+        "id": "b1a0c0de-0010-4a10-9a11-000000000010",
+        "name": "append_article_queue",
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4.6,
+        "position": [
+          1792,
+          -48
+        ],
         "credentials": {
           "googleSheetsOAuth2Api": {
             "id": "pGARJmt50qz64xOo",
             "name": "Google Sheets account"
           }
-        }
+        },
+        "notes": "Appends only the columns the row owns; every lifecycle column is written blank so the article lane starts the row from a known state. ENTRY_ID is the issue number, which is what makes the next run's dedupe exact."
       },
       {
+        "parameters": {
+          "jsCode": "// The article queue's own ceiling: a row still in play whose last update is older than\n// cancel_after_days is cancelled. The clock is the row's own UPDATE_DATE - the last write a\n// phase made - so a run that is genuinely working the row is never old enough; only a stuck\n// run or an approval nobody answered reaches this. IN_PROGRESS is cancelled as well as QUEUE\n// and WAITING_APPROVAL: \"not maintain current thing\" is the point, and setting\n// ARTICLE_STATUS=CANCELLED is what stops the article lane resuming a claimed row it never\n// finished.\nconst cfg = $('parse_board_config').first().json;\nconst days = Math.max(1, Number(cfg.cancel_after_days) || 7);\nconst nowMs = Date.parse(cfg.run_at) || Date.now();\nconst IN_PLAY = new Set(['QUEUE', 'IN_PROGRESS', 'WAITING_APPROVAL']);\n\nconst rows = $('read_article_queue').all().map((i) => i.json).filter((r) => r && r.row_number);\nconst stale = [];\nfor (const r of rows) {\n  const status = String(r.STATUS || '').trim().toUpperCase();\n  if (!IN_PLAY.has(status)) continue;\n  const at = Date.parse(r.UPDATE_DATE || '');\n  if (!isFinite(at)) continue;\n  const age = (nowMs - at) / 86400000;\n  if (age <= days) continue;\n  stale.push({ row_number: r.row_number, TOPIC: r.TOPIC || '', STATUS: status, age: Math.round(age) });\n}\nconst titles = stale.map((s) => String(s.TOPIC).slice(0, 60));\nconsole.log('build_cancel_rows: ' + stale.length + ' of ' + rows.length + ' article_queue row(s) past the ' + days + 'd ceiling');\nfor (let i = 0; i < stale.length && i < 10; i++) {\n  console.log('  cancel r' + stale[i].row_number + ' (' + stale[i].STATUS + ', ' + stale[i].age + 'd) ' + titles[i]);\n}\n// One item even when nothing qualifies, so if_has_cancels branches and the notice still runs.\nif (!stale.length) return [{ json: { CANCELLED_COUNT: 0, CANCELLED_TITLES: '' } }];\nreturn stale.map((s) => ({ json: { ...s, CANCELLED_COUNT: stale.length, CANCELLED_TITLES: titles.join(' | ') } }));\n"
+        },
         "id": "b1a0c0de-0011-4a10-9a11-000000000011",
         "name": "build_cancel_rows",
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          1760,
-          120
-        ],
-        "parameters": {
-          "jsCode": "// The article queue's own ceiling: a row still in play whose last update is older than\n// cancel_after_days is cancelled. The clock is the row's own UPDATE_DATE - the last write a\n// phase made - so a run that is genuinely working the row is never old enough; only a stuck\n// run or an approval nobody answered reaches this. IN_PROGRESS is cancelled as well as QUEUE\n// and WAITING_APPROVAL: \"not maintain current thing\" is the point, and setting\n// ARTICLE_STATUS=CANCELLED is what stops the article lane resuming a claimed row it never\n// finished.\nconst cfg = $('parse_board_config').first().json;\nconst days = Math.max(1, Number(cfg.cancel_after_days) || 7);\nconst nowMs = Date.parse(cfg.run_at) || Date.now();\nconst IN_PLAY = new Set(['QUEUE', 'IN_PROGRESS', 'WAITING_APPROVAL']);\n\nconst rows = $('read_article_queue').all().map((i) => i.json).filter((r) => r && r.row_number);\nconst stale = [];\nfor (const r of rows) {\n  const status = String(r.STATUS || '').trim().toUpperCase();\n  if (!IN_PLAY.has(status)) continue;\n  const at = Date.parse(r.UPDATE_DATE || '');\n  if (!isFinite(at)) continue;\n  const age = (nowMs - at) / 86400000;\n  if (age <= days) continue;\n  stale.push({ row_number: r.row_number, TOPIC: r.TOPIC || '', STATUS: status, age: Math.round(age) });\n}\nconst titles = stale.map((s) => String(s.TOPIC).slice(0, 60));\nconsole.log('build_cancel_rows: ' + stale.length + ' of ' + rows.length + ' article_queue row(s) past the ' + days + 'd ceiling');\nfor (let i = 0; i < stale.length && i < 10; i++) {\n  console.log('  cancel r' + stale[i].row_number + ' (' + stale[i].STATUS + ', ' + stale[i].age + 'd) ' + titles[i]);\n}\n// One item even when nothing qualifies, so if_has_cancels branches and the notice still runs.\nif (!stale.length) return [{ json: { CANCELLED_COUNT: 0, CANCELLED_TITLES: '' } }];\nreturn stale.map((s) => ({ json: { ...s, CANCELLED_COUNT: stale.length, CANCELLED_TITLES: titles.join(' | ') } }));\n"
-        }
+          2016,
+          16
+        ]
       },
       {
-        "id": "b1a0c0de-0012-4a10-9a11-000000000012",
-        "name": "if_has_cancels",
-        "type": "n8n-nodes-base.if",
-        "typeVersion": 2.2,
-        "position": [
-          1980,
-          120
-        ],
         "parameters": {
           "conditions": {
             "options": {
@@ -634,18 +625,17 @@
           },
           "looseTypeValidation": true,
           "options": {}
-        }
+        },
+        "id": "b1a0c0de-0012-4a10-9a11-000000000012",
+        "name": "if_has_cancels",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          2240,
+          16
+        ]
       },
       {
-        "id": "b1a0c0de-0013-4a10-9a11-000000000013",
-        "name": "cancel_stale_articles",
-        "notes": "Both fields: STATUS=CANCELLED takes the row out of the article lane's QUEUE, ARTICLE_STATUS=CANCELLED stops pick_candidate resuming a claimed row that never finished. This lane spells it with two L's.",
-        "type": "n8n-nodes-base.googleSheets",
-        "typeVersion": 4.6,
-        "position": [
-          2200,
-          40
-        ],
         "parameters": {
           "operation": "update",
           "documentId": {
@@ -919,23 +909,23 @@
           },
           "options": {}
         },
+        "id": "b1a0c0de-0013-4a10-9a11-000000000013",
+        "name": "cancel_stale_articles",
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4.6,
+        "position": [
+          2464,
+          -48
+        ],
         "credentials": {
           "googleSheetsOAuth2Api": {
             "id": "pGARJmt50qz64xOo",
             "name": "Google Sheets account"
           }
-        }
+        },
+        "notes": "Both fields: STATUS=CANCELLED takes the row out of the article lane's QUEUE, ARTICLE_STATUS=CANCELLED stops pick_candidate resuming a claimed row that never finished. This lane spells it with two L's."
       },
       {
-        "id": "b1a0c0de-0014-4a10-9a11-000000000014",
-        "name": "notify_board",
-        "webhookId": "ee00b5b8-14ca-4f42-8e8f-abf83351147a",
-        "type": "n8n-nodes-base.slack",
-        "typeVersion": 2.3,
-        "position": [
-          2200,
-          200
-        ],
         "parameters": {
           "select": "channel",
           "channelId": {
@@ -949,6 +939,15 @@
             "includeLinkToWorkflow": true
           }
         },
+        "id": "b1a0c0de-0014-4a10-9a11-000000000014",
+        "name": "notify_board",
+        "webhookId": "ee00b5b8-14ca-4f42-8e8f-abf83351147a",
+        "type": "n8n-nodes-base.slack",
+        "typeVersion": 2.3,
+        "position": [
+          2688,
+          16
+        ],
         "credentials": {
           "slackApi": {
             "id": "DszMmPE7WwOjHQjz",
@@ -957,16 +956,16 @@
         }
       },
       {
+        "parameters": {},
         "id": "b1a0c0de-0015-4a10-9a11-000000000015",
         "name": "click_trigger",
-        "notes": "The schedule runs it daily; this lets the editor's Execute workflow force one on demand, the same pair Content Feed Curator carries.",
         "type": "n8n-nodes-base.manualTrigger",
         "typeVersion": 1,
         "position": [
           0,
-          200
+          112
         ],
-        "parameters": {}
+        "notes": "The schedule runs it daily; this lets the editor's Execute workflow force one on demand, the same pair Content Feed Curator carries."
       }
     ],
     "connections": {
@@ -1130,13 +1129,13 @@
     },
     "nodeGroups": [],
     "authors": "no name",
-    "name": null,
-    "description": null,
+    "name": "Version 54a9b655",
+    "description": "",
     "autosaved": false,
-    "createdAt": "2026-10-19T18:32:43.300Z",
-    "updatedAt": "2026-10-19T18:32:43.300Z"
+    "createdAt": "2026-10-30T11:59:56.671Z",
+    "updatedAt": "2026-10-30T12:00:00.584Z"
   },
-  "activeVersionId": "6ac63887-4115-4db4-bcc9-7d3ed2dd056b",
+  "activeVersionId": "54a9b655-14f9-4cc7-8c77-237ccdf60371",
   "connections": {
     "schedule_trigger": {
       "main": [
@@ -1304,6 +1303,12 @@
   "nodeGroups": [],
   "nodes": [
     {
+      "parameters": {
+        "content": "## Content Board Curator\n\n**Daily 12:15.** The homelab's GitHub board keeps the ideas: open issues labelled `post` on `datahub-local/datahub-local`. This workflow is the read-only bridge from that board into the blog lane's `article_queue`, plus the queue's own age ceiling.\n\n**Import.** Each labelled issue becomes one `article_queue` row: `ENTRY_ID` `gh-<number>`, the issue title as `TOPIC`, the body as `DESCRIPTION`, the issue URL as `LINK`, and the defaults from `datasets/board_intake.json` for `CATEGORIES` / `ASSET_TYPES` / `MAX_WORDS` / `PRIORITY`, `ORIGIN=BOARD`, `STATUS=QUEUE`. An issue already in the queue (by `ENTRY_ID` or `LINK`) is skipped, so the board is never written to and an issue stays open until a human closes it.\n\n**Ceiling.** Any `article_queue` row still QUEUE, IN_PROGRESS or WAITING_APPROVAL whose last update is older than `cancel_after_days` (from `datasets/curator_config.json`, the same value Content Feed Curator uses) is set CANCELLED - a stuck run or an unanswered approval, not a live one, because the clock is the row's own UPDATE_DATE.\n\n**Env vars:** none beyond the two credentials. The board is public, so the GitHub read needs no special scope.",
+        "height": 560,
+        "width": 480,
+        "color": 4
+      },
       "id": "b1a0c0de-0001-4a10-9a11-000000000001",
       "name": "Sticky Note",
       "type": "n8n-nodes-base.stickyNote",
@@ -1311,24 +1316,9 @@
       "position": [
         0,
         -640
-      ],
-      "parameters": {
-        "content": "## Content Board Curator\n\n**Daily 12:15.** The homelab's GitHub board keeps the ideas: open issues labelled `post` on `datahub-local/datahub-local`. This workflow is the read-only bridge from that board into the blog lane's `article_queue`, plus the queue's own age ceiling.\n\n**Import.** Each labelled issue becomes one `article_queue` row: `ENTRY_ID` `gh-<number>`, the issue title as `TOPIC`, the body as `DESCRIPTION`, the issue URL as `LINK`, and the defaults from `datasets/board_intake.json` for `CATEGORIES` / `ASSET_TYPES` / `MAX_WORDS` / `PRIORITY`, `ORIGIN=BOARD`, `STATUS=QUEUE`. An issue already in the queue (by `ENTRY_ID` or `LINK`) is skipped, so the board is never written to and an issue stays open until a human closes it.\n\n**Ceiling.** Any `article_queue` row still QUEUE, IN_PROGRESS or WAITING_APPROVAL whose last update is older than `cancel_after_days` (from `datasets/curator_config.json`, the same value Content Feed Curator uses) is set CANCELLED - a stuck run or an unanswered approval, not a live one, because the clock is the row's own UPDATE_DATE.\n\n**Env vars:** none beyond the two credentials. The board is public, so the GitHub read needs no special scope.",
-        "height": 560,
-        "width": 480,
-        "color": 4
-      }
+      ]
     },
     {
-      "id": "b1a0c0de-0002-4a10-9a11-000000000002",
-      "name": "schedule_trigger",
-      "notes": "Daily 12:15. Fifteen minutes after Content Feed Curator, so the two writes to content_planner never overlap; the exact minute is not load-bearing, the article lane drains on its own schedule.",
-      "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1.2,
-      "position": [
-        0,
-        0
-      ],
       "parameters": {
         "rule": {
           "interval": [
@@ -1338,17 +1328,18 @@
             }
           ]
         }
-      }
-    },
-    {
-      "id": "b1a0c0de-0003-4a10-9a11-000000000003",
-      "name": "download_board_config",
-      "type": "n8n-nodes-base.executeWorkflow",
+      },
+      "id": "b1a0c0de-0002-4a10-9a11-000000000002",
+      "name": "schedule_trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
-        220,
-        0
+        0,
+        -80
       ],
+      "notes": "Daily 12:15. Fifteen minutes after Content Feed Curator, so the two writes to content_planner never overlap; the exact minute is not load-bearing, the article lane drains on its own schedule."
+    },
+    {
       "parameters": {
         "workflowId": {
           "__rl": true,
@@ -1388,17 +1379,17 @@
           "convertFieldsToString": true
         },
         "options": {}
-      }
-    },
-    {
-      "id": "b1a0c0de-0004-4a10-9a11-000000000004",
-      "name": "download_curator_config",
+      },
+      "id": "b1a0c0de-0003-4a10-9a11-000000000003",
+      "name": "download_board_config",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        440,
-        0
-      ],
+        224,
+        16
+      ]
+    },
+    {
       "parameters": {
         "workflowId": {
           "__rl": true,
@@ -1438,36 +1429,32 @@
           "convertFieldsToString": true
         },
         "options": {}
-      }
+      },
+      "id": "b1a0c0de-0004-4a10-9a11-000000000004",
+      "name": "download_curator_config",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        448,
+        16
+      ]
     },
     {
+      "parameters": {
+        "jsCode": "// Merge the two fetched config files into one item every downstream node reads via\n// $('parse_board_config').first().json. board_intake.json describes the board and the\n// defaults an imported row carries; curator_config.json owns cancel_after_days, because the\n// ceiling is one policy for both queues and a second copy would be a second thing to keep\n// in step. A missing file degrades to the defaults; a malformed one is loud, the same way\n// parse_curator_config treats its file.\nconst readText = (raw) => (raw == null ? '' : String(raw));\nconst parse = (raw, name) => {\n  if (!raw) return {};\n  try {\n    return JSON.parse(raw);\n  } catch (e) {\n    throw new Error('datasets/' + name + ' is not valid JSON: ' + e.message);\n  }\n};\nconst b = parse(readText($('download_board_config').first().json.output), 'board_intake.json');\nconst c = parse(readText($('download_curator_config').first().json.output), 'curator_config.json');\nconst str = (v, d) => (v == null || String(v).trim() === '' ? d : String(v).trim());\nconst num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);\nconst def = b.defaults && typeof b.defaults === 'object' ? b.defaults : {};\n\nconst out = {\n  owner: str(b.owner, 'datahub-local'),\n  repo: str(b.repo, 'datahub-local'),\n  label: str(b.label, 'post'),\n  state: str(b.state, 'open'),\n  categories: str(def.categories, 'General'),\n  asset_types: str(def.asset_types, 'image_wide,svg_wide'),\n  max_words: num(def.max_words, 1200),\n  priority: str(def.priority, 'MEDIUM'),\n  // The level is a person's decision, so the intake only carries the configured default;\n  // a mistyped value is refused by the article lane, which owns the vocabulary.\n  audience: str(def.audience, 'NONE').toUpperCase(),\n  cancel_after_days: Math.max(1, num(c.cancel_after_days, 7)),\n  run_at: new Date().toISOString(),\n};\nconsole.log(\n  'parse_board_config: ' + out.owner + '/' + out.repo + ' label=' + out.label + ' cancel_after=' +\n    out.cancel_after_days + 'd'\n);\nreturn [{ json: out }];\n"
+      },
       "id": "b1a0c0de-0005-4a10-9a11-000000000005",
       "name": "parse_board_config",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        660,
-        0
-      ],
-      "parameters": {
-        "jsCode": "// Merge the two fetched config files into one item every downstream node reads via\n// $('parse_board_config').first().json. board_intake.json describes the board and the\n// defaults an imported row carries; curator_config.json owns cancel_after_days, because the\n// ceiling is one policy for both queues and a second copy would be a second thing to keep\n// in step. A missing file degrades to the defaults; a malformed one is loud, the same way\n// parse_curator_config treats its file.\nconst readText = (raw) => (raw == null ? '' : String(raw));\nconst parse = (raw, name) => {\n  if (!raw) return {};\n  try {\n    return JSON.parse(raw);\n  } catch (e) {\n    throw new Error('datasets/' + name + ' is not valid JSON: ' + e.message);\n  }\n};\nconst b = parse(readText($('download_board_config').first().json.output), 'board_intake.json');\nconst c = parse(readText($('download_curator_config').first().json.output), 'curator_config.json');\nconst str = (v, d) => (v == null || String(v).trim() === '' ? d : String(v).trim());\nconst num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);\nconst def = b.defaults && typeof b.defaults === 'object' ? b.defaults : {};\n\nconst out = {\n  owner: str(b.owner, 'datahub-local'),\n  repo: str(b.repo, 'datahub-local'),\n  label: str(b.label, 'post'),\n  state: str(b.state, 'open'),\n  categories: str(def.categories, 'General'),\n  asset_types: str(def.asset_types, 'image_wide,svg_wide'),\n  max_words: num(def.max_words, 1200),\n  priority: str(def.priority, 'MEDIUM'),\n  // The level is a person's decision, so the intake only carries the configured default;\n  // a mistyped value is refused by the article lane, which owns the vocabulary.\n  audience: str(def.audience, 'NONE').toUpperCase(),\n  cancel_after_days: Math.max(1, num(c.cancel_after_days, 7)),\n  run_at: new Date().toISOString(),\n};\nconsole.log(\n  'parse_board_config: ' + out.owner + '/' + out.repo + ' label=' + out.label + ' cancel_after=' +\n    out.cancel_after_days + 'd'\n);\nreturn [{ json: out }];\n"
-      }
+        672,
+        16
+      ]
     },
     {
-      "id": "b1a0c0de-0006-4a10-9a11-000000000006",
-      "name": "list_board_issues",
-      "webhookId": "30dbd330-8c77-4288-907b-51540904fd62",
-      "notes": "GET /repos/{owner}/{repo}/issues?labels=<label>&state=<state>. alwaysOutputData: an empty board (or no labelled issue) must not stop the run, or the queue's own ceiling would never run on a quiet week. Read-only - the workflow never comments on, labels or closes an issue.",
-      "type": "n8n-nodes-base.github",
-      "typeVersion": 1,
-      "alwaysOutputData": true,
-      "position": [
-        880,
-        0
-      ],
       "parameters": {
         "resource": "repository",
-        "operation": "getIssues",
         "owner": {
           "__rl": true,
           "value": "={{ $json.owner }}",
@@ -1480,31 +1467,31 @@
         },
         "returnAll": true,
         "getRepositoryIssuesFilters": {
-          "state": "={{ $json.state }}",
           "labels": "={{ $json.label }}",
+          "state": "={{ $json.state }}",
           "sort": "created",
           "direction": "asc"
         }
       },
+      "id": "b1a0c0de-0006-4a10-9a11-000000000006",
+      "name": "list_board_issues",
+      "webhookId": "30dbd330-8c77-4288-907b-51540904fd62",
+      "type": "n8n-nodes-base.github",
+      "typeVersion": 1,
+      "alwaysOutputData": true,
+      "position": [
+        896,
+        16
+      ],
       "credentials": {
         "githubApi": {
           "id": "x1DjxYsMLFm3vUiv",
           "name": "GitHub account"
         }
-      }
+      },
+      "notes": "GET /repos/{owner}/{repo}/issues?labels=<label>&state=<state>. alwaysOutputData: an empty board (or no labelled issue) must not stop the run, or the queue's own ceiling would never run on a quiet week. Read-only - the workflow never comments on, labels or closes an issue."
     },
     {
-      "id": "b1a0c0de-0007-4a10-9a11-000000000007",
-      "name": "read_article_queue",
-      "notes": "The dedupe source and the ceiling's input, read once at the top. alwaysOutputData: an empty queue is a normal first run, and the intake still has to append to it.",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.6,
-      "executeOnce": true,
-      "alwaysOutputData": true,
-      "position": [
-        1100,
-        0
-      ],
       "parameters": {
         "documentId": {
           "__rl": true,
@@ -1528,35 +1515,38 @@
           }
         }
       },
+      "id": "b1a0c0de-0007-4a10-9a11-000000000007",
+      "name": "read_article_queue",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "position": [
+        1120,
+        16
+      ],
       "credentials": {
         "googleSheetsOAuth2Api": {
           "id": "pGARJmt50qz64xOo",
           "name": "Google Sheets account"
         }
-      }
+      },
+      "notes": "The dedupe source and the ceiling's input, read once at the top. alwaysOutputData: an empty queue is a normal first run, and the intake still has to append to it."
     },
     {
+      "parameters": {
+        "jsCode": "// One item per issue the queue does not already carry. ENTRY_ID is stable (gh-<number>), so\n// the same open issue is skipped on every later run; LINK is checked too, in case a human\n// added the same idea by hand. Pull requests come back from the issues endpoint as well and\n// are dropped by their own marker - a PR is not an article idea.\nconst cfg = $('parse_board_config').first().json;\nconst issues = $('list_board_issues').all().map((i) => i.json);\nconst queue = $('read_article_queue').all().map((i) => i.json);\nconst seenId = new Set(queue.map((r) => String(r.ENTRY_ID || '').trim()).filter(Boolean));\nconst seenLink = new Set(queue.map((r) => String(r.LINK || '').trim()).filter(Boolean));\nconst runAt = cfg.run_at;\n\nconst rows = [];\nfor (const it of issues) {\n  if (!it || it.pull_request) continue;\n  const number = it.number;\n  if (number == null || number === '') continue;\n  const entry = 'gh-' + number;\n  const link = String(it.html_url || it.url || '');\n  if (seenId.has(entry) || (link && seenLink.has(link))) continue;\n  seenId.add(entry);\n  if (link) seenLink.add(link);\n  rows.push({\n    json: {\n      ENTRY_ID: entry,\n      TOPIC: String(it.title || '').trim(),\n      DESCRIPTION: String(it.body || '').trim(),\n      LINK: link,\n      CATEGORIES: cfg.categories,\n      ASSET_TYPES: cfg.asset_types,\n      MAX_WORDS: cfg.max_words,\n      PRIORITY: cfg.priority,\n      AUDIENCE: cfg.audience,\n      ORIGIN: 'BOARD',\n      STATUS: 'QUEUE',\n      UPDATE_DATE: runAt,\n    },\n  });\n}\n\nconst titles = rows.map((r) => String(r.json.TOPIC).slice(0, 60));\nconsole.log('build_intake_rows: ' + rows.length + ' new of ' + issues.length + ' issue(s) read');\nfor (const t of titles.slice(0, 10)) console.log('  add ' + t);\n\n// One item even when nothing is new: if_has_new needs an input to branch on, and the\n// downstream ceiling still has to run. Every real row carries the same NEW_COUNT so the\n// append receives all of them.\nif (!rows.length) return [{ json: { NEW_COUNT: 0, NEW_TITLES: '' } }];\nreturn rows.map((r) =>\n  ({ json: { ...r.json, NEW_COUNT: rows.length, NEW_TITLES: titles.join(' | ') } })\n);\n"
+      },
       "id": "b1a0c0de-0008-4a10-9a11-000000000008",
       "name": "build_intake_rows",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1320,
-        0
-      ],
-      "parameters": {
-        "jsCode": "// One item per issue the queue does not already carry. ENTRY_ID is stable (gh-<number>), so\n// the same open issue is skipped on every later run; LINK is checked too, in case a human\n// added the same idea by hand. Pull requests come back from the issues endpoint as well and\n// are dropped by their own marker - a PR is not an article idea.\nconst cfg = $('parse_board_config').first().json;\nconst issues = $('list_board_issues').all().map((i) => i.json);\nconst queue = $('read_article_queue').all().map((i) => i.json);\nconst seenId = new Set(queue.map((r) => String(r.ENTRY_ID || '').trim()).filter(Boolean));\nconst seenLink = new Set(queue.map((r) => String(r.LINK || '').trim()).filter(Boolean));\nconst runAt = cfg.run_at;\n\nconst rows = [];\nfor (const it of issues) {\n  if (!it || it.pull_request) continue;\n  const number = it.number;\n  if (number == null || number === '') continue;\n  const entry = 'gh-' + number;\n  const link = String(it.html_url || it.url || '');\n  if (seenId.has(entry) || (link && seenLink.has(link))) continue;\n  seenId.add(entry);\n  if (link) seenLink.add(link);\n  rows.push({\n    json: {\n      ENTRY_ID: entry,\n      TOPIC: String(it.title || '').trim(),\n      DESCRIPTION: String(it.body || '').trim(),\n      LINK: link,\n      CATEGORIES: cfg.categories,\n      ASSET_TYPES: cfg.asset_types,\n      MAX_WORDS: cfg.max_words,\n      PRIORITY: cfg.priority,\n      AUDIENCE: cfg.audience,\n      ORIGIN: 'BOARD',\n      STATUS: 'QUEUE',\n      UPDATE_DATE: runAt,\n    },\n  });\n}\n\nconst titles = rows.map((r) => String(r.json.TOPIC).slice(0, 60));\nconsole.log('build_intake_rows: ' + rows.length + ' new of ' + issues.length + ' issue(s) read');\nfor (const t of titles.slice(0, 10)) console.log('  add ' + t);\n\n// One item even when nothing is new: if_has_new needs an input to branch on, and the\n// downstream ceiling still has to run. Every real row carries the same NEW_COUNT so the\n// append receives all of them.\nif (!rows.length) return [{ json: { NEW_COUNT: 0, NEW_TITLES: '' } }];\nreturn rows.map((r) =>\n  ({ json: { ...r.json, NEW_COUNT: rows.length, NEW_TITLES: titles.join(' | ') } })\n);\n"
-      }
+        1344,
+        16
+      ]
     },
     {
-      "id": "b1a0c0de-0009-4a10-9a11-000000000009",
-      "name": "if_has_new",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        1540,
-        0
-      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -1580,18 +1570,17 @@
         },
         "looseTypeValidation": true,
         "options": {}
-      }
+      },
+      "id": "b1a0c0de-0009-4a10-9a11-000000000009",
+      "name": "if_has_new",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1568,
+        16
+      ]
     },
     {
-      "id": "b1a0c0de-0010-4a10-9a11-000000000010",
-      "name": "append_article_queue",
-      "notes": "Appends only the columns the row owns; every lifecycle column is written blank so the article lane starts the row from a known state. ENTRY_ID is the issue number, which is what makes the next run's dedupe exact.",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.6,
-      "position": [
-        1760,
-        -80
-      ],
       "parameters": {
         "operation": "append",
         "documentId": {
@@ -1881,35 +1870,36 @@
         },
         "options": {}
       },
+      "id": "b1a0c0de-0010-4a10-9a11-000000000010",
+      "name": "append_article_queue",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        1792,
+        -48
+      ],
       "credentials": {
         "googleSheetsOAuth2Api": {
           "id": "pGARJmt50qz64xOo",
           "name": "Google Sheets account"
         }
-      }
+      },
+      "notes": "Appends only the columns the row owns; every lifecycle column is written blank so the article lane starts the row from a known state. ENTRY_ID is the issue number, which is what makes the next run's dedupe exact."
     },
     {
+      "parameters": {
+        "jsCode": "// The article queue's own ceiling: a row still in play whose last update is older than\n// cancel_after_days is cancelled. The clock is the row's own UPDATE_DATE - the last write a\n// phase made - so a run that is genuinely working the row is never old enough; only a stuck\n// run or an approval nobody answered reaches this. IN_PROGRESS is cancelled as well as QUEUE\n// and WAITING_APPROVAL: \"not maintain current thing\" is the point, and setting\n// ARTICLE_STATUS=CANCELLED is what stops the article lane resuming a claimed row it never\n// finished.\nconst cfg = $('parse_board_config').first().json;\nconst days = Math.max(1, Number(cfg.cancel_after_days) || 7);\nconst nowMs = Date.parse(cfg.run_at) || Date.now();\nconst IN_PLAY = new Set(['QUEUE', 'IN_PROGRESS', 'WAITING_APPROVAL']);\n\nconst rows = $('read_article_queue').all().map((i) => i.json).filter((r) => r && r.row_number);\nconst stale = [];\nfor (const r of rows) {\n  const status = String(r.STATUS || '').trim().toUpperCase();\n  if (!IN_PLAY.has(status)) continue;\n  const at = Date.parse(r.UPDATE_DATE || '');\n  if (!isFinite(at)) continue;\n  const age = (nowMs - at) / 86400000;\n  if (age <= days) continue;\n  stale.push({ row_number: r.row_number, TOPIC: r.TOPIC || '', STATUS: status, age: Math.round(age) });\n}\nconst titles = stale.map((s) => String(s.TOPIC).slice(0, 60));\nconsole.log('build_cancel_rows: ' + stale.length + ' of ' + rows.length + ' article_queue row(s) past the ' + days + 'd ceiling');\nfor (let i = 0; i < stale.length && i < 10; i++) {\n  console.log('  cancel r' + stale[i].row_number + ' (' + stale[i].STATUS + ', ' + stale[i].age + 'd) ' + titles[i]);\n}\n// One item even when nothing qualifies, so if_has_cancels branches and the notice still runs.\nif (!stale.length) return [{ json: { CANCELLED_COUNT: 0, CANCELLED_TITLES: '' } }];\nreturn stale.map((s) => ({ json: { ...s, CANCELLED_COUNT: stale.length, CANCELLED_TITLES: titles.join(' | ') } }));\n"
+      },
       "id": "b1a0c0de-0011-4a10-9a11-000000000011",
       "name": "build_cancel_rows",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1760,
-        120
-      ],
-      "parameters": {
-        "jsCode": "// The article queue's own ceiling: a row still in play whose last update is older than\n// cancel_after_days is cancelled. The clock is the row's own UPDATE_DATE - the last write a\n// phase made - so a run that is genuinely working the row is never old enough; only a stuck\n// run or an approval nobody answered reaches this. IN_PROGRESS is cancelled as well as QUEUE\n// and WAITING_APPROVAL: \"not maintain current thing\" is the point, and setting\n// ARTICLE_STATUS=CANCELLED is what stops the article lane resuming a claimed row it never\n// finished.\nconst cfg = $('parse_board_config').first().json;\nconst days = Math.max(1, Number(cfg.cancel_after_days) || 7);\nconst nowMs = Date.parse(cfg.run_at) || Date.now();\nconst IN_PLAY = new Set(['QUEUE', 'IN_PROGRESS', 'WAITING_APPROVAL']);\n\nconst rows = $('read_article_queue').all().map((i) => i.json).filter((r) => r && r.row_number);\nconst stale = [];\nfor (const r of rows) {\n  const status = String(r.STATUS || '').trim().toUpperCase();\n  if (!IN_PLAY.has(status)) continue;\n  const at = Date.parse(r.UPDATE_DATE || '');\n  if (!isFinite(at)) continue;\n  const age = (nowMs - at) / 86400000;\n  if (age <= days) continue;\n  stale.push({ row_number: r.row_number, TOPIC: r.TOPIC || '', STATUS: status, age: Math.round(age) });\n}\nconst titles = stale.map((s) => String(s.TOPIC).slice(0, 60));\nconsole.log('build_cancel_rows: ' + stale.length + ' of ' + rows.length + ' article_queue row(s) past the ' + days + 'd ceiling');\nfor (let i = 0; i < stale.length && i < 10; i++) {\n  console.log('  cancel r' + stale[i].row_number + ' (' + stale[i].STATUS + ', ' + stale[i].age + 'd) ' + titles[i]);\n}\n// One item even when nothing qualifies, so if_has_cancels branches and the notice still runs.\nif (!stale.length) return [{ json: { CANCELLED_COUNT: 0, CANCELLED_TITLES: '' } }];\nreturn stale.map((s) => ({ json: { ...s, CANCELLED_COUNT: stale.length, CANCELLED_TITLES: titles.join(' | ') } }));\n"
-      }
+        2016,
+        16
+      ]
     },
     {
-      "id": "b1a0c0de-0012-4a10-9a11-000000000012",
-      "name": "if_has_cancels",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        1980,
-        120
-      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -1933,18 +1923,17 @@
         },
         "looseTypeValidation": true,
         "options": {}
-      }
+      },
+      "id": "b1a0c0de-0012-4a10-9a11-000000000012",
+      "name": "if_has_cancels",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2240,
+        16
+      ]
     },
     {
-      "id": "b1a0c0de-0013-4a10-9a11-000000000013",
-      "name": "cancel_stale_articles",
-      "notes": "Both fields: STATUS=CANCELLED takes the row out of the article lane's QUEUE, ARTICLE_STATUS=CANCELLED stops pick_candidate resuming a claimed row that never finished. This lane spells it with two L's.",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.6,
-      "position": [
-        2200,
-        40
-      ],
       "parameters": {
         "operation": "update",
         "documentId": {
@@ -2218,23 +2207,23 @@
         },
         "options": {}
       },
+      "id": "b1a0c0de-0013-4a10-9a11-000000000013",
+      "name": "cancel_stale_articles",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        2464,
+        -48
+      ],
       "credentials": {
         "googleSheetsOAuth2Api": {
           "id": "pGARJmt50qz64xOo",
           "name": "Google Sheets account"
         }
-      }
+      },
+      "notes": "Both fields: STATUS=CANCELLED takes the row out of the article lane's QUEUE, ARTICLE_STATUS=CANCELLED stops pick_candidate resuming a claimed row that never finished. This lane spells it with two L's."
     },
     {
-      "id": "b1a0c0de-0014-4a10-9a11-000000000014",
-      "name": "notify_board",
-      "webhookId": "ee00b5b8-14ca-4f42-8e8f-abf83351147a",
-      "type": "n8n-nodes-base.slack",
-      "typeVersion": 2.3,
-      "position": [
-        2200,
-        200
-      ],
       "parameters": {
         "select": "channel",
         "channelId": {
@@ -2248,6 +2237,15 @@
           "includeLinkToWorkflow": true
         }
       },
+      "id": "b1a0c0de-0014-4a10-9a11-000000000014",
+      "name": "notify_board",
+      "webhookId": "ee00b5b8-14ca-4f42-8e8f-abf83351147a",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        2688,
+        16
+      ],
       "credentials": {
         "slackApi": {
           "id": "DszMmPE7WwOjHQjz",
@@ -2256,23 +2254,24 @@
       }
     },
     {
+      "parameters": {},
       "id": "b1a0c0de-0015-4a10-9a11-000000000015",
       "name": "click_trigger",
-      "notes": "The schedule runs it daily; this lets the editor's Execute workflow force one on demand, the same pair Content Feed Curator carries.",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
       "position": [
         0,
-        200
+        112
       ],
-      "parameters": {}
+      "notes": "The schedule runs it daily; this lets the editor's Execute workflow force one on demand, the same pair Content Feed Curator carries."
     }
   ],
-  "pinData": null,
+  "pinData": {},
   "settings": {
     "errorWorkflow": "fejq5nN6LP3F820w",
     "executionOrder": "v1",
-    "availableInMCP": false
+    "availableInMCP": false,
+    "binaryMode": "separate"
   },
   "shared": [
     {
@@ -2295,6 +2294,6 @@
   },
   "tags": [],
   "triggerCount": 1,
-  "updatedAt": "2026-10-19T18:32:43.294Z",
-  "versionId": "6ac63887-4115-4db4-bcc9-7d3ed2dd056b"
+  "updatedAt": "2026-10-30T11:59:56.561Z",
+  "versionId": "54a9b655-14f9-4cc7-8c77-237ccdf60371"
 }

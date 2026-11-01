@@ -1,0 +1,30 @@
+#!/bin/sh
+# Pre-warm the OpenCode plugin cache before the server starts.
+#
+# v2 installs a configured package plugin when a server starts, not in
+# `opencode plugin add`, and the first start can race its own activation and exit
+# non-zero ("plugins did not finish activating") *after* writing the cache. So the
+# cache directory is the assertion, not the command's exit status.
+#
+# $HOME is the state volume at runtime, so this cannot be done at image build: a
+# cache baked under /opt/data would be hidden by the volume mount.
+set -eu
+
+spec=$(jq -r '.plugins[0]' /etc/opencode/opencode.json)
+case "$spec" in
+  *@*) ;;
+  *) echo "plugin spec has no version: $spec" >&2; exit 1 ;;
+esac
+
+# A warm cache is the normal case on restart: install nothing and make no
+# registry request.
+if [ -d "$HOME/.cache/opencode/npm/$spec" ]; then
+  exit 0
+fi
+
+cd "$HOME"
+opencode models --standalone >/dev/null 2>&1 || true
+if [ ! -d "$HOME/.cache/opencode/npm/$spec" ]; then
+  echo "plugin install failed: $HOME/.cache/opencode/npm/$spec missing" >&2
+  exit 1
+fi

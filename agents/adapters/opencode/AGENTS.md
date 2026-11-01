@@ -20,11 +20,12 @@ changed; never push to a branch you did not create.
 ## Git
 
 - Create your own branch for every task, named `<type>/<short-topic>`.
-- Credentials come from the git credential helper. Never write a token, a
-  credential file, or a `.netrc`.
+- Git authenticates with an SSH key held by this Pod's ssh-agent. Never write a
+  token, a credential file, a private key or a `.netrc`.
 - Commit with `type(scope): subject`, one line, imperative mood.
-- Push your branch and open a pull request with `gh`. Never push to `main`, never
-  force-push, never merge.
+- Push your branch and report it. Do not open pull requests: this container has no
+  GitHub token, and the caller opens the PR through the GitHub MCP server.
+- Never push to `main`, never force-push, never merge.
 
 ## Reporting
 

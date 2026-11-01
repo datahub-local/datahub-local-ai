@@ -55,12 +55,15 @@ machine-wide config from `/etc/opencode`, and git reads `/etc/gitconfig`.
 | `/etc/opencode/opencode.json` | model, plugin, MCP server, permissions, `update: disable` |
 | `/opt/opencode/AGENTS.md` | agent operating rules, referenced by `instructions` |
 | `/etc/gitconfig` | git identity and the credential helper |
-| `/usr/local/bin/git-credential-opencode` | asks the minter on loopback for a token |
+| `/usr/local/bin/git-credential-opencode` | answers git from `GITHUB_TOKEN`, else the minter |
 | `/usr/local/bin/opencode-minter.mjs` | GitHub App installation-token minter |
+| `/usr/local/bin/opencode-plugin-prewarm` | installs the pinned plugin into the state volume |
 
-The one cluster-specific value is substituted at runtime: `{env:OPENCODE_FIRECRAWL_MCP_URL}`
-is the Firecrawl MCP endpoint. `LITELLM_BASE_URL` and `LITELLM_API_KEY` are read by
-the LiteLLM plugin; `OPENCODE_SERVER_PASSWORD` protects the API.
+The one cluster-specific config value is substituted at runtime:
+`{env:OPENCODE_FIRECRAWL_MCP_URL}` is the Firecrawl MCP endpoint. `LITELLM_BASE_URL`
+and `LITELLM_API_KEY` are read by the LiteLLM plugin; `OPENCODE_SERVER_PASSWORD`
+protects the API; `GITHUB_TOKEN` is what the git helper and `gh` authenticate with
+when no App-backed minter is wired.
 
 ## Verified / not verified
 

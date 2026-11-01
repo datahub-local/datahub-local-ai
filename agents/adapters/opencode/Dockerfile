@@ -108,13 +108,23 @@ RUN uv python install 3.13 && chmod -R a+rX /opt/uv
 # cluster-specific value and is substituted from OPENCODE_FIRECRAWL_MCP_URL.
 # COPY --chmod also applies to a parent directory it creates, which would leave
 # /etc/opencode untraversable; create them 0755 first.
-RUN mkdir -p /etc/opencode /opt/opencode && chmod 0755 /etc/opencode /opt/opencode
+RUN mkdir -p /etc/opencode /opt/opencode /etc/ssh/ssh_config.d \
+    && chmod 0755 /etc/opencode /opt/opencode /etc/ssh/ssh_config.d
 
 COPY --chmod=0644 opencode.json /etc/opencode/opencode.json
 COPY --chmod=0644 AGENTS.md /opt/opencode/AGENTS.md
 COPY --chmod=0644 gitconfig /etc/gitconfig
 COPY --chmod=0755 git-credential-opencode /usr/local/bin/git-credential-opencode
 COPY --chmod=0644 minter.mjs /usr/local/bin/opencode-minter.mjs
+COPY --chmod=0755 ssh-proxy-command /usr/local/bin/ssh-proxy-command
+COPY --chmod=0755 opencode-plugin-prewarm /usr/local/bin/opencode-plugin-prewarm
+COPY --chmod=0644 ssh_config-github /etc/ssh/ssh_config.d/10-github.conf
+
+# GitHub's host keys for its SSH-on-443 endpoint, so StrictHostKeyChecking can stay
+# on with no interactive prompt. The endpoint is stable; a key rotation is a build
+# failure to be fixed with the next adapter rebuild, not a silent trust-on-first-use.
+RUN ssh-keyscan -p 443 ssh.github.com > /etc/ssh/ssh_known_hosts \
+    && test -s /etc/ssh/ssh_known_hosts
 
 # node:22-bookworm-slim already ships uid/gid 1000 as `node`; reuse it rather than
 # creating a second account with the same id. The server's HOME is the state volume,
@@ -133,7 +143,14 @@ RUN set -eux; \
     opencode --version; \
     jq -e '.plugins[0]' /etc/opencode/opencode.json; \
     test "$(git config --get credential.helper)" = git-credential-opencode; \
+    test "$(GITHUB_TOKEN=build-token git-credential-opencode get | sed -n 's/^password=//p')" = build-token; \
     node --check /usr/local/bin/opencode-minter.mjs; \
+    python3 -c "compile(open('/usr/local/bin/ssh-proxy-command').read(), 'ssh-proxy-command', 'exec')"; \
+    sh -n /usr/local/bin/opencode-plugin-prewarm; \
+    test -s /etc/ssh/ssh_known_hosts; \
+    ssh -G ssh.github.com | grep -qi '^proxycommand /usr/local/bin/ssh-proxy-command'; \
+    ssh -G ssh.github.com | grep -qi '^userknownhostsfile /etc/ssh/ssh_known_hosts'; \
+    test "$(git config --get 'url.ssh://git@ssh.github.com:443/.insteadof')" = 'https://github.com/'; \
     git --version; \
     helm version; \
     helmfile version; \

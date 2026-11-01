@@ -107,20 +107,15 @@ is deliberate, and MCP is how work crosses it.
 
 If an MCP tool can answer the question, it is the answer.
 
-## Practices
+## Skills
 
-Load the `practices` skill before your first edit. It holds the detail: simplest
-change, tests, debugging, commits, comments, and what to do before opening the pull
-request. Four rules from it never move, so they are here as well:
+Load the `router` skill first. It maps what you are about to do to the one skill
+that covers it: `repo-map`, `taskboard`, `code-shape`, `testing`, `debugging`,
+`change-shape`, `ship-it`, `verify`.
 
-- Evidence before claims. A claim about a command is one you ran in this turn and
-  read the output of. Nothing is `DONE` because it looks right.
-- Never make a gate pass by weakening it. No skipped test, no `# noqa`, no widened
-  lint rule, no loosened assertion.
-- Tests cover behaviour, never configuration. A test over a YAML value, a chart
-  option, a prompt's wording or a file's presence fails the next legitimate edit.
-- A merged pull request is not a deployed change. Say which part landed: merged,
-  image rebuilt, digest re-pinned, synced.
+Two rules hold from the first tool call, before any skill is loaded: evidence
+before claims, so a claim about a command is one you ran this turn and read the
+output of; and never make a gate pass by weakening it.
 
 ## Verify before you report
 

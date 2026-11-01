@@ -8,10 +8,16 @@
   Projects API, no `status:*` labels, marker on every comment, the agent opens the
   pull request, the owner is never paged by the agent.
 - [x] 1.4 `openspec validate --all` passes.
-- [x] 1.3a Add `skills/practices/SKILL.md`: the shape of a change, tests, debugging,
-  git, comments and docs, the pre-pull-request read-through, and the checkpoint
-  rule. Keep `AGENTS.md` a router: four non-negotiables plus a pointer.
-- [x] 1.3c Assert the new skill in the Dockerfile and list it in the adapter README.
+- [x] 1.3a Add four skills split by moment: `code-shape`, `testing`, `debugging`
+  and `ship-it`. No skill restates another; the format and per-repo comment rules
+  stay in `change-shape`, the gate commands in `verify`, the lifecycle in
+  `taskboard`.
+- [x] 1.3c Add a `router` skill: the moment-to-skill table, the load-when-the-moment-
+  arrives rule, the disagreement order, and the skill-authoring rule.
+- [x] 1.3e Turn `AGENTS.md` into a pointer: role, boundaries, report, the two rules
+  that hold before a skill is loaded, and "load `router` first".
+- [x] 1.3d Assert each new skill in the Dockerfile and list all of them in the
+  adapter README, `router` first.
 - [x] 1.3b Add the "start inside a checkout" rule to the taskboard skill: reuse the
   working directory when it is the named repository, never clone inside it.
 - [ ] 1.5 Publish a new adapter image and re-pin its digest in

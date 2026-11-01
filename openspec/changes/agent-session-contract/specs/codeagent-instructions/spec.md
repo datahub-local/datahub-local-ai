@@ -76,22 +76,39 @@ the named one under the workspace root.
 - **THEN** the agent clones the named repository under the workspace root
 - **AND** it leaves the current checkout untouched
 
-### Requirement: Practice detail is a skill, and the contract routes to it
+### Requirement: One router skill, loaded first, maps a moment to one skill
 
-The always-loaded contract SHALL state only the practices that cannot wait, and
-SHALL name the `practices` skill for the rest. A session that needs the detail
-SHALL load it before its first edit; a session that does not SHALL not pay for it.
+The always-loaded contract SHALL state the role, the boundaries, the report shape
+and the two rules that hold before any skill is loaded, and SHALL name the `router`
+skill as the first thing to load. The router SHALL map each moment to exactly one
+skill: `repo-map` before choosing a repository, `taskboard` for the task,
+`code-shape` before editing, `testing` for a test, `debugging` for a failure,
+`change-shape` for a commit, `ship-it` before the pull request, `verify` before a
+completion claim. Each skill SHALL cover one moment, so a session loads the two or
+three it needs and not the rest, and no rule SHALL be stated in two skills.
 
 #### Scenario: A session reads one file and answers
 
 - **WHEN** the task needs no edit
 - **THEN** the contract alone is enough
-- **AND** the practice detail is never loaded
+- **AND** no practice skill is loaded
 
-#### Scenario: A session is about to edit
+#### Scenario: A session starts
 
-- **WHEN** the task changes code, tests, values or documentation
-- **THEN** the agent loads the `practices` skill first
+- **WHEN** a session needs to do more than answer a question
+- **THEN** the agent loads `router` before any other skill
+- **AND** it loads only the skills the current moment names
+
+#### Scenario: A session fixes a failing test
+
+- **WHEN** the agent is investigating a failure
+- **THEN** it loads `debugging`
+- **AND** it does not load `ship-it` or `change-shape` before it has a cause
+
+#### Scenario: A practice appears in two skills
+
+- **WHEN** a rule would be stated in two skills
+- **THEN** one owns it and the other points at it
 
 ### Requirement: The smallest change that works is the default
 

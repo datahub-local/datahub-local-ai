@@ -33,14 +33,15 @@ image.
   `<!-- taskboard:agent -->`.
 - The pull request stays the agent's, which is what both files already said and
   what the image toolchain makes possible.
-- A new `practices` skill carries the detail the repositories already hold but the
-  image never stated: the smallest change that works and no re-engineering, no
-  compatibility shims, no drive-by edits, tests that fail first and cover behaviour
-  rather than configuration, reproduce-before-fix debugging, Conventional Commits,
-  staged paths, generated files left to their generator, reading your own diff
-  before the pull request, and a checkpoint instead of wandering. `AGENTS.md` keeps
-  the four that never move and points at the skill, so the always-loaded contract
-  stays a router.
+- Four skills carry the detail the repositories already hold but the image never
+  stated, split by the moment they apply: `code-shape` (how big the diff is and what
+  it must not touch), `testing` (red first, behaviour not configuration),
+  `debugging` (cause before fix, when to stop) and `ship-it` (read your own diff,
+  clean tree, gate, pull request body, what is not verified). `AGENTS.md` keeps the role,
+  the boundaries and the report, names one `router` skill to load first, and states
+  the two rules that apply before you know which skill you need. The router holds
+  the table from "what you are about to do" to the skill, so the contract stays
+  short and the routing can change without touching it.
 
 ## Why the practices are part of this change
 

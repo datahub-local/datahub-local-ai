@@ -33,6 +33,24 @@ image.
   `<!-- taskboard:agent -->`.
 - The pull request stays the agent's, which is what both files already said and
   what the image toolchain makes possible.
+- The contract gains the working practices the repositories already hold but the
+  image never stated: the smallest change that works and no re-engineering, no
+  compatibility shims, no drive-by edits, no destroying work the agent did not
+  write, no echoing a credential, the repository's own gate and never weakening it,
+  tests over behaviour rather than configuration, Conventional Commits, staged
+  paths, generated files left to their generator, and a checkpoint instead of
+  wandering.
+
+## Why the practices are part of this change
+
+They are not a style guide. Each one is a failure this fleet can produce: a
+rewritten module with a smaller diff available, a `git clean -fd` over the owner's
+uncommitted work, a test that asserts a chart value and fails the next valid edit,
+a commit body nobody asked for, a report that calls a merge a deployment. The
+repositories state several of these already (`datahub-local-ai-mcp/AGENTS.md` on
+shims and comment standards, `datahub-local-core/AGENTS.md` on commit bodies,
+`datahub-local-ai` on spec discipline) and the agent reads none of them until it
+opens that repository.
 
 Not changed: the tool surface, the permissions, the model path, and the MCP
 servers. This is a rules change, and the image is rebuilt only because the rules

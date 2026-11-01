@@ -75,3 +75,62 @@ the named one under the workspace root.
 - **WHEN** the working directory belongs to a different repository
 - **THEN** the agent clones the named repository under the workspace root
 - **AND** it leaves the current checkout untouched
+
+### Requirement: The smallest change that works is the default
+
+The agent SHALL prefer deletion to addition, SHALL reuse an existing pattern before
+creating a second one, and SHALL NOT rewrite working code to improve it, add a
+speculative abstraction, add a dependency or config knob the repository already
+covers, add a compatibility shim, or make a change outside the issue without
+reporting it as its own issue.
+
+#### Scenario: A helper already does the job
+
+- **WHEN** the repository already has a function or pattern for the task
+- **THEN** the agent uses it instead of writing a second one
+
+#### Scenario: A working module looks improvable
+
+- **WHEN** a refactor is unrelated to the issue
+- **THEN** the agent leaves it and names it in the report
+
+### Requirement: Tests cover behaviour, never configuration
+
+A test SHALL assert what the code does, SHALL fail without the change, and SHALL NOT
+assert a YAML value, a chart option, a prompt's wording or a file's presence. The
+agent SHALL run the gate the repository's own `AGENTS.md` names, and SHALL NOT make
+a gate pass by skipping a test, widening a lint rule or loosening an assertion.
+
+#### Scenario: A rule file changes
+
+- **WHEN** the change is to instructions, documentation or configuration
+- **THEN** no test asserts their wording
+- **AND** the repository's render or build gate is the check
+
+#### Scenario: A test is red
+
+- **WHEN** the gate fails
+- **THEN** the agent fixes or reports it
+- **AND** it does not skip, relax or delete the failing check
+
+### Requirement: The agent never destroys work it did not write
+
+The agent SHALL treat uncommitted edits, stashes, untracked files and branches it
+did not create as the owner's, and SHALL ask before any reset, clean, checkout or
+branch deletion that would discard them.
+
+#### Scenario: The tree is dirty
+
+- **WHEN** the working tree has changes the agent did not make
+- **THEN** the agent leaves them in place
+- **AND** it stages only the paths it touched
+
+### Requirement: A merged pull request is not a deployed change
+
+The agent's report SHALL state which part landed: code merged, image rebuilt, digest
+re-pinned, or workload synced, and SHALL NOT claim a step it did not observe.
+
+#### Scenario: Only the code landed
+
+- **WHEN** the pull request is merged but the image is not rebuilt
+- **THEN** the report says the new code is not running yet

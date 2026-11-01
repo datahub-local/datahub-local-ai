@@ -23,7 +23,10 @@ FROM node:22-bookworm-slim
 # is Debian. `sst/opencode` moved to `anomalyco/opencode`; the tags are unchanged.
 # v2 is the current release line; `opencode` is still the executable and
 # `opencode serve` is still the server, but the config and API are v2.
-# renovate: datasource=github-releases depName=anomalyco/opencode
+#
+# Not Renovate-managed: GitHub keeps v1 as the repository's "latest" release, so
+# github-releases cannot see the v2 line. publish-images.yaml resolves the newest
+# v2 tag and passes it as this build argument; the default is for local builds.
 ARG OPENCODE_VERSION=2.2.5
 # renovate: datasource=github-releases depName=helm/helm
 ARG HELM_VERSION=v4.3.1
@@ -112,7 +115,10 @@ RUN mkdir -p /etc/opencode /opt/opencode \
 
 COPY --chmod=0644 opencode.json /etc/opencode/opencode.json
 COPY --chmod=0644 AGENTS.md /opt/opencode/AGENTS.md
-COPY --chmod=0644 skills/ /opt/opencode/skills/
+# No --chmod here: COPY applies it to the directory too, which leaves every skill
+# directory mode 0644 and untraversable. Source modes are already 0755/0644.
+COPY skills/ /opt/opencode/skills/
+RUN chmod -R a+rX /opt/opencode/skills
 COPY --chmod=0644 gitconfig /etc/gitconfig
 COPY --chmod=0755 git-credential-opencode /usr/local/bin/git-credential-opencode
 COPY --chmod=0644 minter.mjs /usr/local/bin/opencode-minter.mjs

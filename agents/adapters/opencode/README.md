@@ -95,11 +95,14 @@ Both are checked in `datahub-local-core`'s change tasks, in the running Pod.
 
 ## Pins and rebuilds
 
-Every version is a Dockerfile `ARG` with a `# renovate:` annotation;
+Every toolchain version is a Dockerfile `ARG` with a `# renovate:` annotation;
 `renovate.json`'s regex manager reads the annotation and the `ARG` that follows, so
-adding a tool needs no new manager.  The base image
-(`node:22-bookworm-slim`) is deliberately left to the weekly adapter rebuild in
-`publish-images.yaml`, not to Renovate. Release assets are not sha256-pinned:
+adding a tool needs no new manager. OpenCode is the exception: GitHub keeps **v1**
+as the repository's "latest" release, so `github-releases` cannot see the v2 line
+and Renovate would never propose a bump. `publish-images.yaml` resolves the newest
+v2 tag on every build and passes it as `OPENCODE_VERSION`; the `ARG` default is for
+local builds. The base image (`node:22-bookworm-slim`) is deliberately left to the
+weekly adapter rebuild, not to Renovate. Release assets are not sha256-pinned:
 Renovate cannot bump a checksum, so a pin there would fail every bump until it was
 edited by hand.
 

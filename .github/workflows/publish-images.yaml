@@ -161,6 +161,8 @@ jobs:
       # The whole image list, in one place. Every image is multi-arch: agents run
       # on the arm64 nodes, and an amd64-only image is unschedulable there.
       - name: Build and push ${{ matrix.target }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           case "${{ matrix.target }}" in
@@ -181,9 +183,26 @@ jobs:
               ;;
           esac
           echo "building $image from $context"
+          # OpenCode's v2 line is not the repository's "latest" release (GitHub keeps
+          # v1 there), so Renovate cannot see it. Resolve the newest v2 tag on every
+          # build instead; releases are returned newest first.
+          build_args=()
+          if [ "${{ matrix.target }}" = "opencode" ]; then
+            version=$(curl -fsSL -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              "https://api.github.com/repos/anomalyco/opencode/releases?per_page=50" \
+              | jq -r '[.[] | select(.draft == false and .prerelease == false)
+                       | .tag_name | select(test("^v2\\.")) | sub("^v"; "")] | .[0]')
+            if [ -z "$version" ] || [ "$version" = "null" ]; then
+              echo "could not resolve the newest OpenCode v2 release" >&2
+              exit 1
+            fi
+            echo "opencode v$version"
+            build_args=(--build-arg "OPENCODE_VERSION=$version")
+          fi
           docker buildx build \
             --platform linux/amd64,linux/arm64 \
             --push \
+            "${build_args[@]}" \
             --file "$file" \
             --cache-from type=gha \
             --cache-to type=gha,mode=max \

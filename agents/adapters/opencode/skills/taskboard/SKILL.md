@@ -115,6 +115,10 @@ same session.
 Do not guess, do not pick a default, and do not stall inside a shell prompt. A
 question you did not ask costs more than the turn it saves.
 
+If the `question` tool errors or the session loses it, stop and report `BLOCKED`
+with the decision and the options you would have offered. Hermes posts it on the
+issue; continuing without an answer is how a branch ends up pointed the wrong way.
+
 ## The owner
 
 The owner answers questions and reviews the pull request. Hermes handles the

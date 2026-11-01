@@ -87,8 +87,9 @@ why the k8s server is registered and `kubectl` is not the answer to anything.
 
 Verified by the build: every tool above runs as uid 1000 with `HOME=/opt/data`,
 `git config` resolves `/etc/gitconfig`, the LiteLLM provider parses, the skills path
-and the k8s entry are present in the config, a skill file exists at the baked path,
-and the minter passes `node --check`.
+and the k8s entry are present in the config, both model placeholders and the
+reviewer agent parse, and the minter passes `node --check`. The build asserts no
+individual skill file: the directory is copied whole, and the PR diff is the review.
 
 Not verified here: that a checkout's `uv sync` succeeds against the cluster's PyPI
 path, and that `helmfile template` resolves every chart through the egress proxy.

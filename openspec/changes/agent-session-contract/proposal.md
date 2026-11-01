@@ -67,5 +67,6 @@ ship inside it.
 - A rebuilt `datahub-local-ai-opencode-adapter` digest, re-pinned in
   `datahub-local-core/values/_version.yaml`.
 - No new test. The rule files have none by design (issue #113): a test that asserts
-  their wording fails every legitimate rewrite, and the Dockerfile already asserts
-  that each skill is present and readable.
+  their wording fails every legitimate rewrite, and a build check that each skill
+  file exists is the same assertion one line later, so it is not there either. The
+  skill directory is copied whole and reviewed in the PR.

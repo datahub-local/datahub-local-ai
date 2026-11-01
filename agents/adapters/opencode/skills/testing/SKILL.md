@@ -34,8 +34,8 @@ file's presence. Such a test duplicates the file, fails every legitimate edit, a
 proves nothing a reader cannot see. Where the change is configuration, the
 repository's render or build gate is the check.
 
-A rule file is reviewed, not asserted. The image's Dockerfile already asserts that
-each ship-critical file exists.
+A rule file is reviewed, not asserted. No test and no build check should restate what
+the file says.
 
 ## Before you call it done
 

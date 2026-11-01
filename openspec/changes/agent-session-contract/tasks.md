@@ -22,8 +22,8 @@
   places the capability spec below the code in the authority order.
 - [x] 1.3e Turn `AGENTS.md` into a pointer: role, boundaries, report, the two rules
   that hold before a skill is loaded, and "load `router` first".
-- [x] 1.3d Assert each new skill in the Dockerfile and list all of them in the
-  adapter README, `router` first.
+- [x] 1.3d List every skill in the adapter README, `router` first. No per-file
+  assertion in the Dockerfile: the directory is copied whole.
 - [x] 1.3b Add the "start inside a checkout" rule to the taskboard skill: reuse the
   working directory when it is the named repository, never clone inside it.
 - [x] 1.4b Add the `reviewer` subagent and the `review` skill: env-driven models,

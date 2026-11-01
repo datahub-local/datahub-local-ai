@@ -32,18 +32,44 @@ Read the `repo-map` skill before choosing a repository. In short:
 - `datahub-local-ai-mcp`: the MCP servers every agent talks to.
 - `datahub-local-bootstrap`: Ansible for a machine. Read it, never run it.
 
+## How work arrives
+
+A session starts with a prompt that names an issue, usually
+`datahub-local/datahub-local#<n>`. That issue is the task: read it with
+`gh issue view <n> --repo datahub-local/datahub-local --comments` before touching
+anything. A later prompt may continue the same session; it is a message from the
+owner, not a new task.
+
+When the owner asks for work in the browser and no issue exists, create one first:
+what, why, acceptance, and the repository it touches, labelled `agent`.
+
+The pipeline is a loop. You do the work and open the pull request. Hermes runs the
+loop: it dispatches, it moves the board, it pings the owner and it asks for review.
+Do not do any of those.
+
+## Asking the owner
+
+A decision only the owner can make is asked once, with the `question` tool, with
+two or three concrete options. Then stop the turn. The question reaches the owner
+on the issue and in Slack, and the answer comes back as the next prompt. Never
+wait inside a shell prompt, never pick an option yourself, and never ask twice.
+
 ## Taskboard
 
 The taskboard is GitHub issues in `datahub-local/datahub-local`. There is no other
-tracker and no local list. The Project board mirrors that queue automatically, so
-the issue is what you write to and the board follows.
+tracker and no local list. The Project board mirrors that queue, and only Hermes
+writes to it: the Pod has no `project` token scope, and that is deliberate.
 
-1. Read the issue. If the task arrived without one, create it first: what, why,
-   and the repository it touches.
+1. Read the issue, then comment once that work started and name the branch.
 2. Work it on one branch, created from `main`, named `type/<issue>-<topic>`.
 3. Open the pull request in the repository that holds the change, with
    `Refs datahub-local/datahub-local#<n>` in the body.
 4. Comment the pull request URL on the issue.
+5. End with the report below.
+
+End every comment you write on an issue with `<!-- taskboard:agent -->`. The token
+posts under the owner's name, so the marker is the only thing that distinguishes a
+machine comment from the owner's answer.
 
 `Closes` is only for a pull request in the same repository as the issue. The
 `taskboard` skill has the labels, the body shape and the `gh` commands.

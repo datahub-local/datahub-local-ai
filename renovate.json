@@ -34,18 +34,6 @@
       ],
       "datasourceTemplate": "github-releases",
       "extractVersionTemplate": "^(?:kustomize/)?v?(?<version>.*)$"
-    },
-    {
-      "customType": "regex",
-      "description": "The LiteLLM plugin is pinned in the adapter's baked OpenCode config",
-      "fileMatch": [
-        "(^|/)agents/adapters/opencode/opencode\\.json$"
-      ],
-      "matchStrings": [
-        "\"opencode-plugin-litellm@(?<currentValue>[^\"]+)\""
-      ],
-      "datasourceTemplate": "npm",
-      "depNameTemplate": "opencode-plugin-litellm"
     }
   ],
   "packageRules": [

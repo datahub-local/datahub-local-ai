@@ -40,10 +40,9 @@ ARG GH_VERSION=2.103.3
 # renovate: datasource=github-releases depName=astral-sh/uv
 ARG UV_VERSION=0.13.6
 
-# node:22-bookworm-slim carries node and npm, which is what `opencode plugin add`
-# shells out to. The rest are Debian's own builds; they are not version-pinned
-# here because the base image is, and the weekly adapter rebuild carries their
-# security fixes.
+# node:22-bookworm-slim carries node and npm for the platform's own scripts. The
+# rest are Debian's own builds; they are not version-pinned here because the base
+# image is, and the weekly adapter rebuild carries their security fixes.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     bash \
     ca-certificates \
@@ -113,15 +112,15 @@ RUN mkdir -p /etc/opencode /opt/opencode \
 
 COPY --chmod=0644 opencode.json /etc/opencode/opencode.json
 COPY --chmod=0644 AGENTS.md /opt/opencode/AGENTS.md
+COPY --chmod=0644 skills/ /opt/opencode/skills/
 COPY --chmod=0644 gitconfig /etc/gitconfig
 COPY --chmod=0755 git-credential-opencode /usr/local/bin/git-credential-opencode
 COPY --chmod=0644 minter.mjs /usr/local/bin/opencode-minter.mjs
-COPY --chmod=0755 opencode-plugin-prewarm /usr/local/bin/opencode-plugin-prewarm
 
 # node:22-bookworm-slim already ships uid/gid 1000 as `node`; reuse it rather than
 # creating a second account with the same id. The server's HOME is the state volume,
-# so the plugin cache ($HOME/.cache/opencode) survives a restart. Created here so the
-# image runs as uid 1000 without a root process ever needing to mkdir it.
+# so OpenCode's own state survives a restart. Created here so the image runs as uid
+# 1000 without a root process ever needing to mkdir it.
 RUN mkdir -p /workspace /opt/data \
     && chown -R 1000:1000 /workspace /opt/data \
     && usermod --home /opt/data node
@@ -133,11 +132,13 @@ ENV HOME=/opt/data
 WORKDIR /workspace
 RUN set -eux; \
     opencode --version; \
-    jq -e '.plugins[0]' /etc/opencode/opencode.json; \
+    jq -e '.providers.litellm' /etc/opencode/opencode.json; \
+    jq -e '.skills.paths | index("/opt/opencode/skills")' /etc/opencode/opencode.json; \
+    jq -e '.mcp.servers.k8s' /etc/opencode/opencode.json; \
+    test -f /opt/opencode/skills/repo-map/SKILL.md; \
     test "$(git config --get credential.helper)" = git-credential-opencode; \
     test "$(GITHUB_TOKEN=build-token git-credential-opencode get | sed -n 's/^password=//p')" = build-token; \
     node --check /usr/local/bin/opencode-minter.mjs; \
-    sh -n /usr/local/bin/opencode-plugin-prewarm; \
     git --version; \
     helm version; \
     helmfile version; \

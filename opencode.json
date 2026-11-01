@@ -1,6 +1,3 @@
 {
-  "$schema": "https://opencode.ai/config.json",
-  "skills": {
-    "paths": [".claude/skills"]
-  }
+  "$schema": "https://opencode.ai/config.json"
 }

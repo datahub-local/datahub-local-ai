@@ -37,6 +37,26 @@ NOT call the Projects API, and SHALL end every comment it writes on an issue wit
 - **THEN** the agent comments the evidence and leaves the card alone
 - **AND** Hermes, which owns the board, moves it
 
+### Requirement: The agent opens the pull request it is ready to review
+
+The agent SHALL push a branch it created and SHALL open the pull request with the
+GitHub credential the Pod already holds. It SHALL NOT push to `main`, force-push,
+merge, or open a pull request without the repository's gate having passed. It SHALL
+NOT mention the owner and SHALL NOT request review: Hermes sees the pull request,
+requests the owner's review and posts the notification, so the owner is paged once,
+from one place.
+
+#### Scenario: The gate passes
+
+- **WHEN** the repository's own checks pass on the branch
+- **THEN** the agent opens the pull request with the checks and their result in the body
+
+#### Scenario: The gate fails
+
+- **WHEN** a check fails and the agent cannot fix it within the task
+- **THEN** no pull request is opened as ready
+- **AND** the report names the failing check and its output
+
 ## ADDED Requirements
 
 ### Requirement: A decision the owner must make is asked once

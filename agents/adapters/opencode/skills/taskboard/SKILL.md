@@ -122,13 +122,10 @@ notification; you never page the owner yourself.
 
 ## Closing
 
+You do not close the issue and you do not move the card.
+
 - A merged pull request in the same repository closes its own issue.
-- A cross-repository pull request leaves the issue open until the merge is
-  reported. Then comment what shipped and close it:
-
-  ```bash
-  gh issue close <n> --repo datahub-local/datahub-local --reason completed
-  ```
-
+- A cross-repository pull request leaves the issue open. Comment what shipped and
+  report `DONE`; Hermes sees the merge and sets `Done`.
 - A task that cannot be finished: comment the blocker and what was tried, leave the
   issue open, and report `BLOCKED`. Never close an issue to signal failure.

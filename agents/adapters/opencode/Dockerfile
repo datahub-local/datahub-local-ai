@@ -152,6 +152,9 @@ RUN set -eux; \
     jq -e '.mcp.servers.k8s' /etc/opencode/opencode.json; \
     test -f /opt/opencode/skills/repo-map/SKILL.md; \
     test -f /opt/opencode/skills/router/SKILL.md; \
+    test -f /opt/opencode/skills/taskboard/SKILL.md; \
+    test -f /opt/opencode/skills/change-shape/SKILL.md; \
+    test -f /opt/opencode/skills/verify/SKILL.md; \
     test -f /opt/opencode/skills/code-shape/SKILL.md; \
     test -f /opt/opencode/skills/testing/SKILL.md; \
     test -f /opt/opencode/skills/debugging/SKILL.md; \

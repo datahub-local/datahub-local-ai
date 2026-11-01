@@ -1,6 +1,0 @@
-# ssh.github.com is GitHub's SSH endpoint on 443. The Pod reaches nothing directly
-# except the proxy, so every connection is a CONNECT tunnel through it.
-Host ssh.github.com
-	ProxyCommand /usr/local/bin/ssh-proxy-command %h %p
-	UserKnownHostsFile /etc/ssh/ssh_known_hosts
-	StrictHostKeyChecking yes

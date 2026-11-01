@@ -1,15 +1,8 @@
 # Installed as /etc/gitconfig, the system-wide file git reads before any user or
 # repository config. It must not live under $HOME: the state volume is mounted
 # over /opt/data and would hide a baked file.
-#
-# GitHub over SSH, on 443: the Pod's only egress is the Squid proxy, which permits
-# CONNECT to 443 only. The rewrite keeps ordinary https://github.com URLs working,
-# and /etc/ssh/ssh_config.d/10-github.conf tunnels them through the proxy.
-[url "ssh://git@ssh.github.com:443/"]
-	insteadOf = https://github.com/
 [credential]
-	# Unused while git goes over SSH; answers only an https remote without a
-	# rewrite (the App path, when it exists).
+	# Resolved through PATH as /usr/local/bin/git-credential-opencode.
 	helper = git-credential-opencode
 [user]
 	name = datahub-local opencode-agent

@@ -39,6 +39,7 @@ so the image is built here instead.
 | `node`, `npm` | base image | the platform's own scripts |
 | `python3`, `venv`, `pip` | base image (3.11) | system interpreter |
 | `uv` + managed Python 3.13 | `ARG UV_VERSION` | `datahub-local-ai-mcp` requires 3.13 |
+| `openspec` | `ARG OPENSPEC_VERSION` | `openspec validate --all`, part of the gate in three repositories |
 
 `ansible`, `dbt`, `dlt` and every other project dependency are **not** here: they
 come from the checkout's lockfile via `uv sync`, which is the only version that
@@ -52,9 +53,9 @@ machine-wide config from `/etc/opencode`, and git reads `/etc/gitconfig`.
 
 | Path | What it is |
 | --- | --- |
-| `/etc/opencode/opencode.json` | model, LiteLLM provider, MCP servers, skills path, permissions, `update: disable` |
+| `/etc/opencode/opencode.json` | model, LiteLLM provider, the `reviewer` subagent, MCP servers, skills path, permissions, `update: disable` |
 | `/opt/opencode/AGENTS.md` | the contract, referenced by `instructions` |
-| `/opt/opencode/skills/<name>/SKILL.md` | the detail, loaded on demand: `repo-map`, `taskboard`, `verify`, `change-shape` |
+| `/opt/opencode/skills/<name>/SKILL.md` | the detail, loaded on demand: `router` first, then `repo-map`, `taskboard`, `code-shape`, `testing`, `debugging`, `change-shape`, `ship-it`, `review`, `verify` |
 | `/etc/gitconfig` | git identity and the credential helper |
 | `/usr/local/bin/git-credential-opencode` | answers git from `GITHUB_TOKEN`, else the minter |
 | `/usr/local/bin/opencode-minter.mjs` | GitHub App installation-token minter |
@@ -86,8 +87,9 @@ why the k8s server is registered and `kubectl` is not the answer to anything.
 
 Verified by the build: every tool above runs as uid 1000 with `HOME=/opt/data`,
 `git config` resolves `/etc/gitconfig`, the LiteLLM provider parses, the skills path
-and the k8s entry are present in the config, a skill file exists at the baked path,
-and the minter passes `node --check`.
+and the k8s entry are present in the config, both model placeholders and the
+reviewer agent parse, and the minter passes `node --check`. The build asserts no
+individual skill file: the directory is copied whole, and the PR diff is the review.
 
 Not verified here: that a checkout's `uv sync` succeeds against the cluster's PyPI
 path, and that `helmfile template` resolves every chart through the egress proxy.

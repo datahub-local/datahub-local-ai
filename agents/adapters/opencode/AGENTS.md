@@ -20,6 +20,10 @@ on Slack. You decide how the work is built, and you report back to Hermes.
 3. The GitHub issue that carries the task.
 4. Everything else, including this file's summaries, is context and not authority.
 
+A capability spec in `openspec/specs/` is the recorded behaviour, below the code.
+Where the two disagree, that is a finding to report, not a licence to edit the spec
+quietly.
+
 When two of these disagree, stop and ask. Do not reconcile them by guessing.
 
 ## Where the work lives
@@ -32,18 +36,46 @@ Read the `repo-map` skill before choosing a repository. In short:
 - `datahub-local-ai-mcp`: the MCP servers every agent talks to.
 - `datahub-local-bootstrap`: Ansible for a machine. Read it, never run it.
 
+## How work arrives
+
+A session starts with a prompt that names an issue, usually
+`datahub-local/datahub-local#<n>`. That issue is the task: read it with
+`gh issue view <n> --repo datahub-local/datahub-local --comments` before touching
+anything. A later prompt may continue the same session; it is a message from the
+owner, not a new task.
+
+When the owner asks for work in the browser and no issue exists, create one first:
+what, why, acceptance, and the repository it touches, labelled `agent`.
+
+The pipeline is a loop. You do the work and open the pull request. Hermes runs the
+loop: it dispatches, it moves the board, it pings the owner and it asks for review.
+Do not do any of those.
+
+## Asking the owner
+
+A decision only the owner can make is asked once, with the `question` tool, with
+two or three concrete options. Then stop the turn. The question reaches the owner
+on the issue and in Slack, and the answer comes back as the next prompt. Never
+wait inside a shell prompt, never pick an option yourself, and never ask twice.
+
 ## Taskboard
 
 The taskboard is GitHub issues in `datahub-local/datahub-local`. There is no other
-tracker and no local list. The Project board mirrors that queue automatically, so
-the issue is what you write to and the board follows.
+tracker and no local list. The Project board mirrors that queue, and only Hermes
+writes to it: the Pod has no `project` token scope, and that is deliberate.
 
-1. Read the issue. If the task arrived without one, create it first: what, why,
-   and the repository it touches.
+1. Read the issue, then comment once that work started and name the branch.
 2. Work it on one branch, created from `main`, named `type/<issue>-<topic>`.
 3. Open the pull request in the repository that holds the change, with
    `Refs datahub-local/datahub-local#<n>` in the body.
 4. Comment the pull request URL on the issue.
+5. Run the `review` skill: the second model reviews the diff, the review goes on the
+   pull request, and you push what it finds.
+6. End with the report below.
+
+End every comment you write on an issue with `<!-- taskboard:agent -->`. The token
+posts under the owner's name, so the marker is the only thing that distinguishes a
+machine comment from the owner's answer.
 
 `Closes` is only for a pull request in the same repository as the issue. The
 `taskboard` skill has the labels, the body shape and the `gh` commands.
@@ -53,10 +85,16 @@ the issue is what you write to and the board follows.
 - Never read, clone or reference `datahub-local-secrets` or
   `datahub-local-private-config`. If a task needs a value from one, ask for that
   single setting and stop.
-- Never write or print a token, key, `.netrc` or credential file.
+- Never write or print a token, key, `.netrc` or credential file, and never echo
+  the environment or run `set -x` around a credentialed command.
+- Never destroy work you did not write. Uncommitted edits, stashes, untracked files
+  and other branches may be the owner's: no `git reset --hard`, `git clean -fd`,
+  `git checkout -- .` and no branch deletion without asking first.
 - Never run a bootstrap playbook and never apply anything to the homelab. Propose
   the change as a patch in an issue; the owner applies it on the homelab machine.
 - Never push to `main`, force-push, merge, or rewrite published history.
+- Never approve a pull request, resolve a review thread, or comment without the
+  marker. The token is the owner's, so the marker is your only signature.
 - Never install a tool at runtime. The image carries the toolchain; if something
   is missing, say so.
 - `/workspace`, `/tmp` and your own config are the only writable paths.
@@ -75,24 +113,35 @@ is deliberate, and MCP is how work crosses it.
 
 If an MCP tool can answer the question, it is the answer.
 
+## Skills
+
+Load the `router` skill first. It maps what you are about to do to the one skill
+that covers it: `repo-map`, `taskboard`, `code-shape`, `testing`, `debugging`,
+`change-shape`, `ship-it`, `verify`.
+
+Two rules hold from the first tool call, before any skill is loaded: evidence
+before claims, so a claim about a command is one you ran this turn and read the
+output of; and never make a gate pass by weakening it.
+
 ## Verify before you report
 
-Run the checks the repository defines for itself. A change is done when its own
-tests, lint and typecheck pass, not when it compiles. The `verify` skill has the
-command per repository.
+Run the gate the repository names for itself, not one you prefer: `mkdocs build
+--strict`, `helmfile template`, `openspec validate --all`, `uv run pytest`. Running
+the tests alone is not the gate, and a container, a mount, a CLI flag or a workflow
+change is verified by running it. The `verify` skill has the command per repository.
 
-Report each command and its result. Mark anything you could not run
-`[UNVERIFIED]` and say why. Never claim a result you did not observe.
+Report each command and its result. Mark anything you could not run `[UNVERIFIED]`
+and say why. Never claim a result you did not observe.
 
 ## Writing
 
 Short, literal, imperative. No em dashes in prose. No filler and no AI-speak.
 
-- Commits: `type(scope): subject`, one line, imperative mood. The `change-shape`
-  skill has the types and scopes.
-- A comment states the non-obvious reason, the trap or the invariant. Never what
-  the code says, never history.
-- A new behaviour ships with a test that fails without it.
+- Commits: Conventional Commits, `type(scope): subject`, one line, imperative. The
+  `change-shape` skill has the types, the scopes and the body rule.
+- A comment states the non-obvious reason, the trap or the invariant, in one line.
+  Never what the code says, never history.
+- Documentation states the fact once, without narrating how it was found.
 
 ## Report back
 

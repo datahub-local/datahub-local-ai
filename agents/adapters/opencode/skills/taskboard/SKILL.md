@@ -1,6 +1,6 @@
 ---
 name: taskboard
-description: Create, claim and close GitHub issues in the central taskboard, and link the pull request to them. Use whenever a task starts, a branch is cut, a pull request is opened, or an issue's state changes.
+description: Work a GitHub issue from the central taskboard and hand back a pull request. Use when a session names an issue, when a branch is cut, when a pull request is opened, or when a status would change.
 ---
 
 # Taskboard
@@ -8,18 +8,43 @@ description: Create, claim and close GitHub issues in the central taskboard, and
 Every task is a GitHub issue in `datahub-local/datahub-local`. That repository is
 the queue; the code and its pull requests live wherever the change is.
 
-The org's Project board at `https://github.com/orgs/datahub-local/projects/1`
-mirrors the queue. Membership is automatic: the project adds any issue carrying
-the `agent` label, server-side. Never call the Projects API from this Pod. The Pod
-has no `project` token scope, and it does not need one, because the issue is the
-record and the board is a view of it. If an issue must be added by hand, say so in
-the report and let the owner add it.
+The Project board at `https://github.com/orgs/datahub-local/projects/1` is the
+state of that queue, and **Hermes is its only writer**. The Pod has no `project`
+token scope. Do not call the Projects API, do not add `status:*` labels, and do not
+try to move a card. You signal with comments and a pull request; Hermes reads those
+and moves the card.
 
-## Claiming a task
+## Starting a task
 
-1. `gh issue view <n> --repo datahub-local/datahub-local` and read the body and
-   the comments. The latest human comment is part of the task.
-2. If the task arrived without an issue, create one first:
+0. A session may start inside an existing checkout. Check before cloning:
+
+   ```bash
+   git rev-parse --show-toplevel 2>/dev/null && git remote -v
+   ```
+
+   If the working directory is already the repository you need, work there: fetch
+   and cut the branch from `main`. Never clone a second copy inside a checkout,
+   and never work in a checkout of a different repository than the issue names.
+
+1. The prompt names the issue. Read it, and the comments, before anything else:
+
+   ```bash
+   gh issue view <n> --repo datahub-local/datahub-local --comments
+   ```
+
+   The newest human comment is part of the task. A previous comment may carry the
+   session id; you are already in that session, so ignore it.
+
+2. Comment once that work started:
+
+   ```bash
+   gh issue comment <n> --repo datahub-local/datahub-local \
+     --body "Claimed. Branch \`<type>/<n>-<topic>\` in <repo>.
+
+   <!-- taskboard:agent -->"
+   ```
+
+3. If the task arrived without an issue, create one first:
 
    ```bash
    gh issue create --repo datahub-local/datahub-local \
@@ -28,25 +53,16 @@ the report and let the owner add it.
      --body "<what, why, acceptance, the repository it touches>"
    ```
 
-3. Comment once that work started, so the issue shows a live claim:
-
-   ```bash
-   gh issue comment <n> --repo datahub-local/datahub-local \
-     --body "Claimed. Branch \`<type>/<n>-<topic>\` in <repo>."
-   ```
-
 Labels that exist: `bug`, `enhancement`, `infra`, `data`, `monitoring`,
-`security`, `automation`, `ai`, `CICD`, `documentation`, `question`, plus the
-queue marker `agent`. Use the ones that fit and never invent a new label; if
-`agent` is missing, create it once with `gh label create agent --repo
-datahub-local/datahub-local --description "Delegated to the code agent"`.
+`security`, `automation`, `ai`, `CICD`, `documentation`, `question`, plus `agent`
+for delegation. Use the ones that fit and never invent a new label.
 
 ## The branch
 
 One issue, one branch, cut from an up-to-date `main`:
 
 ```
-<type>/<issue>-<topic>        feat/106-opencode-mcp-shim
+<type>/<issue>-<topic>        feat/116-org-profile-readme
 ```
 
 `<type>` is the commit type of the main change. Never reuse a branch for a second
@@ -54,7 +70,7 @@ issue, and never branch from another feature branch.
 
 ## The pull request
 
-Open it in the repository that holds the change, never in the taskboard:
+You open it, in the repository that holds the change, never in the taskboard:
 
 ```bash
 gh pr create --repo datahub-local/<repo> --base main --head <branch> \
@@ -76,29 +92,40 @@ The body is short and has four parts:
 Refs datahub-local/datahub-local#<n>
 ```
 
-`Closes` only works inside one repository. For a cross-repository pull request
-use `Refs`, then comment the pull request URL on the issue:
+`Closes` only works inside one repository. For a cross-repository pull request use
+`Refs`, then comment the pull request URL on the issue:
 
 ```bash
 gh pr view --repo datahub-local/<repo> --json url -q .url
-gh issue comment <n> --repo datahub-local/datahub-local --body "<url>"
+gh issue comment <n> --repo datahub-local/datahub-local --body "<url>
+
+<!-- taskboard:agent -->"
 ```
+
+Do not mention the owner and do not post a review request. Hermes does both when
+it sees the pull request.
+
+## When you need a decision
+
+Ask once, with the `question` tool, and stop the turn. Give two or three concrete
+options and your recommendation. Hermes posts the question on the issue, pings the
+owner and sets the card to `Blocked`; the answer arrives as the next prompt in this
+same session.
+
+Do not guess, do not pick a default, and do not stall inside a shell prompt. A
+question you did not ask costs more than the turn it saves.
 
 ## The owner
 
-Mention `@alvsanand` once, on the pull request, when it is ready for review. Not
-in the issue, not per commit, not in a status comment. Hermes posts the Slack
-message; the pull request is the record.
+The owner answers questions and reviews the pull request. Hermes handles the
+notification; you never page the owner yourself.
 
 ## Closing
 
+You do not close the issue and you do not move the card.
+
 - A merged pull request in the same repository closes its own issue.
-- A cross-repository pull request leaves the issue open until the merge is
-  reported. Then comment what shipped and close it:
-
-  ```bash
-  gh issue close <n> --repo datahub-local/datahub-local --reason completed
-  ```
-
-- A task that cannot be finished: comment the blocker and what was tried, leave
-  the issue open, and report `BLOCKED`. Never close an issue to signal failure.
+- A cross-repository pull request leaves the issue open. Comment what shipped and
+  report `DONE`; Hermes sees the merge and sets `Done`.
+- A task that cannot be finished: comment the blocker and what was tried, leave the
+  issue open, and report `BLOCKED`. Never close an issue to signal failure.

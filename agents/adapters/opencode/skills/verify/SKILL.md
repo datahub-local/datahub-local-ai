@@ -41,6 +41,7 @@ just the tests: build it, mount data, hit `/healthz` and a `tools/list` POST.
 ```
 cd releases/<namespace>
 helmfile template
+openspec validate --all
 ```
 
 The render is the gate: ArgoCD runs helmfile, so `helm template` alone misses a Go
@@ -51,6 +52,7 @@ template error in a values file.
 ```
 uv sync
 uv run mkdocs build --strict
+openspec validate --all
 ```
 
 ### `datahub-local-bootstrap`

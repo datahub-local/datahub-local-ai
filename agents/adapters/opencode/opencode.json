@@ -1,24 +1,33 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "model": "litellm/opencode-go/deepseek-v4.1-flash",
+  "model": "{env:OPENCODE_MODEL}",
   "update": "disable",
-  "enabled_providers": ["litellm"],
+  "enabled_providers": [
+    "litellm"
+  ],
   "providers": {
     "litellm": {
       "name": "LiteLLM",
-      "env": ["LITELLM_API_KEY"],
+      "env": [
+        "LITELLM_API_KEY"
+      ],
       "package": "@opencode/ai/providers/openai-compatible",
       "settings": {
         "baseURL": "{env:LITELLM_BASE_URL}"
       },
       "models": {
-        "opencode-go/deepseek-v4.1-flash": {}
+        "opencode-go/deepseek-v4.1-flash": {},
+        "opencode-go/glm-5.3-flash": {}
       }
     }
   },
-  "instructions": ["/opt/opencode/AGENTS.md"],
+  "instructions": [
+    "/opt/opencode/AGENTS.md"
+  ],
   "skills": {
-    "paths": ["/opt/opencode/skills"]
+    "paths": [
+      "/opt/opencode/skills"
+    ]
   },
   "mcp": {
     "servers": {
@@ -47,27 +56,141 @@
     }
   },
   "permissions": [
-    { "action": "webfetch", "resource": "*", "effect": "deny" },
-    { "action": "websearch", "resource": "*", "effect": "deny" },
-    { "action": "read", "resource": "**/*.env", "effect": "deny" },
-    { "action": "read", "resource": "**/*.env.*", "effect": "deny" },
-    { "action": "read", "resource": "**/*.pem", "effect": "deny" },
-    { "action": "read", "resource": "**/id_rsa*", "effect": "deny" },
-    { "action": "read", "resource": "**/id_ed25519*", "effect": "deny" },
-    { "action": "read", "resource": "**/.netrc", "effect": "deny" },
-    { "action": "read", "resource": "**/.kube/**", "effect": "deny" },
-    { "action": "external_directory", "resource": "*", "effect": "deny" },
-    { "action": "external_directory", "resource": "/workspace/*", "effect": "allow" },
-    { "action": "external_directory", "resource": "/tmp/*", "effect": "allow" },
-    { "action": "external_directory", "resource": "/opt/data/.config/opencode/*", "effect": "allow" },
-    { "action": "bash", "resource": "curl *", "effect": "deny" },
-    { "action": "bash", "resource": "wget *", "effect": "deny" },
-    { "action": "bash", "resource": "git push --force*", "effect": "deny" },
-    { "action": "bash", "resource": "git push -f*", "effect": "deny" },
-    { "action": "question", "resource": "*", "effect": "allow" },
-    { "action": "fc_firecrawl_scrape", "resource": "*", "effect": "allow" },
-    { "action": "fc_firecrawl_search", "resource": "*", "effect": "allow" },
-    { "action": "fc_firecrawl_map", "resource": "*", "effect": "allow" },
-    { "action": "k8s_*", "resource": "*", "effect": "allow" }
-  ]
+    {
+      "action": "webfetch",
+      "resource": "*",
+      "effect": "deny"
+    },
+    {
+      "action": "websearch",
+      "resource": "*",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "**/*.env",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "**/*.env.*",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "**/*.pem",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "**/id_rsa*",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "**/id_ed25519*",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "**/.netrc",
+      "effect": "deny"
+    },
+    {
+      "action": "read",
+      "resource": "**/.kube/**",
+      "effect": "deny"
+    },
+    {
+      "action": "external_directory",
+      "resource": "*",
+      "effect": "deny"
+    },
+    {
+      "action": "external_directory",
+      "resource": "/workspace/*",
+      "effect": "allow"
+    },
+    {
+      "action": "external_directory",
+      "resource": "/tmp/*",
+      "effect": "allow"
+    },
+    {
+      "action": "external_directory",
+      "resource": "/opt/data/.config/opencode/*",
+      "effect": "allow"
+    },
+    {
+      "action": "bash",
+      "resource": "curl *",
+      "effect": "deny"
+    },
+    {
+      "action": "bash",
+      "resource": "wget *",
+      "effect": "deny"
+    },
+    {
+      "action": "bash",
+      "resource": "git push --force*",
+      "effect": "deny"
+    },
+    {
+      "action": "bash",
+      "resource": "git push -f*",
+      "effect": "deny"
+    },
+    {
+      "action": "question",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "fc_firecrawl_scrape",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "fc_firecrawl_search",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "fc_firecrawl_map",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "k8s_*",
+      "resource": "*",
+      "effect": "allow"
+    }
+  ],
+  "agents": {
+    "reviewer": {
+      "description": "Reviews a diff before the task is reported done: correctness, scope, test quality, and the rules the repository states. Read-only.",
+      "mode": "subagent",
+      "model": "{env:OPENCODE_REVIEW_MODEL}",
+      "system": "You review a change somebody else wrote. You do not edit files, you do not ask questions, and you do not take the author's report at face value: read the diff and the code it touches.\n\nRead the issue the prompt names, then `git diff <base>...HEAD`. Report findings most severe first:\n1. BLOCKING: a correctness bug, a gate that does not actually pass, a behaviour change with no test that can fail, a contradiction with the repository's AGENTS.md or an OpenSpec spec, a secret or a destructive command.\n2. SHOULD: a missing test for an edge the change touches, a rule stated twice, a diff wider than the issue.\n3. NIT: style the repository already enforces.\n\nFor each finding give `path:line`, what is wrong, why it matters, and the smallest fix. Quote the line. Mark anything you inferred rather than read `[UNVERIFIED]`. If nothing is wrong, say so in one line and name what you checked. Never restate the diff back as a review.\n\nEnd with `VERDICT: approve` or `VERDICT: changes-required`, and at most five findings.",
+      "permissions": [
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "question",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "task",
+          "resource": "*",
+          "effect": "deny"
+        }
+      ],
+      "steps": 25
+    }
+  }
 }

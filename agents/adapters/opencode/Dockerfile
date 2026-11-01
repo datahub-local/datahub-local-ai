@@ -93,7 +93,7 @@ RUN case "$TARGETARCH" in \
     && install -m 0755 "$tmp/yq" /usr/local/bin/yq \
     && curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_${gh_arch}.tar.gz" \
        | tar -xz -C "$tmp" --strip-components=2 "gh_${GH_VERSION}_linux_${gh_arch}/bin/gh" \
-    && install -m 0755 "$tmp/gh" /usr/local/bin/gh \
+    && install -m 0755 "$tmp/gh" /usr/local/bin/gh-real \
     && curl -fsSL "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-${uv_arch}-unknown-linux-gnu.tar.gz" \
        | tar -xz -C "$tmp" --strip-components=1 \
     && install -m 0755 "$tmp/uv" "$tmp/uvx" /usr/local/bin/ \
@@ -130,7 +130,9 @@ COPY skills/ /opt/opencode/skills/
 RUN chmod -R a+rX /opt/opencode/skills
 COPY --chmod=0644 gitconfig /etc/gitconfig
 COPY --chmod=0755 git-credential-opencode /usr/local/bin/git-credential-opencode
+COPY --chmod=0755 gh-app /usr/local/bin/gh
 COPY --chmod=0644 minter.mjs /usr/local/bin/opencode-minter.mjs
+COPY --chmod=0644 github-proxy.mjs /usr/local/bin/github-proxy.mjs
 
 # node:22-bookworm-slim already ships uid/gid 1000 as `node`; reuse it rather than
 # creating a second account with the same id. The server's HOME is the state volume,
@@ -156,6 +158,7 @@ RUN set -eux; \
     test "$(git config --get credential.helper)" = git-credential-opencode; \
     test "$(GITHUB_TOKEN=build-token git-credential-opencode get | sed -n 's/^password=//p')" = build-token; \
     node --check /usr/local/bin/opencode-minter.mjs; \
+    node --check /usr/local/bin/github-proxy.mjs; \
     git --version; \
     helm version; \
     helmfile version; \
@@ -163,6 +166,7 @@ RUN set -eux; \
     kustomize version; \
     yq --version; \
     gh --version; \
+    test -x /usr/local/bin/gh-real; \
     openspec --version; \
     node --version; \
     npm --version; \

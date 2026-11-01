@@ -39,6 +39,7 @@ so the image is built here instead.
 | `node`, `npm` | base image | the platform's own scripts |
 | `python3`, `venv`, `pip` | base image (3.11) | system interpreter |
 | `uv` + managed Python 3.13 | `ARG UV_VERSION` | `datahub-local-ai-mcp` requires 3.13 |
+| `openspec` | `ARG OPENSPEC_VERSION` | `openspec validate --all`, part of the gate in three repositories |
 
 `ansible`, `dbt`, `dlt` and every other project dependency are **not** here: they
 come from the checkout's lockfile via `uv sync`, which is the only version that

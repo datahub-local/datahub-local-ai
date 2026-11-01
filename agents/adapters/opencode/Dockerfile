@@ -42,6 +42,8 @@ ARG YQ_VERSION=v4.54.1
 ARG GH_VERSION=2.103.3
 # renovate: datasource=github-releases depName=astral-sh/uv
 ARG UV_VERSION=0.13.6
+# renovate: datasource=npm depName=@fission-ai/openspec
+ARG OPENSPEC_VERSION=1.13.1
 
 # node:22-bookworm-slim carries node and npm for the platform's own scripts. The
 # rest are Debian's own builds; they are not version-pinned here because the base
@@ -96,6 +98,13 @@ RUN case "$TARGETARCH" in \
        | tar -xz -C "$tmp" --strip-components=1 \
     && install -m 0755 "$tmp/uv" "$tmp/uvx" /usr/local/bin/ \
     && rm -rf "$tmp"
+
+# `openspec validate --all` is part of the gate in datahub-local, datahub-local-core
+# and datahub-local-ai, so the CLI ships here rather than in a session's first
+# command. It is npm-only. Installed globally because the agent runs it as uid 1000
+# from any checkout, and the npm cache is dropped so the layer stays small.
+RUN npm install -g "@fission-ai/openspec@${OPENSPEC_VERSION}" \
+    && rm -rf /root/.npm
 
 # The base image ships Python 3.11; datahub-local-ai-mcp requires 3.13. uv owns one
 # managed interpreter under /opt so both projects resolve from the same place and
@@ -157,6 +166,7 @@ RUN set -eux; \
     kustomize version; \
     yq --version; \
     gh --version; \
+    openspec --version; \
     node --version; \
     npm --version; \
     uv --version; \

@@ -20,6 +20,10 @@ on Slack. You decide how the work is built, and you report back to Hermes.
 3. The GitHub issue that carries the task.
 4. Everything else, including this file's summaries, is context and not authority.
 
+A capability spec in `openspec/specs/` is the recorded behaviour, below the code.
+Where the two disagree, that is a finding to report, not a licence to edit the spec
+quietly.
+
 When two of these disagree, stop and ask. Do not reconcile them by guessing.
 
 ## Where the work lives

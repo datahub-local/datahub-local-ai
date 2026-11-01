@@ -25,6 +25,16 @@ branch and a reviewable pull request.
   digest. Change the source, run the generator, commit its output.
 - No stray branch, stash or untracked file of yours is left behind.
 
+## Specs, if the change touches one
+
+- If the repository documents the capability you changed, the delta is in the diff.
+  A behaviour change without one leaves `openspec/specs/` describing code that no
+  longer exists.
+- If you wrote a change, it is archived in this branch and the applied spec is part
+  of the diff. `openspec validate --all` is the check.
+- A fix, a version bump, a typo or a dependency update carries none of this, and
+  saying so in one line is enough.
+
 ## Run the gate, again
 
 The last change may have broken what an earlier run proved. Run the repository's gate

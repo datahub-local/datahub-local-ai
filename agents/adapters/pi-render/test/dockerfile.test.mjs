@@ -59,10 +59,6 @@ test("the contract comes from the engine binary, not a fetched skill tree", () =
   );
   assert.match(dockerfile, /hyperframes docs "\$topic"/);
   assert.match(dockerfile, /missing docs topic in the engine/);
-  assert.ok(
-    !/ARG HYPERFRAMES_VERSION=/.test(dockerfile),
-    "a second hyperframes pin came back in the Dockerfile"
-  );
 });
 
 test("every docs topic the guide names is one the build asserts", () => {

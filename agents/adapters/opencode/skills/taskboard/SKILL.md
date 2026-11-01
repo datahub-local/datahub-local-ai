@@ -16,6 +16,16 @@ and moves the card.
 
 ## Starting a task
 
+0. A session may start inside an existing checkout. Check before cloning:
+
+   ```bash
+   git rev-parse --show-toplevel 2>/dev/null && git remote -v
+   ```
+
+   If the working directory is already the repository you need, work there: fetch
+   and cut the branch from `main`. Never clone a second copy inside a checkout,
+   and never work in a checkout of a different repository than the issue names.
+
 1. The prompt names the issue. Read it, and the comments, before anything else:
 
    ```bash

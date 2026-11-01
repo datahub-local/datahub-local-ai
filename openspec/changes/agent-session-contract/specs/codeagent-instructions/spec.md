@@ -56,3 +56,22 @@ SHALL arrive as the next prompt in the same session.
 
 - **WHEN** a later prompt carries the answer
 - **THEN** the agent continues the same task without re-asking
+
+### Requirement: A session that starts inside a checkout uses it
+
+When the session's working directory is already a checkout of the repository the
+issue names, the agent SHALL work in it and SHALL NOT clone a second copy inside it.
+When the directory belongs to another repository, the agent SHALL leave it and clone
+the named one under the workspace root.
+
+#### Scenario: The session starts in the right checkout
+
+- **WHEN** `git remote -v` in the working directory names the repository the issue names
+- **THEN** the agent fetches and cuts the branch there
+- **AND** it does not create a nested clone
+
+#### Scenario: The session starts in another repository's checkout
+
+- **WHEN** the working directory belongs to a different repository
+- **THEN** the agent clones the named repository under the workspace root
+- **AND** it leaves the current checkout untouched

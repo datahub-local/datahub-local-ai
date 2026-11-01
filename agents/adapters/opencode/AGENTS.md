@@ -58,10 +58,23 @@ two or three concrete options. Then stop the turn. The question reaches the owne
 on the issue and in Slack, and the answer comes back as the next prompt. Never
 wait inside a shell prompt, never pick an option yourself, and never ask twice.
 
-If the `question` tool itself fails, do not continue and do not guess: end the turn
-with a `BLOCKED` report that names the decision and the options. Hermes reads that
-line and puts the decision on the issue; a turn that keeps working after a failed
-question spends tokens on a direction nobody chose.
+## Your user notes
+
+OpenCode loads `~/.config/opencode/AGENTS.md` in every session, on top of this
+contract. In this Pod that file is `/opt/data/.config/opencode/AGENTS.md`: it is on
+the state volume, it survives a restart, and it is in no repository.
+
+Use it for what the owner tells you about how to work, across tasks:
+
+- append one dated line when a preference is stated, for example
+  `2026-11-01: pull request bodies in Spanish`;
+- remove a line when the owner reverses it, and never rewrite the file wholesale;
+- keep it to preferences. A secret, a token, an address or a fact about a project
+  belongs in the repository or the issue instead, because this file is not reviewed
+  and not in git.
+
+If it does not exist, create it when the first preference arrives. Do not invent a
+preference, and do not restate a rule a repository's own `AGENTS.md` already owns.
 
 ## Taskboard
 

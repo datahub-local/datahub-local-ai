@@ -5,7 +5,9 @@
 	# Resolved through PATH as /usr/local/bin/git-credential-opencode.
 	helper = git-credential-opencode
 [user]
-	name = datahub-local opencode-agent
-	email = opencode-agent@datahub.local
+	# The coder App's bot identity: GitHub links a commit to the bot only when the
+	# email is <app-id>+<slug>[bot]@users.noreply.github.com.
+	name = datahub-local-coder[bot]
+	email = 5570821+datahub-local-coder[bot]@users.noreply.github.com
 [init]
 	defaultBranch = main

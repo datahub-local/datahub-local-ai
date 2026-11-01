@@ -1,0 +1,9 @@
+#!/bin/sh
+# `gh` has no credential helper; the git helper does, and both must present the
+# same identity. Mint through the helper, then exec the real binary. `gh` reads
+# GH_TOKEN, and the helper answers from the minter on loopback.
+if [ -z "${GH_TOKEN:-}" ] && [ -z "${GITHUB_TOKEN:-}" ]; then
+  token=$(printf 'protocol=https\nhost=github.com\n\n' | git credential fill 2>/dev/null | sed -n 's/^password=//p')
+  [ -n "$token" ] && export GH_TOKEN="$token"
+fi
+exec /usr/local/bin/gh-real "$@"

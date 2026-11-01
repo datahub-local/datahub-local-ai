@@ -35,11 +35,16 @@ so the image is built here instead.
 | `git`, `bash`, `curl`, `openssh-client`, `ca-certificates` | base image | clone, push, fetch |
 | `jq`, `yq` | `ARG YQ_VERSION` (`jq` is Debian's) | inspect and edit workflow JSON/YAML |
 | `kubectl`, `helm`, `helmfile`, `kustomize` | `ARG …_VERSION` | render and inspect the helmfile releases |
-| `gh` | `ARG GH_VERSION` | pull requests, workflow runs |
+| `gh` | `ARG GH_VERSION` | pull requests, workflow runs. The `gh` on PATH is a wrapper: it asks the git credential helper for the App token and execs `gh-real` |
 | `node`, `npm` | base image | the platform's own scripts |
 | `python3`, `venv`, `pip` | base image (3.11) | system interpreter |
 | `uv` + managed Python 3.13 | `ARG UV_VERSION` | `datahub-local-ai-mcp` requires 3.13 |
 | `openspec` | `ARG OPENSPEC_VERSION` | `openspec validate --all`, part of the gate in three repositories |
+
+The agent authenticates as the coder GitHub App, never as a person: `gitconfig`
+carries the App's bot identity and noreply address, the credential helper mints an
+installation token through the minter sidecar on loopback, and `github-proxy.mjs`
+is the same minting shape for the manager side. No token or key is written to disk.
 
 `ansible`, `dbt`, `dlt` and every other project dependency are **not** here: they
 come from the checkout's lockfile via `uv sync`, which is the only version that

@@ -26,6 +26,8 @@
   adapter README, `router` first.
 - [x] 1.3b Add the "start inside a checkout" rule to the taskboard skill: reuse the
   working directory when it is the named repository, never clone inside it.
+- [x] 1.4b Add the `reviewer` subagent and the `review` skill: env-driven models,
+  read-only reviewer, the review posted on the pull request, two rounds maximum.
 - [ ] 1.5 Publish a new adapter image and re-pin its digest in
   `datahub-local-core/values/_version.yaml`.
 - [ ] 1.6 Confirm inside the live Pod that `/opt/opencode/AGENTS.md` and

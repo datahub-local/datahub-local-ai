@@ -53,9 +53,9 @@ machine-wide config from `/etc/opencode`, and git reads `/etc/gitconfig`.
 
 | Path | What it is |
 | --- | --- |
-| `/etc/opencode/opencode.json` | model, LiteLLM provider, MCP servers, skills path, permissions, `update: disable` |
+| `/etc/opencode/opencode.json` | model, LiteLLM provider, the `reviewer` subagent, MCP servers, skills path, permissions, `update: disable` |
 | `/opt/opencode/AGENTS.md` | the contract, referenced by `instructions` |
-| `/opt/opencode/skills/<name>/SKILL.md` | the detail, loaded on demand: `router` first, then `repo-map`, `taskboard`, `code-shape`, `testing`, `debugging`, `change-shape`, `ship-it`, `verify` |
+| `/opt/opencode/skills/<name>/SKILL.md` | the detail, loaded on demand: `router` first, then `repo-map`, `taskboard`, `code-shape`, `testing`, `debugging`, `change-shape`, `ship-it`, `review`, `verify` |
 | `/etc/gitconfig` | git identity and the credential helper |
 | `/usr/local/bin/git-credential-opencode` | answers git from `GITHUB_TOKEN`, else the minter |
 | `/usr/local/bin/opencode-minter.mjs` | GitHub App installation-token minter |

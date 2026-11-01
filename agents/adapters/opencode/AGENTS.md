@@ -69,7 +69,9 @@ writes to it: the Pod has no `project` token scope, and that is deliberate.
 3. Open the pull request in the repository that holds the change, with
    `Refs datahub-local/datahub-local#<n>` in the body.
 4. Comment the pull request URL on the issue.
-5. End with the report below.
+5. Run the `review` skill: the second model reviews the diff, the review goes on the
+   pull request, and you push what it finds.
+6. End with the report below.
 
 End every comment you write on an issue with `<!-- taskboard:agent -->`. The token
 posts under the owner's name, so the marker is the only thing that distinguishes a

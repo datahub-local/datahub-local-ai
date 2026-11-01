@@ -188,3 +188,43 @@ re-pinned, or workload synced, and SHALL NOT claim a step it did not observe.
 
 - **WHEN** the pull request is merged but the image is not rebuilt
 - **THEN** the report says the new code is not running yet
+
+### Requirement: A second model reviews the change before it is reported done
+
+After the gate passes and the pull request exists, and before reporting `DONE`, the
+agent SHALL invoke the `reviewer` subagent, which runs on a different model than the
+one that wrote the change, and SHALL post its findings on the pull request verbatim.
+The agent SHALL act on every finding, SHALL re-run the gate after fixing, and SHALL
+review at most twice. A finding it rejects SHALL be answered with the reason, in the
+report and on the pull request.
+
+#### Scenario: The reviewer finds a blocking bug
+
+- **WHEN** the review returns `VERDICT: changes-required`
+- **THEN** the agent fixes the blocking findings, re-runs the gate and pushes
+- **AND** it runs the reviewer once more
+
+#### Scenario: The reviewer approves
+
+- **WHEN** the review returns `VERDICT: approve`
+- **THEN** the agent posts it and reports `DONE`
+- **AND** it does not start a third round
+
+#### Scenario: The agent disagrees with a finding
+
+- **WHEN** the agent believes a finding is wrong
+- **THEN** it says why on the pull request and in the report
+- **AND** it does not silently ignore the finding
+
+### Requirement: The two models are configuration, not code
+
+The model that writes and the model that reviews SHALL come from environment
+variables read by the image's config (`OPENCODE_MODEL`, `OPENCODE_REVIEW_MODEL`), so
+changing either is a values change in `datahub-local-core` and a rollout, never an
+image rebuild.
+
+#### Scenario: The reviewer model changes
+
+- **WHEN** `OPENCODE_REVIEW_MODEL` is set to another declared model
+- **THEN** the next rollout reviews with it
+- **AND** no image is rebuilt

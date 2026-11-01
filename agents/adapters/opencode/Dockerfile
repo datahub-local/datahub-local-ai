@@ -155,6 +155,10 @@ RUN set -eux; \
     test -f /opt/opencode/skills/taskboard/SKILL.md; \
     test -f /opt/opencode/skills/change-shape/SKILL.md; \
     test -f /opt/opencode/skills/verify/SKILL.md; \
+    test -f /opt/opencode/skills/review/SKILL.md; \
+    jq -e '.model == "{env:OPENCODE_MODEL}"' /etc/opencode/opencode.json; \
+    jq -e '.agents.reviewer.model == "{env:OPENCODE_REVIEW_MODEL}"' /etc/opencode/opencode.json; \
+    jq -e '.agents.reviewer.mode == "subagent"' /etc/opencode/opencode.json; \
     test -f /opt/opencode/skills/code-shape/SKILL.md; \
     test -f /opt/opencode/skills/testing/SKILL.md; \
     test -f /opt/opencode/skills/debugging/SKILL.md; \

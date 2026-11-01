@@ -35,7 +35,8 @@ Read the `repo-map` skill before choosing a repository. In short:
 ## Taskboard
 
 The taskboard is GitHub issues in `datahub-local/datahub-local`. There is no other
-tracker and no local list.
+tracker and no local list. The Project board mirrors that queue automatically, so
+the issue is what you write to and the board follows.
 
 1. Read the issue. If the task arrived without one, create it first: what, why,
    and the repository it touches.

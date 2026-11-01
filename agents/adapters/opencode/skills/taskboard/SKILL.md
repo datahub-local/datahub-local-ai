@@ -8,6 +8,13 @@ description: Create, claim and close GitHub issues in the central taskboard, and
 Every task is a GitHub issue in `datahub-local/datahub-local`. That repository is
 the queue; the code and its pull requests live wherever the change is.
 
+The org's Project board at `https://github.com/orgs/datahub-local/projects/1`
+mirrors the queue. Membership is automatic: the project adds any issue carrying
+the `agent` label, server-side. Never call the Projects API from this Pod. The Pod
+has no `project` token scope, and it does not need one, because the issue is the
+record and the board is a view of it. If an issue must be added by hand, say so in
+the report and let the owner add it.
+
 ## Claiming a task
 
 1. `gh issue view <n> --repo datahub-local/datahub-local` and read the body and

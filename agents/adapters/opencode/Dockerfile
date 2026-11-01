@@ -43,7 +43,7 @@ ARG GH_VERSION=2.103.3
 # renovate: datasource=github-releases depName=astral-sh/uv
 ARG UV_VERSION=0.13.6
 # renovate: datasource=npm depName=@fission-ai/openspec
-ARG OPENSPEC_VERSION=1.13.1
+ARG OPENSPEC_VERSION=1.16.0
 
 # node:22-bookworm-slim carries node and npm for the platform's own scripts. The
 # rest are Debian's own builds; they are not version-pinned here because the base

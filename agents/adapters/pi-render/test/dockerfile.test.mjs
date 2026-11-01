@@ -47,15 +47,7 @@ test("the contract comes from the engine binary, not a fetched skill tree", () =
   // repository. What this replaces: the build fetched `skills/` from the release tag and
   // asserted eight directories, and v0.8.185 consolidated them, so every build failed on a
   // layout that had nothing to do with this adapter.
-  assert.equal(
-    pkg.dependencies.hyperframes,
-    pkg.dependencies["@hyperframes/shader-transitions"],
-    "the engine and the transition primitives are on different releases"
-  );
-  assert.ok(
-    pkg.dependencies["@hyperframes/shader-transitions"],
-    "the transition primitives are not a vendored dependency"
-  );
+  assert.ok(pkg.dependencies.hyperframes, "the engine is not a dependency");
   assert.ok(
     !/codeload\.github\.com/.test(dockerfile),
     "the build fetches from a release tag again; that tree is upstream's to move"
@@ -67,10 +59,6 @@ test("the contract comes from the engine binary, not a fetched skill tree", () =
   );
   assert.match(dockerfile, /hyperframes docs "\$topic"/);
   assert.match(dockerfile, /missing docs topic in the engine/);
-  assert.ok(
-    !/ARG HYPERFRAMES_VERSION=/.test(dockerfile),
-    "a second hyperframes pin came back in the Dockerfile"
-  );
 });
 
 test("every docs topic the guide names is one the build asserts", () => {

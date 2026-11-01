@@ -8,11 +8,10 @@
   Projects API, no `status:*` labels, marker on every comment, the agent opens the
   pull request, the owner is never paged by the agent.
 - [x] 1.4 `openspec validate --all` passes.
-- [x] 1.3a Add the working practices to `AGENTS.md`: smallest change, no
-  re-engineering, no compatibility shims, no drive-by edits, no destroying foreign
-  work, no echoed credentials, the repository's gate and never weakening it, tests
-  over behaviour, Conventional Commits, staged paths, generated files, and a
-  checkpoint rule.
+- [x] 1.3a Add `skills/practices/SKILL.md`: the shape of a change, tests, debugging,
+  git, comments and docs, the pre-pull-request read-through, and the checkpoint
+  rule. Keep `AGENTS.md` a router: four non-negotiables plus a pointer.
+- [x] 1.3c Assert the new skill in the Dockerfile and list it in the adapter README.
 - [x] 1.3b Add the "start inside a checkout" rule to the taskboard skill: reuse the
   working directory when it is the named repository, never clone inside it.
 - [ ] 1.5 Publish a new adapter image and re-pin its digest in

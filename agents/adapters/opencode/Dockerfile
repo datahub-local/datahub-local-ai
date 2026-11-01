@@ -142,6 +142,7 @@ RUN set -eux; \
     jq -e '.skills.paths | index("/opt/opencode/skills")' /etc/opencode/opencode.json; \
     jq -e '.mcp.servers.k8s' /etc/opencode/opencode.json; \
     test -f /opt/opencode/skills/repo-map/SKILL.md; \
+    test -f /opt/opencode/skills/practices/SKILL.md; \
     test "$(git config --get credential.helper)" = git-credential-opencode; \
     test "$(GITHUB_TOKEN=build-token git-credential-opencode get | sed -n 's/^password=//p')" = build-token; \
     node --check /usr/local/bin/opencode-minter.mjs; \

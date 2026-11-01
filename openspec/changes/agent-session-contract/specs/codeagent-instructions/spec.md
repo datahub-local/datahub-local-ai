@@ -76,6 +76,23 @@ the named one under the workspace root.
 - **THEN** the agent clones the named repository under the workspace root
 - **AND** it leaves the current checkout untouched
 
+### Requirement: Practice detail is a skill, and the contract routes to it
+
+The always-loaded contract SHALL state only the practices that cannot wait, and
+SHALL name the `practices` skill for the rest. A session that needs the detail
+SHALL load it before its first edit; a session that does not SHALL not pay for it.
+
+#### Scenario: A session reads one file and answers
+
+- **WHEN** the task needs no edit
+- **THEN** the contract alone is enough
+- **AND** the practice detail is never loaded
+
+#### Scenario: A session is about to edit
+
+- **WHEN** the task changes code, tests, values or documentation
+- **THEN** the agent loads the `practices` skill first
+
 ### Requirement: The smallest change that works is the default
 
 The agent SHALL prefer deletion to addition, SHALL reuse an existing pattern before

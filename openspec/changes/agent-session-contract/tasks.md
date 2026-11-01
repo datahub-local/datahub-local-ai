@@ -14,6 +14,9 @@
   `taskboard`.
 - [x] 1.3c Add a `router` skill: the moment-to-skill table, the load-when-the-moment-
   arrives rule, the disagreement order, and the skill-authoring rule.
+- [x] 1.3f Sharpen the OpenSpec trigger in `change-shape` (a documented capability
+  needs a delta; a fix does not) and add `openspec validate --all` to the
+  `datahub-local-core` and `datahub-local` gates in `verify`.
 - [x] 1.3e Turn `AGENTS.md` into a pointer: role, boundaries, report, the two rules
   that hold before a skill is loaded, and "load `router` first".
 - [x] 1.3d Assert each new skill in the Dockerfile and list all of them in the

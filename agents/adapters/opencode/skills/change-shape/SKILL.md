@@ -11,6 +11,11 @@ Create `openspec/changes/<kebab-id>/{proposal,design,tasks}.md` when the change 
 a new capability, a behaviour change, or multi-step work. One-line fixes, a
 version bump, a typo and a dependency update do not.
 
+Check `openspec/specs/` before deciding there is none: a capability that already
+has a spec and changes behaviour needs a delta, or the spec now describes the code
+as it used to be. A fix, a version bump, a typo and a dependency update need
+nothing, and the issue plus the pull request are the record for those.
+
 A change is a decision record, not a plan: keep the alternatives that lost and
 why, mark a task `[x]` as it lands rather than deleting it, and mark what you
 could not verify `[UNVERIFIED]` in place. Finished work is archived with

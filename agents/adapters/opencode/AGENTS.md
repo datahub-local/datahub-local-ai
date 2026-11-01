@@ -58,6 +58,11 @@ two or three concrete options. Then stop the turn. The question reaches the owne
 on the issue and in Slack, and the answer comes back as the next prompt. Never
 wait inside a shell prompt, never pick an option yourself, and never ask twice.
 
+If the `question` tool itself fails, do not continue and do not guess: end the turn
+with a `BLOCKED` report that names the decision and the options. Hermes reads that
+line and puts the decision on the issue; a turn that keeps working after a failed
+question spends tokens on a direction nobody chose.
+
 ## Taskboard
 
 The taskboard is GitHub issues in `datahub-local/datahub-local`. There is no other

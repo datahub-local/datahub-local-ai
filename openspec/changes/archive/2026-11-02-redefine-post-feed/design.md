@@ -23,7 +23,9 @@ Read off the export, the config and issue #109's measurements.
 company. That default is deliberate: a newly subscribed vendor feed keeps the short window rather
 than being treated as a slow writer and admitted stale. The feed list itself remains
 `datahub-local-core`'s; this file only classifies it, so the two cannot disagree about what is
-subscribed.
+subscribed. A platform profile shares its host with every other feed on the platform, so an entry
+may also name the feed URL; the URL is then the identity and the host alone still reads as a
+company, which keeps one platform from turning every feed on it into one person.
 
 ### D2. Cadence is a window, not a special case
 

@@ -17,6 +17,12 @@ balance.
 - **THEN** it is classified as a company
 - **AND** it keeps the company cadence window
 
+#### Scenario: A reference person on a shared platform
+
+- **WHEN** a reference person's feed shares its host with other feeds and names its feed URL
+- **THEN** only the feed with that URL is that person
+- **AND** the other feeds on the host stay companies
+
 #### Scenario: The balance is read
 
 - **WHEN** a reader wants the feed's expected mix
@@ -41,6 +47,12 @@ post admitted by the wider window is ranked as the older post it is.
 - **WHEN** a company's entry is older than the company window and inside the wider intake query
 - **THEN** it is dropped before ranking
 - **AND** the drop is counted against that feed as outside its window
+
+#### Scenario: A community entry older than the company window
+
+- **WHEN** a Hacker News story is older than the company window and inside the wider intake query
+- **THEN** it is dropped before ranking
+- **AND** the drop is counted against the community source as outside its window
 
 #### Scenario: A slow writer's post is not called fresh
 

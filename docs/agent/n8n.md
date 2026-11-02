@@ -1265,13 +1265,16 @@ kinds: a **company** (a subscribed Miniflux feed that is not a person), a **refe
 feed named in `reference_people` in `agents/n8n/datasets/curator_config.json`, currently 33 people
 across the three topics), or **community** (the Hacker News front page). The feed list stays in
 `datahub-local-core`; the config names which of those feeds are people, so it cannot subscribe a
-feed the cluster does not have.
+feed the cluster does not have. Matching is by feed host, which survives a writer linking to an
+external article; a platform profile shares that host with every other feed on the platform, so it
+also names `feed_url` and is matched by that instead. A feed not named is a company by default.
 
 **A person publishes more slowly, so the window is per kind.** Companies keep `lookback_days` (5);
 reference people get `person_lookback_days` (30). The Miniflux query is widened to the larger
 window and `fetch_candidates` drops a company entry older than `lookback_days` locally, so a vendor
-cannot ride in on a person's window. Recency still costs the older post at pre-rank: it is admitted
-as older, not passed off as fresh.
+cannot ride in on a person's window. Hacker News is the community kind, not a person, so its stories
+get the company window too and an older front-page story is dropped. Recency still costs the older
+post at pre-rank: it is admitted as older, not passed off as fresh.
 
 **Seattle Data Guy is the case that named the defect.** His newest item was 2026-10-15, 13 days
 before the run that produced #109, against a 5-day lookback. He therefore contributed zero

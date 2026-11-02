@@ -11,7 +11,7 @@ import os
 import shutil
 import subprocess
 import tempfile
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -249,6 +249,147 @@ def test_a_person_entry_outside_the_company_window_is_still_a_candidate():
     assert stats["per_feed"]["missing.example.com"]["absent_reason"] == "not subscribed"
 
 
+def test_a_hacker_news_story_outside_the_company_window_is_dropped():
+    parsed = _parsed(_config(sources={"hn_top": {"enabled": True, "min_points": 80, "limit": 40}}))
+    now = datetime.now(timezone.utc)
+    old = (now - timedelta(days=25)).isoformat().replace("+00:00", "Z")
+    fresh = (now - timedelta(hours=1)).isoformat().replace("+00:00", "Z")
+    http = _miniflux_http() + [
+        {
+            "url": "https://hn.algolia.com/api/v1/search_by_date",
+            "response": {
+                "hits": [
+                    {
+                        "objectID": "1",
+                        "url": "https://example.com/old-data-story",
+                        "title": "A data story from three weeks ago",
+                        "created_at": old,
+                        "points": 200,
+                        "num_comments": 30,
+                    },
+                    {
+                        "objectID": "2",
+                        "url": "https://example.com/fresh-data-story",
+                        "title": "A data pipeline story from today",
+                        "created_at": fresh,
+                        "points": 200,
+                        "num_comments": 30,
+                    },
+                ]
+            },
+        }
+    ]
+    items = _items(
+        _run(
+            _js("fetch_candidates"),
+            nodes={"parse_curator_config": [parsed]},
+            env={
+                "MINIFLUX_URL": "http://miniflux.local",
+                "MINIFLUX_API_USER": "u",
+                "MINIFLUX_API_PASSWORD": "p",
+            },
+            http=http,
+        )
+    )
+    urls = {i["url"] for i in items}
+    assert "https://example.com/fresh-data-story" in urls
+    assert "https://example.com/old-data-story" not in urls
+    stats = items[0]["_fetch_stats"]
+    assert stats["per_feed"]["hn"]["in_window"] == 1
+    assert stats["per_feed"]["hn"]["out_of_window"] == 1
+
+
+def test_a_platform_person_is_matched_by_feed_url_not_its_shared_host():
+    cfg = _config(
+        reference_people=[
+            {
+                "name": "Cindy Sridharan",
+                "feed": "medium.com",
+                "feed_url": "medium.com/feed/@copyconstruct",
+                "category": "Data",
+            }
+        ]
+    )
+    parsed = _parsed(cfg)
+    assert parsed["reference_people"][0]["feed_url"] == "medium.com/feed/@copyconstruct"
+    fresh = "2026-11-01T12:00:00.000Z"
+    http = [
+        {"url": "http://miniflux.local/v1/categories", "response": [{"id": 1, "title": "Data"}]},
+        {
+            "url": "http://miniflux.local/v1/feeds",
+            "response": [
+                {
+                    "id": 1,
+                    "feed_url": "https://medium.com/feed/@copyconstruct",
+                    "title": "copyconstruct",
+                    "category": {"id": 1, "title": "Data"},
+                },
+                {
+                    "id": 2,
+                    "feed_url": "https://medium.com/feed/@somecompany",
+                    "title": "Some Company",
+                    "category": {"id": 1, "title": "Data"},
+                },
+            ],
+        },
+        {
+            "url": "http://miniflux.local/v1/entries",
+            "category_id": 1,
+            "response": {
+                "total": 2,
+                "entries": [
+                    {
+                        "id": 21,
+                        "url": "https://medium.com/@copyconstruct/a-data-essay",
+                        "title": "A data essay from a person",
+                        "published_at": fresh,
+                        "content": "<p>data</p>",
+                        "feed": {
+                            "id": 1,
+                            "feed_url": "https://medium.com/feed/@copyconstruct",
+                            "title": "copyconstruct",
+                            "category": {"id": 1, "title": "Data"},
+                        },
+                    },
+                    {
+                        "id": 22,
+                        "url": "https://medium.com/@somecompany/a-data-post",
+                        "title": "A data post from a company",
+                        "published_at": fresh,
+                        "content": "<p>data</p>",
+                        "feed": {
+                            "id": 2,
+                            "feed_url": "https://medium.com/feed/@somecompany",
+                            "title": "Some Company",
+                            "category": {"id": 1, "title": "Data"},
+                        },
+                    },
+                ],
+            },
+        },
+    ]
+    items = _items(
+        _run(
+            _js("fetch_candidates"),
+            nodes={"parse_curator_config": [parsed]},
+            env={
+                "MINIFLUX_URL": "http://miniflux.local",
+                "MINIFLUX_API_USER": "u",
+                "MINIFLUX_API_PASSWORD": "p",
+            },
+            http=http,
+        )
+    )
+    by_url = {i["url"]: i for i in items}
+    person = by_url["https://medium.com/@copyconstruct/a-data-essay"]
+    company = by_url["https://medium.com/@somecompany/a-data-post"]
+    assert person["source_kind"] == "person"
+    assert person["source_key"] == "medium.com/feed/@copyconstruct"
+    assert company["source_kind"] == "company"
+    assert company["source_key"] == "medium.com"
+    assert items[0]["_fetch_stats"]["per_feed"]["medium.com"]["kind"] == "company"
+
+
 def test_a_blocklisted_title_is_attributed_to_its_feed():
     parsed = _parsed(_config())
     base = {
@@ -405,6 +546,16 @@ def test_admission_reports_the_mix_by_kind():
         "source_kind": "company",
         "source_name": "Vendor",
     }
+    community = {
+        **person,
+        "cid": "c3",
+        "url": "https://example.com/hn-story",
+        "title": "A data story from the front page",
+        "host": "example.com",
+        "source_key": "hn",
+        "source_kind": "community",
+        "source_name": "Hacker News front page",
+    }
     pick_stats = {
         "per_feed": {
             "slow.example.com": {"name": "Slow Person", "kind": "person", "pool": 1, "finalists": 1},
@@ -427,13 +578,15 @@ def test_admission_reports_the_mix_by_kind():
                 "read_articles_sheet": [],
                 "pick_finalists": [{"_stats": pick_stats}],
             },
-            input_=[person, company],
+            input_=[person, company, community],
         )
     )
-    assert len(rows) == 2
+    assert len(rows) == 3
     stats = rows[0]["_stats"]
     assert stats["admitted_by_kind"]["person"] == 1
     assert stats["admitted_by_kind"]["company"] == 1
+    assert stats["admitted_by_kind"]["community"] == 1
+    # HN is neither a company nor a person, so it must not dilute the person share.
     assert stats["person_share_admitted"] == 0.5
     assert stats["per_feed"]["slow.example.com"]["admitted"] == 1
 

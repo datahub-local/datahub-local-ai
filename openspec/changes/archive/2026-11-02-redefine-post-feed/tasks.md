@@ -9,7 +9,10 @@
 - [x] 1.3 `parse_curator_config`: parse the person list, the person window and the balance, derive
   `person_feeds` and `max_lookback_days`, and widen `published_after`.
 - [x] 1.4 `fetch_candidates`: tag each Miniflux entry `person` or `company` by feed host, apply the
-  per-kind window locally, and tag Hacker News `community`.
+  per-kind window locally, tag Hacker News `community`, and apply the company window to it locally
+  because the widened intake query is not its window.
+- [x] 1.5 `parse_curator_config` and `fetch_candidates`: match a platform profile by its optional
+  `feed_url`, so a shared host cannot make every feed on the platform one person.
 
 ## 2. The balance
 
@@ -30,9 +33,10 @@
 ## 4. Proof
 
 - [x] 4.1 `scripts/test_post_feed_mix.py`: the config names the people, the person window admits an
-  older person entry and not an older company entry, a blocklisted title is attributed to its feed,
-  the pool keeps a person against higher-ranked companies, admission reports the mix, and the digest
-  names an absent person and its stage.
+  older person entry and not an older company entry, the community window drops an older Hacker News
+  story, a platform person is matched by feed URL not host, a blocklisted title is attributed to its
+  feed, the pool keeps a person against higher-ranked companies, admission reports the mix without a
+  community row diluting it, and the digest names an absent person and its stage.
 - [x] 4.2 `uv run -- pytest agents/n8n/scripts/ -q` passes.
 - [x] 4.3 `openspec validate --all` passes.
 

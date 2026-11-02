@@ -39,7 +39,35 @@ fs.writeFileSync("out.png", Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1
 fs.writeFileSync("review-1.png", Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
 fs.writeFileSync("prompt.txt", process.argv.at(-1) || "");
 fs.writeFileSync("args.log", process.argv.slice(2).join("\\n"));
+fs.writeFileSync("env.log", process.env.HTTPS_PROXY || "none");
 fs.appendFileSync("prompts.log", (process.argv.at(-1) || "") + "\\n---TURN---\\n");
+// The article profile: the same binary, a different contract. It is chosen from the
+// prompt the server built, which is the only signal a real turn has too.
+if ((process.argv.at(-1) || "").includes("article.md")) {
+  fs.writeFileSync("article.md", "## Install\\n\\n" + "\\u0060\\u0060\\u0060bash\\nhelm upgrade --install probe ./chart\\n\\u0060\\u0060\\u0060\\n");
+  fs.writeFileSync("sources.json", JSON.stringify({ sources: [
+    { block: "helm upgrade --install probe ./chart", url: "http://127.0.0.1:9/page" },
+    { block: "helm upgrade --install probe ./chart", url: "https://source.invalid/page" }
+  ] }));
+}
+// The proxy is enforcement, not instruction: a tool that connects to a host off the
+// list must be refused by the proxy itself, so the turn records the reply it got.
+if ((process.argv.at(-1) || "").includes("PROXY_PROBE")) {
+  const net = require("node:net");
+  const proxy = new URL(process.env.HTTPS_PROXY || "http://127.0.0.1:1");
+  const socket = net.connect(Number(proxy.port), proxy.hostname, () => {
+    socket.write("CONNECT blocked.example:443 HTTP/1.1\\r\\nHost: blocked.example:443\\r\\n\\r\\n");
+  });
+  socket.on("data", (d) => {
+    fs.writeFileSync("proxy.log", String(d).split("\\n")[0]);
+    socket.destroy();
+    process.exit(0);
+  });
+  socket.on("error", (e) => {
+    fs.writeFileSync("proxy.log", "ERROR " + e.message);
+    process.exit(4);
+  });
+}
 // A format change needs a render ffmpeg can read; the eight-byte header above is only
 // enough for the paths that must NOT transcode. The test that asks for png says so.
 if ((process.argv.at(-1) || "").includes("VALID_MP4")) {
@@ -117,6 +145,7 @@ before(async () => {
       SYMPOZIUM_WORKSPACE: workspace,
       SYMPOZIUM_VENDOR_DIR: vendor,
       SYMPOZIUM_SESSION_PORT: String(port),
+      PI_RENDER_PROMPT_DIR: join(fileURLToPath(new URL("..", import.meta.url)), "prompts"),
       SYMPOZIUM_HARNESS_CONTRACT_VERSION: "v1alpha2",
       MODEL_NAME: "stub",
       MODEL_BASE_URL: gatewayBase,
@@ -125,6 +154,10 @@ before(async () => {
     stdio: ["ignore", "pipe", "pipe"],
   });
   child.stderr.on("data", (chunk) => {
+    serverLog += chunk.toString();
+  });
+  // Refusals are logged to stdout, and the test reads them from the same buffer.
+  child.stdout.on("data", (chunk) => {
     serverLog += chunk.toString();
   });
   await startGateway(gatewayPort);
@@ -377,4 +410,123 @@ test("a still png type hands back its artifact as the still", { skip: !hasFfmpeg
   const body = await res.json();
   assert.deepEqual(body.stills, ["out.png"]);
   assert.equal((await fetch(`${base}/artifacts/run_png/out.png`)).status, 200);
+});
+
+test("a turn with no profile is a render, and an unknown profile is refused by name", async () => {
+  // Render is the default because an existing caller sends no profile. A typo must be a
+  // refusal, not a render: serving the wrong kind of artifact silently is the failure this
+  // check exists for.
+  const refused = await fetch(`${base}/v1/chat/completions`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      messages: [{ role: "user", content: "make a card" }],
+      session_id: "run_bad_profile",
+      profile: "artical",
+    }),
+  });
+  assert.equal(refused.status, 400);
+  assert.match((await refused.json()).error.message, /unknown profile "artical"/);
+
+  const prompt = await readFile(join(workspace, "runs", "run_a", "prompt.txt"), "utf8");
+  assert.ok(prompt.includes("Write the composition to `index.html`"), "an absent profile is a render");
+  assert.ok(!prompt.includes("article.md"), "an absent profile is not an article turn");
+});
+
+test("an article turn writes both files and returns the ledger the server verified", async () => {
+  const res = await fetch(`${base}/v1/chat/completions`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      messages: [{ role: "user", content: "write about installing the release" }],
+      session_id: "article-1",
+      profile: "article",
+      source_hosts: ["github.com"],
+    }),
+  });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.article.name, "article.md");
+  assert.equal(body.article.ledger, "sources.json");
+  assert.deepEqual(body.stills, [], "an article turn has no stills");
+  // Neither entry survives: one is http, the other names a host the caller did not declare.
+  // The server is the authority on both, and it rewrites the file rather than reporting.
+  assert.equal(body.article.sources, 0);
+  assert.equal(body.article.quoted, 0);
+  assert.equal(body.article.dropped.length, 2);
+  assert.ok(body.article.dropped.some((entry) => /not https/.test(entry.reason)), JSON.stringify(body.article.dropped));
+  assert.ok(
+    body.article.dropped.some((entry) => /not a declared source host/.test(entry.reason)),
+    JSON.stringify(body.article.dropped)
+  );
+
+  const article = await fetch(`${base}/artifacts/article-1/article.md`);
+  assert.equal(article.status, 200);
+  assert.equal(article.headers.get("content-type"), "text/markdown; charset=utf-8");
+  assert.match(await article.text(), /helm upgrade --install probe/);
+  const ledger = await fetch(`${base}/artifacts/article-1/sources.json`);
+  assert.equal(ledger.status, 200);
+  assert.equal(ledger.headers.get("content-type"), "application/json; charset=utf-8");
+  assert.deepEqual(await ledger.json(), { sources: [] }, "the server's rewrite is what n8n reads");
+});
+
+test("the allowlist reaches the article instruction, and the proxy is set only for the turn", async () => {
+  const prompt = await readFile(join(workspace, "runs", "article-1", "prompt.txt"), "utf8");
+  assert.ok(prompt.includes("443 to github.com"), "the instruction names the declared hosts");
+  assert.ok(!prompt.includes("{{ ARTICLE_SOURCE_HOSTS }}"), "the placeholder is filled");
+  assert.match(await readFile(join(workspace, "runs", "article-1", "env.log"), "utf8"), /^http:\/\/127\.0\.0\.1:/);
+
+  const render = await fetch(`${base}/v1/chat/completions`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "make a card" }], session_id: "run_after_article" }),
+  });
+  assert.equal(render.status, 200);
+  assert.equal(
+    await readFile(join(workspace, "runs", "run_after_article", "env.log"), "utf8"),
+    "none",
+    "the proxy must not be left set for the next turn"
+  );
+});
+
+test("a second article turn is a correction in the same session", async () => {
+  const res = await fetch(`${base}/v1/chat/completions`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      messages: [{ role: "user", content: "drop the second command" }],
+      session_id: "article-1",
+      profile: "article",
+      source_hosts: ["github.com"],
+      attempt: 2,
+    }),
+  });
+  assert.equal(res.status, 200);
+  const prompt = await readFile(join(workspace, "runs", "article-1", "prompt.txt"), "utf8");
+  assert.ok(prompt.includes("earlier turn"), "the retry edits the article in place");
+  assert.ok(prompt.includes("re-reading only what it names"), "the retry does not re-read everything");
+  assert.ok(prompt.includes("drop the second command"), "the reviewer's reason reaches the turn");
+});
+
+test("a host off the list is refused through the proxy and the refusal is logged", async () => {
+  // The proxy is the enforcement: the instruction names the hosts, but a tool that ignores
+  // it still has to get through here. The stub issues a real CONNECT and records the reply.
+  const res = await fetch(`${base}/v1/chat/completions`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      messages: [{ role: "user", content: "PROXY_PROBE install the release" }],
+      session_id: "article-proxy",
+      profile: "article",
+      source_hosts: ["github.com"],
+    }),
+  });
+  assert.equal(res.status, 200);
+  const reply = await readFile(join(workspace, "runs", "article-proxy", "proxy.log"), "utf8");
+  assert.match(reply, /403/, `the proxy answered ${reply}`);
+  const deadline = Date.now() + 2000;
+  while (Date.now() < deadline && !/refused blocked\.example/.test(serverLog)) {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  assert.match(serverLog, /refused blocked\.example through the article proxy: host blocked\.example is not a declared source host/);
 });

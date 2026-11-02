@@ -37,6 +37,10 @@ different memory profiles, different durations and different retention, and shar
 mean one TTL for both — the render session is swept at seven days and is sized for a Chromium, which
 an article does not need.
 
+**As landed:** the deployment reuses `sympozium_pi_render`'s image and digest through a `required`
+read rather than defining a second pair in `sympozium_article_writer`. One image is the decision;
+two pins in values would be a second thing to keep in step.
+
 ### D3. The n8n contract does not move
 
 `Article Creator` keeps its trigger inputs and its answer (`text`, `title`, `word_count`, `ERROR`).
@@ -93,6 +97,11 @@ Two checks, deliberately independent: the server records `found` and the `sha256
 block it matched, and `parse_article` compares the article's block against that hash. An edit that
 changes a block without touching the ledger then fails at n8n, not at the server.
 
+**As landed:** the n8n Code node compares the normalised block to the `excerpt` the server hashed,
+not to `sha256`. A Code node cannot `require('crypto')`, and the excerpt is the page text whose
+normalised form is the hash input, so the two checks are equivalent without a second hash
+implementation. The server keeps writing `sha256` for a reader of the ledger.
+
 ### D9. The ledger is persisted on the row
 
 `article_queue.SOURCES` carries the ledger JSON. The improvement pass runs in a later execution and
@@ -115,6 +124,12 @@ ledger re-fetch.
 
 Hosts come from `ARTICLE_SOURCE_HOSTS` in values — `github.com`, `raw.githubusercontent.com`, the
 project's docs host — because the set is a property of what the fleet writes about, not of the code.
+
+**As landed:** `AgentRuntime.spec` carries no `env`, and `Agent.spec.agents.default.env` does not
+reach a session pod, so a values knob cannot set the variable the proxy reads. The hosts therefore
+ride on each request as `source_hosts` from n8n's `SOURCE_HOSTS` variable, and the image carries
+`DEFAULT_ARTICLE_SOURCE_HOSTS` for a caller that names none. The values block has no `sourceHosts`
+because it would be dead config.
 **The proxy is the one piece of this change with no precedent in the repo**, and a proxy that misses
 a client (a tool not honouring `HTTPS_PROXY`) is a hole rather than a limit; it is called out in the
 risks.
@@ -128,8 +143,14 @@ rejects a fence whose ledger entry says the validation failed — the article ma
 session knows is broken.
 
 This is the middle option on purpose: it catches malformed YAML without a cluster, and it does not
-pretend to prove a command runs. `kubectl apply --dry-run=client` validates locally; `helm template`
-needs no server. Roughly 100 MB of binaries for that.
+pretend to prove a command runs. `helm template` needs no server. Roughly 100 MB of binaries for
+that.
+
+**As landed:** `kubectl apply --dry-run=client` is not an offline validator in this version: a
+client dry-run still needs API discovery to resolve the resource, so it fails without a cluster.
+`helm template` is the validator the prompts name for a manifest, and no prompt offers `kubectl` as
+one; the image test asserts `kubectl` is present for the session's own attempts rather than relying
+on it for the gate.
 
 ### D12. A retry is a correction turn
 

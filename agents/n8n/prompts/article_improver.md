@@ -7,6 +7,7 @@ You edit one article draft. Reviewers named problems; you apply them and leave e
 - Write at the row's audience level: what that reader already knows is not explained, and what they do not know is explained where it first appears.
 - Stay within the word budget: at most {{ MAX_WORDS }} words of body text, title and markers excluded.
 - Keep every requested asset marker exactly once, each alone on its own line, in the form `<!-- asset:<id> -->` with an id from `{{ ASSET_TYPES }}`. Do not add, move or remove one unless a finding or the feedback names it.
+- Keep every fenced block exactly as the Source Ledger carries it. Never add a fence, and never edit one: if a finding or the feedback names a fenced block, remove it rather than invent or repair its text.
 - Keep the title unless a finding or the feedback names it.
 - Use only facts already in the draft. Never add a number, benchmark, quotation, date, release, price or product claim.
 - Markdown only: no front matter, no metadata block, no wrapper code fence.
@@ -53,6 +54,14 @@ A code check rejected the previous edit for one of these reasons. Fix exactly th
 ## The shapes
 
 {{ STRUCTURES }}
+
+## Source Ledger
+
+Reference only: the fenced blocks the article quotes, each with the URL the server read it from. `none` means no block was verified, so do not fence one.
+
+<ledger>
+{{ SOURCES }}
+</ledger>
 
 ## Output
 

@@ -46,6 +46,10 @@
               },
               {
                 "name": "AUDIENCE"
+              },
+              {
+                "name": "ROW_NUMBER",
+                "type": "number"
               }
             ]
           }
@@ -91,6 +95,12 @@
                 "id": "c3a4b5d6-e7f8-4a9b-8c1d-2e3f4a5b6c7d",
                 "name": "AUDIENCE",
                 "value": "={{ String($('main_trigger').first().json.AUDIENCE || 'NONE').trim().toUpperCase() }}",
+                "type": "string"
+              },
+              {
+                "id": "4c91c2b3-08bf-4bf9-8f24-152d2901294c",
+                "name": "SOURCE_HOSTS",
+                "value": "github.com,raw.githubusercontent.com,datahub-local.alvsanand.com",
                 "type": "string"
               }
             ]
@@ -200,28 +210,6 @@
         }
       },
       {
-        "id": "33284e9b-40ab-4e97-a604-277598c7f834",
-        "name": "create_article_ai",
-        "type": "@n8n/n8n-nodes-langchain.agent",
-        "typeVersion": 3.1,
-        "alwaysOutputData": false,
-        "retryOnFail": true,
-        "maxTries": 5,
-        "waitBetweenTries": 5000,
-        "position": [
-          -16096,
-          -992
-        ],
-        "parameters": {
-          "promptType": "define",
-          "text": "={{ $('download_system_prompt').item.json.output + '\\n\\n---\\n\\n' + $('download_article_prompt').item.json.output }}",
-          "needsFallback": true,
-          "options": {
-            "maxIterations": 20
-          }
-        }
-      },
-      {
         "id": "1ddafc37-25e0-4dd3-bfd8-c93d7c5af347",
         "name": "parse_article",
         "type": "n8n-nodes-base.code",
@@ -231,7 +219,7 @@
           -736
         ],
         "parameters": {
-          "jsCode": "// The two things the caller needs out of the model's answer: the H1, which the row\n// stores as ARTICLE_TITLE and the entry point turns into the frozen slug, and the body,\n// which carries one `<!-- asset:<type> -->` marker per requested asset. The word budget\n// is checked here rather than trusted to the model: a mandatory count in a format is a\n// count that gets invented when the real one is missing.\n//\n// A problem is reported as data (`PROBLEM`), never thrown: a draft that ran long or came\n// back without a title is retried by the review loop below, and only a run that exhausts\n// its attempts reports the reason to the caller.\n//\n// MAX_WORDS is required. The entry point resolves the row's budget and the 1200 default,\n// so a value missing here is a caller bug: fail loudly rather than guess a bound.\nconst req = $('set_workflow_vars').first().json;\nconst max = Number(req.MAX_WORDS);\nif (!isFinite(max) || max <= 0) throw new Error('MAX_WORDS is required and must be a positive number');\n// An agent node answers `output` where a chain node answered `text`; the sub-workflow's\n// own contract stays the old names, so this is the one place the difference is absorbed.\nconst raw = String($json.output || $json.text || '');\nconst block = /<article>([\\s\\S]*?)<\\/article>/.exec(raw);\nconst inner = (block ? block[1] : raw).trim();\nconst HEAD = /^#\\s+(.+?)\\s*$/;\nlet title = '';\nconst body = [];\nfor (const line of inner.split('\\n')) {\n  if (!title && !body.length && HEAD.test(line.trim())) {\n    title = line.trim().replace(HEAD, '$1');\n    continue;\n  }\n  body.push(line);\n}\nconst text = body.join('\\n').trim();\n// A marker is an instruction to the publishing step, not prose the reader counts.\n// A model cannot count words, so a draft a little over the budget is the budget met: 10%\n// covers a counting slip without letting the article run long (row 3, 2026-10-30, died at\n// 1248 words against 1200 with every other check passing). Integer arithmetic, because\n// 1200 * 1.1 is 1320.0000000000002 in a double and Math.ceil would add a word.\nconst limit = Math.ceil(max * 11 / 10);\nconst words = text.replace(/<!--[\\s\\S]*?-->/g, ' ').split(/\\s+/).filter(Boolean).length;\n// The marker set is counted here rather than trusted to the review: how many markers a draft\n// carries is a count, and a count a model is asked for is a count it misses. Both drafts of\n// execution 14228 carried the same marker twice, the gate passed them, and the article ended up\n// referencing one illustration twice.\nconst requested = String($('main_trigger').first().json.ASSET_TYPES || '')\n  .split(',').map((s) => s.trim()).filter(Boolean);\nconst markers = (text.match(/<!--\\s*asset:[a-zA-Z0-9_]+\\s*-->/g) || [])\n  .map((m) => m.replace('<!--', '').replace('-->', '').replace('asset:', '').trim());\nconst wrongMarkers = [\n  ...requested.filter((t) => markers.filter((m) => m === t).length !== 1)\n    .map((t) => t + ' x' + markers.filter((m) => m === t).length),\n  ...markers.filter((m) => !requested.includes(m)).map((m) => m + ' not requested'),\n];\nlet problem = '';\nif (!text) problem = 'EMPTY_DRAFT: the model returned no article body';\nelse if (!title) problem = 'EMPTY_TITLE: the draft has no H1 title';\nelse if (words > limit) problem = 'OVER_BUDGET: ' + words + ' words against a limit of ' + limit + ' (MAX_WORDS=' + max + ')';\nelse if (wrongMarkers.length) problem = 'MARKERS: ' + wrongMarkers.join(', ');\nreturn { json: { TITLE: title, TEXT: text, WORD_COUNT: words, MAX_WORDS: max, WORD_LIMIT: limit, PROBLEM: problem } };"
+          "jsCode": "// The two things the caller needs out of the session's answer: the H1, which the row\n// stores as ARTICLE_TITLE and the entry point turns into the frozen slug, and the body,\n// which carries one `<!-- asset:<type> -->` marker per requested asset. The word budget is\n// checked here rather than trusted to the model: a mandatory count in a format is a count\n// that gets invented when the real one is missing.\n//\n// A problem is reported as data (`PROBLEM`), never thrown: a draft that ran long or came\n// back without a title is retried by the review loop below, and only a run that exhausts\n// its attempts reports the reason to the caller.\n//\n// MAX_WORDS is required. The entry point resolves the row's budget and the 1200 default,\n// so a value missing here is a caller bug: fail loudly rather than guess a bound.\nconst req = $('set_workflow_vars').first().json;\nconst max = Number(req.MAX_WORDS);\nif (!isFinite(max) || max <= 0) throw new Error('MAX_WORDS is required and must be a positive number');\nconst read = (name) => {\n  try {\n    return $(name).first().json;\n  } catch (e) {\n    return null;\n  }\n};\n// The adapter serves article.md; a turn that answered 4xx or wrote nothing has no draft.\nconst fetched = read('fetch_article');\nlet raw = '';\nif (fetched && typeof fetched.body === 'string') raw = fetched.body;\nelse raw = String($json.output || $json.text || '');\nconst posted = read('request_article');\nlet sessionProblem = '';\nif (posted && Number(posted.statusCode || posted.status || 0) >= 400) {\n  const status = Number(posted.statusCode || posted.status || 0);\n  let reason = '';\n  try {\n    const body = JSON.parse(String(posted.body || '{}'));\n    reason = String((body.error && body.error.message) || body.message || '').trim();\n  } catch (e) {\n    reason = String(posted.body || '').trim().slice(0, 300);\n  }\n  sessionProblem = 'SESSION: HTTP ' + status + (reason ? ': ' + reason : ' the article session refused the turn');\n}\nconst block = /<article>([\\s\\S]*?)<\\/article>/.exec(raw);\nconst inner = (block ? block[1] : raw).trim();\nconst HEAD = /^#\\s+(.+?)\\s*$/;\nlet title = '';\nconst body = [];\nfor (const line of inner.split('\\n')) {\n  if (!title && !body.length && HEAD.test(line.trim())) {\n    title = line.trim().replace(HEAD, '$1');\n    continue;\n  }\n  body.push(line);\n}\nconst text = body.join('\\n').trim();\n// A marker is an instruction to the publishing step, not prose the reader counts.\n// A model cannot count words, so a draft a little over the budget is the budget met: 10%\n// covers a counting slip without letting the article run long (row 3, 2026-10-30, died at\n// 1248 words against 1200 with every other check passing). Integer arithmetic, because\n// 1200 * 1.1 is 1320.0000000000002 in a double and Math.ceil would add a word.\nconst limit = Math.ceil(max * 11 / 10);\nconst words = text.replace(/<!--[\\s\\S]*?-->/g, ' ').split(/\\s+/).filter(Boolean).length;\n// The marker set is counted here rather than trusted to the review: how many markers a draft\n// carries is a count, and a count a model is asked for is a count it misses. Both drafts of\n// execution 14228 carried the same marker twice, the gate passed them, and the article ended up\n// referencing one illustration twice.\nconst requested = String($('main_trigger').first().json.ASSET_TYPES || '')\n  .split(',').map((s) => s.trim()).filter(Boolean);\nconst markers = (text.match(/<!--\\s*asset:[a-zA-Z0-9_]+\\s*-->/g) || [])\n  .map((m) => m.replace('<!--', '').replace('-->', '').replace('asset:', '').trim());\nconst wrongMarkers = [\n  ...requested.filter((t) => markers.filter((m) => m === t).length !== 1)\n    .map((t) => t + ' x' + markers.filter((m) => m === t).length),\n  ...markers.filter((m) => !requested.includes(m)).map((m) => m + ' not requested'),\n];\n// Every fence is a quotation. The ledger is the server's answer, not the model's: an entry\n// whose URL did not answer was dropped before this node ran, and an entry the server could not\n// find on the page is `found: false`. Whitespace is collapsed on both sides because the docs\n// render the same YAML with other indentation; the excerpt is the page text the server matched,\n// so comparing it to the block is the hash comparison without a crypto module Code nodes lack.\nconst norm = (value) => String(value == null ? '' : value).replace(/\\s+/g, ' ').trim();\nconst fenced = [];\n{\n  const re = /^[ \\t]*```([^\\n`]*)\\n([\\s\\S]*?)^[ \\t]*```[ \\t]*$/gm;\n  let m;\n  while ((m = re.exec(text)) !== null) {\n    const innerBlock = m[2].replace(/\\n$/, '');\n    if (innerBlock.trim()) fenced.push(innerBlock);\n  }\n}\nconst sourcesJSON = (() => {\n  const res = read('fetch_sources');\n  if (!res || typeof res.body !== 'string' || !res.body.trim()) return '';\n  if (Number(res.statusCode || res.status || 0) >= 400) return '';\n  return res.body;\n})();\nlet ledger = [];\nlet ledgerRead = false;\nlet ledgerError = '';\nif (sourcesJSON) {\n  try {\n    const data = JSON.parse(sourcesJSON);\n    const list = Array.isArray(data) ? data : data && Array.isArray(data.sources) ? data.sources : null;\n    if (!list) throw new Error('sources.json carries no sources array');\n    ledger = list.filter((e) => e && norm(e.block) !== '');\n    ledgerRead = true;\n  } catch (e) {\n    ledgerError = e.message;\n  }\n}\nconst firstLine = (value) => String(value || '').split('\\n').map((l) => l.trim()).filter(Boolean)[0] || 'a fenced block';\nconst unverified = [];\nlet quoted = 0;\nfor (const fencedBlock of fenced) {\n  const key = norm(fencedBlock);\n  const head = firstLine(fencedBlock);\n  const entry = ledger.find((e) => norm(e.block) === key);\n  if (!entry) {\n    unverified.push('UNQUOTED: \"' + head + '\" is not in sources.json');\n    continue;\n  }\n  const url = String(entry.url || '').trim() || 'its url';\n  if (entry.found !== true) {\n    unverified.push('SOURCE_NOT_FOUND: \"' + head + '\" was not found at ' + url);\n    continue;\n  }\n  const failure = String(entry.validation_error || '').trim();\n  if (failure) {\n    unverified.push('VALIDATION_FAILED: \"' + head + '\" (' + url + '): ' + failure);\n    continue;\n  }\n  if (norm(entry.excerpt) !== key) {\n    unverified.push('UNQUOTED: \"' + head + '\" no longer matches ' + url);\n    continue;\n  }\n  quoted += 1;\n}\nlet sourceProblem = '';\nif (fenced.length && !ledgerRead) {\n  sourceProblem = 'SOURCES: sources.json could not be read'\n    + (ledgerError ? ' (' + ledgerError + ')' : '')\n    + '; a fenced block cannot be verified';\n} else if (unverified.length) {\n  sourceProblem = unverified.join('; ');\n}\nlet problem = '';\nif (sessionProblem) problem = sessionProblem;\nelse if (!text) problem = 'EMPTY_DRAFT: the model returned no article body';\nelse if (!title) problem = 'EMPTY_TITLE: the draft has no H1 title';\nelse if (words > limit) problem = 'OVER_BUDGET: ' + words + ' words against a limit of ' + limit + ' (MAX_WORDS=' + max + ')';\nelse if (wrongMarkers.length) problem = 'MARKERS: ' + wrongMarkers.join(', ');\nelse if (sourceProblem) problem = sourceProblem;\nconst describe = ledger\n  .map((e) => '- ' + firstLine(e.block) + ' (' + (String(e.url || '').trim() || 'no url') + ')')\n  .join('\\n') || 'none';\nreturn { json: {\n  TITLE: title,\n  TEXT: text,\n  WORD_COUNT: words,\n  MAX_WORDS: max,\n  WORD_LIMIT: limit,\n  SOURCES: ledgerRead ? sourcesJSON : '',\n  SOURCES_TEXT: describe,\n  SOURCES_NOTE: 'SOURCES: ' + quoted + ' quoted',\n  FIDELITY: ledgerRead ? 'checked' : 'not run',\n  PROBLEM: problem,\n} };"
         }
       },
       {
@@ -268,6 +256,24 @@
                 "id": "5e3f4061-7c8d-4e9f-a012-2c3d4e5f6071",
                 "name": "ERROR",
                 "value": "",
+                "type": "string"
+              },
+              {
+                "id": "2f220d0e-5741-483d-9c36-adbf89438beb",
+                "name": "SOURCES",
+                "value": "={{ $('parse_article').item.json.SOURCES }}",
+                "type": "string"
+              },
+              {
+                "id": "0b914fe8-6e76-4daa-98af-026c0f6b2d30",
+                "name": "SOURCES_TEXT",
+                "value": "={{ $('parse_article').item.json.SOURCES_TEXT }}",
+                "type": "string"
+              },
+              {
+                "id": "78deb263-c17d-47a5-82f1-8b0bf28c0cfc",
+                "name": "FIDELITY",
+                "value": "={{ $('parse_article').item.json.FIDELITY }}",
                 "type": "string"
               }
             ]
@@ -332,90 +338,6 @@
         }
       },
       {
-        "id": "13406702-c418-4b1e-9f5e-15d9dc588fc0",
-        "name": "read_page",
-        "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
-        "typeVersion": 2,
-        "position": [
-          -15960,
-          -760
-        ],
-        "parameters": {
-          "name": "read_page",
-          "description": "={{ $('tool_prompts').first().json.READ_PAGE }}",
-          "workflowId": {
-            "__rl": true,
-            "value": "09xEuVQj207pjK4x",
-            "mode": "list",
-            "cachedResultName": "Download Content",
-            "cachedResultUrl": "/workflow/09xEuVQj207pjK4x"
-          },
-          "workflowInputs": {
-            "mappingMode": "defineBelow",
-            "value": {
-              "URL": "={{ $fromAI('URL', 'the page to read', 'string') }}"
-            },
-            "matchingColumns": [],
-            "schema": [
-              {
-                "id": "URL",
-                "displayName": "URL",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
-              }
-            ],
-            "attemptToConvertTypes": false,
-            "convertFieldsToString": true
-          }
-        }
-      },
-      {
-        "id": "f8553b78-c622-4720-8db6-09d1ceb456dc",
-        "name": "research_sources",
-        "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
-        "typeVersion": 2,
-        "position": [
-          -15832,
-          -760
-        ],
-        "parameters": {
-          "name": "research_sources",
-          "description": "={{ $('tool_prompts').first().json.RESEARCH_SOURCES }}",
-          "workflowId": {
-            "__rl": true,
-            "value": "3YctNv7fJl17sOT3",
-            "mode": "list",
-            "cachedResultName": "Content Research",
-            "cachedResultUrl": "/workflow/3YctNv7fJl17sOT3"
-          },
-          "workflowInputs": {
-            "mappingMode": "defineBelow",
-            "value": {
-              "QUERY": "={{ $fromAI('QUERY', 'the subject to search for', 'string') }}"
-            },
-            "matchingColumns": [],
-            "schema": [
-              {
-                "id": "QUERY",
-                "displayName": "QUERY",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
-              }
-            ],
-            "attemptToConvertTypes": false,
-            "convertFieldsToString": true
-          }
-        }
-      },
-      {
         "id": "289ff372-3304-4c2c-997a-99d07ae73f66",
         "name": "check_article_llm",
         "type": "@n8n/n8n-nodes-langchain.chainLlm",
@@ -454,7 +376,7 @@
             "mappingMode": "defineBelow",
             "value": {
               "template_name": "prompts/article_review.md",
-              "template_vars": "={{ {\n\"TITLE\": $('parse_article').item.json.TITLE,\n\"TEXT\": $('parse_article').item.json.TEXT,\n\"WORD_COUNT\": $('parse_article').item.json.WORD_COUNT,\n\"MAX_WORDS\": $('parse_article').item.json.MAX_WORDS,\n\"WORD_LIMIT\": $('parse_article').item.json.WORD_LIMIT,\n\"AUDIENCE\": $('set_workflow_vars').first().json.AUDIENCE,\n\"AUDIENCES\": $('download_article_audiences').first().json.output,\n\"TOPIC\": $('main_trigger').first().json.TOPIC,\n\"DESCRIPTION\": $('main_trigger').first().json.DESCRIPTION,\n\"URL\": $('main_trigger').first().json.URL || \"\",\n\"ASSET_TYPES\": $('main_trigger').first().json.ASSET_TYPES || \"\",\n\"EXTRA_PROMPT\": $('main_trigger').first().json.EXTRA_PROMPT || \"\",\n\"FEEDBACK\": $('main_trigger').first().json.FEEDBACK || \"\",\n\"RULES\": $('download_system_prompt').first().json.output,\n\"CONTENT\": $('main_trigger').first().json.CONTENT || \"\"\n} }}"
+              "template_vars": "={{ {\n\"TITLE\": $('parse_article').item.json.TITLE,\n\"TEXT\": $('parse_article').item.json.TEXT,\n\"WORD_COUNT\": $('parse_article').item.json.WORD_COUNT,\n\"MAX_WORDS\": $('parse_article').item.json.MAX_WORDS,\n\"WORD_LIMIT\": $('parse_article').item.json.WORD_LIMIT,\n\"SOURCES\": $('parse_article').item.json.SOURCES_TEXT,\n\"AUDIENCE\": $('set_workflow_vars').first().json.AUDIENCE,\n\"AUDIENCES\": $('download_article_audiences').first().json.output,\n\"TOPIC\": $('main_trigger').first().json.TOPIC,\n\"DESCRIPTION\": $('main_trigger').first().json.DESCRIPTION,\n\"URL\": $('main_trigger').first().json.URL || \"\",\n\"ASSET_TYPES\": $('main_trigger').first().json.ASSET_TYPES || \"\",\n\"EXTRA_PROMPT\": $('main_trigger').first().json.EXTRA_PROMPT || \"\",\n\"FEEDBACK\": $('main_trigger').first().json.FEEDBACK || \"\",\n\"RULES\": $('download_system_prompt').first().json.output,\n\"CONTENT\": $('main_trigger').first().json.CONTENT || \"\"\n} }}"
             },
             "matchingColumns": [],
             "schema": [
@@ -596,62 +518,6 @@
         }
       },
       {
-        "id": "5ef3a220-aeed-4581-b50b-f1e6cd65acef",
-        "name": "if_needs_research",
-        "type": "n8n-nodes-base.if",
-        "typeVersion": 2.2,
-        "position": [
-          -16448,
-          -736
-        ],
-        "parameters": {
-          "conditions": {
-            "options": {
-              "caseSensitive": true,
-              "leftValue": "",
-              "typeValidation": "loose",
-              "version": 2
-            },
-            "conditions": [
-              {
-                "id": "42b54cf1-d7cf-49f3-944d-2cfa698aa1bc",
-                "leftValue": "={{ String($('main_trigger').first().json.CONTENT || '').trim().length }}",
-                "rightValue": 200,
-                "operator": {
-                  "type": "number",
-                  "operation": "lt"
-                }
-              }
-            ],
-            "combinator": "and"
-          },
-          "looseTypeValidation": true,
-          "options": {}
-        }
-      },
-      {
-        "id": "873d2869-5810-4b17-829c-80b60171ab9f",
-        "name": "create_article_ai_plain",
-        "type": "@n8n/n8n-nodes-langchain.agent",
-        "typeVersion": 3.1,
-        "alwaysOutputData": false,
-        "retryOnFail": true,
-        "maxTries": 5,
-        "waitBetweenTries": 5000,
-        "position": [
-          -16096,
-          -592
-        ],
-        "parameters": {
-          "promptType": "define",
-          "text": "={{ $('download_system_prompt').item.json.output + '\\n\\n---\\n\\n' + $('download_article_prompt').item.json.output }}",
-          "needsFallback": true,
-          "options": {
-            "maxIterations": 8
-          }
-        }
-      },
-      {
         "id": "cfeaa1cd-c403-4ba3-89de-265012c13550",
         "name": "download_ai_speak",
         "type": "n8n-nodes-base.executeWorkflow",
@@ -752,69 +618,6 @@
         }
       },
       {
-        "id": "89930ff0-fea0-4e84-b0a1-623871a038aa",
-        "name": "download_tool_prompts",
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.2,
-        "position": [
-          -16672,
-          -1040
-        ],
-        "parameters": {
-          "workflowId": {
-            "__rl": true,
-            "value": "qUfjfWLGEjV96ljf",
-            "mode": "list",
-            "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
-            "cachedResultName": "DownloadTemplate"
-          },
-          "workflowInputs": {
-            "mappingMode": "defineBelow",
-            "value": {
-              "template_name": "prompts/article_tools.md",
-              "template_vars": "={{ {} }}"
-            },
-            "matchingColumns": [],
-            "schema": [
-              {
-                "id": "template_name",
-                "displayName": "template_name",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string"
-              },
-              {
-                "id": "template_vars",
-                "displayName": "template_vars",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "object"
-              }
-            ],
-            "attemptToConvertTypes": false,
-            "convertFieldsToString": true
-          },
-          "options": {}
-        }
-      },
-      {
-        "id": "00ac4bd3-0f11-4df4-9b3a-d7dc25a447e4",
-        "name": "tool_prompts",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          -16448,
-          -1040
-        ],
-        "parameters": {
-          "jsCode": "// prompts/article_tools.md is the one copy of the two tool descriptions. A missing\n// section fails the run: a tool with no description is a capability the model cannot use.\nconst text = String($json.output || '');\nconst section = (name) => {\n  const lines = text.split('\\n');\n  const start = lines.findIndex((l) => l.trim() === '## ' + name);\n  if (start < 0) return '';\n  const out = [];\n  for (let i = start + 1; i < lines.length; i++) {\n    if (lines[i].trim().startsWith('## ')) break;\n    out.push(lines[i]);\n  }\n  return out.join('\\n').trim();\n};\nconst out = { RESEARCH_SOURCES: section('research_sources'), READ_PAGE: section('read_page') };\nfor (const [k, v] of Object.entries(out)) {\n  if (!v) throw new Error('prompts/article_tools.md carries no ' + k + ' section');\n}\nreturn [{ json: out }];\n"
-        }
-      },
-      {
         "id": "a1f2b3c4-d5e6-4f70-8192-a3b4c5d6e7f8",
         "name": "download_article_audiences",
         "type": "n8n-nodes-base.executeWorkflow",
@@ -863,6 +666,96 @@
           },
           "options": {}
         }
+      },
+      {
+        "id": "929ece21-de76-4619-8083-a7966db9a309",
+        "name": "build_article_request",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -16448,
+          -736
+        ],
+        "parameters": {
+          "jsCode": "// The request the article session receives. What the model reads is the two fetched prompt\n// files joined; nothing here is an instruction. `session_id` is the row, so a retry continues\n// the session directory and its fetched corpus instead of paying for every source again, and\n// `attempt` is what tells the adapter this turn is a correction rather than a first draft.\n// The source hosts ride on the request because the pod cannot read the deployment values:\n// `AgentRuntime.spec` carries no env, so the allowlist the proxy enforces arrives here.\nconst vars = $('main_trigger').first().json;\nconst config = $('set_workflow_vars').first().json;\nconst system = String($('download_system_prompt').first().json.output || '').trim();\nconst task = String($('download_article_prompt').first().json.output || '').trim();\nif (!system || !task) throw new Error('the article prompts are empty; refusing to draft without them');\nconst row = String(vars.ROW_NUMBER || '').trim();\nif (!row) throw new Error('ROW_NUMBER is required: the session id is article-<row>');\nconst base = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!base) throw new Error('ARTICLE_WRITER_URL is not set; the article session cannot be reached');\nconst sessionId = ('article-' + row).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 80);\nconst hosts = String(config.SOURCE_HOSTS || '').trim();\nreturn [{ json: {\n  SESSION_ID: sessionId,\n  ATTEMPT: $runIndex + 1,\n  ARTICLE_URL: base + '/v1/chat/completions',\n  ARTIFACT_BASE: base + '/artifacts/' + sessionId,\n  SOURCE_HOSTS: hosts,\n  ARTICLE_BODY: JSON.stringify({\n    profile: 'article',\n    session_id: sessionId,\n    stream: false,\n    source_hosts: hosts,\n    attempt: $runIndex + 1,\n    messages: [{ role: 'user', content: system + '\\n\\n---\\n\\n' + task }],\n  }),\n} }];\n"
+        },
+        "notes": "Joins the two fetched prompt files into the session request; no instruction is authored here."
+      },
+      {
+        "id": "8d7522d8-14e1-42ac-b0be-5dd17efb16db",
+        "name": "request_article",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          -16288,
+          -736
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $json.ARTICLE_URL }}",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ $json.ARTICLE_BODY }}",
+          "options": {
+            "timeout": 900000,
+            "response": {
+              "response": {
+                "neverError": true,
+                "fullResponse": true,
+                "responseFormat": "text"
+              }
+            }
+          }
+        },
+        "notes": "A refused turn is data: neverError turns 4xx/5xx into a response parse_article names, instead of a run that ends with no reason."
+      },
+      {
+        "id": "f3d833e6-865c-495b-8ecb-c7bd82b9fa10",
+        "name": "fetch_article",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          -16128,
+          -736
+        ],
+        "parameters": {
+          "url": "={{ $('build_article_request').first().json.ARTIFACT_BASE + '/article.md' }}",
+          "options": {
+            "timeout": 60000,
+            "response": {
+              "response": {
+                "neverError": true,
+                "fullResponse": true,
+                "responseFormat": "text"
+              }
+            }
+          }
+        },
+        "notes": "The adapter writes article.md in the session directory; the draft is the artifact, not the chat answer."
+      },
+      {
+        "id": "2ef0190f-3df2-40e9-81bf-d00917b35b20",
+        "name": "fetch_sources",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          -15968,
+          -736
+        ],
+        "parameters": {
+          "url": "={{ $('build_article_request').first().json.ARTIFACT_BASE + '/sources.json' }}",
+          "options": {
+            "timeout": 60000,
+            "response": {
+              "response": {
+                "neverError": true,
+                "fullResponse": true,
+                "responseFormat": "text"
+              }
+            }
+          }
+        },
+        "notes": "The rewritten ledger carries the server's found/excerpt/status fields; the gate checks the article against it."
       }
     ],
     "connections": {
@@ -903,18 +796,7 @@
         "main": [
           [
             {
-              "node": "download_tool_prompts",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "create_article_ai": {
-        "main": [
-          [
-            {
-              "node": "parse_article",
+              "node": "build_article_request",
               "type": "main",
               "index": 0
             }
@@ -936,17 +818,7 @@
         "ai_languageModel": [
           [
             {
-              "node": "create_article_ai",
-              "type": "ai_languageModel",
-              "index": 0
-            },
-            {
               "node": "check_article_llm",
-              "type": "ai_languageModel",
-              "index": 0
-            },
-            {
-              "node": "create_article_ai_plain",
               "type": "ai_languageModel",
               "index": 0
             }
@@ -960,38 +832,6 @@
               "node": "check_article_llm",
               "type": "ai_languageModel",
               "index": 1
-            },
-            {
-              "node": "create_article_ai",
-              "type": "ai_languageModel",
-              "index": 1
-            },
-            {
-              "node": "create_article_ai_plain",
-              "type": "ai_languageModel",
-              "index": 1
-            }
-          ]
-        ]
-      },
-      "read_page": {
-        "ai_tool": [
-          [
-            {
-              "node": "create_article_ai",
-              "type": "ai_tool",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "research_sources": {
-        "ai_tool": [
-          [
-            {
-              "node": "create_article_ai",
-              "type": "ai_tool",
-              "index": 0
             }
           ]
         ]
@@ -1065,35 +905,6 @@
           ]
         ]
       },
-      "if_needs_research": {
-        "main": [
-          [
-            {
-              "node": "create_article_ai",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "create_article_ai_plain",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "create_article_ai_plain": {
-        "main": [
-          [
-            {
-              "node": "parse_article",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
       "download_ai_speak": {
         "main": [
           [
@@ -1116,33 +927,55 @@
           ]
         ]
       },
-      "download_tool_prompts": {
-        "main": [
-          [
-            {
-              "node": "tool_prompts",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "tool_prompts": {
-        "main": [
-          [
-            {
-              "node": "if_needs_research",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
       "download_article_audiences": {
         "main": [
           [
             {
               "node": "download_article_prompt",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "build_article_request": {
+        "main": [
+          [
+            {
+              "node": "request_article",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "request_article": {
+        "main": [
+          [
+            {
+              "node": "fetch_article",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "fetch_article": {
+        "main": [
+          [
+            {
+              "node": "fetch_sources",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "fetch_sources": {
+        "main": [
+          [
+            {
+              "node": "parse_article",
               "type": "main",
               "index": 0
             }
@@ -1197,18 +1030,7 @@
       "main": [
         [
           {
-            "node": "download_tool_prompts",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "create_article_ai": {
-      "main": [
-        [
-          {
-            "node": "parse_article",
+            "node": "build_article_request",
             "type": "main",
             "index": 0
           }
@@ -1230,17 +1052,7 @@
       "ai_languageModel": [
         [
           {
-            "node": "create_article_ai",
-            "type": "ai_languageModel",
-            "index": 0
-          },
-          {
             "node": "check_article_llm",
-            "type": "ai_languageModel",
-            "index": 0
-          },
-          {
-            "node": "create_article_ai_plain",
             "type": "ai_languageModel",
             "index": 0
           }
@@ -1254,38 +1066,6 @@
             "node": "check_article_llm",
             "type": "ai_languageModel",
             "index": 1
-          },
-          {
-            "node": "create_article_ai",
-            "type": "ai_languageModel",
-            "index": 1
-          },
-          {
-            "node": "create_article_ai_plain",
-            "type": "ai_languageModel",
-            "index": 1
-          }
-        ]
-      ]
-    },
-    "read_page": {
-      "ai_tool": [
-        [
-          {
-            "node": "create_article_ai",
-            "type": "ai_tool",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "research_sources": {
-      "ai_tool": [
-        [
-          {
-            "node": "create_article_ai",
-            "type": "ai_tool",
-            "index": 0
           }
         ]
       ]
@@ -1359,35 +1139,6 @@
         ]
       ]
     },
-    "if_needs_research": {
-      "main": [
-        [
-          {
-            "node": "create_article_ai",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "create_article_ai_plain",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "create_article_ai_plain": {
-      "main": [
-        [
-          {
-            "node": "parse_article",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "download_ai_speak": {
       "main": [
         [
@@ -1410,33 +1161,55 @@
         ]
       ]
     },
-    "download_tool_prompts": {
-      "main": [
-        [
-          {
-            "node": "tool_prompts",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "tool_prompts": {
-      "main": [
-        [
-          {
-            "node": "if_needs_research",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "download_article_audiences": {
       "main": [
         [
           {
             "node": "download_article_prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "build_article_request": {
+      "main": [
+        [
+          {
+            "node": "request_article",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "request_article": {
+      "main": [
+        [
+          {
+            "node": "fetch_article",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "fetch_article": {
+      "main": [
+        [
+          {
+            "node": "fetch_sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "fetch_sources": {
+      "main": [
+        [
+          {
+            "node": "parse_article",
             "type": "main",
             "index": 0
           }
@@ -1493,6 +1266,10 @@
             },
             {
               "name": "AUDIENCE"
+            },
+            {
+              "name": "ROW_NUMBER",
+              "type": "number"
             }
           ]
         }
@@ -1538,6 +1315,12 @@
               "id": "c3a4b5d6-e7f8-4a9b-8c1d-2e3f4a5b6c7d",
               "name": "AUDIENCE",
               "value": "={{ String($('main_trigger').first().json.AUDIENCE || 'NONE').trim().toUpperCase() }}",
+              "type": "string"
+            },
+            {
+              "id": "73c7c62f-9301-4d55-9972-df5ccf58919d",
+              "name": "SOURCE_HOSTS",
+              "value": "github.com,raw.githubusercontent.com,datahub-local.alvsanand.com",
               "type": "string"
             }
           ]
@@ -1647,28 +1430,6 @@
       }
     },
     {
-      "id": "33284e9b-40ab-4e97-a604-277598c7f834",
-      "name": "create_article_ai",
-      "type": "@n8n/n8n-nodes-langchain.agent",
-      "typeVersion": 3.1,
-      "alwaysOutputData": false,
-      "retryOnFail": true,
-      "maxTries": 5,
-      "waitBetweenTries": 5000,
-      "position": [
-        -16096,
-        -992
-      ],
-      "parameters": {
-        "promptType": "define",
-        "text": "={{ $('download_system_prompt').item.json.output + '\\n\\n---\\n\\n' + $('download_article_prompt').item.json.output }}",
-        "needsFallback": true,
-        "options": {
-          "maxIterations": 20
-        }
-      }
-    },
-    {
       "id": "1ddafc37-25e0-4dd3-bfd8-c93d7c5af347",
       "name": "parse_article",
       "type": "n8n-nodes-base.code",
@@ -1678,7 +1439,7 @@
         -736
       ],
       "parameters": {
-        "jsCode": "// The two things the caller needs out of the model's answer: the H1, which the row\n// stores as ARTICLE_TITLE and the entry point turns into the frozen slug, and the body,\n// which carries one `<!-- asset:<type> -->` marker per requested asset. The word budget\n// is checked here rather than trusted to the model: a mandatory count in a format is a\n// count that gets invented when the real one is missing.\n//\n// A problem is reported as data (`PROBLEM`), never thrown: a draft that ran long or came\n// back without a title is retried by the review loop below, and only a run that exhausts\n// its attempts reports the reason to the caller.\n//\n// MAX_WORDS is required. The entry point resolves the row's budget and the 1200 default,\n// so a value missing here is a caller bug: fail loudly rather than guess a bound.\nconst req = $('set_workflow_vars').first().json;\nconst max = Number(req.MAX_WORDS);\nif (!isFinite(max) || max <= 0) throw new Error('MAX_WORDS is required and must be a positive number');\n// An agent node answers `output` where a chain node answered `text`; the sub-workflow's\n// own contract stays the old names, so this is the one place the difference is absorbed.\nconst raw = String($json.output || $json.text || '');\nconst block = /<article>([\\s\\S]*?)<\\/article>/.exec(raw);\nconst inner = (block ? block[1] : raw).trim();\nconst HEAD = /^#\\s+(.+?)\\s*$/;\nlet title = '';\nconst body = [];\nfor (const line of inner.split('\\n')) {\n  if (!title && !body.length && HEAD.test(line.trim())) {\n    title = line.trim().replace(HEAD, '$1');\n    continue;\n  }\n  body.push(line);\n}\nconst text = body.join('\\n').trim();\n// A marker is an instruction to the publishing step, not prose the reader counts.\n// A model cannot count words, so a draft a little over the budget is the budget met: 10%\n// covers a counting slip without letting the article run long (row 3, 2026-10-30, died at\n// 1248 words against 1200 with every other check passing). Integer arithmetic, because\n// 1200 * 1.1 is 1320.0000000000002 in a double and Math.ceil would add a word.\nconst limit = Math.ceil(max * 11 / 10);\nconst words = text.replace(/<!--[\\s\\S]*?-->/g, ' ').split(/\\s+/).filter(Boolean).length;\n// The marker set is counted here rather than trusted to the review: how many markers a draft\n// carries is a count, and a count a model is asked for is a count it misses. Both drafts of\n// execution 14228 carried the same marker twice, the gate passed them, and the article ended up\n// referencing one illustration twice.\nconst requested = String($('main_trigger').first().json.ASSET_TYPES || '')\n  .split(',').map((s) => s.trim()).filter(Boolean);\nconst markers = (text.match(/<!--\\s*asset:[a-zA-Z0-9_]+\\s*-->/g) || [])\n  .map((m) => m.replace('<!--', '').replace('-->', '').replace('asset:', '').trim());\nconst wrongMarkers = [\n  ...requested.filter((t) => markers.filter((m) => m === t).length !== 1)\n    .map((t) => t + ' x' + markers.filter((m) => m === t).length),\n  ...markers.filter((m) => !requested.includes(m)).map((m) => m + ' not requested'),\n];\nlet problem = '';\nif (!text) problem = 'EMPTY_DRAFT: the model returned no article body';\nelse if (!title) problem = 'EMPTY_TITLE: the draft has no H1 title';\nelse if (words > limit) problem = 'OVER_BUDGET: ' + words + ' words against a limit of ' + limit + ' (MAX_WORDS=' + max + ')';\nelse if (wrongMarkers.length) problem = 'MARKERS: ' + wrongMarkers.join(', ');\nreturn { json: { TITLE: title, TEXT: text, WORD_COUNT: words, MAX_WORDS: max, WORD_LIMIT: limit, PROBLEM: problem } };"
+        "jsCode": "// The two things the caller needs out of the session's answer: the H1, which the row\n// stores as ARTICLE_TITLE and the entry point turns into the frozen slug, and the body,\n// which carries one `<!-- asset:<type> -->` marker per requested asset. The word budget is\n// checked here rather than trusted to the model: a mandatory count in a format is a count\n// that gets invented when the real one is missing.\n//\n// A problem is reported as data (`PROBLEM`), never thrown: a draft that ran long or came\n// back without a title is retried by the review loop below, and only a run that exhausts\n// its attempts reports the reason to the caller.\n//\n// MAX_WORDS is required. The entry point resolves the row's budget and the 1200 default,\n// so a value missing here is a caller bug: fail loudly rather than guess a bound.\nconst req = $('set_workflow_vars').first().json;\nconst max = Number(req.MAX_WORDS);\nif (!isFinite(max) || max <= 0) throw new Error('MAX_WORDS is required and must be a positive number');\nconst read = (name) => {\n  try {\n    return $(name).first().json;\n  } catch (e) {\n    return null;\n  }\n};\n// The adapter serves article.md; a turn that answered 4xx or wrote nothing has no draft.\nconst fetched = read('fetch_article');\nlet raw = '';\nif (fetched && typeof fetched.body === 'string') raw = fetched.body;\nelse raw = String($json.output || $json.text || '');\nconst posted = read('request_article');\nlet sessionProblem = '';\nif (posted && Number(posted.statusCode || posted.status || 0) >= 400) {\n  const status = Number(posted.statusCode || posted.status || 0);\n  let reason = '';\n  try {\n    const body = JSON.parse(String(posted.body || '{}'));\n    reason = String((body.error && body.error.message) || body.message || '').trim();\n  } catch (e) {\n    reason = String(posted.body || '').trim().slice(0, 300);\n  }\n  sessionProblem = 'SESSION: HTTP ' + status + (reason ? ': ' + reason : ' the article session refused the turn');\n}\nconst block = /<article>([\\s\\S]*?)<\\/article>/.exec(raw);\nconst inner = (block ? block[1] : raw).trim();\nconst HEAD = /^#\\s+(.+?)\\s*$/;\nlet title = '';\nconst body = [];\nfor (const line of inner.split('\\n')) {\n  if (!title && !body.length && HEAD.test(line.trim())) {\n    title = line.trim().replace(HEAD, '$1');\n    continue;\n  }\n  body.push(line);\n}\nconst text = body.join('\\n').trim();\n// A marker is an instruction to the publishing step, not prose the reader counts.\n// A model cannot count words, so a draft a little over the budget is the budget met: 10%\n// covers a counting slip without letting the article run long (row 3, 2026-10-30, died at\n// 1248 words against 1200 with every other check passing). Integer arithmetic, because\n// 1200 * 1.1 is 1320.0000000000002 in a double and Math.ceil would add a word.\nconst limit = Math.ceil(max * 11 / 10);\nconst words = text.replace(/<!--[\\s\\S]*?-->/g, ' ').split(/\\s+/).filter(Boolean).length;\n// The marker set is counted here rather than trusted to the review: how many markers a draft\n// carries is a count, and a count a model is asked for is a count it misses. Both drafts of\n// execution 14228 carried the same marker twice, the gate passed them, and the article ended up\n// referencing one illustration twice.\nconst requested = String($('main_trigger').first().json.ASSET_TYPES || '')\n  .split(',').map((s) => s.trim()).filter(Boolean);\nconst markers = (text.match(/<!--\\s*asset:[a-zA-Z0-9_]+\\s*-->/g) || [])\n  .map((m) => m.replace('<!--', '').replace('-->', '').replace('asset:', '').trim());\nconst wrongMarkers = [\n  ...requested.filter((t) => markers.filter((m) => m === t).length !== 1)\n    .map((t) => t + ' x' + markers.filter((m) => m === t).length),\n  ...markers.filter((m) => !requested.includes(m)).map((m) => m + ' not requested'),\n];\n// Every fence is a quotation. The ledger is the server's answer, not the model's: an entry\n// whose URL did not answer was dropped before this node ran, and an entry the server could not\n// find on the page is `found: false`. Whitespace is collapsed on both sides because the docs\n// render the same YAML with other indentation; the excerpt is the page text the server matched,\n// so comparing it to the block is the hash comparison without a crypto module Code nodes lack.\nconst norm = (value) => String(value == null ? '' : value).replace(/\\s+/g, ' ').trim();\nconst fenced = [];\n{\n  const re = /^[ \\t]*```([^\\n`]*)\\n([\\s\\S]*?)^[ \\t]*```[ \\t]*$/gm;\n  let m;\n  while ((m = re.exec(text)) !== null) {\n    const innerBlock = m[2].replace(/\\n$/, '');\n    if (innerBlock.trim()) fenced.push(innerBlock);\n  }\n}\nconst sourcesJSON = (() => {\n  const res = read('fetch_sources');\n  if (!res || typeof res.body !== 'string' || !res.body.trim()) return '';\n  if (Number(res.statusCode || res.status || 0) >= 400) return '';\n  return res.body;\n})();\nlet ledger = [];\nlet ledgerRead = false;\nlet ledgerError = '';\nif (sourcesJSON) {\n  try {\n    const data = JSON.parse(sourcesJSON);\n    const list = Array.isArray(data) ? data : data && Array.isArray(data.sources) ? data.sources : null;\n    if (!list) throw new Error('sources.json carries no sources array');\n    ledger = list.filter((e) => e && norm(e.block) !== '');\n    ledgerRead = true;\n  } catch (e) {\n    ledgerError = e.message;\n  }\n}\nconst firstLine = (value) => String(value || '').split('\\n').map((l) => l.trim()).filter(Boolean)[0] || 'a fenced block';\nconst unverified = [];\nlet quoted = 0;\nfor (const fencedBlock of fenced) {\n  const key = norm(fencedBlock);\n  const head = firstLine(fencedBlock);\n  const entry = ledger.find((e) => norm(e.block) === key);\n  if (!entry) {\n    unverified.push('UNQUOTED: \"' + head + '\" is not in sources.json');\n    continue;\n  }\n  const url = String(entry.url || '').trim() || 'its url';\n  if (entry.found !== true) {\n    unverified.push('SOURCE_NOT_FOUND: \"' + head + '\" was not found at ' + url);\n    continue;\n  }\n  const failure = String(entry.validation_error || '').trim();\n  if (failure) {\n    unverified.push('VALIDATION_FAILED: \"' + head + '\" (' + url + '): ' + failure);\n    continue;\n  }\n  if (norm(entry.excerpt) !== key) {\n    unverified.push('UNQUOTED: \"' + head + '\" no longer matches ' + url);\n    continue;\n  }\n  quoted += 1;\n}\nlet sourceProblem = '';\nif (fenced.length && !ledgerRead) {\n  sourceProblem = 'SOURCES: sources.json could not be read'\n    + (ledgerError ? ' (' + ledgerError + ')' : '')\n    + '; a fenced block cannot be verified';\n} else if (unverified.length) {\n  sourceProblem = unverified.join('; ');\n}\nlet problem = '';\nif (sessionProblem) problem = sessionProblem;\nelse if (!text) problem = 'EMPTY_DRAFT: the model returned no article body';\nelse if (!title) problem = 'EMPTY_TITLE: the draft has no H1 title';\nelse if (words > limit) problem = 'OVER_BUDGET: ' + words + ' words against a limit of ' + limit + ' (MAX_WORDS=' + max + ')';\nelse if (wrongMarkers.length) problem = 'MARKERS: ' + wrongMarkers.join(', ');\nelse if (sourceProblem) problem = sourceProblem;\nconst describe = ledger\n  .map((e) => '- ' + firstLine(e.block) + ' (' + (String(e.url || '').trim() || 'no url') + ')')\n  .join('\\n') || 'none';\nreturn { json: {\n  TITLE: title,\n  TEXT: text,\n  WORD_COUNT: words,\n  MAX_WORDS: max,\n  WORD_LIMIT: limit,\n  SOURCES: ledgerRead ? sourcesJSON : '',\n  SOURCES_TEXT: describe,\n  SOURCES_NOTE: 'SOURCES: ' + quoted + ' quoted',\n  FIDELITY: ledgerRead ? 'checked' : 'not run',\n  PROBLEM: problem,\n} };"
       }
     },
     {
@@ -1715,6 +1476,24 @@
               "id": "5e3f4061-7c8d-4e9f-a012-2c3d4e5f6071",
               "name": "ERROR",
               "value": "",
+              "type": "string"
+            },
+            {
+              "id": "46e96a7a-3b31-450f-a433-c64943ec62c3",
+              "name": "SOURCES",
+              "value": "={{ $('parse_article').item.json.SOURCES }}",
+              "type": "string"
+            },
+            {
+              "id": "b48bc002-782a-422c-ba4f-e9822e0ba8cd",
+              "name": "SOURCES_TEXT",
+              "value": "={{ $('parse_article').item.json.SOURCES_TEXT }}",
+              "type": "string"
+            },
+            {
+              "id": "bb54c010-9b71-458e-a2f6-26a675a0db14",
+              "name": "FIDELITY",
+              "value": "={{ $('parse_article').item.json.FIDELITY }}",
               "type": "string"
             }
           ]
@@ -1779,90 +1558,6 @@
       }
     },
     {
-      "id": "13406702-c418-4b1e-9f5e-15d9dc588fc0",
-      "name": "read_page",
-      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
-      "typeVersion": 2,
-      "position": [
-        -15960,
-        -760
-      ],
-      "parameters": {
-        "name": "read_page",
-        "description": "={{ $('tool_prompts').first().json.READ_PAGE }}",
-        "workflowId": {
-          "__rl": true,
-          "value": "09xEuVQj207pjK4x",
-          "mode": "list",
-          "cachedResultName": "Download Content",
-          "cachedResultUrl": "/workflow/09xEuVQj207pjK4x"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "URL": "={{ $fromAI('URL', 'the page to read', 'string') }}"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "URL",
-              "displayName": "URL",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        }
-      }
-    },
-    {
-      "id": "f8553b78-c622-4720-8db6-09d1ceb456dc",
-      "name": "research_sources",
-      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
-      "typeVersion": 2,
-      "position": [
-        -15832,
-        -760
-      ],
-      "parameters": {
-        "name": "research_sources",
-        "description": "={{ $('tool_prompts').first().json.RESEARCH_SOURCES }}",
-        "workflowId": {
-          "__rl": true,
-          "value": "3YctNv7fJl17sOT3",
-          "mode": "list",
-          "cachedResultName": "Content Research",
-          "cachedResultUrl": "/workflow/3YctNv7fJl17sOT3"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "QUERY": "={{ $fromAI('QUERY', 'the subject to search for', 'string') }}"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "QUERY",
-              "displayName": "QUERY",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        }
-      }
-    },
-    {
       "id": "289ff372-3304-4c2c-997a-99d07ae73f66",
       "name": "check_article_llm",
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
@@ -1901,7 +1596,7 @@
           "mappingMode": "defineBelow",
           "value": {
             "template_name": "prompts/article_review.md",
-            "template_vars": "={{ {\n\"TITLE\": $('parse_article').item.json.TITLE,\n\"TEXT\": $('parse_article').item.json.TEXT,\n\"WORD_COUNT\": $('parse_article').item.json.WORD_COUNT,\n\"MAX_WORDS\": $('parse_article').item.json.MAX_WORDS,\n\"WORD_LIMIT\": $('parse_article').item.json.WORD_LIMIT,\n\"AUDIENCE\": $('set_workflow_vars').first().json.AUDIENCE,\n\"AUDIENCES\": $('download_article_audiences').first().json.output,\n\"TOPIC\": $('main_trigger').first().json.TOPIC,\n\"DESCRIPTION\": $('main_trigger').first().json.DESCRIPTION,\n\"URL\": $('main_trigger').first().json.URL || \"\",\n\"ASSET_TYPES\": $('main_trigger').first().json.ASSET_TYPES || \"\",\n\"EXTRA_PROMPT\": $('main_trigger').first().json.EXTRA_PROMPT || \"\",\n\"FEEDBACK\": $('main_trigger').first().json.FEEDBACK || \"\",\n\"RULES\": $('download_system_prompt').first().json.output,\n\"CONTENT\": $('main_trigger').first().json.CONTENT || \"\"\n} }}"
+            "template_vars": "={{ {\n\"TITLE\": $('parse_article').item.json.TITLE,\n\"TEXT\": $('parse_article').item.json.TEXT,\n\"WORD_COUNT\": $('parse_article').item.json.WORD_COUNT,\n\"MAX_WORDS\": $('parse_article').item.json.MAX_WORDS,\n\"WORD_LIMIT\": $('parse_article').item.json.WORD_LIMIT,\n\"SOURCES\": $('parse_article').item.json.SOURCES_TEXT,\n\"AUDIENCE\": $('set_workflow_vars').first().json.AUDIENCE,\n\"AUDIENCES\": $('download_article_audiences').first().json.output,\n\"TOPIC\": $('main_trigger').first().json.TOPIC,\n\"DESCRIPTION\": $('main_trigger').first().json.DESCRIPTION,\n\"URL\": $('main_trigger').first().json.URL || \"\",\n\"ASSET_TYPES\": $('main_trigger').first().json.ASSET_TYPES || \"\",\n\"EXTRA_PROMPT\": $('main_trigger').first().json.EXTRA_PROMPT || \"\",\n\"FEEDBACK\": $('main_trigger').first().json.FEEDBACK || \"\",\n\"RULES\": $('download_system_prompt').first().json.output,\n\"CONTENT\": $('main_trigger').first().json.CONTENT || \"\"\n} }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -2043,62 +1738,6 @@
       }
     },
     {
-      "id": "5ef3a220-aeed-4581-b50b-f1e6cd65acef",
-      "name": "if_needs_research",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        -16448,
-        -736
-      ],
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose",
-            "version": 2
-          },
-          "conditions": [
-            {
-              "id": "42b54cf1-d7cf-49f3-944d-2cfa698aa1bc",
-              "leftValue": "={{ String($('main_trigger').first().json.CONTENT || '').trim().length }}",
-              "rightValue": 200,
-              "operator": {
-                "type": "number",
-                "operation": "lt"
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "looseTypeValidation": true,
-        "options": {}
-      }
-    },
-    {
-      "id": "873d2869-5810-4b17-829c-80b60171ab9f",
-      "name": "create_article_ai_plain",
-      "type": "@n8n/n8n-nodes-langchain.agent",
-      "typeVersion": 3.1,
-      "alwaysOutputData": false,
-      "retryOnFail": true,
-      "maxTries": 5,
-      "waitBetweenTries": 5000,
-      "position": [
-        -16096,
-        -592
-      ],
-      "parameters": {
-        "promptType": "define",
-        "text": "={{ $('download_system_prompt').item.json.output + '\\n\\n---\\n\\n' + $('download_article_prompt').item.json.output }}",
-        "needsFallback": true,
-        "options": {
-          "maxIterations": 8
-        }
-      }
-    },
-    {
       "id": "cfeaa1cd-c403-4ba3-89de-265012c13550",
       "name": "download_ai_speak",
       "type": "n8n-nodes-base.executeWorkflow",
@@ -2199,69 +1838,6 @@
       }
     },
     {
-      "id": "89930ff0-fea0-4e84-b0a1-623871a038aa",
-      "name": "download_tool_prompts",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        -16672,
-        -1040
-      ],
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "qUfjfWLGEjV96ljf",
-          "mode": "list",
-          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
-          "cachedResultName": "DownloadTemplate"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "template_name": "prompts/article_tools.md",
-            "template_vars": "={{ {} }}"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "template_name",
-              "displayName": "template_name",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string"
-            },
-            {
-              "id": "template_vars",
-              "displayName": "template_vars",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "object"
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "00ac4bd3-0f11-4df4-9b3a-d7dc25a447e4",
-      "name": "tool_prompts",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        -16448,
-        -1040
-      ],
-      "parameters": {
-        "jsCode": "// prompts/article_tools.md is the one copy of the two tool descriptions. A missing\n// section fails the run: a tool with no description is a capability the model cannot use.\nconst text = String($json.output || '');\nconst section = (name) => {\n  const lines = text.split('\\n');\n  const start = lines.findIndex((l) => l.trim() === '## ' + name);\n  if (start < 0) return '';\n  const out = [];\n  for (let i = start + 1; i < lines.length; i++) {\n    if (lines[i].trim().startsWith('## ')) break;\n    out.push(lines[i]);\n  }\n  return out.join('\\n').trim();\n};\nconst out = { RESEARCH_SOURCES: section('research_sources'), READ_PAGE: section('read_page') };\nfor (const [k, v] of Object.entries(out)) {\n  if (!v) throw new Error('prompts/article_tools.md carries no ' + k + ' section');\n}\nreturn [{ json: out }];\n"
-      }
-    },
-    {
       "id": "a1f2b3c4-d5e6-4f70-8192-a3b4c5d6e7f8",
       "name": "download_article_audiences",
       "type": "n8n-nodes-base.executeWorkflow",
@@ -2310,6 +1886,96 @@
         },
         "options": {}
       }
+    },
+    {
+      "id": "8c2cefae-5283-4bf3-a43c-3ec13de8f58f",
+      "name": "build_article_request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -16448,
+        -736
+      ],
+      "parameters": {
+        "jsCode": "// The request the article session receives. What the model reads is the two fetched prompt\n// files joined; nothing here is an instruction. `session_id` is the row, so a retry continues\n// the session directory and its fetched corpus instead of paying for every source again, and\n// `attempt` is what tells the adapter this turn is a correction rather than a first draft.\n// The source hosts ride on the request because the pod cannot read the deployment values:\n// `AgentRuntime.spec` carries no env, so the allowlist the proxy enforces arrives here.\nconst vars = $('main_trigger').first().json;\nconst config = $('set_workflow_vars').first().json;\nconst system = String($('download_system_prompt').first().json.output || '').trim();\nconst task = String($('download_article_prompt').first().json.output || '').trim();\nif (!system || !task) throw new Error('the article prompts are empty; refusing to draft without them');\nconst row = String(vars.ROW_NUMBER || '').trim();\nif (!row) throw new Error('ROW_NUMBER is required: the session id is article-<row>');\nconst base = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!base) throw new Error('ARTICLE_WRITER_URL is not set; the article session cannot be reached');\nconst sessionId = ('article-' + row).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 80);\nconst hosts = String(config.SOURCE_HOSTS || '').trim();\nreturn [{ json: {\n  SESSION_ID: sessionId,\n  ATTEMPT: $runIndex + 1,\n  ARTICLE_URL: base + '/v1/chat/completions',\n  ARTIFACT_BASE: base + '/artifacts/' + sessionId,\n  SOURCE_HOSTS: hosts,\n  ARTICLE_BODY: JSON.stringify({\n    profile: 'article',\n    session_id: sessionId,\n    stream: false,\n    source_hosts: hosts,\n    attempt: $runIndex + 1,\n    messages: [{ role: 'user', content: system + '\\n\\n---\\n\\n' + task }],\n  }),\n} }];\n"
+      },
+      "notes": "Joins the two fetched prompt files into the session request; no instruction is authored here."
+    },
+    {
+      "id": "dc9d8abc-030d-4b42-a792-584341373c6a",
+      "name": "request_article",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -16288,
+        -736
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.ARTICLE_URL }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.ARTICLE_BODY }}",
+        "options": {
+          "timeout": 900000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true,
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "notes": "A refused turn is data: neverError turns 4xx/5xx into a response parse_article names, instead of a run that ends with no reason."
+    },
+    {
+      "id": "c13eff4b-7611-40dd-818b-1caebcb1a113",
+      "name": "fetch_article",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -16128,
+        -736
+      ],
+      "parameters": {
+        "url": "={{ $('build_article_request').first().json.ARTIFACT_BASE + '/article.md' }}",
+        "options": {
+          "timeout": 60000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true,
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "notes": "The adapter writes article.md in the session directory; the draft is the artifact, not the chat answer."
+    },
+    {
+      "id": "5adc74bd-fbe7-458b-8721-9d1b9fc01e29",
+      "name": "fetch_sources",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -15968,
+        -736
+      ],
+      "parameters": {
+        "url": "={{ $('build_article_request').first().json.ARTIFACT_BASE + '/sources.json' }}",
+        "options": {
+          "timeout": 60000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true,
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "notes": "The rewritten ledger carries the server's found/excerpt/status fields; the gate checks the article against it."
     }
   ],
   "pinData": {},

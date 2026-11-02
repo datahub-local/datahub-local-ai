@@ -24,10 +24,12 @@ FROM node:22-bookworm-slim
 # the engine's MP4; the fonts are fallbacks for the brand faces.
 #
 # jq is not optional either: the adapter contract builds the result payload with
-# it (`jq --arg`, so LLM output cannot forge a result structure).
+# it (`jq --arg`, so LLM output cannot forge a result structure). curl is the
+# article profile's only reader: Pi's bash has no HTTP client of its own.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
     ffmpeg \
+    curl \
     jq \
     ca-certificates \
     fonts-dejavu-core \
@@ -52,6 +54,32 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # render time (findFromEnv), and `/usr/bin/chromium` is present in the system
 # layout both architectures ship.
 ENV HYPERFRAMES_BROWSER_PATH=/usr/bin/chromium
+
+# A quoted manifest is validated offline before the article fences it. `helm template`
+# is that validator. `kubectl` cannot serve it: even with `--dry-run=client` it asks the
+# API for discovery, and this image has no cluster to ask. Both are here as the
+# instruction names them, pinned per target architecture with published checksums.
+ARG HELM_VERSION=4.3.1
+ARG KUBECTL_VERSION=1.37.2
+RUN set -eux; \
+    arch="$(dpkg --print-architecture)"; \
+    case "$arch" in \
+      amd64) helm_sha=0403a88ae20913d11b10a2467b50087721fea7581736da6b9d3992f5357fe54b; \
+             kubectl_sha=c04487523e7aa7d1493f7808174c899db93d7a9cf57531420cd76b9bd415f8f4 ;; \
+      arm64) helm_sha=8cf8f66ecbc252ac8f7f06cca68aba88508ddfde3a6a34feb1678ad1694b4f88; \
+             kubectl_sha=fcc16f63186659d9722014b7e02d5fdd2d4e669cb8c0ab66365d7d3b8ba03509 ;; \
+      *) echo "unsupported architecture: $arch" >&2; exit 1 ;; \
+    esac; \
+    curl -fsSL -o /tmp/helm.tgz "https://get.helm.sh/helm-v${HELM_VERSION}-linux-${arch}.tar.gz"; \
+    echo "${helm_sha}  /tmp/helm.tgz" | sha256sum -c -; \
+    tar -xzf /tmp/helm.tgz -C /tmp "linux-${arch}/helm"; \
+    install -m 0755 "/tmp/linux-${arch}/helm" /usr/local/bin/helm; \
+    curl -fsSL -o /usr/local/bin/kubectl \
+      "https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/${arch}/kubectl"; \
+    echo "${kubectl_sha}  /usr/local/bin/kubectl" | sha256sum -c -; \
+    chmod 0755 /usr/local/bin/kubectl; \
+    rm -rf /tmp/helm.tgz "/tmp/linux-${arch}"; \
+    helm version --short; kubectl version --client
 
 WORKDIR /app
 
@@ -97,6 +125,9 @@ RUN cd /opt/hyperframes \
 # reviewable on its own and not buried in shell. Copied world-readable: the agent
 # runs as UID 1000 and reads it.
 COPY --chmod=0644 prompts/authoring.md /opt/pi-render/prompts/authoring.md
+# The article profile's instruction. One image serves both profiles; the prompt file
+# is what differs, and it is a file so it can be reviewed without reading the server.
+COPY --chmod=0644 prompts/article.md /opt/pi-render/prompts/article.md
 
 # $HOME must stay writable: a read-only root filesystem means Chrome fails with
 # "Failed to create headless user data directory container" unless HOME points at

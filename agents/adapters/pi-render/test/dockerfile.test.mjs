@@ -28,10 +28,24 @@ test("the adapter does not derive from the retired render image", () => {
 
 test("the adapter builds its own browser and encoder", () => {
   assert.match(dockerfile, /FROM node:22-bookworm-slim/);
-  for (const pkgName of ["chromium", "ffmpeg", "jq"]) {
+  for (const pkgName of ["chromium", "ffmpeg", "curl", "jq"]) {
     assert.ok(dockerfile.includes(pkgName), `the base does not install ${pkgName}`);
   }
   assert.match(dockerfile, /ENV HYPERFRAMES_BROWSER_PATH=\/usr\/bin\/chromium/);
+});
+
+test("the adapter installs a pinned validator for a quoted manifest", () => {
+  // The article profile reads the network with curl and renders a quoted YAML block with
+  // helm before fencing it. Both are pinned per architecture with their published
+  // checksums, because a build that follows "latest" is a different image next week.
+  assert.match(dockerfile, /ARG HELM_VERSION=\d+\.\d+\.\d+/);
+  assert.match(dockerfile, /ARG KUBECTL_VERSION=\d+\.\d+\.\d+/);
+  assert.match(dockerfile, /dpkg --print-architecture/);
+  for (const arch of ["amd64", "arm64"]) {
+    assert.ok(dockerfile.includes(`${arch})`), `the build has no pin for ${arch}`);
+  }
+  assert.match(dockerfile, /sha256sum -c -/);
+  assert.match(dockerfile, /helm version --short/);
 });
 
 test("the adapter installs HyperFrames from its own manifest", () => {
@@ -52,7 +66,6 @@ test("the contract comes from the engine binary, not a fetched skill tree", () =
     !/codeload\.github\.com/.test(dockerfile),
     "the build fetches from a release tag again; that tree is upstream's to move"
   );
-  assert.ok(!/^\s*curl\s*\\$/m.test(dockerfile), "the build installs curl for a fetch that does not exist");
   assert.ok(
     !/dist\/skills/.test(dockerfile),
     "the build copies a skill tree again; the guide reads the binary's docs instead"
@@ -73,5 +86,17 @@ test("every docs topic the guide names is one the build asserts", () => {
   assert.ok(named.includes("compositions"), "the guide does not name the composition contract");
   for (const topic of named) {
     assert.match(dockerfile, new RegExp(`\\b${topic}\\b`), `the guide names "${topic}", which the build does not assert`);
+  }
+});
+
+test("both profile instructions are baked into the image", () => {
+  // The session picks the instruction by profile, so a missing copy is a turn that
+  // reports a missing prompt rather than the method it was asked for.
+  for (const name of ["authoring.md", "article.md"]) {
+    assert.match(
+      dockerfile,
+      new RegExp(`COPY --chmod=0644 prompts/${name.replace(".", "\\.")} /opt/pi-render/prompts/`),
+      `the image does not carry prompts/${name}`
+    );
   }
 });

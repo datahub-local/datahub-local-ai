@@ -69,6 +69,7 @@ TRIGGER_VARS = frozenset(
         "FEEDBACK",
         "PREVIOUS_DRAFT",
         "AUDIENCE",
+        "ROW_NUMBER",
     }
 )
 
@@ -321,132 +322,94 @@ def test_the_improver_carries_the_edit_contract():
     assert declared == {
         "TITLE", "DRAFT", "FINDINGS", "FEEDBACK", "PROBLEM",
         "AUDIENCE", "AUDIENCES", "STRUCTURES", "MAX_WORDS", "ASSET_TYPES",
+        "SOURCES",
     }, declared
     assert "Keep every sentence no finding and no feedback names" in text
     assert "You do not research" in text
     assert "<!-- asset:<id> -->" in text
     assert "at most {{ MAX_WORDS }} words" in text
+    assert "Source Ledger" in text and "{{ SOURCES }}" in text
 
 
-# A tool node's type is not free. The v3.1 agent hands a tool call to the workflow engine, which
-# runs the node through its own executor and therefore needs an `execute` method. In this build
-# `toolHttpRequest` has only `supplyData`, so every call to it died with
-#   The node "@n8n/n8n-nodes-langchain.toolHttpRequest" has a "supplyData" method but no "execute" method.
-# and the draft came back `EMPTY_DRAFT` after the model had spent its turns on a tool that could
-# not run (execution 13598, 2026-10-16). The list is read off the installed image:
-#   grep -L "async execute" n8n-nodes-langchain/dist/nodes/tools/*/*.node.js
-EXECUTABLE_TOOL_TYPES = frozenset(
-    {
-        "@n8n/n8n-nodes-langchain.toolWorkflow",
-        "@n8n/n8n-nodes-langchain.toolWikipedia",
-        "@n8n/n8n-nodes-langchain.toolSearXng",
-        "@n8n/n8n-nodes-langchain.toolSerpApi",
-        "@n8n/n8n-nodes-langchain.toolWolframAlpha",
-        "@n8n/n8n-nodes-langchain.toolCode",
-        "@n8n/n8n-nodes-langchain.toolThink",
-        "@n8n/n8n-nodes-langchain.toolVectorStore",
+def test_the_creator_requests_a_session_turn():
+    node = _node("request_article")
+    assert node["type"] == "n8n-nodes-base.httpRequest"
+    assert node["parameters"]["method"] == "POST"
+    assert node["parameters"]["url"] == "={{ $json.ARTICLE_URL }}"
+    assert "$json.ARTICLE_BODY" in node["parameters"]["jsonBody"]
+    response = node["parameters"]["options"]["response"]["response"]
+    assert response["responseFormat"] == "text"
+    assert response["neverError"] is True and response["fullResponse"] is True
+    assert "retryOnFail" not in node, "a fifteen-minute turn must not be retried by the node"
+    assert _edges("request_article") == ["fetch_article"]
+    assert _edges("fetch_article") == ["fetch_sources"]
+    assert _edges("fetch_sources") == ["parse_article"]
+
+
+def test_the_request_names_the_profile_the_row_and_the_allowlist():
+    code = _node("build_article_request")["parameters"]["jsCode"]
+    assert "profile: 'article'" in code
+    assert "session_id: sessionId" in code
+    assert "'article-' + row" in code
+    assert "ROW_NUMBER" in code
+    assert "attempt: $runIndex + 1" in code
+    assert "source_hosts: hosts" in code
+    assert "ARTICLE_WRITER_URL" in code
+    assert "download_system_prompt" in code and "download_article_prompt" in code
+    # The session is the row, so a retry continues its fetched corpus instead of re-reading.
+    assert "stream: false" in code
+    hosts = {
+        a["name"]: a["value"]
+        for a in _node("set_workflow_vars")["parameters"]["assignments"]["assignments"]
     }
-)
+    assert hosts["SOURCE_HOSTS"].startswith("github.com")
+    assert "raw.githubusercontent.com" in hosts["SOURCE_HOSTS"]
 
 
-def _writer_tools() -> set:
-    return {
-        name
-        for name, kinds in _creator()["connections"].items()
-        for branches in (kinds.get("ai_tool") or [])
-        for edge in branches or []
-        if edge["node"] == "create_article_ai"
-    }
+def test_the_creator_reads_the_two_artifacts_the_session_writes():
+    article = _node("fetch_article")["parameters"]
+    sources = _node("fetch_sources")["parameters"]
+    assert "article.md" in article["url"]
+    assert "sources.json" in sources["url"]
+    for params in (article, sources):
+        assert params["options"]["response"]["response"]["neverError"] is True
+        assert params["options"]["response"]["response"]["fullResponse"] is True
 
 
-def test_creator_gives_the_writer_its_persona_and_its_tools():
-    # The writer is an agent (tools on the writer, chosen deliberately), so the persona rides
-    # in the prompt text: the node's system slot is a parameter this repository has never used,
-    # and one wrong key would drop the persona without failing anything.
-    node = _node("create_article_ai")
-    assert node["type"] == "@n8n/n8n-nodes-langchain.agent"
-    assert "download_system_prompt" in node["parameters"]["text"]
-    assert "download_article_prompt" in node["parameters"]["text"]
-    assert _writer_tools() == {"research_sources", "read_page"}
-
-
-def test_the_writer_loop_is_bounded():
-    # Measured on execution 13603: the primary model failed three times with
-    # `Cannot read properties of undefined (reading 'map')` and every fallback rescue spends one
-    # iteration, so a budget of 8 was gone before the draft was written.
-    iterations = _node("create_article_ai")["parameters"]["options"]["maxIterations"]
-    assert isinstance(iterations, int)
-    assert 8 <= iterations <= 20
-
-
-def test_every_writer_tool_can_be_executed_by_the_agent():
-    for name in _writer_tools():
-        assert _node(name)["type"] in EXECUTABLE_TOOL_TYPES, name
-        assert "@n8n/n8n-nodes-langchain.toolHttpRequest" != _node(name)["type"]
-
-
-def test_the_writer_only_gets_tools_when_the_entry_has_no_source():
-    """A row that already carries its source cannot call a tool, so it cannot spiral.
-
-    Measured 2026-10-18 (execution 14147): a *first* attempt whose prompt already held the
-    README called `research_sources` seven times with the same query and `read_page` six times
-    on the same page — 13 tool calls, three of them losing an iteration to a gateway failure —
-    and hit `Max iterations (12)` with no draft. The retry fix cannot help a first attempt, so
-    the tool surface itself is split: the tools belong to the agent that needs to research.
-    """
-    assert _edges("download_system_prompt") == ["download_tool_prompts"]
-    assert _edges("download_tool_prompts") == ["tool_prompts"]
-    assert _edges("tool_prompts") == ["if_needs_research"]
-    assert _edges("if_needs_research", 0) == ["create_article_ai"]
-    assert _edges("if_needs_research", 1) == ["create_article_ai_plain"]
-    assert _edges("create_article_ai") == ["parse_article"]
-    assert _edges("create_article_ai_plain") == ["parse_article"]
-    plain_tools = {
-        name
-        for name, kinds in _creator()["connections"].items()
-        for branches in (kinds.get("ai_tool") or [])
-        for edge in branches or []
-        if edge["node"] == "create_article_ai_plain"
-    }
-    assert not plain_tools, f"the no-tools agent has tools attached: {sorted(plain_tools)}"
-    assert _writer_tools() == {"research_sources", "read_page"}
-    # The split is driven by whether the prompt already carries the source, and both agents are
-    # handed the same prompt. The researching one gets the raised budget; the other needs only
-    # the measured floor for a turn that loses iterations to model failures.
-    condition = _node("if_needs_research")["parameters"]["conditions"]["conditions"][0]
-    assert "CONTENT" in condition["leftValue"] and condition["operator"]["operation"] == "lt"
-    assert _node("create_article_ai_plain")["parameters"]["text"] == _node("create_article_ai")["parameters"]["text"]
-    assert _node("create_article_ai")["parameters"]["options"]["maxIterations"] == 20
-    assert _node("create_article_ai_plain")["parameters"]["options"]["maxIterations"] == 8
-
-
-def test_the_writer_researches_through_workflows_in_this_repository():
-    # Both tools wrap a workflow in this repository, so the HTTP detail lives in one place and
-    # the model receives a digest rather than two raw API payloads.
-    research = _node("research_sources")["parameters"]
-    content_research = json.loads((WORKFLOWS / "content_research.workflow.json").read_text(encoding="utf-8"))
-    assert research["workflowId"]["value"] == content_research["id"]
-    assert research["workflowId"]["cachedResultName"] == content_research["name"]
-    assert "QUERY" in research["workflowInputs"]["value"]
-    page = _node("read_page")["parameters"]
-    assert page["workflowId"]["value"] == "09xEuVQj207pjK4x"  # Download Content, readable text
-    for name in _writer_tools():
-        assert _node(name)["parameters"].get("description")
-
-
-def test_task_prompt_bounds_and_scopes_the_research():
+def test_task_prompt_sends_the_writer_to_its_sources_before_it_drafts():
     text = TASK_PROMPT.read_text(encoding="utf-8")
-    assert "`research_sources`" in text and "`read_page`" in text
-    assert "three lookups" in text
-    # A name match is not a subject match: on the first live run every result for "Sympozium"
-    # was about a different Symposium, and only this rule stops the model hunting for one.
-    assert "same-named" in text
-    assert "never cite a URL you did not fetch" in text
+    assert "## Sources" in text
+    assert "`article.md`" in text and "`sources.json`" in text
+    assert "Never fence a placeholder" in text
+    # helm template is the offline validator; a kubectl client dry-run needs API
+    # discovery and fails without a cluster, so no prompt may offer it as one.
+    assert "helm template" in text
+    assert "kubectl" not in text
+    assert "research_sources" not in text and "read_page" not in text
+    names = {node["name"] for node in _creator()["nodes"]}
+    for gone in (
+        "create_article_ai",
+        "create_article_ai_plain",
+        "if_needs_research",
+        "research_sources",
+        "read_page",
+        "tool_prompts",
+        "download_tool_prompts",
+    ):
+        assert gone not in names, gone
+
+
+def test_the_writer_is_told_that_a_quote_is_the_only_kind_of_fence():
+    text = SYSTEM_PROMPT.read_text(encoding="utf-8")
+    assert "A fenced command or manifest is a quotation" in text
+    assert "sources.json" in text
+    assert "cannot run what you read" in text
+    assert "kubectl" not in text
 
 
 def test_creator_returns_text_its_title_and_the_error_field():
     names = {a["name"] for a in _node("set_output")["parameters"]["assignments"]["assignments"]}
-    assert {"text", "title", "word_count", "ERROR"} <= names
+    assert {"text", "title", "word_count", "ERROR", "SOURCES", "FIDELITY"} <= names
 
 
 def test_creator_declares_every_input_the_entry_point_sends():

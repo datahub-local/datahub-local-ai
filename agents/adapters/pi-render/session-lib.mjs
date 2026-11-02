@@ -4,6 +4,7 @@
 
 import { basename, join, normalize, sep } from "node:path";
 import { copyFile, rm, stat } from "node:fs/promises";
+import { createHash } from "node:crypto";
 
 // The shape session-server.mjs accepts for session_id: a run identifier that is
 // safe as a single path segment. `.` and `..` are excluded even though the
@@ -14,6 +15,11 @@ export const SESSION_ID_RE = /^(?!\.{1,2}$)[a-zA-Z0-9._-]{1,80}$/;
 // A produced artifact name. Deliberately narrower than session_id: only the names
 // this server writes are ever served.
 const ARTIFACT_NAME_RE = /^out\.(mp4|gif|webp|png|svg|html)$/;
+// An article turn writes two files. They are served on the same route as a render's
+// artifact because they are written by this server's own turn, into the same run
+// directory; a name outside this list is still refused.
+const ARTICLE_ARTICLE_NAME = "article.md";
+const ARTICLE_LEDGER_NAME = "sources.json";
 // The stills of a render, served beside it: the studio's critic fetches one of these. They
 // are the only other names this server writes, so the route stays a whitelist rather than a
 // path a caller can steer.
@@ -91,7 +97,12 @@ export async function stageVendorAssets(dir, vendorDir = VENDOR_DIR) {
 // traversal (`..`, absolute paths, separators) resolve to null rather than escape.
 export function resolveArtifact(workspace, sessionId, name) {
   if (!isValidSessionId(sessionId)) return null;
-  if (typeof name !== "string" || (!ARTIFACT_NAME_RE.test(name) && !STILL_NAME_RE.test(name))) return null;
+  if (
+    typeof name !== "string" ||
+    (!ARTIFACT_NAME_RE.test(name) && !STILL_NAME_RE.test(name) && !isArticleArtifact(name))
+  ) {
+    return null;
+  }
   if (basename(name) !== name) return null;
   const dir = runDir(workspace, sessionId);
   const full = normalize(join(dir, name));
@@ -104,6 +115,8 @@ export function contentTypeFor(name) {
   for (const { ext, mime } of Object.values(FORMATS)) {
     if (name === `out.${ext}`) return mime;
   }
+  if (name === ARTICLE_ARTICLE_NAME) return "text/markdown; charset=utf-8";
+  if (name === ARTICLE_LEDGER_NAME) return "application/json; charset=utf-8";
   if (name.endsWith(".png")) return "image/png";
   if (name.endsWith(".jpg")) return "image/jpeg";
   return "application/octet-stream";
@@ -523,4 +536,333 @@ export function stillArgs({ format, runDir, width, height, durationSeconds, fps,
     mime: "image/jpeg",
   });
   return out;
+}
+
+
+// ---------------------------------------------------------------------------
+// Profiles: one adapter image serves a render and an article.
+//
+// The profile picks the instruction file and the artifact contract. `render` is the
+// default so an existing caller that sends no profile keeps its behaviour exactly;
+// an unknown profile is refused by name rather than silently served as a render,
+// because a typo in a caller would otherwise author the wrong kind of thing.
+
+export const PROFILES = {
+  render: { instruction: "authoring.md", artifacts: "render" },
+  article: { instruction: "article.md", artifacts: "article" },
+};
+export const DEFAULT_PROFILE = "render";
+
+export function parseProfile(value) {
+  if (value === undefined || value === null || value === "") return DEFAULT_PROFILE;
+  if (typeof value === "string" && Object.prototype.hasOwnProperty.call(PROFILES, value)) return value;
+  throw new Error(
+    `unknown profile ${JSON.stringify(value)}; expected ${Object.keys(PROFILES).join(" or ")}`
+  );
+}
+
+// The two files an article turn writes, and the only article names the artifact route
+// serves. A render's names are unchanged and still refused here.
+export const ARTICLE_NAME = ARTICLE_ARTICLE_NAME;
+export const LEDGER_NAME = ARTICLE_LEDGER_NAME;
+
+export function isArticleArtifact(name) {
+  return name === ARTICLE_ARTICLE_NAME || name === ARTICLE_LEDGER_NAME;
+}
+
+// The hosts the fleet writes about. The image default is what a session runs with
+// when the caller names none; the caller's list wins because it is a property of the
+// row's subject, not of the code.
+export const DEFAULT_ARTICLE_SOURCE_HOSTS = [
+  "github.com",
+  "raw.githubusercontent.com",
+  "datahub-local.alvsanand.com",
+];
+
+export function parseSourceHosts(value, fallback = DEFAULT_ARTICLE_SOURCE_HOSTS) {
+  const list = Array.isArray(value) ? value : String(value ?? "").split(/[,\s]+/);
+  const hosts = list
+    .map((host) => String(host).trim().toLowerCase())
+    .filter(Boolean)
+    .map((host) => host.replace(/^https?:\/\//, "").replace(/\/.*$/, ""));
+  return hosts.length ? [...new Set(hosts)] : [...fallback];
+}
+
+// The allowlist as the agent reads it, substituted into the instruction. The proxy,
+// not this line, is what enforces it.
+export function fillSourceHosts(text, hosts = DEFAULT_ARTICLE_SOURCE_HOSTS) {
+  return String(text ?? "").replaceAll("{{ ARTICLE_SOURCE_HOSTS }}", hosts.join(", "));
+}
+
+// A fenced block's identity is its text with every whitespace run collapsed: the
+// docs render the same YAML with other indentation and other blank lines, and a
+// line-level match would accept `apiVersion: v1` as evidence for a whole manifest.
+export function normaliseBlock(value) {
+  return String(value ?? "").replace(/\s+/g, " ").trim();
+}
+
+export function sha256Hex(value) {
+  return createHash("sha256").update(String(value ?? ""), "utf8").digest("hex");
+}
+
+// Every fenced block in a Markdown body, with its info string. An unterminated fence
+// is not a block: it is prose that was cut off, and the article gate rejects it as
+// such rather than treating half a manifest as quoted.
+export function extractFencedBlocks(markdown) {
+  const blocks = [];
+  const re = /^[ \t]*```([^\n`]*)\n([\s\S]*?)^[ \t]*```[ \t]*$/gm;
+  let match;
+  while ((match = re.exec(String(markdown ?? ""))) !== null) {
+    const block = match[2].replace(/\n$/, "");
+    if (block.trim()) blocks.push({ lang: match[1].trim(), block });
+  }
+  return blocks;
+}
+
+// The ledger's shape, in one place. A session may write either `{sources: [...]}` or
+// a bare array; the server always rewrites it as the object, which is what n8n and
+// the sheet column read. Unknown fields are kept so a server rewrite does not drop a
+// field a later reader added.
+export function normaliseLedgerEntry(entry) {
+  const e = entry && typeof entry === "object" ? entry : {};
+  const validated = String(e.validated ?? "none").trim().toLowerCase();
+  return {
+    ...e,
+    block: String(e.block ?? ""),
+    url: String(e.url ?? "").trim(),
+    validated: validated === "dry-run" ? "dry-run" : "none",
+    validation_error: String(e.validation_error ?? ""),
+  };
+}
+
+export function parseLedger(text) {
+  let data;
+  try {
+    data = typeof text === "string" ? JSON.parse(text) : text;
+  } catch (err) {
+    throw new Error(`sources.json is not valid JSON: ${err?.message ?? err}`);
+  }
+  const list = Array.isArray(data) ? data : data && Array.isArray(data.sources) ? data.sources : null;
+  if (!list) throw new Error("sources.json carries no sources array");
+  return list.map(normaliseLedgerEntry).filter((entry) => entry.block.trim() !== "");
+}
+
+export function serialiseLedger(sources) {
+  return `${JSON.stringify({ sources: sources.map(normaliseLedgerEntry) }, null, 2)}\n`;
+}
+
+// ---------------------------------------------------------------------------
+// What the server will fetch. The allowlist is the first gate; the address checks
+// are the second, because an allowlisted name that resolves to a private address is
+// the SSRF shape the design calls out. Literal addresses and local names are refused
+// without a DNS answer, and every redirect target is checked again.
+
+const PRIVATE_V4 = [
+  [/^0\./, 8],
+  [/^10\./, 8],
+  [/^100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\./, 10],
+  [/^127\./, 8],
+  [/^169\.254\./, 16],
+  [/^172\.(1[6-9]|2[0-9]|3[01])\./, 12],
+  [/^192\.168\./, 16],
+];
+
+function isPrivateIPv4(host) {
+  const parts = host.split(".");
+  if (parts.length !== 4 || parts.some((p) => !/^\d{1,3}$/.test(p) || Number(p) > 255)) return false;
+  return PRIVATE_V4.some(([re]) => re.test(host));
+}
+
+function isPrivateIPv6(host) {
+  const h = host.toLowerCase();
+  if (h.includes(".")) {
+    // An IPv4-mapped or IPv4-embedded form: the trailing dotted quad is the address.
+    const tail = h.slice(h.lastIndexOf(":") + 1);
+    if (isPrivateIPv4(tail)) return true;
+  }
+  if (h === "::1" || h === "::") return true;
+  if (/^fe[89ab]/.test(h)) return true; // link-local fe80::/10
+  if (/^f[cd]/.test(h)) return true; // unique local fc00::/7
+  return false;
+}
+
+export function isBlockedHostname(value) {
+  const host = String(value ?? "").trim().toLowerCase().replace(/^\[|\]$/g, "").replace(/\.$/, "");
+  if (!host) return true;
+  if (host === "localhost" || host.endsWith(".localhost")) return true;
+  return isPrivateIPv4(host) || isPrivateIPv6(host);
+}
+
+// Only the loopback exemption from the address policy, for the one caller that must reach
+// a stub on its own machine. It does not extend to link-local or private ranges: an
+// allowed loopback is not a reason to let a redirect reach 169.254.169.254.
+export function isLoopbackHostname(value) {
+  const host = String(value ?? "").trim().toLowerCase().replace(/^\[|\]$/g, "");
+  if (host === "localhost" || host.endsWith(".localhost")) return true;
+  if (host === "::1") return true;
+  return /^127\./.test(host);
+}
+
+export function hostAllowed(host, allowedHosts = []) {
+  const name = String(host ?? "").trim().toLowerCase();
+  return allowedHosts.some((allowed) => {
+    const a = String(allowed).trim().toLowerCase();
+    return a !== "" && (name === a || name.endsWith(`.${a}`));
+  });
+}
+
+// Why this URL may not be fetched, or null when it may. Every reason is a phrase a
+// log line and a test can name.
+export function sourceUrlRefusal(value, { allowedHosts = [], requireHttps = true, allowLoopback = false } = {}) {
+  let url;
+  try {
+    url = new URL(String(value ?? ""));
+  } catch {
+    return "not a URL";
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") return `scheme ${url.protocol} is not http or https`;
+  if (requireHttps && url.protocol !== "https:") return "not https";
+  if (url.username || url.password) return "carries credentials";
+  const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  const blocked = allowLoopback && isLoopbackHostname(host) ? false : isBlockedHostname(host);
+  if (blocked) return `host ${host} is private or loopback`;
+  if (!hostAllowed(host, allowedHosts)) return `host ${host} is not a declared source host`;
+  return null;
+}
+
+// The page's own text for a block, found as a contiguous run of the block's tokens
+// with any whitespace between them. Returns null when the page does not carry it.
+export function findExcerpt(body, block) {
+  const tokens = normaliseBlock(block).split(" ").filter(Boolean);
+  if (!tokens.length) return null;
+  const escape = (token) => token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(tokens.map(escape).join("\\s+"));
+  const match = re.exec(String(body ?? ""));
+  return match ? match[0] : null;
+}
+
+export const DEFAULT_LEDGER_FETCH = {
+  maxBytes: 2_000_000,
+  maxRedirects: 3,
+  timeoutMs: 15_000,
+};
+
+async function readCapped(res, maxBytes) {
+  if (!res.body || typeof res.body.getReader !== "function") {
+    const buf = Buffer.from(await res.arrayBuffer());
+    return buf.subarray(0, maxBytes);
+  }
+  const reader = res.body.getReader();
+  const chunks = [];
+  let size = 0;
+  while (size < maxBytes) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const chunk = Buffer.from(value);
+    const room = maxBytes - size;
+    chunks.push(chunk.subarray(0, room));
+    size += Math.min(chunk.length, room);
+    if (chunk.length > room) {
+      try {
+        await reader.cancel();
+      } catch {
+        // the body is already capped; cancelling best effort
+      }
+      break;
+    }
+  }
+  return Buffer.concat(chunks);
+}
+
+// Fetch one URL with the policy's gates applied at the start and at every redirect.
+// Returns `{body}` or `{refusal}`; a status is reported, never thrown, so the caller
+// can name it in the drop reason.
+async function fetchLedgerUrl(url, opts) {
+  const {
+    fetchUrl = fetch,
+    allowedHosts = [],
+    requireHttps = true,
+    allowLoopback = false,
+    maxBytes = DEFAULT_LEDGER_FETCH.maxBytes,
+    maxRedirects = DEFAULT_LEDGER_FETCH.maxRedirects,
+    timeoutMs = DEFAULT_LEDGER_FETCH.timeoutMs,
+  } = opts;
+  let current = String(url);
+  for (let hop = 0; hop <= maxRedirects; hop += 1) {
+    const refusal = sourceUrlRefusal(current, { allowedHosts, requireHttps, allowLoopback });
+    if (refusal) return { refusal };
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    let res;
+    try {
+      res = await fetchUrl(current, { signal: controller.signal, redirect: "manual" });
+    } catch (err) {
+      clearTimeout(timer);
+      return { refusal: `did not answer: ${err?.message ?? err}` };
+    }
+    clearTimeout(timer);
+    if (res.status >= 300 && res.status < 400) {
+      const location = res.headers.get("location");
+      if (!location) return { refusal: `redirect ${res.status} without a location` };
+      current = new URL(location, current).toString();
+      continue;
+    }
+    if (!res.ok) return { refusal: `answered HTTP ${res.status}` };
+    const body = await readCapped(res, maxBytes);
+    return { status: res.status, body: body.toString("utf8"), bodyBytes: body.length };
+  }
+  return { refusal: `more than ${maxRedirects} redirects` };
+}
+
+// Verify a ledger against the pages it cites. An entry whose URL does not answer is
+// dropped: the server, not the model, decides whether a source exists. A URL that
+// answers but does not carry the block keeps its entry with `found: false`, which the
+// n8n gate rejects with the block and the URL in the reason -- the two failures are
+// different findings and only one of them is about the URL.
+export async function revalidateLedger(entries, opts = {}) {
+  const sources = (Array.isArray(entries) ? entries : []).map(normaliseLedgerEntry);
+  const fetched = new Map();
+  const dropped = [];
+  const kept = [];
+  for (const entry of sources) {
+    if (!entry.url) {
+      dropped.push({ block: entry.block, url: entry.url, reason: "no url" });
+      continue;
+    }
+    if (!fetched.has(entry.url)) {
+      fetched.set(entry.url, await fetchLedgerUrl(entry.url, opts));
+    }
+    const page = fetched.get(entry.url);
+    if (page.refusal) {
+      dropped.push({ block: entry.block, url: entry.url, reason: page.refusal });
+      continue;
+    }
+    const excerpt = findExcerpt(page.body, entry.block);
+    kept.push({
+      ...entry,
+      found: excerpt !== null,
+      sha256: excerpt !== null ? sha256Hex(normaliseBlock(entry.block)) : "",
+      excerpt: excerpt ?? "",
+      status: page.status,
+      body_sha256: sha256Hex(page.body),
+    });
+  }
+  return { sources: kept, dropped };
+}
+
+// The mechanical half of an article turn: where to write and whether the turn
+// authors or corrects. The correction names the files already in the directory so a
+// retry edits them instead of paying for a fresh read of every source.
+export function articleTurnInstruction({ isIteration } = {}) {
+  if (isIteration) {
+    return (
+      "`article.md` and `sources.json` in this directory are the article from an earlier " +
+      "turn in this session. Apply the request above to the article in place - change what " +
+      "it names and keep the rest, re-reading only what it names - and write both files again."
+    );
+  }
+  return (
+    "Write the article to `article.md` in this directory and its source ledger to " +
+    "`sources.json` here. Nothing is published from this turn; the caller fetches both files."
+  );
 }

@@ -822,7 +822,7 @@ a credential has none or if the export has no published version.
 Two workflows. `Article Content Writer` is the entry point (a manual trigger and a cron at
 08:00 UTC Tuesday and Thursday) and owns the sheet, the slug, the assets and the publish;
 `Article Creator` is the sub-workflow that drafts, called with `TOPIC`, `DESCRIPTION`, `URL`,
-`CONTENT`, `MAX_WORDS`, `ASSET_TYPES`, `EXTRA_PROMPT` and `FEEDBACK`. The creator's
+`CONTENT`, `MAX_WORDS`, `ASSET_TYPES`, `EXTRA_PROMPT`, `FEEDBACK`, `AUDIENCE` and `ROW_NUMBER`. The creator's
 `executeWorkflowTrigger` is why the public API cannot start it — a verification run goes
 through a temporary `webhook → executeWorkflow` probe, as every live check here has.
 
@@ -908,7 +908,7 @@ nothing, and on 2026-10-18 it went looking for material instead of editing: the 
 tool calls and 16 model calls, until the agent answered `Max iterations (12) reached` (executions
 14018, 14020) and the run was lost with no draft. `download_article_prompt` now passes the rejected
 draft as `PREVIOUS_DRAFT` and `download_post_prompt` as `PREVIOUS_POST`; both prompts say to edit it,
-and the article one says not to research again. Measured on the next run (14071): 617/400 words →
+and the article one says to re-read only a source the feedback names. Measured on the next run (14071): 617/400 words →
 retried → 387/400 accepted, the retry carrying 3,717 characters of the rejected draft and keeping
 its opening sentence, with **one** lookup in the whole run. Three things about the expression:
 `.last()` and never `.item`, because the paired-item lineage runs back through the switch and
@@ -975,21 +975,30 @@ schema, or the column is silently not written. A row in `ERROR` is **not** picke
 `pick_candidate` selects `QUEUE` rows and stale claims — so it waits for a person, which is the
 deliberate direction.
 
-**The writer's tools are attached only when the entry has no source of its own.** A first attempt can
-spiral exactly as a retry did, and the retry carry cannot help it: on 2026-10-18 execution 14147 —
-whose prompt already held the README — called `research_sources` **seven times** with the same query
-and `read_page` **six times** on the same page, 13 tool calls with three losing an iteration to a
-gateway failure, and hit `Max iterations (12)` with no draft at all. `download_system_prompt` now
-feeds `if_needs_research`, which branches on whether the entry's `CONTENT` already carries its source:
-with a source, `create_article_ai_plain` runs and has **no tools attached**, so a spiral is
-impossible; without one, `create_article_ai` keeps `research_sources` and `read_page`. Both agents
-share the model nodes over `ai_languageModel` and both feed `parse_article`, and both are handed the
-same prompt — the tool surface is the only difference. The researching agent's budget is raised to
-**20** (the owner's call) and the no-tools agent stays at the measured floor of **8**; note the
-trade, because `maxRetries` multiplies with the 120 s timeout, so a spiralling turn there can now
-cost twenty steps. An agent node needs its `Chat Model` and `Fallback Model` inputs connected or the
-PUT is refused (`Workflow cannot be activated because required inputs are not connected`), which is
-how the first attempt at this change was caught.
+**The draft is a session turn, not an agent node.** `build_article_request` joins
+`prompts/article_writer_system.md` and `prompts/article_writer.md` into one request to the
+`article-writer` `HarnessSession`: `profile: article`, `session_id: article-<row_number>`, the
+attempt number and the `SOURCE_HOSTS` allowlist. `request_article` posts it, `fetch_article` and
+`fetch_sources` read `article.md` and the server-rewritten `sources.json`, and `parse_article`
+checks the draft against that ledger. The graph holds no tool node and no drafting model node:
+the only `ai_languageModel` edges left are the reviewer's. `ROW_NUMBER` is what makes a retry
+continue the row's session directory instead of paying for every source again.
+
+**A fence is verified against the ledger the server wrote, not a memory.** `sources.json` lists
+each fenced block with the URL it came from; after the turn the session server refetches every
+URL, records the status and the page's hash, and drops an entry that does not answer. `parse_article`
+then rejects a block that is absent from the ledger, one the page did not carry (`found: false`),
+one whose dry-run failed, and one that no longer matches the server's excerpt — naming the block
+and the URL in `PROBLEM`. A prose draft with no ledger entries may not fence anything: absence is
+accepted, an invented command is not. The excerpt comparison is the hash comparison without a
+crypto module, which a Code node cannot import.
+
+**The ledger survives the run on the row.** `update_article_drafted` writes it to
+`article_queue.SOURCES`, and the improvement pass re-checks an edit against it; a row stored before
+this change has no cell, so the edit is accepted with `FIDELITY: not run` rather than silently
+passing. Review is handed the same list as `{{ SOURCES }}`. The `SOURCES` column is added to the
+`article_queue` page by hand before the first run: the node maps it by header, and a column the
+sheet lacks is a write the run fails on.
 
 **A failure the creator *throws* is reported the same way as one it returns.** The reporter added for
 a returned failure covered only half the cases: `check_draft_error` never runs when the sub-workflow

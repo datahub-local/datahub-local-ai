@@ -97,7 +97,9 @@ def test_a_sub_workflow_raises_instead_of_notifying():
     assert _research().get("activeVersion")
 
 
-def test_the_writer_points_at_this_workflow():
+def test_the_writer_no_longer_calls_this_workflow():
+    # The session fetches its own sources now: the drafting graph carries no tool node and no
+    # reference to this workflow, so a research tool cannot be reattached by accident.
     creator = json.loads(CREATOR.read_text(encoding="utf-8"))
-    tool = next(node for node in creator["nodes"] if node["name"] == "research_sources")
-    assert tool["parameters"]["workflowId"]["value"] == _research()["id"]
+    assert "research_sources" not in {node["name"] for node in creator["nodes"]}
+    assert _research()["id"] not in CREATOR.read_text(encoding="utf-8")

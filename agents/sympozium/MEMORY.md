@@ -1064,7 +1064,9 @@ read` and `the section holds only this`, so the model wrote the evidence bullet 
 classifier was right — the requirement says commentary in a finding section warns —
 so the rule was scoped to the drifting case instead. A format that lists what to
 write when something is found needs the same condition on every line, or one of
-them is an instruction to fill a clean section.
+them is an instruction to fill a clean section. Verified the same day: a
+hand-created `AgentRun` against the live Agent read `Nothing drifting` and
+`Nothing growing`, and the hook posted ✅.
 
 The same tick shows the shape half holding and half not: five of six reports put
 `(*)` on the `Status` line and one footnote block under it, and the `ERROR:` inside

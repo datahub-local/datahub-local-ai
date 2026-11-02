@@ -1,34 +1,20 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    ":semanticCommits"
-  ],
-  "automerge": false,
-  "prCreation": "immediate",
-  "automergeStrategy": "squash",
-  "forkProcessing": "enabled",
-  "ignorePaths": [
-    "**/.github/**"
-  ],
+  "extends": ["local>datahub-local/datahub-local-core//renovate-presets/default"],
+  "lockFileMaintenance": { "enabled": true },
   "customManagers": [
     {
       "customType": "regex",
       "description": "The pi-render adapter pins its global pi-coding-agent install in the Dockerfile",
-      "fileMatch": [
-        "(^|/)agents/adapters/pi-render/Dockerfile$"
-      ],
-      "matchStrings": [
-        "@earendil-works/pi-coding-agent@(?<currentValue>\\d+\\.\\d+\\.\\d+[^\\s@]*)"
-      ],
+      "managerFilePatterns": ["/(^|/)agents/adapters/pi-render/Dockerfile$/"],
+      "matchStrings": ["@earendil-works/pi-coding-agent@(?<currentValue>\\d+\\.\\d+\\.\\d+[^\\s@]*)"],
       "datasourceTemplate": "npm",
       "depNameTemplate": "@earendil-works/pi-coding-agent"
     },
     {
       "customType": "regex",
       "description": "The OpenCode adapter pins the OpenCode release and every toolchain tarball as an ARG with a `# renovate:` line above it, so one manager covers them all",
-      "fileMatch": [
-        "(^|/)agents/adapters/opencode/Dockerfile$"
-      ],
+      "managerFilePatterns": ["/(^|/)agents/adapters/opencode/Dockerfile$/"],
       "matchStrings": [
         "# renovate: datasource=github-releases depName=(?<depName>\\S+)\\s+ARG \\w+=(?<currentValue>\\S+)"
       ],
@@ -38,75 +24,40 @@
     {
       "customType": "regex",
       "description": "The OpenCode adapter pins its npm CLIs with the same annotation, under the npm datasource",
-      "fileMatch": [
-        "(^|/)agents/adapters/opencode/Dockerfile$"
-      ],
-      "matchStrings": [
-        "# renovate: datasource=npm depName=(?<depName>\\S+)\\s+ARG \\w+=(?<currentValue>\\S+)"
-      ],
+      "managerFilePatterns": ["/(^|/)agents/adapters/opencode/Dockerfile$/"],
+      "matchStrings": ["# renovate: datasource=npm depName=(?<depName>\\S+)\\s+ARG \\w+=(?<currentValue>\\S+)"],
       "datasourceTemplate": "npm"
     }
   ],
   "packageRules": [
     {
       "description": "Dockerfiles are read only by the custom manager above: the engine version is pinned once in package.json, and base-image and apt churn is not wanted here.",
-      "matchManagers": [
-        "dockerfile"
-      ],
+      "matchManagers": ["dockerfile"],
       "enabled": false
     },
     {
       "description": "The pi-render engine, its transition primitives and the agent loop move together.",
-      "groupName": "pi-render toolchain",
       "matchPackageNames": [
         "hyperframes",
         "@hyperframes/shader-transitions",
         "@earendil-works/pi-coding-agent"
-      ]
+      ],
+      "groupName": "pi-render toolchain",
+      "groupSlug": "pi-render"
     },
     {
-      "matchDatasources": [
-        "pypi"
-      ],
-      "matchUpdateTypes": [
-        "minor",
-        "patch"
-      ],
-      "lockFileMaintenance": {
-        "enabled": true
-      },
-      "groupName": "all non-major Python dependencies",
-      "groupSlug": "all-minor-patch-python"
-    },
-    {
-      "matchUpdateTypes": [
-        "major"
-      ],
+      "description": "The Python interpreter is pinned per image, not tracked with the libraries that run on it.",
+      "matchDatasources": ["python-version"],
+      "matchUpdateTypes": ["major", "minor"],
       "enabled": false
     },
     {
-      "matchDatasources": [
-        "python-version"
-      ],
-      "matchUpdateTypes": [
-        "major",
-        "minor"
-      ],
+      "matchManagers": ["pyenv"],
+      "matchUpdateTypes": ["minor"],
       "enabled": false
     },
     {
-      "matchManagers": [
-        "pyenv"
-      ],
-      "matchUpdateTypes": [
-        "minor"
-      ],
-      "enabled": false
-    },
-    {
-      "matchDepTypes": [
-        "requires-python"
-      ],
+      "matchDepTypes": ["requires-python"],
       "enabled": false
     }
   ]

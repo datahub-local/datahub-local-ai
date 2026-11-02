@@ -27,7 +27,7 @@ mcpServers:
     toolsAllow:
       - argocd_drift
       - promql
-  - name: datahub-local-core-automation-sympozium-mcp-argocd
+  - name: datahub-local-core-automation-mcp-argocd
     timeout: 30
     toolsPrefix: argocd
     toolsAllow:
@@ -37,7 +37,7 @@ mcpServers:
       - sync_application
       - delete_application
       - create_application
-  - name: datahub-local-core-automation-sympozium-mcp-github
+  - name: datahub-local-core-automation-mcp-github
     timeout: 30
     toolsPrefix: github
     toolsAllow:

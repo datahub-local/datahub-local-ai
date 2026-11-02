@@ -62,7 +62,7 @@ mcpServers:
   # 2. What exists right now, for anything the facts server does not cover.
   #    pods_list, pods_log and nodes_top are gone: find_object, logs and
   #    node_fleet answer the same questions without an exact name.
-  - name: datahub-local-core-automation-sympozium-mcp-k8s
+  - name: datahub-local-core-automation-mcp-k8s
     timeout: 30
     toolsPrefix: k8s
     toolsAllow:
@@ -79,7 +79,7 @@ mcpServers:
       - resources_scale
   # 3. What is deployed. get_application_resource_tree is out with the other
   #    whole-manifest tools; the server exposes no write tool to deny.
-  - name: datahub-local-core-automation-sympozium-mcp-argocd
+  - name: datahub-local-core-automation-mcp-argocd
     timeout: 30
     toolsPrefix: argocd
     toolsAllow:
@@ -92,7 +92,7 @@ mcpServers:
   #    single DSN to the empty `postgres` database and could never see inside
   #    another. explain_query is registered and deliberately not taken.
   #    Rationale, and the two core-side blockers, in ../../../MEMORY.md.
-  - name: datahub-local-core-automation-sympozium-mcp-trino
+  - name: datahub-local-core-automation-mcp-trino
     timeout: 30
     toolsPrefix: trino
     toolsAllow:
@@ -115,7 +115,7 @@ mcpServers:
       - query
   # 6. What the git source says, when the cluster cannot answer why. Read only:
   #    add_issue_comment is the reviewer's single write tool and stays there.
-  - name: datahub-local-core-automation-sympozium-mcp-github
+  - name: datahub-local-core-automation-mcp-github
     timeout: 30
     toolsPrefix: github
     toolsAllow:
@@ -138,7 +138,7 @@ mcpServers:
   # 7. Slack conversation context. Read-only history and thread replies only.
   #    Nothing here posts, and neither does the persona: in reply mode the run's
   #    final text *is* the message. Rationale in ../../../MEMORY.md.
-  - name: datahub-local-core-automation-sympozium-mcp-slack
+  - name: datahub-local-core-automation-mcp-slack
     timeout: 30
     toolsPrefix: slack
     toolsAllow:

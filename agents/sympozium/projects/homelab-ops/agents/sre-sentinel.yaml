@@ -29,7 +29,7 @@ mcpServers:
       - alerts_snapshot
       - volume_fill
       - promql
-  - name: datahub-local-core-automation-sympozium-mcp-k8s
+  - name: datahub-local-core-automation-mcp-k8s
     timeout: 30
     toolsPrefix: k8s
     toolsAllow:
@@ -45,7 +45,7 @@ mcpServers:
       - resources_create_or_update
       - resources_delete
       - resources_scale
-  - name: datahub-local-core-automation-sympozium-mcp-argocd
+  - name: datahub-local-core-automation-mcp-argocd
     timeout: 30
     toolsPrefix: argocd
     toolsAllow:

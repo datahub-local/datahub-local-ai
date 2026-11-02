@@ -2213,7 +2213,7 @@ somewhere or stop claiming the ensemble shares anything.
 ## The `mcp-k8s` ClusterRole is what grants Kubernetes read access
 
 Every `k8s_*` call goes through the
-`datahub-local-core-automation-sympozium-mcp-k8s` ServiceAccount, whose ClusterRole
+`datahub-local-core-automation-mcp-k8s` ServiceAccount, whose ClusterRole
 is `apiGroups: ["*"], resources: ["*"], verbs: [get,list,watch]`. A SkillPack's
 `sidecar.rbac` grants a *separate* identity used only by that pack's sidecar, so
 narrowing it protects nothing unless a persona mounts the pack — none do. Check
@@ -3287,7 +3287,7 @@ Neither subsumes the other: `information_schema` has no size column and the JDBC
 connector surfaces none, while metrics carry history a catalog lookup never can.
 
 `homelab-oracle` dropped the postgres MCP entirely for
-`datahub-local-core-automation-sympozium-mcp-trino` (prefix `trino`). Nothing was
+`datahub-local-core-automation-mcp-trino` (prefix `trino`). Nothing was
 lost: `pg_list_schemas` and `pg_list_objects` only ever saw the empty `postgres`
 database and `pg_get_top_queries` read its `pg_stat_statements`, so none had ever
 returned a real finding. `db-steward` keeps its postgres server —
@@ -3648,7 +3648,7 @@ looks self-contained.
   no such field today. Verified against the CRD and the live sidecar, 2026-08-31.
 
 - **Restoring SQL to the responder is a core change.**
-  `datahub-local-core-automation-sympozium-mcp-postgres` denies `execute_sql` in
+  `datahub-local-core-automation-mcp-postgres` denies `execute_sql` in
   its catalog `spec.toolsDeny`, so no per-persona allowlist can bring it back. The
   server already runs `--access-mode=restricted`, which is where read-only was
   meant to be enforced; whether the deny on top of that is deliberate is a question

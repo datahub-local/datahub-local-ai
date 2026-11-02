@@ -28,7 +28,7 @@ mcpServers:
     toolsAllow:
       - node_fleet
       - promql
-  - name: datahub-local-core-automation-sympozium-mcp-k8s
+  - name: datahub-local-core-automation-mcp-k8s
     timeout: 30
     toolsPrefix: k8s
     toolsAllow:

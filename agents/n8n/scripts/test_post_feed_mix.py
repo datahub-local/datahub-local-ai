@@ -390,6 +390,54 @@ def test_a_platform_person_is_matched_by_feed_url_not_its_shared_host():
     assert items[0]["_fetch_stats"]["per_feed"]["medium.com"]["kind"] == "company"
 
 
+def test_an_unsubscribed_platform_person_is_not_called_subscribed_by_its_host():
+    cfg = _config(
+        reference_people=[
+            {
+                "name": "Cindy Sridharan",
+                "feed": "medium.com",
+                "feed_url": "medium.com/feed/@copyconstruct",
+                "category": "Data",
+            }
+        ]
+    )
+    parsed = _parsed(cfg)
+    http = [
+        {"url": "http://miniflux.local/v1/categories", "response": [{"id": 1, "title": "Data"}]},
+        {
+            "url": "http://miniflux.local/v1/feeds",
+            "response": [
+                {
+                    "id": 2,
+                    "feed_url": "https://medium.com/feed/@somecompany",
+                    "title": "Some Company",
+                    "category": {"id": 1, "title": "Data"},
+                }
+            ],
+        },
+        {
+            "url": "http://miniflux.local/v1/entries",
+            "category_id": 1,
+            "response": {"total": 0, "entries": []},
+        },
+    ]
+    items = _items(
+        _run(
+            _js("fetch_candidates"),
+            nodes={"parse_curator_config": [parsed]},
+            env={
+                "MINIFLUX_URL": "http://miniflux.local",
+                "MINIFLUX_API_USER": "u",
+                "MINIFLUX_API_PASSWORD": "p",
+            },
+            http=http,
+        )
+    )
+    per_feed = items[0]["_fetch_stats"]["per_feed"]
+    assert per_feed["medium.com/feed/@copyconstruct"]["absent_reason"] == "not subscribed"
+    assert per_feed["medium.com"]["kind"] == "company"
+
+
 def test_a_blocklisted_title_is_attributed_to_its_feed():
     parsed = _parsed(_config())
     base = {
@@ -589,6 +637,61 @@ def test_admission_reports_the_mix_by_kind():
     # HN is neither a company nor a person, so it must not dilute the person share.
     assert stats["person_share_admitted"] == 0.5
     assert stats["per_feed"]["slow.example.com"]["admitted"] == 1
+
+
+def test_the_digest_lists_every_absent_person():
+    people = {
+        f"person{i}.example.com": {
+            "name": f"Person {i}",
+            "kind": "person",
+            "fetched": 0,
+            "in_window": 0,
+            "pool": 0,
+            "absent_reason": "no items in window",
+        }
+        for i in range(13)
+    }
+    stats = {
+        "considered": 1,
+        "people_pool": 0,
+        "company_pool": 1,
+        "people_floor": 1,
+        "people_floor_met": False,
+        "person_share_target": 0.35,
+        "finalists": 1,
+        "people_finalists": 0,
+        "admitted": 1,
+        "admitted_by_kind": {"person": 0, "company": 1, "community": 0},
+        "admitted_by_category_kind": {"Data": {"person": 0, "company": 1, "community": 0}},
+        "backlog_by_kind": {"person": 0, "company": 1},
+        "person_share_backlog": 0,
+        "person_backlog_target": 0.35,
+        "person_share_admitted": 0,
+        "person_mix_short": True,
+        "per_feed": people,
+    }
+    out = _items(
+        _run(
+            _js("build_digest"),
+            input_=[
+                {
+                    "rank": 1,
+                    "TITLE": "A vendor data post",
+                    "URL": "https://vendor.example.com/a",
+                    "SOURCE": "vendor.example.com",
+                    "TOPIC": "Data",
+                    "SCORE": 0.8,
+                    "PRIORITY": "VERY_HIGH",
+                    "postability": 8,
+                    "features": {},
+                    "_stats": stats,
+                }
+            ],
+        )
+    )[0]
+    text = out["digest_text"]
+    assert "Person 0: no items in window" in text
+    assert "Person 12: no items in window" in text
 
 
 def test_the_digest_names_an_absent_person_and_the_stage():

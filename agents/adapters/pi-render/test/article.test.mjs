@@ -55,6 +55,12 @@ before(async () => {
       res.end();
       return;
     }
+    if (req.url === "/slow") {
+      // Headers arrive, the body never ends: the per-URL budget has to cover the read.
+      res.writeHead(200, { "content-type": "text/plain" });
+      res.write("apiVersion: v1");
+      return;
+    }
     if (req.url === "/huge") {
       res.writeHead(200, { "content-type": "text/plain" });
       res.write("a".repeat(2000));
@@ -208,6 +214,17 @@ test("a redirect to a private address is refused before it is followed", async (
   );
   assert.deepEqual(sources, []);
   assert.match(dropped[0].reason, /private or loopback/);
+});
+
+test("the per-URL timeout covers the body, not only the headers", async () => {
+  // A page that sends a response line and then dribbles would otherwise hold the
+  // serialized turn open until the caller's own timeout.
+  const { sources, dropped } = await revalidateLedger(
+    [{ block: "apiVersion: v1", url: `${base}/slow` }],
+    localPolicy({ timeoutMs: 150 })
+  );
+  assert.deepEqual(sources, []);
+  assert.match(dropped[0].reason, /did not answer/);
 });
 
 test("a body is capped, so a page cannot hide a fence beyond the cap", async () => {

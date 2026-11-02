@@ -55,8 +55,13 @@ if ((process.argv.at(-1) || "").includes("article.md")) {
 if ((process.argv.at(-1) || "").includes("PROXY_PROBE")) {
   const net = require("node:net");
   const proxy = new URL(process.env.HTTPS_PROXY || "http://127.0.0.1:1");
+  // A declared host is not a licence for a private address: the probe names one to prove
+  // the proxy applies the same address policy as the server's own ledger fetch.
+  const target = (process.argv.at(-1) || "").includes("PROXY_PROBE_PRIVATE")
+    ? "127.0.0.1:443"
+    : "blocked.example:443";
   const socket = net.connect(Number(proxy.port), proxy.hostname, () => {
-    socket.write("CONNECT blocked.example:443 HTTP/1.1\\r\\nHost: blocked.example:443\\r\\n\\r\\n");
+    socket.write("CONNECT " + target + " HTTP/1.1\\r\\nHost: " + target + "\\r\\n\\r\\n");
   });
   socket.on("data", (d) => {
     fs.writeFileSync("proxy.log", String(d).split("\\n")[0]);
@@ -529,4 +534,27 @@ test("a host off the list is refused through the proxy and the refusal is logged
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
   assert.match(serverLog, /refused blocked\.example through the article proxy: host blocked\.example is not a declared source host/);
+});
+
+test("a declared private host is refused through the proxy too", async () => {
+  // The spec's scenario is "no bytes from that host reach the session", so declaring
+  // 127.0.0.1 in source_hosts must not turn the proxy into a loopback hole.
+  const res = await fetch(`${base}/v1/chat/completions`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      messages: [{ role: "user", content: "PROXY_PROBE_PRIVATE install the release" }],
+      session_id: "article-proxy-private",
+      profile: "article",
+      source_hosts: ["127.0.0.1"],
+    }),
+  });
+  assert.equal(res.status, 200);
+  const reply = await readFile(join(workspace, "runs", "article-proxy-private", "proxy.log"), "utf8");
+  assert.match(reply, /403/, `the proxy answered ${reply}`);
+  const deadline = Date.now() + 2000;
+  while (Date.now() < deadline && !/refused 127\.0\.0\.1/.test(serverLog)) {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  assert.match(serverLog, /refused 127\.0\.0\.1 through the article proxy: host 127\.0\.0\.1 is private or loopback/);
 });

@@ -60,6 +60,7 @@ import {
   revalidateLedger,
   articleTurnInstruction,
   hostAllowed,
+  isBlockedHostname,
 } from "./session-lib.mjs";
 
 const port = Number(process.env.SYMPOZIUM_SESSION_PORT || "8080");
@@ -465,6 +466,10 @@ let articleHosts = null;
 
 function proxyRefusal(host) {
   if (!articleHosts) return "no article turn is fetching";
+  // The same address policy as the server's own fetch: a caller that declares a private
+  // or loopback host does not make it reachable, or the two gates disagree on what may
+  // be read.
+  if (isBlockedHostname(host)) return `host ${host} is private or loopback`;
   if (!hostAllowed(host, articleHosts)) return `host ${host} is not a declared source host`;
   return null;
 }

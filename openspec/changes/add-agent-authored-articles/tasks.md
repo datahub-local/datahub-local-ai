@@ -32,9 +32,9 @@
   (same image, its own resources), `Agent`, `PersistentVolumeClaim`, `HarnessSession`, `Service`, and
   the two additive NetworkPolicies (n8n ingress on 8080, egress to LiteLLM on 4000) — mirroring
   `pi-render-session.yaml`.
-- [x] `values/default.yaml.gotmpl`: `sympozium_article_writer` with `enabled`, `image`, `digest`,
-  `resources`, `model`, `storageClass`, `storage` and `sourceHosts`; no defaults for the model
-  address, and the hosts are values because they are a property of what the fleet writes about.
+- [x] `values/default.yaml.gotmpl`: `sympozium_article_writer` with `enabled`, `resources`, `model`,
+  `storageClass` and `storage`; the image pins are read from `sympozium_pi_render` and the hosts ride
+  on the session request, so neither is repeated here.
 
 ## 3. The drafting swap
 

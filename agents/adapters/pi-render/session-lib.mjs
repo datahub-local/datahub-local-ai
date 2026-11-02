@@ -652,10 +652,11 @@ export function serialiseLedger(sources) {
 }
 
 // ---------------------------------------------------------------------------
-// What the server will fetch. The allowlist is the first gate; the address checks
-// are the second, because an allowlisted name that resolves to a private address is
-// the SSRF shape the design calls out. Literal addresses and local names are refused
-// without a DNS answer, and every redirect target is checked again.
+// What the server will fetch. The allowlist is the first gate and the address checks are
+// the second. They read the URL's own host and never a DNS answer: a literal private
+// address or a local name is refused here, while an allowlisted name that resolves
+// privately is the residual SSRF shape the design records as a risk. Every redirect
+// target is refused by the same check, so a public URL cannot hop to a literal one.
 
 const PRIVATE_V4 = [
   [/^0\./, 8],
@@ -792,6 +793,9 @@ async function fetchLedgerUrl(url, opts) {
     const refusal = sourceUrlRefusal(current, { allowedHosts, requireHttps, allowLoopback });
     if (refusal) return { refusal };
     const controller = new AbortController();
+    // The budget covers the body, not only the headers: a page that sends a response
+    // line and then dribbles would otherwise hold the serialized turn open until the
+    // caller's own timeout.
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     let res;
     try {
@@ -800,16 +804,25 @@ async function fetchLedgerUrl(url, opts) {
       clearTimeout(timer);
       return { refusal: `did not answer: ${err?.message ?? err}` };
     }
-    clearTimeout(timer);
     if (res.status >= 300 && res.status < 400) {
+      clearTimeout(timer);
       const location = res.headers.get("location");
       if (!location) return { refusal: `redirect ${res.status} without a location` };
       current = new URL(location, current).toString();
       continue;
     }
-    if (!res.ok) return { refusal: `answered HTTP ${res.status}` };
-    const body = await readCapped(res, maxBytes);
-    return { status: res.status, body: body.toString("utf8"), bodyBytes: body.length };
+    if (!res.ok) {
+      clearTimeout(timer);
+      return { refusal: `answered HTTP ${res.status}` };
+    }
+    try {
+      const body = await readCapped(res, maxBytes);
+      return { status: res.status, body: body.toString("utf8"), bodyBytes: body.length };
+    } catch (err) {
+      return { refusal: `did not answer: ${err?.message ?? err}` };
+    } finally {
+      clearTimeout(timer);
+    }
   }
   return { refusal: `more than ${maxRedirects} redirects` };
 }

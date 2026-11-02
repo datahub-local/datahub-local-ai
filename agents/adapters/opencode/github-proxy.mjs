@@ -13,6 +13,8 @@ import { spawn } from "node:child_process";
 import crypto from "node:crypto";
 import http from "node:http";
 
+import { upstreamHeaders } from "./mcp-forward.mjs";
+
 const appId = process.env.GITHUB_APP_ID;
 const installationId = process.env.GITHUB_APP_INSTALLATION_ID;
 const privateKey = (process.env.GITHUB_APP_PRIVATE_KEY ?? "").replace(/\\n/g, "\n");
@@ -97,7 +99,7 @@ const server = http.createServer((req, res) => {
 
   token()
     .then((value) => {
-      const headers = { ...req.headers, authorization: `Bearer ${value}` };
+      const headers = upstreamHeaders(req.headers, value, upstreamPort);
       const upstream = http.request(
         { host: "127.0.0.1", port: upstreamPort, path: req.url, method: req.method, headers },
         (answer) => {

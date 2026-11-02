@@ -133,6 +133,7 @@ COPY --chmod=0755 git-credential-opencode /usr/local/bin/git-credential-opencode
 COPY --chmod=0755 gh-app /usr/local/bin/gh
 COPY --chmod=0644 minter.mjs /usr/local/bin/opencode-minter.mjs
 COPY --chmod=0644 github-proxy.mjs /usr/local/bin/github-proxy.mjs
+COPY --chmod=0644 mcp-forward.mjs /usr/local/bin/mcp-forward.mjs
 
 # node:22-bookworm-slim already ships uid/gid 1000 as `node`; reuse it rather than
 # creating a second account with the same id. The server's HOME is the state volume,

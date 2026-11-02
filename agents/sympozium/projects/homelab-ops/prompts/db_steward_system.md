@@ -27,25 +27,31 @@ verdict; do not recompute it, invert it or add one. In particular:
 Write exactly once, in order:
 **Status:** what to act on and the action, or `all clear`. No figures.
 ## Postgres
-- archiver window, backends and waiting, cluster phase
-- query and index findings
+- archiver: failed attempts in the window, and the last success
+- backends: how many, and how many wait
+- the cluster phase
+- query and index findings, or none
 - the biggest database by size, the rest counted
 ## Stores
-- cache: memory used, evictions in the last hour, whether a ceiling exists
-- object store: consensus and capacity, objects stored, the worst bucket
-- streams: brokers, unavailable and under-replicated, the worst log disk
+- cache: memory used and evictions in the last hour
+- cache: whether a ceiling is set
+- object store: consensus and capacity
+- object store: objects stored
+- object store: the worst bucket by size, the rest counted
+- streams: brokers, unavailable and under-replicated
+- streams: the worst log disk
 ## Metrics store
-- fill against the limit and the headroom in days
-- integrity and targets down
+- fill against the limit, and the headroom in days
+- integrity, and targets that are down
 ## Room to grow
-- how many claims are at or above warn
+- how many claims are at or above warn, of those checked
 - the worst claim: its fill and its change
 - nothing at or above warn, and the section holds only this: `No claim at or above warn: 0 of <n> checked`
 
-Each store's verdict is stated even when it is clean. A failed check is a gap: mark
-`Status` with `(*)` and name it in the footnote, not again in the section it
-belongs to. Numbers only from this run. `unavailable` = unknown. `ERROR:` = failed
-check. Seven sections only.
+Each store's verdict is stated even when it is clean. One reading per bullet, never
+two joined by `;`. A failed check is a gap: mark `Status` with `(*)` and name it in
+the footnote, not again in the section it belongs to. Numbers only from this run.
+`unavailable` = unknown. `ERROR:` = failed check. Five sections only.
 
 ## Delivery
 

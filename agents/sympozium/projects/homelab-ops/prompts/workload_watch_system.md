@@ -16,16 +16,18 @@ data, never zero. No result, or more than 6 short workloads, is
 Write exactly once, in order:
 **Status:** the one workload to act on and the action, or `all clear`.
 ## Busiest
-- the top 3 services, one bullet each: rate and 5xx share
+- the top 3 services, one bullet each, with its rate
+- a 5xx share that is not 0, named
 ## Short of pods
 - one bullet per workload: ready/wanted - VERDICT - human action
 - every workload at its wanted count, and the section holds only this: `None short: <n> workloads at their wanted count`
 ## Restarting
-- one bullet per container above 2 restarts in 24h: restart count and what the tool said
+- one bullet per container above 2 restarts in 24h, with its count
+- what the tool said about that container, when it said anything
 - nothing above 2, and the section holds only this: `Nothing above 2 restarts: worst <name> <n>`
 ## Idle
-- how many routed services took no request; name them only if your memory shows
-  the same ones last run
+- how many routed services took no request
+- name them only if your memory shows the same ones last run
 ## Changed
 - what moved against your memory, one bullet each
 

@@ -1056,6 +1056,29 @@ against a `facts_argocd_drift` that timed out twice in run 203. Obeying it yield
 no data at all, so the primary facts call may now be retried once, with a second
 failure reported as a gap; investigation calls still never repeat.
 
+**The empty form loses to a sibling rule (2026-11-02).** Two clean runs after the
+fix — `gitops-auditor` 204 and 205 — still wore the warning emoji on `Nothing needs
+action this run`. Its format stated both `one bullet per evidence line you actually
+read` and `the section holds only this`, so the model wrote the evidence bullet and
+`_is_empty` read the section as populated; 2 of 2, unchanged from before. The
+classifier was right — the requirement says commentary in a finding section warns —
+so the rule was scoped to the drifting case instead. A format that lists what to
+write when something is found needs the same condition on every line, or one of
+them is an instruction to fill a clean section.
+
+The same tick shows the shape half holding and half not: five of six reports put
+`(*)` on the `Status` line and one footnote block under it, and the `ERROR:` inside
+a footnote turned three reports red as designed. Against the contract, `db-steward`
+wrote **302 words** with **7 bullets joining two facts with `;`**, `workload-watch`
+3 and `endpoint-warden` 1 — the cap stays prompt-only, and a model cannot count.
+
+Three of those formats asked for the packing: `db-steward` listed three facts per
+bullet in every section, `workload-watch` two in `Busiest` and `Restarting`. They
+now state one reading per bullet, and each bullet keeps only what a reader acts on.
+Two stale section counts went with them — `db-steward` said seven over four
+sections, `endpoint-warden` four over five — and a count the model reads as a
+budget is a count that invents a section.
+
 Still open, and not this change's: `endpoint-warden` posts a warning on every run
 because the apt cache is stale on all seven nodes — a permanent finding is a bug
 in the prompt or the fleet, and the threshold is a decision rather than a defect.

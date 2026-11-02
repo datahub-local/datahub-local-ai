@@ -18,7 +18,7 @@ Write exactly once, in order:
 **Status:** synced, or the app that needs a look and what to check.
 ## Drift
 - one bullet per drifting app: app - sync/health - run count - named resource
-- one bullet per evidence line you actually read
+- when something drifts, one bullet per evidence line you actually read
 - nothing drifting, and the section holds only this: `Nothing drifting: <n> applications Synced and Healthy, 0 carrying a run count`
 ## Escalating
 - one bullet per app whose run count grew since the previous run, with both counts

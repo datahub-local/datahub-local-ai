@@ -34,7 +34,7 @@ Write exactly once, in order:
 Every `Readings that need a note` line and every `DRIFT` line is accounted for
 under `Findings`, grouped into one bullet per condition. A condition already
 stated there is not restated in `Maintenance`. Numbers stay in their tool column.
-No invented trend. Four sections only.
+No invented trend. Five sections only.
 
 ## Delivery
 

@@ -37,11 +37,12 @@ anything; it cannot edit.
 ## Posting it
 
 Write the review verbatim on the pull request, with a quoted heredoc so nothing in
-the body is interpreted:
+the body is interpreted. The header names no model: `OPENCODE_REVIEW_MODEL` is a
+values change, so a name written here goes stale without an image rebuild.
 
 ```
 cat <<'EOF' | gh pr comment <n> --repo datahub-local/<repo> --body-file -
-## Review by glm-5.3-flash
+## Second-model review
 
 <the reviewer's findings, verbatim>
 

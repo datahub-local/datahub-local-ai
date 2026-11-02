@@ -5,7 +5,7 @@ description: Load this first in a session. It says which skill to load for what 
 
 # Router
 
-You have eight skills. You do not need all of them, and loading one early costs
+You have nine skills. You do not need all of them, and loading one early costs
 context you will want later. This maps the moment to the skill.
 
 | About to | Load | What it decides |
@@ -17,6 +17,7 @@ context you will want later. This maps the moment to the skill.
 | investigate a failure | `debugging` | cause before fix, one hypothesis, when to stop |
 | commit | `change-shape` | Conventional Commits, scopes, comments, OpenSpec |
 | open the pull request | `ship-it` | your own diff, clean tree, the gate, the body |
+| the pull request exists and the gate is green | `review` | the second model's findings, posted on it |
 | report `DONE` or `BLOCKED` | `verify` | the gate command per repository |
 
 ## How to use the table
@@ -25,8 +26,8 @@ context you will want later. This maps the moment to the skill.
   and answers loads none of them.
 - Load the next one when the moment changes. Reading the diff is `code-shape`;
   committing what you read is `change-shape`.
-- Two or three skills is a normal session. Eight means the task is too broad for
-  one branch, and it should go back to the owner as several issues.
+- Two or three skills is a normal session. All nine means the task is too broad
+  for one branch, and it should go back to the owner as several issues.
 
 ## When skills disagree with something
 

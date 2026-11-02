@@ -135,7 +135,7 @@ If an MCP tool can answer the question, it is the answer.
 
 Load the `router` skill first. It maps what you are about to do to the one skill
 that covers it: `repo-map`, `taskboard`, `code-shape`, `testing`, `debugging`,
-`change-shape`, `ship-it`, `verify`.
+`change-shape`, `ship-it`, `review`, `verify`.
 
 Two rules hold from the first tool call, before any skill is loaded: evidence
 before claims, so a claim about a command is one you ran this turn and read the

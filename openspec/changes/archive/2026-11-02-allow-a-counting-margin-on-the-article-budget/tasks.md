@@ -29,5 +29,8 @@
 
 - [x] 4.1 `uv run pytest` in `agents/n8n` (or the targeted files with `node` available),
   `python3 -m pytest scripts/test_article_prompts.py`, and `openspec validate --all`.
-- [ ] 4.2 Live: apply the two graphs with `scripts/apply_workflow_changes.py`, then push the prompt.
-  [UNVERIFIED] until done — nothing offline covers the running instance.
+- [x] 4.2 Live: apply the two graphs with `scripts/apply_workflow_changes.py`, then push the prompt.
+  Verified 2026-11-02: `parse_article`, `download_article_review_prompt` and
+  `check_improved_draft` are byte-identical to the export in the running instance, and
+  `DownloadTemplate` reads `agents/n8n/prompts/` from `datahub-local-ai` main, which carries
+  the `{{ WORD_LIMIT }}` wording.

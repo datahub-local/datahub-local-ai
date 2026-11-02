@@ -46,4 +46,12 @@
 ## 5. Live verification
 
 - [ ] 5.1 Read the next scheduled run per persona and confirm the emoji matches its `Status`
-  line (blocked by: the next tick, 04:30-07:00 UTC)
+  line (blocked by: the next tick, 04:30-07:00 UTC). The 2026-11-02 tick exercised no clean
+  report, so it proved nothing. The clean runs it did have — `gitops-auditor` 204 (2026-11-01
+  07:00) and 205 (19:00) — still post the warning emoji on `Nothing needs action this run`,
+  2 of 2, the same defect as before the change. Cause found: the persona format carries
+  `one bullet per evidence line you actually read` beside `the section holds only this`, so
+  the model writes the evidence bullet and `Verdict._is_empty` reads the section as populated.
+  Rule scoped to the drifting case; the next clean tick is the check.
+- [ ] 5.2 Ship the rule fix to `main`, since a prompt reaches the fleet on the next tick and
+  not on a merge. Nothing offline proves a model obeys it.

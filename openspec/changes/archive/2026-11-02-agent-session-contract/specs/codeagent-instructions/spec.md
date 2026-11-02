@@ -103,8 +103,8 @@ and the two rules that hold before any skill is loaded, and SHALL name the `rout
 skill as the first thing to load. The router SHALL map each moment to exactly one
 skill: `repo-map` before choosing a repository, `taskboard` for the task,
 `code-shape` before editing, `testing` for a test, `debugging` for a failure,
-`change-shape` for a commit, `ship-it` before the pull request, `verify` before a
-completion claim. Each skill SHALL cover one moment, so a session loads the two or
+`change-shape` for a commit, `ship-it` before the pull request, `review` once the
+pull request exists, `verify` before a completion claim. Each skill SHALL cover one moment, so a session loads the two or
 three it needs and not the rest, and no rule SHALL be stated in two skills.
 
 #### Scenario: A session reads one file and answers

@@ -72,5 +72,8 @@
   `HEAD`, so shipping is a commit on `main` (a local `helmfile sync` fails: no Helm release of
   that name exists). Pushed as `f548a19`; ArgoCD synced revision `f548a19` and the live
   Ensemble carries the new prompt and the new hook script
-- [ ] 5.4 Read the next scheduled run per persona — the first live use of the `(*)` footnote
-  shape, which no probe has exercised (blocked by: the next tick, 04:30-07:00 UTC)
+- [x] 5.4 Read the next scheduled run per persona — the first live use of the `(*)` footnote
+  shape, which no probe has exercised. Read the 2026-11-02 tick: five of six reports end the
+  `Status` line with `(*)` and carry one footnote block, `ERROR:` inside a footnote turned
+  three red, and `endpoint-warden` had no gap and wrote no marker. The same tick broke the
+  cap and the no-`;` rule — recorded in `MEMORY.md`, not fixed here.

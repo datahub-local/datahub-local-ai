@@ -155,7 +155,7 @@ RUN set -eux; \
     jq -e '.model == "{env:OPENCODE_MODEL}"' /etc/opencode/opencode.json; \
     jq -e '.agents.reviewer.model == "{env:OPENCODE_REVIEW_MODEL}"' /etc/opencode/opencode.json; \
     jq -e '.agents.reviewer.mode == "subagent"' /etc/opencode/opencode.json; \
-    test "$(git config --get credential.helper)" = git-credential-opencode; \
+    test "$(git config --get credential.helper)" = /usr/local/bin/git-credential-opencode; \
     test "$(GITHUB_TOKEN=build-token git-credential-opencode get | sed -n 's/^password=//p')" = build-token; \
     node --check /usr/local/bin/opencode-minter.mjs; \
     node --check /usr/local/bin/github-proxy.mjs; \

@@ -1257,6 +1257,43 @@ answering `Duplicate 'call_id'`, and the `opencode-go/glm-5.3-flash` fallback an
 fails. Both are `datahub-local-core` LiteLLM settings, not this repository's, and they are why
 the numbers above were collected over several runs.
 
+## The post feed
+
+The post feed is the `content_queue` lane: `Content Feed Curator` fills it and `LinkedIn Post
+Sharing` drains it one row per run. It publishes on Data, AI and DevOps. A source is one of three
+kinds: a **company** (a subscribed Miniflux feed that is not a person), a **reference person** (a
+feed named in `reference_people` in `agents/n8n/datasets/curator_config.json`, currently 33 people
+across the three topics), or **community** (the Hacker News front page). The feed list stays in
+`datahub-local-core`; the config names which of those feeds are people, so it cannot subscribe a
+feed the cluster does not have.
+
+**A person publishes more slowly, so the window is per kind.** Companies keep `lookback_days` (5);
+reference people get `person_lookback_days` (30). The Miniflux query is widened to the larger
+window and `fetch_candidates` drops a company entry older than `lookback_days` locally, so a vendor
+cannot ride in on a person's window. Recency still costs the older post at pre-rank: it is admitted
+as older, not passed off as fresh.
+
+**Seattle Data Guy is the case that named the defect.** His newest item was 2026-10-15, 13 days
+before the run that produced #109, against a 5-day lookback. He therefore contributed zero
+candidates every run while a vendor publishing weekly always cleared the window. He is in
+`reference_people` under Data now, and the 30-day window admits him. Whether the live Miniflux
+instance subscribes him, and what his latest entry is, come from the run's own report rather than
+from this file.
+
+**The mix is stated and observable.** `balance.min_person_share_pool` (0.35) reserves that share of
+`max_candidates` for reference people before category quotas are filled, so a monthly writer is not
+crowded out by vendor frequency. `balance.min_person_share_backlog` (0.35) is reported against the
+queue and warns, but does not force an admission the judge rejected. Hacker News is `community` and
+counts for neither side of the share.
+
+**Every run answers "why is this source absent".** `fetch_candidates` seeds one `per_feed` record
+per subscribed feed and per missing reference person, carrying `fetched`, `in_window`,
+`out_of_window` and `absent_reason` (`not subscribed`, `category excluded`, `no items in window`).
+`filter_candidates`, `rank_candidates`, `pick_finalists` and `admit_to_backlog` add their own
+counters to the same record, and `build_digest` prints one line per reference person with no
+admitted row and the stage that stopped it, plus an admitted `mix by category` line of people,
+companies and community rows.
+
 ## Content board intake and the queue ceiling
 
 Two queues, one writer each. `Content Feed Curator` owns `content_queue` (the post lane) and a

@@ -129,7 +129,9 @@ project's docs host — because the set is a property of what the fleet writes a
 reach a session pod, so a values knob cannot set the variable the proxy reads. The hosts therefore
 ride on each request as `source_hosts` from n8n's `SOURCE_HOSTS` variable, and the image carries
 `DEFAULT_ARTICLE_SOURCE_HOSTS` for a caller that names none. The values block has no `sourceHosts`
-because it would be dead config.
+because it would be dead config. The address check reads the URL's own host and never a DNS answer,
+so a literal private address or local name is refused while an allowlisted name that resolves
+privately is not; that gap is recorded in the risks.
 **The proxy is the one piece of this change with no precedent in the repo**, and a proxy that misses
 a client (a tool not honouring `HTTPS_PROXY`) is a hole rather than a limit; it is called out in the
 risks.
@@ -192,6 +194,9 @@ a second path to keep correct for a lane with one writer.
 - **The server's fetch is an SSRF surface.** It only fetches URLs the model wrote, which is
   attacker-controlled if the entry's link is. Restrict to https, refuse private ranges and the
   cluster's own addresses, cap body size and redirects — in the server, not in the prompt.
+  **[UNVERIFIED] the check reads the URL's host, not a resolved address,** so an allowlisted name
+  that resolves to a private address reaches it; no resolver is consulted, and closing that gap
+  needs a connected-socket check rather than a hostname one.
 - **A quoted command can be wrong for the reader's version.** Accepted and made visible: the section
   cites its URL, and the article does not claim a version it did not read. A dry-run proves the YAML
   parses, never that the version is the reader's.

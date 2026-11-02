@@ -198,8 +198,8 @@ test("the fetch refuses http, credentials, loopback, link-local and private addr
   assert.match(sourceUrlRefusal("https://localhost/x", allow), /private or loopback/);
   assert.match(sourceUrlRefusal("https://example.com/x", allow), /not a declared source host/);
   assert.equal(sourceUrlRefusal("https://github.com/x", allow), null);
-  // The address checks are about literals: an allowlisted name that resolves privately is
-  // the DNS answer's problem, which is why the proxy and the redirect check exist too.
+  // The address checks are about literals, and neither they nor the redirect check resolve a
+  // name: an allowlisted host that resolves privately is the residual risk recorded in design D10.
   assert.match(sourceUrlRefusal("file:///etc/passwd", allow), /not http or https/);
   // The loopback exemption a test needs does not reach a link-local address.
   const loopback = { allowedHosts: ["127.0.0.1", "169.254.169.254"], allowLoopback: true, requireHttps: false };

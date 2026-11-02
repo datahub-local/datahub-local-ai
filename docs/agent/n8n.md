@@ -1286,8 +1286,10 @@ from this file.
 **The mix is stated and observable.** `balance.min_person_share_pool` (0.35) reserves that share of
 `max_candidates` for reference people before category quotas are filled, so a monthly writer is not
 crowded out by vendor frequency. `balance.min_person_share_backlog` (0.35) is reported against the
-queue and warns, but does not force an admission the judge rejected. Hacker News is `community` and
-counts for neither side of the share.
+queue and warns, but does not force an admission the judge rejected. The admitted share is exact;
+the backlog share is host-based because the sheet stores the article host rather than the source
+kind, so it is the inherited queue's approximation. Hacker News is `community` and counts for
+neither side of the admitted share.
 
 **Every run answers "why is this source absent".** `fetch_candidates` seeds one `per_feed` record
 per subscribed feed and per missing reference person, carrying `fetched`, `in_window`,

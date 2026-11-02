@@ -2,8 +2,9 @@
 # repository config. It must not live under $HOME: the state volume is mounted
 # over /opt/data and would hide a baked file.
 [credential]
-	# Resolved through PATH as /usr/local/bin/git-credential-opencode.
-	helper = git-credential-opencode
+	# Absolute on purpose: git prefixes a bare helper name with `git-credential-`,
+	# so `helper = git-credential-opencode` looks for a binary that does not exist.
+	helper = /usr/local/bin/git-credential-opencode
 [user]
 	# The coder App's bot identity: GitHub links a commit to the bot only when the
 	# email is <app-id>+<slug>[bot]@users.noreply.github.com.

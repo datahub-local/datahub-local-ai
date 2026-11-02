@@ -1,9 +1,18 @@
 #!/bin/sh
 # `gh` has no credential helper; the git helper does, and both must present the
-# same identity. Mint through the helper, then exec the real binary. `gh` reads
-# GH_TOKEN, and the helper answers from the minter on loopback.
+# same identity. Call the helper binary directly, never `git credential fill`:
+# git reads its config again there, and a `gh auth setup-git` line left in a
+# persisted home points that config back at this wrapper, so the two recurse.
+helper=git-credential-opencode
+
+# git calls this wrapper directly when such a line survives. Answer in git's
+# protocol instead of spawning gh again.
+if [ "$1" = "auth" ] && [ "$2" = "git-credential" ]; then
+  exec "$helper" get
+fi
+
 if [ -z "${GH_TOKEN:-}" ] && [ -z "${GITHUB_TOKEN:-}" ]; then
-  token=$(printf 'protocol=https\nhost=github.com\n\n' | git credential fill 2>/dev/null | sed -n 's/^password=//p')
+  token=$("$helper" get | sed -n 's/^password=//p')
   [ -n "$token" ] && export GH_TOKEN="$token"
 fi
-exec /usr/local/bin/gh-real "$@"
+exec gh-real "$@"

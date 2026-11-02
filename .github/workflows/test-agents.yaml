@@ -75,6 +75,23 @@ jobs:
       - name: Test session helpers
         run: node --test 'agents/adapters/pi-render/test/*.test.mjs'
 
+  opencode-adapter:
+    name: opencode adapter credential helpers
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # Offline: the wrapper is a POSIX sh script exercised against stub binaries
+      # on PATH, so no image and no cluster are needed.
+      - name: Test the gh wrapper
+        run: node --test 'agents/adapters/opencode/test/*.test.mjs'
+
   sympozium:
     name: Sympozium ensembles
     runs-on: ubuntu-latest

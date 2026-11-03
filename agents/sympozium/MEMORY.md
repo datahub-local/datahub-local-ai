@@ -2293,10 +2293,19 @@ reader means anyone who can DM the bot can have it read a channel it is in.
 Re-pin `allowedSenders` if either becomes a problem; the values comment states
 how, and that user ids are not @handles.
 
-### The oracle listens in `#agent-oracle` only, and needs no mention (2026-10-25)
+### The oracle listens where it is asked, and needs no mention (2026-10-25, widened 2026-11-03)
 
-`allowedChats: [C0CC1563FA5]` scopes inbound to `#agent-oracle`, and
+`allowedChats` scopes inbound to `#agent-oracle` (`C0CC1563FA5`) plus the four
+`monitoring-ai-*` channels — `alerts`, `health`, `drift`, `runs` — and
 `allowedTriggers: [mention, channel]` makes a plain message start a run there.
+The four were added on 2026-11-03 after an `@homelab` question asked in a
+`#monitoring-ai-alerts` thread got no reply: the app delivered it, the sidecar
+dropped it on the chat filter before any `AgentRun` existed, and `denyMessage`
+being unset made that indistinguishable from the agent ignoring the person. The
+cost is that those channels now start a run on any human message, so keep an eye
+on `MAX_TOOL_ITERATIONS` spend if they get chatty; the reports there are bot
+messages, which the sidecar never turns into runs.
+
 Three things about that pair are not obvious:
 
 - **`channel` is what makes a plain message count; `mention` has to stay.**
@@ -2309,8 +2318,9 @@ Three things about that pair are not obvious:
 - **`denyMessage` went with the scoping, and that is deliberate.** The router
   answers a chat-denied message with `denyMessage` when it is set
   (`channel_router.go`, `if denyMsg != ""`), and the `@homelab` app is a member
-  of eight channels — `workflows`, `monitoring`, `github-notifications` and the
-  three `monitoring-ai-*`. A denial message would post into every one of them on
+  of nine channels — `workflows`, `monitoring`, `github-notifications`, the four
+  `monitoring-ai-*`, `#agentic-oracle` and `#agentic-coding`. A denial message
+  would post into every one of them on
   the first human message. Empty means silently dropped, which is the correct
   answer for "not listening here"; the allowlist is about scope, not about
   refusing a person, so the 2026-09-04 argument for a visible refusal does not

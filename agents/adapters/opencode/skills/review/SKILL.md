@@ -61,6 +61,9 @@ writing.
 - **SHOULD**: fix it, or state in the report why it is out of scope.
 - **NIT**: fix it if it is free, otherwise leave it.
 - Re-run the gate after the fixes and push to the same branch.
+- Comment on the issue what the fixes changed, in the shape the `taskboard` skill
+  gives: one line per item and the gate result. The review on the pull request is
+  the detail; the issue comment is the record the owner reads.
 - Run the reviewer once more when a blocking finding was fixed. Two rounds is the
   ceiling; a third means the task is bigger than one branch, and that is a report.
 

@@ -105,12 +105,46 @@ gh issue comment <n> --repo datahub-local/datahub-local --body "<url>
 Do not mention the owner and do not post a review request. Hermes does both when
 it sees the pull request.
 
+## A fix on an open pull request
+
+An owner comment, a review finding, or a red gate can send you back into a pull
+request that is already open. Push to the same branch, then say what changed on
+the issue, because the issue is the record the owner reads:
+
+```bash
+gh issue comment <n> --repo datahub-local/datahub-local --body "Fixed: <what changed, one line per item>
+Gate: <command> -> <result>
+
+<!-- taskboard:agent -->"
+```
+
+One comment per round of fixes, not per file, and no second review request. The
+review on the pull request stays the detail; this comment is what the owner sees
+without opening it. Hermes reads the comment and moves the card.
+
+A merged pull request ends that branch. If the owner asks for more after the
+merge, cut a new branch from `main` and open a new pull request; never push to the
+merged branch.
+
 ## When you need a decision
 
 Ask once, with the `question` tool, and stop the turn. Give two or three concrete
 options and your recommendation. Hermes posts the question on the issue, pings the
 owner and sets the card to `Blocked`; the answer arrives as the next prompt in this
 same session.
+
+When the `question` tool returns the answer, the owner picked it in the web UI and
+nothing reached the issue. Record it before you continue:
+
+```bash
+gh issue comment <n> --repo datahub-local/datahub-local --body "Decided: <the question in one line>
+Answer: <the answer>
+
+<!-- taskboard:agent -->"
+```
+
+An answer that arrives as a prompt was relayed from the issue or Slack, so it is
+already on the record; do not repeat it.
 
 Do not guess, do not pick a default, and do not stall inside a shell prompt. A
 question you did not ask costs more than the turn it saves.

@@ -43,7 +43,11 @@ if (prompt.includes("PROXY_PROBE")) {
   const proxy = new URL(process.env.HTTPS_PROXY || "http://127.0.0.1:1");
   // A declared host is not a licence for a private address: the probe names one to prove
   // the proxy applies the same address policy as the server's own ledger fetch.
-  const target = prompt.includes("PROXY_PROBE_PRIVATE") ? "127.0.0.1:443" : "blocked.example:443";
+  const target = prompt.includes("PROXY_PROBE_PRIVATE")
+    ? "127.0.0.1:443"
+    : prompt.includes("PROXY_PROBE_PORT")
+      ? "github.com:80"
+      : "blocked.example:443";
   const socket = net.connect(Number(proxy.port), proxy.hostname, () => {
     socket.write("CONNECT " + target + " HTTP/1.1\\r\\nHost: " + target + "\\r\\n\\r\\n");
   });
@@ -237,6 +241,28 @@ test("a declared private host is refused through the proxy too", async () => {
   assert.match(
     serverLog,
     /refused 127\.0\.0\.1 through the source proxy: host 127\.0\.0\.1 is private or loopback/
+  );
+});
+
+test("the proxy refuses a port other than 443", async () => {
+  // The instruction says https on 443, and the server's own ledger fetch enforces it. A
+  // proxy that forwarded plain http or another port would be a wider gate than the check
+  // the ledger is verified against.
+  const res = await turn({
+    messages: [{ role: "user", content: "PROXY_PROBE_PORT install the release" }],
+    session_id: "article-proxy-port",
+    source_hosts: ["github.com"],
+  });
+  assert.equal(res.status, 200);
+  const reply = await readFile(join(workspace, "runs", "article-proxy-port", "proxy.log"), "utf8");
+  assert.match(reply, /403/, `the proxy answered ${reply}`);
+  const deadline = Date.now() + 2000;
+  while (Date.now() < deadline && !/refused github\.com/.test(serverLog)) {
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  assert.match(
+    serverLog,
+    /refused github\.com through the source proxy: port 80 is not 443/
   );
 });
 

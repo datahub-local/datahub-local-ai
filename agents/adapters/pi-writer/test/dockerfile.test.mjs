@@ -17,10 +17,17 @@ const guide = readFileSync(join(here, "..", "prompts", "writing.md"), "utf8");
 test("the image installs what the guide tells the model to use", () => {
   assert.match(dockerfile, /FROM node:22-bookworm-slim/);
   // The guide names `curl` for reading and `helm template` for validating. A named
-  // command that is not in the image is a turn that fails at the first section.
-  for (const command of ["curl", "helm", "jq"]) {
-    assert.ok(dockerfile.includes(command), `the image does not install ${command}`);
+  // command that is not in the image is a turn that fails at the first section. The
+  // checks read the install lines, not the word anywhere in the file: `curl` also
+  // appears in the helm download, and a comment is not an installation.
+  for (const command of ["curl", "jq"]) {
+    assert.match(
+      dockerfile,
+      new RegExp(`apt-get install[\\s\\S]*?\\n\\s+${command}\\b`),
+      `the apt block does not install ${command}`
+    );
   }
+  assert.match(dockerfile, /install -m 0755 "\/tmp\/linux-\$\{arch\}\/helm" \/usr\/local\/bin\/helm/);
   assert.match(guide, /curl -fsSL/);
   assert.match(guide, /helm template/);
 });

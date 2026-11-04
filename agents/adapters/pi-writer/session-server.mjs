@@ -323,8 +323,13 @@ let queue = Promise.resolve();
 // one module-level value is the turn's.
 let articleHosts = null;
 
-function proxyRefusal(host) {
+function proxyRefusal(host, { protocol = "https:", port = "443" } = {}) {
   if (!articleHosts) return "no turn is fetching";
+  // The instruction says https on 443, and the server's own ledger fetch enforces the same.
+  // A proxy that forwarded plain http or another port would be a wider gate than the one
+  // the ledger is verified against.
+  if (protocol !== "https:") return "not https";
+  if (String(port) !== "443") return `port ${port} is not 443`;
   // The same address policy as the server's own fetch: a caller that declares a private
   // or loopback host does not make it reachable, or the two gates disagree on what may
   // be read.
@@ -358,7 +363,10 @@ const proxyServer = http.createServer((req, res) => {
     res.writeHead(400).end();
     return;
   }
-  const refusal = proxyRefusal(target.hostname);
+  const refusal = proxyRefusal(target.hostname, {
+    protocol: target.protocol,
+    port: target.port || (target.protocol === "https:" ? "443" : "80"),
+  });
   if (refusal) {
     refuseThroughProxy(target.hostname, refusal, res);
     return;
@@ -386,7 +394,7 @@ const proxyServer = http.createServer((req, res) => {
 
 proxyServer.on("connect", (req, socket, head) => {
   const [host, port] = splitHostPort(req.url);
-  const refusal = proxyRefusal(host);
+  const refusal = proxyRefusal(host, { protocol: "https:", port });
   if (refusal) {
     console.log(`sympozium pi writer session: refused ${host} through the source proxy: ${refusal}`);
     socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
@@ -529,13 +537,16 @@ http
       const instruction = articleTurnInstruction({ isIteration });
       const prompt = `${brief}\n\n---\n\nWorking directory: ${dir}\n${instruction}\n\n${method}`;
 
-      const response = await (queue = queue
+      // The ledger verification runs inside the serialized turn, not after it: a second
+      // request for the same session would otherwise start its turn while this one is
+      // reading and rewriting `sources.json`.
+      const { response, ledger } = await (queue = queue
         .catch(() => undefined)
         .then(async () => {
           articleHosts = hosts;
           proxyEnv(hosts);
           try {
-            return await runPi(
+            const response = await runPi(
               prompt,
               sessionID,
               stream
@@ -551,6 +562,7 @@ http
               cancellation.signal,
               dir
             );
+            return { response, ledger: await verifyLedger(dir, hosts) };
           } finally {
             articleHosts = null;
             proxyEnv(null);
@@ -559,7 +571,6 @@ http
 
       await sweepIfDue(sessionID);
 
-      const ledger = await verifyLedger(dir, hosts);
       if (stream) {
         writeSSE(res, {
           id,

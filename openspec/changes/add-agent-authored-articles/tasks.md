@@ -122,7 +122,7 @@
   publish. The publish workflow's pin job rewrites the `digest:` line of the block named
   `sympozium_<adapter directory>`; renaming the block would leave the seed in place with no error.
 - **2.1/6.1 — the model credential is cross-repo.** The controller refuses a Secret shared by two
-  Agents, so the deployment expects `litellm-auth-credentials-article-writer`. Creating it belongs
+  Agents, so the deployment expects `litellm-auth-credentials-pi-writer`. Creating it belongs
   to `datahub-local-secrets` and the core fan-out; this change reports it instead of committing a
   secret.
 - **3.1 — `ai_model` and `ai_model_fallback` stay.** They are removed from the drafting agent's

@@ -233,6 +233,7 @@ The fleet therefore names one Secret per owner, all created by
 | `Ensemble/homelab-responder` | `litellm-auth-credentials-homelab-responder` |
 | `Ensemble/homelab-reviewer` | `litellm-auth-credentials-homelab-reviewer` |
 | `Agent/datahub-local-ai-pi-render` | `litellm-auth-credentials-pi-render` |
+| `Agent/datahub-local-ai-pi-writer` | `litellm-auth-credentials-pi-writer` |
 
 The old shared `litellm-auth-credentials` keeps its `automation` fan-out, unused,
 until the bump is verified — a follow-up narrows it to `data`. Removing it in the
@@ -252,8 +253,8 @@ as the gateway's router fallback. The endpoint, `provider: openrouter` and the
 model-key secret are a matched set across `values/default.yaml.gotmpl` and
 `templates/pi-render-session.yaml` — change one half and the run has no
 credential, which is not a startup error. Since 2026-10-07 each owner has its
-own secret (`litellm-auth-credentials-<owner>`, one per ensemble plus one for
-`pi-render`); see *One model key per owner*.
+own secret (`litellm-auth-credentials-<owner>`, one per ensemble plus one each
+for `pi-render` and `pi-writer`); see *One model key per owner*.
 
 `provider: openrouter` is deliberate and does not name the model vendor: the
 agent-runner treats any unrecognized provider as an OpenAI-compatible endpoint,

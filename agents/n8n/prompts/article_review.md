@@ -18,7 +18,8 @@ The row's audience level is {{ AUDIENCE }}. The term check below reads at that l
 
 - Length: the body is at most {{ WORD_LIMIT }} words and it is {{ WORD_COUNT }}. Over that limit is a failure; say how many words to cut. The row's budget is {{ MAX_WORDS }}; the limit is the budget plus a counting margin, and the code rejects at the limit, not at the budget.
 - Every requested asset marker is present exactly once, alone on its own line, in the form `<!-- asset:<id> -->` with the type id in place of `<id>`, for these types: {{ ASSET_TYPES }}. The HTML comment is the marker; a bare type id is not, and neither is any other form. A requested type with no marker, a marker naming a type not requested, or a duplicated marker is a failure.
-- Every fact, number, quotation, date, release and citation is present in the Source Material or the entry's inputs. An invented one is a failure; a citation of a URL that is not the source link is a failure.
+- Every fact, number, quotation, date, release and citation is present in the Source Material, the Source Ledger or the entry's inputs. An invented one is a failure; a citation of a URL that is neither the source link nor a ledger URL is a failure.
+- Fidelity: the draft's commands, versions and manifest fields are the ones the Source Ledger names for that block. A fenced block the ledger does not carry, or a flag or version the ledger's entry does not show, is a failure; name the block.
 - The subject is named as the entry's inputs spell it.
 - The opening names the subject and the problem it answers, in the reader's world. A definition of the category, or "In this article", is a failure.
 - The close points at what to read or do next. A closing paragraph that restates the article, or that only summarises it, is a failure.
@@ -60,8 +61,17 @@ The block below is the body only. Its H1 is the `Title:` above and is not part o
 
 ## Source Material
 
-Reference only: what the writer fetched during the run. It may be empty.
+Reference only: the entry's link, fetched by the caller. It may be empty.
 
 <source>
 {{ CONTENT }}
 </source>
+
+## Source Ledger
+
+Reference only: the fenced blocks the session quotes, each with the URL the server read it from. `none` means the session verified no command, so the draft may not fence one.
+
+<ledger>
+{{ SOURCES }}
+</ledger>
+

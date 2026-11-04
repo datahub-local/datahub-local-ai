@@ -19,23 +19,35 @@ Read off the exports, the adapter and the two drafts.
 
 ## Decisions
 
-### D1. One adapter image, two profiles
+### D1. One adapter per job: the writer is its own image
 
-The Pi pin, the toolchain and the adapter contract are already maintained in one place, and a second
-image would duplicate the pin and the Renovate grouping. The session server therefore takes a
-`profile` on the request (`render`, `article`); the profile picks the instruction file and the
-artifact contract. `render` keeps its current behaviour byte for byte — same instruction, same
-`out.*`, same conformance — so the studio cannot be affected by this change.
+`agents/adapters/pi-writer/` is a new adapter with its own image, entrypoint and session server,
+not a `profile` switch inside `pi-render`. The two lanes need opposite things from the image: the
+renderer needs a browser, an encoder and a vendored engine, and the writer needs `curl`, `jq` and
+`helm`. Sharing one image meant the render lane carried helm and the article lane carried Chromium,
+and one `/opt/pi-render/prompts/` held two unrelated instruction files selected by a string on the
+request. Each is now a directory the publish workflow builds and pins on its own.
 
-Rejected: a sibling `pi-article` image (a second ~1 GB toolchain, a second Pi pin, a second set of
-findings to keep), and a rename of the adapter (a repo-wide change for a naming itch, deferrable).
+Rejected: the shared image with a `profile` on the request (implemented first, reverted on the
+owner's direction), which duplicated nothing but coupled two unrelated toolchains and made the
+render adapter's tests assert things about a lane they do not serve.
+
+What the two share is the part that is genuinely common: the shape of `session-server.mjs`, which
+both derive from the maintained Pi adapter. The writer's copy is smaller because it serves one
+contract.
 
 ### D2. A separate session for articles
 
-`article-writer` is its own `HarnessSession`, Deployment and PVC. A render and an article have
-different memory profiles, different durations and different retention, and sharing one session would
-mean one TTL for both — the render session is swept at seven days and is sized for a Chromium, which
-an article does not need.
+`pi-writer` is its own `HarnessSession`, Deployment and PVC. A render and an article have different
+memory profiles, different durations and different retention, and sharing one session would mean one
+TTL for both — the render session is swept at seven days and is sized for a Chromium, which an
+article does not need.
+
+**As landed:** the values block `sympozium_pi_writer` carries its own `image` and `digest`,
+independent of `sympozium_pi_render`. The publish workflow pins the digest line inside a block named
+`sympozium_<adapter directory>`, so `sympozium_pi_writer` is the name it updates. Until the writer's
+first publish to `main`, the seeded digest is the render image's current one; the pin job overwrites
+it on that first build, and a rename of the block would leave the seed in place silently.
 
 ### D3. The n8n contract does not move
 
@@ -93,6 +105,11 @@ Two checks, deliberately independent: the server records `found` and the `sha256
 block it matched, and `parse_article` compares the article's block against that hash. An edit that
 changes a block without touching the ledger then fails at n8n, not at the server.
 
+**As landed:** the n8n Code node compares the normalised block to the `excerpt` the server hashed,
+not to `sha256`. A Code node cannot `require('crypto')`, and the excerpt is the page text whose
+normalised form is the hash input, so the two checks are equivalent without a second hash
+implementation. The server keeps writing `sha256` for a reader of the ledger.
+
 ### D9. The ledger is persisted on the row
 
 `article_queue.SOURCES` carries the ledger JSON. The improvement pass runs in a later execution and
@@ -115,21 +132,37 @@ ledger re-fetch.
 
 Hosts come from `ARTICLE_SOURCE_HOSTS` in values — `github.com`, `raw.githubusercontent.com`, the
 project's docs host — because the set is a property of what the fleet writes about, not of the code.
+
+**As landed:** `AgentRuntime.spec` carries no `env`, and `Agent.spec.agents.default.env` does not
+reach a session pod, so a values knob cannot set the variable the proxy reads. The hosts therefore
+ride on each request as `source_hosts` from n8n's `SOURCE_HOSTS` variable, and the image carries
+`DEFAULT_ARTICLE_SOURCE_HOSTS` for a caller that names none. The values block has no `sourceHosts`
+because it would be dead config. The address check reads the URL's own host and never a DNS answer,
+so a literal private address or local name is refused while an allowlisted name that resolves
+privately is not; that gap is recorded in the risks.
 **The proxy is the one piece of this change with no precedent in the repo**, and a proxy that misses
 a client (a tool not honouring `HTTPS_PROXY`) is a hole rather than a limit; it is called out in the
 risks.
 
 ### D11. A quoted manifest is validated offline before it is fenced
 
-`helm` and `kubectl` go into the image. The instruction requires a YAML block to be rendered
-(`helm template`) or applied with `--dry-run=client` before it is written into the article, and the
-ledger records `validated: "dry-run"` or `"none"` plus the failure when one occurred. `parse_article`
-rejects a fence whose ledger entry says the validation failed — the article may not carry YAML the
-session knows is broken.
+`helm` goes into the writer image, and only `helm`. The instruction requires a YAML block to be
+rendered with `helm template` before it is written into the article, and the ledger records
+`validated: "dry-run"` or `"none"` plus the failure when one occurred. `parse_article` rejects a
+fence whose ledger entry says the validation failed — the article may not carry YAML the session
+knows is broken.
+
+`helm` is here for that one reason. `helm template` renders a chart locally, with no cluster and no
+credentials, so it is the only proof of a manifest's syntax available inside the pod. It is roughly
+17 MB and the image is otherwise `node:22-bookworm-slim` plus curl and jq. Drop the validation rule
+and `helm` leaves the image with it: it has no other job.
+
+`kubectl` is deliberately absent. `kubectl apply --dry-run=client` still asks the API for discovery
+to resolve the resource, so it fails without a cluster and cannot serve as the offline check; no
+instruction offers it.
 
 This is the middle option on purpose: it catches malformed YAML without a cluster, and it does not
-pretend to prove a command runs. `kubectl apply --dry-run=client` validates locally; `helm template`
-needs no server. Roughly 100 MB of binaries for that.
+pretend to prove a command runs.
 
 ### D12. A retry is a correction turn
 
@@ -148,7 +181,7 @@ a second path to keep correct for a lane with one writer.
 ## Flow
 
     n8n Article Creator
-      POST /v1/chat/completions  (profile=article, session_id=<row>, brief)
+      POST /v1/chat/completions  (session_id=<row>, source_hosts=<allowlist>, brief)
         └─ session: curl the sources, read them, write article.md + sources.json
         └─ server: fetch each ledgered URL, keep what answers
       GET /artifacts/<session>/article.md
@@ -171,6 +204,9 @@ a second path to keep correct for a lane with one writer.
 - **The server's fetch is an SSRF surface.** It only fetches URLs the model wrote, which is
   attacker-controlled if the entry's link is. Restrict to https, refuse private ranges and the
   cluster's own addresses, cap body size and redirects — in the server, not in the prompt.
+  **[UNVERIFIED] the check reads the URL's host, not a resolved address,** so an allowlisted name
+  that resolves to a private address reaches it; no resolver is consulted, and closing that gap
+  needs a connected-socket check rather than a hostname one.
 - **A quoted command can be wrong for the reader's version.** Accepted and made visible: the section
   cites its URL, and the article does not claim a version it did not read. A dry-run proves the YAML
   parses, never that the version is the reader's.
@@ -192,8 +228,8 @@ a second path to keep correct for a lane with one writer.
 
 ## Definition of done
 
-- The adapter serves `profile=article` and returns `article.md` + `sources.json`; `profile=render`
-  is unchanged, proven by the studio's own tests and one render.
+- The writer adapter serves one contract and returns `article.md` + `sources.json`; `pi-render` is
+  byte-identical to `main`, proven by its own tests and one render.
 - The session server fetches every ledgered URL, drops the ones that do not answer, refuses
   non-https and private addresses, and caps size.
 - `parse_article` rejects a fenced line absent from the ledger, and a fence whose ledger entry was

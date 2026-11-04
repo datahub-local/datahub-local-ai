@@ -72,6 +72,27 @@ sympozium_pi_render:
     namespace: data
     port: 4000
 
+sympozium_pi_writer:
+  enabled: true
+  image: ghcr.io/datahub-local/datahub-local-ai-pi-writer-adapter
+  digest: sha256:d799574b1d0356dee801f8081b3f63d66ed66ef7875868658ad8604c54976da7
+  storage: 1Gi
+  storageClass: longhorn
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 2Gi
+  model:
+    provider: openrouter
+    name: opencode-go/deepseek-v4.1-flash
+    baseURL: http://datahub-local-core-data-litellm.data.svc.cluster.local:4000/v1
+    authSecret: litellm-auth-credentials-article-writer
+    namespace: data
+    port: 4000
+
 sympozium_delivery_hook:
   image: python:3.13-alpine
   secret: mcp-slack-token

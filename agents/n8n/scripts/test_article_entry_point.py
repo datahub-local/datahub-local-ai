@@ -1053,3 +1053,54 @@ def test_a_blank_audience_is_the_general_reader_and_an_unknown_one_is_refused():
     )
     assert done.returncode != 0, "a mistyped level was read as NONE"
     assert 'AUDIENCE "EXPERT"' in done.stderr and "ADVANCED" in done.stderr, done.stderr
+
+
+def test_the_creator_is_told_which_row_it_drafts_for():
+    """The session id is `article-<row_number>`, so the row has to reach the sub-workflow.
+
+    A caller that omitted it would make every row share one session directory, and a retry
+    would edit another row's article.
+    """
+    call = _nodes()["execute_article_creator"]["parameters"]["workflowInputs"]
+    assert call["value"]["ROW_NUMBER"] == "={{ $('select_article_to_queue').item.json.row_number }}"
+    schema = {entry["id"]: entry for entry in call["schema"]}
+    assert schema["ROW_NUMBER"]["removed"] is False
+    trigger = json.loads(
+        (WORKFLOWS / "article_creator.workflow.json").read_text(encoding="utf-8")
+    )["nodes"]
+    declared = {
+        v["name"]
+        for n in trigger
+        if n["name"] == "main_trigger"
+        for v in n["parameters"]["workflowInputs"]["values"]
+    }
+    assert "ROW_NUMBER" in declared
+
+
+def test_the_ledger_is_stored_on_the_row_and_carried_into_the_improvement():
+    """`article_queue.SOURCES` is where a resumed review finds the ledger it was gated on.
+
+    The improvement pass runs in a later execution, so the ledger rides on the row with the
+    draft; a node that read only the sub-workflow's answer would lose it whenever the review
+    is resumed the next morning.
+    """
+    columns = _nodes()["update_article_drafted"]["parameters"]["columns"]
+    assert columns["value"]["SOURCES"] == "={{ $('select_final_draft').item.json.SOURCES || '' }}"
+    schema = {entry["id"]: entry for entry in columns["schema"]}
+    assert schema["SOURCES"]["removed"] is False, "the Sheets node would silently not write SOURCES"
+    context = _js("build_improvement_context")
+    assert "row.SOURCES" in context, "the stored ledger is not a fallback"
+    assert "$('execute_article_creator')" in context and "SOURCES" in context
+    assert "SOURCES_TEXT" in context and "FIDELITY" in context
+    improver = _nodes()["download_improver_prompt"]["parameters"]["workflowInputs"]["value"]
+    assert "SOURCES_TEXT" in improver["template_vars"]
+
+
+def test_the_review_gate_is_handed_the_ledger_it_judges():
+    creator = json.loads((WORKFLOWS / "article_creator.workflow.json").read_text(encoding="utf-8"))
+    node = next(n for n in creator["nodes"] if n["name"] == "download_article_review_prompt")
+    expr = node["parameters"]["workflowInputs"]["value"]["template_vars"]
+    assert '"SOURCES": $(\'parse_article\').item.json.SOURCES_TEXT' in expr
+    reviewer = (BASE / "prompts" / "article_review.md").read_text(encoding="utf-8")
+    assert "{{ SOURCES }}" in reviewer
+    assert "Source Ledger" in reviewer

@@ -198,7 +198,7 @@ def test_review_prompt_placeholders_match_the_call():
     node = next(n for n in value if n["name"] == "download_article_review_prompt")
     supplied = set(VAR_KEY_RE.findall(node["parameters"]["workflowInputs"]["value"]["template_vars"]))
     assert declared == supplied
-    assert {"TEXT", "WORD_COUNT", "MAX_WORDS", "RULES", "ASSET_TYPES"} <= declared
+    assert {"TEXT", "WORD_COUNT", "MAX_WORDS", "RULES", "ASSET_TYPES", "SOURCES"} <= declared
 
 
 def test_both_prompt_files_name_the_same_marker_form():

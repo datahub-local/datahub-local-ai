@@ -1,8 +1,7 @@
-{{- $s := .Values.sympozium_article_writer | default dict }}
+{{- $s := .Values.sympozium_pi_writer | default dict }}
 {{- if $s.enabled }}
-{{- $render := .Values.sympozium_pi_render | default dict }}
-{{- $name := printf "%s-article-writer" $.Values.release_name }}
-{{- $image := printf "%s@%s" (required "sympozium_article_writer reads the image pin from sympozium_pi_render.image" $render.image) (required "sympozium_article_writer reads the image pin from sympozium_pi_render.digest" $render.digest) }}
+{{- $name := printf "%s-pi-writer" $.Values.release_name }}
+{{- $image := printf "%s@%s" (required "sympozium_pi_writer.image is required" $s.image) (required "sympozium_pi_writer.digest is required" $s.digest) }}
 ---
 apiVersion: sympozium.ai/v1alpha1
 kind: SympoziumPolicy

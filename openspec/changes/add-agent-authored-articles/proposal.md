@@ -27,13 +27,14 @@ the critique as a separate call. The article lane is still on the other side of 
 
 - **The drafting pass becomes a session turn, not an agent node.** `Article Creator` keeps its inputs
   and its output shape (`text`, `title`, `word_count`, `ERROR`) and its review loop; only the writer
-  changes: one HTTP call to a `HarnessSession` running the existing Pi adapter image with an
-  `article` profile, which has `read`, `bash`, `edit`, `write` and 443 egress.
+  changes: one HTTP call to a `HarnessSession` running a new Pi adapter, `pi-writer`, which has
+  `read`, `bash`, `edit`, `write` and 443 egress.
 - **The session fetches, it does not execute.** It reads the project's documentation, charts and
   repository files over HTTPS — from an allowlist of hosts, enforced by a loopback proxy the pod's
   tools go through — and quotes what it finds. It has no cluster and no Docker, so it never claims to
-  have run anything; `helm template` and `kubectl --dry-run=client` do run, and a manifest that fails
-  them may not be fenced at all.
+  have run anything; `helm template` does run, and a manifest that fails it may not be fenced at all.
+  `kubectl` is absent: a client dry-run still needs the API's discovery, so it is not an offline
+  validator.
 - **Every fenced line carries a source.** The session returns `article.md` plus `sources.json`, a
   ledger of each fenced line with the URL it came from. The session **server**, not the model, fetches
   each URL after the turn and records its status and a hash, so a URL the model invented is dropped
@@ -60,11 +61,11 @@ the critique as a separate call. The article lane is still on the other side of 
 
 ## Impact
 
-- `agents/adapters/pi-render/` — an `article` profile: a second instruction file, a profile on the
-  request, `curl`/`ca-certificates` in the image, the ledger step after a turn. The `render` profile
-  is unchanged.
-- `agents/sympozium/templates/` — a second `HarnessSession` (`article-writer`) over the same image,
-  with its own PVC, Service and the two NetworkPolicies the render session already needed.
+- `agents/adapters/pi-writer/` — a new adapter, not a profile of `pi-render`: the session server,
+  the source ledger, the loopback allowlist proxy, a `writing.md` instruction and a text toolchain
+  (`curl`, `jq`, `helm`). The render adapter is unchanged.
+- `agents/sympozium/templates/pi-writer-session.yaml` — a second `HarnessSession` (`pi-writer`), with
+  its own image pin, PVC, Service and the two NetworkPolicies the render session already needed.
 - `agents/n8n/workflows/article_creator.workflow.json` — `create_article_ai`,
   `create_article_ai_plain`, `if_needs_research`, `research_sources`, `read_page` and their model
   nodes are replaced by one HTTP request to the session and a fetch of its two artifacts;
@@ -73,8 +74,9 @@ the critique as a separate call. The article lane is still on the other side of 
   gate gets `{{ SOURCES }}`.
 - `workflows/airflow`, `workflows/dbt`, the post lane, the publish path and the improvement pass —
   **untouched**.
-- `datahub-local-core` — `ARTICLE_WRITER_URL` on the n8n deployment, and the image pipeline for the
-  adapter tag. Cross-repo; the change is blocked on it.
+- `datahub-local-core` — `ARTICLE_WRITER_URL` on the n8n deployment (pointing at the new
+  `datahub-local-ai-pi-writer-api` Service), and the image pipeline for the adapter tag. Cross-repo;
+  the change is blocked on it.
 
 ## Non-goals
 

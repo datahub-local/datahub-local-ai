@@ -1,4 +1,4 @@
-// The article profile's contract, tested without a network and without a model.
+// The writer's ledger contract, tested without a network and without a model.
 //
 // The ledger is the part the model does not own: these tests pin the policy the server
 // applies to every URL it is asked to verify, and the matching rule a fence has to pass.
@@ -9,9 +9,6 @@ import http from "node:http";
 import { createHash } from "node:crypto";
 
 import {
-  PROFILES,
-  parseProfile,
-  DEFAULT_PROFILE,
   ARTICLE_NAME,
   LEDGER_NAME,
   parseSourceHosts,
@@ -87,17 +84,7 @@ const localPolicy = (opts = {}) => ({
   ...opts,
 });
 
-test("the render profile is the default and an unknown one is refused by name", () => {
-  // An old caller sends no profile and must keep its render; a typo must not become one.
-  assert.equal(DEFAULT_PROFILE, "render");
-  assert.equal(parseProfile(undefined), "render");
-  assert.equal(parseProfile(""), "render");
-  assert.equal(parseProfile("article"), "article");
-  assert.equal(PROFILES.article.instruction, "article.md");
-  assert.throws(() => parseProfile("artical"), /unknown profile "artical"/);
-});
-
-test("the article contract names the two files the turn writes", () => {
+test("the contract names the two files the turn writes", () => {
   assert.equal(ARTICLE_NAME, "article.md");
   assert.equal(LEDGER_NAME, "sources.json");
 });
@@ -134,9 +121,7 @@ test("a block matches its page with whitespace collapsed, not line by line", () 
 
 test("the ledger accepts both shapes and rewrites them as the object", () => {
   const entry = { block: "kubectl get pods", url: "https://github.com/x", validated: "dry-run" };
-  assert.deepEqual(parseLedger(JSON.stringify([entry])), [
-    { ...entry, validation_error: "" },
-  ]);
+  assert.deepEqual(parseLedger(JSON.stringify([entry])), [{ ...entry, validation_error: "" }]);
   assert.deepEqual(parseLedger(JSON.stringify({ sources: [entry] })), [
     { ...entry, validation_error: "" },
   ]);
@@ -147,16 +132,16 @@ test("the ledger accepts both shapes and rewrites them as the object", () => {
 
 test("the ledger's match is the page's own text, and a whitespace difference still matches", async () => {
   const block = "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: probe";
-  const { sources, dropped } = await revalidateLedger(
-    [{ block, url: `${base}/page` }],
-    localPolicy()
-  );
+  const { sources, dropped } = await revalidateLedger([{ block, url: `${base}/page` }], localPolicy());
   assert.deepEqual(dropped, []);
   assert.equal(sources.length, 1);
   assert.equal(sources[0].found, true);
   assert.equal(sources[0].status, 200);
   assert.equal(sources[0].sha256, sha256Hex(normaliseBlock(block)));
-  assert.equal(sources[0].body_sha256, hash("intro\n\napiVersion: v1\nkind:    ConfigMap\nmetadata:\n  name: probe\n\noutro\n"));
+  assert.equal(
+    sources[0].body_sha256,
+    hash("intro\n\napiVersion: v1\nkind:    ConfigMap\nmetadata:\n  name: probe\n\noutro\n")
+  );
   assert.ok(sources[0].excerpt.includes("kind:    ConfigMap"), "the excerpt is the page's text");
 });
 
@@ -229,19 +214,13 @@ test("the per-URL timeout covers the body, not only the headers", async () => {
 
 test("a body is capped, so a page cannot hide a fence beyond the cap", async () => {
   const block = "apiVersion: v1 kind: ConfigMap metadata: name: late";
-  const capped = await revalidateLedger(
-    [{ block, url: `${base}/huge` }],
-    localPolicy({ maxBytes: 500 })
-  );
+  const capped = await revalidateLedger([{ block, url: `${base}/huge` }], localPolicy({ maxBytes: 500 }));
   assert.equal(capped.sources[0].found, false, "the fetch read past its cap");
-  const whole = await revalidateLedger(
-    [{ block, url: `${base}/huge` }],
-    localPolicy({ maxBytes: 10_000 })
-  );
+  const whole = await revalidateLedger([{ block, url: `${base}/huge` }], localPolicy({ maxBytes: 10_000 }));
   assert.equal(whole.sources[0].found, true, "the same page carries the fence below the cap");
 });
 
-test("an article turn says whether it authors or corrects", () => {
+test("a turn says whether it authors or corrects", () => {
   assert.ok(articleTurnInstruction({ isIteration: false }).includes("Write the article to `article.md`"));
   assert.ok(articleTurnInstruction({ isIteration: false }).includes("`sources.json`"));
   const correction = articleTurnInstruction({ isIteration: true });

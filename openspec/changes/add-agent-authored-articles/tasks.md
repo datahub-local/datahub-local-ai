@@ -1,51 +1,49 @@
 # Tasks
 
-## 1. The adapter's article profile
+## 1. The writer adapter
 
-- [x] `agents/adapters/pi-render/session-lib.mjs`: parse `profile` (`render` default so an old
-  caller keeps working), and refuse an unknown one by name.
-- [x] `prompts/article.md`: the sandbox facts for this profile — working directory, 443 only, no
+- [x] `agents/adapters/pi-writer/`: a new adapter, not a `profile` inside `pi-render` (D1).
+  `session-lib.mjs` holds the artifact contract (`article.md`, `sources.json`), the ledger's schema,
+  the source policy and Pi's retry settings; `session-server.mjs` serves
+  `/v1/chat/completions` and `/artifacts/<session>/<name>`.
+- [x] `prompts/writing.md`: the sandbox facts — working directory, 443 only through the proxy, no
   cluster and no Docker, write `article.md` and `sources.json` here, quote rather than invent, say so
   when a source could not be read.
-- [x] `session-lib.mjs`: the article artifact contract (`article.md`, `sources.json`), the
-  ledger's schema, and the line a turn answers about where its files are.
-- [x] `session-server.mjs`: choose the instruction and the artifact contract by profile; serve
-  `article.md`/`sources.json` on the existing `/artifacts/<session>/<name>` route.
-- [x] `session-server.mjs`: after an `article` turn, fetch every ledgered URL — https only,
+- [x] `session-server.mjs`: after a turn, fetch every ledgered URL — https only,
   private/loopback/link-local refused, body capped, redirects capped, timeout per URL — and drop the
   entries that do not answer, recording status and a body hash.
-- [x] `Dockerfile`: `curl`, `ca-certificates`, `helm` and `kubectl` (Pi's bash has no HTTP client,
-  and a quoted manifest is dry-run before it is fenced); assert all four in
-  `test/dockerfile.test.mjs` beside the existing toolchain assertions.
-- [x] `session-server.mjs`: a loopback forward proxy honouring `ARTICLE_SOURCE_HOSTS`, with
+- [x] `Dockerfile`: `curl`, `ca-certificates` and `helm` (Pi's bash has no HTTP client, and a quoted
+  manifest is rendered with `helm template` before it is fenced); `kubectl` is deliberately absent.
+  The toolchain assertions live in `test/dockerfile.test.mjs`.
+- [x] `session-server.mjs`: a loopback forward proxy honouring the request's `source_hosts`, with
   `HTTP_PROXY`/`HTTPS_PROXY`/`NO_PROXY` set in the container so `curl` in a bash tool goes through
   it; anything off the list answers `403` and the refusal is logged with the host.
 - [x] `session-lib.mjs`: the ledger entry is the **fenced block** verbatim plus `url`, `found`,
   `sha256` of the normalised block, `validated` (`dry-run`/`none`) and `validation_error`; the match
   is a whitespace-normalised contiguous excerpt, and the server records the excerpt it matched.
-- [x] `prompts/article.md`: render or dry-run a YAML block before fencing it; read only from the
-  allowlisted hosts (the list is shown to the agent, the proxy enforces it).
+- [x] `entrypoint.sh`: dispatch to the session server on `v1alpha2`; a Job gets a named refusal with
+  a `jq`-built error payload, because an article needs the session directory and the serialized turn.
 
 ## 2. The session
 
-- [x] `agents/sympozium/templates/article-writer-session.yaml`: `SympoziumPolicy`, `AgentRuntime`
-  (same image, its own resources), `Agent`, `PersistentVolumeClaim`, `HarnessSession`, `Service`, and
+- [x] `agents/sympozium/templates/pi-writer-session.yaml`: `SympoziumPolicy`, `AgentRuntime` (its
+  own image pin and resources), `Agent`, `PersistentVolumeClaim`, `HarnessSession`, `Service`, and
   the two additive NetworkPolicies (n8n ingress on 8080, egress to LiteLLM on 4000) — mirroring
   `pi-render-session.yaml`.
-- [x] `values/default.yaml.gotmpl`: `sympozium_article_writer` with `enabled`, `resources`, `model`,
-  `storageClass` and `storage`; the image pins are read from `sympozium_pi_render` and the hosts ride
-  on the session request, so neither is repeated here.
+- [x] `values/default.yaml.gotmpl`: `sympozium_pi_writer` with `enabled`, `image`, `digest`,
+  `resources`, `model`, `storageClass` and `storage`; the hosts ride on the session request, so there
+  is no `sourceHosts` here.
 
 ## 3. The drafting swap
 
 - [x] `article_creator.workflow.json`: replace `create_article_ai`, `create_article_ai_plain`,
-  `if_needs_research`, `research_sources`, `read_page` and `ai_model`/`ai_model_fallback` with
-  `request_article` (HTTP POST to the session, `profile=article`, `session_id` from the row) and two
-  fetches (`fetch_article`, `fetch_sources`). Both graph copies.
+  `if_needs_research`, `research_sources`, `read_page` and their model edges with `request_article`
+  (HTTP POST to the session, `session_id` from the row) and two fetches (`fetch_article`,
+  `fetch_sources`). Both graph copies.
 - [x] Keep `parse_article`'s contract: the request node's output is reshaped into what it already
   reads, so the review loop, `merge_article_verdict` and the retry edge are untouched.
 - [x] `parse_article`: match each fenced block against the ledger as a normalised contiguous
-  excerpt, require the block to hash to what the server recorded, reject a block absent from the
+  excerpt, require the block to match what the server recorded, reject a block absent from the
   ledger, an entry whose `found` is false and an entry whose dry-run failed — naming the block's
   first line and the URL; report `SOURCES: <n> quoted` as data so grounding is readable from the
   execution.
@@ -71,26 +69,31 @@
 
 ## 5. Tests
 
-- [x] `agents/adapters/pi-render/test/`: `profile` defaults to `render`, an unknown profile is
-  refused, the article contract is served, and the ledger filter drops a URL that does not answer
-  (a stub server, no network in the test).
+- [x] `agents/adapters/pi-writer/test/ledger.test.mjs`: the ledger's shape, the block match, and the
+  fetch policy — a URL that does not answer is dropped, a block the page does not carry is
+  `found: false` (a stub server, no network in the test).
 - [x] The ledger fetch refuses `http://`, `169.254.169.254`, `10.0.0.0/8`, `localhost` and a
   redirect to any of them, and caps a large body.
-- [x] `agents/adapters/pi-render/test/`: a blocked host is refused **through the proxy**, a
-  ledgered URL that does not answer is dropped, a block whose whitespace differs still matches, and a
-  block missing from the page is `found: false`.
+- [x] `agents/adapters/pi-writer/test/session-server.test.mjs`: a blocked host is refused **through
+  the proxy**, a declared private host is refused too, a retry is a correction turn, and the artifact
+  route serves only the two names.
 - [x] `scripts/test_article_sources.py`: executing `parse_article`, a ledgered block passes, an
-  absent one is rejected naming it, a block whose hash no longer matches the server's excerpt is
+  absent one is rejected naming it, a block that no longer matches the server's excerpt is
   rejected, a dropped entry is rejected, a failed dry-run is rejected naming the failure, and a draft
   with no ledger commands may not fence.
 - [x] The twin check agrees on the same fixtures, including a missing `SOURCES` cell.
 - [x] `scripts/test_article_prompts.py`: the gate declares `SOURCES` and the node supplies it; the
-  writer prompt declares no placeholder the request does not pass.
+  writer prompt declares no placeholder the request does not pass; the request names the row and the
+  allowlist and selects no profile.
 
 ## 6. Cross-repo
 
-- [ ] `datahub-local-core`: `ARTICLE_WRITER_URL` on the n8n deployment, beside `PI_RENDER_URL`.
-  **Blocked by** the session existing.
+- [ ] `datahub-local-core`: `ARTICLE_WRITER_URL` on the n8n deployment, beside `PI_RENDER_URL`,
+  pointing at `datahub-local-ai-pi-writer-api.automation.svc.cluster.local:8080`. **Blocked by** the
+  session existing.
+- [ ] The publish workflow's adapter discovery builds and pins
+  `ghcr.io/datahub-local/datahub-local-ai-pi-writer-adapter` on the first merge to `main`, and the
+  pin job rewrites the `digest:` line of the `sympozium_pi_writer` block. **Blocked by** that merge.
 - [ ] Owner, by hand: add a `SOURCES` column to the `article_queue` sheet before the first run.
   The write node maps the column by header, so a missing header fails the run after the draft was
   uploaded.
@@ -98,6 +101,7 @@
 ## 7. Verification
 
 - [x] `uv run --with pytest --with pyyaml pytest scripts/` in `agents/n8n`,
+  `node --test 'agents/adapters/pi-writer/test/*.test.mjs'` in `agents/adapters/pi-writer`,
   `node --test 'agents/adapters/pi-render/test/*.test.mjs'` in `agents/adapters/pi-render`,
   `helmfile template` in `agents/sympozium`, and `openspec validate --all`.
 - [x] Order: adapter image and session first, `ARTICLE_WRITER_URL` next, then the workflow — the
@@ -110,11 +114,13 @@
 
 ## Deviations as landed
 
-- **2.2 — the values block does not repeat the image pins.** `sympozium_article_writer` has
-  `enabled`, `resources`, `model`, `storageClass` and `storage`; the template reads
-  `sympozium_pi_render`'s image and digest through `required`, because one image is D1's decision.
-  `sourceHosts` is omitted: `AgentRuntime.spec` has no env, so the list rides on the session request
-  as `source_hosts` (n8n `SOURCE_HOSTS`), with `DEFAULT_ARTICLE_SOURCE_HOSTS` in the image.
+- **D1 — the shared image with a profile was built first and reverted.** The article lane landed as
+  a `profile` inside `pi-render`; on the owner's direction it is its own adapter. `pi-render` is now
+  byte-identical to `main` on this branch, so the studio cannot be affected by this change.
+- **2.2 — the digest is seeded with the render image's.** `sympozium_pi_writer.digest` starts at
+  `sha256:d799574b…`, the current `pi-render` digest, because no writer image exists until the first
+  publish. The publish workflow's pin job rewrites the `digest:` line of the block named
+  `sympozium_<adapter directory>`; renaming the block would leave the seed in place with no error.
 - **2.1/6.1 — the model credential is cross-repo.** The controller refuses a Secret shared by two
   Agents, so the deployment expects `litellm-auth-credentials-article-writer`. Creating it belongs
   to `datahub-local-secrets` and the core fan-out; this change reports it instead of committing a
@@ -126,9 +132,8 @@
   `require('crypto')`. `parse_article` and `check_improved_draft` compare the normalised block to
   the `excerpt` the server recorded (whose normalised form is the hash input), and the server still
   writes `sha256` for the ledger's readers.
-- **D11 — `kubectl` is not an offline validator in this version.** A client dry-run still needs API
-  discovery, so the prompts name `helm template` for a manifest and no longer offer `kubectl` as a
-  validator; `kubectl` remains in the image for the session's own attempts.
-- **1.6 — `[UNVERIFIED]` the live image.** The adapter pin is rebuilt by the publish workflow; until
-  it republishes, the article session runs the old `pi-render` image and `article` returns the
-  profile refusal of an older server.
+- **D11 — `helm` is in the image for one rule.** An offline `helm template` is the only manifest
+  check that works without a cluster. Drop the validation requirement and `helm` leaves the image
+  with it. `kubectl` is absent because a client dry-run needs API discovery; no prompt offers it.
+- **1.6 — `[UNVERIFIED]` the live image.** The writer image is built and pinned on the first merge
+  to `main`. Until then the seeded digest points at `pi-render`, which refuses the writer's contract.

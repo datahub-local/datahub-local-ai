@@ -977,12 +977,17 @@ deliberate direction.
 
 **The draft is a session turn, not an agent node.** `build_article_request` joins
 `prompts/article_writer_system.md` and `prompts/article_writer.md` into one request to the
-`article-writer` `HarnessSession`: `profile: article`, `session_id: article-<row_number>`, the
-attempt number and the `SOURCE_HOSTS` allowlist. `request_article` posts it, `fetch_article` and
+`pi-writer` `HarnessSession`: `session_id: article-<row_number>`, the attempt number and the
+`SOURCE_HOSTS` allowlist. `request_article` posts it, `fetch_article` and
 `fetch_sources` read `article.md` and the server-rewritten `sources.json`, and `parse_article`
 checks the draft against that ledger. The graph holds no tool node and no drafting model node:
 the only `ai_languageModel` edges left are the reviewer's. `ROW_NUMBER` is what makes a retry
 continue the row's session directory instead of paying for every source again.
+
+The adapter is its own image (`datahub-local-ai-pi-writer-adapter`), not a profile of
+`pi-render`: the writer reads pages and validates a manifest, the renderer paints a composition,
+and one image for both meant each lane carried the other's toolchain. Its address is
+`ARTICLE_WRITER_URL`.
 
 **A fence is verified against the ledger the server wrote, not a memory.** `sources.json` lists
 each fenced block with the URL it came from; after the turn the session server refetches every

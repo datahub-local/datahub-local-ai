@@ -21,7 +21,6 @@
 // behaviour it expects.
 
 import http from "node:http";
-import net from "node:net";
 import { createReadStream } from "node:fs";
 import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
@@ -49,18 +48,6 @@ import {
   stillArgs,
   captureStill,
   outputFps,
-  parseProfile,
-  PROFILES,
-  ARTICLE_NAME,
-  LEDGER_NAME,
-  parseSourceHosts,
-  fillSourceHosts,
-  parseLedger,
-  serialiseLedger,
-  revalidateLedger,
-  articleTurnInstruction,
-  hostAllowed,
-  isBlockedHostname,
 } from "./session-lib.mjs";
 
 const port = Number(process.env.SYMPOZIUM_SESSION_PORT || "8080");
@@ -68,8 +55,7 @@ const maxBody = 1_048_576;
 const maxOutput = 2_000_000;
 // The session PVC is mounted at /tmp, so Pi's transcript survives a pod restart.
 const sessionDir = "/tmp/pi-sessions";
-const promptDir = process.env.PI_RENDER_PROMPT_DIR || "/opt/pi-render/prompts";
-const proxyPort = Number(process.env.ARTICLE_PROXY_PORT || "8081");
+const promptPath = "/opt/pi-render/prompts/authoring.md";
 // A session container mounts the session PVC at /tmp and does **not** mount
 // /workspace (only the Job path does), so the workspace must default under the PVC.
 // The caller can still override it.
@@ -212,15 +198,13 @@ await writeFile(
 process.env.HYPERFRAMES_BROWSER_PATH = browser;
 process.env.HYPERFRAMES_SKIP_SKILLS = "1";
 
-async function authoringMethod(profile) {
-  const name = PROFILES[profile].instruction;
-  const path = join(promptDir, name);
+async function authoringMethod() {
   try {
-    return await readFile(path, "utf8");
+    return await readFile(promptPath, "utf8");
   } catch {
     // A missing prompt is loud on the first turn rather than fatal at startup:
     // the session still comes up and the error names the path.
-    return `The ${profile} instruction file is missing at ${path}. Report that rather than improvising.`;
+    return `The authoring method file is missing at ${promptPath}. Report that rather than improvising.`;
   }
 }
 
@@ -454,153 +438,7 @@ async function makeStills(dir, { format, width, height, durationSeconds, fps }) 
 // turns against it interleave. The contract asks adapters to serialize.
 let queue = Promise.resolve();
 
-// ---------------------------------------------------------------------------
-// The article allowlist proxy.
-//
-// An instruction is not enforcement, and the CNI here is not FQDN-aware, so the
-// allowlist lives in front of the tools: `curl` in a bash tool honours
-// `HTTPS_PROXY`, and anything off the list answers 403 here with the host logged.
-// The list is per turn because the caller names the hosts; turns are serialized, so
-// one module-level value is the turn's.
-let articleHosts = null;
-
-function proxyRefusal(host) {
-  if (!articleHosts) return "no article turn is fetching";
-  // The same address policy as the server's own fetch: a caller that declares a private
-  // or loopback host does not make it reachable, or the two gates disagree on what may
-  // be read.
-  if (isBlockedHostname(host)) return `host ${host} is private or loopback`;
-  if (!hostAllowed(host, articleHosts)) return `host ${host} is not a declared source host`;
-  return null;
-}
-
-function splitHostPort(value) {
-  const text = String(value || "");
-  if (text.startsWith("[")) {
-    const end = text.indexOf("]");
-    return [text.slice(1, end), text.slice(end + 2)];
-  }
-  const colon = text.lastIndexOf(":");
-  return colon < 0 ? [text, "443"] : [text.slice(0, colon), text.slice(colon + 1)];
-}
-
-function refuseThroughProxy(host, reason, res) {
-  console.log(`sympozium pi render session: refused ${host} through the article proxy: ${reason}`);
-  if (res && !res.headersSent) {
-    res.writeHead(403, { "content-type": "text/plain" }).end(`blocked source host: ${host}`);
-  }
-}
-
-const proxyServer = http.createServer((req, res) => {
-  let target;
-  try {
-    target = new URL(req.url?.startsWith("http") ? req.url : `http://${req.headers.host}${req.url}`);
-  } catch {
-    res.writeHead(400).end();
-    return;
-  }
-  const refusal = proxyRefusal(target.hostname);
-  if (refusal) {
-    refuseThroughProxy(target.hostname, refusal, res);
-    return;
-  }
-  const upstream = http.request(
-    {
-      protocol: target.protocol,
-      hostname: target.hostname,
-      port: target.port || 80,
-      path: `${target.pathname}${target.search}`,
-      method: req.method,
-      headers: { ...req.headers, host: target.host },
-    },
-    (answer) => {
-      res.writeHead(answer.statusCode || 502, answer.headers);
-      answer.pipe(res);
-    }
-  );
-  upstream.on("error", (err) => {
-    if (!res.headersSent) res.writeHead(502);
-    res.end(String(err?.message ?? err));
-  });
-  req.pipe(upstream);
-});
-
-proxyServer.on("connect", (req, socket, head) => {
-  const [host, port] = splitHostPort(req.url);
-  const refusal = proxyRefusal(host);
-  if (refusal) {
-    console.log(`sympozium pi render session: refused ${host} through the article proxy: ${refusal}`);
-    socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
-    socket.destroy();
-    return;
-  }
-  const upstream = net.connect(Number(port) || 443, host, () => {
-    socket.write("HTTP/1.1 200 Connection Established\r\n\r\n");
-    upstream.write(head);
-    upstream.pipe(socket);
-    socket.pipe(upstream);
-  });
-  upstream.on("error", () => socket.destroy());
-  socket.on("error", () => upstream.destroy());
-});
-
-await new Promise((resolve) => proxyServer.listen(proxyPort, "127.0.0.1", resolve));
-console.log(`sympozium pi render session: article proxy listening on 127.0.0.1:${proxyPort}`);
-
-// The model endpoint must never go through the proxy: the allowlist is about source
-// pages, and a proxied model call would be refused as an undeclared host. Cluster
-// names and loopback are excluded for the same reason.
-const modelHost = (() => {
-  try {
-    return new URL(process.env.MODEL_BASE_URL).hostname;
-  } catch {
-    return "";
-  }
-})();
-process.env.NO_PROXY = ["127.0.0.1", "localhost", "::1", modelHost, ".svc", ".cluster.local"]
-  .filter(Boolean)
-  .join(",");
-
-function proxyEnv(hosts) {
-  if (!hosts) {
-    for (const name of ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"]) delete process.env[name];
-    return;
-  }
-  const url = `http://127.0.0.1:${proxyPort}`;
-  for (const name of ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"]) process.env[name] = url;
-}
-
-// After an article turn: the ledger's every URL is fetched here, the entries whose
-// URL does not answer are dropped, and the file is rewritten with what the server
-// saw. The model is never the authority on whether a source exists.
-async function verifyLedger(dir, hosts) {
-  const path = join(dir, LEDGER_NAME);
-  let raw;
-  try {
-    raw = await readFile(path, "utf8");
-  } catch {
-    console.log("sympozium pi render session: the article turn wrote no sources.json");
-    return { sources: 0, quoted: 0, dropped: [], error: "the turn wrote no sources.json" };
-  }
-  let ledger;
-  try {
-    ledger = parseLedger(raw);
-  } catch (err) {
-    console.log(`sympozium pi render session: sources.json is unreadable: ${err?.message ?? err}`);
-    return { sources: 0, quoted: 0, dropped: [], error: String(err?.message ?? err) };
-  }
-  const { sources, dropped } = await revalidateLedger(ledger, { allowedHosts: hosts });
-  for (const entry of dropped) {
-    console.log(`sympozium pi render session: dropped ledger entry ${entry.url}: ${entry.reason}`);
-  }
-  await writeFile(path, serialiseLedger(sources));
-  return {
-    sources: sources.length,
-    quoted: sources.filter((entry) => entry.found).length,
-    dropped,
-    error: "",
-  };
-}
+const method = await authoringMethod();
 
 http
   .createServer(async (req, res) => {
@@ -642,8 +480,6 @@ http
     try {
       const request = await readJSON(req);
       const brief = promptFrom(request.messages);
-      const profile = parseProfile(request.profile);
-      const isArticle = profile === "article";
       const sessionID = safeSessionId(request.session_id);
       const format = safeFormat(request.format);
       const fps = Number(request.fps);
@@ -651,7 +487,6 @@ http
       const height = Number(request.height);
       const frames = Number(request.frames);
       const durationSeconds = Number(request.durationSeconds);
-      const hosts = isArticle ? parseSourceHosts(request.source_hosts) : [];
       const stream = request.stream === true;
       const id = `chatcmpl-${randomUUID()}`;
       const cancellation = new AbortController();
@@ -671,84 +506,33 @@ http
       // one is isolated so sequential turns never overwrite each other's artifact.
       const dir = resolveRunDir(workDir, sessionID);
       await mkdir(dir, { recursive: true });
+      // The vendored GSAP resolves as a sibling of the composition; stage it before
+      // the turn so the composer's `<script src="gsap.min.js">` is served.
+      await stageVendorAssets(dir);
       // The instruction follows the directory, not the caller: a session that already
-      // holds an artifact is edited, so a declaration and a swept session agree. An
-      // article's correction is also declared by `attempt > 1`, because the artifact
-      // may not have been written by a turn that failed mid-way.
-      let isIteration;
-      if (isArticle) {
-        isIteration = (await exists(join(dir, ARTICLE_NAME))) || Number(request.attempt) > 1;
-      } else {
-        // The vendored GSAP resolves as a sibling of the composition; stage it before
-        // the turn so the composer's `<script src="gsap.min.js">` is served.
-        await stageVendorAssets(dir);
-        isIteration = await exists(join(dir, compositionMarker(format)));
-      }
-      const method = fillSourceHosts(await authoringMethod(profile), hosts);
-      const instruction = isArticle
-        ? articleTurnInstruction({ isIteration })
-        : turnInstruction({ format, isIteration });
-      const prompt = `${brief}\n\n---\n\nWorking directory: ${dir}\n${instruction}\n\n${method}`;
+      // holds a composition is edited, so a declaration and a swept session agree.
+      const isIteration = await exists(join(dir, compositionMarker(format)));
+      const prompt =
+        `${brief}\n\n---\n\nWorking directory: ${dir}\n${turnInstruction({ format, isIteration })}\n\n${method}`;
 
-      const response = await (queue = queue
-        .catch(() => undefined)
-        .then(async () => {
-          if (isArticle) {
-            articleHosts = hosts;
-            proxyEnv(hosts);
-          }
-          try {
-            return await runPi(
-              prompt,
-              sessionID,
-              stream
-                ? (chunk) =>
-                    writeSSE(res, {
-                      id,
-                      object: "chat.completion.chunk",
-                      created: Math.floor(Date.now() / 1000),
-                      model: process.env.MODEL_NAME,
-                      choices: [{ index: 0, delta: { content: chunk }, finish_reason: null }],
-                    })
-                : undefined,
-              cancellation.signal,
-              dir
-            );
-          } finally {
-            if (isArticle) {
-              articleHosts = null;
-              proxyEnv(null);
-            }
-          }
-        }));
-
-      await sweepIfDue(sessionID);
-
-      if (isArticle) {
-        const ledger = await verifyLedger(dir, hosts);
-        if (stream) {
-          writeSSE(res, {
-            id,
-            object: "chat.completion.chunk",
-            created: Math.floor(Date.now() / 1000),
-            model: process.env.MODEL_NAME,
-            choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
-          });
-          if (!res.writableEnded) res.end("data: [DONE]\n\n");
-          return;
-        }
-        const body = JSON.stringify({
-          id,
-          object: "chat.completion",
-          created: Math.floor(Date.now() / 1000),
-          model: process.env.MODEL_NAME,
-          choices: [{ index: 0, message: { role: "assistant", content: response }, finish_reason: "stop" }],
-          stills: [],
-          article: { name: ARTICLE_NAME, ledger: LEDGER_NAME, ...ledger },
-        });
-        res.writeHead(200, { "content-type": "application/json", "content-length": Buffer.byteLength(body) }).end(body);
-        return;
-      }
+      const response = await (queue = queue.catch(() => undefined).then(() =>
+        runPi(
+          prompt,
+          sessionID,
+          stream
+            ? (chunk) =>
+                writeSSE(res, {
+                  id,
+                  object: "chat.completion.chunk",
+                  created: Math.floor(Date.now() / 1000),
+                  model: process.env.MODEL_NAME,
+                  choices: [{ index: 0, delta: { content: chunk }, finish_reason: null }],
+                })
+            : undefined,
+          cancellation.signal,
+          dir
+        )
+      ));
 
       // Produce the caller's requested format from the engine's out.mp4, in the
       // same run directory, before answering -- and conform it to the declared container,
@@ -770,6 +554,8 @@ http
         format, width, height, durationSeconds,
         fps: outputFps({ frames, durationSeconds, fps }),
       });
+
+      await sweepIfDue(sessionID);
 
       if (stream) {
         writeSSE(res, {

@@ -346,9 +346,10 @@ def test_the_creator_requests_a_session_turn():
     assert _edges("fetch_sources") == ["parse_article"]
 
 
-def test_the_request_names_the_profile_the_row_and_the_allowlist():
+def test_the_request_names_the_row_and_the_allowlist():
     code = _node("build_article_request")["parameters"]["jsCode"]
-    assert "profile: 'article'" in code
+    # pi-writer is its own adapter: it has one contract, so there is no profile to select.
+    assert "profile" not in code
     assert "session_id: sessionId" in code
     assert "'article-' + row" in code
     assert "ROW_NUMBER" in code

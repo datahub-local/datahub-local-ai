@@ -72,8 +72,10 @@ sympozium_pi_render:
     namespace: data
     port: 4000
 
-sympozium_article_writer:
+sympozium_pi_writer:
   enabled: true
+  image: ghcr.io/datahub-local/datahub-local-ai-pi-writer-adapter
+  digest: sha256:d799574b1d0356dee801f8081b3f63d66ed66ef7875868658ad8604c54976da7
   storage: 1Gi
   storageClass: longhorn
   resources:

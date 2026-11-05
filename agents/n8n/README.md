@@ -12,6 +12,14 @@ render/       the standalone video render service (its own README)
 scripts/      operational scripts: apply a change to live, extract brand tokens
 ```
 
+## Gates
+
+The offline guards that asserted these files were removed on 2026-11-05: a test
+that pins a prompt, a dataset or an export goes red on the next correct edit,
+because those files are edited for reasons it cannot know. What is left is review
+— the diff, the live apply, the next backup run — and `scripts/`, where the code
+actually runs.
+
 ## Brand tokens
 
 `datasets/brand.json` is the only copy of the project's palette and typefaces in

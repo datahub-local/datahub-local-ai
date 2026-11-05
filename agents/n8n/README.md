@@ -9,7 +9,7 @@ datasets/     JSON fetched at run time by DownloadTemplate
 prompts/      prompt templates fetched by DownloadTemplate
 templates/    HTML/SVG markup the animated and SVG asset types assemble
 render/       the standalone video render service (its own README)
-scripts/      operational scripts and the offline export guards
+scripts/      operational scripts: apply a change to live, extract brand tokens
 ```
 
 ## Brand tokens
@@ -17,8 +17,7 @@ scripts/      operational scripts and the offline export guards
 `datasets/brand.json` is the only copy of the project's palette and typefaces in
 this repository. Every surface that generates a visual reads it — the render
 service, the infographic templates, the prompts that describe a look, and the
-type registry — and `scripts/test_brand.py` fails on a colour or a typeface that
-appears anywhere else, so no surface can grow a second palette.
+type registry — so a second palette is a copy to review against this one.
 
 The tokens are extracted from the site repository that owns the brand,
 `datahub-local/datahub-local`, whose `mkdocs.yml` names the typefaces and whose

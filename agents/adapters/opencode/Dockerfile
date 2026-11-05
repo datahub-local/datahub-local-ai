@@ -153,6 +153,7 @@ RUN set -eux; \
     jq -e '.providers.litellm' /etc/opencode/opencode.json; \
     jq -e '.skills.paths | index("/opt/opencode/skills")' /etc/opencode/opencode.json; \
     jq -e '.mcp.servers.k8s' /etc/opencode/opencode.json; \
+    jq -e '.mcp.servers.n8n.headers.Authorization' /etc/opencode/opencode.json; \
     jq -e '.model == "{env:OPENCODE_MODEL}"' /etc/opencode/opencode.json; \
     jq -e '.agents.reviewer.model == "{env:OPENCODE_REVIEW_MODEL}"' /etc/opencode/opencode.json; \
     jq -e '.agents.reviewer.mode == "subagent"' /etc/opencode/opencode.json; \

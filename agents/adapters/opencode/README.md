@@ -76,13 +76,15 @@ split exists and what was rejected.
 
 LiteLLM is a declared provider — `providers.litellm` with the
 `openai-compatible` package — so there is no plugin to install, no cache to warm and
-no activation race; the built-in `opencode` provider is disabled. Three values are
-substituted at runtime: `{env:LITELLM_BASE_URL}`, `{env:OPENCODE_FIRECRAWL_MCP_URL}`
-and `{env:OPENCODE_K8S_MCP_URL}`.
+no activation race; the built-in `opencode` provider is disabled. Four values are
+substituted at runtime: `{env:LITELLM_BASE_URL}`, `{env:OPENCODE_FIRECRAWL_MCP_URL}`,
+`{env:OPENCODE_K8S_MCP_URL}` and `{env:OPENCODE_N8N_MCP_URL}` with its
+`{env:OPENCODE_N8N_MCP_TOKEN}` header.
 `LITELLM_API_KEY` comes from the environment. `OPENCODE_SERVER_PASSWORD` protects
 the API, and `GITHUB_TOKEN` is what the git helper and `gh` authenticate with.
 
-The two MCP servers are the agent's only route to the web and to the cluster. The
+The three MCP servers are the agent's only route to the web, to the cluster and to
+n8n. The
 Pod's egress policy admits DNS, LiteLLM, the `mcpserver` pods on 8080 and the proxy,
 and nothing else, so no direct public rule exists and the Kubernetes API is
 unreachable; `kubectl` in the image has neither a credential nor a route. That is
@@ -92,7 +94,8 @@ why the k8s server is registered and `kubectl` is not the answer to anything.
 
 Verified by the build: every tool above runs as uid 1000 with `HOME=/opt/data`,
 `git config` resolves `/etc/gitconfig`, the LiteLLM provider parses, the skills path
-and the k8s entry are present in the config, both model placeholders and the
+and the k8s entry are present in the config, the n8n entry carries its header,
+both model placeholders and the
 reviewer agent parse, and the minter passes `node --check`. The build asserts no
 individual skill file: the directory is copied whole, and the PR diff is the review.
 

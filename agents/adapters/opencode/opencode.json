@@ -52,6 +52,20 @@
           "catalog": 30000,
           "execution": 120000
         }
+      },
+      "n8n": {
+        "type": "remote",
+        "url": "{env:OPENCODE_N8N_MCP_URL}",
+        "headers": {
+          "Authorization": "Bearer {env:OPENCODE_N8N_MCP_TOKEN}"
+        },
+        "oauth": false,
+        "codemode": false,
+        "timeout": {
+          "startup": 30000,
+          "catalog": 60000,
+          "execution": 300000
+        }
       }
     }
   },
@@ -163,6 +177,11 @@
     },
     {
       "action": "k8s_*",
+      "resource": "*",
+      "effect": "allow"
+    },
+    {
+      "action": "n8n_*",
       "resource": "*",
       "effect": "allow"
     }

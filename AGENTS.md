@@ -43,8 +43,6 @@ node, a model node's `text`, an HTTP body or a tool description is a gap: the mo
 reads it and a reviewer does not, and editing the prompt file cannot fix it. A
 definition the model must follow — what a scene is, what a form means — is written
 where the model reads it, never inferred from a count or a field name.
-`agents/n8n/scripts/test_prompt_sources.py` fails a new inline prompt unless it is
-recorded in its allowlist with a reason.
 
 ## Naming conventions
 
@@ -267,3 +265,4 @@ uv run pytest tests/tasks/test_dlt.py  # single file
   cluster in both directions — `cnpg_backends_total` is a gauge despite
   `_total`, `cnpg_pg_stat_archiver_failed_count` a counter despite `_count`.
 - `agents/sympozium/` tests only the delivery hook (`tests/test_deliver_slack.py`, the one piece of code there that runs in production). It has no source validator: `scripts/validate.py` was deleted on 2026-08-31 because most of it mirrored the cluster and the upstream CRD, and a mirror that drifts fails correct config. CI runs the hook tests and then renders the chart through `helmfile` — the render is the only gate on `projects/`, so anything it cannot see reaches the admission webhook (loud) or the running agent (silent). See `agents/sympozium/MEMORY.md` for what is now unguarded.
+- **No new tests for prompt, config or export files.** Do not add a test that asserts the contents of a prompt, `opencode.json`, a values file or a workflow export: it pins a file edited for reasons the test cannot know, so the next correct change goes red and the failure says nothing about whether the agent or the cluster works. That is the same drift the sympozium validator died of. Gate those with the build (the adapter's `jq` asserts, `helmfile template`) and review them in the diff.

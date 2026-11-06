@@ -1007,7 +1007,12 @@ crypto module, which a Code node cannot import.
 **The ledger survives the run on the row.** `update_article_drafted` writes it to
 `article_queue.SOURCES`, and the improvement pass re-checks an edit against it; a row stored before
 this change has no cell, so the edit is accepted with `FIDELITY: not run` rather than silently
-passing. Review is handed the same list as `{{ SOURCES }}`. The `SOURCES` column is added to the
+passing. Review is handed the same list as `{{ SOURCES }}`. **A human feedback round is the one
+round that may fence a block no page carries**: a person asking for `kind create cluster` or the
+provider key's Secret command outranks a ledger that project docs do not hold, so the block is
+accepted, `FIDELITY` becomes `feedback`, and `UNVERIFIED` counts it for the review message. A
+block the ledger does carry and that failed — `found: false`, a failed dry-run, drifted excerpt —
+still fails on a feedback round, as does an unchanged draft. The `SOURCES` column is added to the
 `article_queue` page by hand before the first run: the node maps it by header, and a column the
 sheet lacks is a write the run fails on.
 
@@ -1195,10 +1200,12 @@ own last run (a human retry improves the draft the human read, in the same execu
 row (`read_draft_for_improvement`, `alwaysOutputData` so a missing row cannot stop the chain).
 The call node's `PREVIOUS_DRAFT` mapping is gone — the sub-workflow now runs at most once per
 execution, so it was dead — and the sub-workflow keeps only its internal `parse_article`-based
-carry. `IMPROVED` / `FALLBACK` / `FAILED` / `NONE` and the per-aspect findings count ride to
-`notify_article_review`, whose message names them, because the reviewer sees the motion. A
-re-presented review resumed in a **later execution** reaches this via `switch_phase`, where the
-stored-row source covers it.
+carry. `IMPROVED` / `UNCHANGED` / `FALLBACK` / `FAILED` / `NONE` and the per-aspect findings count
+ride to `notify_article_review`, whose message names them, because the reviewer sees the motion.
+`UNCHANGED` is a round whose answer equalled the draft it was given: it is reported rather than
+counted as an improvement, and the feedback was not applied. A feedback round that added unverified
+blocks also names their count in the review message. A re-presented review resumed in a **later
+execution** reaches this via `switch_phase`, where the stored-row source covers it.
 
 **Push order, and it matters.** The new files first (`article_audiences.md`,
 `article_improver.md`, the three aspect prompts, `article_aspects.json`) — inert until fetched,

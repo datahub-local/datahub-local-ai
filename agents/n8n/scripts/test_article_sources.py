@@ -25,13 +25,13 @@ ENTRY = WORKFLOWS / "article_content_writer.workflow.json"
 NODE_REQUIRED = "node is required to execute a Code node"
 
 BLOCK = "kubectl apply -f https://example.test/install.yaml"
-ARTICLE = (
-    "# Install\n\n"
+ARTICLE_BODY = (
     "Install it.\n\n"
     "<!-- asset:svg_wide -->\n\n"
     "```bash\n" + BLOCK + "\n```\n\n"
     "That is all.\n"
 )
+ARTICLE = "# Install\n\n" + ARTICLE_BODY
 LEDGER_ENTRY = {
     "block": BLOCK,
     "url": "https://example.test/docs",
@@ -89,8 +89,16 @@ def _parse(article, ledger, present=True):
     return _run(CREATOR, "parse_article", scope, [{}])["json"]
 
 
-def _improved(draft, ledger=None):
-    ctx = {"MAX_WORDS": 1200, "ASSET_TYPES": "svg_wide", "BASE_TITLE": "Install", "ENTRY_ID": "e1"}
+def _improved(draft, ledger=None, feedback="", base="The draft before the edit."):
+    ctx = {
+        "MAX_WORDS": 1200,
+        "ASSET_TYPES": "svg_wide",
+        "BASE_TITLE": "Install",
+        "BASE_TEXT": base,
+        "ENTRY_ID": "e1",
+        "HAS_FEEDBACK": bool(feedback),
+        "FEEDBACK": feedback,
+    }
     if ledger is not None:
         ctx["SOURCES"] = json.dumps(ledger)
     return _run(
@@ -98,6 +106,15 @@ def _improved(draft, ledger=None):
         "check_improved_draft",
         {"build_improvement_context": [ctx]},
         [{"output": "<article>\n" + draft + "\n</article>"}],
+    )[0]["json"]
+
+
+def _select(item, ctx):
+    return _run(
+        ENTRY,
+        "select_final_draft",
+        {"build_improvement_context": [ctx], "merge_aspect_findings": [{"FINDINGS_SUMMARY": ""}]},
+        [item],
     )[0]["json"]
 
 
@@ -240,3 +257,78 @@ def test_the_twin_reports_a_missing_ledger_as_not_run():
     prose = "# Install\n\nNo command was found.\n\n<!-- asset:svg_wide -->"
     assert _improved(prose)["PROBLEM"] == ""
     assert _improved(prose)["FIDELITY"] == "not run"
+
+
+def test_a_feedback_round_accepts_a_block_no_source_carries():
+    """The human asked for the command, so it is written and counted rather than rejected."""
+    draft = ARTICLE.replace("That is all.", "```bash\nkind create cluster\n```\n\nThat is all.")
+    item = _improved(draft, _ledger(LEDGER_ENTRY), feedback="share the commands to create the cluster")
+    assert item["PROBLEM"] == "", item["PROBLEM"]
+    assert item["UNVERIFIED"] == 1
+    assert item["FIDELITY"] == "feedback"
+
+
+def test_a_first_draft_edit_still_rejects_a_block_no_source_carries():
+    draft = ARTICLE.replace("That is all.", "```bash\nkind create cluster\n```\n\nThat is all.")
+    item = _improved(draft, _ledger(LEDGER_ENTRY))
+    assert item["PROBLEM"].startswith("UNQUOTED:")
+    assert "kind create cluster" in item["PROBLEM"]
+
+
+def test_a_feedback_round_still_rejects_a_ledgered_block_the_page_lost():
+    item = _improved(ARTICLE, _ledger(dict(LEDGER_ENTRY, found=False)), feedback="apply my changes")
+    assert item["PROBLEM"].startswith("SOURCE_NOT_FOUND:")
+
+
+def test_an_unchanged_edit_is_reported_as_unchanged():
+    item = _improved(ARTICLE, _ledger(LEDGER_ENTRY), feedback="apply my changes", base=ARTICLE_BODY)
+    assert item["PROBLEM"] == ""
+    assert item["UNCHANGED"] is True
+    assert item["UNVERIFIED"] == 0
+
+
+def test_an_unchanged_edit_is_not_an_improvement():
+    ctx = {
+        "MAX_WORDS": 1200,
+        "ASSET_TYPES": "svg_wide",
+        "BASE_TITLE": "Install",
+        "BASE_TEXT": ARTICLE_BODY,
+        "ENTRY_ID": "e1",
+        "HAS_FEEDBACK": True,
+    }
+    item = {
+        "IMPROVED_TEXT": ARTICLE_BODY.strip(),
+        "IMPROVED_TITLE": "Install",
+        "WORD_COUNT": 10,
+        "PROBLEM": "",
+        "UNCHANGED": True,
+        "UNVERIFIED": 0,
+    }
+    out = _select(item, ctx)
+    assert out["IMPROVED"] == "UNCHANGED"
+    assert out["text"] == ARTICLE_BODY
+    assert "unchanged" in out["IMPROVEMENT_NOTE"]
+
+
+def test_the_unverified_count_reaches_the_converged_draft():
+    ctx = {
+        "MAX_WORDS": 1200,
+        "ASSET_TYPES": "svg_wide",
+        "BASE_TITLE": "Install",
+        "BASE_TEXT": ARTICLE_BODY,
+        "ENTRY_ID": "e1",
+        "HAS_FEEDBACK": True,
+    }
+    item = {
+        "IMPROVED_TEXT": ARTICLE_BODY + "\n\n```bash\nkind create cluster\n```\n",
+        "IMPROVED_TITLE": "Install",
+        "WORD_COUNT": 10,
+        "PROBLEM": "",
+        "UNCHANGED": False,
+        "UNVERIFIED": 1,
+        "FIDELITY": "feedback",
+    }
+    out = _select(item, ctx)
+    assert out["IMPROVED"] == "IMPROVED"
+    assert out["UNVERIFIED"] == 1
+    assert "not checked against a source" in out["IMPROVEMENT_NOTE"]

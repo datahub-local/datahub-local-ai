@@ -88,13 +88,13 @@
 
 ## 6. Cross-repo
 
-- [ ] `datahub-local-core`: `ARTICLE_WRITER_URL` on the n8n deployment, beside `PI_RENDER_URL`,
+- [x] `datahub-local-core`: `ARTICLE_WRITER_URL` on the n8n deployment, beside `PI_RENDER_URL`,
   pointing at `datahub-local-ai-pi-writer-api.automation.svc.cluster.local:8080`. **Blocked by** the
   session existing.
-- [ ] The publish workflow's adapter discovery builds and pins
+- [x] The publish workflow's adapter discovery builds and pins
   `ghcr.io/datahub-local/datahub-local-ai-pi-writer-adapter` on the first merge to `main`, and the
   pin job rewrites the `digest:` line of the `sympozium_pi_writer` block. **Blocked by** that merge.
-- [ ] Owner, by hand: add a `SOURCES` column to the `article_queue` sheet before the first run.
+- [x] Owner, by hand: add a `SOURCES` column to the `article_queue` sheet before the first run.
   The write node maps the column by header, so a missing header fails the run after the draft was
   uploaded.
 
@@ -108,9 +108,15 @@
   graph calls a URL that does not exist until the session is running.
 - [ ] Rollback is the committed export re-applied — no flag ships with this (D13). [UNVERIFIED]
   until one revert has been done with it.
-- [ ] [UNVERIFIED] one live article on a row whose docs exist, read at the review notification:
-  every fenced command traceable to a URL in `sources.json`, no placeholder, and a section that would
-  have had one saying instead that the source could not be read.
+- [x] One live article end to end: execution 15843 drafted row 6 (`gh-95`), every step succeeded,
+  and `update_article_drafted` wrote `STATUS=WAITING_APPROVAL`, `ARTICLE_STATUS=DRAFT`,
+  `ARTICLE_REF=article_drafts:gh-95`, `ERROR=''` and `SOURCES={"sources":[]}` before
+  `notify_article_review` waited on the Slack approval. The draft was 1200 words against a 1320
+  ceiling, carried both asset markers once, ended with the `Source:` line and held no placeholder.
+- [ ] [UNVERIFIED] the sources half: a draft whose prose fences commands, every one traceable to a
+  URL in `sources.json`, and a section saying the source could not be read where no URL answered.
+  Row 6 is an issue link with no documentation, so its draft had no fences and an empty ledger; the
+  ledger path is exercised by `test_article_sources.py` but not yet by a live article.
 
 ## Deviations as landed
 

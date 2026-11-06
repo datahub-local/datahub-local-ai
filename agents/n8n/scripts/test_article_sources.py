@@ -191,6 +191,31 @@ def test_a_refused_session_is_reported_as_data():
     assert item["PROBLEM"] == "SESSION: HTTP 400: messages is required"
 
 
+def test_a_failed_article_fetch_is_reported_as_data():
+    """A 200 turn whose article.md fetch failed must name the fetch, not the missing H1."""
+    scope = {
+        "set_workflow_vars": [{"MAX_WORDS": 1200}],
+        "main_trigger": [{"ASSET_TYPES": "svg_wide"}],
+        "request_article": [{"statusCode": 200, "data": "{\"ok\":true}"}],
+        "fetch_article": [{"statusCode": 404, "data": "not found"}],
+    }
+    item = _run(CREATOR, "parse_article", scope, [{}])["json"]
+    assert item["PROBLEM"] == "DRAFT: HTTP 404: not found"
+
+
+def test_a_body_shaped_answer_still_drafts():
+    """The older `body` key stays readable for a node configured that way."""
+    prose = "# Install\n\nInstall it.\n\n<!-- asset:svg_wide -->"
+    scope = {
+        "set_workflow_vars": [{"MAX_WORDS": 1200}],
+        "main_trigger": [{"ASSET_TYPES": "svg_wide"}],
+        "fetch_article": [{"statusCode": 200, "body": prose}],
+    }
+    item = _run(CREATOR, "parse_article", scope, [{}])["json"]
+    assert item["TITLE"] == "Install"
+    assert item["PROBLEM"] == ""
+
+
 def test_the_twin_agrees_on_the_same_fixtures():
     assert _improved(ARTICLE, _ledger(LEDGER_ENTRY))["PROBLEM"] == ""
     assert _improved(ARTICLE, _ledger(LEDGER_ENTRY))["FIDELITY"] == "checked"

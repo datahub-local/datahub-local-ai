@@ -1237,11 +1237,17 @@ execution** reaches this via `switch_phase`, where the stored-row source covers 
 `article_improver.md`, the three aspect prompts, `article_aspects.json`) — inert until fetched,
 but they must exist before the graph that fetches them is applied or the first run dies at the
 404. Then the graphs (`content_board_curator`, `article_creator`, `article_content_writer` in one
-`--changes` batch, guarded with `--require-edge`). Then the edits to `article_writer.md`,
-`article_writer_system.md` and `article_review.md`: a pushed prompt naming a placeholder the
-graph does not pass stops every run, while a graph passing one the prompt ignores is harmless.
-The `AUDIENCE` column is added to the `article_queue` page by hand before the first append —
-writing a column the sheet lacks is [UNVERIFIED] and not relied on.
+`--changes` batch, guarded with `--require-edge`). Then the edits to `article_review.md`: a pushed
+review prompt naming a placeholder the graph does not pass stops every run, while a graph passing
+one the prompt ignores is harmless.
+
+**The drafting prompt ships with the writer image, not with the graph.** `article_task.md`,
+`article_writer_system.md`, `article_structures.md` and `article_audiences.md` live in
+`agents/adapters/pi-writer/prompts/`; `Article Creator` sends a `brief` and the adapter renders
+from its own copy. So the image and its pinned digest go first: a graph that posts `brief` against
+an image that only reads `messages` fails every draft. The `AUDIENCE` column is added to the
+`article_queue` page by hand before the first append — writing a column the sheet lacks is
+[UNVERIFIED] and not relied on.
 
 **The pass is cheap and degrades rather than blocking.** +4 model calls per accepted draft in
 the common case (three aspects + the improver; +1 on an objective retry), the improver skipped

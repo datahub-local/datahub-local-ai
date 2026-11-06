@@ -44,8 +44,16 @@ jobs:
       - name: Sync dependencies
         run: uv sync --extra dev
 
-      # Offline and cluster-free: what remains tests the apply script against
-      # stubbed HTTP, not the committed exports.
+      # The Code-node test runs a workflow's jsCode, so this job needs node;
+      # python alone cannot tell a valid program from a broken one. Same version
+      # as the adapter jobs below.
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # Offline and cluster-free: the tests stub HTTP and read the committed Code
+      # nodes, so no credential and no network.
       - name: Test n8n scripts
         run: uv run -- pytest agents/n8n/scripts/ -q
 

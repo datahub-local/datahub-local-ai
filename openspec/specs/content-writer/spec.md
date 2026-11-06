@@ -150,6 +150,14 @@ still improves the draft the person read. The draft SHALL be the one that was on
 feedback was written and not an earlier round's, the first pass SHALL send none, and a drafting
 pass re-rendered inside one invocation SHALL prefer the draft its own gate just rejected.
 
+A round that carries human feedback SHALL change the draft: a returned body and title equal to the
+ones it was given SHALL be reported as unchanged and SHALL NOT be reported as an improvement. A
+feedback round MAY add a fenced block no fetched page carries, because the person asking for it is
+the authority the ledger otherwise stands in for; such a block SHALL be counted and named to the
+reviewer as unverified. A block the ledger does carry and that failed verification — not found,
+failed validation, drifted excerpt — SHALL still fail on a feedback round, and a round without
+human feedback SHALL keep the strict rule.
+
 #### Scenario: A human asks for one change
 
 - **WHEN** a person answers the review with feedback and the graph re-enters the improvement pass
@@ -180,6 +188,29 @@ pass re-rendered inside one invocation SHALL prefer the draft its own gate just 
 - **THEN** it edits the draft that gate just rejected
 - **AND** the improvement pass's draft of record does not displace it
 
+#### Scenario: A feedback round adds a command no fetched page carries
+
+- **WHEN** a person asks for a command the project's documentation does not contain
+- **THEN** the improvement pass writes it as a fenced block
+- **AND** the block is counted and the review message names it as unverified
+
+#### Scenario: A first-draft edit may not add such a block
+
+- **WHEN** a round without human feedback fences a block no ledger entry carries
+- **THEN** the edit fails the code re-check naming the block
+- **AND** the pre-improvement draft is presented for review
+
+#### Scenario: Feedback does not excuse a ledgered block the page lost
+
+- **WHEN** a feedback round keeps a block whose ledger entry is `found: false`
+- **THEN** the edit fails the code re-check naming the page
+
+#### Scenario: A feedback round that changes nothing says so
+
+- **WHEN** a feedback round returns the body and title it was given
+- **THEN** the outcome is reported as unchanged, not improved
+- **AND** the reviewer is told the feedback was not applied
+
 ### Requirement: A draft is improved before it reaches a human review
 
 A gate-passed draft SHALL be improved before it is presented for human review. One reviewer
@@ -198,9 +229,10 @@ reason recorded. A count SHALL be taken in code, never asked of a model.
 A failure inside the improvement pass SHALL degrade rather than block: an aspect reviewer that
 cannot answer records no findings for its aspect and the rest run; an improvement pass that
 fails records the reason and falls back to the gate-passed draft. The improvement outcome —
-improved, fallback, failed, or nothing to apply — SHALL be visible to the human reviewer with
-the draft. An aspect registry that is missing, unparsable or empty SHALL fail the run loudly
-rather than improve nothing quietly.
+improved, unchanged, fallback, failed, or nothing to apply — SHALL be visible to the human
+reviewer with the draft, and an unchanged outcome SHALL say the feedback was not applied. An
+aspect registry that is missing, unparsable or empty SHALL fail the run loudly rather than
+improve nothing quietly.
 
 #### Scenario: Findings are applied and the draft is improved
 
@@ -237,6 +269,12 @@ rather than improve nothing quietly.
 - **WHEN** a person answers the review with feedback
 - **THEN** the improvement pass re-enters with that feedback and the draft the person was reading
 - **AND** the parts of it the feedback does not name are kept
+
+#### Scenario: An unchanged round is not delivered as an improvement
+
+- **WHEN** the improvement pass returns the draft it was given
+- **THEN** the draft of record is the one that was presented before
+- **AND** the outcome is named unchanged rather than improved
 
 ### Requirement: An article is written for the row's audience
 

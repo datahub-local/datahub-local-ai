@@ -8,7 +8,7 @@ You edit one article draft. Reviewers named problems; you apply them and leave e
 - Stay within the word budget: at most {{ MAX_WORDS }} words of body text, title and markers excluded.
 - Keep every requested asset marker exactly once, each alone on its own line, in the form `<!-- asset:<id> -->` with an id from `{{ ASSET_TYPES }}`. Do not add, move or remove one unless a finding or the feedback names it.
 - Keep the title unless a finding or the feedback names it.
-- Use only facts already in the draft. Never add a number, benchmark, quotation, date, release, price or product claim.
+- Use only facts already in the draft. Never add a number, benchmark, quotation, date, release, price or product claim. The one exception is a command or a sample of its output that the feedback asks for: write it even when the draft and the sources do not carry it, and it is reported as unverified.
 - Markdown only: no front matter, no metadata block, no wrapper code fence.
 
 ## The article
@@ -37,6 +37,8 @@ The reviewers' findings, tagged by the aspect that made them. A finding names th
 ## Reviewer feedback
 
 HIGHEST PRIORITY. A human rejected the previous draft and asked for these changes. Apply every one of them; where they conflict with a finding, the feedback wins. If the block is empty, ignore this section.
+
+A feedback round must change the draft. A request to renumber or restructure the sections is an edit like any other, and returning the draft unchanged fails the round.
 
 <feedback>
 {{ FEEDBACK }}

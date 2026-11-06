@@ -4647,8 +4647,9 @@
           "workflowInputs": {
             "mappingMode": "defineBelow",
             "value": {
-              "template_name": "prompts/article_audiences.md",
-              "template_vars": "={{ {} }}"
+              "template_name": "article_audiences.md",
+              "template_vars": "={{ {} }}",
+              "repo_path": "agents/adapters/pi-writer/prompts"
             },
             "matchingColumns": [],
             "schema": [
@@ -4669,6 +4670,15 @@
                 "display": true,
                 "canBeUsedToMatch": true,
                 "type": "object"
+              },
+              {
+                "id": "repo_path",
+                "displayName": "repo_path",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string"
               }
             ],
             "attemptToConvertTypes": false,
@@ -4697,8 +4707,9 @@
           "workflowInputs": {
             "mappingMode": "defineBelow",
             "value": {
-              "template_name": "prompts/article_structures.md",
-              "template_vars": "={{ {} }}"
+              "template_name": "article_structures.md",
+              "template_vars": "={{ {} }}",
+              "repo_path": "agents/adapters/pi-writer/prompts"
             },
             "matchingColumns": [],
             "schema": [
@@ -4719,56 +4730,15 @@
                 "display": true,
                 "canBeUsedToMatch": true,
                 "type": "object"
-              }
-            ],
-            "attemptToConvertTypes": false,
-            "convertFieldsToString": true
-          },
-          "options": {}
-        }
-      },
-      {
-        "id": "4d5e6f70-8192-43a4-b5c6-d7e8f9a0b1c2",
-        "name": "download_ai_speak",
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.2,
-        "position": [
-          3808,
-          -80
-        ],
-        "parameters": {
-          "workflowId": {
-            "__rl": true,
-            "value": "qUfjfWLGEjV96ljf",
-            "mode": "list",
-            "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
-            "cachedResultName": "DownloadTemplate"
-          },
-          "workflowInputs": {
-            "mappingMode": "defineBelow",
-            "value": {
-              "template_name": "prompts/ai_speak.md",
-              "template_vars": "={{ {} }}"
-            },
-            "matchingColumns": [],
-            "schema": [
+              },
               {
-                "id": "template_name",
-                "displayName": "template_name",
+                "id": "repo_path",
+                "displayName": "repo_path",
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
                 "canBeUsedToMatch": true,
                 "type": "string"
-              },
-              {
-                "id": "template_vars",
-                "displayName": "template_vars",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "object"
               }
             ],
             "attemptToConvertTypes": false,
@@ -4797,8 +4767,9 @@
           "workflowInputs": {
             "mappingMode": "defineBelow",
             "value": {
-              "template_name": "prompts/article_writer_system.md",
-              "template_vars": "={{ {\n\"AI_SPEAK\": $('download_ai_speak').first().json.output\n} }}"
+              "template_name": "article_writer_system.md",
+              "template_vars": "={{ {} }}",
+              "repo_path": "agents/adapters/pi-writer/prompts"
             },
             "matchingColumns": [],
             "schema": [
@@ -4819,6 +4790,15 @@
                 "display": true,
                 "canBeUsedToMatch": true,
                 "type": "object"
+              },
+              {
+                "id": "repo_path",
+                "displayName": "repo_path",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string"
               }
             ],
             "attemptToConvertTypes": false,
@@ -6169,17 +6149,6 @@
         "main": [
           [
             {
-              "node": "download_ai_speak",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "download_ai_speak": {
-        "main": [
-          [
-            {
               "node": "download_writer_rules",
               "type": "main",
               "index": 0
@@ -7362,17 +7331,6 @@
       ]
     },
     "download_article_structures": {
-      "main": [
-        [
-          {
-            "node": "download_ai_speak",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "download_ai_speak": {
       "main": [
         [
           {
@@ -12237,8 +12195,9 @@
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "template_name": "prompts/article_audiences.md",
-            "template_vars": "={{ {} }}"
+            "template_name": "article_audiences.md",
+            "template_vars": "={{ {} }}",
+            "repo_path": "agents/adapters/pi-writer/prompts"
           },
           "matchingColumns": [],
           "schema": [
@@ -12259,6 +12218,15 @@
               "display": true,
               "canBeUsedToMatch": true,
               "type": "object"
+            },
+            {
+              "id": "repo_path",
+              "displayName": "repo_path",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
             }
           ],
           "attemptToConvertTypes": false,
@@ -12287,8 +12255,9 @@
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "template_name": "prompts/article_structures.md",
-            "template_vars": "={{ {} }}"
+            "template_name": "article_structures.md",
+            "template_vars": "={{ {} }}",
+            "repo_path": "agents/adapters/pi-writer/prompts"
           },
           "matchingColumns": [],
           "schema": [
@@ -12309,56 +12278,15 @@
               "display": true,
               "canBeUsedToMatch": true,
               "type": "object"
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "4d5e6f70-8192-43a4-b5c6-d7e8f9a0b1c2",
-      "name": "download_ai_speak",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        3808,
-        -80
-      ],
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "qUfjfWLGEjV96ljf",
-          "mode": "list",
-          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
-          "cachedResultName": "DownloadTemplate"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "template_name": "prompts/ai_speak.md",
-            "template_vars": "={{ {} }}"
-          },
-          "matchingColumns": [],
-          "schema": [
+            },
             {
-              "id": "template_name",
-              "displayName": "template_name",
+              "id": "repo_path",
+              "displayName": "repo_path",
               "required": false,
               "defaultMatch": false,
               "display": true,
               "canBeUsedToMatch": true,
               "type": "string"
-            },
-            {
-              "id": "template_vars",
-              "displayName": "template_vars",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "object"
             }
           ],
           "attemptToConvertTypes": false,
@@ -12387,8 +12315,9 @@
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "template_name": "prompts/article_writer_system.md",
-            "template_vars": "={{ {\n\"AI_SPEAK\": $('download_ai_speak').first().json.output\n} }}"
+            "template_name": "article_writer_system.md",
+            "template_vars": "={{ {} }}",
+            "repo_path": "agents/adapters/pi-writer/prompts"
           },
           "matchingColumns": [],
           "schema": [
@@ -12409,6 +12338,15 @@
               "display": true,
               "canBeUsedToMatch": true,
               "type": "object"
+            },
+            {
+              "id": "repo_path",
+              "displayName": "repo_path",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
             }
           ],
           "attemptToConvertTypes": false,

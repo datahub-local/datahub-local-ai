@@ -42,6 +42,7 @@ import {
   agentSettings,
   parseSourceHosts,
   fillSourceHosts,
+  fillTemplate,
   parseLedger,
   serialiseLedger,
   revalidateLedger,
@@ -191,6 +192,43 @@ async function writingMethod() {
     // the session still comes up and the error names the path.
     return `The writing instruction file is missing at ${path}. Report that rather than improvising.`;
   }
+}
+
+// The drafting prompt is the adapter's, not the caller's: the request carries the entry's
+// fields and these files decide how they read. A missing file fails the turn by name
+// rather than drafting from half an instruction.
+async function readPrompt(name) {
+  const path = join(promptDir, name);
+  try {
+    return await readFile(path, "utf8");
+  } catch {
+    throw new Error(`the article prompt ${name} is missing at ${path}`);
+  }
+}
+
+async function articlePrompt(brief) {
+  const [system, task, structures, audiences] = await Promise.all([
+    readPrompt("article_writer_system.md"),
+    readPrompt("article_task.md"),
+    readPrompt("article_structures.md"),
+    readPrompt("article_audiences.md"),
+  ]);
+  const entry = brief && typeof brief === "object" ? brief : {};
+  const text = fillTemplate(task, {
+    TOPIC: entry.topic ?? "",
+    DESCRIPTION: entry.description ?? "",
+    URL: entry.url ?? "",
+    MAX_WORDS: entry.max_words ?? "",
+    ASSET_TYPES: entry.asset_types ?? "",
+    AUDIENCE: entry.audience ?? "NONE",
+    AUDIENCES: audiences,
+    EXTRA_PROMPT: entry.extra_prompt ?? "",
+    CONTENT: entry.content ?? "",
+    FEEDBACK: entry.feedback ?? "",
+    PREVIOUS_DRAFT: entry.previous_draft ?? "",
+    STRUCTURES: structures,
+  });
+  return `${system}\n\n---\n\n${text}`;
 }
 
 function readJSON(req) {
@@ -507,7 +545,11 @@ http
     }
     try {
       const request = await readJSON(req);
-      const brief = promptFrom(request.messages);
+      // `brief` is the article lane's shape; `messages` stays for a plain-text caller and
+      // for the contract's own smoke checks.
+      const prompt = request.brief && typeof request.brief === "object"
+        ? await articlePrompt(request.brief)
+        : promptFrom(request.messages);
       const sessionID = safeSessionId(request.session_id);
       const hosts = parseSourceHosts(request.source_hosts);
       const stream = request.stream === true;
@@ -535,7 +577,7 @@ http
       const isIteration = (await exists(join(dir, ARTICLE_NAME))) || Number(request.attempt) > 1;
       const method = fillSourceHosts(await writingMethod(), hosts);
       const instruction = articleTurnInstruction({ isIteration });
-      const prompt = `${brief}\n\n---\n\nWorking directory: ${dir}\n${instruction}\n\n${method}`;
+      const turnPrompt = `${prompt}\n\n---\n\nWorking directory: ${dir}\n${instruction}\n\n${method}`;
 
       // The ledger verification runs inside the serialized turn, not after it: a second
       // request for the same session would otherwise start its turn while this one is
@@ -547,7 +589,7 @@ http
           proxyEnv(hosts);
           try {
             const response = await runPi(
-              prompt,
+              turnPrompt,
               sessionID,
               stream
                 ? (chunk) =>

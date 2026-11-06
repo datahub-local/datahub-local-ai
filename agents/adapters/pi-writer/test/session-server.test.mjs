@@ -158,6 +158,45 @@ test("a turn drafts both files and returns the ledger the server verified", asyn
   assert.deepEqual(JSON.parse(await ledger.text()), { sources: [] });
 });
 
+test("a brief is rendered from the adapter's own prompt files", async () => {
+  // The caller sends the entry's fields, never the prompt: n8n has no article prompt left
+  // to render. This turn proves each field reaches the brief and that the shapes and the
+  // audience levels came from this image's files rather than from the request.
+  const res = await turn({
+    session_id: "article-brief",
+    source_hosts: ["github.com"],
+    brief: {
+      topic: "PROBE_TOPIC",
+      description: "PROBE_DESCRIPTION",
+      url: "https://github.com/datahub-local/datahub-local-ai",
+      max_words: 900,
+      asset_types: "image_wide,svg_wide",
+      audience: "LOW",
+      extra_prompt: "PROBE_EXTRA",
+      content: "PROBE_CONTENT",
+      feedback: "PROBE_FEEDBACK",
+      previous_draft: "PROBE_PREVIOUS",
+    },
+  });
+  assert.equal(res.status, 200);
+  const prompt = await readFile(join(workspace, "runs", "article-brief", "prompt.txt"), "utf8");
+  for (const value of [
+    "PROBE_TOPIC",
+    "PROBE_DESCRIPTION",
+    "PROBE_EXTRA",
+    "PROBE_CONTENT",
+    "PROBE_FEEDBACK",
+    "PROBE_PREVIOUS",
+    "900",
+    "image_wide,svg_wide",
+    "## One spine",
+    "## LOW",
+  ]) {
+    assert.ok(prompt.includes(value), `${value} did not reach the prompt`);
+  }
+  assert.ok(!/\{\{\s*TOPIC\s*\}\}/.test(prompt), "a placeholder was left unrendered");
+});
+
 test("the artifact route serves only the two names the turn writes", async () => {
   for (const name of ["prompt.txt", "env.log", "..%2Fsources.json"]) {
     const res = await fetch(`${base}/artifacts/article-1/${name}`);

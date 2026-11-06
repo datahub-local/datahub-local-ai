@@ -57,8 +57,8 @@ test("Pi is installed at a pinned version", () => {
   assert.match(dockerfile, /--ignore-scripts/);
 });
 
-test("the prompt is a file and the server is the entrypoint's dispatch", () => {
-  assert.match(dockerfile, /COPY --chmod=0644 prompts\/writing\.md \/opt\/pi-writer\/prompts\/writing\.md/);
+test("the prompts are files in the image and the server is the entrypoint's dispatch", () => {
+  assert.match(dockerfile, /COPY --chmod=0644 prompts\/ \/opt\/pi-writer\/prompts\//);
   assert.match(dockerfile, /COPY --chmod=0755 session-server\.mjs \/usr\/local\/bin\/sympozium-pi-writer-session/);
   assert.match(dockerfile, /COPY --chmod=0644 session-lib\.mjs \/usr\/local\/bin\/session-lib\.mjs/);
   assert.match(dockerfile, /ENTRYPOINT \["\/usr\/local\/bin\/sympozium-pi-writer-adapter"\]/);

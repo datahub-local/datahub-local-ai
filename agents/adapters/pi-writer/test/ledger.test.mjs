@@ -13,6 +13,7 @@ import {
   LEDGER_NAME,
   parseSourceHosts,
   fillSourceHosts,
+  fillTemplate,
   DEFAULT_ARTICLE_SOURCE_HOSTS,
   normaliseBlock,
   extractFencedBlocks,
@@ -101,6 +102,13 @@ test("the source hosts default to the fleet's own pages, and the caller's list w
     "raw.githubusercontent.com",
   ]);
   assert.equal(fillSourceHosts("read {{ ARTICLE_SOURCE_HOSTS }}", ["a.example"]), "read a.example");
+});
+
+test("a placeholder with no value is left visible", () => {
+  // Left visible on purpose: an unknown `{{ NAME }}` is a prompt bug the turn should
+  // report, and filling it with "" would hide the bug inside the drafted article.
+  assert.equal(fillTemplate("a {{ KNOWN }} b {{ NOT_A_FIELD }}", { KNOWN: "x" }), "a x b {{ NOT_A_FIELD }}");
+  assert.equal(fillTemplate("budget {{ MAX_WORDS }}", { MAX_WORDS: "" }), "budget ");
 });
 
 test("a fenced block is the fence's body and nothing else", () => {

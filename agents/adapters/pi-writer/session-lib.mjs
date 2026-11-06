@@ -153,6 +153,15 @@ export function fillSourceHosts(text, hosts = DEFAULT_ARTICLE_SOURCE_HOSTS) {
   return String(text ?? "").replaceAll("{{ ARTICLE_SOURCE_HOSTS }}", hosts.join(", "));
 }
 
+// The drafting brief is rendered here, from the adapter's own prompt files, so the caller
+// sends the entry's fields and never the prompt. An unknown placeholder is left visible:
+// it is a prompt bug the turn should report, not a value to invent.
+export function fillTemplate(text, vars = {}) {
+  return String(text ?? "").replace(/{{\s*([A-Za-z0-9_]+)\s*}}/g, (match, name) =>
+    Object.prototype.hasOwnProperty.call(vars, name) ? String(vars[name] ?? "") : match
+  );
+}
+
 // A fenced block's identity is its text with every whitespace run collapsed: the
 // docs render the same YAML with other indentation and other blank lines, and a
 // line-level match would accept `apiVersion: v1` as evidence for a whole manifest.

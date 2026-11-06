@@ -332,3 +332,55 @@ def test_the_unverified_count_reaches_the_converged_draft():
     assert out["IMPROVED"] == "IMPROVED"
     assert out["UNVERIFIED"] == 1
     assert "not checked against a source" in out["IMPROVEMENT_NOTE"]
+
+
+def test_both_export_copies_carry_the_same_nodes():
+    """n8n serves `activeVersion`; the export also keeps `nodes`, and a drift ships the old code."""
+    both = json.loads(ENTRY.read_text(encoding="utf-8"))
+    top = {n["name"]: n for n in both["nodes"]}
+    active = {n["name"]: n for n in both["activeVersion"]["nodes"]}
+    assert top.keys() == active.keys()
+    for name in ("check_improved_draft", "select_final_draft", "notify_article_review"):
+        assert top[name] == active[name], name
+
+
+def test_a_feedback_round_that_adds_a_block_still_falls_back_on_a_lost_source():
+    """The exception is for a block the page never had, not one the page lost."""
+    draft = ARTICLE.replace("That is all.", "```bash\nkind create cluster\n```\n\nThat is all.")
+    item = _improved(draft, _ledger(dict(LEDGER_ENTRY, found=False)), feedback="add the cluster steps")
+    assert item["PROBLEM"].startswith("SOURCE_NOT_FOUND:")
+    ctx = {
+        "MAX_WORDS": 1200,
+        "ASSET_TYPES": "svg_wide",
+        "BASE_TITLE": "Install",
+        "BASE_TEXT": ARTICLE_BODY,
+        "ENTRY_ID": "e1",
+        "HAS_FEEDBACK": True,
+    }
+    out = _select(item, ctx)
+    assert out["IMPROVED"] == "FALLBACK"
+    assert out["UNVERIFIED"] == 0
+
+
+def test_an_unchanged_round_does_not_recount_an_earlier_rounds_block():
+    """A round that added nothing must not claim the blocks the draft already carried."""
+    ctx = {
+        "MAX_WORDS": 1200,
+        "ASSET_TYPES": "svg_wide",
+        "BASE_TITLE": "Install",
+        "BASE_TEXT": ARTICLE_BODY,
+        "ENTRY_ID": "e1",
+        "HAS_FEEDBACK": True,
+    }
+    item = {
+        "IMPROVED_TEXT": ARTICLE_BODY.strip(),
+        "IMPROVED_TITLE": "Install",
+        "WORD_COUNT": 10,
+        "PROBLEM": "",
+        "UNCHANGED": True,
+        "UNVERIFIED": 1,
+        "FIDELITY": "feedback",
+    }
+    out = _select(item, ctx)
+    assert out["IMPROVED"] == "UNCHANGED"
+    assert out["UNVERIFIED"] == 0

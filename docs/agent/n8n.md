@@ -1012,7 +1012,7 @@ round that may fence a block no page carries**: a person asking for `kind create
 provider key's Secret command outranks a ledger that project docs do not hold, so the block is
 accepted, `FIDELITY` becomes `feedback`, and `UNVERIFIED` counts it for the review message. A
 block the ledger does carry and that failed — `found: false`, a failed dry-run, drifted excerpt —
-still fails on a feedback round, as does an unchanged draft. The `SOURCES` column is added to the
+still fails on a feedback round; a round that changed nothing is reported `UNCHANGED` instead. The `SOURCES` column is added to the
 `article_queue` page by hand before the first run: the node maps it by header, and a column the
 sheet lacks is a write the run fails on.
 

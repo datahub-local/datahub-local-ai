@@ -22,6 +22,10 @@ The row's audience level is {{ AUDIENCE }}. The term check below reads at that l
 - The subject is named as the entry's inputs spell it.
 - The opening names the subject and the problem it answers, in the reader's world. A definition of the category, or "In this article", is a failure.
 - The close points at what to read or do next. A closing paragraph that restates the article, or that only summarises it, is a failure.
+- One path: a walk-through step that uses a name — cluster, namespace, Secret, ensemble, persona, run, URL — no earlier step created is a failure; name the step and the name. An alternative install, a second tool or a second page's example object inside the numbered steps is a failure.
+- One job per section: two sections that explain the same thing, two examples of the same point, two closes, or a second teaching section after the walk-through has finished is a failure.
+- If step headings are numbered, they run 1..n with no gap or duplicate, no sub-step joins the sequence, and the close is not numbered. If they are not numbered, no heading is numbered.
+- The body never narrates the article or the work of writing it: "I did not run this", "this section", "a sample is missing" as a note about the text. An unknown stated as a fact about the software is not a failure.
 - A term the subject is built from - a custom resource, a controller, a sidecar - is explained where it first appears when the row's audience level does not already know it: what it is, or what it is for. Using it as if the reader already knows it is a failure. Naming it is not, and a term the level assumes is a failure to explain.
 - No AI-speak from the list in the rules, used as filler, and none of its robotic scaffolding as a heading or a section opener.
 - Markdown only: no front matter, no metadata block, no wrapper code fence.

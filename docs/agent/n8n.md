@@ -864,8 +864,10 @@ failure with the sides swapped. `check_improved_draft` carries the same formula,
 runs both nodes across the boundary so the two cannot drift.
 
 **The gate reads the writer's own rules file.** `RULES` is
-`$('download_system_prompt').output` — the same `prompts/article_writer_system.md` the drafter
-was given, fetched once — never a second copy that could drift.
+`$('download_writer_rules').output` — the adapter's
+`agents/adapters/pi-writer/prompts/article_writer_system.md`, fetched once — never a second copy
+that could drift. `DownloadTemplate` gained an optional `repo_path` so a caller can name the
+adapter's directory; every other caller keeps the `agents/n8n` default.
 
 **The reviewer's model call retries.** `check_article_llm` carries `retryOnFail: true,
 maxTries: 5, waitBetweenTries: 5000`, matching the `check_rules_llm` it mirrors and the
@@ -981,10 +983,14 @@ schema, or the column is silently not written. A row in `ERROR` is **not** picke
 `pick_candidate` selects `QUEUE` rows and stale claims — so it waits for a person, which is the
 deliberate direction.
 
-**The draft is a session turn, not an agent node.** `build_article_request` joins
-`prompts/article_writer_system.md` and `prompts/article_writer.md` into one request to the
-`pi-writer` `HarnessSession`: `session_id: article-<row_number>`, the attempt number and the
-`SOURCE_HOSTS` allowlist. `request_article` posts it, `fetch_article` and
+**The draft is a session turn, not an agent node, and the prompt belongs to the adapter.**
+`build_article_request` sends the entry's fields — topic, description, link, budget, asset types,
+audience, extra rules, source text, feedback and the previous draft — to the `pi-writer`
+`HarnessSession` as a `brief`, with `session_id: article-<row_number>`, the attempt number and the
+`SOURCE_HOSTS` allowlist. The adapter renders `article_writer_system.md`, `article_task.md`,
+`article_structures.md` and `article_audiences.md` from its own image and never receives prompt
+text, so the graph cannot drift from the words the model reads. `request_article` posts it,
+`fetch_article` and
 `fetch_sources` read `article.md` and the server-rewritten `sources.json`, and `parse_article`
 checks the draft against that ledger. The graph holds no tool node and no drafting model node:
 the only `ai_languageModel` edges left are the reviewer's. `ROW_NUMBER` is what makes a retry
@@ -1045,8 +1051,9 @@ every term where it first appears (naming a custom resource is not the failure; 
 saying what it is for is), one idea per sentence, lead with the concrete, no sentence whose only job
 is to sound impressive. It also states **the frame**, which is the same for every article: the opening
 names the subject and the problem it answers, and **the close points at what to read or do next** and
-never restates. The body comes from `prompts/article_structures.md`, fetched into the drafting prompt
-as `{{ STRUCTURES }}`: seven named shapes — *introduction to a thing* (why the category exists → what
+never restates. The body comes from
+`agents/adapters/pi-writer/prompts/article_structures.md`, rendered into the drafting brief as
+`{{ STRUCTURES }}`: seven named shapes — *introduction to a thing* (why the category exists → what
 else is out there and where it stops → why this one → what it does best → how it is built), *a
 decision and what it cost*, *an incident and the rule it produced*, *a comparison*, *a myth
 corrected*, *getting started*, *the state of a thing*. The writer picks by fit, and `EXTRA_PROMPT`
@@ -1054,15 +1061,33 @@ can name one, the way the post lane's extra rules can name a subject. A template
 counted sections, numbering and code floors was built on 2026-10-30 and reverted the same day: run
 15259's draft failed every count it added, and the next draft satisfied all of them while still
 carrying `<install-manifest-from-the-docs>` where a command belonged, because the entry's source
-material held no commands to quote. Structure was never the binding constraint.
+material held no commands to quote. The counts were not the binding constraint; coherence was.
 
-**The AI-speak list is one file, fetched by both lanes.** `prompts/ai_speak.md` holds the banned
-words, the filler phrases and the robotic scaffolding, and each lane injects it into its own rules
-file as `{{ AI_SPEAK }}` — so the drafter and the gate of *both* lanes read one copy. The clause that
-matters is kept with it: a listed word is banned as filler and allowed when it names the subject, an
-article about a harness says "the Standard harness". `test_shared_prompts.py` holds the two lanes to
-it and fails if any prompt restates the list, because the 2026-09-30 failure was exactly a gate
-enforcing a list the drafter was not reading.
+**An article is one spine, one path, and the names it created.** Run 15928 (2026-11-06) delivered a
+walk-through the owner cancelled: the ensemble built in step 4 was `example-team` with `analyst`, and
+step 5 pasted the project quickstart's `quickstart-demo` with `assistant`, so the run could not exist
+in the reader's cluster; a full Helm install sat as `### 3.1` inside the step the CLI had just
+completed and introduced cert-manager after the prerequisites had closed; a "break it on purpose"
+section taught the policy and sandbox model after the walk-through had finished; and the close
+narrated the writing ("I did not run this"). The structure reviewers named all four; the improvement
+pass fixed them and the ledger rejected its edited YAML, so the fallback sent the draft the owner
+cancelled. `article_structures.md` now states the rules every shape inherits: one outcome named before
+the first sentence, one path with alternatives demoted to a sentence, every later name created by an
+earlier step, one job per section, numbered steps as one sequence with an unnumbered close, and a step
+that ends on what the reader sees. `article_review.md` rejects those defects so the drafting gate
+retries with the failure named, and `article_aspect_structure.md` reports them on the improvement
+pass.
+
+**The AI-speak list is written where each lane reads it.** `agents/n8n/prompts/ai_speak.md` holds
+the banned words, the filler phrases and the robotic scaffolding for the LinkedIn lane, whose rules
+file injects it as `{{ AI_SPEAK }}`. The article lane's list now lives in
+`agents/adapters/pi-writer/prompts/article_writer_system.md`, because the drafting prompt is the
+adapter's and the image cannot fetch a file from `agents/n8n`; the article gate reads that same file
+as `RULES`, so the drafter and its gate still read one copy. The clause that matters is kept with
+both: a listed word is banned as filler and allowed when it names the subject, an article about a
+harness says "the Standard harness". The two lanes' lists can diverge, slowly and on purpose: the
+2026-09-30 failure was a gate enforcing a list the drafter was not reading, not two lanes holding
+different words.
 
 **The gate checks the objective half and not the judgement.** The new checks are the directional
 close, the AI-speak from the rules, and a term the subject is built from used without saying what it
@@ -1183,9 +1208,10 @@ which contains the literal `<findings>none</findings>` the instruction asks for.
 
 **The audience is one column, four levels, one file.** `article_queue.AUDIENCE` is
 `NONE | LOW | MEDIUM | ADVANCED`; blank reads as `NONE`, so no row needs a backfill.
-`prompts/article_audiences.md` is the only copy of what each level means, and
-`article_writer_system.md` points at the task prompt's Audience section instead of restating the
-`NONE` reader. `select_article_to_queue` uppercases and trims the cell and **refuses** an unknown
+`agents/adapters/pi-writer/prompts/article_audiences.md` is the only copy of what each level means,
+and `article_writer_system.md` in the same directory points at the task prompt's Audience section
+instead of restating the `NONE` reader. The review and the improver fetch that file through
+`DownloadTemplate`'s `repo_path`. `select_article_to_queue` uppercases and trims the cell and **refuses** an unknown
 level naming it — a mistyped level read as `NONE` would publish advanced orientation to a general
 reader and nothing would ever say so — and the enum exists in three copies by necessity (the
 definitions file, that const, and `board_intake.json`'s `defaults.audience`), held together by

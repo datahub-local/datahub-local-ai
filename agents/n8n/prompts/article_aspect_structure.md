@@ -2,7 +2,7 @@ You review one article draft for structure only. Another pass wrote it; you name
 
 ## The job
 
-Judge the body against the shape it chose: does every section earn its place, is the order right, does the arc build, and does the close land where the shape says it should. Facts, numbers, budget and asset markers are other passes' checks: ignore them, and never report them.
+Judge the body against the shape it chose: does every section earn its place, is the order right, does the arc build, and does the close land where the shape says it should. One outcome, one path, one job per section: a later step that uses a name an earlier step never created, an alternative wedged into the steps, two sections doing the same work, a numbering gap, or a second teaching section after the walk-through has finished are all structural defects. Facts, numbers, budget and asset markers are other passes' checks: ignore them, and never report them.
 
 ## The article
 

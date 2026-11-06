@@ -50,11 +50,11 @@ RUN set -eux; \
     rm -rf /tmp/helm.tgz "/tmp/linux-${arch}"; \
     helm version --short
 
-# The writing instruction is a prompt file, never inlined in the entrypoint: the
-# repository's rule is that prompts are files, read at run time, so the text is
-# reviewable on its own. Copied world-readable: the agent runs as UID 1000.
+# The drafting prompts live here, not in n8n: the caller sends the entry's fields and the
+# session server renders the brief from these files at run time. Copied world-readable
+# because the agent runs as UID 1000.
 RUN mkdir -p /opt/pi-writer/prompts
-COPY --chmod=0644 prompts/writing.md /opt/pi-writer/prompts/writing.md
+COPY --chmod=0644 prompts/ /opt/pi-writer/prompts/
 
 # $HOME must stay writable: Pi writes its provider config and transcripts there, and
 # a read-only root filesystem means anything else fails at the first turn.

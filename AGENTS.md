@@ -35,10 +35,12 @@ do not turn prompts into tutorials, copied schemas, or background essays.
 
 **Every instruction a model reads is declared in a prompt file or the authoring
 brief.** In n8n that is `agents/n8n/prompts/*.md`, fetched by `DownloadTemplate`
-with its placeholders filled; in Sympozium it is `systemPromptFile` /
-`schedule.taskFile`. The brief (megaprompt) is assembled in a Code node from those
-files plus values, and may own selection and formatting — never a rule, a
-definition or an example that exists nowhere else. An inline instruction in a Code
+with its placeholders filled; the article drafting prompt is
+`agents/adapters/pi-writer/prompts/*.md`, rendered by the adapter from the entry's
+fields; in Sympozium it is `systemPromptFile` / `schedule.taskFile`. The brief
+(megaprompt) is assembled in a Code node or by the adapter from those files plus
+values, and may own selection and formatting — never a rule, a definition or an
+example that exists nowhere else. An inline instruction in a Code
 node, a model node's `text`, an HTTP body or a tool description is a gap: the model
 reads it and a reviewer does not, and editing the prompt file cannot fix it. A
 definition the model must follow — what a scene is, what a form means — is written

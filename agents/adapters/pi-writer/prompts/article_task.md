@@ -32,18 +32,12 @@ Leave exactly one marker per requested asset type, each alone on its own line, u
 
 ## Research
 
-Two tools, at most three lookups in total, then write:
+Read with `curl` as the sandbox map describes: the source link first, then the pages it cites. At most three lookups in total, then write.
 
-- `research_sources` - searches Hacker News and the author's own RSS feeds for a subject; returns titles, URLs, points and comment counts.
-- `read_page` - one URL, as readable text. Use it on a URL a search returned, or on a documentation URL the entry gave you.
-
-Rules:
-
-- Search for the entry's subject, not for a phrase you invented. One search and one read is usually enough.
-- The Source Material above is what this run already fetched: do not read it again, and do not search for it again.
-- A source counts only if it is about the entry's subject. A same-named person, project, album or event is not it: drop it and stop searching instead of hunting for a match.
+- The Source Material above is what this run already fetched: do not read it again, and do not look it up again.
+- A source counts only if it is about the entry's subject. A same-named person, project, album or event is not it: drop it and stop instead of hunting for a match.
 - Read a page before you rely on it, and never cite a URL you did not fetch.
-- Write the article as soon as you have one usable source or your lookups are spent, whichever comes first. If nothing usable came back, write from the entry's inputs alone and say in one sentence that no source could be found.
+- Write the article as soon as you have one usable source or your lookups are spent, whichever comes first. If nothing usable came back, write from the entry's inputs alone and leave the unknown as an unknown.
 
 ## Reviewer Feedback
 
@@ -67,7 +61,9 @@ This is the draft the review rejected. Rewrite it applying the Reviewer Feedback
 
 - Open on the problem in the author's own framing, not on a definition and not on "In this article".
 - Then the reasoning, with the concrete specifics the inputs give: names, versions, configuration, quantities, trade-offs.
+- When the article walks the reader through commands, every step is one action: the command, then what success looks like when the source material carries it, then one sentence on why it is there. Never paste two pages' examples into one path: a step that uses a name no earlier step created is a defect.
 - Close by pointing at what to read or do next — the follow-up article, the first command, the one thing to change. One or two sentences, and never a summary of the article you just wrote.
+- Say an unknown as a fact about the software, once. Never write about the article or the work of writing it: no "I did not run this", no "this section", no aside that a sample is missing.
 - Use `##` subheadings only where the structure has more than two parts, and keep them short and concrete.
 - When the source link is set, end the body with a single line: `Source: {{ URL }}`.
 - No bullet-point padding: a list only where the items are genuinely parallel.

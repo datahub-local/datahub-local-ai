@@ -11,7 +11,10 @@ Derived from the maintained Pi adapter's `session-server.mjs`, which is the refe
 the session contract. The deltas:
 
 - `--no-tools` is dropped, so Pi can fetch a page and render a manifest.
-- The instruction is `prompts/writing.md`, read at run time.
+- The drafting prompt lives here, not in n8n: `prompts/article_writer_system.md`,
+  `prompts/article_task.md`, `prompts/article_structures.md` and
+  `prompts/article_audiences.md` are baked into the image, and `prompts/writing.md` is
+  the sandbox map appended to every turn. The caller sends the entry's fields.
 - Outbound reading goes through a loopback forward proxy. Anything off the caller's
   `source_hosts` answers `403` and is logged with the host.
 - The turn is a session (`v1alpha2`) only. An article needs the session directory and
@@ -31,7 +34,8 @@ proof available inside the pod.
 
 | field | meaning |
 | --- | --- |
-| `messages` | the last user message is the brief; its content is sent to Pi unchanged |
+| `brief` | the entry's fields: `topic`, `description`, `url`, `max_words`, `asset_types`, `audience`, `extra_prompt`, `content`, `feedback`, `previous_draft`. The server renders the brief from its own prompt files |
+| `messages` | a plain-text fallback for a caller that is not the article lane; its last user message is sent to Pi unchanged |
 | `session_id` | the row's session; one directory per id, so a retry continues in place |
 | `source_hosts` | the allowlist for this turn (a string or array); the image default applies when absent |
 | `attempt` | `> 1` means the turn is a correction, even if the article was not written yet |

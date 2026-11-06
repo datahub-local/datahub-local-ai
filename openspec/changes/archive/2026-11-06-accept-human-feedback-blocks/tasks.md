@@ -36,7 +36,7 @@
 
 ## 5. Deploy
 
-- [ ] 5.1 Apply the graph to the live instance and read back both copies matching the export.
-      [UNVERIFIED] until run.
+- [x] 5.1 Applied the graph to the live instance (`n8n_update_full_workflow`, 101 nodes); read
+      back identical to the export in every node, connection and setting, `activeVersion == nodes`.
 - [ ] 5.2 After `main` carries the prompt, one live retry with the owner's feedback, and the stored
       draft differs from the one that was rejected. [UNVERIFIED] until run.

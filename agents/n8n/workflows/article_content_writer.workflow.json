@@ -564,8 +564,7 @@
                 "rightValue": "",
                 "operator": {
                   "type": "string",
-                  "operation": "notEmpty",
-                  "singleValue": true
+                  "operation": "notEmpty"
                 }
               }
             ],
@@ -770,8 +769,7 @@
                 "rightValue": "",
                 "operator": {
                   "type": "string",
-                  "operation": "empty",
-                  "singleValue": true
+                  "operation": "empty"
                 }
               }
             ],

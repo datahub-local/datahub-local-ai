@@ -844,7 +844,12 @@ for the edit, the merged findings and the objective problem the entry point's co
 named. Each request's normal and error outputs meet one `noOp` whose item is the sub-workflow's
 answer, so `merge_aspect_findings` and `check_improved_draft` read the same `statusCode`/`body`
 shape whether the turn was called directly or through the sub-workflow. `Article Content Writer`
-holds no writer URL, no request body and no writer HTTP node.
+holds no writer URL, no request body and no writer HTTP node. A creator-side pre-flight failure —
+an unset `ARTICLE_WRITER_URL`, a missing `ROW_NUMBER` or an empty `DRAFT_TEXT` — arrives the same
+way an adapter turn's failure does: the aspect pass reports `aspects: unavailable` and the edit is
+`FAILED`, while the draft turn still ends the run through `build_failure`. The pre-flight moved
+into the sub-workflow with the requests, so the entry point no longer fails the whole run on it
+before the advice turns, which degrade by design.
 
 **A draft is reviewed before it is returned, and an over-budget one is retried rather than
 fatal.** The writer owns the review turn: `parse_article` → `build_review_request` →

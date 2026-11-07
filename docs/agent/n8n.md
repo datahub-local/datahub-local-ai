@@ -904,6 +904,16 @@ would read as "no verdict" and lose its cause. The loop retries with a real caus
 reviewer never loses the draft. The same settings are on `request_aspects` and `request_improve`
 in `Article Creator`, whose answers the entry point's parsers read the same way.
 
+**The gate reads the pages the writer fetched, not only the seed page.** The `<source>` block in
+the review prompt is the row's `CONTENT`, the page the entry links to; the writer may fetch up to
+three more pages during the draft. Those pages are above the review turn in the same session, so a
+fact from a fetched page is sourced and only a fact absent from all of them is invented. Execution
+16033 (row 3, 2026-11-07) made this explicit: the draft used the Ensembles page's platform-team
+roster, its schedules and its `authRefs` patch, and every review turn rejected them as "not in the
+Source Material" because the seed was the docs home page. The writer kept the grounded facts, the
+loop exhausted its bound and the entry ended `MAX_RETRIES_EXCEEDED`. The fact check now accepts a
+fetched page's facts and says where those pages are.
+
 **The gate must name the marker's form, not its id.** The reviewer's check read "spelled as the
 type id", the reviewer took that to mean the bare id, and the first live runs rejected a
 *correct* `<!-- asset:image_wide -->` twice — after which the writer dropped the marker

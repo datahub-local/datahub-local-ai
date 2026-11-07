@@ -295,6 +295,13 @@ async function readAudiences() {
 }
 
 async function reviewPrompt({ brief, article }) {
+  // The gate enforces a budget. Without one the rendered limit is zero, which rejects
+  // every draft, so name the missing field rather than fail a draft on a gate that could
+  // not run.
+  const maxWords = Number(brief.max_words);
+  if (!Number.isFinite(maxWords) || maxWords <= 0) {
+    throw new Error("a review needs brief.max_words: the gate enforces the budget");
+  }
   const [system, review, audiences] = await Promise.all([
     readPrompt("article_writer_system.md"),
     readPrompt("article_review.md"),
@@ -304,8 +311,8 @@ async function reviewPrompt({ brief, article }) {
     TITLE: article.title,
     TEXT: article.text,
     WORD_COUNT: articleWordCount(article.text),
-    MAX_WORDS: brief.max_words ?? "",
-    WORD_LIMIT: articleWordLimit(brief.max_words),
+    MAX_WORDS: maxWords,
+    WORD_LIMIT: articleWordLimit(maxWords),
     AUDIENCE: brief.audience ?? "NONE",
     AUDIENCES: audiences,
     TOPIC: brief.topic ?? "",
@@ -421,19 +428,12 @@ async function ledgerCounts(dir) {
 
 async function articleAnswer(dir, ledger) {
   const [article, counts] = await Promise.all([readArticle(dir), ledgerCounts(dir)]);
-  let sourcesJSON = "";
-  try {
-    sourcesJSON = await readFile(join(dir, LEDGER_NAME), "utf8");
-  } catch {
-    // An absent ledger is reported by `counts`, not thrown: a review does not need one.
-  }
   return {
     name: ARTICLE_NAME,
     ledger: LEDGER_NAME,
     title: article.title,
     text: article.text,
     word_count: articleWordCount(article.text),
-    sources_json: sourcesJSON,
     ...(ledger || counts),
   };
 }

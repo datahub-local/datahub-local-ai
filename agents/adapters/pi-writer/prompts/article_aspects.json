@@ -1,5 +1,5 @@
 {
-  "_comment": "The aspects the writer reviews a draft by. The adapter loads this at run time; the workflow graph carries no aspect id, so adding an aspect is a new entry here plus its prompt file.",
+  "_comment": "The aspects the writer reviews a draft by. The adapter loads this at run time; the workflow graph carries no aspect id, so adding an aspect is a new entry here plus its prompt file, shipped by an image rebuild rather than a workflow edit.",
   "_comment_prompts": "Each prompt is a file beside this registry, in the adapter image.",
   "aspects": [
     {

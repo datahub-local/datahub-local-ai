@@ -192,7 +192,7 @@
           600
         ],
         "parameters": {
-          "jsCode": "// The writer answers a structured verdict, not prose to re-parse: a body without one is\n// a rejection with the reason named, so the retry carries a real cause rather than an\n// empty explanation.\nconst res = $input.first().json;\n// A transport failure arrives as an error item (`onError: continueRegularOutput`) and\n// carries no status: name it, or a dead connection reads as no verdict.\nconst transport = res.error ? String((res.error && res.error.message) || res.error).trim() : '';\nif (transport) return [{ json: { output: 'false', explanation: 'REVIEW: ' + transport } }];\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nconst review = body.review || {};\nif (status >= 400) {\n  const message = String((body.error && body.error.message) || body.error || body.message || '').trim();\n  return [{ json: { output: 'false', explanation: 'REVIEW: HTTP ' + status + (message ? ': ' + message : ' the review turn failed') } }];\n}\nif (typeof review.pass !== 'boolean') {\n  return [{ json: { output: 'false', explanation: 'REVIEW: the writer returned no verdict' } }];\n}\nreturn [{ json: {\n  output: review.pass ? 'true' : 'false',\n  explanation: String(review.explanation || '').replace(/\\s+/g, ' ').trim(),\n} }];"
+          "jsCode": "// The writer answers a structured verdict, not prose to re-parse: a body without one is\n// a rejection with the reason named, so the retry carries a real cause rather than an\n// empty explanation.\nconst res = $input.first().json;\n// A transport failure arrives as an error item (`onError: continueErrorOutput`) and\n// carries no status: name it, or a dead connection reads as no verdict.\nconst transport = res.error ? String((res.error && res.error.message) || res.error).trim() : '';\nif (transport) return [{ json: { output: 'false', explanation: 'REVIEW: ' + transport } }];\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nconst review = body.review || {};\nif (status >= 400) {\n  const message = String((body.error && body.error.message) || body.error || body.message || '').trim();\n  return [{ json: { output: 'false', explanation: 'REVIEW: HTTP ' + status + (message ? ': ' + message : ' the review turn failed') } }];\n}\nif (typeof review.pass !== 'boolean') {\n  return [{ json: { output: 'false', explanation: 'REVIEW: the writer returned no verdict' } }];\n}\nreturn [{ json: {\n  output: review.pass ? 'true' : 'false',\n  explanation: String(review.explanation || '').replace(/\\s+/g, ' ').trim(),\n} }];"
         }
       },
       {
@@ -410,7 +410,7 @@
         ],
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
-        "onError": "continueRegularOutput"
+        "onError": "continueErrorOutput"
       }
     ],
     "connections": {
@@ -551,6 +551,13 @@
       },
       "request_review": {
         "main": [
+          [
+            {
+              "node": "parse_review_verdict",
+              "type": "main",
+              "index": 0
+            }
+          ],
           [
             {
               "node": "parse_review_verdict",
@@ -708,6 +715,13 @@
     },
     "request_review": {
       "main": [
+        [
+          {
+            "node": "parse_review_verdict",
+            "type": "main",
+            "index": 0
+          }
+        ],
         [
           {
             "node": "parse_review_verdict",
@@ -913,7 +927,7 @@
         600
       ],
       "parameters": {
-        "jsCode": "// The writer answers a structured verdict, not prose to re-parse: a body without one is\n// a rejection with the reason named, so the retry carries a real cause rather than an\n// empty explanation.\nconst res = $input.first().json;\n// A transport failure arrives as an error item (`onError: continueRegularOutput`) and\n// carries no status: name it, or a dead connection reads as no verdict.\nconst transport = res.error ? String((res.error && res.error.message) || res.error).trim() : '';\nif (transport) return [{ json: { output: 'false', explanation: 'REVIEW: ' + transport } }];\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nconst review = body.review || {};\nif (status >= 400) {\n  const message = String((body.error && body.error.message) || body.error || body.message || '').trim();\n  return [{ json: { output: 'false', explanation: 'REVIEW: HTTP ' + status + (message ? ': ' + message : ' the review turn failed') } }];\n}\nif (typeof review.pass !== 'boolean') {\n  return [{ json: { output: 'false', explanation: 'REVIEW: the writer returned no verdict' } }];\n}\nreturn [{ json: {\n  output: review.pass ? 'true' : 'false',\n  explanation: String(review.explanation || '').replace(/\\s+/g, ' ').trim(),\n} }];"
+        "jsCode": "// The writer answers a structured verdict, not prose to re-parse: a body without one is\n// a rejection with the reason named, so the retry carries a real cause rather than an\n// empty explanation.\nconst res = $input.first().json;\n// A transport failure arrives as an error item (`onError: continueErrorOutput`) and\n// carries no status: name it, or a dead connection reads as no verdict.\nconst transport = res.error ? String((res.error && res.error.message) || res.error).trim() : '';\nif (transport) return [{ json: { output: 'false', explanation: 'REVIEW: ' + transport } }];\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nconst review = body.review || {};\nif (status >= 400) {\n  const message = String((body.error && body.error.message) || body.error || body.message || '').trim();\n  return [{ json: { output: 'false', explanation: 'REVIEW: HTTP ' + status + (message ? ': ' + message : ' the review turn failed') } }];\n}\nif (typeof review.pass !== 'boolean') {\n  return [{ json: { output: 'false', explanation: 'REVIEW: the writer returned no verdict' } }];\n}\nreturn [{ json: {\n  output: review.pass ? 'true' : 'false',\n  explanation: String(review.explanation || '').replace(/\\s+/g, ' ').trim(),\n} }];"
       }
     },
     {
@@ -1131,7 +1145,7 @@
       ],
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "onError": "continueRegularOutput"
+      "onError": "continueErrorOutput"
     }
   ],
   "pinData": {},

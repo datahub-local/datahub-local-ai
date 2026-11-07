@@ -374,13 +374,51 @@ test("the aspect pass answers one findings block per aspect", async () => {
   }
 });
 
+test("a review of a session with a draft reads it when the request carries none", async () => {
+  // The creator sends the parsed draft, but a resumed round may name only the session.
+  // The server then reviews the session's own article rather than an empty one.
+  await turn({
+    messages: [{ role: "user", content: "write about installing the release" }],
+    session_id: "article-review-stored",
+  });
+  const res = await turn({
+    task: "review",
+    session_id: "article-review-stored",
+    brief: { topic: "Probe", audience: "LOW", max_words: 900 },
+  });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.review.pass, true);
+  assert.match(body.article.text, /helm upgrade --install probe/);
+  const prompt = await readFile(join(workspace, "runs", "article-review-stored", "prompt.txt"), "utf8");
+  assert.match(prompt, /helm upgrade --install probe/);
+});
+
+test("a review without a budget fails by name instead of rejecting every draft", async () => {
+  const res = await turn({
+    task: "review",
+    session_id: "article-review-nobudget",
+    brief: { topic: "Probe" },
+    article: { title: "Probe", text: "## Install\n\nUse it." },
+  });
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.match(body.error.message, /brief\.max_words/);
+});
+
 test("an improve turn writes the edited article the model returned", async () => {
   const res = await turn({
     task: "improve",
     session_id: "article-improve",
-    brief: { topic: "Probe", audience: "LOW", max_words: 900, asset_types: "image_wide", feedback: "" },
+    brief: {
+      topic: "Probe",
+      audience: "LOW",
+      max_words: 900,
+      asset_types: "image_wide",
+      feedback: "PROBE_HUMAN_FEEDBACK",
+    },
     article: { title: "Probe", text: "## Install\n\nUse it." },
-    findings: "1. opening: tighten it",
+    findings: "PROBE_FINDINGS: tighten the opening",
   });
   assert.equal(res.status, 200);
   const body = await res.json();
@@ -389,6 +427,11 @@ test("an improve turn writes the edited article the model returned", async () =>
   assert.equal(body.article.text, "Edited body with PROBE_EDIT.");
   const written = await readFile(join(workspace, "runs", "article-improve", "article.md"), "utf8");
   assert.equal(written, "# Probe edited\n\nEdited body with PROBE_EDIT.\n");
+  // The owner's feedback and the merged findings reach the turn, which is the issue's
+  // headline case: a rejection re-enters the writer with what the person said.
+  const prompt = await readFile(join(workspace, "runs", "article-improve", "prompt.txt"), "utf8");
+  assert.match(prompt, /PROBE_HUMAN_FEEDBACK/);
+  assert.match(prompt, /PROBE_FINDINGS: tighten the opening/);
 });
 
 test("a review of a session with no draft fails by name", async () => {

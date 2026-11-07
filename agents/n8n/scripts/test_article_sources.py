@@ -128,7 +128,7 @@ def _merged(response):
     return _run(
         ENTRY,
         "merge_aspect_findings",
-        {"build_improvement_context": [{"HAS_FEEDBACK": False, "BASE_TEXT": "draft"}]},
+        {"build_improvement_context": [_context()]},
         [response],
     )[0]["json"]
 
@@ -323,7 +323,7 @@ def test_an_edit_request_that_failed_is_reported_as_failed():
 
 
 def test_an_edit_that_never_answered_is_reported_with_its_failure():
-    """`onError: continueRegularOutput` puts the connection failure on the item."""
+    """`onError: continueErrorOutput` puts the connection failure on the item."""
     ctx = _context()
     item = _run(
         ENTRY,

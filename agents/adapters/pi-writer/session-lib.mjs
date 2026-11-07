@@ -461,7 +461,9 @@ export function articleWordCount(text) {
 }
 
 // A model cannot count words, so a draft a little over the budget is the budget met.
-// Integer arithmetic, because 1200 * 1.1 is 1320.0000000000002 in a double.
+// Integer arithmetic, because 1200 * 1.1 is 1320.0000000000002 in a double. The graph's
+// `parse_article` and `check_improved_draft` hold the same rule in code; a margin change
+// edits all three.
 export function articleWordLimit(maxWords) {
   const max = Number(maxWords);
   if (!Number.isFinite(max) || max <= 0) return 0;

@@ -876,11 +876,14 @@ under, so the gate cannot be checking a second copy that drifted. The review is 
 **A review turn that fails is a rejection with the reason, not a dead run.** The call used to be
 `check_article_llm` with `retryOnFail: true, maxTries: 5`; one 30 s LiteLLM timeout had ended a
 run that already produced four drafts (execution 13975, 2026-10-18). It is now an HTTP node with
-`neverError: true` and `onError: continueRegularOutput`, and `parse_review_verdict` reports either
-failure as `output: false`: an error status becomes `REVIEW: HTTP <status>: <message>`, and a dead
-connection becomes `REVIEW: <message>` from the error item. So the loop retries with a real cause
-and a failed reviewer never loses the draft. The same pair of settings is on `request_aspects` and
-`request_improve`, where a failed call is reported the same way.
+`neverError: true` and `onError: continueErrorOutput`, and both outputs join `parse_review_verdict`,
+which reports either failure as `output: false`: an error status becomes `REVIEW: HTTP <status>:
+<message>`, and a transport failure becomes `REVIEW: <message>` from the error item.
+`continueErrorOutput` rather than `continueRegularOutput`, because the regular mode forwards the
+node's input unchanged and sets no `json.error` (the 2026-09-28 note above), so a dead connection
+would read as "no verdict" and lose its cause. The loop retries with a real cause and a failed
+reviewer never loses the draft. The same settings are on `request_aspects` and `request_improve`,
+whose parsers read the error item the same way.
 
 **The gate must name the marker's form, not its id.** The reviewer's check read "spelled as the
 type id", the reviewer took that to mean the bare id, and the first live runs rejected a

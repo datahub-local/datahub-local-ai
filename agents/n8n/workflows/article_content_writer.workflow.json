@@ -4601,7 +4601,7 @@
           -144
         ],
         "parameters": {
-          "jsCode": "// The reviewers advise; nothing here rejects. The adapter answers one entry per aspect,\n// each already tagged with its id and carrying its own error, so this node merges what\n// answered into the one block the improver reads and counts what did not.\n//\n// A whole-call failure is the same case as one aspect failing: no findings, the summary\n// names it, and the owner's feedback still drives the edit on its own.\nconst ctx = $('build_improvement_context').first().json;\nconst res = $json || {};\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nconst list = Array.isArray(body.findings) ? body.findings : [];\nconst blocks = [];\nconst summary = [];\n// A transport failure arrives as an error item (`onError: continueRegularOutput`): the\n// whole call failed, which is the same case as one aspect failing, not a gate.\nconst transport = res.error ? String((res.error && res.error.message) || res.error).trim() : '';\nif (transport) {\n  summary.push('aspects: unavailable (' + transport + ')');\n} else if (status >= 400 || !list.length) {\n  const message = String((body.error && body.error.message) || body.error || res.statusMessage || '').trim();\n  summary.push('aspects: unavailable' + (status >= 400\n    ? ' (HTTP ' + status + (message ? ': ' + message : '') + ')'\n    : ' (no findings returned)'));\n} else {\n  for (const finding of list) {\n    const aspect = String((finding && finding.aspect) || '').trim() || 'aspect';\n    const focus = String((finding && finding.focus) || '').trim();\n    const error = String((finding && finding.error) || '').trim();\n    const text = String((finding && finding.text) || '').trim();\n    if (error) {\n      summary.push(aspect + ': failed');\n      continue;\n    }\n    if (!text || /^none\\b/i.test(text)) {\n      summary.push(aspect + ': none');\n      continue;\n    }\n    const count = Number((finding && finding.count) || 0) || 1;\n    summary.push(aspect + ': ' + count);\n    blocks.push('### ' + aspect + (focus ? ' (' + focus + ')' : '') + '\\n' + text);\n  }\n}\nconst findings = blocks.join('\\n\\n');\nreturn [{ json: {\n  ...ctx,\n  FINDINGS: findings,\n  HAS_FINDINGS: findings.trim() !== '',\n  FINDINGS_SUMMARY: summary.join(', '),\n  HAS_ANY: findings.trim() !== '' || Boolean(ctx.HAS_FEEDBACK),\n} }];"
+          "jsCode": "// The reviewers advise; nothing here rejects. The adapter answers one entry per aspect,\n// each already tagged with its id and carrying its own error, so this node merges what\n// answered into the one block the improver reads and counts what did not.\n//\n// A whole-call failure is the same case as one aspect failing: no findings, the summary\n// names it, and the owner's feedback still drives the edit on its own.\nconst ctx = $('build_improvement_context').first().json;\nconst res = $json || {};\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nconst list = Array.isArray(body.findings) ? body.findings : [];\nconst blocks = [];\nconst summary = [];\n// A transport failure arrives as an error item (`onError: continueErrorOutput`): the\n// whole call failed, which is the same case as one aspect failing, not a gate.\nconst transport = res.error ? String((res.error && res.error.message) || res.error).trim() : '';\nif (transport) {\n  summary.push('aspects: unavailable (' + transport + ')');\n} else if (status >= 400 || !list.length) {\n  const message = String((body.error && body.error.message) || body.error || res.statusMessage || '').trim();\n  summary.push('aspects: unavailable' + (status >= 400\n    ? ' (HTTP ' + status + (message ? ': ' + message : '') + ')'\n    : ' (no findings returned)'));\n} else {\n  for (const finding of list) {\n    const aspect = String((finding && finding.aspect) || '').trim() || 'aspect';\n    const focus = String((finding && finding.focus) || '').trim();\n    const error = String((finding && finding.error) || '').trim();\n    const text = String((finding && finding.text) || '').trim();\n    if (error) {\n      summary.push(aspect + ': failed');\n      continue;\n    }\n    if (!text || /^none\\b/i.test(text)) {\n      summary.push(aspect + ': none');\n      continue;\n    }\n    const count = Number((finding && finding.count) || 0) || 1;\n    summary.push(aspect + ': ' + count);\n    blocks.push('### ' + aspect + (focus ? ' (' + focus + ')' : '') + '\\n' + text);\n  }\n}\nconst findings = blocks.join('\\n\\n');\nreturn [{ json: {\n  ...ctx,\n  FINDINGS: findings,\n  HAS_FINDINGS: findings.trim() !== '',\n  FINDINGS_SUMMARY: summary.join(', '),\n  HAS_ANY: findings.trim() !== '' || Boolean(ctx.HAS_FEEDBACK),\n} }];"
         }
       },
       {
@@ -4784,7 +4784,7 @@
         ],
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
-        "onError": "continueRegularOutput"
+        "onError": "continueErrorOutput"
       },
       {
         "parameters": {
@@ -4825,7 +4825,7 @@
         ],
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
-        "onError": "continueRegularOutput"
+        "onError": "continueErrorOutput"
       }
     ],
     "connections": {
@@ -5884,6 +5884,13 @@
               "type": "main",
               "index": 0
             }
+          ],
+          [
+            {
+              "node": "merge_aspect_findings",
+              "type": "main",
+              "index": 0
+            }
           ]
         ]
       },
@@ -5900,6 +5907,13 @@
       },
       "request_improve": {
         "main": [
+          [
+            {
+              "node": "check_improved_draft",
+              "type": "main",
+              "index": 0
+            }
+          ],
           [
             {
               "node": "check_improved_draft",
@@ -6975,6 +6989,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "merge_aspect_findings",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -6991,6 +7012,13 @@
     },
     "request_improve": {
       "main": [
+        [
+          {
+            "node": "check_improved_draft",
+            "type": "main",
+            "index": 0
+          }
+        ],
         [
           {
             "node": "check_improved_draft",
@@ -11605,7 +11633,7 @@
         -144
       ],
       "parameters": {
-        "jsCode": "// The reviewers advise; nothing here rejects. The adapter answers one entry per aspect,\n// each already tagged with its id and carrying its own error, so this node merges what\n// answered into the one block the improver reads and counts what did not.\n//\n// A whole-call failure is the same case as one aspect failing: no findings, the summary\n// names it, and the owner's feedback still drives the edit on its own.\nconst ctx = $('build_improvement_context').first().json;\nconst res = $json || {};\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nconst list = Array.isArray(body.findings) ? body.findings : [];\nconst blocks = [];\nconst summary = [];\n// A transport failure arrives as an error item (`onError: continueRegularOutput`): the\n// whole call failed, which is the same case as one aspect failing, not a gate.\nconst transport = res.error ? String((res.error && res.error.message) || res.error).trim() : '';\nif (transport) {\n  summary.push('aspects: unavailable (' + transport + ')');\n} else if (status >= 400 || !list.length) {\n  const message = String((body.error && body.error.message) || body.error || res.statusMessage || '').trim();\n  summary.push('aspects: unavailable' + (status >= 400\n    ? ' (HTTP ' + status + (message ? ': ' + message : '') + ')'\n    : ' (no findings returned)'));\n} else {\n  for (const finding of list) {\n    const aspect = String((finding && finding.aspect) || '').trim() || 'aspect';\n    const focus = String((finding && finding.focus) || '').trim();\n    const error = String((finding && finding.error) || '').trim();\n    const text = String((finding && finding.text) || '').trim();\n    if (error) {\n      summary.push(aspect + ': failed');\n      continue;\n    }\n    if (!text || /^none\\b/i.test(text)) {\n      summary.push(aspect + ': none');\n      continue;\n    }\n    const count = Number((finding && finding.count) || 0) || 1;\n    summary.push(aspect + ': ' + count);\n    blocks.push('### ' + aspect + (focus ? ' (' + focus + ')' : '') + '\\n' + text);\n  }\n}\nconst findings = blocks.join('\\n\\n');\nreturn [{ json: {\n  ...ctx,\n  FINDINGS: findings,\n  HAS_FINDINGS: findings.trim() !== '',\n  FINDINGS_SUMMARY: summary.join(', '),\n  HAS_ANY: findings.trim() !== '' || Boolean(ctx.HAS_FEEDBACK),\n} }];"
+        "jsCode": "// The reviewers advise; nothing here rejects. The adapter answers one entry per aspect,\n// each already tagged with its id and carrying its own error, so this node merges what\n// answered into the one block the improver reads and counts what did not.\n//\n// A whole-call failure is the same case as one aspect failing: no findings, the summary\n// names it, and the owner's feedback still drives the edit on its own.\nconst ctx = $('build_improvement_context').first().json;\nconst res = $json || {};\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nconst list = Array.isArray(body.findings) ? body.findings : [];\nconst blocks = [];\nconst summary = [];\n// A transport failure arrives as an error item (`onError: continueErrorOutput`): the\n// whole call failed, which is the same case as one aspect failing, not a gate.\nconst transport = res.error ? String((res.error && res.error.message) || res.error).trim() : '';\nif (transport) {\n  summary.push('aspects: unavailable (' + transport + ')');\n} else if (status >= 400 || !list.length) {\n  const message = String((body.error && body.error.message) || body.error || res.statusMessage || '').trim();\n  summary.push('aspects: unavailable' + (status >= 400\n    ? ' (HTTP ' + status + (message ? ': ' + message : '') + ')'\n    : ' (no findings returned)'));\n} else {\n  for (const finding of list) {\n    const aspect = String((finding && finding.aspect) || '').trim() || 'aspect';\n    const focus = String((finding && finding.focus) || '').trim();\n    const error = String((finding && finding.error) || '').trim();\n    const text = String((finding && finding.text) || '').trim();\n    if (error) {\n      summary.push(aspect + ': failed');\n      continue;\n    }\n    if (!text || /^none\\b/i.test(text)) {\n      summary.push(aspect + ': none');\n      continue;\n    }\n    const count = Number((finding && finding.count) || 0) || 1;\n    summary.push(aspect + ': ' + count);\n    blocks.push('### ' + aspect + (focus ? ' (' + focus + ')' : '') + '\\n' + text);\n  }\n}\nconst findings = blocks.join('\\n\\n');\nreturn [{ json: {\n  ...ctx,\n  FINDINGS: findings,\n  HAS_FINDINGS: findings.trim() !== '',\n  FINDINGS_SUMMARY: summary.join(', '),\n  HAS_ANY: findings.trim() !== '' || Boolean(ctx.HAS_FEEDBACK),\n} }];"
       }
     },
     {
@@ -11788,7 +11816,7 @@
       ],
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "onError": "continueRegularOutput"
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -11829,7 +11857,7 @@
       ],
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "onError": "continueRegularOutput"
+      "onError": "continueErrorOutput"
     }
   ],
   "pinData": {},

@@ -54,8 +54,8 @@
 - [x] 6.2 `uv run -- pytest agents/n8n/scripts/ -q`, with the two pre-existing
   `test_post_feed_mix.py` failures recorded on main.
 - [x] 6.3 `openspec validate --all`.
-- [ ] 6.4 Workflow invariant check on both graph copies (names, positions, references,
-  reachability, no langchain node) — run before the pull request.
+- [x] 6.4 Workflow invariant check on both graph copies (names, positions, references,
+  reachability, no langchain node) — clean on both exports; 31 Code nodes parse.
 
 ## 7. Deployment (owner approval, not this pull request)
 

@@ -56,7 +56,7 @@ proof available inside the pod.
 | `attempt` | `> 1` means the drafting turn is a correction, even if the article was not written yet |
 | `stream` | SSE chunks instead of one JSON body; a draft only, because a review's answer is structured |
 
-The response carries `article: { name, ledger, title, text, word_count, sources_json, sources, quoted, dropped, error }` — the counts and drop reasons are the server's, and `error` is
+The response carries `article: { name, ledger, title, text, word_count, sources, quoted, dropped, error }` — the counts and drop reasons are the server's, and `error` is
 non-empty when the turn wrote no readable ledger. A `review` answer adds
 `review: { pass, explanation }`; an `aspects` answer adds
 `findings: [{ aspect, focus, error, text, count }]`.

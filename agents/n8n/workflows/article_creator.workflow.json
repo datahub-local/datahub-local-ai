@@ -107,7 +107,7 @@
                 "type": "string"
               },
               {
-                "id": "fa1a7251-e879-450e-bb5e-e29f075d01bf",
+                "id": "3935eeba-957f-4fd6-bdb6-0ede5e0bfeff",
                 "name": "TASK",
                 "value": "={{ String($('main_trigger').first().json.TASK || 'draft').trim().toLowerCase() }}",
                 "type": "string"
@@ -434,7 +434,7 @@
         "onError": "continueErrorOutput"
       },
       {
-        "id": "ab783cf8-5ff7-4523-9649-08cb69d82362",
+        "id": "14f800cc-bdb0-4dfa-988d-766137a16134",
         "name": "switch_task",
         "type": "n8n-nodes-base.switch",
         "typeVersion": 3.2,
@@ -455,7 +455,7 @@
                   },
                   "conditions": [
                     {
-                      "id": "35ea2854-4e5c-4ac2-8441-5448ee688f31",
+                      "id": "ce9e9605-19d2-42fe-8683-a9dc66d78f29",
                       "leftValue": "={{ $json.TASK }}",
                       "rightValue": "aspects",
                       "operator": {
@@ -477,7 +477,7 @@
                   },
                   "conditions": [
                     {
-                      "id": "056f0c54-7e59-4304-88b6-f29cd9227d1f",
+                      "id": "5ddc64d3-33ee-408d-8598-dc3cc7040611",
                       "leftValue": "={{ $json.TASK }}",
                       "rightValue": "improve",
                       "operator": {
@@ -499,7 +499,7 @@
                   },
                   "conditions": [
                     {
-                      "id": "e28c23fd-d92b-458a-b747-c343a91b218a",
+                      "id": "acfb9b12-174d-496a-958c-43fb6b2c64a9",
                       "leftValue": "={{ $json.TASK }}",
                       "rightValue": "draft",
                       "operator": {
@@ -519,7 +519,7 @@
         }
       },
       {
-        "id": "d85e8598-4280-4716-8b39-cbb49fd46944",
+        "id": "c9bc5dec-d995-4510-b409-68488107700b",
         "name": "build_aspects_request",
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
@@ -532,7 +532,7 @@
         }
       },
       {
-        "id": "061fa370-f28c-4b3d-ae2b-e920199f47d8",
+        "id": "d17dbdb1-9caa-44df-807f-146777d69d2b",
         "name": "request_aspects",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
@@ -556,10 +556,11 @@
               }
             }
           }
-        }
+        },
+        "onError": "continueErrorOutput"
       },
       {
-        "id": "a2a010b5-62af-48a9-88f2-dc2e1e2e22e6",
+        "id": "ff897bf7-ac4e-4a48-8caf-912af56a5766",
         "name": "pass_aspects_answer",
         "type": "n8n-nodes-base.noOp",
         "typeVersion": 1,
@@ -570,7 +571,7 @@
         "parameters": {}
       },
       {
-        "id": "f115dcf9-95f6-49cc-87db-e64940505847",
+        "id": "49d335d5-dc30-4a68-b996-091dcfb7a43d",
         "name": "build_improve_request",
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
@@ -583,7 +584,7 @@
         }
       },
       {
-        "id": "93d7f084-05f7-4284-8fad-3aedb14f82fb",
+        "id": "01d008bb-f57d-4eef-b306-4609c1dc9c2a",
         "name": "request_improve",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
@@ -607,10 +608,11 @@
               }
             }
           }
-        }
+        },
+        "onError": "continueErrorOutput"
       },
       {
-        "id": "6640784f-439c-430f-8bc5-c15c3ef60e08",
+        "id": "e9481c5f-c6ba-4b63-bf7d-fc0589f7a783",
         "name": "pass_improve_answer",
         "type": "n8n-nodes-base.noOp",
         "typeVersion": 1,
@@ -621,7 +623,7 @@
         "parameters": {}
       },
       {
-        "id": "cecdcf9e-3449-4bdd-8edc-7b50c7f31c55",
+        "id": "76773a51-028e-4502-b077-7bce79e6e751",
         "name": "bad_task",
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
@@ -1243,7 +1245,7 @@
               "type": "string"
             },
             {
-              "id": "fa1a7251-e879-450e-bb5e-e29f075d01bf",
+              "id": "3935eeba-957f-4fd6-bdb6-0ede5e0bfeff",
               "name": "TASK",
               "value": "={{ String($('main_trigger').first().json.TASK || 'draft').trim().toLowerCase() }}",
               "type": "string"
@@ -1570,7 +1572,7 @@
       "onError": "continueErrorOutput"
     },
     {
-      "id": "ab783cf8-5ff7-4523-9649-08cb69d82362",
+      "id": "14f800cc-bdb0-4dfa-988d-766137a16134",
       "name": "switch_task",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
@@ -1591,7 +1593,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "35ea2854-4e5c-4ac2-8441-5448ee688f31",
+                    "id": "ce9e9605-19d2-42fe-8683-a9dc66d78f29",
                     "leftValue": "={{ $json.TASK }}",
                     "rightValue": "aspects",
                     "operator": {
@@ -1613,7 +1615,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "056f0c54-7e59-4304-88b6-f29cd9227d1f",
+                    "id": "5ddc64d3-33ee-408d-8598-dc3cc7040611",
                     "leftValue": "={{ $json.TASK }}",
                     "rightValue": "improve",
                     "operator": {
@@ -1635,7 +1637,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "e28c23fd-d92b-458a-b747-c343a91b218a",
+                    "id": "acfb9b12-174d-496a-958c-43fb6b2c64a9",
                     "leftValue": "={{ $json.TASK }}",
                     "rightValue": "draft",
                     "operator": {
@@ -1655,7 +1657,7 @@
       }
     },
     {
-      "id": "d85e8598-4280-4716-8b39-cbb49fd46944",
+      "id": "c9bc5dec-d995-4510-b409-68488107700b",
       "name": "build_aspects_request",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -1668,7 +1670,7 @@
       }
     },
     {
-      "id": "061fa370-f28c-4b3d-ae2b-e920199f47d8",
+      "id": "d17dbdb1-9caa-44df-807f-146777d69d2b",
       "name": "request_aspects",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -1692,10 +1694,11 @@
             }
           }
         }
-      }
+      },
+      "onError": "continueErrorOutput"
     },
     {
-      "id": "a2a010b5-62af-48a9-88f2-dc2e1e2e22e6",
+      "id": "ff897bf7-ac4e-4a48-8caf-912af56a5766",
       "name": "pass_aspects_answer",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
@@ -1706,7 +1709,7 @@
       "parameters": {}
     },
     {
-      "id": "f115dcf9-95f6-49cc-87db-e64940505847",
+      "id": "49d335d5-dc30-4a68-b996-091dcfb7a43d",
       "name": "build_improve_request",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -1719,7 +1722,7 @@
       }
     },
     {
-      "id": "93d7f084-05f7-4284-8fad-3aedb14f82fb",
+      "id": "01d008bb-f57d-4eef-b306-4609c1dc9c2a",
       "name": "request_improve",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -1743,10 +1746,11 @@
             }
           }
         }
-      }
+      },
+      "onError": "continueErrorOutput"
     },
     {
-      "id": "6640784f-439c-430f-8bc5-c15c3ef60e08",
+      "id": "e9481c5f-c6ba-4b63-bf7d-fc0589f7a783",
       "name": "pass_improve_answer",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
@@ -1757,7 +1761,7 @@
       "parameters": {}
     },
     {
-      "id": "cecdcf9e-3449-4bdd-8edc-7b50c7f31c55",
+      "id": "76773a51-028e-4502-b077-7bce79e6e751",
       "name": "bad_task",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,

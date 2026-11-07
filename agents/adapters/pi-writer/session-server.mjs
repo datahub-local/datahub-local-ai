@@ -47,6 +47,9 @@ import {
   serialiseLedger,
   revalidateLedger,
   articleTurnInstruction,
+  splitArticle,
+  articleWordCount,
+  articleWordLimit,
   hostAllowed,
   isBlockedHostname,
   ARTICLE_NAME,
@@ -231,6 +234,210 @@ async function articlePrompt(brief) {
   return `${system}\n\n---\n\n${text}`;
 }
 
+// The writer owns every model turn in the article lane. A request names the turn it
+// wants and the entry's fields; the prompts and the rules that render them stay here.
+const TASKS = new Set(["draft", "review", "aspects", "improve"]);
+
+function taskOf(request) {
+  const task = String(request.task || "draft");
+  if (!TASKS.has(task)) throw new Error(`unknown task ${task}`);
+  return task;
+}
+
+function emptyArticle() {
+  return { title: "", text: "" };
+}
+
+// The draft of record travels with a review, an aspect pass or an improve turn. n8n
+// resolves it (the converged draft, the creator's answer, or the stored row), so the
+// turn reviews exactly what the caller decided, not whatever the session still holds
+// from an earlier round.
+function articleFrom(request) {
+  const value = request.article && typeof request.article === "object" ? request.article : {};
+  return {
+    title: String(value.title ?? "").trim(),
+    text: String(value.text ?? value.body ?? "").trim(),
+  };
+}
+
+async function readArticle(dir) {
+  let raw;
+  try {
+    raw = await readFile(join(dir, ARTICLE_NAME), "utf8");
+  } catch {
+    return emptyArticle();
+  }
+  return splitArticle(raw);
+}
+
+async function writeArticle(dir, article) {
+  const text = String(article.text || "").trim();
+  if (!text) throw new Error("an article turn needs article.text");
+  const title = String(article.title || "").trim();
+  await writeFile(join(dir, ARTICLE_NAME), `${title ? `# ${title}\n\n` : ""}${text}\n`);
+  return { title, text };
+}
+
+async function resolveArticle(request, dir) {
+  const article = articleFrom(request);
+  if (article.text) return writeArticle(dir, article);
+  const stored = await readArticle(dir);
+  if (stored.text) return stored;
+  throw new Error("the request carries no article and the session has none to review");
+}
+
+async function readStructures() {
+  return readPrompt("article_structures.md");
+}
+
+async function readAudiences() {
+  return readPrompt("article_audiences.md");
+}
+
+async function reviewPrompt({ brief, article }) {
+  const [system, review, audiences] = await Promise.all([
+    readPrompt("article_writer_system.md"),
+    readPrompt("article_review.md"),
+    readAudiences(),
+  ]);
+  return fillTemplate(review, {
+    TITLE: article.title,
+    TEXT: article.text,
+    WORD_COUNT: articleWordCount(article.text),
+    MAX_WORDS: brief.max_words ?? "",
+    WORD_LIMIT: articleWordLimit(brief.max_words),
+    AUDIENCE: brief.audience ?? "NONE",
+    AUDIENCES: audiences,
+    TOPIC: brief.topic ?? "",
+    DESCRIPTION: brief.description ?? "",
+    URL: brief.url ?? "",
+    ASSET_TYPES: brief.asset_types ?? "",
+    EXTRA_PROMPT: brief.extra_prompt ?? "",
+    FEEDBACK: brief.feedback ?? "",
+    RULES: system,
+    CONTENT: brief.content ?? "",
+  });
+}
+
+// The registry is the single list of aspects. A missing, unparsable or empty registry
+// fails the turn loudly: without its definitions the pass must not run on nothing.
+async function loadAspects() {
+  const raw = await readPrompt("article_aspects.json");
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch (err) {
+    throw new Error(`article_aspects.json is not valid JSON: ${err?.message ?? err}`);
+  }
+  const aspects = (Array.isArray(data.aspects) ? data.aspects : [])
+    .map((aspect) => ({
+      id: String((aspect && aspect.id) || "").trim(),
+      prompt: String((aspect && aspect.prompt) || "").trim(),
+      focus: String((aspect && aspect.focus) || "").trim(),
+    }))
+    .filter((aspect) => aspect.id && aspect.prompt);
+  if (!aspects.length) throw new Error("article_aspects.json lists no usable aspect");
+  return aspects;
+}
+
+async function aspectPrompt(aspect, { brief, article }) {
+  const [template, audiences, structures] = await Promise.all([
+    readPrompt(aspect.prompt),
+    readAudiences(),
+    readStructures(),
+  ]);
+  return fillTemplate(template, {
+    TITLE: article.title,
+    DRAFT: article.text,
+    TOPIC: brief.topic ?? "",
+    DESCRIPTION: brief.description ?? "",
+    AUDIENCE: brief.audience ?? "NONE",
+    AUDIENCES: audiences,
+    STRUCTURES: structures,
+  });
+}
+
+async function improvePrompt({ brief, article, findings, problem }) {
+  const [template, audiences, structures] = await Promise.all([
+    readPrompt("article_improver.md"),
+    readAudiences(),
+    readStructures(),
+  ]);
+  return fillTemplate(template, {
+    TITLE: article.title,
+    DRAFT: article.text,
+    FINDINGS: String(findings || "none"),
+    FEEDBACK: brief.feedback ?? "",
+    PROBLEM: String(problem || ""),
+    AUDIENCE: brief.audience ?? "NONE",
+    AUDIENCES: audiences,
+    STRUCTURES: structures,
+    MAX_WORDS: brief.max_words ?? "",
+    ASSET_TYPES: brief.asset_types ?? "",
+  });
+}
+
+function parseReview(text) {
+  const answer = String(text || "");
+  const read = (tag) => {
+    if (!answer.includes(`<${tag}>`) || !answer.includes(`</${tag}>`)) return "";
+    return answer.split(`<${tag}>`)[1].split(`</${tag}>`)[0].trim();
+  };
+  const output = read("output").toLowerCase();
+  const explanation = read("explanation").replace(/\s+/g, " ").trim();
+  return { pass: output === "true", explanation };
+}
+
+function parseFindings(text) {
+  const answer = String(text || "");
+  const found = /<findings>([\s\S]*?)<\/findings>/.exec(answer);
+  const body = (found ? found[1] : "").trim();
+  if (!body || /^none\b/i.test(body)) return { text: "", count: 0 };
+  const count = body.split("\n").filter((line) => /^\s*\d+[.)]/.test(line)).length || 1;
+  return { text: body, count };
+}
+
+// A ledger summary for the improve prompt's source block: the first line of each block
+// and the page it came from, never the whole page.
+function ledgerSummary(entries) {
+  const firstLine = (value) =>
+    String(value || "").split("\n").map((line) => line.trim()).filter(Boolean)[0] || "a fenced block";
+  return (
+    entries
+      .filter((entry) => entry && String(entry.block || "").trim())
+      .map((entry) => `- ${firstLine(entry.block)} (${String(entry.url || "").trim() || "no url"})`)
+      .join("\n") || "none"
+  );
+}
+
+async function ledgerCounts(dir) {
+  try {
+    const entries = parseLedger(await readFile(join(dir, LEDGER_NAME), "utf8"));
+    return { sources: entries.length, quoted: entries.filter((entry) => entry.found === true).length, dropped: [], error: "" };
+  } catch {
+    return { sources: 0, quoted: 0, dropped: [], error: "the session has no readable sources.json" };
+  }
+}
+
+async function articleAnswer(dir, ledger) {
+  const [article, counts] = await Promise.all([readArticle(dir), ledgerCounts(dir)]);
+  let sourcesJSON = "";
+  try {
+    sourcesJSON = await readFile(join(dir, LEDGER_NAME), "utf8");
+  } catch {
+    // An absent ledger is reported by `counts`, not thrown: a review does not need one.
+  }
+  return {
+    name: ARTICLE_NAME,
+    ledger: LEDGER_NAME,
+    title: article.title,
+    text: article.text,
+    word_count: articleWordCount(article.text),
+    sources_json: sourcesJSON,
+    ...(ledger || counts),
+  };
+}
+
 function readJSON(req) {
   return new Promise((resolve, reject) => {
     let size = 0;
@@ -278,7 +485,7 @@ function piFailure(code, stderr) {
 
 // Pi emits its response on stdout; forwarding each chunk keeps `stream: true`
 // genuine rather than a UI replaying a finished answer.
-function runPi(prompt, sessionID, onOutput, signal, cwd = workDir) {
+function runPi(prompt, sessionID, onOutput, signal, cwd = workDir, options = {}) {
   return new Promise((resolve, reject) => {
     const args = [
       "--print",
@@ -288,6 +495,10 @@ function runPi(prompt, sessionID, onOutput, signal, cwd = workDir) {
       // are installed anywhere this pod can see.
       "--no-skills",
       "--no-extensions",
+      // A review or an edit gets the draft in its prompt and answers in its response. No
+      // tools means it cannot fetch a page again, which is the point: those turns may not
+      // research, and the model is not asked to write a file the server can write itself.
+      ...(options.noTools ? ["--no-tools"] : []),
       "--provider",
       "sympozium",
       "--model",
@@ -506,6 +717,14 @@ async function verifyLedger(dir, hosts) {
   };
 }
 
+// The aspect registry is the one list of reviewers. Validate it before serving: a missing or
+// empty registry would otherwise answer every aspect turn with an empty findings list, and
+// the article would improve on nothing while every request looked healthy.
+loadAspects().catch((err) => {
+  console.error(`sympozium pi writer session: article_aspects.json is unusable: ${err?.message ?? err}`);
+  process.exit(1);
+});
+
 http
   .createServer(async (req, res) => {
     if (req.method === "GET" && req.url === "/healthz") {
@@ -545,14 +764,18 @@ http
     }
     try {
       const request = await readJSON(req);
+      const task = taskOf(request);
       // `brief` is the article lane's shape; `messages` stays for a plain-text caller and
       // for the contract's own smoke checks.
-      const prompt = request.brief && typeof request.brief === "object"
-        ? await articlePrompt(request.brief)
-        : promptFrom(request.messages);
+      const brief = request.brief && typeof request.brief === "object" ? request.brief : null;
+      if (task === "draft" && !brief && !Array.isArray(request.messages)) {
+        throw new Error("a draft needs brief or messages");
+      }
       const sessionID = safeSessionId(request.session_id);
       const hosts = parseSourceHosts(request.source_hosts);
-      const stream = request.stream === true;
+      // Streaming is the drafting turn's shape. A review answers one JSON body, because
+      // its result is structured and a partial verdict cannot be read.
+      const stream = request.stream === true && task === "draft";
       const id = `chatcmpl-${randomUUID()}`;
       const cancellation = new AbortController();
       res.once("close", () => {
@@ -571,44 +794,94 @@ http
       // one is isolated so sequential turns never overwrite each other's artifacts.
       const dir = resolveRunDir(workDir, sessionID);
       await mkdir(dir, { recursive: true });
-      // The instruction follows the directory, not the caller: a session that already
-      // holds an article is edited. A correction is also declared by `attempt > 1`,
-      // because the artifact may not have been written by a turn that failed mid-way.
-      const isIteration = (await exists(join(dir, ARTICLE_NAME))) || Number(request.attempt) > 1;
-      const method = fillSourceHosts(await writingMethod(), hosts);
-      const instruction = articleTurnInstruction({ isIteration });
-      const turnPrompt = `${prompt}\n\n---\n\nWorking directory: ${dir}\n${instruction}\n\n${method}`;
+      const draftPrompt =
+        task === "draft"
+          ? brief
+            ? await articlePrompt(brief)
+            : promptFrom(request.messages)
+          : "";
 
       // The ledger verification runs inside the serialized turn, not after it: a second
       // request for the same session would otherwise start its turn while this one is
       // reading and rewriting `sources.json`.
-      const { response, ledger } = await (queue = queue
+      const result = await (queue = queue
         .catch(() => undefined)
         .then(async () => {
-          articleHosts = hosts;
-          proxyEnv(hosts);
-          try {
-            const response = await runPi(
-              turnPrompt,
-              sessionID,
-              stream
-                ? (chunk) =>
-                    writeSSE(res, {
-                      id,
-                      object: "chat.completion.chunk",
-                      created: Math.floor(Date.now() / 1000),
-                      model: process.env.MODEL_NAME,
-                      choices: [{ index: 0, delta: { content: chunk }, finish_reason: null }],
-                    })
-                : undefined,
-              cancellation.signal,
-              dir
-            );
-            return { response, ledger: await verifyLedger(dir, hosts) };
-          } finally {
-            articleHosts = null;
-            proxyEnv(null);
+          if (task === "draft") {
+            // The instruction follows the directory, not the caller: a session that
+            // already holds an article is edited. A correction is also declared by
+            // `attempt > 1`, because the artifact may not have been written by a turn
+            // that failed mid-way.
+            const isIteration = (await exists(join(dir, ARTICLE_NAME))) || Number(request.attempt) > 1;
+            const method = fillSourceHosts(await writingMethod(), hosts);
+            const instruction = articleTurnInstruction({ isIteration });
+            const turnPrompt = `${draftPrompt}\n\n---\n\nWorking directory: ${dir}\n${instruction}\n\n${method}`;
+            articleHosts = hosts;
+            proxyEnv(hosts);
+            try {
+              const response = await runPi(
+                turnPrompt,
+                sessionID,
+                stream
+                  ? (chunk) =>
+                      writeSSE(res, {
+                        id,
+                        object: "chat.completion.chunk",
+                        created: Math.floor(Date.now() / 1000),
+                        model: process.env.MODEL_NAME,
+                        choices: [{ index: 0, delta: { content: chunk }, finish_reason: null }],
+                      })
+                  : undefined,
+                cancellation.signal,
+                dir
+              );
+              return { response, ledger: await verifyLedger(dir, hosts) };
+            } finally {
+              articleHosts = null;
+              proxyEnv(null);
+            }
           }
+
+          // A review or an edit reads the draft the caller resolved and answers in its
+          // response. No tools and no proxy: those turns may not research, and the server
+          // writes the article a review of them produces.
+          articleHosts = null;
+          proxyEnv(null);
+          const article = await resolveArticle(request, dir);
+          if (task === "review") {
+            const prompt = await reviewPrompt({ brief: brief || {}, article });
+            const response = await runPi(prompt, sessionID, undefined, cancellation.signal, dir, { noTools: true });
+            return { response, review: parseReview(response) };
+          }
+          if (task === "aspects") {
+            const aspects = await loadAspects();
+            const findings = [];
+            for (const aspect of aspects) {
+              let text = "";
+              let error = "";
+              try {
+                const prompt = await aspectPrompt(aspect, { brief: brief || {}, article });
+                text = await runPi(prompt, sessionID, undefined, cancellation.signal, dir, { noTools: true });
+              } catch (err) {
+                // One reviewer that cannot answer records no findings and the rest run,
+                // because its findings are advice to the edit, not a gate.
+                error = String(err?.message ?? err);
+              }
+              findings.push({ aspect: aspect.id, focus: aspect.focus, error, ...parseFindings(text) });
+            }
+            return { response: findings.map((finding) => finding.text).filter(Boolean).join("\n\n"), findings };
+          }
+          const prompt = await improvePrompt({
+            brief: brief || {},
+            article,
+            findings: request.findings,
+            problem: request.problem,
+          });
+          const response = await runPi(prompt, sessionID, undefined, cancellation.signal, dir, { noTools: true });
+          const edited = splitArticle(response);
+          if (!edited.text) throw new Error("the improve turn returned no <article> block");
+          await writeArticle(dir, { title: edited.title || article.title, text: edited.text });
+          return { response };
         }));
 
       await sweepIfDue(sessionID);
@@ -624,14 +897,18 @@ http
         if (!res.writableEnded) res.end("data: [DONE]\n\n");
         return;
       }
-      const body = JSON.stringify({
+      const payload = {
         id,
         object: "chat.completion",
         created: Math.floor(Date.now() / 1000),
         model: process.env.MODEL_NAME,
-        choices: [{ index: 0, message: { role: "assistant", content: response }, finish_reason: "stop" }],
-        article: { name: ARTICLE_NAME, ledger: LEDGER_NAME, ...ledger },
-      });
+        task,
+        choices: [{ index: 0, message: { role: "assistant", content: result.response }, finish_reason: "stop" }],
+        article: await articleAnswer(dir, result.ledger),
+      };
+      if (result.review) payload.review = result.review;
+      if (result.findings) payload.findings = result.findings;
+      const body = JSON.stringify(payload);
       res.writeHead(200, { "content-type": "application/json", "content-length": Buffer.byteLength(body) }).end(body);
     } catch (err) {
       const message = err instanceof Error ? err.message : "session request failed";

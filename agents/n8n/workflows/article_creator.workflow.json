@@ -68,18 +68,6 @@
           "assignments": {
             "assignments": [
               {
-                "id": "0f2b7c31-8f4a-4a2c-9d5e-1a7b6c3d2e10",
-                "name": "MODEL",
-                "value": "opencode-go/deepseek-v4.1-flash",
-                "type": "string"
-              },
-              {
-                "id": "7c4e9a22-3d15-4c8b-b0f6-2e5a8d9c1b34",
-                "name": "MODEL_FALLBACK",
-                "value": "opencode-go/glm-5.3-flash",
-                "type": "string"
-              },
-              {
                 "id": "b072d171-1af0-407c-8b16-ee61278bbd52",
                 "name": "ERROR",
                 "value": "",
@@ -106,66 +94,6 @@
             ]
           },
           "includeOtherFields": true,
-          "options": {}
-        }
-      },
-      {
-        "id": "df25c640-319c-493c-b0df-b9ac01f0d448",
-        "name": "download_writer_rules",
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.2,
-        "position": [
-          -16672,
-          -736
-        ],
-        "parameters": {
-          "workflowId": {
-            "__rl": true,
-            "value": "qUfjfWLGEjV96ljf",
-            "mode": "list",
-            "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
-            "cachedResultName": "DownloadTemplate"
-          },
-          "workflowInputs": {
-            "mappingMode": "defineBelow",
-            "value": {
-              "template_name": "article_writer_system.md",
-              "template_vars": "={{ {} }}",
-              "repo_path": "agents/adapters/pi-writer/prompts"
-            },
-            "matchingColumns": [],
-            "schema": [
-              {
-                "id": "template_name",
-                "displayName": "template_name",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string"
-              },
-              {
-                "id": "template_vars",
-                "displayName": "template_vars",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "object"
-              },
-              {
-                "id": "repo_path",
-                "displayName": "repo_path",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string"
-              }
-            ],
-            "attemptToConvertTypes": false,
-            "convertFieldsToString": true
-          },
           "options": {}
         }
       },
@@ -242,130 +170,6 @@
         }
       },
       {
-        "id": "d5e56f92-2855-4e67-b9a9-c60e6bb1fc50",
-        "name": "ai_model",
-        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-        "typeVersion": 1.3,
-        "position": [
-          -16216,
-          -760
-        ],
-        "parameters": {
-          "model": {
-            "__rl": true,
-            "mode": "id",
-            "value": "={{ $('set_workflow_vars').item.json.MODEL }}"
-          },
-          "builtInTools": {},
-          "options": {
-            "timeout": 120000,
-            "maxRetries": 5
-          }
-        },
-        "credentials": {
-          "openAiApi": {
-            "id": "LitellmN8nAcct01",
-            "name": "LiteLLM account"
-          }
-        }
-      },
-      {
-        "id": "720198e0-9bcd-4ac3-92e0-b81eccc3eea8",
-        "name": "ai_model_fallback",
-        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-        "typeVersion": 1.3,
-        "position": [
-          -16088,
-          -760
-        ],
-        "parameters": {
-          "model": {
-            "__rl": true,
-            "mode": "id",
-            "value": "={{ $('set_workflow_vars').item.json.MODEL_FALLBACK }}"
-          },
-          "builtInTools": {},
-          "options": {
-            "timeout": 120000,
-            "maxRetries": 5
-          }
-        },
-        "credentials": {
-          "openAiApi": {
-            "id": "LitellmN8nAcct01",
-            "name": "LiteLLM account"
-          }
-        }
-      },
-      {
-        "id": "289ff372-3304-4c2c-997a-99d07ae73f66",
-        "name": "check_article_llm",
-        "type": "@n8n/n8n-nodes-langchain.chainLlm",
-        "typeVersion": 1.6,
-        "retryOnFail": true,
-        "maxTries": 5,
-        "waitBetweenTries": 5000,
-        "position": [
-          -15184,
-          -736
-        ],
-        "parameters": {
-          "promptType": "define",
-          "text": "={{ $('download_article_review_prompt').item.json.output }}",
-          "needsFallback": true
-        }
-      },
-      {
-        "id": "06c7362b-bf4e-4715-946c-152a70485bef",
-        "name": "download_article_review_prompt",
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.2,
-        "position": [
-          -15408,
-          -736
-        ],
-        "parameters": {
-          "workflowId": {
-            "__rl": true,
-            "value": "qUfjfWLGEjV96ljf",
-            "mode": "list",
-            "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
-            "cachedResultName": "DownloadTemplate"
-          },
-          "workflowInputs": {
-            "mappingMode": "defineBelow",
-            "value": {
-              "template_name": "prompts/article_review.md",
-              "template_vars": "={{ {\n\"TITLE\": $('parse_article').item.json.TITLE,\n\"TEXT\": $('parse_article').item.json.TEXT,\n\"WORD_COUNT\": $('parse_article').item.json.WORD_COUNT,\n\"MAX_WORDS\": $('parse_article').item.json.MAX_WORDS,\n\"WORD_LIMIT\": $('parse_article').item.json.WORD_LIMIT,\n\"SOURCES\": $('parse_article').item.json.SOURCES_TEXT,\n\"AUDIENCE\": $('set_workflow_vars').first().json.AUDIENCE,\n\"AUDIENCES\": $('download_article_audiences').first().json.output,\n\"TOPIC\": $('main_trigger').first().json.TOPIC,\n\"DESCRIPTION\": $('main_trigger').first().json.DESCRIPTION,\n\"URL\": $('main_trigger').first().json.URL || \"\",\n\"ASSET_TYPES\": $('main_trigger').first().json.ASSET_TYPES || \"\",\n\"EXTRA_PROMPT\": $('main_trigger').first().json.EXTRA_PROMPT || \"\",\n\"FEEDBACK\": $('main_trigger').first().json.FEEDBACK || \"\",\n\"RULES\": $('download_writer_rules').first().json.output,\n\"CONTENT\": $('main_trigger').first().json.CONTENT || \"\"\n} }}"
-            },
-            "matchingColumns": [],
-            "schema": [
-              {
-                "id": "template_name",
-                "displayName": "template_name",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string"
-              },
-              {
-                "id": "template_vars",
-                "displayName": "template_vars",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "object"
-              }
-            ],
-            "attemptToConvertTypes": false,
-            "convertFieldsToString": true
-          },
-          "options": {}
-        }
-      },
-      {
         "id": "7116b794-c002-41b6-95de-933574f03aa3",
         "name": "merge_article_verdict",
         "type": "n8n-nodes-base.code",
@@ -380,15 +184,15 @@
       },
       {
         "id": "3c1b292c-9d8b-48c7-baba-365b1b9ada0e",
-        "name": "parse_article_check_output",
+        "name": "parse_review_verdict",
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          -14832,
-          -736
+          1400,
+          600
         ],
         "parameters": {
-          "jsCode": "// The reviewer answers one verdict per draft as `<output>true|false</output>` and a short\n// `<explanation>`. The explanation is flattened to one line because it has two readers: the\n// next attempt's Reviewer Feedback block and the `MAX_RETRIES_EXCEEDED` report.\nfor (const item of $input.all()) {\n  const { text } = item.json;\n\n  const output = text.includes('<output>') && text.includes('</output>')\n    ? text.split('<output>')[1].split('</output>')[0].trim().toLowerCase()\n    : 'false';\n\n  const explanation = text.includes('<explanation>') && text.includes('</explanation>')\n    ? text.split('<explanation>')[1].split('</explanation>')[0].replace(/\\s+/g, ' ').trim()\n    : '';\n\n  item.json.output = output;\n  item.json.explanation = explanation;\n}\n\nreturn $input.all();"
+          "jsCode": "// The writer answers a structured verdict, not prose to re-parse: a body without one is\n// a rejection with the reason named, so the retry carries a real cause rather than an\n// empty explanation.\nconst res = $input.first().json;\n// A transport failure arrives as an error item (`onError: continueRegularOutput`) and\n// carries no status: name it, or a dead connection reads as no verdict.\nconst transport = res.error ? String((res.error && res.error.message) || res.error).trim() : '';\nif (transport) return [{ json: { output: 'false', explanation: 'REVIEW: ' + transport } }];\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nconst review = body.review || {};\nif (status >= 400) {\n  const message = String((body.error && body.error.message) || body.error || body.message || '').trim();\n  return [{ json: { output: 'false', explanation: 'REVIEW: HTTP ' + status + (message ? ': ' + message : ' the review turn failed') } }];\n}\nif (typeof review.pass !== 'boolean') {\n  return [{ json: { output: 'false', explanation: 'REVIEW: the writer returned no verdict' } }];\n}\nreturn [{ json: {\n  output: review.pass ? 'true' : 'false',\n  explanation: String(review.explanation || '').replace(/\\s+/g, ' ').trim(),\n} }];"
         }
       },
       {
@@ -475,66 +279,6 @@
           "options": {
             "fallbackOutput": "extra"
           }
-        }
-      },
-      {
-        "id": "a1f2b3c4-d5e6-4f70-8192-a3b4c5d6e7f8",
-        "name": "download_article_audiences",
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.2,
-        "position": [
-          -16960,
-          -1200
-        ],
-        "parameters": {
-          "workflowId": {
-            "__rl": true,
-            "value": "qUfjfWLGEjV96ljf",
-            "mode": "list",
-            "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
-            "cachedResultName": "DownloadTemplate"
-          },
-          "workflowInputs": {
-            "mappingMode": "defineBelow",
-            "value": {
-              "template_name": "article_audiences.md",
-              "template_vars": "={{ {} }}",
-              "repo_path": "agents/adapters/pi-writer/prompts"
-            },
-            "matchingColumns": [],
-            "schema": [
-              {
-                "id": "template_name",
-                "displayName": "template_name",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string"
-              },
-              {
-                "id": "template_vars",
-                "displayName": "template_vars",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "object"
-              },
-              {
-                "id": "repo_path",
-                "displayName": "repo_path",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string"
-              }
-            ],
-            "attemptToConvertTypes": false,
-            "convertFieldsToString": true
-          },
-          "options": {}
         }
       },
       {
@@ -626,6 +370,47 @@
             }
           }
         }
+      },
+      {
+        "parameters": {
+          "jsCode": "// The review is the writer's turn too: n8n sends the draft and the entry's fields,\n// and the adapter renders the gate prompt from its own files. One request carries both,\n// so the verdict is about the draft this run parsed and no second copy of the prompt\n// exists in the workflow.\nconst parsed = $('parse_article').first().json;\nconst req = $('main_trigger').first().json;\nconst config = $('set_workflow_vars').first().json;\nconst base = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!base) throw new Error('ARTICLE_WRITER_URL is not set; the review turn cannot be reached');\nconst sessionId = ('article-' + String(req.ROW_NUMBER || '').trim()).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 80);\nreturn [{ json: {\n  REVIEW_URL: base + '/v1/chat/completions',\n  REVIEW_BODY: JSON.stringify({\n    task: 'review',\n    session_id: sessionId,\n    source_hosts: String(config.SOURCE_HOSTS || '').trim(),\n    brief: {\n      topic: String(req.TOPIC || ''),\n      description: String(req.DESCRIPTION || ''),\n      url: String(req.URL || ''),\n      max_words: Number(req.MAX_WORDS) || 0,\n      asset_types: String(req.ASSET_TYPES || ''),\n      audience: String(config.AUDIENCE || 'NONE'),\n      extra_prompt: String(req.EXTRA_PROMPT || ''),\n      content: String(req.CONTENT || ''),\n      feedback: String(req.FEEDBACK || '').trim(),\n    },\n    article: { title: String(parsed.TITLE || ''), text: String(parsed.TEXT || '') },\n  }),\n} }];"
+        },
+        "id": "cb01c12e-8da7-4499-b039-38ac94baf912",
+        "name": "build_review_request",
+        "position": [
+          1000,
+          600
+        ],
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $json.REVIEW_URL }}",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ $json.REVIEW_BODY }}",
+          "options": {
+            "timeout": 600000,
+            "response": {
+              "response": {
+                "neverError": true,
+                "fullResponse": true,
+                "responseFormat": "json"
+              }
+            }
+          }
+        },
+        "id": "f04ede57-b2c9-431b-b111-73d4b66d2122",
+        "name": "request_review",
+        "position": [
+          1200,
+          600
+        ],
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "onError": "continueRegularOutput"
       }
     ],
     "connections": {
@@ -644,7 +429,7 @@
         "main": [
           [
             {
-              "node": "download_writer_rules",
+              "node": "build_article_request",
               "type": "main",
               "index": 0
             }
@@ -655,40 +440,7 @@
         "main": [
           [
             {
-              "node": "download_article_review_prompt",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "ai_model": {
-        "ai_languageModel": [
-          [
-            {
-              "node": "check_article_llm",
-              "type": "ai_languageModel",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "ai_model_fallback": {
-        "ai_languageModel": [
-          [
-            {
-              "node": "check_article_llm",
-              "type": "ai_languageModel",
-              "index": 1
-            }
-          ]
-        ]
-      },
-      "parse_article_check_output": {
-        "main": [
-          [
-            {
-              "node": "merge_article_verdict",
+              "node": "build_review_request",
               "type": "main",
               "index": 0
             }
@@ -700,28 +452,6 @@
           [
             {
               "node": "switch_article_check",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "check_article_llm": {
-        "main": [
-          [
-            {
-              "node": "parse_article_check_output",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "download_article_review_prompt": {
-        "main": [
-          [
-            {
-              "node": "check_article_llm",
               "type": "main",
               "index": 0
             }
@@ -744,17 +474,6 @@
               "index": 0
             }
           ],
-          [
-            {
-              "node": "build_article_request",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "download_article_audiences": {
-        "main": [
           [
             {
               "node": "build_article_request",
@@ -808,11 +527,33 @@
           ]
         ]
       },
-      "download_writer_rules": {
+      "parse_review_verdict": {
         "main": [
           [
             {
-              "node": "download_article_audiences",
+              "node": "merge_article_verdict",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "build_review_request": {
+        "main": [
+          [
+            {
+              "node": "request_review",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "request_review": {
+        "main": [
+          [
+            {
+              "node": "parse_review_verdict",
               "type": "main",
               "index": 0
             }
@@ -845,7 +586,7 @@
       "main": [
         [
           {
-            "node": "download_writer_rules",
+            "node": "build_article_request",
             "type": "main",
             "index": 0
           }
@@ -856,40 +597,7 @@
       "main": [
         [
           {
-            "node": "download_article_review_prompt",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "ai_model": {
-      "ai_languageModel": [
-        [
-          {
-            "node": "check_article_llm",
-            "type": "ai_languageModel",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "ai_model_fallback": {
-      "ai_languageModel": [
-        [
-          {
-            "node": "check_article_llm",
-            "type": "ai_languageModel",
-            "index": 1
-          }
-        ]
-      ]
-    },
-    "parse_article_check_output": {
-      "main": [
-        [
-          {
-            "node": "merge_article_verdict",
+            "node": "build_review_request",
             "type": "main",
             "index": 0
           }
@@ -901,28 +609,6 @@
         [
           {
             "node": "switch_article_check",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "check_article_llm": {
-      "main": [
-        [
-          {
-            "node": "parse_article_check_output",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "download_article_review_prompt": {
-      "main": [
-        [
-          {
-            "node": "check_article_llm",
             "type": "main",
             "index": 0
           }
@@ -945,17 +631,6 @@
             "index": 0
           }
         ],
-        [
-          {
-            "node": "build_article_request",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "download_article_audiences": {
-      "main": [
         [
           {
             "node": "build_article_request",
@@ -1009,11 +684,33 @@
         ]
       ]
     },
-    "download_writer_rules": {
+    "parse_review_verdict": {
       "main": [
         [
           {
-            "node": "download_article_audiences",
+            "node": "merge_article_verdict",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "build_review_request": {
+      "main": [
+        [
+          {
+            "node": "request_review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "request_review": {
+      "main": [
+        [
+          {
+            "node": "parse_review_verdict",
             "type": "main",
             "index": 0
           }
@@ -1092,18 +789,6 @@
         "assignments": {
           "assignments": [
             {
-              "id": "0f2b7c31-8f4a-4a2c-9d5e-1a7b6c3d2e10",
-              "name": "MODEL",
-              "value": "opencode-go/deepseek-v4.1-flash",
-              "type": "string"
-            },
-            {
-              "id": "7c4e9a22-3d15-4c8b-b0f6-2e5a8d9c1b34",
-              "name": "MODEL_FALLBACK",
-              "value": "opencode-go/glm-5.3-flash",
-              "type": "string"
-            },
-            {
               "id": "b072d171-1af0-407c-8b16-ee61278bbd52",
               "name": "ERROR",
               "value": "",
@@ -1130,66 +815,6 @@
           ]
         },
         "includeOtherFields": true,
-        "options": {}
-      }
-    },
-    {
-      "id": "df25c640-319c-493c-b0df-b9ac01f0d448",
-      "name": "download_writer_rules",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        -16672,
-        -736
-      ],
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "qUfjfWLGEjV96ljf",
-          "mode": "list",
-          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
-          "cachedResultName": "DownloadTemplate"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "template_name": "article_writer_system.md",
-            "template_vars": "={{ {} }}",
-            "repo_path": "agents/adapters/pi-writer/prompts"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "template_name",
-              "displayName": "template_name",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string"
-            },
-            {
-              "id": "template_vars",
-              "displayName": "template_vars",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "object"
-            },
-            {
-              "id": "repo_path",
-              "displayName": "repo_path",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string"
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        },
         "options": {}
       }
     },
@@ -1266,130 +891,6 @@
       }
     },
     {
-      "id": "d5e56f92-2855-4e67-b9a9-c60e6bb1fc50",
-      "name": "ai_model",
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-      "typeVersion": 1.3,
-      "position": [
-        -16216,
-        -760
-      ],
-      "parameters": {
-        "model": {
-          "__rl": true,
-          "mode": "id",
-          "value": "={{ $('set_workflow_vars').item.json.MODEL }}"
-        },
-        "builtInTools": {},
-        "options": {
-          "timeout": 120000,
-          "maxRetries": 5
-        }
-      },
-      "credentials": {
-        "openAiApi": {
-          "id": "LitellmN8nAcct01",
-          "name": "LiteLLM account"
-        }
-      }
-    },
-    {
-      "id": "720198e0-9bcd-4ac3-92e0-b81eccc3eea8",
-      "name": "ai_model_fallback",
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-      "typeVersion": 1.3,
-      "position": [
-        -16088,
-        -760
-      ],
-      "parameters": {
-        "model": {
-          "__rl": true,
-          "mode": "id",
-          "value": "={{ $('set_workflow_vars').item.json.MODEL_FALLBACK }}"
-        },
-        "builtInTools": {},
-        "options": {
-          "timeout": 120000,
-          "maxRetries": 5
-        }
-      },
-      "credentials": {
-        "openAiApi": {
-          "id": "LitellmN8nAcct01",
-          "name": "LiteLLM account"
-        }
-      }
-    },
-    {
-      "id": "289ff372-3304-4c2c-997a-99d07ae73f66",
-      "name": "check_article_llm",
-      "type": "@n8n/n8n-nodes-langchain.chainLlm",
-      "typeVersion": 1.6,
-      "retryOnFail": true,
-      "maxTries": 5,
-      "waitBetweenTries": 5000,
-      "position": [
-        -15184,
-        -736
-      ],
-      "parameters": {
-        "promptType": "define",
-        "text": "={{ $('download_article_review_prompt').item.json.output }}",
-        "needsFallback": true
-      }
-    },
-    {
-      "id": "06c7362b-bf4e-4715-946c-152a70485bef",
-      "name": "download_article_review_prompt",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        -15408,
-        -736
-      ],
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "qUfjfWLGEjV96ljf",
-          "mode": "list",
-          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
-          "cachedResultName": "DownloadTemplate"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "template_name": "prompts/article_review.md",
-            "template_vars": "={{ {\n\"TITLE\": $('parse_article').item.json.TITLE,\n\"TEXT\": $('parse_article').item.json.TEXT,\n\"WORD_COUNT\": $('parse_article').item.json.WORD_COUNT,\n\"MAX_WORDS\": $('parse_article').item.json.MAX_WORDS,\n\"WORD_LIMIT\": $('parse_article').item.json.WORD_LIMIT,\n\"SOURCES\": $('parse_article').item.json.SOURCES_TEXT,\n\"AUDIENCE\": $('set_workflow_vars').first().json.AUDIENCE,\n\"AUDIENCES\": $('download_article_audiences').first().json.output,\n\"TOPIC\": $('main_trigger').first().json.TOPIC,\n\"DESCRIPTION\": $('main_trigger').first().json.DESCRIPTION,\n\"URL\": $('main_trigger').first().json.URL || \"\",\n\"ASSET_TYPES\": $('main_trigger').first().json.ASSET_TYPES || \"\",\n\"EXTRA_PROMPT\": $('main_trigger').first().json.EXTRA_PROMPT || \"\",\n\"FEEDBACK\": $('main_trigger').first().json.FEEDBACK || \"\",\n\"RULES\": $('download_writer_rules').first().json.output,\n\"CONTENT\": $('main_trigger').first().json.CONTENT || \"\"\n} }}"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "template_name",
-              "displayName": "template_name",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string"
-            },
-            {
-              "id": "template_vars",
-              "displayName": "template_vars",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "object"
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        },
-        "options": {}
-      }
-    },
-    {
       "id": "7116b794-c002-41b6-95de-933574f03aa3",
       "name": "merge_article_verdict",
       "type": "n8n-nodes-base.code",
@@ -1404,15 +905,15 @@
     },
     {
       "id": "3c1b292c-9d8b-48c7-baba-365b1b9ada0e",
-      "name": "parse_article_check_output",
+      "name": "parse_review_verdict",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -14832,
-        -736
+        1400,
+        600
       ],
       "parameters": {
-        "jsCode": "// The reviewer answers one verdict per draft as `<output>true|false</output>` and a short\n// `<explanation>`. The explanation is flattened to one line because it has two readers: the\n// next attempt's Reviewer Feedback block and the `MAX_RETRIES_EXCEEDED` report.\nfor (const item of $input.all()) {\n  const { text } = item.json;\n\n  const output = text.includes('<output>') && text.includes('</output>')\n    ? text.split('<output>')[1].split('</output>')[0].trim().toLowerCase()\n    : 'false';\n\n  const explanation = text.includes('<explanation>') && text.includes('</explanation>')\n    ? text.split('<explanation>')[1].split('</explanation>')[0].replace(/\\s+/g, ' ').trim()\n    : '';\n\n  item.json.output = output;\n  item.json.explanation = explanation;\n}\n\nreturn $input.all();"
+        "jsCode": "// The writer answers a structured verdict, not prose to re-parse: a body without one is\n// a rejection with the reason named, so the retry carries a real cause rather than an\n// empty explanation.\nconst res = $input.first().json;\n// A transport failure arrives as an error item (`onError: continueRegularOutput`) and\n// carries no status: name it, or a dead connection reads as no verdict.\nconst transport = res.error ? String((res.error && res.error.message) || res.error).trim() : '';\nif (transport) return [{ json: { output: 'false', explanation: 'REVIEW: ' + transport } }];\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nconst review = body.review || {};\nif (status >= 400) {\n  const message = String((body.error && body.error.message) || body.error || body.message || '').trim();\n  return [{ json: { output: 'false', explanation: 'REVIEW: HTTP ' + status + (message ? ': ' + message : ' the review turn failed') } }];\n}\nif (typeof review.pass !== 'boolean') {\n  return [{ json: { output: 'false', explanation: 'REVIEW: the writer returned no verdict' } }];\n}\nreturn [{ json: {\n  output: review.pass ? 'true' : 'false',\n  explanation: String(review.explanation || '').replace(/\\s+/g, ' ').trim(),\n} }];"
       }
     },
     {
@@ -1499,66 +1000,6 @@
         "options": {
           "fallbackOutput": "extra"
         }
-      }
-    },
-    {
-      "id": "a1f2b3c4-d5e6-4f70-8192-a3b4c5d6e7f8",
-      "name": "download_article_audiences",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        -16960,
-        -1200
-      ],
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "qUfjfWLGEjV96ljf",
-          "mode": "list",
-          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
-          "cachedResultName": "DownloadTemplate"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "template_name": "article_audiences.md",
-            "template_vars": "={{ {} }}",
-            "repo_path": "agents/adapters/pi-writer/prompts"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "template_name",
-              "displayName": "template_name",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string"
-            },
-            {
-              "id": "template_vars",
-              "displayName": "template_vars",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "object"
-            },
-            {
-              "id": "repo_path",
-              "displayName": "repo_path",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string"
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        },
-        "options": {}
       }
     },
     {
@@ -1650,6 +1091,47 @@
           }
         }
       }
+    },
+    {
+      "parameters": {
+        "jsCode": "// The review is the writer's turn too: n8n sends the draft and the entry's fields,\n// and the adapter renders the gate prompt from its own files. One request carries both,\n// so the verdict is about the draft this run parsed and no second copy of the prompt\n// exists in the workflow.\nconst parsed = $('parse_article').first().json;\nconst req = $('main_trigger').first().json;\nconst config = $('set_workflow_vars').first().json;\nconst base = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!base) throw new Error('ARTICLE_WRITER_URL is not set; the review turn cannot be reached');\nconst sessionId = ('article-' + String(req.ROW_NUMBER || '').trim()).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 80);\nreturn [{ json: {\n  REVIEW_URL: base + '/v1/chat/completions',\n  REVIEW_BODY: JSON.stringify({\n    task: 'review',\n    session_id: sessionId,\n    source_hosts: String(config.SOURCE_HOSTS || '').trim(),\n    brief: {\n      topic: String(req.TOPIC || ''),\n      description: String(req.DESCRIPTION || ''),\n      url: String(req.URL || ''),\n      max_words: Number(req.MAX_WORDS) || 0,\n      asset_types: String(req.ASSET_TYPES || ''),\n      audience: String(config.AUDIENCE || 'NONE'),\n      extra_prompt: String(req.EXTRA_PROMPT || ''),\n      content: String(req.CONTENT || ''),\n      feedback: String(req.FEEDBACK || '').trim(),\n    },\n    article: { title: String(parsed.TITLE || ''), text: String(parsed.TEXT || '') },\n  }),\n} }];"
+      },
+      "id": "cb01c12e-8da7-4499-b039-38ac94baf912",
+      "name": "build_review_request",
+      "position": [
+        1000,
+        600
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.REVIEW_URL }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.REVIEW_BODY }}",
+        "options": {
+          "timeout": 600000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "f04ede57-b2c9-431b-b111-73d4b66d2122",
+      "name": "request_review",
+      "position": [
+        1200,
+        600
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "onError": "continueRegularOutput"
     }
   ],
   "pinData": {},

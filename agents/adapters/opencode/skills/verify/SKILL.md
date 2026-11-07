@@ -21,7 +21,7 @@ Each sub-project has its own `uv` environment. Run from the sub-project director
 | `workflows/dlt` | `uv sync --extra dev` then `uv run pytest` and `uv run ruff check .` |
 | `workflows/airflow` | `uv sync` then `uv run pytest` |
 | `workflows/superset` | `python3 workflows/superset/scripts/build_bundles.py` (from the repository root) |
-| `agents/n8n` | from the root: `uv sync --extra dev` then `uv run -- pytest agents/n8n/scripts/ -q` |
+| `agents/n8n` | no unit-test gate: the review diff, the live apply and the next run are the check (see `docs/agent/n8n.md`) |
 | `agents/sympozium` | from the root: `uv run -- pytest agents/sympozium/tests/ -q` and `uv run -- ruff check agents/sympozium/files/ agents/sympozium/tests/`, then `helmfile template` in `agents/sympozium/` |
 | repository | `openspec validate --all` |
 

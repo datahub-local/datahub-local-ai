@@ -107,7 +107,7 @@
                 "type": "string"
               },
               {
-                "id": "13353a09-103d-45e6-9bf2-e7a44d6b278a",
+                "id": "3935eeba-957f-4fd6-bdb6-0ede5e0bfeff",
                 "name": "TASK",
                 "value": "={{ String($('main_trigger').first().json.TASK || 'draft').trim().toLowerCase() }}",
                 "type": "string"
@@ -200,7 +200,7 @@
           -736
         ],
         "parameters": {
-          "jsCode": "// The verdict the loop branches on. The reviewer's answer is combined with the parser's\n// deterministic checks, and the deterministic half wins: a count asked of a model is a\n// count that gets invented, so `PROBLEM` rejects the draft whatever the reviewer said —\n// and the reason then names the real numbers rather than the reviewer's guess.\nconst parsed = $('parse_article').item.json;\nconst reviewerSays = String($json.output || '').trim() === 'true';\nconst reason = String($json.explanation || '').replace(/\\s+/g, ' ').trim();\nconst problem = String(parsed.PROBLEM || '');\n\nconst accepted = !problem && reviewerSays;\nlet explanation = '';\nif (problem) explanation = problem + (reason ? ' ' + reason : '');\nelse if (!reviewerSays) explanation = reason || 'the reviewer rejected the draft without a reason';\n\nreturn [{ json: { ...$json, output: accepted ? 'true' : 'false', explanation } }];"
+          "jsCode": "// The verdict the loop branches on. The reviewer's answer is combined with the parser's\n// deterministic checks, and the deterministic half wins: a count asked of a model is a\n// count that gets invented, so `PROBLEM` rejects the draft whatever the reviewer said \u2014\n// and the reason then names the real numbers rather than the reviewer's guess.\nconst parsed = $('parse_article').item.json;\nconst reviewerSays = String($json.output || '').trim() === 'true';\nconst reason = String($json.explanation || '').replace(/\\s+/g, ' ').trim();\nconst problem = String(parsed.PROBLEM || '');\n\nconst accepted = !problem && reviewerSays;\nlet explanation = '';\nif (problem) explanation = problem + (reason ? ' ' + reason : '');\nelse if (!reviewerSays) explanation = reason || 'the reviewer rejected the draft without a reason';\n\nreturn [{ json: { ...$json, output: accepted ? 'true' : 'false', explanation } }];"
         }
       },
       {
@@ -434,7 +434,7 @@
         "onError": "continueErrorOutput"
       },
       {
-        "id": "a552bbcb-8268-43c1-8e37-15b0d007b0e9",
+        "id": "14f800cc-bdb0-4dfa-988d-766137a16134",
         "name": "switch_task",
         "type": "n8n-nodes-base.switch",
         "typeVersion": 3.2,
@@ -455,7 +455,7 @@
                   },
                   "conditions": [
                     {
-                      "id": "eb43b488-d0d1-40ba-8fc5-30d57887c42f",
+                      "id": "ce9e9605-19d2-42fe-8683-a9dc66d78f29",
                       "leftValue": "={{ $json.TASK }}",
                       "rightValue": "aspects",
                       "operator": {
@@ -477,7 +477,7 @@
                   },
                   "conditions": [
                     {
-                      "id": "c8f0d952-0bd6-4683-962c-15a85472a25b",
+                      "id": "5ddc64d3-33ee-408d-8598-dc3cc7040611",
                       "leftValue": "={{ $json.TASK }}",
                       "rightValue": "improve",
                       "operator": {
@@ -499,7 +499,7 @@
                   },
                   "conditions": [
                     {
-                      "id": "97a5caa9-fb4a-4d27-89f8-89bba987f962",
+                      "id": "acfb9b12-174d-496a-958c-43fb6b2c64a9",
                       "leftValue": "={{ $json.TASK }}",
                       "rightValue": "draft",
                       "operator": {
@@ -519,7 +519,7 @@
         }
       },
       {
-        "id": "c673f545-1cce-44e5-9c0b-64507b3615f0",
+        "id": "c9bc5dec-d995-4510-b409-68488107700b",
         "name": "build_aspects_request",
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
@@ -532,7 +532,7 @@
         }
       },
       {
-        "id": "409f6bab-c3dd-44d8-a120-3e2dc48fee22",
+        "id": "d17dbdb1-9caa-44df-807f-146777d69d2b",
         "name": "request_aspects",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
@@ -560,7 +560,7 @@
         "onError": "continueErrorOutput"
       },
       {
-        "id": "5a16f807-4192-4c86-84be-5ffffca16097",
+        "id": "ff897bf7-ac4e-4a48-8caf-912af56a5766",
         "name": "pass_aspects_answer",
         "type": "n8n-nodes-base.noOp",
         "typeVersion": 1,
@@ -571,7 +571,7 @@
         "parameters": {}
       },
       {
-        "id": "e75dbffe-6858-4612-949a-c11205de1bcb",
+        "id": "49d335d5-dc30-4a68-b996-091dcfb7a43d",
         "name": "build_improve_request",
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
@@ -584,7 +584,7 @@
         }
       },
       {
-        "id": "196e3b4d-7806-45b8-8da3-3355b3bef1f7",
+        "id": "01d008bb-f57d-4eef-b306-4609c1dc9c2a",
         "name": "request_improve",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
@@ -612,7 +612,7 @@
         "onError": "continueErrorOutput"
       },
       {
-        "id": "d3bfa95c-147b-4b68-86eb-069fa87cf53e",
+        "id": "e9481c5f-c6ba-4b63-bf7d-fc0589f7a783",
         "name": "pass_improve_answer",
         "type": "n8n-nodes-base.noOp",
         "typeVersion": 1,
@@ -623,16 +623,16 @@
         "parameters": {}
       },
       {
-        "id": "056d21c6-ccaf-45a8-98b2-a9b4a9d798e2",
+        "id": "76773a51-028e-4502-b077-7bce79e6e751",
         "name": "bad_task",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
+        "type": "n8n-nodes-base.stopAndError",
+        "typeVersion": 1,
         "position": [
           -16448,
           -160
         ],
         "parameters": {
-          "jsCode": "// A writer turn this graph does not implement must fail loudly: a silent draft would spend\n// a model call on a caller bug.\nconst task = String($('main_trigger').first().json.TASK || '');\nthrow new Error('unknown TASK \"' + task + '\": expected draft, aspects or improve');"
+          "errorMessage": "={{ 'unknown TASK \"' + String($('main_trigger').first().json.TASK || '') + '\": expected draft, aspects or improve' }}"
         }
       }
     ],
@@ -1245,7 +1245,7 @@
               "type": "string"
             },
             {
-              "id": "13353a09-103d-45e6-9bf2-e7a44d6b278a",
+              "id": "3935eeba-957f-4fd6-bdb6-0ede5e0bfeff",
               "name": "TASK",
               "value": "={{ String($('main_trigger').first().json.TASK || 'draft').trim().toLowerCase() }}",
               "type": "string"
@@ -1338,7 +1338,7 @@
         -736
       ],
       "parameters": {
-        "jsCode": "// The verdict the loop branches on. The reviewer's answer is combined with the parser's\n// deterministic checks, and the deterministic half wins: a count asked of a model is a\n// count that gets invented, so `PROBLEM` rejects the draft whatever the reviewer said —\n// and the reason then names the real numbers rather than the reviewer's guess.\nconst parsed = $('parse_article').item.json;\nconst reviewerSays = String($json.output || '').trim() === 'true';\nconst reason = String($json.explanation || '').replace(/\\s+/g, ' ').trim();\nconst problem = String(parsed.PROBLEM || '');\n\nconst accepted = !problem && reviewerSays;\nlet explanation = '';\nif (problem) explanation = problem + (reason ? ' ' + reason : '');\nelse if (!reviewerSays) explanation = reason || 'the reviewer rejected the draft without a reason';\n\nreturn [{ json: { ...$json, output: accepted ? 'true' : 'false', explanation } }];"
+        "jsCode": "// The verdict the loop branches on. The reviewer's answer is combined with the parser's\n// deterministic checks, and the deterministic half wins: a count asked of a model is a\n// count that gets invented, so `PROBLEM` rejects the draft whatever the reviewer said \u2014\n// and the reason then names the real numbers rather than the reviewer's guess.\nconst parsed = $('parse_article').item.json;\nconst reviewerSays = String($json.output || '').trim() === 'true';\nconst reason = String($json.explanation || '').replace(/\\s+/g, ' ').trim();\nconst problem = String(parsed.PROBLEM || '');\n\nconst accepted = !problem && reviewerSays;\nlet explanation = '';\nif (problem) explanation = problem + (reason ? ' ' + reason : '');\nelse if (!reviewerSays) explanation = reason || 'the reviewer rejected the draft without a reason';\n\nreturn [{ json: { ...$json, output: accepted ? 'true' : 'false', explanation } }];"
       }
     },
     {
@@ -1572,7 +1572,7 @@
       "onError": "continueErrorOutput"
     },
     {
-      "id": "a552bbcb-8268-43c1-8e37-15b0d007b0e9",
+      "id": "14f800cc-bdb0-4dfa-988d-766137a16134",
       "name": "switch_task",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
@@ -1593,7 +1593,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "eb43b488-d0d1-40ba-8fc5-30d57887c42f",
+                    "id": "ce9e9605-19d2-42fe-8683-a9dc66d78f29",
                     "leftValue": "={{ $json.TASK }}",
                     "rightValue": "aspects",
                     "operator": {
@@ -1615,7 +1615,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "c8f0d952-0bd6-4683-962c-15a85472a25b",
+                    "id": "5ddc64d3-33ee-408d-8598-dc3cc7040611",
                     "leftValue": "={{ $json.TASK }}",
                     "rightValue": "improve",
                     "operator": {
@@ -1637,7 +1637,7 @@
                 },
                 "conditions": [
                   {
-                    "id": "97a5caa9-fb4a-4d27-89f8-89bba987f962",
+                    "id": "acfb9b12-174d-496a-958c-43fb6b2c64a9",
                     "leftValue": "={{ $json.TASK }}",
                     "rightValue": "draft",
                     "operator": {
@@ -1657,7 +1657,7 @@
       }
     },
     {
-      "id": "c673f545-1cce-44e5-9c0b-64507b3615f0",
+      "id": "c9bc5dec-d995-4510-b409-68488107700b",
       "name": "build_aspects_request",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -1670,7 +1670,7 @@
       }
     },
     {
-      "id": "409f6bab-c3dd-44d8-a120-3e2dc48fee22",
+      "id": "d17dbdb1-9caa-44df-807f-146777d69d2b",
       "name": "request_aspects",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -1698,7 +1698,7 @@
       "onError": "continueErrorOutput"
     },
     {
-      "id": "5a16f807-4192-4c86-84be-5ffffca16097",
+      "id": "ff897bf7-ac4e-4a48-8caf-912af56a5766",
       "name": "pass_aspects_answer",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
@@ -1709,7 +1709,7 @@
       "parameters": {}
     },
     {
-      "id": "e75dbffe-6858-4612-949a-c11205de1bcb",
+      "id": "49d335d5-dc30-4a68-b996-091dcfb7a43d",
       "name": "build_improve_request",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -1722,7 +1722,7 @@
       }
     },
     {
-      "id": "196e3b4d-7806-45b8-8da3-3355b3bef1f7",
+      "id": "01d008bb-f57d-4eef-b306-4609c1dc9c2a",
       "name": "request_improve",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
@@ -1750,7 +1750,7 @@
       "onError": "continueErrorOutput"
     },
     {
-      "id": "d3bfa95c-147b-4b68-86eb-069fa87cf53e",
+      "id": "e9481c5f-c6ba-4b63-bf7d-fc0589f7a783",
       "name": "pass_improve_answer",
       "type": "n8n-nodes-base.noOp",
       "typeVersion": 1,
@@ -1761,16 +1761,16 @@
       "parameters": {}
     },
     {
-      "id": "056d21c6-ccaf-45a8-98b2-a9b4a9d798e2",
+      "id": "76773a51-028e-4502-b077-7bce79e6e751",
       "name": "bad_task",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
       "position": [
         -16448,
         -160
       ],
       "parameters": {
-        "jsCode": "// A writer turn this graph does not implement must fail loudly: a silent draft would spend\n// a model call on a caller bug.\nconst task = String($('main_trigger').first().json.TASK || '');\nthrow new Error('unknown TASK \"' + task + '\": expected draft, aspects or improve');"
+        "errorMessage": "={{ 'unknown TASK \"' + String($('main_trigger').first().json.TASK || '') + '\": expected draft, aspects or improve' }}"
       }
     }
   ],

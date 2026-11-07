@@ -337,6 +337,21 @@ def test_an_edit_that_never_answered_is_reported_with_its_failure():
     assert out["text"] == ctx["BASE_TEXT"]
 
 
+def test_an_edit_that_returned_no_article_is_failed_not_empty():
+    """A 200 with no article is a failed edit, distinct from "nothing to apply"."""
+    ctx = _context()
+    item = _run(
+        ENTRY,
+        "check_improved_draft",
+        {"build_improvement_context": [ctx]},
+        [{"statusCode": 200, "body": {}}],
+    )[0]["json"]
+    assert item["PROBLEM"].startswith("EMPTY_DRAFT")
+    out = _select(item, ctx)
+    assert out["IMPROVED"] == "FAILED"
+    assert out["text"] == ctx["BASE_TEXT"]
+
+
 def test_the_aspect_turn_merges_what_answered_and_counts_what_failed():
     out = _merged(
         {
@@ -355,7 +370,7 @@ def test_the_aspect_turn_merges_what_answered_and_counts_what_failed():
     assert out["HAS_FINDINGS"] is True
 
 
-def test_an_unreachable_aspect_turn_leaves_only_the_feedback():
+def test_an_unreachable_aspect_turn_applies_nothing_and_names_the_failure():
     out = _merged({"statusCode": 500, "body": {"error": {"message": "boom"}}})
     assert out["FINDINGS"] == ""
     assert out["HAS_ANY"] is False
@@ -408,6 +423,13 @@ def test_a_review_that_never_answered_is_a_rejection_naming_the_failure():
     )[0]["json"]
     assert item["output"] == "false"
     assert item["explanation"].startswith("REVIEW: connect ECONNREFUSED")
+
+
+def test_a_review_error_that_arrives_as_a_string_is_still_named():
+    """n8n's error shape varies by call path: the string form must not lose the cause."""
+    item = _run(CREATOR, "parse_review_verdict", {}, [{"error": "socket hang up"}])[0]["json"]
+    assert item["output"] == "false"
+    assert item["explanation"] == "REVIEW: socket hang up"
 
 
 def test_a_feedback_round_accepts_a_block_no_source_carries():

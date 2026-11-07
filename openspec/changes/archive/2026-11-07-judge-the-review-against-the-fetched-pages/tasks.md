@@ -4,8 +4,8 @@
 
 - [x] 1.1 `prompts/article_review.md`: the fact check reads the entry's inputs, the seed page and
   every page the writer fetched during the run.
-- [x] 1.2 The Source Material block says it is the seed page, and points at the session's earlier
-  turns and the ledger for the fetched pages.
+- [x] 1.2 The Source Material block says it is the seed page, and points at the session's
+  earlier turns for the fetched pages.
 - [x] 1.3 A fact from a fetched page is sourced even when the seed page does not carry it; a fact
   absent from all of them and a citation of an unfetched page remain failures.
 

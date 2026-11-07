@@ -11,7 +11,7 @@
         "typeVersion": 1,
         "position": [
           -224,
-          368
+          144
         ],
         "parameters": {}
       },
@@ -22,7 +22,7 @@
         "typeVersion": 1.2,
         "position": [
           -224,
-          560
+          336
         ],
         "parameters": {
           "rule": {
@@ -42,7 +42,7 @@
         "typeVersion": 4.6,
         "position": [
           0,
-          368
+          192
         ],
         "parameters": {
           "documentId": {
@@ -81,7 +81,7 @@
         "typeVersion": 2,
         "position": [
           224,
-          368
+          192
         ],
         "parameters": {
           "jsCode": "// The one entry this run works on (D8), chosen from the sheet alone so the asset read below\n// can be filtered on it. The oldest stale claim first, then the lowest QUEUE row: an entry\n// already in flight has a draft or a review behind it, and finishing it before starting new\n// work is what keeps a stuck one from starving until the ceiling cancels it. Half-finished\n// work is never inferred from whichever field looks untouched - that is what\n// select_article_to_queue decides next, from the asset rows.\nconst rows = $input.all()\n  .map((i) => ({ ...i.json, row_number: Number(i.json.row_number || 0) }))\n  .filter((r) => r.row_number && String(r.ENTRY_ID || '').trim());\nconst status = (r) => String(r.STATUS || '').trim().toUpperCase();\nconst fresh = rows.filter((r) => status(r) === 'QUEUE').sort((a, b) => a.row_number - b.row_number);\n// A claimed row is skipped while it could still belong to a live run, and picked up once\n// it is stale: there is no way to ask n8n whether an execution is alive, so the row's own\n// UPDATE_DATE is the observable, and every phase writes it as it goes. Four hours is the\n// window: long enough for a run that is working, short enough that a dead one does not hold\n// the entry for a day. A live review older than it is indistinguishable from a dead run and\n// is resumed, which is the window's accepted cost.\nconst STALE_CLAIM_HOURS = 4;\nconst resumable = rows\n  .filter((r) => {\n    if (status(r) !== 'IN_PROGRESS' || String(r.ARTICLE_STATUS || '').trim().toUpperCase() === 'CANCELLED') return false;\n    const claimedAt = Date.parse(r.UPDATE_DATE || '');\n    return isFinite(claimedAt) && (Date.now() - claimedAt) / 3600000 >= STALE_CLAIM_HOURS;\n  })\n  .sort((a, b) => a.row_number - b.row_number);\nconst row = resumable[0] || fresh[0];\nif (!row) {\n  console.log('article_queue holds nothing actionable (' + rows.length + ' rows read)');\n  return [];\n}\nif (!String(row.TOPIC || '').trim() && !String(row.DESCRIPTION || '').trim()) {\n  throw new Error('article_queue row ' + row.row_number + ' has neither TOPIC nor DESCRIPTION');\n}\nreturn [{ json: { ...row, ARTICLE_ROUND: Number(row.ARTICLE_ROUND || 0), MAX_WORDS: Number(row.MAX_WORDS || 0) || 1200 } }];\n"
@@ -94,7 +94,7 @@
         "typeVersion": 1.2,
         "position": [
           448,
-          368
+          192
         ],
         "parameters": {
           "workflowId": {
@@ -144,7 +144,7 @@
         "typeVersion": 2,
         "position": [
           672,
-          368
+          192
         ],
         "parameters": {
           "jsCode": "// The row's categories, checked against the one list the blog has (datasets/blog_categories.json)\n// before anything is drafted or committed. A category the blog does not define is a failure\n// with a reason, not a post published under a new heading: the alternative is a taxonomy that\n// grows one row at a time and cannot be found again.\n//\n// The list is fetched, not copied into this node, and an unreadable file fails the run rather\n// than skipping the check -- a silent skip is how a validation becomes decoration.\nconst raw = $('download_blog_categories').first().json.output || '{}';\nlet known;\ntry {\n  known = JSON.parse(raw);\n} catch (e) {\n  throw new Error('datasets/blog_categories.json is not valid JSON: ' + e.message);\n}\nconst allowed = new Set((known.categories || []).map((c) => String(c).trim()));\nif (!allowed.size) throw new Error('datasets/blog_categories.json declares no category');\nconst row = $('pick_candidate').first().json;\nconst declared = String(row.CATEGORIES || '').split(',').map((c) => c.trim()).filter(Boolean);\nconst unknown = declared.filter((c) => !allowed.has(c));\nif (declared.length && unknown.length) {\n  throw new Error('row ' + row.row_number + ' names categories the blog does not define: ' + unknown.join(', ') + ' (known: ' + [...allowed].join(', ') + ')');\n}\nconst categories = declared.length ? declared : ['General'];\nreturn [{ json: { ...row, CATEGORIES: categories.join(', ') } }];\n"
@@ -158,7 +158,7 @@
         "alwaysOutputData": true,
         "position": [
           896,
-          368
+          192
         ],
         "parameters": {
           "operation": "get",
@@ -184,7 +184,7 @@
         "typeVersion": 2,
         "position": [
           1120,
-          368
+          192
         ],
         "parameters": {
           "jsCode": "// The next action for the entry, from the predicate in the design (D15). A run always\n// carries a hero, and the hero is animated: `svg_wide`, the 16:9 animated SVG. A row naming a\n// wide raster keeps it - a page lead image is a legitimate still - and a row naming no hero gets\n// the animated wide one. `REQUESTED_ASSETS` is that set, and it is the only copy of the rule:\n// the publish gate and the commit path read this field rather than deriving the hero rule again.\n// The phase is read off\n// the stored state in two places - the article's own review state on the sheet and the\n// per-asset rows here - so a resumed run reaches the same next action as an uninterrupted one\n// instead of guessing at whichever field looks unfinished.\nconst row = $('validate_categories').first().json;\n// Blank reads as NONE (today's reader), so existing rows need no backfill. A value outside\n// the vocabulary is refused: read as NONE it would publish advanced orientation to a general\n// reader and nothing would ever say so.\nconst AUDIENCE_LEVELS = ['NONE', 'LOW', 'MEDIUM', 'ADVANCED'];\nconst audienceCell = String(row.AUDIENCE || '').trim().toUpperCase();\nconst audience = audienceCell || 'NONE';\nif (!AUDIENCE_LEVELS.includes(audience)) {\n  throw new Error('AUDIENCE \"' + row.AUDIENCE + '\" is not one of ' + AUDIENCE_LEVELS.join(', '));\n}\nconst assets = $input.all().map((i) => i.json);\n// The blog is read in a text column, so this lane has no portrait frame: a row naming\n// `image` or `svg` - the LinkedIn 4:5 pair, and this lane's own default until 2026-10-30 - is\n// normalized to its wide twin. gh-80 was authored at 928x1152 for a post that never wanted it.\nconst WIDE = { image: 'image_wide', svg: 'svg_wide' };\nconst requested = (r) => {\n  const list = [...new Set(String(r.ASSET_TYPES || '').split(',').map((s) => s.trim())\n    .filter(Boolean).map((t) => WIDE[t] || t))];\n  const hasHero = list.includes('image_wide') || list.includes('svg_wide');\n  return hasHero ? list : ['svg_wide', ...list];\n};\nconst requestedAssets = requested(row);\nconst pending = requestedAssets.filter((type) => {\n  const hit = assets.find((a) => String(a.ASSET_TYPE || '') === type);\n  return !hit || String(hit.STATUS || '').toUpperCase() !== 'APPROVED';\n});\nconst article = String(row.ARTICLE_STATUS || '').trim().toUpperCase();\nconst phase = article === 'APPROVED' ? (pending.length ? 'assets' : 'publish') : 'draft';\nconsole.log('row ' + row.row_number + ' -> ' + phase + ' (pending: ' + (pending.join(',') || 'none') + ')');\nreturn [{ json: { ...row, PHASE: phase, AUDIENCE: audience, PENDING_ASSETS: pending.join(','),\n  REQUESTED_ASSETS: requestedAssets.join(',') } }];\n"
@@ -197,7 +197,7 @@
         "typeVersion": 4.6,
         "position": [
           1344,
-          368
+          192
         ],
         "parameters": {
           "operation": "update",
@@ -464,7 +464,7 @@
         "typeVersion": 3.2,
         "position": [
           1568,
-          352
+          176
         ],
         "parameters": {
           "rules": {
@@ -547,7 +547,7 @@
         "typeVersion": 2.2,
         "position": [
           1792,
-          48
+          -144
         ],
         "parameters": {
           "conditions": {
@@ -582,7 +582,7 @@
         "onError": "continueRegularOutput",
         "position": [
           2016,
-          -32
+          -224
         ],
         "parameters": {
           "url": "={{ $('select_article_to_queue').item.json.LINK }}",
@@ -598,7 +598,7 @@
         "typeVersion": 2,
         "position": [
           2240,
-          48
+          -144
         ],
         "parameters": {
           "jsCode": "// One item out of either branch, carrying the fetched text and whether it was used.\n//\n// The flag is set here and never read off the failing node's own output: a non-AI node with\n// continueRegularOutput forwards its input unchanged, so `$json.error` is absent and a branch\n// on it would take the success path. What is read is whether the download ran and what it\n// returned, which this node can see either way.\nconst row = $('select_article_to_queue').first().json;\nconst link = String(row.LINK || '').trim();\nlet content = '';\nif ($('download_content').isExecuted) {\n  const out = $('download_content').first().json || {};\n  content = String(typeof out.data === 'string' ? out.data : out.data || '').trim().slice(0, 60000);\n}\nconst used = content.length > 0;\nif (link && !used) console.log('link not used: ' + link);\nreturn [{ json: { ...row, LINK_USED: used, LINK_TEXT: content } }];\n"
@@ -612,7 +612,7 @@
         "onError": "continueErrorOutput",
         "position": [
           2464,
-          48
+          -144
         ],
         "parameters": {
           "workflowId": {
@@ -803,7 +803,7 @@
         "typeVersion": 2.2,
         "position": [
           2688,
-          -32
+          -224
         ],
         "parameters": {
           "conditions": {
@@ -837,7 +837,7 @@
         "typeVersion": 1,
         "position": [
           3584,
-          304
+          128
         ],
         "parameters": {
           "errorMessage": "={{ 'article draft failed for row ' + $('build_failure').first().json.row_number + ': ' + $('build_failure').first().json.REASON }}"
@@ -849,7 +849,7 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          6976,
+          5376,
           -352
         ],
         "parameters": {
@@ -862,7 +862,7 @@
         "type": "n8n-nodes-base.dataTable",
         "typeVersion": 1.1,
         "position": [
-          7200,
+          5600,
           -352
         ],
         "parameters": {
@@ -965,7 +965,7 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          7424,
+          5824,
           -352
         ],
         "parameters": {
@@ -979,7 +979,7 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          7648,
+          6048,
           -352
         ],
         "parameters": {
@@ -1003,7 +1003,7 @@
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
         "position": [
-          7872,
+          6272,
           -352
         ],
         "parameters": {
@@ -1286,7 +1286,7 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          8096,
+          6496,
           -352
         ],
         "parameters": {
@@ -1321,7 +1321,7 @@
         "type": "n8n-nodes-base.switch",
         "typeVersion": 3.2,
         "position": [
-          8320,
+          6720,
           -352
         ],
         "parameters": {
@@ -1384,7 +1384,7 @@
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
         "position": [
-          8544,
+          6944,
           -256
         ],
         "parameters": {
@@ -1652,7 +1652,7 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          8544,
+          6944,
           -448
         ],
         "parameters": {
@@ -1709,8 +1709,8 @@
         "type": "n8n-nodes-base.switch",
         "typeVersion": 3.2,
         "position": [
-          8768,
-          32
+          7168,
+          -272
         ],
         "parameters": {
           "rules": {
@@ -1770,8 +1770,8 @@
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
         "position": [
-          8992,
-          32
+          7392,
+          -272
         ],
         "parameters": {
           "operation": "update",
@@ -2037,8 +2037,8 @@
         "type": "n8n-nodes-base.dataTable",
         "typeVersion": 1.1,
         "position": [
-          9216,
-          32
+          7616,
+          -272
         ],
         "parameters": {
           "operation": "update",
@@ -2166,8 +2166,8 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          9440,
-          32
+          7840,
+          -272
         ],
         "parameters": {
           "select": "channel",
@@ -2195,8 +2195,8 @@
         "type": "n8n-nodes-base.dataTable",
         "typeVersion": 1.1,
         "position": [
-          8768,
-          336
+          7168,
+          16
         ],
         "parameters": {
           "operation": "get",
@@ -2221,8 +2221,8 @@
         "type": "n8n-nodes-base.executeWorkflow",
         "typeVersion": 1.3,
         "position": [
-          9216,
-          272
+          7616,
+          -48
         ],
         "parameters": {
           "workflowId": {
@@ -2328,8 +2328,8 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          9440,
-          272
+          7840,
+          -48
         ],
         "parameters": {
           "jsCode": "// One item per asset the studio answered with. The run STATUS is deliberately not what is\n// branched on: it is PARTIAL whenever any requested type is unavailable, so an unavailable\n// type would take the whole set with it. Each asset's own STATUS is the decision, and a type\n// the registry does not declare arrives here as an asset carrying its reason.\n//\n// Every response item is read, not the first: the studio answers with one item per asset\n// branch because its own merge runs once per branch, so a two-type request arrives as two\n// items carrying one asset each. Reading only the first of them is how the svg was\n// authored, rendered and then dropped -- the asset rows never saw it and the publish gate found it\n// MISSING (execution 13705, 2026-10-17).\nconst responses = $input.all().map((i) => i.json || {});\nconst resp = responses[0] || {};\nconst row = $('select_article_to_queue').first().json;\nconst assets = responses.flatMap((r) => (Array.isArray(r.ASSETS) ? r.ASSETS : []));\nif (!assets.length) throw new Error('the studio returned no asset at all (runs ' + responses.map((r) => r.RUN_ID || '?').join(',') + ', status ' + (resp.STATUS || '?') + ')');\nreturn assets.map((a) => ({\n  json: {\n    ...row,\n    ROUND: Number(row.ARTICLE_ROUND || 0) + 1,\n    RUN_ID: resp.RUN_ID || '',\n    SESSION_ID: resp.SESSION_ID || '',\n    ASSET_TYPE: a.ASSET_TYPE || '',\n    ASSET_STATUS: a.STATUS || '',\n    ERROR: a.ERROR || '',\n    CONTENT_TYPE: a.CONTENT_TYPE || '',\n    FORMAT: a.FORMAT || '',\n    S3_KEY: a.S3_KEY || '',\n    S3_BYTES: a.S3_BYTES || 0,\n    IMAGE: a.IMAGE || '',\n  },\n}));\n"
@@ -2341,8 +2341,8 @@
         "type": "n8n-nodes-base.dataTable",
         "typeVersion": 1.1,
         "position": [
-          9664,
-          272
+          8064,
+          -48
         ],
         "parameters": {
           "operation": "upsert",
@@ -2481,8 +2481,8 @@
         "type": "n8n-nodes-base.if",
         "typeVersion": 2.2,
         "position": [
-          9888,
-          272
+          8288,
+          -48
         ],
         "parameters": {
           "conditions": {
@@ -2516,8 +2516,8 @@
         "type": "n8n-nodes-base.if",
         "typeVersion": 2.2,
         "position": [
-          10112,
-          272
+          8512,
+          -48
         ],
         "parameters": {
           "conditions": {
@@ -2550,8 +2550,8 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          10784,
-          320
+          9184,
+          144
         ],
         "parameters": {
           "jsCode": "// The raster type carries its own bytes as a data URL, because they were made inside n8n and\n// no store can fetch them. This is the only asset byte an article run carries, and it is why\n// the hero previews in Slack without a bucket round trip.\nconst a = $('split_assets').first().json;\nconst url = String(a.IMAGE || '');\nconst comma = url.indexOf(',');\nif (comma < 0) throw new Error('asset ' + a.ASSET_TYPE + ' carries no usable data URL');\nconst meta = url.slice(0, comma);\nconst data = Buffer.from(url.slice(comma + 1), 'base64');\nconst mime = (meta.match(/data:([^;]+)/) || [])[1] || a.CONTENT_TYPE || 'application/octet-stream';\nconst ext = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' }[mime] || a.FORMAT || 'bin';\nreturn [{\n  json: { ...a, ASSET_MIME: mime, ASSET_EXT: ext, BYTES: data.length },\n  binary: { data: { mimeType: mime, fileName: a.ASSET_TYPE + '.' + ext, fileExtension: ext, data } },\n}];\n"
@@ -2563,8 +2563,8 @@
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
         "position": [
-          10336,
-          80
+          8736,
+          -144
         ],
         "parameters": {
           "method": "POST",
@@ -2583,8 +2583,8 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          10560,
-          80
+          8960,
+          -144
         ],
         "parameters": {
           "jsCode": "// The signed URL the temp-bucket server answered with. The answer is split into key=value\n// pairs the way a caller reads it rather than matched as prose, and a failure (a line\n// beginning ERROR:) is raised here so the run reports it instead of uploading something else.\nconst resp = $input.first().json || {};\nconst content = resp.result && resp.result.content;\nconst text = content && content[0] && content[0].text;\nif (typeof text !== 'string') throw new Error('the temp-bucket server answered no text');\nif (text.indexOf('ERROR:') === 0) throw new Error(text.slice(0, 500));\nconst pairs = {};\nfor (const part of text.trim().split(/\\s+/)) {\n  const eq = part.indexOf('=');\n  if (eq > 0) pairs[part.slice(0, eq)] = part.slice(eq + 1);\n}\nif (!pairs.url) throw new Error('no signed url in: ' + text.slice(0, 300));\nconst a = $('split_assets').first().json;\nconst mime = pairs['content-type'] || a.CONTENT_TYPE || 'application/octet-stream';\nconst ext = (mime.split('/')[1] || a.FORMAT || 'bin').replace('jpeg', 'jpg');\nreturn [{ json: { ...a, SIGNED_URL: pairs.url, ASSET_MIME: mime, ASSET_EXT: ext, S3_BYTES: Number(pairs.bytes || a.S3_BYTES || 0) } }];\n"
@@ -2596,8 +2596,8 @@
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
         "position": [
-          10784,
-          80
+          9184,
+          -144
         ],
         "parameters": {
           "url": "={{ $json.SIGNED_URL }}",
@@ -2618,8 +2618,8 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          11008,
-          272
+          9408,
+          -48
         ],
         "parameters": {
           "resource": "file",
@@ -2643,8 +2643,8 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          11232,
-          272
+          9632,
+          -48
         ],
         "parameters": {
           "operation": "sendAndWait",
@@ -2678,8 +2678,8 @@
         "type": "n8n-nodes-base.switch",
         "typeVersion": 3.2,
         "position": [
-          11456,
-          272
+          9856,
+          -48
         ],
         "parameters": {
           "rules": {
@@ -2741,8 +2741,8 @@
         "type": "n8n-nodes-base.dataTable",
         "typeVersion": 1.1,
         "position": [
-          11680,
-          272
+          10080,
+          48
         ],
         "parameters": {
           "operation": "update",
@@ -2876,8 +2876,8 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          11680,
-          80
+          10080,
+          -144
         ],
         "parameters": {
           "operation": "sendAndWait",
@@ -2933,8 +2933,8 @@
         "type": "n8n-nodes-base.switch",
         "typeVersion": 3.2,
         "position": [
-          11904,
-          240
+          10304,
+          -48
         ],
         "parameters": {
           "rules": {
@@ -2994,8 +2994,8 @@
         "type": "n8n-nodes-base.dataTable",
         "typeVersion": 1.1,
         "position": [
-          12128,
-          240
+          10528,
+          -48
         ],
         "parameters": {
           "operation": "update",
@@ -3127,8 +3127,8 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          12352,
-          240
+          10752,
+          -48
         ],
         "parameters": {
           "select": "channel",
@@ -3156,8 +3156,8 @@
         "type": "n8n-nodes-base.dataTable",
         "typeVersion": 1.1,
         "position": [
-          11904,
-          432
+          10304,
+          144
         ],
         "parameters": {
           "operation": "get",
@@ -3182,8 +3182,8 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          12128,
-          432
+          10528,
+          144
         ],
         "parameters": {
           "jsCode": "// Every requested type approved and none left in review: only then is there one commit.\n//\n// The check reads the stored rows rather than this run's history, so a resumed run that\n// approved two of three assets earlier still publishes once the third clears. A cancelled\n// asset keeps the article from committing, which is the deliberate direction: the run reports\n// instead of publishing a post that is missing a picture it asked for.\n// The set comes from the selector, which derived it once and runs on every path. A second\n// derivation here is how a gate ends up prepending a type the selector never asked for, which\n// blocks every run forever.\nconst effective = String($('select_article_to_queue').first().json.REQUESTED_ASSETS || '')\n  .split(',')\n  .map((s) => s.trim())\n  .filter(Boolean);\nconst rows = $('read_asset_rows').all().map((i) => i.json);\nconst statusOf = (type) => {\n  const row = rows.find((r) => String(r.ASSET_TYPE || '') === type);\n  return row ? String(row.STATUS || '').toUpperCase() : 'MISSING';\n};\nconst blocking = effective.filter((type) => !['APPROVED', 'COMMITTED'].includes(statusOf(type)));\n// The verdict is data and the branch on it is the next node: returning nothing here is how a\n// blocked publish ended the execution as `success`, with no commit and no notice at all\n// (execution 13705, 2026-10-17 -- the svg had never reached the asset rows).\nconst report = blocking.map((t) => t + '=' + statusOf(t)).join(', ');\nif (blocking.length) console.log('not committing: ' + report);\nreturn [{ json: {\n  ...$('select_article_to_queue').first().json,\n  ASSET_ROWS: effective.map((type) => rows.find((r) => String(r.ASSET_TYPE || '') === type)),\n  BLOCKED: blocking.length > 0,\n  BLOCKING: report || 'none',\n} }];\n"
@@ -3195,8 +3195,8 @@
         "type": "n8n-nodes-base.dataTable",
         "typeVersion": 1.1,
         "position": [
-          12576,
-          368
+          10976,
+          64
         ],
         "parameters": {
           "operation": "get",
@@ -3221,8 +3221,8 @@
         "type": "n8n-nodes-base.dataTable",
         "typeVersion": 1.1,
         "position": [
-          12800,
-          368
+          11200,
+          64
         ],
         "parameters": {
           "operation": "get",
@@ -3247,8 +3247,8 @@
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
         "position": [
-          13024,
-          368
+          11424,
+          64
         ],
         "parameters": {
           "url": "https://api.github.com/repos/alvsanand/alvsanand/contents/docs/blog/posts?ref=main",
@@ -3280,8 +3280,8 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          13248,
-          368
+          11648,
+          64
         ],
         "parameters": {
           "jsCode": "// The frozen slug, unless the repository already carries a post with it. Nothing is\n// committed before this point, so a disambiguated slug is still the one that is frozen.\nconst row = $('read_draft_for_publish').first().json;\nconst slug = String(row.SLUG || '').trim();\nif (!slug) throw new Error('the draft row carries no slug; the draft was stored before this field existed');\nconst listing = $input.first().json;\nconst taken = new Set((Array.isArray(listing) ? listing : []).map((f) => String(f.name || '')));\nlet final = slug;\nlet n = 2;\nwhile (taken.has(final + '.md') && n < 50) final = slug + '-' + n++;\nif (final !== slug) console.log('slug ' + slug + ' is taken; using ' + final);\nreturn [{ json: { ...row, SLUG: final } }];\n"
@@ -3293,8 +3293,8 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          13472,
-          368
+          11872,
+          64
         ],
         "parameters": {
           "jsCode": "// One item per file to commit: the article, then each approved asset. Front matter is\n// composed here rather than asked of the model (D5), a marker is replaced in place, and a\n// requested type whose marker the draft omitted is placed after the opening section instead\n// of being dropped - one live draft in three answered image,svg with the image marker only.\n// Only the entry's requested types are committed: a row for anything else is a leftover\n// from an earlier request, and committing it adds an image no marker references.\nconst row = $('disambiguate_slug').first().json;\nconst draft = $('read_draft_for_publish').first().json;\nconst slug = row.SLUG;\nconst text = String(draft.ARTICLE_TEXT || '');\nconst title = String(draft.TITLE || '').trim();\nif (!text.trim()) throw new Error('the stored draft is empty; refusing to commit');\nif (!title.trim()) throw new Error('the stored draft has no title');\n\nconst categories = String($('select_article_to_queue').first().json.CATEGORIES || 'General')\n  .split(',').map((s) => s.trim()).filter(Boolean);\nconst now = new Date();\nconst iso = now.toISOString();\nconst day = iso.slice(0, 10);\nconst front = ['---', 'date: ' + day, 'authors: [alvsanand]', 'categories: [' + categories.join(', ') + ']', '---', ''].join('\\n');\n\nconst requestedTypes = String($('select_article_to_queue').first().json.REQUESTED_ASSETS || '')\n  .split(',').map((s) => s.trim()).filter(Boolean);\nconst rows = $('read_asset_rows_for_publish').all().map((i) => i.json);\nconst stale = rows.map((a) => String(a.ASSET_TYPE || '')).filter((type) => !requestedTypes.includes(type));\nif (stale.length) console.log('not committing, not requested by this entry: ' + stale.join(', '));\n// The extension comes from the content type, which is what the asset row carries. Splitting on\n// the slash alone turns `image/svg+xml` into `svg+xml`, which is not an extension: the hero SVG\n// committed at `docs/img/<slug>-svg_wide.svg+xml` and the article referenced that path.\nconst EXT = { 'image/svg+xml': 'svg', 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp',\n  'image/gif': 'gif', 'video/mp4': 'mp4', 'text/html': 'html' };\nconst extOf = (a) => EXT[String(a.CONTENT_TYPE || '').toLowerCase()]\n  || (String(a.CONTENT_TYPE || '').split('/')[1] || 'png').replace('jpeg', 'jpg');\nconst assets = rows.filter((a) => requestedTypes.includes(String(a.ASSET_TYPE || ''))).map((a) => ({\n  type: String(a.ASSET_TYPE || ''),\n  ext: extOf(a),\n  alt: (title + ' - ' + String(a.ASSET_TYPE || '').replace(/_/g, ' ')).slice(0, 120),\n}));\n// The file lands under the docs source directory, but the site serves it from the root: every\n// hand-written post references /img/..., so a reference to /docs/img/... is a 404. The committed\n// path and the published reference are therefore two different strings.\nconst pathOf = (a) => 'docs/img/' + slug + '-' + a.type + '.' + a.ext;\nconst sitePathOf = (a) => '/img/' + slug + '-' + a.type + '.' + a.ext;\n\nlet body = text.replace(/^#\\s+.*\\n?/, '').trim();\nconst missing = [];\nfor (const a of assets) {\n  const marker = new RegExp('<!--\\\\s*asset:' + a.type + '\\\\s*-->', 'g');\n  const reference = '![' + a.alt + '](' + sitePathOf(a) + '){ width=\"80%\" }';\n  if (marker.test(body)) body = body.replace(marker, reference);\n  else missing.push(a.type);\n}\nif (missing.length) {\n  const lines = body.split('\\n');\n  const heading = lines.findIndex((l, i) => i > 0 && l.startsWith('## '));\n  const at = heading === -1 ? lines.length : heading;\n  lines.splice(at, 0, '', ...missing.map((type) => {\n    const a = assets.find((x) => x.type === type);\n    return '![' + a.alt + '](' + sitePathOf(a) + '){ width=\"80%\" }';\n  }), '');\n  body = lines.join('\\n');\n  console.log('placed without a marker: ' + missing.join(', '));\n}\n\n// The site is served at `www.`, and the blog plugin's slug is the *title* slugified - \"isn't\"\n// loses its apostrophe rather than gaining a hyphen - so the entry's SLUG is not the URL. Read\n// off the published post, 2026-10-18.\nconst slugOf = (s) => String(s).toLowerCase().replace(/['\\u2019]/g, '')\n  .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');\nconst urlSlug = slugOf(title);\n\nconst files = [{\n  PATH: 'docs/blog/posts/' + day.slice(0, 4) + day.slice(5, 7) + '-' + slug + '.md',\n  TEXT: front + '# ' + title + '\\n\\n' + body + '\\n',\n  BINARY: false,\n}];\nfor (const a of assets) files.push({ PATH: pathOf(a), ASSET_TYPE: a.type, BINARY: true });\n\nreturn files.map((f) => ({\n  json: {\n    ...$('select_article_to_queue').first().json,\n    SLUG: slug,\n    DRAFT_TITLE: title,\n    PUBLISHED_URL: 'https://www.alvsanand.com/blog/' + day.slice(0, 4) + '/' + day.slice(5, 7) + '/' + day.slice(8, 10) + '/' + urlSlug + '/',\n    FILE_PATH: f.PATH,\n    FILE_TEXT: f.TEXT || '',\n    FILE_IS_BINARY: f.BINARY,\n    ASSET_TYPE: f.ASSET_TYPE || '',\n    COMMIT_MESSAGE: 'docs(blog): ' + title,\n  },\n}));\n"
@@ -3306,8 +3306,8 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          13696,
-          368
+          12096,
+          64
         ],
         "parameters": {
           "jsCode": "// What each approved asset's bytes are, and where they have to come from.\n//\n// A raster hero has no durable handle of its own - the studio made its bytes inside n8n and\n// keeps no copy - so the review stored them on its asset row, which is the same shape\n// TemporalFiles uses for the same reason. An agent-authored asset does have one: its S3 key,\n// which the utils server signs a URL for on demand. A resumed commit run therefore still has\n// every byte it needs, which is what makes the persistence in section 4 worth anything.\nconst rows = $('read_asset_rows_for_publish').all().map((i) => i.json);\nconst rowOf = (type) => rows.find((r) => String(r.ASSET_TYPE || '') === type) || {};\nconst files = $('build_commit_files').all().map((i) => i.json).filter((j) => j.FILE_IS_BINARY);\nreturn files.map((j) => {\n  const row = rowOf(j.ASSET_TYPE);\n  const local = String(row.DATA_BASE64 || '');\n  if (local) {\n    return { json: { ...j, FILE_BASE64: local, FILE_BYTES: Buffer.from(local, 'base64').length, NEEDS_FETCH: false } };\n  }\n  if (!row.S3_KEY) throw new Error('asset ' + j.ASSET_TYPE + ' has neither stored bytes nor an object key');\n  return { json: { ...j, FILE_BASE64: '', NEEDS_FETCH: true, S3_KEY: row.S3_KEY } };\n});\n"
@@ -3319,8 +3319,8 @@
         "type": "n8n-nodes-base.if",
         "typeVersion": 2.2,
         "position": [
-          13920,
-          368
+          12320,
+          64
         ],
         "parameters": {
           "conditions": {
@@ -3354,8 +3354,8 @@
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
         "position": [
-          14144,
-          304
+          12544,
+          64
         ],
         "parameters": {
           "method": "POST",
@@ -3374,8 +3374,8 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          14368,
-          304
+          12768,
+          64
         ],
         "parameters": {
           "jsCode": "// The signed URL for this asset, read the same way the review path reads it.\nconst resp = $input.first().json || {};\nconst content = resp.result && resp.result.content;\nconst text = content && content[0] && content[0].text;\nif (typeof text !== 'string') throw new Error('the temp-bucket server answered no text');\nif (text.indexOf('ERROR:') === 0) throw new Error(text.slice(0, 500));\nconst pairs = {};\nfor (const part of text.trim().split(/\\s+/)) {\n  const eq = part.indexOf('=');\n  if (eq > 0) pairs[part.slice(0, eq)] = part.slice(eq + 1);\n}\nif (!pairs.url) throw new Error('no signed url in: ' + text.slice(0, 300));\nreturn [{ json: { ...$('plan_asset_uploads').first().json, SIGNED_URL: pairs.url, SIGNED_BYTES: Number(pairs.bytes || 0) } }];\n"
@@ -3387,8 +3387,8 @@
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
         "position": [
-          14592,
-          304
+          12992,
+          64
         ],
         "parameters": {
           "url": "={{ $json.SIGNED_URL }}",
@@ -3408,8 +3408,8 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          14816,
-          304
+          13216,
+          64
         ],
         "parameters": {
           "jsCode": "// The fetched bytes, as base64 for the blob API, carrying the same fields the local branch\n// already had so the two paths converge on one shape. In queue mode the payload lives in the\n// binary store and binary.data.data is the literal \"database\", so the bytes are read through\n// the helper rather than the item field.\nconst j = $('plan_asset_uploads').all().find((i) => i.json.S3_KEY === $('asset_publish_url').first().json.S3_KEY).json;\nconst bin = ($input.first().binary || {}).data;\nif (!bin) throw new Error('the signed url served no bytes for ' + j.ASSET_TYPE);\nconst buf = await helpers.getBinaryDataBuffer(0, 'data');\nif (!buf.length) throw new Error('the signed url served no bytes for ' + j.ASSET_TYPE);\nreturn [{ json: { ...j, FILE_BASE64: buf.toString('base64'), FILE_BYTES: buf.length, NEEDS_FETCH: false } }];\n"
@@ -3421,8 +3421,8 @@
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
         "position": [
-          15040,
-          368
+          13440,
+          64
         ],
         "parameters": {
           "method": "POST",
@@ -3458,8 +3458,8 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          15264,
-          368
+          13664,
+          64
         ],
         "parameters": {
           "jsCode": "// The tree the commit carries: every text file inline (the Trees API takes utf-8 content)\n// and every asset as the blob sha it just got. The sha-to-path pairing is asserted against the\n// byte length each blob reports, so a mis-order fails loudly rather than committing a picture\n// under the article's name.\nconst files = $('build_commit_files').all().map((i) => i.json);\nconst blobs = files.filter((f) => f.FILE_IS_BINARY);\nconst answers = $('create_blobs').all().map((i) => i.json);\nif (answers.length !== blobs.length) {\n  throw new Error('GitHub answered ' + answers.length + ' blobs for ' + blobs.length + ' assets');\n}\nconst expected = $('plan_asset_uploads').all().map((i) => i.json.FILE_BYTES);\nconst entries = files.map((f) => ({ path: f.FILE_PATH, mode: '100644', type: 'blob' }));\nblobs.forEach((f, i) => {\n  const answer = answers[i] || {};\n  if (!answer.sha) throw new Error('GitHub answered no sha for ' + f.FILE_PATH);\n  if (Number(answer.size) && Number(answer.size) !== Number(expected[i])) {\n    throw new Error('blob ' + i + ' is ' + answer.size + ' bytes against an expected ' + expected[i] + '; refusing to guess which file it is');\n  }\n  const at = entries.findIndex((e) => e.path === f.FILE_PATH);\n  entries[at].sha = answer.sha;\n});\nfiles.filter((f) => !f.FILE_IS_BINARY).forEach((f) => {\n  const at = entries.findIndex((e) => e.path === f.FILE_PATH);\n  entries[at].content = f.FILE_TEXT;\n});\nreturn [{ json: { ...$('build_commit_files').first().json, TREE_ENTRIES: entries, FILE_COUNT: files.length } }];\n"
@@ -3471,8 +3471,8 @@
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
         "position": [
-          15488,
-          368
+          13888,
+          64
         ],
         "parameters": {
           "url": "https://api.github.com/repos/alvsanand/alvsanand/git/ref/heads/main",
@@ -3504,8 +3504,8 @@
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
         "position": [
-          15712,
-          368
+          14112,
+          64
         ],
         "parameters": {
           "method": "POST",
@@ -3541,8 +3541,8 @@
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
         "position": [
-          15936,
-          368
+          14336,
+          64
         ],
         "parameters": {
           "method": "POST",
@@ -3579,8 +3579,8 @@
         "typeVersion": 4.4,
         "onError": "continueErrorOutput",
         "position": [
-          16160,
-          368
+          14560,
+          64
         ],
         "parameters": {
           "method": "PATCH",
@@ -3616,8 +3616,8 @@
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
         "position": [
-          16384,
-          448
+          14784,
+          208
         ],
         "parameters": {
           "url": "https://api.github.com/repos/alvsanand/alvsanand/git/ref/heads/main",
@@ -3649,8 +3649,8 @@
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
         "position": [
-          16608,
-          448
+          15008,
+          208
         ],
         "parameters": {
           "method": "POST",
@@ -3686,8 +3686,8 @@
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
         "position": [
-          16832,
-          448
+          15232,
+          208
         ],
         "parameters": {
           "method": "POST",
@@ -3723,8 +3723,8 @@
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
         "position": [
-          17056,
-          448
+          15456,
+          208
         ],
         "parameters": {
           "method": "PATCH",
@@ -3760,8 +3760,8 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          17280,
-          448
+          15680,
+          208
         ],
         "parameters": {
           "jsCode": "// The retry is only worth anything if the second PATCH also failed: a first failure means the\n// branch moved, and the tree and commit above were rebuilt on the branch's new head. A second\n// failure is reported rather than looped, which is what the spec asks for.\nconst resp = $input.first().json || {};\nif (resp.error || resp.message) {\n  throw new Error('the commit could not be fast-forwarded twice: ' + String(resp.message || resp.error).slice(0, 300));\n}\nreturn [{ json: { ...$('collect_tree_entries').first().json, COMMIT_SHA: resp.sha || ($('create_commit_again').isExecuted ? $('create_commit_again').item.json.sha : $('create_commit').item.json.sha) } }];\n"
@@ -3773,8 +3773,8 @@
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
         "position": [
-          17504,
-          368
+          15904,
+          64
         ],
         "parameters": {
           "operation": "update",
@@ -4043,8 +4043,8 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          17728,
-          368
+          16128,
+          64
         ],
         "parameters": {
           "jsCode": "// One item per committed asset, so its row records where it landed. The paths come from the\n// commit's own file list rather than from a second derivation.\nreturn $('build_commit_files').all()\n  .map((i) => i.json)\n  .filter((j) => j.FILE_IS_BINARY)\n  .map((j) => ({ json: { ENTRY_ID: j.ENTRY_ID, ASSET_TYPE: j.ASSET_TYPE, PATH: j.FILE_PATH } }));\n"
@@ -4056,8 +4056,8 @@
         "type": "n8n-nodes-base.dataTable",
         "typeVersion": 1.1,
         "position": [
-          17952,
-          368
+          16352,
+          64
         ],
         "parameters": {
           "operation": "update",
@@ -4190,8 +4190,8 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          18176,
-          368
+          16576,
+          64
         ],
         "parameters": {
           "select": "channel",
@@ -4219,8 +4219,8 @@
         "type": "n8n-nodes-base.if",
         "typeVersion": 2.2,
         "position": [
-          12352,
-          432
+          10752,
+          144
         ],
         "parameters": {
           "conditions": {
@@ -4255,8 +4255,8 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          12576,
-          592
+          10976,
+          416
         ],
         "parameters": {
           "select": "channel",
@@ -4284,8 +4284,8 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          8992,
-          336
+          7392,
+          16
         ],
         "parameters": {
           "jsCode": "// One studio call per pending type. The studio answers with one asset per response item and\n// a sub-workflow's response is its last node's LAST run, so a two-type request reaches the\n// caller as a single asset -- the other branch's item is dropped inside n8n. Measured\n// 2026-10-17: the studio authored and rendered both (execution 13722, `svg_wide` stored at\n// `visual-studio/13722-svg_wide.svg`) and the caller received one asset (execution 13720),\n// so the publish gate reported `svg_wide=MISSING`. One call per type keeps every asset:\n// each call has one branch, one response item, and one asset in it.\nconst row = $('select_article_to_queue').first().json;\nconst draft = $('read_draft_for_assets').first().json;\nconst pending = String(row.PENDING_ASSETS || row.ASSET_TYPES || 'svg_wide')\n  .split(',').map((s) => s.trim()).filter(Boolean);\nif (!pending.length) throw new Error('no asset type is pending for row ' + row.row_number);\nreturn pending.map((type) => ({ json: {\n  ...row,\n  ...draft,\n  ASSET_TYPE: type,\n  ROUND: Number(row.ARTICLE_ROUND || 0) + 1,\n} }));\n"
@@ -4298,7 +4298,7 @@
         "typeVersion": 2,
         "position": [
           2912,
-          304
+          128
         ],
         "parameters": {
           "jsCode": "// The failure path's reporter, for both ways a run can fail here: the creator *returning* a\n// reason as data (`ERROR`, read by `check_draft_error`) and the creator *throwing* (`onError:\n// continueErrorOutput`, which n8n hands over with `json.error` set). The row comes from the\n// selector either way, because the creator's own answer carries no row fields.\nconst row = $('select_article_to_queue').first().json;\n// `error` is the object n8n documents on some paths and the bare message string on others:\n// execution 15434 (2026-10-30) was handed a string by the executeWorkflow node, so reading only\n// `.message` reported \"no reason returned\" for a failure whose reason was in hand.\nconst err = $json.error;\nconst thrown = typeof err === 'string' ? err.trim() : (err && (err.message || err.description));\nreturn [{ json: {\n  row_number: row.row_number,\n  TOPIC: row.TOPIC || '',\n  REASON: String($json.ERROR || thrown || 'no reason returned'),\n} }];"
@@ -4311,7 +4311,7 @@
         "typeVersion": 4.6,
         "position": [
           3136,
-          304
+          128
         ],
         "parameters": {
           "operation": "update",
@@ -4579,7 +4579,7 @@
         "typeVersion": 2.3,
         "position": [
           3360,
-          304
+          128
         ],
         "parameters": {
           "select": "channel",
@@ -4609,7 +4609,7 @@
         "alwaysOutputData": true,
         "position": [
           2912,
-          -80
+          -272
         ],
         "parameters": {
           "operation": "get",
@@ -4634,8 +4634,8 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          4256,
-          -80
+          3136,
+          -272
         ],
         "parameters": {
           "jsCode": "// One item always: the review and edit turns start from this context, and a fan-out from a\n// possibly empty input never runs the rest of the chain.\n//\n// The draft of record is resolved here once, because the retry edge re-enters this node and\n// nothing below may read `execute_article_creator` on a run where it did not execute:\n//   1. `select_final_draft`'s own earlier run - a human retry in this execution improves the\n//      draft the human read, not the first draft it came from;\n//   2. `execute_article_creator`'s answer - the first pass of this execution;\n//   3. the `article_drafts` row - a review resumed in a later execution.\nconst row = $('select_article_to_queue').first().json;\nconst stored = $('read_draft_for_improvement').first().json || {};\nconst count = (text) => String(text || '')\n  .replace(/<!--[\\s\\S]*?-->/g, ' ')\n  .split(/\\s+/)\n  .filter(Boolean).length;\nconst resolveDraft = () => {\n  if ($('select_final_draft').isExecuted) {\n    const j = $('select_final_draft').last().json;\n    return { text: String(j.text || ''), title: String(j.title || ''), source: 'the draft this run reviewed' };\n  }\n  if ($('execute_article_creator').isExecuted) {\n    const j = $('execute_article_creator').last().json;\n    return { text: String(j.text || ''), title: String(j.title || ''), source: 'the draft this run received' };\n  }\n  const text = String(stored.ARTICLE_TEXT || '');\n  if (!text) throw new Error('no draft to improve: the creator did not run and article_drafts carries no row for ' + String(row.ENTRY_ID || 'this entry'));\n  return { text, title: String(stored.TITLE || ''), source: 'the stored draft' };\n};\nconst base = resolveDraft();\nif (!base.text.trim()) throw new Error('no draft to improve: the resolved draft is empty');\n\n// The ledger travels with the draft for the same reason and in the same order: a resumed\n// review runs in a later execution, and an edit that fences a line the server never verified\n// must fail here. A missing cell is a report, not a bypass: the improved draft is accepted and\n// the note says the fidelity check did not run.\nconst firstLine = (value) => String(value || '').split('\\n').map((l) => l.trim()).filter(Boolean)[0] || 'a fenced block';\nconst describe = (text) => {\n  try {\n    const data = JSON.parse(String(text || ''));\n    const list = Array.isArray(data) ? data : data && Array.isArray(data.sources) ? data.sources : null;\n    if (!list) return 'none';\n    const lines = list.filter((e) => e && String(e.block || '').trim())\n      .map((e) => '- ' + firstLine(e.block) + ' (' + (String(e.url || '').trim() || 'no url') + ')');\n    return lines.join('\\n') || 'none';\n  } catch (e) {\n    return 'none';\n  }\n};\nconst resolveSources = () => {\n  const pick = (value) => String(value || '').trim();\n  if ($('select_final_draft').isExecuted) {\n    const ledger = pick($('select_final_draft').last().json.SOURCES);\n    if (ledger) return ledger;\n  }\n  if ($('execute_article_creator').isExecuted) {\n    const ledger = pick($('execute_article_creator').last().json.SOURCES);\n    if (ledger) return ledger;\n  }\n  return String(row.SOURCES || '');\n};\nconst sources = resolveSources();\n\nlet feedback = String(row.ARTICLE_FEEDBACK || '');\nconst retry = $('notification_retry_or_cancel');\nif (retry.isExecuted) feedback = String((retry.last().json || {}).data?.Feedback || feedback);\n\nconst audience = String(row.AUDIENCE || 'NONE').trim().toUpperCase();\n// The sub-workflow owns the writer endpoint and the session id, so this context carries only\n// the facts a turn needs; the aspect and edit calls pass these fields through.\nconsole.log('improvement: over ' + base.source + ' at ' + audience +\n  ' (feedback: ' + (feedback.trim() ? 'yes' : 'no') + ')');\nreturn [{ json: {\n  ...row,\n  BASE_TEXT: base.text,\n  BASE_TITLE: base.title,\n  BASE_WORD_COUNT: count(base.text),\n  DRAFT_SOURCE: base.source,\n  SOURCES: sources,\n  SOURCES_TEXT: describe(sources),\n  FIDELITY: sources.trim() ? 'checked' : 'not run',\n  AUDIENCE: audience,\n  FINDINGS_SUMMARY: '',\n  FEEDBACK: feedback,\n  HAS_FEEDBACK: feedback.trim() !== '',\n  MAX_WORDS: Number(row.MAX_WORDS),\n  ASSET_TYPES: String(row.REQUESTED_ASSETS || ''),\n  IMPROVE_MAX_ATTEMPTS: 2,\n} }];"
@@ -4648,8 +4648,8 @@
         "typeVersion": 2,
         "alwaysOutputData": true,
         "position": [
-          5280,
-          -144
+          3808,
+          -352
         ],
         "parameters": {
           "jsCode": "// The reviewers advise; nothing here rejects. The adapter answers one entry per aspect,\n// each already tagged with its id and carrying its own error, so this node merges what\n// answered into the one block the improver reads and counts what did not.\n//\n// A whole-call failure is the same case as one aspect failing: no findings, the summary\n// names it, and the owner's feedback still drives the edit on its own.\nconst ctx = $('build_improvement_context').first().json;\nconst res = $json || {};\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nconst list = Array.isArray(body.findings) ? body.findings : [];\nconst blocks = [];\nconst summary = [];\n// A transport failure arrives as an error item (`onError: continueErrorOutput`): the\n// whole call failed, which is the same case as one aspect failing, not a gate.\nconst transport = res.error ? String((res.error && res.error.message) || res.error).trim() : '';\nif (transport) {\n  summary.push('aspects: unavailable (' + transport + ')');\n} else if (status >= 400 || !list.length) {\n  const message = String((body.error && body.error.message) || body.error || res.statusMessage || '').trim();\n  summary.push('aspects: unavailable' + (status >= 400\n    ? ' (HTTP ' + status + (message ? ': ' + message : '') + ')'\n    : ' (no findings returned)'));\n} else {\n  for (const finding of list) {\n    const aspect = String((finding && finding.aspect) || '').trim() || 'aspect';\n    const focus = String((finding && finding.focus) || '').trim();\n    const error = String((finding && finding.error) || '').trim();\n    const text = String((finding && finding.text) || '').trim();\n    if (error) {\n      summary.push(aspect + ': failed');\n      continue;\n    }\n    if (!text || /^none\\b/i.test(text)) {\n      summary.push(aspect + ': none');\n      continue;\n    }\n    const count = Number((finding && finding.count) || 0) || 1;\n    summary.push(aspect + ': ' + count);\n    blocks.push('### ' + aspect + (focus ? ' (' + focus + ')' : '') + '\\n' + text);\n  }\n}\nconst findings = blocks.join('\\n\\n');\nreturn [{ json: {\n  ...ctx,\n  FINDINGS: findings,\n  HAS_FINDINGS: findings.trim() !== '',\n  FINDINGS_SUMMARY: summary.join(', '),\n  HAS_ANY: findings.trim() !== '' || Boolean(ctx.HAS_FEEDBACK),\n} }];"
@@ -4661,8 +4661,8 @@
         "type": "n8n-nodes-base.if",
         "typeVersion": 2.2,
         "position": [
-          5504,
-          -144
+          4032,
+          -352
         ],
         "parameters": {
           "conditions": {
@@ -4696,8 +4696,8 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          6304,
-          -224
+          4704,
+          -336
         ],
         "parameters": {
           "jsCode": "// The objective half of the improvement, counted in code: the budget and the markers are\n// counts, and a count asked of a model is a count that gets invented. This is the twin of\n// `parse_article` in Article Creator, and a test runs both against one fixture.\n//\n// The writer answers the edited article in its response. A transport failure carries no\n// article at all and is reported as one problem, never mistaken for an empty draft.\nconst ctx = $('build_improvement_context').first().json;\nconst res = $json || {};\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nconst article = body.article && typeof body.article === 'object' ? body.article : {};\nconst content = String(((body.choices || [])[0] || {}).message?.content || '');\nconst parseArticle = (value) => {\n  const raw = String(value || '');\n  const block = /<article>([\\s\\S]*?)<\\/article>/.exec(raw);\n  const inner = (block ? block[1] : raw).trim();\n  const HEAD = /^#\\s+(.+?)\\s*$/;\n  let head = '';\n  const lines = [];\n  for (const line of inner.split('\\n')) {\n    if (!head && !lines.length && HEAD.test(line.trim())) {\n      head = line.trim().replace(HEAD, '$1');\n      continue;\n    }\n    lines.push(line);\n  }\n  return { title: head, text: lines.join('\\n').trim() };\n};\nconst answered = parseArticle(content);\nconst title = String(article.text ? article.title || '' : answered.title).trim();\nconst text = String(article.text || answered.text).trim();\nconst norm = (value) => String(value == null ? '' : value).replace(/\\s+/g, ' ').trim();\n// A round that returns the draft it was given is a failed round, whatever the model says about\n// it: on 2026-11-06 run 15874 the owner's feedback was applied to nothing and the same\n// 1184-word draft went back for review. The convergence node reports it instead of calling it\n// an improvement.\nconst unchanged = Boolean(text) && norm(text) === norm(ctx.BASE_TEXT)\n  && String(title || ctx.BASE_TITLE) === String(ctx.BASE_TITLE || '');\nconst max = Number(ctx.MAX_WORDS);\nif (!isFinite(max) || max <= 0) throw new Error('MAX_WORDS is required and must be a positive number');\n// A model cannot count words, so a draft a little over the budget is the budget met: 10%\n// covers a counting slip without letting the article run long (row 3, 2026-10-30, died at\n// 1248 words against 1200 with every other check passing). Integer arithmetic, because\n// 1200 * 1.1 is 1320.0000000000002 in a double and Math.ceil would add a word.\nconst limit = Math.ceil(max * 11 / 10);\nconst words = text.replace(/<!--[\\s\\S]*?-->/g, ' ').split(/\\s+/).filter(Boolean).length;\nconst requested = String(ctx.ASSET_TYPES || '').split(',').map((s) => s.trim()).filter(Boolean);\nconst markers = (text.match(/<!--\\s*asset:[a-zA-Z0-9_]+\\s*-->/g) || [])\n  .map((m) => m.replace('<!--', '').replace('-->', '').replace('asset:', '').trim());\nconst wrong = [\n  ...requested.filter((t) => markers.filter((m) => m === t).length !== 1)\n    .map((t) => t + ' x' + markers.filter((m) => m === t).length),\n  ...markers.filter((m) => !requested.includes(m)).map((m) => m + ' not requested'),\n];\n// The same ledger check as the drafting gate, against the row's stored ledger. A missing\n// SOURCES cell is a report, not a bypass: the edit is accepted and FIDELITY says the check did\n// not run. A stored ledger that no longer parses is the same case, because the draft it\n// belonged to already passed the gate.\nconst fenced = [];\n{\n  const re = /^[ \\t]*```([^\\n`]*)\\n([\\s\\S]*?)^[ \\t]*```[ \\t]*$/gm;\n  let m;\n  while ((m = re.exec(text)) !== null) {\n    const innerBlock = m[2].replace(/\\n$/, '');\n    if (innerBlock.trim()) fenced.push(innerBlock);\n  }\n}\nconst firstLine = (value) => String(value || '').split('\\n').map((l) => l.trim()).filter(Boolean)[0] || 'a fenced block';\nlet fidelity = 'not run';\nlet sourceProblem = '';\nlet added = 0;\nconst storedLedger = String(ctx.SOURCES || '').trim();\nif (storedLedger && text) {\n  try {\n    const data = JSON.parse(storedLedger);\n    const list = Array.isArray(data) ? data : data && Array.isArray(data.sources) ? data.sources : null;\n    if (!list) throw new Error('sources.json carries no sources array');\n    fidelity = 'checked';\n    const ledger = list.filter((e) => e && norm(e.block) !== '');\n    const unverified = [];\n    for (const fencedBlock of fenced) {\n      const key = norm(fencedBlock);\n      const head = firstLine(fencedBlock);\n      const entry = ledger.find((e) => norm(e.block) === key);\n      if (!entry) {\n        // The drafting gate has no exception: a first draft may not fence a line no source\n        // carries. A human feedback round is the one round that may, because the person asked\n        // for that command; it is counted here and the review message names it as unverified.\n        if (ctx.HAS_FEEDBACK) { added += 1; continue; }\n        unverified.push('UNQUOTED: \"' + head + '\" is not in sources.json');\n        continue;\n      }\n      const url = String(entry.url || '').trim() || 'its url';\n      if (entry.found !== true) {\n        unverified.push('SOURCE_NOT_FOUND: \"' + head + '\" was not found at ' + url);\n        continue;\n      }\n      const failure = String(entry.validation_error || '').trim();\n      if (failure) {\n        unverified.push('VALIDATION_FAILED: \"' + head + '\" (' + url + '): ' + failure);\n        continue;\n      }\n      if (norm(entry.excerpt) !== key) {\n        unverified.push('UNQUOTED: \"' + head + '\" no longer matches ' + url);\n      }\n    }\n    if (added) fidelity = 'feedback';\n    if (unverified.length) sourceProblem = unverified.join('; ');\n  } catch (e) {\n    fidelity = 'not run';\n  }\n}\nconst transport = res.error ? String((res.error && res.error.message) || res.error).trim() : '';\nconst message = String((body.error && body.error.message) || body.error || res.statusMessage || transport || '').trim();\nconst failed = status >= 400\n  ? 'IMPROVE_FAILED: HTTP ' + status + (message ? ': ' + message : '')\n  : transport ? 'IMPROVE_FAILED: ' + transport : '';\nlet problem = '';\nif (!text) problem = failed || 'EMPTY_DRAFT: the improver returned no article body';\nelse if (words > limit) problem = 'OVER_BUDGET: ' + words + ' words against a limit of ' + limit + ' (MAX_WORDS=' + max + ')';\nelse if (wrong.length) problem = 'MARKERS: ' + wrong.join(', ');\nelse if (sourceProblem) problem = sourceProblem;\nreturn [{ json: {\n  ...ctx,\n  IMPROVED_TITLE: title || ctx.BASE_TITLE,\n  IMPROVED_TEXT: text,\n  WORD_COUNT: words,\n  SOURCES: String(ctx.SOURCES || ''),\n  SOURCES_TEXT: String(ctx.SOURCES_TEXT || 'none'),\n  FIDELITY: fidelity,\n  UNVERIFIED: added,\n  UNCHANGED: unchanged,\n  PROBLEM: problem,\n} }];"
@@ -4709,8 +4709,8 @@
         "type": "n8n-nodes-base.switch",
         "typeVersion": 3.2,
         "position": [
-          6528,
-          -240
+          4928,
+          -288
         ],
         "parameters": {
           "rules": {
@@ -4773,7 +4773,7 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          6752,
+          5152,
           -352
         ],
         "parameters": {
@@ -4788,7 +4788,7 @@
         "typeVersion": 2,
         "position": [
           -224,
-          176
+          -48
         ],
         "parameters": {
           "httpMethod": "POST",
@@ -7376,7 +7376,7 @@
       "typeVersion": 1,
       "position": [
         -224,
-        368
+        144
       ],
       "parameters": {}
     },
@@ -7387,7 +7387,7 @@
       "typeVersion": 1.2,
       "position": [
         -224,
-        560
+        336
       ],
       "parameters": {
         "rule": {
@@ -7407,7 +7407,7 @@
       "typeVersion": 4.6,
       "position": [
         0,
-        368
+        192
       ],
       "parameters": {
         "documentId": {
@@ -7446,7 +7446,7 @@
       "typeVersion": 2,
       "position": [
         224,
-        368
+        192
       ],
       "parameters": {
         "jsCode": "// The one entry this run works on (D8), chosen from the sheet alone so the asset read below\n// can be filtered on it. The oldest stale claim first, then the lowest QUEUE row: an entry\n// already in flight has a draft or a review behind it, and finishing it before starting new\n// work is what keeps a stuck one from starving until the ceiling cancels it. Half-finished\n// work is never inferred from whichever field looks untouched - that is what\n// select_article_to_queue decides next, from the asset rows.\nconst rows = $input.all()\n  .map((i) => ({ ...i.json, row_number: Number(i.json.row_number || 0) }))\n  .filter((r) => r.row_number && String(r.ENTRY_ID || '').trim());\nconst status = (r) => String(r.STATUS || '').trim().toUpperCase();\nconst fresh = rows.filter((r) => status(r) === 'QUEUE').sort((a, b) => a.row_number - b.row_number);\n// A claimed row is skipped while it could still belong to a live run, and picked up once\n// it is stale: there is no way to ask n8n whether an execution is alive, so the row's own\n// UPDATE_DATE is the observable, and every phase writes it as it goes. Four hours is the\n// window: long enough for a run that is working, short enough that a dead one does not hold\n// the entry for a day. A live review older than it is indistinguishable from a dead run and\n// is resumed, which is the window's accepted cost.\nconst STALE_CLAIM_HOURS = 4;\nconst resumable = rows\n  .filter((r) => {\n    if (status(r) !== 'IN_PROGRESS' || String(r.ARTICLE_STATUS || '').trim().toUpperCase() === 'CANCELLED') return false;\n    const claimedAt = Date.parse(r.UPDATE_DATE || '');\n    return isFinite(claimedAt) && (Date.now() - claimedAt) / 3600000 >= STALE_CLAIM_HOURS;\n  })\n  .sort((a, b) => a.row_number - b.row_number);\nconst row = resumable[0] || fresh[0];\nif (!row) {\n  console.log('article_queue holds nothing actionable (' + rows.length + ' rows read)');\n  return [];\n}\nif (!String(row.TOPIC || '').trim() && !String(row.DESCRIPTION || '').trim()) {\n  throw new Error('article_queue row ' + row.row_number + ' has neither TOPIC nor DESCRIPTION');\n}\nreturn [{ json: { ...row, ARTICLE_ROUND: Number(row.ARTICLE_ROUND || 0), MAX_WORDS: Number(row.MAX_WORDS || 0) || 1200 } }];\n"
@@ -7459,7 +7459,7 @@
       "typeVersion": 1.2,
       "position": [
         448,
-        368
+        192
       ],
       "parameters": {
         "workflowId": {
@@ -7509,7 +7509,7 @@
       "typeVersion": 2,
       "position": [
         672,
-        368
+        192
       ],
       "parameters": {
         "jsCode": "// The row's categories, checked against the one list the blog has (datasets/blog_categories.json)\n// before anything is drafted or committed. A category the blog does not define is a failure\n// with a reason, not a post published under a new heading: the alternative is a taxonomy that\n// grows one row at a time and cannot be found again.\n//\n// The list is fetched, not copied into this node, and an unreadable file fails the run rather\n// than skipping the check -- a silent skip is how a validation becomes decoration.\nconst raw = $('download_blog_categories').first().json.output || '{}';\nlet known;\ntry {\n  known = JSON.parse(raw);\n} catch (e) {\n  throw new Error('datasets/blog_categories.json is not valid JSON: ' + e.message);\n}\nconst allowed = new Set((known.categories || []).map((c) => String(c).trim()));\nif (!allowed.size) throw new Error('datasets/blog_categories.json declares no category');\nconst row = $('pick_candidate').first().json;\nconst declared = String(row.CATEGORIES || '').split(',').map((c) => c.trim()).filter(Boolean);\nconst unknown = declared.filter((c) => !allowed.has(c));\nif (declared.length && unknown.length) {\n  throw new Error('row ' + row.row_number + ' names categories the blog does not define: ' + unknown.join(', ') + ' (known: ' + [...allowed].join(', ') + ')');\n}\nconst categories = declared.length ? declared : ['General'];\nreturn [{ json: { ...row, CATEGORIES: categories.join(', ') } }];\n"
@@ -7523,7 +7523,7 @@
       "alwaysOutputData": true,
       "position": [
         896,
-        368
+        192
       ],
       "parameters": {
         "operation": "get",
@@ -7549,7 +7549,7 @@
       "typeVersion": 2,
       "position": [
         1120,
-        368
+        192
       ],
       "parameters": {
         "jsCode": "// The next action for the entry, from the predicate in the design (D15). A run always\n// carries a hero, and the hero is animated: `svg_wide`, the 16:9 animated SVG. A row naming a\n// wide raster keeps it - a page lead image is a legitimate still - and a row naming no hero gets\n// the animated wide one. `REQUESTED_ASSETS` is that set, and it is the only copy of the rule:\n// the publish gate and the commit path read this field rather than deriving the hero rule again.\n// The phase is read off\n// the stored state in two places - the article's own review state on the sheet and the\n// per-asset rows here - so a resumed run reaches the same next action as an uninterrupted one\n// instead of guessing at whichever field looks unfinished.\nconst row = $('validate_categories').first().json;\n// Blank reads as NONE (today's reader), so existing rows need no backfill. A value outside\n// the vocabulary is refused: read as NONE it would publish advanced orientation to a general\n// reader and nothing would ever say so.\nconst AUDIENCE_LEVELS = ['NONE', 'LOW', 'MEDIUM', 'ADVANCED'];\nconst audienceCell = String(row.AUDIENCE || '').trim().toUpperCase();\nconst audience = audienceCell || 'NONE';\nif (!AUDIENCE_LEVELS.includes(audience)) {\n  throw new Error('AUDIENCE \"' + row.AUDIENCE + '\" is not one of ' + AUDIENCE_LEVELS.join(', '));\n}\nconst assets = $input.all().map((i) => i.json);\n// The blog is read in a text column, so this lane has no portrait frame: a row naming\n// `image` or `svg` - the LinkedIn 4:5 pair, and this lane's own default until 2026-10-30 - is\n// normalized to its wide twin. gh-80 was authored at 928x1152 for a post that never wanted it.\nconst WIDE = { image: 'image_wide', svg: 'svg_wide' };\nconst requested = (r) => {\n  const list = [...new Set(String(r.ASSET_TYPES || '').split(',').map((s) => s.trim())\n    .filter(Boolean).map((t) => WIDE[t] || t))];\n  const hasHero = list.includes('image_wide') || list.includes('svg_wide');\n  return hasHero ? list : ['svg_wide', ...list];\n};\nconst requestedAssets = requested(row);\nconst pending = requestedAssets.filter((type) => {\n  const hit = assets.find((a) => String(a.ASSET_TYPE || '') === type);\n  return !hit || String(hit.STATUS || '').toUpperCase() !== 'APPROVED';\n});\nconst article = String(row.ARTICLE_STATUS || '').trim().toUpperCase();\nconst phase = article === 'APPROVED' ? (pending.length ? 'assets' : 'publish') : 'draft';\nconsole.log('row ' + row.row_number + ' -> ' + phase + ' (pending: ' + (pending.join(',') || 'none') + ')');\nreturn [{ json: { ...row, PHASE: phase, AUDIENCE: audience, PENDING_ASSETS: pending.join(','),\n  REQUESTED_ASSETS: requestedAssets.join(',') } }];\n"
@@ -7562,7 +7562,7 @@
       "typeVersion": 4.6,
       "position": [
         1344,
-        368
+        192
       ],
       "parameters": {
         "operation": "update",
@@ -7829,7 +7829,7 @@
       "typeVersion": 3.2,
       "position": [
         1568,
-        352
+        176
       ],
       "parameters": {
         "rules": {
@@ -7912,7 +7912,7 @@
       "typeVersion": 2.2,
       "position": [
         1792,
-        48
+        -144
       ],
       "parameters": {
         "conditions": {
@@ -7947,7 +7947,7 @@
       "onError": "continueRegularOutput",
       "position": [
         2016,
-        -32
+        -224
       ],
       "parameters": {
         "url": "={{ $('select_article_to_queue').item.json.LINK }}",
@@ -7963,7 +7963,7 @@
       "typeVersion": 2,
       "position": [
         2240,
-        48
+        -144
       ],
       "parameters": {
         "jsCode": "// One item out of either branch, carrying the fetched text and whether it was used.\n//\n// The flag is set here and never read off the failing node's own output: a non-AI node with\n// continueRegularOutput forwards its input unchanged, so `$json.error` is absent and a branch\n// on it would take the success path. What is read is whether the download ran and what it\n// returned, which this node can see either way.\nconst row = $('select_article_to_queue').first().json;\nconst link = String(row.LINK || '').trim();\nlet content = '';\nif ($('download_content').isExecuted) {\n  const out = $('download_content').first().json || {};\n  content = String(typeof out.data === 'string' ? out.data : out.data || '').trim().slice(0, 60000);\n}\nconst used = content.length > 0;\nif (link && !used) console.log('link not used: ' + link);\nreturn [{ json: { ...row, LINK_USED: used, LINK_TEXT: content } }];\n"
@@ -7977,7 +7977,7 @@
       "onError": "continueErrorOutput",
       "position": [
         2464,
-        48
+        -144
       ],
       "parameters": {
         "workflowId": {
@@ -8168,7 +8168,7 @@
       "typeVersion": 2.2,
       "position": [
         2688,
-        -32
+        -224
       ],
       "parameters": {
         "conditions": {
@@ -8202,7 +8202,7 @@
       "typeVersion": 1,
       "position": [
         3584,
-        304
+        128
       ],
       "parameters": {
         "errorMessage": "={{ 'article draft failed for row ' + $('build_failure').first().json.row_number + ': ' + $('build_failure').first().json.REASON }}"
@@ -8214,7 +8214,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        6976,
+        5376,
         -352
       ],
       "parameters": {
@@ -8227,7 +8227,7 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
       "position": [
-        7200,
+        5600,
         -352
       ],
       "parameters": {
@@ -8330,7 +8330,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        7424,
+        5824,
         -352
       ],
       "parameters": {
@@ -8344,7 +8344,7 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        7648,
+        6048,
         -352
       ],
       "parameters": {
@@ -8368,7 +8368,7 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
       "position": [
-        7872,
+        6272,
         -352
       ],
       "parameters": {
@@ -8651,7 +8651,7 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        8096,
+        6496,
         -352
       ],
       "parameters": {
@@ -8686,7 +8686,7 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        8320,
+        6720,
         -352
       ],
       "parameters": {
@@ -8749,7 +8749,7 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
       "position": [
-        8544,
+        6944,
         -256
       ],
       "parameters": {
@@ -9017,7 +9017,7 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        8544,
+        6944,
         -448
       ],
       "parameters": {
@@ -9074,8 +9074,8 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        8768,
-        32
+        7168,
+        -272
       ],
       "parameters": {
         "rules": {
@@ -9135,8 +9135,8 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
       "position": [
-        8992,
-        32
+        7392,
+        -272
       ],
       "parameters": {
         "operation": "update",
@@ -9402,8 +9402,8 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
       "position": [
-        9216,
-        32
+        7616,
+        -272
       ],
       "parameters": {
         "operation": "update",
@@ -9531,8 +9531,8 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        9440,
-        32
+        7840,
+        -272
       ],
       "parameters": {
         "select": "channel",
@@ -9560,8 +9560,8 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
       "position": [
-        8768,
-        336
+        7168,
+        16
       ],
       "parameters": {
         "operation": "get",
@@ -9586,8 +9586,8 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
       "position": [
-        9216,
-        272
+        7616,
+        -48
       ],
       "parameters": {
         "workflowId": {
@@ -9693,8 +9693,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        9440,
-        272
+        7840,
+        -48
       ],
       "parameters": {
         "jsCode": "// One item per asset the studio answered with. The run STATUS is deliberately not what is\n// branched on: it is PARTIAL whenever any requested type is unavailable, so an unavailable\n// type would take the whole set with it. Each asset's own STATUS is the decision, and a type\n// the registry does not declare arrives here as an asset carrying its reason.\n//\n// Every response item is read, not the first: the studio answers with one item per asset\n// branch because its own merge runs once per branch, so a two-type request arrives as two\n// items carrying one asset each. Reading only the first of them is how the svg was\n// authored, rendered and then dropped -- the asset rows never saw it and the publish gate found it\n// MISSING (execution 13705, 2026-10-17).\nconst responses = $input.all().map((i) => i.json || {});\nconst resp = responses[0] || {};\nconst row = $('select_article_to_queue').first().json;\nconst assets = responses.flatMap((r) => (Array.isArray(r.ASSETS) ? r.ASSETS : []));\nif (!assets.length) throw new Error('the studio returned no asset at all (runs ' + responses.map((r) => r.RUN_ID || '?').join(',') + ', status ' + (resp.STATUS || '?') + ')');\nreturn assets.map((a) => ({\n  json: {\n    ...row,\n    ROUND: Number(row.ARTICLE_ROUND || 0) + 1,\n    RUN_ID: resp.RUN_ID || '',\n    SESSION_ID: resp.SESSION_ID || '',\n    ASSET_TYPE: a.ASSET_TYPE || '',\n    ASSET_STATUS: a.STATUS || '',\n    ERROR: a.ERROR || '',\n    CONTENT_TYPE: a.CONTENT_TYPE || '',\n    FORMAT: a.FORMAT || '',\n    S3_KEY: a.S3_KEY || '',\n    S3_BYTES: a.S3_BYTES || 0,\n    IMAGE: a.IMAGE || '',\n  },\n}));\n"
@@ -9706,8 +9706,8 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
       "position": [
-        9664,
-        272
+        8064,
+        -48
       ],
       "parameters": {
         "operation": "upsert",
@@ -9846,8 +9846,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        9888,
-        272
+        8288,
+        -48
       ],
       "parameters": {
         "conditions": {
@@ -9881,8 +9881,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        10112,
-        272
+        8512,
+        -48
       ],
       "parameters": {
         "conditions": {
@@ -9915,8 +9915,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        10784,
-        320
+        9184,
+        144
       ],
       "parameters": {
         "jsCode": "// The raster type carries its own bytes as a data URL, because they were made inside n8n and\n// no store can fetch them. This is the only asset byte an article run carries, and it is why\n// the hero previews in Slack without a bucket round trip.\nconst a = $('split_assets').first().json;\nconst url = String(a.IMAGE || '');\nconst comma = url.indexOf(',');\nif (comma < 0) throw new Error('asset ' + a.ASSET_TYPE + ' carries no usable data URL');\nconst meta = url.slice(0, comma);\nconst data = Buffer.from(url.slice(comma + 1), 'base64');\nconst mime = (meta.match(/data:([^;]+)/) || [])[1] || a.CONTENT_TYPE || 'application/octet-stream';\nconst ext = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' }[mime] || a.FORMAT || 'bin';\nreturn [{\n  json: { ...a, ASSET_MIME: mime, ASSET_EXT: ext, BYTES: data.length },\n  binary: { data: { mimeType: mime, fileName: a.ASSET_TYPE + '.' + ext, fileExtension: ext, data } },\n}];\n"
@@ -9928,8 +9928,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        10336,
-        80
+        8736,
+        -144
       ],
       "parameters": {
         "method": "POST",
@@ -9948,8 +9948,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        10560,
-        80
+        8960,
+        -144
       ],
       "parameters": {
         "jsCode": "// The signed URL the temp-bucket server answered with. The answer is split into key=value\n// pairs the way a caller reads it rather than matched as prose, and a failure (a line\n// beginning ERROR:) is raised here so the run reports it instead of uploading something else.\nconst resp = $input.first().json || {};\nconst content = resp.result && resp.result.content;\nconst text = content && content[0] && content[0].text;\nif (typeof text !== 'string') throw new Error('the temp-bucket server answered no text');\nif (text.indexOf('ERROR:') === 0) throw new Error(text.slice(0, 500));\nconst pairs = {};\nfor (const part of text.trim().split(/\\s+/)) {\n  const eq = part.indexOf('=');\n  if (eq > 0) pairs[part.slice(0, eq)] = part.slice(eq + 1);\n}\nif (!pairs.url) throw new Error('no signed url in: ' + text.slice(0, 300));\nconst a = $('split_assets').first().json;\nconst mime = pairs['content-type'] || a.CONTENT_TYPE || 'application/octet-stream';\nconst ext = (mime.split('/')[1] || a.FORMAT || 'bin').replace('jpeg', 'jpg');\nreturn [{ json: { ...a, SIGNED_URL: pairs.url, ASSET_MIME: mime, ASSET_EXT: ext, S3_BYTES: Number(pairs.bytes || a.S3_BYTES || 0) } }];\n"
@@ -9961,8 +9961,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        10784,
-        80
+        9184,
+        -144
       ],
       "parameters": {
         "url": "={{ $json.SIGNED_URL }}",
@@ -9983,8 +9983,8 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        11008,
-        272
+        9408,
+        -48
       ],
       "parameters": {
         "resource": "file",
@@ -10008,8 +10008,8 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        11232,
-        272
+        9632,
+        -48
       ],
       "parameters": {
         "operation": "sendAndWait",
@@ -10043,8 +10043,8 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        11456,
-        272
+        9856,
+        -48
       ],
       "parameters": {
         "rules": {
@@ -10106,8 +10106,8 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
       "position": [
-        11680,
-        272
+        10080,
+        48
       ],
       "parameters": {
         "operation": "update",
@@ -10241,8 +10241,8 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        11680,
-        80
+        10080,
+        -144
       ],
       "parameters": {
         "operation": "sendAndWait",
@@ -10298,8 +10298,8 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        11904,
-        240
+        10304,
+        -48
       ],
       "parameters": {
         "rules": {
@@ -10359,8 +10359,8 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
       "position": [
-        12128,
-        240
+        10528,
+        -48
       ],
       "parameters": {
         "operation": "update",
@@ -10492,8 +10492,8 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        12352,
-        240
+        10752,
+        -48
       ],
       "parameters": {
         "select": "channel",
@@ -10521,8 +10521,8 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
       "position": [
-        11904,
-        432
+        10304,
+        144
       ],
       "parameters": {
         "operation": "get",
@@ -10547,8 +10547,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        12128,
-        432
+        10528,
+        144
       ],
       "parameters": {
         "jsCode": "// Every requested type approved and none left in review: only then is there one commit.\n//\n// The check reads the stored rows rather than this run's history, so a resumed run that\n// approved two of three assets earlier still publishes once the third clears. A cancelled\n// asset keeps the article from committing, which is the deliberate direction: the run reports\n// instead of publishing a post that is missing a picture it asked for.\n// The set comes from the selector, which derived it once and runs on every path. A second\n// derivation here is how a gate ends up prepending a type the selector never asked for, which\n// blocks every run forever.\nconst effective = String($('select_article_to_queue').first().json.REQUESTED_ASSETS || '')\n  .split(',')\n  .map((s) => s.trim())\n  .filter(Boolean);\nconst rows = $('read_asset_rows').all().map((i) => i.json);\nconst statusOf = (type) => {\n  const row = rows.find((r) => String(r.ASSET_TYPE || '') === type);\n  return row ? String(row.STATUS || '').toUpperCase() : 'MISSING';\n};\nconst blocking = effective.filter((type) => !['APPROVED', 'COMMITTED'].includes(statusOf(type)));\n// The verdict is data and the branch on it is the next node: returning nothing here is how a\n// blocked publish ended the execution as `success`, with no commit and no notice at all\n// (execution 13705, 2026-10-17 -- the svg had never reached the asset rows).\nconst report = blocking.map((t) => t + '=' + statusOf(t)).join(', ');\nif (blocking.length) console.log('not committing: ' + report);\nreturn [{ json: {\n  ...$('select_article_to_queue').first().json,\n  ASSET_ROWS: effective.map((type) => rows.find((r) => String(r.ASSET_TYPE || '') === type)),\n  BLOCKED: blocking.length > 0,\n  BLOCKING: report || 'none',\n} }];\n"
@@ -10560,8 +10560,8 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
       "position": [
-        12576,
-        368
+        10976,
+        64
       ],
       "parameters": {
         "operation": "get",
@@ -10586,8 +10586,8 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
       "position": [
-        12800,
-        368
+        11200,
+        64
       ],
       "parameters": {
         "operation": "get",
@@ -10612,8 +10612,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        13024,
-        368
+        11424,
+        64
       ],
       "parameters": {
         "url": "https://api.github.com/repos/alvsanand/alvsanand/contents/docs/blog/posts?ref=main",
@@ -10645,8 +10645,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        13248,
-        368
+        11648,
+        64
       ],
       "parameters": {
         "jsCode": "// The frozen slug, unless the repository already carries a post with it. Nothing is\n// committed before this point, so a disambiguated slug is still the one that is frozen.\nconst row = $('read_draft_for_publish').first().json;\nconst slug = String(row.SLUG || '').trim();\nif (!slug) throw new Error('the draft row carries no slug; the draft was stored before this field existed');\nconst listing = $input.first().json;\nconst taken = new Set((Array.isArray(listing) ? listing : []).map((f) => String(f.name || '')));\nlet final = slug;\nlet n = 2;\nwhile (taken.has(final + '.md') && n < 50) final = slug + '-' + n++;\nif (final !== slug) console.log('slug ' + slug + ' is taken; using ' + final);\nreturn [{ json: { ...row, SLUG: final } }];\n"
@@ -10658,8 +10658,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        13472,
-        368
+        11872,
+        64
       ],
       "parameters": {
         "jsCode": "// One item per file to commit: the article, then each approved asset. Front matter is\n// composed here rather than asked of the model (D5), a marker is replaced in place, and a\n// requested type whose marker the draft omitted is placed after the opening section instead\n// of being dropped - one live draft in three answered image,svg with the image marker only.\n// Only the entry's requested types are committed: a row for anything else is a leftover\n// from an earlier request, and committing it adds an image no marker references.\nconst row = $('disambiguate_slug').first().json;\nconst draft = $('read_draft_for_publish').first().json;\nconst slug = row.SLUG;\nconst text = String(draft.ARTICLE_TEXT || '');\nconst title = String(draft.TITLE || '').trim();\nif (!text.trim()) throw new Error('the stored draft is empty; refusing to commit');\nif (!title.trim()) throw new Error('the stored draft has no title');\n\nconst categories = String($('select_article_to_queue').first().json.CATEGORIES || 'General')\n  .split(',').map((s) => s.trim()).filter(Boolean);\nconst now = new Date();\nconst iso = now.toISOString();\nconst day = iso.slice(0, 10);\nconst front = ['---', 'date: ' + day, 'authors: [alvsanand]', 'categories: [' + categories.join(', ') + ']', '---', ''].join('\\n');\n\nconst requestedTypes = String($('select_article_to_queue').first().json.REQUESTED_ASSETS || '')\n  .split(',').map((s) => s.trim()).filter(Boolean);\nconst rows = $('read_asset_rows_for_publish').all().map((i) => i.json);\nconst stale = rows.map((a) => String(a.ASSET_TYPE || '')).filter((type) => !requestedTypes.includes(type));\nif (stale.length) console.log('not committing, not requested by this entry: ' + stale.join(', '));\n// The extension comes from the content type, which is what the asset row carries. Splitting on\n// the slash alone turns `image/svg+xml` into `svg+xml`, which is not an extension: the hero SVG\n// committed at `docs/img/<slug>-svg_wide.svg+xml` and the article referenced that path.\nconst EXT = { 'image/svg+xml': 'svg', 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp',\n  'image/gif': 'gif', 'video/mp4': 'mp4', 'text/html': 'html' };\nconst extOf = (a) => EXT[String(a.CONTENT_TYPE || '').toLowerCase()]\n  || (String(a.CONTENT_TYPE || '').split('/')[1] || 'png').replace('jpeg', 'jpg');\nconst assets = rows.filter((a) => requestedTypes.includes(String(a.ASSET_TYPE || ''))).map((a) => ({\n  type: String(a.ASSET_TYPE || ''),\n  ext: extOf(a),\n  alt: (title + ' - ' + String(a.ASSET_TYPE || '').replace(/_/g, ' ')).slice(0, 120),\n}));\n// The file lands under the docs source directory, but the site serves it from the root: every\n// hand-written post references /img/..., so a reference to /docs/img/... is a 404. The committed\n// path and the published reference are therefore two different strings.\nconst pathOf = (a) => 'docs/img/' + slug + '-' + a.type + '.' + a.ext;\nconst sitePathOf = (a) => '/img/' + slug + '-' + a.type + '.' + a.ext;\n\nlet body = text.replace(/^#\\s+.*\\n?/, '').trim();\nconst missing = [];\nfor (const a of assets) {\n  const marker = new RegExp('<!--\\\\s*asset:' + a.type + '\\\\s*-->', 'g');\n  const reference = '![' + a.alt + '](' + sitePathOf(a) + '){ width=\"80%\" }';\n  if (marker.test(body)) body = body.replace(marker, reference);\n  else missing.push(a.type);\n}\nif (missing.length) {\n  const lines = body.split('\\n');\n  const heading = lines.findIndex((l, i) => i > 0 && l.startsWith('## '));\n  const at = heading === -1 ? lines.length : heading;\n  lines.splice(at, 0, '', ...missing.map((type) => {\n    const a = assets.find((x) => x.type === type);\n    return '![' + a.alt + '](' + sitePathOf(a) + '){ width=\"80%\" }';\n  }), '');\n  body = lines.join('\\n');\n  console.log('placed without a marker: ' + missing.join(', '));\n}\n\n// The site is served at `www.`, and the blog plugin's slug is the *title* slugified - \"isn't\"\n// loses its apostrophe rather than gaining a hyphen - so the entry's SLUG is not the URL. Read\n// off the published post, 2026-10-18.\nconst slugOf = (s) => String(s).toLowerCase().replace(/['\\u2019]/g, '')\n  .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');\nconst urlSlug = slugOf(title);\n\nconst files = [{\n  PATH: 'docs/blog/posts/' + day.slice(0, 4) + day.slice(5, 7) + '-' + slug + '.md',\n  TEXT: front + '# ' + title + '\\n\\n' + body + '\\n',\n  BINARY: false,\n}];\nfor (const a of assets) files.push({ PATH: pathOf(a), ASSET_TYPE: a.type, BINARY: true });\n\nreturn files.map((f) => ({\n  json: {\n    ...$('select_article_to_queue').first().json,\n    SLUG: slug,\n    DRAFT_TITLE: title,\n    PUBLISHED_URL: 'https://www.alvsanand.com/blog/' + day.slice(0, 4) + '/' + day.slice(5, 7) + '/' + day.slice(8, 10) + '/' + urlSlug + '/',\n    FILE_PATH: f.PATH,\n    FILE_TEXT: f.TEXT || '',\n    FILE_IS_BINARY: f.BINARY,\n    ASSET_TYPE: f.ASSET_TYPE || '',\n    COMMIT_MESSAGE: 'docs(blog): ' + title,\n  },\n}));\n"
@@ -10671,8 +10671,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        13696,
-        368
+        12096,
+        64
       ],
       "parameters": {
         "jsCode": "// What each approved asset's bytes are, and where they have to come from.\n//\n// A raster hero has no durable handle of its own - the studio made its bytes inside n8n and\n// keeps no copy - so the review stored them on its asset row, which is the same shape\n// TemporalFiles uses for the same reason. An agent-authored asset does have one: its S3 key,\n// which the utils server signs a URL for on demand. A resumed commit run therefore still has\n// every byte it needs, which is what makes the persistence in section 4 worth anything.\nconst rows = $('read_asset_rows_for_publish').all().map((i) => i.json);\nconst rowOf = (type) => rows.find((r) => String(r.ASSET_TYPE || '') === type) || {};\nconst files = $('build_commit_files').all().map((i) => i.json).filter((j) => j.FILE_IS_BINARY);\nreturn files.map((j) => {\n  const row = rowOf(j.ASSET_TYPE);\n  const local = String(row.DATA_BASE64 || '');\n  if (local) {\n    return { json: { ...j, FILE_BASE64: local, FILE_BYTES: Buffer.from(local, 'base64').length, NEEDS_FETCH: false } };\n  }\n  if (!row.S3_KEY) throw new Error('asset ' + j.ASSET_TYPE + ' has neither stored bytes nor an object key');\n  return { json: { ...j, FILE_BASE64: '', NEEDS_FETCH: true, S3_KEY: row.S3_KEY } };\n});\n"
@@ -10684,8 +10684,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        13920,
-        368
+        12320,
+        64
       ],
       "parameters": {
         "conditions": {
@@ -10719,8 +10719,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        14144,
-        304
+        12544,
+        64
       ],
       "parameters": {
         "method": "POST",
@@ -10739,8 +10739,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        14368,
-        304
+        12768,
+        64
       ],
       "parameters": {
         "jsCode": "// The signed URL for this asset, read the same way the review path reads it.\nconst resp = $input.first().json || {};\nconst content = resp.result && resp.result.content;\nconst text = content && content[0] && content[0].text;\nif (typeof text !== 'string') throw new Error('the temp-bucket server answered no text');\nif (text.indexOf('ERROR:') === 0) throw new Error(text.slice(0, 500));\nconst pairs = {};\nfor (const part of text.trim().split(/\\s+/)) {\n  const eq = part.indexOf('=');\n  if (eq > 0) pairs[part.slice(0, eq)] = part.slice(eq + 1);\n}\nif (!pairs.url) throw new Error('no signed url in: ' + text.slice(0, 300));\nreturn [{ json: { ...$('plan_asset_uploads').first().json, SIGNED_URL: pairs.url, SIGNED_BYTES: Number(pairs.bytes || 0) } }];\n"
@@ -10752,8 +10752,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        14592,
-        304
+        12992,
+        64
       ],
       "parameters": {
         "url": "={{ $json.SIGNED_URL }}",
@@ -10773,8 +10773,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        14816,
-        304
+        13216,
+        64
       ],
       "parameters": {
         "jsCode": "// The fetched bytes, as base64 for the blob API, carrying the same fields the local branch\n// already had so the two paths converge on one shape. In queue mode the payload lives in the\n// binary store and binary.data.data is the literal \"database\", so the bytes are read through\n// the helper rather than the item field.\nconst j = $('plan_asset_uploads').all().find((i) => i.json.S3_KEY === $('asset_publish_url').first().json.S3_KEY).json;\nconst bin = ($input.first().binary || {}).data;\nif (!bin) throw new Error('the signed url served no bytes for ' + j.ASSET_TYPE);\nconst buf = await helpers.getBinaryDataBuffer(0, 'data');\nif (!buf.length) throw new Error('the signed url served no bytes for ' + j.ASSET_TYPE);\nreturn [{ json: { ...j, FILE_BASE64: buf.toString('base64'), FILE_BYTES: buf.length, NEEDS_FETCH: false } }];\n"
@@ -10786,8 +10786,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        15040,
-        368
+        13440,
+        64
       ],
       "parameters": {
         "method": "POST",
@@ -10823,8 +10823,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        15264,
-        368
+        13664,
+        64
       ],
       "parameters": {
         "jsCode": "// The tree the commit carries: every text file inline (the Trees API takes utf-8 content)\n// and every asset as the blob sha it just got. The sha-to-path pairing is asserted against the\n// byte length each blob reports, so a mis-order fails loudly rather than committing a picture\n// under the article's name.\nconst files = $('build_commit_files').all().map((i) => i.json);\nconst blobs = files.filter((f) => f.FILE_IS_BINARY);\nconst answers = $('create_blobs').all().map((i) => i.json);\nif (answers.length !== blobs.length) {\n  throw new Error('GitHub answered ' + answers.length + ' blobs for ' + blobs.length + ' assets');\n}\nconst expected = $('plan_asset_uploads').all().map((i) => i.json.FILE_BYTES);\nconst entries = files.map((f) => ({ path: f.FILE_PATH, mode: '100644', type: 'blob' }));\nblobs.forEach((f, i) => {\n  const answer = answers[i] || {};\n  if (!answer.sha) throw new Error('GitHub answered no sha for ' + f.FILE_PATH);\n  if (Number(answer.size) && Number(answer.size) !== Number(expected[i])) {\n    throw new Error('blob ' + i + ' is ' + answer.size + ' bytes against an expected ' + expected[i] + '; refusing to guess which file it is');\n  }\n  const at = entries.findIndex((e) => e.path === f.FILE_PATH);\n  entries[at].sha = answer.sha;\n});\nfiles.filter((f) => !f.FILE_IS_BINARY).forEach((f) => {\n  const at = entries.findIndex((e) => e.path === f.FILE_PATH);\n  entries[at].content = f.FILE_TEXT;\n});\nreturn [{ json: { ...$('build_commit_files').first().json, TREE_ENTRIES: entries, FILE_COUNT: files.length } }];\n"
@@ -10836,8 +10836,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        15488,
-        368
+        13888,
+        64
       ],
       "parameters": {
         "url": "https://api.github.com/repos/alvsanand/alvsanand/git/ref/heads/main",
@@ -10869,8 +10869,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        15712,
-        368
+        14112,
+        64
       ],
       "parameters": {
         "method": "POST",
@@ -10906,8 +10906,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        15936,
-        368
+        14336,
+        64
       ],
       "parameters": {
         "method": "POST",
@@ -10944,8 +10944,8 @@
       "typeVersion": 4.4,
       "onError": "continueErrorOutput",
       "position": [
-        16160,
-        368
+        14560,
+        64
       ],
       "parameters": {
         "method": "PATCH",
@@ -10981,8 +10981,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        16384,
-        448
+        14784,
+        208
       ],
       "parameters": {
         "url": "https://api.github.com/repos/alvsanand/alvsanand/git/ref/heads/main",
@@ -11014,8 +11014,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        16608,
-        448
+        15008,
+        208
       ],
       "parameters": {
         "method": "POST",
@@ -11051,8 +11051,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        16832,
-        448
+        15232,
+        208
       ],
       "parameters": {
         "method": "POST",
@@ -11088,8 +11088,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        17056,
-        448
+        15456,
+        208
       ],
       "parameters": {
         "method": "PATCH",
@@ -11125,8 +11125,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        17280,
-        448
+        15680,
+        208
       ],
       "parameters": {
         "jsCode": "// The retry is only worth anything if the second PATCH also failed: a first failure means the\n// branch moved, and the tree and commit above were rebuilt on the branch's new head. A second\n// failure is reported rather than looped, which is what the spec asks for.\nconst resp = $input.first().json || {};\nif (resp.error || resp.message) {\n  throw new Error('the commit could not be fast-forwarded twice: ' + String(resp.message || resp.error).slice(0, 300));\n}\nreturn [{ json: { ...$('collect_tree_entries').first().json, COMMIT_SHA: resp.sha || ($('create_commit_again').isExecuted ? $('create_commit_again').item.json.sha : $('create_commit').item.json.sha) } }];\n"
@@ -11138,8 +11138,8 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
       "position": [
-        17504,
-        368
+        15904,
+        64
       ],
       "parameters": {
         "operation": "update",
@@ -11408,8 +11408,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        17728,
-        368
+        16128,
+        64
       ],
       "parameters": {
         "jsCode": "// One item per committed asset, so its row records where it landed. The paths come from the\n// commit's own file list rather than from a second derivation.\nreturn $('build_commit_files').all()\n  .map((i) => i.json)\n  .filter((j) => j.FILE_IS_BINARY)\n  .map((j) => ({ json: { ENTRY_ID: j.ENTRY_ID, ASSET_TYPE: j.ASSET_TYPE, PATH: j.FILE_PATH } }));\n"
@@ -11421,8 +11421,8 @@
       "type": "n8n-nodes-base.dataTable",
       "typeVersion": 1.1,
       "position": [
-        17952,
-        368
+        16352,
+        64
       ],
       "parameters": {
         "operation": "update",
@@ -11555,8 +11555,8 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        18176,
-        368
+        16576,
+        64
       ],
       "parameters": {
         "select": "channel",
@@ -11584,8 +11584,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        12352,
-        432
+        10752,
+        144
       ],
       "parameters": {
         "conditions": {
@@ -11620,8 +11620,8 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        12576,
-        592
+        10976,
+        416
       ],
       "parameters": {
         "select": "channel",
@@ -11649,8 +11649,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        8992,
-        336
+        7392,
+        16
       ],
       "parameters": {
         "jsCode": "// One studio call per pending type. The studio answers with one asset per response item and\n// a sub-workflow's response is its last node's LAST run, so a two-type request reaches the\n// caller as a single asset -- the other branch's item is dropped inside n8n. Measured\n// 2026-10-17: the studio authored and rendered both (execution 13722, `svg_wide` stored at\n// `visual-studio/13722-svg_wide.svg`) and the caller received one asset (execution 13720),\n// so the publish gate reported `svg_wide=MISSING`. One call per type keeps every asset:\n// each call has one branch, one response item, and one asset in it.\nconst row = $('select_article_to_queue').first().json;\nconst draft = $('read_draft_for_assets').first().json;\nconst pending = String(row.PENDING_ASSETS || row.ASSET_TYPES || 'svg_wide')\n  .split(',').map((s) => s.trim()).filter(Boolean);\nif (!pending.length) throw new Error('no asset type is pending for row ' + row.row_number);\nreturn pending.map((type) => ({ json: {\n  ...row,\n  ...draft,\n  ASSET_TYPE: type,\n  ROUND: Number(row.ARTICLE_ROUND || 0) + 1,\n} }));\n"
@@ -11663,7 +11663,7 @@
       "typeVersion": 2,
       "position": [
         2912,
-        304
+        128
       ],
       "parameters": {
         "jsCode": "// The failure path's reporter, for both ways a run can fail here: the creator *returning* a\n// reason as data (`ERROR`, read by `check_draft_error`) and the creator *throwing* (`onError:\n// continueErrorOutput`, which n8n hands over with `json.error` set). The row comes from the\n// selector either way, because the creator's own answer carries no row fields.\nconst row = $('select_article_to_queue').first().json;\n// `error` is the object n8n documents on some paths and the bare message string on others:\n// execution 15434 (2026-10-30) was handed a string by the executeWorkflow node, so reading only\n// `.message` reported \"no reason returned\" for a failure whose reason was in hand.\nconst err = $json.error;\nconst thrown = typeof err === 'string' ? err.trim() : (err && (err.message || err.description));\nreturn [{ json: {\n  row_number: row.row_number,\n  TOPIC: row.TOPIC || '',\n  REASON: String($json.ERROR || thrown || 'no reason returned'),\n} }];"
@@ -11676,7 +11676,7 @@
       "typeVersion": 4.6,
       "position": [
         3136,
-        304
+        128
       ],
       "parameters": {
         "operation": "update",
@@ -11944,7 +11944,7 @@
       "typeVersion": 2.3,
       "position": [
         3360,
-        304
+        128
       ],
       "parameters": {
         "select": "channel",
@@ -11974,7 +11974,7 @@
       "alwaysOutputData": true,
       "position": [
         2912,
-        -80
+        -272
       ],
       "parameters": {
         "operation": "get",
@@ -11999,8 +11999,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        4256,
-        -80
+        3136,
+        -272
       ],
       "parameters": {
         "jsCode": "// One item always: the review and edit turns start from this context, and a fan-out from a\n// possibly empty input never runs the rest of the chain.\n//\n// The draft of record is resolved here once, because the retry edge re-enters this node and\n// nothing below may read `execute_article_creator` on a run where it did not execute:\n//   1. `select_final_draft`'s own earlier run - a human retry in this execution improves the\n//      draft the human read, not the first draft it came from;\n//   2. `execute_article_creator`'s answer - the first pass of this execution;\n//   3. the `article_drafts` row - a review resumed in a later execution.\nconst row = $('select_article_to_queue').first().json;\nconst stored = $('read_draft_for_improvement').first().json || {};\nconst count = (text) => String(text || '')\n  .replace(/<!--[\\s\\S]*?-->/g, ' ')\n  .split(/\\s+/)\n  .filter(Boolean).length;\nconst resolveDraft = () => {\n  if ($('select_final_draft').isExecuted) {\n    const j = $('select_final_draft').last().json;\n    return { text: String(j.text || ''), title: String(j.title || ''), source: 'the draft this run reviewed' };\n  }\n  if ($('execute_article_creator').isExecuted) {\n    const j = $('execute_article_creator').last().json;\n    return { text: String(j.text || ''), title: String(j.title || ''), source: 'the draft this run received' };\n  }\n  const text = String(stored.ARTICLE_TEXT || '');\n  if (!text) throw new Error('no draft to improve: the creator did not run and article_drafts carries no row for ' + String(row.ENTRY_ID || 'this entry'));\n  return { text, title: String(stored.TITLE || ''), source: 'the stored draft' };\n};\nconst base = resolveDraft();\nif (!base.text.trim()) throw new Error('no draft to improve: the resolved draft is empty');\n\n// The ledger travels with the draft for the same reason and in the same order: a resumed\n// review runs in a later execution, and an edit that fences a line the server never verified\n// must fail here. A missing cell is a report, not a bypass: the improved draft is accepted and\n// the note says the fidelity check did not run.\nconst firstLine = (value) => String(value || '').split('\\n').map((l) => l.trim()).filter(Boolean)[0] || 'a fenced block';\nconst describe = (text) => {\n  try {\n    const data = JSON.parse(String(text || ''));\n    const list = Array.isArray(data) ? data : data && Array.isArray(data.sources) ? data.sources : null;\n    if (!list) return 'none';\n    const lines = list.filter((e) => e && String(e.block || '').trim())\n      .map((e) => '- ' + firstLine(e.block) + ' (' + (String(e.url || '').trim() || 'no url') + ')');\n    return lines.join('\\n') || 'none';\n  } catch (e) {\n    return 'none';\n  }\n};\nconst resolveSources = () => {\n  const pick = (value) => String(value || '').trim();\n  if ($('select_final_draft').isExecuted) {\n    const ledger = pick($('select_final_draft').last().json.SOURCES);\n    if (ledger) return ledger;\n  }\n  if ($('execute_article_creator').isExecuted) {\n    const ledger = pick($('execute_article_creator').last().json.SOURCES);\n    if (ledger) return ledger;\n  }\n  return String(row.SOURCES || '');\n};\nconst sources = resolveSources();\n\nlet feedback = String(row.ARTICLE_FEEDBACK || '');\nconst retry = $('notification_retry_or_cancel');\nif (retry.isExecuted) feedback = String((retry.last().json || {}).data?.Feedback || feedback);\n\nconst audience = String(row.AUDIENCE || 'NONE').trim().toUpperCase();\n// The sub-workflow owns the writer endpoint and the session id, so this context carries only\n// the facts a turn needs; the aspect and edit calls pass these fields through.\nconsole.log('improvement: over ' + base.source + ' at ' + audience +\n  ' (feedback: ' + (feedback.trim() ? 'yes' : 'no') + ')');\nreturn [{ json: {\n  ...row,\n  BASE_TEXT: base.text,\n  BASE_TITLE: base.title,\n  BASE_WORD_COUNT: count(base.text),\n  DRAFT_SOURCE: base.source,\n  SOURCES: sources,\n  SOURCES_TEXT: describe(sources),\n  FIDELITY: sources.trim() ? 'checked' : 'not run',\n  AUDIENCE: audience,\n  FINDINGS_SUMMARY: '',\n  FEEDBACK: feedback,\n  HAS_FEEDBACK: feedback.trim() !== '',\n  MAX_WORDS: Number(row.MAX_WORDS),\n  ASSET_TYPES: String(row.REQUESTED_ASSETS || ''),\n  IMPROVE_MAX_ATTEMPTS: 2,\n} }];"
@@ -12013,8 +12013,8 @@
       "typeVersion": 2,
       "alwaysOutputData": true,
       "position": [
-        5280,
-        -144
+        3808,
+        -352
       ],
       "parameters": {
         "jsCode": "// The reviewers advise; nothing here rejects. The adapter answers one entry per aspect,\n// each already tagged with its id and carrying its own error, so this node merges what\n// answered into the one block the improver reads and counts what did not.\n//\n// A whole-call failure is the same case as one aspect failing: no findings, the summary\n// names it, and the owner's feedback still drives the edit on its own.\nconst ctx = $('build_improvement_context').first().json;\nconst res = $json || {};\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nconst list = Array.isArray(body.findings) ? body.findings : [];\nconst blocks = [];\nconst summary = [];\n// A transport failure arrives as an error item (`onError: continueErrorOutput`): the\n// whole call failed, which is the same case as one aspect failing, not a gate.\nconst transport = res.error ? String((res.error && res.error.message) || res.error).trim() : '';\nif (transport) {\n  summary.push('aspects: unavailable (' + transport + ')');\n} else if (status >= 400 || !list.length) {\n  const message = String((body.error && body.error.message) || body.error || res.statusMessage || '').trim();\n  summary.push('aspects: unavailable' + (status >= 400\n    ? ' (HTTP ' + status + (message ? ': ' + message : '') + ')'\n    : ' (no findings returned)'));\n} else {\n  for (const finding of list) {\n    const aspect = String((finding && finding.aspect) || '').trim() || 'aspect';\n    const focus = String((finding && finding.focus) || '').trim();\n    const error = String((finding && finding.error) || '').trim();\n    const text = String((finding && finding.text) || '').trim();\n    if (error) {\n      summary.push(aspect + ': failed');\n      continue;\n    }\n    if (!text || /^none\\b/i.test(text)) {\n      summary.push(aspect + ': none');\n      continue;\n    }\n    const count = Number((finding && finding.count) || 0) || 1;\n    summary.push(aspect + ': ' + count);\n    blocks.push('### ' + aspect + (focus ? ' (' + focus + ')' : '') + '\\n' + text);\n  }\n}\nconst findings = blocks.join('\\n\\n');\nreturn [{ json: {\n  ...ctx,\n  FINDINGS: findings,\n  HAS_FINDINGS: findings.trim() !== '',\n  FINDINGS_SUMMARY: summary.join(', '),\n  HAS_ANY: findings.trim() !== '' || Boolean(ctx.HAS_FEEDBACK),\n} }];"
@@ -12026,8 +12026,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        5504,
-        -144
+        4032,
+        -352
       ],
       "parameters": {
         "conditions": {
@@ -12061,8 +12061,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        6304,
-        -224
+        4704,
+        -336
       ],
       "parameters": {
         "jsCode": "// The objective half of the improvement, counted in code: the budget and the markers are\n// counts, and a count asked of a model is a count that gets invented. This is the twin of\n// `parse_article` in Article Creator, and a test runs both against one fixture.\n//\n// The writer answers the edited article in its response. A transport failure carries no\n// article at all and is reported as one problem, never mistaken for an empty draft.\nconst ctx = $('build_improvement_context').first().json;\nconst res = $json || {};\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nconst article = body.article && typeof body.article === 'object' ? body.article : {};\nconst content = String(((body.choices || [])[0] || {}).message?.content || '');\nconst parseArticle = (value) => {\n  const raw = String(value || '');\n  const block = /<article>([\\s\\S]*?)<\\/article>/.exec(raw);\n  const inner = (block ? block[1] : raw).trim();\n  const HEAD = /^#\\s+(.+?)\\s*$/;\n  let head = '';\n  const lines = [];\n  for (const line of inner.split('\\n')) {\n    if (!head && !lines.length && HEAD.test(line.trim())) {\n      head = line.trim().replace(HEAD, '$1');\n      continue;\n    }\n    lines.push(line);\n  }\n  return { title: head, text: lines.join('\\n').trim() };\n};\nconst answered = parseArticle(content);\nconst title = String(article.text ? article.title || '' : answered.title).trim();\nconst text = String(article.text || answered.text).trim();\nconst norm = (value) => String(value == null ? '' : value).replace(/\\s+/g, ' ').trim();\n// A round that returns the draft it was given is a failed round, whatever the model says about\n// it: on 2026-11-06 run 15874 the owner's feedback was applied to nothing and the same\n// 1184-word draft went back for review. The convergence node reports it instead of calling it\n// an improvement.\nconst unchanged = Boolean(text) && norm(text) === norm(ctx.BASE_TEXT)\n  && String(title || ctx.BASE_TITLE) === String(ctx.BASE_TITLE || '');\nconst max = Number(ctx.MAX_WORDS);\nif (!isFinite(max) || max <= 0) throw new Error('MAX_WORDS is required and must be a positive number');\n// A model cannot count words, so a draft a little over the budget is the budget met: 10%\n// covers a counting slip without letting the article run long (row 3, 2026-10-30, died at\n// 1248 words against 1200 with every other check passing). Integer arithmetic, because\n// 1200 * 1.1 is 1320.0000000000002 in a double and Math.ceil would add a word.\nconst limit = Math.ceil(max * 11 / 10);\nconst words = text.replace(/<!--[\\s\\S]*?-->/g, ' ').split(/\\s+/).filter(Boolean).length;\nconst requested = String(ctx.ASSET_TYPES || '').split(',').map((s) => s.trim()).filter(Boolean);\nconst markers = (text.match(/<!--\\s*asset:[a-zA-Z0-9_]+\\s*-->/g) || [])\n  .map((m) => m.replace('<!--', '').replace('-->', '').replace('asset:', '').trim());\nconst wrong = [\n  ...requested.filter((t) => markers.filter((m) => m === t).length !== 1)\n    .map((t) => t + ' x' + markers.filter((m) => m === t).length),\n  ...markers.filter((m) => !requested.includes(m)).map((m) => m + ' not requested'),\n];\n// The same ledger check as the drafting gate, against the row's stored ledger. A missing\n// SOURCES cell is a report, not a bypass: the edit is accepted and FIDELITY says the check did\n// not run. A stored ledger that no longer parses is the same case, because the draft it\n// belonged to already passed the gate.\nconst fenced = [];\n{\n  const re = /^[ \\t]*```([^\\n`]*)\\n([\\s\\S]*?)^[ \\t]*```[ \\t]*$/gm;\n  let m;\n  while ((m = re.exec(text)) !== null) {\n    const innerBlock = m[2].replace(/\\n$/, '');\n    if (innerBlock.trim()) fenced.push(innerBlock);\n  }\n}\nconst firstLine = (value) => String(value || '').split('\\n').map((l) => l.trim()).filter(Boolean)[0] || 'a fenced block';\nlet fidelity = 'not run';\nlet sourceProblem = '';\nlet added = 0;\nconst storedLedger = String(ctx.SOURCES || '').trim();\nif (storedLedger && text) {\n  try {\n    const data = JSON.parse(storedLedger);\n    const list = Array.isArray(data) ? data : data && Array.isArray(data.sources) ? data.sources : null;\n    if (!list) throw new Error('sources.json carries no sources array');\n    fidelity = 'checked';\n    const ledger = list.filter((e) => e && norm(e.block) !== '');\n    const unverified = [];\n    for (const fencedBlock of fenced) {\n      const key = norm(fencedBlock);\n      const head = firstLine(fencedBlock);\n      const entry = ledger.find((e) => norm(e.block) === key);\n      if (!entry) {\n        // The drafting gate has no exception: a first draft may not fence a line no source\n        // carries. A human feedback round is the one round that may, because the person asked\n        // for that command; it is counted here and the review message names it as unverified.\n        if (ctx.HAS_FEEDBACK) { added += 1; continue; }\n        unverified.push('UNQUOTED: \"' + head + '\" is not in sources.json');\n        continue;\n      }\n      const url = String(entry.url || '').trim() || 'its url';\n      if (entry.found !== true) {\n        unverified.push('SOURCE_NOT_FOUND: \"' + head + '\" was not found at ' + url);\n        continue;\n      }\n      const failure = String(entry.validation_error || '').trim();\n      if (failure) {\n        unverified.push('VALIDATION_FAILED: \"' + head + '\" (' + url + '): ' + failure);\n        continue;\n      }\n      if (norm(entry.excerpt) !== key) {\n        unverified.push('UNQUOTED: \"' + head + '\" no longer matches ' + url);\n      }\n    }\n    if (added) fidelity = 'feedback';\n    if (unverified.length) sourceProblem = unverified.join('; ');\n  } catch (e) {\n    fidelity = 'not run';\n  }\n}\nconst transport = res.error ? String((res.error && res.error.message) || res.error).trim() : '';\nconst message = String((body.error && body.error.message) || body.error || res.statusMessage || transport || '').trim();\nconst failed = status >= 400\n  ? 'IMPROVE_FAILED: HTTP ' + status + (message ? ': ' + message : '')\n  : transport ? 'IMPROVE_FAILED: ' + transport : '';\nlet problem = '';\nif (!text) problem = failed || 'EMPTY_DRAFT: the improver returned no article body';\nelse if (words > limit) problem = 'OVER_BUDGET: ' + words + ' words against a limit of ' + limit + ' (MAX_WORDS=' + max + ')';\nelse if (wrong.length) problem = 'MARKERS: ' + wrong.join(', ');\nelse if (sourceProblem) problem = sourceProblem;\nreturn [{ json: {\n  ...ctx,\n  IMPROVED_TITLE: title || ctx.BASE_TITLE,\n  IMPROVED_TEXT: text,\n  WORD_COUNT: words,\n  SOURCES: String(ctx.SOURCES || ''),\n  SOURCES_TEXT: String(ctx.SOURCES_TEXT || 'none'),\n  FIDELITY: fidelity,\n  UNVERIFIED: added,\n  UNCHANGED: unchanged,\n  PROBLEM: problem,\n} }];"
@@ -12074,8 +12074,8 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        6528,
-        -240
+        4928,
+        -288
       ],
       "parameters": {
         "rules": {
@@ -12138,7 +12138,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        6752,
+        5152,
         -352
       ],
       "parameters": {
@@ -12153,7 +12153,7 @@
       "typeVersion": 2,
       "position": [
         -224,
-        176
+        -48
       ],
       "parameters": {
         "httpMethod": "POST",

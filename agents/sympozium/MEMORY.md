@@ -2294,17 +2294,20 @@ reader means anyone who can DM the bot can have it read a channel it is in.
 Re-pin `allowedSenders` if either becomes a problem; the values comment states
 how, and that user ids are not @handles.
 
-### The oracle listens where it is asked, and needs no mention (2026-10-25, widened 2026-11-03)
+### The oracle listens where it is asked, and needs no mention (2026-10-25, widened 2026-11-03 and 2026-11-07)
 
-`allowedChats` scopes inbound to `#agent-oracle` (`C0CC1563FA5`) plus the four
-`monitoring-ai-*` channels — `alerts`, `health`, `drift`, `runs` — and
-`allowedTriggers: [mention, channel]` makes a plain message start a run there.
-The four were added on 2026-11-03 after an `@homelab` question asked in a
-`#monitoring-ai-alerts` thread got no reply: the app delivered it, the sidecar
-dropped it on the chat filter before any `AgentRun` existed, and `denyMessage`
-being unset made that indistinguishable from the agent ignoring the person. The
-cost is that those channels now start a run on any human message, so keep an eye
-on `MAX_TOOL_ITERATIONS` spend if they get chatty; the reports there are bot
+`allowedChats` scopes inbound to `#agent-oracle` (`C0CC1563FA5`), `#monitoring`
+(`C08S5ACNTPB`) and the four `monitoring-ai-*` channels — `alerts`, `health`,
+`drift`, `runs` — and `allowedTriggers: [mention, channel]` makes a plain
+message start a run there. The four were added on 2026-11-03 after an `@homelab`
+question asked in a `#monitoring-ai-alerts` thread got no reply: the app
+delivered it, the sidecar dropped it on the chat filter before any `AgentRun`
+existed, and `denyMessage` being unset made that indistinguishable from the
+agent ignoring the person. `#monitoring` was added on 2026-11-07 for the same
+failure one channel over: every Alertmanager alert is posted there, so the
+thread where a person asks about an alert is there, not in `monitoring-ai-*`.
+The cost is that those channels now start a run on any human message, so keep an
+eye on `MAX_TOOL_ITERATIONS` spend if they get chatty; the reports there are bot
 messages, which the sidecar never turns into runs.
 
 Three things about that pair are not obvious:

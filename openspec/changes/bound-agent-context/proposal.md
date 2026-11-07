@@ -15,7 +15,8 @@ the rest of the day took it back to 381k.
 - An n8n workflow is read as `structure` or `filtered`, never `full`.
 - The three MCP servers use Code Mode, the v2 default, so their schemas are
   discovered on demand instead of sent on every request.
-- Compaction fires at 60% of the window and is summarized in the background.
+- The default compaction reserve stays, and the summary is produced in the
+  background.
 - The reviewer returns one line per finding, at most five.
 
 ## Capabilities

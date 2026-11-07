@@ -7,9 +7,9 @@
 A session SHALL carry one issue. The agent SHALL NOT run a second issue in it and
 SHALL read an n8n workflow as `structure` or `filtered`, never `full`, and SHALL
 NOT re-fetch one already in context. The adapter SHALL expose MCP tools through
-Code Mode, SHALL compact at 60% of the model window, and SHALL summarize in the
-background as that threshold approaches. The reviewer subagent SHALL return at
-most five findings, one line each.
+Code Mode and SHALL summarize in the background as the default compaction
+threshold approaches. The reviewer subagent SHALL return at most five findings,
+one line each.
 
 #### Scenario: A second issue arrives in a live session
 
@@ -25,9 +25,9 @@ most five findings, one line each.
 
 #### Scenario: The session reaches the compaction threshold
 
-- **WHEN** the estimated context passes 60% of the window
-- **THEN** the session compacts without waiting for the window to fill
-- **AND** the summary was produced in the background
+- **WHEN** the estimated context nears the default threshold
+- **THEN** the summary is produced in the background
+- **AND** the turn does not wait for it
 
 #### Scenario: The reviewer reports
 

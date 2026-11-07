@@ -6,8 +6,9 @@
   OpenCode v2.2.5 and the config was opting out. Code Mode keeps the definitions
   out of each request and lets a call filter a large result before it enters the
   context. Removing the n8n server would save the same tokens and lose the tools.
-- **`buffer: "60%"`, not a smaller model window.** The cap is local to this
-  agent, so Hermes and n8n keep the contract they already have.
+- **The default reserve, not a tighter cap.** A lower threshold compacts more
+  often, rewrites the prompt prefix and summarizes the previous summary; each
+  round loses detail. One issue per session is the real bound.
 - **Background compaction.** The automatic summary is a 424k-token request that
   blocks a turn. Producing it as the threshold approaches keeps it off the
   critical path.

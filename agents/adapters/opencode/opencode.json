@@ -16,9 +16,6 @@
       "/opt/opencode/skills"
     ]
   },
-  "compaction": {
-    "buffer": "60%"
-  },
   "experimental": {
     "background_compaction": true
   },

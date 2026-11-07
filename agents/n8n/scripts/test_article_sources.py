@@ -1,4 +1,4 @@
-"""What n8n does with the writer's answers in the article lane.
+"""The ledger check in the drafting gate and its twin in the improvement pass.
 
 `parse_article` and `check_improved_draft` are the two places an article's fenced blocks meet
 `sources.json`. The server rewrites the ledger and drops a URL that did not answer, so the
@@ -7,11 +7,7 @@ block the page did not carry, a dry-run that failed. `check_improved_draft` must
 same for the ledger stored on the row, and must report a missing cell as not run rather than
 silently passing it.
 
-The rest pins the three turns the adapter now owns: the review verdict, the aspect findings
-and the edit. Each one is a response the graph parses, and a transport failure has to become
-a rejection or a fallback with a reason, never a silent pass.
-
-Offline: the committed Code nodes, executed with a stubbed n8n context.
+Offline: the two committed Code nodes, executed with a stubbed n8n context.
 """
 
 import json
@@ -93,7 +89,7 @@ def _parse(article, ledger, present=True):
     return _run(CREATOR, "parse_article", scope, [{}])["json"]
 
 
-def _context(feedback="", ledger=None, base="The draft before the edit."):
+def _improved(draft, ledger=None, feedback="", base="The draft before the edit."):
     ctx = {
         "MAX_WORDS": 1200,
         "ASSET_TYPES": "svg_wide",
@@ -105,31 +101,11 @@ def _context(feedback="", ledger=None, base="The draft before the edit."):
     }
     if ledger is not None:
         ctx["SOURCES"] = json.dumps(ledger)
-    return ctx
-
-
-def _article(draft):
-    """The pair the writer's improve turn returns: the H1 is the title, the rest is the body."""
-    first, _, rest = draft.partition("\n")
-    title = first[2:].strip() if first.startswith("# ") else ""
-    return {"title": title, "text": (rest if title else draft).strip()}
-
-
-def _improved(draft, ledger=None, feedback="", base="The draft before the edit."):
     return _run(
         ENTRY,
         "check_improved_draft",
-        {"build_improvement_context": [_context(feedback, ledger, base)]},
-        [{"statusCode": 200, "body": {"article": _article(draft)}}],
-    )[0]["json"]
-
-
-def _merged(response):
-    return _run(
-        ENTRY,
-        "merge_aspect_findings",
-        {"build_improvement_context": [_context()]},
-        [response],
+        {"build_improvement_context": [ctx]},
+        [{"output": "<article>\n" + draft + "\n</article>"}],
     )[0]["json"]
 
 
@@ -281,155 +257,6 @@ def test_the_twin_reports_a_missing_ledger_as_not_run():
     prose = "# Install\n\nNo command was found.\n\n<!-- asset:svg_wide -->"
     assert _improved(prose)["PROBLEM"] == ""
     assert _improved(prose)["FIDELITY"] == "not run"
-
-
-def test_an_edit_answer_without_the_article_key_still_parses():
-    """A writer that answers in the chat content is read, not reported as an empty draft."""
-    ctx = _context()
-    item = _run(
-        ENTRY,
-        "check_improved_draft",
-        {"build_improvement_context": [ctx]},
-        [
-            {
-                "statusCode": 200,
-                "body": {
-                    "choices": [
-                        {"message": {"content": "<article># Install\n\nEdited body.\n\n<!-- asset:svg_wide --></article>"}}
-                    ]
-                },
-            }
-        ],
-    )[0]["json"]
-    assert item["IMPROVED_TITLE"] == "Install"
-    assert item["IMPROVED_TEXT"] == "Edited body.\n\n<!-- asset:svg_wide -->"
-    assert item["PROBLEM"] == ""
-
-
-def test_an_edit_request_that_failed_is_reported_as_failed():
-    """A transport failure is not "nothing to apply": the run says the edit did not happen."""
-    ctx = _context()
-    item = _run(
-        ENTRY,
-        "check_improved_draft",
-        {"build_improvement_context": [ctx]},
-        [{"statusCode": 503, "body": {"error": {"message": "model unavailable"}}}],
-    )[0]["json"]
-    assert item["PROBLEM"].startswith("IMPROVE_FAILED: HTTP 503")
-    out = _select(item, ctx)
-    assert out["IMPROVED"] == "FAILED"
-    assert "model unavailable" in out["IMPROVEMENT_NOTE"]
-    assert out["text"] == ctx["BASE_TEXT"]
-
-
-def test_an_edit_that_never_answered_is_reported_with_its_failure():
-    """`onError: continueErrorOutput` puts the connection failure on the item."""
-    ctx = _context()
-    item = _run(
-        ENTRY,
-        "check_improved_draft",
-        {"build_improvement_context": [ctx]},
-        [{"error": {"message": "timeout of 600000ms exceeded"}}],
-    )[0]["json"]
-    assert item["PROBLEM"].startswith("IMPROVE_FAILED: timeout of 600000ms exceeded")
-    out = _select(item, ctx)
-    assert out["IMPROVED"] == "FAILED"
-    assert out["text"] == ctx["BASE_TEXT"]
-
-
-def test_an_edit_that_returned_no_article_is_failed_not_empty():
-    """A 200 with no article is a failed edit, distinct from "nothing to apply"."""
-    ctx = _context()
-    item = _run(
-        ENTRY,
-        "check_improved_draft",
-        {"build_improvement_context": [ctx]},
-        [{"statusCode": 200, "body": {}}],
-    )[0]["json"]
-    assert item["PROBLEM"].startswith("EMPTY_DRAFT")
-    out = _select(item, ctx)
-    assert out["IMPROVED"] == "FAILED"
-    assert out["text"] == ctx["BASE_TEXT"]
-
-
-def test_the_aspect_turn_merges_what_answered_and_counts_what_failed():
-    out = _merged(
-        {
-            "statusCode": 200,
-            "body": {
-                "findings": [
-                    {"aspect": "clarity", "focus": "terms", "error": "", "text": "1. opening: tighten", "count": 1},
-                    {"aspect": "flow", "focus": "redundancy", "error": "the turn failed", "text": "", "count": 0},
-                ]
-            },
-        }
-    )
-    assert "### clarity (terms)" in out["FINDINGS"]
-    assert "1. opening: tighten" in out["FINDINGS"]
-    assert out["FINDINGS_SUMMARY"] == "clarity: 1, flow: failed"
-    assert out["HAS_FINDINGS"] is True
-
-
-def test_an_unreachable_aspect_turn_applies_nothing_and_names_the_failure():
-    out = _merged({"statusCode": 500, "body": {"error": {"message": "boom"}}})
-    assert out["FINDINGS"] == ""
-    assert out["HAS_ANY"] is False
-    assert out["FINDINGS_SUMMARY"] == "aspects: unavailable (HTTP 500: boom)"
-
-
-def test_an_aspect_turn_that_never_answered_is_reported_by_its_message():
-    """A dead connection arrives as an error item, not a response: name it, do not crash."""
-    out = _merged({"error": {"message": "socket hang up"}})
-    assert out["FINDINGS"] == ""
-    assert out["HAS_ANY"] is False
-    assert out["FINDINGS_SUMMARY"] == "aspects: unavailable (socket hang up)"
-
-
-def test_a_rejected_review_is_the_gate_rejection():
-    item = _run(
-        CREATOR,
-        "parse_review_verdict",
-        {},
-        [{"statusCode": 200, "body": {"review": {"pass": False, "explanation": "the intro  repeats itself"}}}],
-    )[0]["json"]
-    assert item == {"output": "false", "explanation": "the intro repeats itself"}
-
-
-def test_a_review_that_could_not_run_is_a_rejection_naming_the_status():
-    item = _run(
-        CREATOR,
-        "parse_review_verdict",
-        {},
-        [{"statusCode": 502, "body": {"error": {"message": "bad gateway"}}}],
-    )[0]["json"]
-    assert item["output"] == "false"
-    assert item["explanation"].startswith("REVIEW: HTTP 502")
-    assert "bad gateway" in item["explanation"]
-
-
-def test_a_review_without_a_verdict_is_a_rejection():
-    item = _run(CREATOR, "parse_review_verdict", {}, [{"statusCode": 200, "body": {"article": {}}}])[0]["json"]
-    assert item["output"] == "false"
-    assert "no verdict" in item["explanation"]
-
-
-def test_a_review_that_never_answered_is_a_rejection_naming_the_failure():
-    """A dead connection carries no status; the loop still retries with a real cause."""
-    item = _run(
-        CREATOR,
-        "parse_review_verdict",
-        {},
-        [{"error": {"message": "connect ECONNREFUSED 10.0.0.7:8080"}}],
-    )[0]["json"]
-    assert item["output"] == "false"
-    assert item["explanation"].startswith("REVIEW: connect ECONNREFUSED")
-
-
-def test_a_review_error_that_arrives_as_a_string_is_still_named():
-    """n8n's error shape varies by call path: the string form must not lose the cause."""
-    item = _run(CREATOR, "parse_review_verdict", {}, [{"error": "socket hang up"}])[0]["json"]
-    assert item["output"] == "false"
-    assert item["explanation"] == "REVIEW: socket hang up"
 
 
 def test_a_feedback_round_accepts_a_block_no_source_carries():

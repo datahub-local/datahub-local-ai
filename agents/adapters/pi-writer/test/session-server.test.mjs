@@ -4,7 +4,7 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtemp, mkdir, readFile, writeFile, chmod, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, readdir, copyFile, writeFile, chmod, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -27,7 +27,24 @@ const STUB_PI = `#!/usr/bin/env node
 const fs = require("node:fs");
 const prompt = process.argv.at(-1) || "";
 fs.writeFileSync("prompt.txt", prompt);
+fs.writeFileSync("args.txt", process.argv.slice(2).join(" "));
 fs.writeFileSync("env.log", process.env.HTTPS_PROXY || "none");
+// A review or an edit answers in its response and writes nothing; only a drafting turn
+// authors the files. This is what makes the test read the server's own handling of a
+// review rather than a stub's copy of it.
+if (prompt.includes("You review one long-form technical blog draft.")) {
+  process.stdout.write("<output>true</output><explanation>the probe passed</explanation>");
+  process.exit(0);
+}
+if (prompt.includes("You review one article draft")) {
+  const aspect = (prompt.match(/for (clarity|flow|structure) only/) || [])[1] || "aspect";
+  process.stdout.write("<findings>1. opening: PROBE_" + aspect.toUpperCase() + " - tighten it</findings>");
+  process.exit(0);
+}
+if (prompt.includes("You edit one article draft")) {
+  process.stdout.write("<article># Probe edited\\n\\nEdited body with PROBE_EDIT.</article>");
+  process.exit(0);
+}
 // A quoted manifest, as the real turn would write it after reading the page.
 fs.writeFileSync("article.md", "# Probe\\n\\n## Install\\n\\n" + "\\u0060\\u0060\\u0060bash\\nhelm upgrade --install probe ./chart\\n\\u0060\\u0060\\u0060\\n");
 fs.writeFileSync("sources.json", JSON.stringify({ sources: [
@@ -316,4 +333,150 @@ test("a streamed turn frames the answer and still ends with the done marker", as
   const text = await res.text();
   assert.match(text, /"delta":\{"content":"drafted the probe article"\}/);
   assert.ok(text.trimEnd().endsWith("data: [DONE]"));
+});
+
+test("a review turn returns a structured verdict and leaves the draft alone", async () => {
+  const res = await turn({
+    task: "review",
+    session_id: "article-review",
+    brief: { topic: "Probe", audience: "LOW", max_words: 900, asset_types: "image_wide" },
+    article: { title: "Probe", text: "## Install\n\nUse it." },
+  });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.task, "review");
+  assert.equal(body.review.pass, true);
+  assert.equal(body.review.explanation, "the probe passed");
+  // The draft is the caller's, not the stub's, and the review did not rewrite it.
+  assert.equal(body.article.title, "Probe");
+  assert.equal(body.article.text, "## Install\n\nUse it.");
+  const written = await readFile(join(workspace, "runs", "article-review", "article.md"), "utf8");
+  assert.equal(written, "# Probe\n\n## Install\n\nUse it.\n");
+  const args = await readFile(join(workspace, "runs", "article-review", "args.txt"), "utf8");
+  assert.match(args, /--no-tools/);
+});
+
+test("the aspect pass answers one findings block per aspect", async () => {
+  const res = await turn({
+    task: "aspects",
+    session_id: "article-aspects",
+    brief: { topic: "Probe", audience: "LOW", max_words: 900, asset_types: "image_wide" },
+    article: { title: "Probe", text: "## Install\n\nUse it." },
+  });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.findings.length, 3);
+  assert.deepEqual(body.findings.map((finding) => finding.aspect).sort(), ["clarity", "flow", "structure"]);
+  for (const finding of body.findings) {
+    assert.equal(finding.count, 1);
+    assert.match(finding.text, new RegExp(`PROBE_${finding.aspect.toUpperCase()}`));
+    assert.equal(finding.error, "");
+  }
+});
+
+test("a review of a session with a draft reads it when the request carries none", async () => {
+  // The creator sends the parsed draft, but a resumed round may name only the session.
+  // The server then reviews the session's own article rather than an empty one.
+  await turn({
+    messages: [{ role: "user", content: "write about installing the release" }],
+    session_id: "article-review-stored",
+  });
+  const res = await turn({
+    task: "review",
+    session_id: "article-review-stored",
+    brief: { topic: "Probe", audience: "LOW", max_words: 900 },
+  });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.review.pass, true);
+  assert.match(body.article.text, /helm upgrade --install probe/);
+  const prompt = await readFile(join(workspace, "runs", "article-review-stored", "prompt.txt"), "utf8");
+  assert.match(prompt, /helm upgrade --install probe/);
+});
+
+test("a review without a budget fails by name instead of rejecting every draft", async () => {
+  const res = await turn({
+    task: "review",
+    session_id: "article-review-nobudget",
+    brief: { topic: "Probe" },
+    article: { title: "Probe", text: "## Install\n\nUse it." },
+  });
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.match(body.error.message, /brief\.max_words/);
+});
+
+test("an improve turn writes the edited article the model returned", async () => {
+  const res = await turn({
+    task: "improve",
+    session_id: "article-improve",
+    brief: {
+      topic: "Probe",
+      audience: "LOW",
+      max_words: 900,
+      asset_types: "image_wide",
+      feedback: "PROBE_HUMAN_FEEDBACK",
+    },
+    article: { title: "Probe", text: "## Install\n\nUse it." },
+    findings: "PROBE_FINDINGS: tighten the opening",
+  });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.task, "improve");
+  assert.equal(body.article.title, "Probe edited");
+  assert.equal(body.article.text, "Edited body with PROBE_EDIT.");
+  const written = await readFile(join(workspace, "runs", "article-improve", "article.md"), "utf8");
+  assert.equal(written, "# Probe edited\n\nEdited body with PROBE_EDIT.\n");
+  // The owner's feedback and the merged findings reach the turn, which is the issue's
+  // headline case: a rejection re-enters the writer with what the person said.
+  const prompt = await readFile(join(workspace, "runs", "article-improve", "prompt.txt"), "utf8");
+  assert.match(prompt, /PROBE_HUMAN_FEEDBACK/);
+  assert.match(prompt, /PROBE_FINDINGS: tighten the opening/);
+});
+
+test("a review of a session with no draft fails by name", async () => {
+  const res = await turn({
+    task: "review",
+    session_id: "article-empty",
+    brief: { topic: "Probe", max_words: 900 },
+  });
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.match(body.error.message, /carries no article/);
+});
+
+test("the server refuses to start when the aspect registry is unusable", async () => {
+  // Every prompt is present except the registry, so the only reason to refuse is the one
+  // this test names.
+  const prompts = join(dir, "registryless-prompts");
+  await mkdir(prompts, { recursive: true });
+  for (const name of await readdir(promptsDir)) {
+    if (name === "article_aspects.json") continue;
+    await copyFile(join(promptsDir, name), join(prompts, name));
+  }
+  const refused = spawn(process.execPath, [serverPath], {
+    env: {
+      ...process.env,
+      HOME: join(dir, "home"),
+      SYMPOZIUM_WORKSPACE: join(dir, "refused-workspace"),
+      SYMPOZIUM_SESSION_PORT: String(port + 1),
+      PI_WRITER_PROXY_PORT: String(port + 2),
+      PI_WRITER_PROMPT_DIR: prompts,
+      SYMPOZIUM_HARNESS_CONTRACT_VERSION: "v1alpha2",
+      MODEL_NAME: "stub",
+      MODEL_BASE_URL: "http://127.0.0.1:9/v1",
+      OPENAI_API_KEY: "test-key",
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let output = "";
+  refused.stdout.on("data", (chunk) => {
+    output += chunk.toString();
+  });
+  refused.stderr.on("data", (chunk) => {
+    output += chunk.toString();
+  });
+  const code = await new Promise((resolve) => refused.on("close", resolve));
+  assert.notEqual(code, 0);
+  assert.match(output, /article_aspects\.json is unusable/);
 });

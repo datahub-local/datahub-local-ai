@@ -332,7 +332,7 @@ Eight structural things worth knowing before editing an export:
 
 - **An export's `jsCode` is a string, so a line break in the file is `\n` and a `\n` inside a JS string is `\\n` — write the pair where the single belongs and the node is a syntax error.** Nothing offline catches it: the JSON is still valid, the diff still reads as two lines, and every textual assertion still passes. n8n parses the node only when a run reaches it, so the whole node fails for every run, and the apply ships it silently. Hit on 2026-10-16 adding the still-type branch to `build_author_brief`: `\n` landed between `stillPlanLine` and `stillSceneLine`, live took it, and every agent-authored asset would have failed. `agents/n8n/scripts/test_code_nodes_parse.py` now parses every Code node with `node --check` inside an async wrapper (a top-level `return` is legal there and illegal in a plain script), and the `agents/n8n` CI job installs node for it. Check a jsCode edit by executing it, not by reading it.
 
-- **Every model node waits 120 s, because the gateway's failover outlasts the client's default.** `lmChatOpenAi`'s `options.timeout` defaults to **60000 ms** (`LmChatOpenAi.node.js`, applied both to the undici dispatcher and to the LangChain client), and the gateway is LiteLLM with a fallback chain: a primary that stalls is not a failed call, because the gateway waits on it and then fails over, so the client has to outlast the whole failover or it abandons the call during it and reports a timeout the gateway never made. Hit 2026-10-18: `check_article_llm` answered `litellm.Timeout: Timeout passed=30.0` and the run died with the failover still in flight. All twelve model nodes in this repository now set `options.timeout: 120000`, swept by `agents/n8n/scripts/test_model_timeouts.py` over every export's both copies — a per-file assertion would be one copy of the rule per workflow and a new workflow would be silently exempt. Neither the credential nor the instance carries a timeout, so it lives on each node. Note the node's own `maxRetries` multiplies with it (5 × 120 s is twelve minutes for one hung node), and the gateway's per-attempt timeout is a `datahub-local-core` LiteLLM setting — the tighter of the two, and not in this repository.
+- **Every model node waits 120 s, because the gateway's failover outlasts the client's default.** `lmChatOpenAi`'s `options.timeout` defaults to **60000 ms** (`LmChatOpenAi.node.js`, applied both to the undici dispatcher and to the LangChain client), and the gateway is LiteLLM with a fallback chain: a primary that stalls is not a failed call, because the gateway waits on it and then fails over, so the client has to outlast the whole failover or it abandons the call during it and reports a timeout the gateway never made. Hit 2026-10-18: `check_article_llm` answered `litellm.Timeout: Timeout passed=30.0` and the run died with the failover still in flight. Every model node still in this repository sets `options.timeout: 120000`, swept over every export's both copies — a per-file assertion would be one copy of the rule per workflow and a new workflow would be silently exempt. Neither the credential nor the instance carries a timeout, so it lives on each node. Note the node's own `maxRetries` multiplies with it (5 × 120 s is twelve minutes for one hung node), and the gateway's per-attempt timeout is a `datahub-local-core` LiteLLM setting — the tighter of the two, and not in this repository.
 
 ## Visual Studio
 
@@ -834,14 +834,19 @@ Two workflows. `Article Content Writer` is the entry point (a manual trigger and
 through a temporary `webhook → executeWorkflow` probe, as every live check here has.
 
 **A draft is reviewed before it is returned, and an over-budget one is retried rather than
-fatal.** The loop mirrors `LinkedIn Post Creator`: `parse_article` →
-`download_article_review_prompt` → `check_article_llm` → `parse_article_check_output` →
-`merge_article_verdict` → `switch_article_check`, whose three outputs are `set_output`
-(accepted), `set_error_max_tries` (bound reached) and a fallback back to
-`download_article_prompt`. The retry re-renders the drafting prompt, so a rejection cannot
-resubmit the same prompt. The bound is `{{ $runIndex + 1 }} > MAX_TRIES` with `MAX_TRIES = 3`,
-copied from the LinkedIn lane rather than re-derived — which means it admits **four** drafts,
-measured live (executions 13892, 13913, 13994): the name bounds the retries, not the drafts.
+fatal.** The writer owns the review turn: `parse_article` → `build_review_request` →
+`request_review` → `parse_review_verdict` → `merge_article_verdict` → `switch_article_check`,
+whose three outputs are `set_output` (accepted), `set_error_max_tries` (bound reached) and a
+fallback back to `build_article_request`. The request carries the parsed draft and the entry's
+fields; the adapter renders `article_review.md` and answers `<output>true|false</output>` plus an
+`<explanation>`, which `parse_review_verdict` turns into the same `output`/`explanation` pair the
+graph used to parse itself. The retry sends the explanation back to the same session as
+feedback, so a rejection cannot resubmit the same prompt. The bound is
+`{{ $runIndex + 1 }} > MAX_TRIES` with `MAX_TRIES = 3`, copied from the LinkedIn lane rather
+than re-derived — which means it admits **four** drafts, measured live (executions 13892,
+13913, 13994): the name bounds the retries, not the drafts. Ten model nodes remain in this
+repository, all outside the article lane; the article lane's model calls now live behind the
+adapter's HTTP endpoint.
 
 **The budget is checked in code and beats the reviewer.** `parse_article` counts the body's
 words itself (markers excluded) and reports `PROBLEM` as *data*, never a throw; a count asked
@@ -858,24 +863,28 @@ A drafting model cannot count words: on 2026-10-30 row 3 spent all four drafts a
 **1248 against 1200**, 48 words over, with every other check passing and the reviewer's own note
 saying so. Ten percent absorbs the slip and nothing more; the writer and the improver still aim at
 `MAX_WORDS`. The margin exists in one place only if the reviewer also reads it — `merge_article_verdict`
-requires the reviewer's `true`, so `article_review.md`'s length check takes `{{ WORD_LIMIT }}` (emitted
-by `parse_article`, passed by `download_article_review_prompt`) and keeps `{{ MAX_WORDS }}` as the
-row's budget, because a gate rejecting at 1200 while the count accepts at 1320 is the 2026-09-30
-failure with the sides swapped. `check_improved_draft` carries the same formula, and the twin test
-runs both nodes across the boundary so the two cannot drift.
+requires the reviewer's `true`, so `article_review.md`'s length check takes `{{ WORD_LIMIT }}`, which
+the adapter derives from the brief's `max_words` with the same formula, and `{{ WORD_COUNT }}`, which
+it recounts from the draft it was sent. `check_improved_draft` carries that formula in n8n, because
+the re-check is a code gate rather than a model judgement, and `article.test.mjs` pins the adapter's
+half across the boundary.
 
-**The gate reads the writer's own rules file.** `RULES` is
-`$('download_writer_rules').output` — the adapter's
-`agents/adapters/pi-writer/prompts/article_writer_system.md`, fetched once — never a second copy
-that could drift. `DownloadTemplate` gained an optional `repo_path` so a caller can name the
-adapter's directory; every other caller keeps the `agents/n8n` default.
+**The gate reads the writer's own rules file.** The adapter renders `RULES` from
+`agents/adapters/pi-writer/prompts/article_writer_system.md`, the same file a draft is written
+under, so the gate cannot be checking a second copy that drifted. The review is a
+`request_review` HTTP call, not a `DownloadTemplate` fetch: the file never leaves the image.
 
-**The reviewer's model call retries.** `check_article_llm` carries `retryOnFail: true,
-maxTries: 5, waitBetweenTries: 5000`, matching the `check_rules_llm` it mirrors and the
-drafting agent beside it. It did not at first, and one 30 s LiteLLM timeout ended a run that
-had already produced four drafts (execution 13975, 2026-10-18): a reviewer that fails the run
-it is checking is worse than one that reports no verdict.
-`test_the_reviewer_retries_a_transient_model_failure` pins it.
+**A review turn that fails is a rejection with the reason, not a dead run.** The call used to be
+`check_article_llm` with `retryOnFail: true, maxTries: 5`; one 30 s LiteLLM timeout had ended a
+run that already produced four drafts (execution 13975, 2026-10-18). It is now an HTTP node with
+`neverError: true` and `onError: continueErrorOutput`, and both outputs join `parse_review_verdict`,
+which reports either failure as `output: false`: an error status becomes `REVIEW: HTTP <status>:
+<message>`, and a transport failure becomes `REVIEW: <message>` from the error item.
+`continueErrorOutput` rather than `continueRegularOutput`, because the regular mode forwards the
+node's input unchanged and sets no `json.error` (the 2026-09-28 note above), so a dead connection
+would read as "no verdict" and lose its cause. The loop retries with a real cause and a failed
+reviewer never loses the draft. The same settings are on `request_aspects` and `request_improve`,
+whose parsers read the error item the same way.
 
 **The gate must name the marker's form, not its id.** The reviewer's check read "spelled as the
 type id", the reviewer took that to mean the bare id, and the first live runs rejected a
@@ -915,17 +924,19 @@ changes", and the drafting prompt carried the reason and no draft — so the dra
 nothing, and on 2026-10-18 it went looking for material instead of editing: the retry turn called
 `research_sources` with the same query seven times and `read_page` on the same page six times, 13
 tool calls and 16 model calls, until the agent answered `Max iterations (12) reached` (executions
-14018, 14020) and the run was lost with no draft. `download_article_prompt` now passes the rejected
-draft as `PREVIOUS_DRAFT` and `download_post_prompt` as `PREVIOUS_POST`; both prompts say to edit it,
+14018, 14020) and the run was lost with no draft. `build_article_request` now passes the rejected
+draft as `previous_draft` and `download_post_prompt` as `PREVIOUS_POST`; both prompts say to edit it,
 and the article one says to re-read only a source the feedback names. Measured on the next run (14071): 617/400 words →
 retried → 387/400 accepted, the retry carrying 3,717 characters of the rejected draft and keeping
 its opening sentence, with **one** lookup in the whole run. Three things about the expression:
 `.last()` and never `.item`, because the paired-item lineage runs back through the switch and
 silently resolves to `undefined` (the 2026-09-30 `VARIETY_DIRECTIVES` failure); not `.first()`, or a
 third attempt edits the first attempt's draft and never converges; and `isExecuted`, because the
-first attempt renders the same node with `parse_article` not yet run. The graph must be applied
-**before** the prompts are pushed: a pushed prompt naming a placeholder the graph does not pass stops
-every run, while a graph passing a var the prompt does not use is harmless.
+first attempt renders the same node with `parse_article` not yet run. In the post lane the graph
+must be applied **before** the prompts are pushed: a pushed prompt naming a placeholder the graph
+does not pass stops every run, while a graph passing a var the prompt does not use is harmless. The
+article lane is the reverse — its prompts live in the writer image, so the image goes first (see
+Push order above).
 
 **A human retry had the same gap in a new place, and it was the one the owner hit.** `PREVIOUS_DRAFT`
 lives *inside* the sub-workflow, so it spans one invocation — and a person answering the approval
@@ -1173,46 +1184,51 @@ helper. A textual assertion cannot see this class: the old code read plausibly a
 valid.
 
 **A draft is improved before the human sees it.** `Article Content Writer` runs one improvement
-pass between `check_draft_error` and `derive_slug`: five `DownloadTemplate` fetches, then
-`build_improvement_context` (one item always; **throws** when `datasets/article_aspects.json` is
-missing, unparsable or empty — the semantic-registry rule), `split_aspects` fans one item per
-registry aspect, `download_aspect_prompt` fetches that aspect's own file by expression
-(`template_name: "={{ $json.ASPECT_PROMPT }}"`, verified live on execution 14402 — three aspects
-fetched and answered; the documented fallback is fixed download nodes per aspect, at the cost of
-duplicating the enum into the graph), `review_aspect_llm` reviews the draft, `merge_aspect_findings` merges the
-`<findings>` blocks tagged by aspect, and `if_has_findings` skips the improver when there is
-nothing to apply. `improve_article` is an agent with **no tools** (`maxIterations: 8`, the
-measured no-tools floor) that edits only what a finding or the feedback names.
+pass between `check_draft_error` and `derive_slug`, and the writer owns every model turn in it:
+`build_improvement_context` (one item always; it resolves the draft of record and **throws** when
+none exists), `build_aspects_request` → `request_aspects` → `merge_aspect_findings` →
+`if_has_findings`, then `build_improve_request` → `request_improve` → `check_improved_draft` →
+`switch_improved_ok`. The aspect request names the task, the session and the draft; the adapter
+loads `prompts/article_aspects.json` and its prompt files from the image and answers one entry per
+aspect, so the graph holds no aspect id and no prompt text. `merge_aspect_findings` turns those
+entries into the one tagged block the improver reads and the counts the review message names;
+`if_has_findings` skips the edit when there are no findings and no feedback.
 
-The two improvement model nodes carry `options.timeout: 240000`, not the 120 s floor: the
-improver edits the whole draft, and at 120 s it answered `Request timed out` (execution 14450),
-which fell back to the gate-passed draft exactly as designed; the same edit completed at 240 s
-(execution 14468, 1153 words). Keep the multiplier in mind — the model node's own retries multiply
-with it.
-`check_improved_draft` counts the budget and the asset markers **in code** — the twin of
-`parse_article`, held together by a test that runs both on one fixture and asserts the same
-verdicts — and `switch_improved_ok` retries once with the objective problem, after which
-`select_final_draft` is the single convergence node `derive_slug`, `store_draft` and
-`draft_to_file` read (nothing else in the lane may read the sub-workflow's answer). The findings
-are **advisory, never gates**: the only gates stay the drafting gate, the re-check and the
-human, because a judgement gate a drafter cannot read is unfixable by construction (the 14055
-lesson) and the pass exists to *apply* judgement, which is only safe on the advisory side.
+`request_improve` carries the draft, the merged findings and — on a retry, read back from
+`check_improved_draft` — the objective problem. The adapter renders `article_improver.md`, runs with
+`--no-tools`, and writes the article it returns. `check_improved_draft` counts the budget and the
+asset markers **in code** — the twin of `parse_article` — and `switch_improved_ok` retries once with
+the objective problem, after which `select_final_draft` is the single convergence node
+`derive_slug`, `store_draft` and `draft_to_file` read (nothing else in the lane may read the
+sub-workflow's answer). `select_final_draft` keeps the three non-improvements apart: `UNCHANGED`
+(the answer repeated the draft), `FALLBACK` (the edit failed the re-check) and `FAILED` (the turn
+returned no article, or the request failed), so a failed edit is reported rather than counted as
+"nothing to apply". The findings are **advisory, never gates**: the only gates stay the drafting
+gate, the re-check and the human, because a judgement gate a drafter cannot read is unfixable by
+construction (the 14055 lesson) and the pass exists to *apply* judgement, which is only safe on
+the advisory side.
 
-**The aspects are a registry, not a graph enum.** `datasets/article_aspects.json` lists
-`structure`, `clarity` and `flow`, each with its prompt file and focus; adding one is a dataset
-entry plus a prompt file, and the graph holds no aspect id. Correctness is deliberately absent —
-facts, budget and markers stay with the drafting gate and the re-check, so an aspect finding can
-never contradict a correctness check. One reviewer call per aspect, and `merge_aspect_findings`
-reads the reviewer's own `text` field rather than its input: a chain node carrying
-`continueRegularOutput` forwards its input on failure, and that input is the downloaded prompt,
-which contains the literal `<findings>none</findings>` the instruction asks for.
+Both improvement requests carry a long timeout, because one HTTP request now covers what used to be
+three serial aspect turns or one whole-draft edit: the aspects call gets `900000 ms` because the
+adapter runs its reviewers one after another in one request and each may spend its 240 s idle
+window, and the edit gets `600000 ms`. The old model nodes could not: at 120 s the improver answered
+`Request timed out` (execution 14450) and fell back to the gate-passed draft, and the edit completed
+at 240 s (execution 14468, 1153 words).
+
+**The aspects are a registry, not a graph enum.** `agents/adapters/pi-writer/prompts/article_aspects.json`
+lists `structure`, `clarity` and `flow`, each with its prompt file and focus; adding one is an entry
+plus a prompt file in the image, and the graph holds no aspect id. Correctness is deliberately
+absent — facts, budget and markers stay with the drafting gate and the re-check, so an aspect finding
+can never contradict a correctness check. The adapter runs one reviewer turn per aspect and reports
+each entry's own error; a reviewer that fails contributes no findings and the rest still run, because
+a finding is advice to the edit.
 
 **The audience is one column, four levels, one file.** `article_queue.AUDIENCE` is
 `NONE | LOW | MEDIUM | ADVANCED`; blank reads as `NONE`, so no row needs a backfill.
 `agents/adapters/pi-writer/prompts/article_audiences.md` is the only copy of what each level means,
 and `article_writer_system.md` in the same directory points at the task prompt's Audience section
-instead of restating the `NONE` reader. The review and the improver fetch that file through
-`DownloadTemplate`'s `repo_path`. `select_article_to_queue` uppercases and trims the cell and **refuses** an unknown
+instead of restating the `NONE` reader. The review, aspect and improve turns read that file from
+the image, so no n8n prompt copy can drift from it. `select_article_to_queue` uppercases and trims the cell and **refuses** an unknown
 level naming it — a mistyped level read as `NONE` would publish advanced orientation to a general
 reader and nothing would ever say so — and the enum exists in three copies by necessity (the
 definitions file, that const, and `board_intake.json`'s `defaults.audience`), held together by
@@ -1234,29 +1250,32 @@ counted as an improvement, and the feedback was not applied. A feedback round th
 blocks also names their count in the review message. A re-presented review resumed in a **later
 execution** reaches this via `switch_phase`, where the stored-row source covers it.
 
-**Push order, and it matters.** The new files first (`article_audiences.md`,
-`article_improver.md`, the three aspect prompts, `article_aspects.json`) — inert until fetched,
-but they must exist before the graph that fetches them is applied or the first run dies at the
-404. Then the graphs (`content_board_curator`, `article_creator`, `article_content_writer` in one
-`--changes` batch, guarded with `--require-edge`). Then the edits to `article_review.md`: a pushed
-review prompt naming a placeholder the graph does not pass stops every run, while a graph passing
-one the prompt ignores is harmless.
+**Push order, and it matters.** The writer image goes first: it is now the only place the article
+prompts exist, and a graph that posts `task: "review"` at an image that only drafts answers 400,
+which the gate reads as a rejection and retries until the bound. Build and pin the digest, wait
+for the rollout, then apply both graphs (`article_creator`, `article_content_writer`) in one
+`--changes` batch guarded with `--require-edge`. Nothing under `agents/n8n/prompts/` needs
+pushing any more: the review, aspect and improver prompts left that directory with the graph
+nodes that fetched them.
 
-**The drafting prompt ships with the writer image, not with the graph.** `article_task.md`,
-`article_writer_system.md`, `article_structures.md` and `article_audiences.md` live in
-`agents/adapters/pi-writer/prompts/`; `Article Creator` sends a `brief` and the adapter renders
-from its own copy. So the image and its pinned digest go first: a graph that posts `brief` against
-an image that only reads `messages` fails every draft. The `AUDIENCE` column is added to the
-`article_queue` page by hand before the first append — writing a column the sheet lacks is
-[UNVERIFIED] and not relied on.
+**The whole article prompt set ships with the writer image, not with the graph.** `article_task.md`,
+`article_writer_system.md`, `article_structures.md`, `article_audiences.md`, `article_review.md`,
+the three aspect prompts, `article_improver.md` and `article_aspects.json` live in
+`agents/adapters/pi-writer/prompts/`; the graph sends a `task`, a `brief` and the draft, and the
+adapter renders every prompt from its own copy. So the image and its pinned digest go first: a graph
+that posts `brief` against an image that only reads `messages` fails every draft. Both graphs read
+the adapter's base URL from `ARTICLE_WRITER_URL`, which the n8n deployment carries. The `AUDIENCE`
+column is added to the `article_queue` page by hand before the first append — writing a column the
+sheet lacks is [UNVERIFIED] and not relied on.
 
-**The pass is cheap and degrades rather than blocking.** +4 model calls per accepted draft in
-the common case (three aspects + the improver; +1 on an objective retry), the improver skipped
-when there is nothing to apply. Every new payload is prose, so the queue-mode binary placeholder
-trap does not apply and the studio's storage rule is untouched. An aspect that exhausts its
-retries contributes no findings and the rest run; a failed improver falls back to the gate-passed
-draft; an improved draft that drifts over budget or drops a marker is retried once and then falls
-back **recorded** — a failed improvement costs the improvement, never the draft.
+**The pass is cheap and degrades rather than blocking.** +4 model turns per accepted draft in
+the common case (three aspect reviewers + the edit; +1 on an objective retry), sent as two HTTP
+requests, the edit skipped when there is nothing to apply. Every payload is prose, so the
+queue-mode binary placeholder trap does not apply and the studio's storage rule is untouched. An
+aspect turn that fails contributes no findings and the rest run; an edit request that fails is
+reported `FAILED` and the gate-passed draft is used; an improved draft that drifts over budget or
+drops a marker is retried once and then falls back **recorded** — a failed improvement costs the
+improvement, never the draft.
 
 **A chain whose entry edge was replaced is invisible to the isolation check.** Execution 14382
 (2026-10-19) improved its draft, ended at `select_final_draft` as `success`, and stored, uploaded

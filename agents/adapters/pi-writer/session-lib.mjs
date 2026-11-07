@@ -431,6 +431,45 @@ export async function revalidateLedger(entries, opts = {}) {
   return { sources: kept, dropped };
 }
 
+// The H1 and the body of an article. A model may wrap its answer in `<article>`, and a
+// turn may have written the file directly; both shapes become the same pair. The body is
+// everything after the first H1 line, because the row stores the title separately and
+// counts the body against the budget.
+export function splitArticle(markdown) {
+  const raw = String(markdown || "");
+  const block = /<article>([\s\S]*?)<\/article>/.exec(raw);
+  const inner = (block ? block[1] : raw).trim();
+  const head = /^#\s+(.+?)\s*$/;
+  let title = "";
+  const body = [];
+  for (const line of inner.split("\n")) {
+    if (!title && body.length === 0 && head.test(line.trim())) {
+      title = line.trim().replace(head, "$1");
+      continue;
+    }
+    body.push(line);
+  }
+  return { title, text: body.join("\n").trim() };
+}
+
+// A marker is an instruction to the publishing step, not prose the reader counts.
+export function articleWordCount(text) {
+  return String(text || "")
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .split(/\s+/)
+    .filter(Boolean).length;
+}
+
+// A model cannot count words, so a draft a little over the budget is the budget met.
+// Integer arithmetic, because 1200 * 1.1 is 1320.0000000000002 in a double. The graph's
+// `parse_article` and `check_improved_draft` hold the same rule in code; a margin change
+// edits all three.
+export function articleWordLimit(maxWords) {
+  const max = Number(maxWords);
+  if (!Number.isFinite(max) || max <= 0) return 0;
+  return Math.ceil((max * 11) / 10);
+}
+
 // The mechanical half of a turn: where to write and whether the turn authors or
 // corrects. The correction names the files already in the directory so a retry edits
 // them instead of paying for a fresh read of every source.

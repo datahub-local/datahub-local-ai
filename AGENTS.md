@@ -35,7 +35,7 @@ do not turn prompts into tutorials, copied schemas, or background essays.
 
 **Every instruction a model reads is declared in a prompt file or the authoring
 brief.** In n8n that is `agents/n8n/prompts/*.md`, fetched by `DownloadTemplate`
-with its placeholders filled; the article drafting prompt is
+with its placeholders filled; every article-lane prompt is
 `agents/adapters/pi-writer/prompts/*.md`, rendered by the adapter from the entry's
 fields; in Sympozium it is `systemPromptFile` / `schedule.taskFile`. The brief
 (megaprompt) is assembled in a Code node or by the adapter from those files plus

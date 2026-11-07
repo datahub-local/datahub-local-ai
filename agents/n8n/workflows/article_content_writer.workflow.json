@@ -4578,236 +4578,6 @@
         }
       },
       {
-        "id": "1a2b3c4d-5e6f-4071-8293-a4b5c6d7e8f9",
-        "name": "download_article_aspects",
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.2,
-        "position": [
-          3136,
-          -80
-        ],
-        "parameters": {
-          "workflowId": {
-            "__rl": true,
-            "value": "qUfjfWLGEjV96ljf",
-            "mode": "list",
-            "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
-            "cachedResultName": "DownloadTemplate"
-          },
-          "workflowInputs": {
-            "mappingMode": "defineBelow",
-            "value": {
-              "template_name": "datasets/article_aspects.json",
-              "template_vars": "={{ {} }}"
-            },
-            "matchingColumns": [],
-            "schema": [
-              {
-                "id": "template_name",
-                "displayName": "template_name",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string"
-              },
-              {
-                "id": "template_vars",
-                "displayName": "template_vars",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "object"
-              }
-            ],
-            "attemptToConvertTypes": false,
-            "convertFieldsToString": true
-          },
-          "options": {}
-        }
-      },
-      {
-        "id": "2b3c4d5e-6f70-4182-93a4-b5c6d7e8f9a0",
-        "name": "download_article_audiences",
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.2,
-        "position": [
-          3360,
-          -80
-        ],
-        "parameters": {
-          "workflowId": {
-            "__rl": true,
-            "value": "qUfjfWLGEjV96ljf",
-            "mode": "list",
-            "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
-            "cachedResultName": "DownloadTemplate"
-          },
-          "workflowInputs": {
-            "mappingMode": "defineBelow",
-            "value": {
-              "template_name": "article_audiences.md",
-              "template_vars": "={{ {} }}",
-              "repo_path": "agents/adapters/pi-writer/prompts"
-            },
-            "matchingColumns": [],
-            "schema": [
-              {
-                "id": "template_name",
-                "displayName": "template_name",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string"
-              },
-              {
-                "id": "template_vars",
-                "displayName": "template_vars",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "object"
-              },
-              {
-                "id": "repo_path",
-                "displayName": "repo_path",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string"
-              }
-            ],
-            "attemptToConvertTypes": false,
-            "convertFieldsToString": true
-          },
-          "options": {}
-        }
-      },
-      {
-        "id": "3c4d5e6f-7081-4293-a4b5-c6d7e8f9a0b1",
-        "name": "download_article_structures",
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.2,
-        "position": [
-          3584,
-          -80
-        ],
-        "parameters": {
-          "workflowId": {
-            "__rl": true,
-            "value": "qUfjfWLGEjV96ljf",
-            "mode": "list",
-            "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
-            "cachedResultName": "DownloadTemplate"
-          },
-          "workflowInputs": {
-            "mappingMode": "defineBelow",
-            "value": {
-              "template_name": "article_structures.md",
-              "template_vars": "={{ {} }}",
-              "repo_path": "agents/adapters/pi-writer/prompts"
-            },
-            "matchingColumns": [],
-            "schema": [
-              {
-                "id": "template_name",
-                "displayName": "template_name",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string"
-              },
-              {
-                "id": "template_vars",
-                "displayName": "template_vars",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "object"
-              },
-              {
-                "id": "repo_path",
-                "displayName": "repo_path",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string"
-              }
-            ],
-            "attemptToConvertTypes": false,
-            "convertFieldsToString": true
-          },
-          "options": {}
-        }
-      },
-      {
-        "id": "5e6f7081-92a3-44b5-c6d7-e8f9a0b1c2d3",
-        "name": "download_writer_rules",
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.2,
-        "position": [
-          4032,
-          -80
-        ],
-        "parameters": {
-          "workflowId": {
-            "__rl": true,
-            "value": "qUfjfWLGEjV96ljf",
-            "mode": "list",
-            "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
-            "cachedResultName": "DownloadTemplate"
-          },
-          "workflowInputs": {
-            "mappingMode": "defineBelow",
-            "value": {
-              "template_name": "article_writer_system.md",
-              "template_vars": "={{ {} }}",
-              "repo_path": "agents/adapters/pi-writer/prompts"
-            },
-            "matchingColumns": [],
-            "schema": [
-              {
-                "id": "template_name",
-                "displayName": "template_name",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string"
-              },
-              {
-                "id": "template_vars",
-                "displayName": "template_vars",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "object"
-              },
-              {
-                "id": "repo_path",
-                "displayName": "repo_path",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string"
-              }
-            ],
-            "attemptToConvertTypes": false,
-            "convertFieldsToString": true
-          },
-          "options": {}
-        }
-      },
-      {
         "id": "6f708192-a3b4-45c6-d7e8-f9a0b1c2d3e4",
         "name": "build_improvement_context",
         "type": "n8n-nodes-base.code",
@@ -4817,89 +4587,7 @@
           -80
         ],
         "parameters": {
-          "jsCode": "// One item always: the aspect fan-out starts from a list this node owns, and a fan-out from a\n// possibly empty input never runs the rest of the chain (the prepare_uploads failure, 13401).\n// A missing, unparsable or empty registry throws - the semantic-registry rule: without its\n// definitions the pass must not run quietly on no aspects.\n//\n// The draft of record is resolved here once, because the retry edge re-enters this node and\n// nothing below may read `execute_article_creator` on a run where it did not execute:\n//   1. `select_final_draft`'s own earlier run - a human retry in this execution improves the\n//      draft the human read, not the first draft it came from;\n//   2. `execute_article_creator`'s answer - the first pass of this execution;\n//   3. the `article_drafts` row - a review resumed in a later execution.\nconst row = $('select_article_to_queue').first().json;\nlet registry = {};\ntry {\n  registry = JSON.parse(String($('download_article_aspects').first().json.output || ''));\n} catch (e) {\n  throw new Error('datasets/article_aspects.json is not valid JSON: ' + e.message);\n}\nconst aspects = (Array.isArray(registry.aspects) ? registry.aspects : [])\n  .map((a) => ({\n    ASPECT: String((a && a.id) || '').trim(),\n    ASPECT_PROMPT: String((a && a.prompt) || '').trim(),\n    FOCUS: String((a && a.focus) || '').trim(),\n  }))\n  .filter((a) => a.ASPECT && a.ASPECT_PROMPT);\nif (!aspects.length) throw new Error('datasets/article_aspects.json lists no usable aspect');\n\nconst stored = $('read_draft_for_improvement').first().json || {};\nconst count = (text) => String(text || '')\n  .replace(/<!--[\\s\\S]*?-->/g, ' ')\n  .split(/\\s+/)\n  .filter(Boolean).length;\nconst resolveDraft = () => {\n  if ($('select_final_draft').isExecuted) {\n    const j = $('select_final_draft').last().json;\n    return { text: String(j.text || ''), title: String(j.title || ''), source: 'the draft this run reviewed' };\n  }\n  if ($('execute_article_creator').isExecuted) {\n    const j = $('execute_article_creator').last().json;\n    return { text: String(j.text || ''), title: String(j.title || ''), source: 'the draft this run received' };\n  }\n  const text = String(stored.ARTICLE_TEXT || '');\n  if (!text) throw new Error('no draft to improve: the creator did not run and article_drafts carries no row for ' + String(row.ENTRY_ID || 'this entry'));\n  return { text, title: String(stored.TITLE || ''), source: 'the stored draft' };\n};\nconst base = resolveDraft();\nif (!base.text.trim()) throw new Error('no draft to improve: the resolved draft is empty');\n\n// The ledger travels with the draft for the same reason and in the same order: a resumed\n// review runs in a later execution, and an edit that fences a line the server never verified\n// must fail here. A missing cell is a report, not a bypass: the improved draft is accepted and\n// the note says the fidelity check did not run.\nconst firstLine = (value) => String(value || '').split('\\n').map((l) => l.trim()).filter(Boolean)[0] || 'a fenced block';\nconst describe = (text) => {\n  try {\n    const data = JSON.parse(String(text || ''));\n    const list = Array.isArray(data) ? data : data && Array.isArray(data.sources) ? data.sources : null;\n    if (!list) return 'none';\n    const lines = list.filter((e) => e && String(e.block || '').trim())\n      .map((e) => '- ' + firstLine(e.block) + ' (' + (String(e.url || '').trim() || 'no url') + ')');\n    return lines.join('\\n') || 'none';\n  } catch (e) {\n    return 'none';\n  }\n};\nconst resolveSources = () => {\n  const pick = (value) => String(value || '').trim();\n  if ($('select_final_draft').isExecuted) {\n    const ledger = pick($('select_final_draft').last().json.SOURCES);\n    if (ledger) return ledger;\n  }\n  if ($('execute_article_creator').isExecuted) {\n    const ledger = pick($('execute_article_creator').last().json.SOURCES);\n    if (ledger) return ledger;\n  }\n  return String(row.SOURCES || '');\n};\nconst sources = resolveSources();\n\nlet feedback = String(row.ARTICLE_FEEDBACK || '');\nconst retry = $('notification_retry_or_cancel');\nif (retry.isExecuted) feedback = String((retry.last().json || {}).data?.Feedback || feedback);\n\nconst audience = String(row.AUDIENCE || 'NONE').trim().toUpperCase();\nconsole.log('improvement: ' + aspects.length + ' aspect(s) over ' + base.source + ' at ' + audience +\n  ' (feedback: ' + (feedback.trim() ? 'yes' : 'no') + ')');\nreturn [{ json: {\n  ...row,\n  BASE_TEXT: base.text,\n  BASE_TITLE: base.title,\n  BASE_WORD_COUNT: count(base.text),\n  DRAFT_SOURCE: base.source,\n  SOURCES: sources,\n  SOURCES_TEXT: describe(sources),\n  FIDELITY: sources.trim() ? 'checked' : 'not run',\n  AUDIENCE: audience,\n  AUDIENCES: String($('download_article_audiences').first().json.output || ''),\n  STRUCTURES: String($('download_article_structures').first().json.output || ''),\n  ASPECTS: aspects,\n  FINDINGS_SUMMARY: '',\n  FEEDBACK: feedback,\n  HAS_FEEDBACK: feedback.trim() !== '',\n  MAX_WORDS: Number(row.MAX_WORDS),\n  ASSET_TYPES: String(row.REQUESTED_ASSETS || ''),\n  IMPROVE_MAX_ATTEMPTS: 2,\n  MODEL: 'opencode-go/deepseek-v4.1-flash',\n  MODEL_FALLBACK: 'opencode-go/glm-5.3-flash',\n} }];\n"
-        }
-      },
-      {
-        "id": "708192a3-b4c5-46d7-e8f9-a0b1c2d3e4f5",
-        "name": "split_aspects",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          4480,
-          -144
-        ],
-        "parameters": {
-          "jsCode": "// One item per aspect, from the registry this run fetched. The ids live in the dataset, not in\n// this graph: adding an aspect is a dataset entry plus a prompt file, never a node.\nconst ctx = $('build_improvement_context').first().json;\nconst aspects = Array.isArray(ctx.ASPECTS) ? ctx.ASPECTS : [];\nif (!aspects.length) throw new Error('no aspect to review the draft with');\nreturn aspects.map((a) => ({ json: { ...ctx, ...a } }));\n"
-        }
-      },
-      {
-        "id": "8192a3b4-c5d6-47e8-f9a0-b1c2d3e4f506",
-        "name": "download_aspect_prompt",
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.2,
-        "position": [
-          4704,
-          -144
-        ],
-        "parameters": {
-          "workflowId": {
-            "__rl": true,
-            "value": "qUfjfWLGEjV96ljf",
-            "mode": "list",
-            "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
-            "cachedResultName": "DownloadTemplate"
-          },
-          "workflowInputs": {
-            "mappingMode": "defineBelow",
-            "value": {
-              "template_name": "={{ $json.ASPECT_PROMPT }}",
-              "template_vars": "={{ {\n\"TITLE\": $('build_improvement_context').first().json.BASE_TITLE,\n\"DRAFT\": $('build_improvement_context').first().json.BASE_TEXT,\n\"TOPIC\": $('build_improvement_context').first().json.TOPIC,\n\"DESCRIPTION\": $('build_improvement_context').first().json.DESCRIPTION,\n\"AUDIENCE\": $('build_improvement_context').first().json.AUDIENCE,\n\"AUDIENCES\": $('build_improvement_context').first().json.AUDIENCES,\n\"STRUCTURES\": $('build_improvement_context').first().json.STRUCTURES,\n} }}"
-            },
-            "matchingColumns": [],
-            "schema": [
-              {
-                "id": "template_name",
-                "displayName": "template_name",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string"
-              },
-              {
-                "id": "template_vars",
-                "displayName": "template_vars",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "object"
-              }
-            ],
-            "attemptToConvertTypes": false,
-            "convertFieldsToString": true
-          },
-          "options": {}
-        }
-      },
-      {
-        "id": "92a3b4c5-d6e7-48f9-a0b1-c2d3e4f50617",
-        "name": "review_aspect_llm",
-        "type": "@n8n/n8n-nodes-langchain.chainLlm",
-        "typeVersion": 1.6,
-        "retryOnFail": true,
-        "maxTries": 5,
-        "waitBetweenTries": 5000,
-        "onError": "continueRegularOutput",
-        "position": [
-          4928,
-          -144
-        ],
-        "parameters": {
-          "promptType": "define",
-          "text": "={{ $json.output }}",
-          "needsFallback": true
+          "jsCode": "// One item always: the review and edit turns start from this context, and a fan-out from a\n// possibly empty input never runs the rest of the chain.\n//\n// The draft of record is resolved here once, because the retry edge re-enters this node and\n// nothing below may read `execute_article_creator` on a run where it did not execute:\n//   1. `select_final_draft`'s own earlier run - a human retry in this execution improves the\n//      draft the human read, not the first draft it came from;\n//   2. `execute_article_creator`'s answer - the first pass of this execution;\n//   3. the `article_drafts` row - a review resumed in a later execution.\nconst row = $('select_article_to_queue').first().json;\nconst stored = $('read_draft_for_improvement').first().json || {};\nconst count = (text) => String(text || '')\n  .replace(/<!--[\\s\\S]*?-->/g, ' ')\n  .split(/\\s+/)\n  .filter(Boolean).length;\nconst resolveDraft = () => {\n  if ($('select_final_draft').isExecuted) {\n    const j = $('select_final_draft').last().json;\n    return { text: String(j.text || ''), title: String(j.title || ''), source: 'the draft this run reviewed' };\n  }\n  if ($('execute_article_creator').isExecuted) {\n    const j = $('execute_article_creator').last().json;\n    return { text: String(j.text || ''), title: String(j.title || ''), source: 'the draft this run received' };\n  }\n  const text = String(stored.ARTICLE_TEXT || '');\n  if (!text) throw new Error('no draft to improve: the creator did not run and article_drafts carries no row for ' + String(row.ENTRY_ID || 'this entry'));\n  return { text, title: String(stored.TITLE || ''), source: 'the stored draft' };\n};\nconst base = resolveDraft();\nif (!base.text.trim()) throw new Error('no draft to improve: the resolved draft is empty');\n\n// The ledger travels with the draft for the same reason and in the same order: a resumed\n// review runs in a later execution, and an edit that fences a line the server never verified\n// must fail here. A missing cell is a report, not a bypass: the improved draft is accepted and\n// the note says the fidelity check did not run.\nconst firstLine = (value) => String(value || '').split('\\n').map((l) => l.trim()).filter(Boolean)[0] || 'a fenced block';\nconst describe = (text) => {\n  try {\n    const data = JSON.parse(String(text || ''));\n    const list = Array.isArray(data) ? data : data && Array.isArray(data.sources) ? data.sources : null;\n    if (!list) return 'none';\n    const lines = list.filter((e) => e && String(e.block || '').trim())\n      .map((e) => '- ' + firstLine(e.block) + ' (' + (String(e.url || '').trim() || 'no url') + ')');\n    return lines.join('\\n') || 'none';\n  } catch (e) {\n    return 'none';\n  }\n};\nconst resolveSources = () => {\n  const pick = (value) => String(value || '').trim();\n  if ($('select_final_draft').isExecuted) {\n    const ledger = pick($('select_final_draft').last().json.SOURCES);\n    if (ledger) return ledger;\n  }\n  if ($('execute_article_creator').isExecuted) {\n    const ledger = pick($('execute_article_creator').last().json.SOURCES);\n    if (ledger) return ledger;\n  }\n  return String(row.SOURCES || '');\n};\nconst sources = resolveSources();\n\nlet feedback = String(row.ARTICLE_FEEDBACK || '');\nconst retry = $('notification_retry_or_cancel');\nif (retry.isExecuted) feedback = String((retry.last().json || {}).data?.Feedback || feedback);\n\nconst audience = String(row.AUDIENCE || 'NONE').trim().toUpperCase();\n// The writer owns every model turn, so this graph carries the endpoint and the session\n// id once, and each request below names only the task and the facts.\nconst writerUrl = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!writerUrl) throw new Error('ARTICLE_WRITER_URL is not set; the writer turns cannot be reached');\nconst sessionId = ('article-' + String(row.row_number || '').trim()).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 80);\nconsole.log('improvement: over ' + base.source + ' at ' + audience +\n  ' (feedback: ' + (feedback.trim() ? 'yes' : 'no') + ')');\nreturn [{ json: {\n  ...row,\n  SESSION_ID: sessionId,\n  ARTICLE_WRITER_URL: writerUrl,\n  BASE_TEXT: base.text,\n  BASE_TITLE: base.title,\n  BASE_WORD_COUNT: count(base.text),\n  DRAFT_SOURCE: base.source,\n  SOURCES: sources,\n  SOURCES_TEXT: describe(sources),\n  FIDELITY: sources.trim() ? 'checked' : 'not run',\n  AUDIENCE: audience,\n  FINDINGS_SUMMARY: '',\n  FEEDBACK: feedback,\n  HAS_FEEDBACK: feedback.trim() !== '',\n  MAX_WORDS: Number(row.MAX_WORDS),\n  ASSET_TYPES: String(row.REQUESTED_ASSETS || ''),\n  IMPROVE_MAX_ATTEMPTS: 2,\n} }];"
         }
       },
       {
@@ -4913,7 +4601,7 @@
           -144
         ],
         "parameters": {
-          "jsCode": "// The reviewers advise; nothing here rejects. Findings are tagged with the aspect that made\n// them and merged into one block for the improver. An aspect that answered `none`, or whose\n// call failed and answered nothing, contributes no findings and the rest still run.\n//\n// The review's own `text` field is read, never the node's input: a chain node carrying\n// `continueRegularOutput` forwards its input on failure, and that input is the downloaded\n// prompt, which contains the literal `<findings>none</findings>` the instruction asks for.\nconst ctx = $('build_improvement_context').first().json;\nconst aspects = $('split_aspects').all().map((i) => i.json);\nconst reviews = $('review_aspect_llm').all().map((i) => i.json);\nconst blocks = [];\nconst summary = [];\nfor (let i = 0; i < aspects.length; i += 1) {\n  const aspect = aspects[i] || {};\n  const answer = String((reviews[i] || {}).text || '');\n  const found = /<findings>([\\s\\S]*?)<\\/findings>/.exec(answer);\n  const body = (found ? found[1] : '').trim();\n  if (!body || /^none\\b/i.test(body)) {\n    summary.push(aspect.ASPECT + ': none');\n    continue;\n  }\n  const count = body.split('\\n').filter((line) => /^\\s*\\d+[.)]/.test(line)).length || 1;\n  summary.push(aspect.ASPECT + ': ' + count);\n  blocks.push('### ' + aspect.ASPECT + (aspect.FOCUS ? ' (' + aspect.FOCUS + ')' : '') + '\\n' + body);\n}\nconst findings = blocks.join('\\n\\n');\nif (!reviews.length) console.log('improvement: no aspect answered; continuing with the feedback only');\nreturn [{ json: {\n  ...ctx,\n  FINDINGS: findings,\n  HAS_FINDINGS: findings.trim() !== '',\n  FINDINGS_SUMMARY: summary.join(', '),\n  HAS_ANY: findings.trim() !== '' || Boolean(ctx.HAS_FEEDBACK),\n} }];\n"
+          "jsCode": "// The reviewers advise; nothing here rejects. The adapter answers one entry per aspect,\n// each already tagged with its id and carrying its own error, so this node merges what\n// answered into the one block the improver reads and counts what did not.\n//\n// A whole-call failure is the same case as one aspect failing: no findings, the summary\n// names it, and the owner's feedback still drives the edit on its own.\nconst ctx = $('build_improvement_context').first().json;\nconst res = $json || {};\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nconst list = Array.isArray(body.findings) ? body.findings : [];\nconst blocks = [];\nconst summary = [];\n// A transport failure arrives as an error item (`onError: continueErrorOutput`): the\n// whole call failed, which is the same case as one aspect failing, not a gate.\nconst transport = res.error ? String((res.error && res.error.message) || res.error).trim() : '';\nif (transport) {\n  summary.push('aspects: unavailable (' + transport + ')');\n} else if (status >= 400 || !list.length) {\n  const message = String((body.error && body.error.message) || body.error || res.statusMessage || '').trim();\n  summary.push('aspects: unavailable' + (status >= 400\n    ? ' (HTTP ' + status + (message ? ': ' + message : '') + ')'\n    : ' (no findings returned)'));\n} else {\n  for (const finding of list) {\n    const aspect = String((finding && finding.aspect) || '').trim() || 'aspect';\n    const focus = String((finding && finding.focus) || '').trim();\n    const error = String((finding && finding.error) || '').trim();\n    const text = String((finding && finding.text) || '').trim();\n    if (error) {\n      summary.push(aspect + ': failed');\n      continue;\n    }\n    if (!text || /^none\\b/i.test(text)) {\n      summary.push(aspect + ': none');\n      continue;\n    }\n    const count = Number((finding && finding.count) || 0) || 1;\n    summary.push(aspect + ': ' + count);\n    blocks.push('### ' + aspect + (focus ? ' (' + focus + ')' : '') + '\\n' + text);\n  }\n}\nconst findings = blocks.join('\\n\\n');\nreturn [{ json: {\n  ...ctx,\n  FINDINGS: findings,\n  HAS_FINDINGS: findings.trim() !== '',\n  FINDINGS_SUMMARY: summary.join(', '),\n  HAS_ANY: findings.trim() !== '' || Boolean(ctx.HAS_FEEDBACK),\n} }];"
         }
       },
       {
@@ -4952,76 +4640,6 @@
         }
       },
       {
-        "id": "c5d6e7f8-091a-4b23-94d5-e6f708192a3b",
-        "name": "download_improver_prompt",
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.2,
-        "position": [
-          5728,
-          -16
-        ],
-        "parameters": {
-          "workflowId": {
-            "__rl": true,
-            "value": "qUfjfWLGEjV96ljf",
-            "mode": "list",
-            "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
-            "cachedResultName": "DownloadTemplate"
-          },
-          "workflowInputs": {
-            "mappingMode": "defineBelow",
-            "value": {
-              "template_name": "prompts/article_improver.md",
-              "template_vars": "={{ {\n\"TITLE\": $('build_improvement_context').first().json.BASE_TITLE,\n\"DRAFT\": $('build_improvement_context').first().json.BASE_TEXT,\n\"FINDINGS\": $('merge_aspect_findings').first().json.FINDINGS || 'none',\n\"FEEDBACK\": $('merge_aspect_findings').first().json.FEEDBACK || '',\n\"PROBLEM\": $json.PROBLEM || '',\n\"AUDIENCE\": $('build_improvement_context').first().json.AUDIENCE,\n\"AUDIENCES\": $('build_improvement_context').first().json.AUDIENCES,\n\"STRUCTURES\": $('build_improvement_context').first().json.STRUCTURES,\n\"MAX_WORDS\": $('build_improvement_context').first().json.MAX_WORDS,\n\"ASSET_TYPES\": $('build_improvement_context').first().json.ASSET_TYPES,\n\"SOURCES\": $('build_improvement_context').first().json.SOURCES_TEXT,\n} }}"
-            },
-            "matchingColumns": [],
-            "schema": [
-              {
-                "id": "template_name",
-                "displayName": "template_name",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string"
-              },
-              {
-                "id": "template_vars",
-                "displayName": "template_vars",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "object"
-              }
-            ],
-            "attemptToConvertTypes": false,
-            "convertFieldsToString": true
-          },
-          "options": {}
-        }
-      },
-      {
-        "id": "c0a7b2d1-5e3f-4a9b-8c6d-7e8f9a0b1c2d",
-        "name": "improve_article",
-        "type": "@n8n/n8n-nodes-langchain.agent",
-        "typeVersion": 3.1,
-        "alwaysOutputData": false,
-        "onError": "continueErrorOutput",
-        "position": [
-          5952,
-          -144
-        ],
-        "parameters": {
-          "promptType": "define",
-          "text": "={{ $('download_writer_rules').first().json.output + '\\n\\n---\\n\\n' + $('download_improver_prompt').first().json.output }}",
-          "needsFallback": true,
-          "options": {
-            "maxIterations": 8
-          }
-        }
-      },
-      {
         "id": "d6e7f809-1a2b-4c34-85e6-f708192a3b4c",
         "name": "check_improved_draft",
         "type": "n8n-nodes-base.code",
@@ -5031,7 +4649,7 @@
           -224
         ],
         "parameters": {
-          "jsCode": "// The objective half of the improvement, counted in code: the budget and the markers are\n// counts, and a count asked of a model is a count that gets invented. This is the twin of\n// `parse_article` in Article Creator, and a test runs both against one fixture.\nconst ctx = $('build_improvement_context').first().json;\nconst raw = String($json.output || $json.text || '');\nconst block = /<article>([\\s\\S]*?)<\\/article>/.exec(raw);\nconst inner = (block ? block[1] : raw).trim();\nconst HEAD = /^#\\s+(.+?)\\s*$/;\nlet title = '';\nconst body = [];\nfor (const line of inner.split('\\n')) {\n  if (!title && !body.length && HEAD.test(line.trim())) {\n    title = line.trim().replace(HEAD, '$1');\n    continue;\n  }\n  body.push(line);\n}\nconst text = body.join('\\n').trim();\nconst norm = (value) => String(value == null ? '' : value).replace(/\\s+/g, ' ').trim();\n// A round that returns the draft it was given is a failed round, whatever the model says about\n// it: on 2026-11-06 run 15874 the owner's feedback was applied to nothing and the same\n// 1184-word draft went back for review. The convergence node reports it instead of calling it\n// an improvement.\nconst unchanged = norm(text) === norm(ctx.BASE_TEXT)\n  && String(title || ctx.BASE_TITLE) === String(ctx.BASE_TITLE || '');\nconst max = Number(ctx.MAX_WORDS);\nif (!isFinite(max) || max <= 0) throw new Error('MAX_WORDS is required and must be a positive number');\n// A model cannot count words, so a draft a little over the budget is the budget met: 10%\n// covers a counting slip without letting the article run long (row 3, 2026-10-30, died at\n// 1248 words against 1200 with every other check passing). Integer arithmetic, because\n// 1200 * 1.1 is 1320.0000000000002 in a double and Math.ceil would add a word.\nconst limit = Math.ceil(max * 11 / 10);\nconst words = text.replace(/<!--[\\s\\S]*?-->/g, ' ').split(/\\s+/).filter(Boolean).length;\nconst requested = String(ctx.ASSET_TYPES || '').split(',').map((s) => s.trim()).filter(Boolean);\nconst markers = (text.match(/<!--\\s*asset:[a-zA-Z0-9_]+\\s*-->/g) || [])\n  .map((m) => m.replace('<!--', '').replace('-->', '').replace('asset:', '').trim());\nconst wrong = [\n  ...requested.filter((t) => markers.filter((m) => m === t).length !== 1)\n    .map((t) => t + ' x' + markers.filter((m) => m === t).length),\n  ...markers.filter((m) => !requested.includes(m)).map((m) => m + ' not requested'),\n];\n// The same ledger check as the drafting gate, against the row's stored ledger. A missing\n// SOURCES cell is a report, not a bypass: the edit is accepted and FIDELITY says the check did\n// not run. A stored ledger that no longer parses is the same case, because the draft it\n// belonged to already passed the gate.\nconst fenced = [];\n{\n  const re = /^[ \\t]*```([^\\n`]*)\\n([\\s\\S]*?)^[ \\t]*```[ \\t]*$/gm;\n  let m;\n  while ((m = re.exec(text)) !== null) {\n    const innerBlock = m[2].replace(/\\n$/, '');\n    if (innerBlock.trim()) fenced.push(innerBlock);\n  }\n}\nconst firstLine = (value) => String(value || '').split('\\n').map((l) => l.trim()).filter(Boolean)[0] || 'a fenced block';\nlet fidelity = 'not run';\nlet sourceProblem = '';\nlet added = 0;\nconst storedLedger = String(ctx.SOURCES || '').trim();\nif (storedLedger) {\n  try {\n    const data = JSON.parse(storedLedger);\n    const list = Array.isArray(data) ? data : data && Array.isArray(data.sources) ? data.sources : null;\n    if (!list) throw new Error('sources.json carries no sources array');\n    fidelity = 'checked';\n    const ledger = list.filter((e) => e && norm(e.block) !== '');\n    const unverified = [];\n    for (const fencedBlock of fenced) {\n      const key = norm(fencedBlock);\n      const head = firstLine(fencedBlock);\n      const entry = ledger.find((e) => norm(e.block) === key);\n      if (!entry) {\n        // The drafting gate has no exception: a first draft may not fence a line no source\n        // carries. A human feedback round is the one round that may, because the person asked\n        // for that command; it is counted here and the review message names it as unverified.\n        if (ctx.HAS_FEEDBACK) { added += 1; continue; }\n        unverified.push('UNQUOTED: \"' + head + '\" is not in sources.json');\n        continue;\n      }\n      const url = String(entry.url || '').trim() || 'its url';\n      if (entry.found !== true) {\n        unverified.push('SOURCE_NOT_FOUND: \"' + head + '\" was not found at ' + url);\n        continue;\n      }\n      const failure = String(entry.validation_error || '').trim();\n      if (failure) {\n        unverified.push('VALIDATION_FAILED: \"' + head + '\" (' + url + '): ' + failure);\n        continue;\n      }\n      if (norm(entry.excerpt) !== key) {\n        unverified.push('UNQUOTED: \"' + head + '\" no longer matches ' + url);\n      }\n    }\n    if (added) fidelity = 'feedback';\n    if (unverified.length) sourceProblem = unverified.join('; ');\n  } catch (e) {\n    fidelity = 'not run';\n  }\n}\nlet problem = '';\nif (!text) problem = 'EMPTY_DRAFT: the improver returned no article body';\nelse if (words > limit) problem = 'OVER_BUDGET: ' + words + ' words against a limit of ' + limit + ' (MAX_WORDS=' + max + ')';\nelse if (wrong.length) problem = 'MARKERS: ' + wrong.join(', ');\nelse if (sourceProblem) problem = sourceProblem;\nreturn [{ json: {\n  ...ctx,\n  IMPROVED_TITLE: title || ctx.BASE_TITLE,\n  IMPROVED_TEXT: text,\n  WORD_COUNT: words,\n  SOURCES: String(ctx.SOURCES || ''),\n  SOURCES_TEXT: String(ctx.SOURCES_TEXT || 'none'),\n  FIDELITY: fidelity,\n  UNVERIFIED: added,\n  UNCHANGED: unchanged,\n  PROBLEM: problem,\n} }];"
+          "jsCode": "// The objective half of the improvement, counted in code: the budget and the markers are\n// counts, and a count asked of a model is a count that gets invented. This is the twin of\n// `parse_article` in Article Creator, and a test runs both against one fixture.\n//\n// The writer answers the edited article in its response. A transport failure carries no\n// article at all and is reported as one problem, never mistaken for an empty draft.\nconst ctx = $('build_improvement_context').first().json;\nconst res = $json || {};\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nconst article = body.article && typeof body.article === 'object' ? body.article : {};\nconst content = String(((body.choices || [])[0] || {}).message?.content || '');\nconst parseArticle = (value) => {\n  const raw = String(value || '');\n  const block = /<article>([\\s\\S]*?)<\\/article>/.exec(raw);\n  const inner = (block ? block[1] : raw).trim();\n  const HEAD = /^#\\s+(.+?)\\s*$/;\n  let head = '';\n  const lines = [];\n  for (const line of inner.split('\\n')) {\n    if (!head && !lines.length && HEAD.test(line.trim())) {\n      head = line.trim().replace(HEAD, '$1');\n      continue;\n    }\n    lines.push(line);\n  }\n  return { title: head, text: lines.join('\\n').trim() };\n};\nconst answered = parseArticle(content);\nconst title = String(article.text ? article.title || '' : answered.title).trim();\nconst text = String(article.text || answered.text).trim();\nconst norm = (value) => String(value == null ? '' : value).replace(/\\s+/g, ' ').trim();\n// A round that returns the draft it was given is a failed round, whatever the model says about\n// it: on 2026-11-06 run 15874 the owner's feedback was applied to nothing and the same\n// 1184-word draft went back for review. The convergence node reports it instead of calling it\n// an improvement.\nconst unchanged = Boolean(text) && norm(text) === norm(ctx.BASE_TEXT)\n  && String(title || ctx.BASE_TITLE) === String(ctx.BASE_TITLE || '');\nconst max = Number(ctx.MAX_WORDS);\nif (!isFinite(max) || max <= 0) throw new Error('MAX_WORDS is required and must be a positive number');\n// A model cannot count words, so a draft a little over the budget is the budget met: 10%\n// covers a counting slip without letting the article run long (row 3, 2026-10-30, died at\n// 1248 words against 1200 with every other check passing). Integer arithmetic, because\n// 1200 * 1.1 is 1320.0000000000002 in a double and Math.ceil would add a word.\nconst limit = Math.ceil(max * 11 / 10);\nconst words = text.replace(/<!--[\\s\\S]*?-->/g, ' ').split(/\\s+/).filter(Boolean).length;\nconst requested = String(ctx.ASSET_TYPES || '').split(',').map((s) => s.trim()).filter(Boolean);\nconst markers = (text.match(/<!--\\s*asset:[a-zA-Z0-9_]+\\s*-->/g) || [])\n  .map((m) => m.replace('<!--', '').replace('-->', '').replace('asset:', '').trim());\nconst wrong = [\n  ...requested.filter((t) => markers.filter((m) => m === t).length !== 1)\n    .map((t) => t + ' x' + markers.filter((m) => m === t).length),\n  ...markers.filter((m) => !requested.includes(m)).map((m) => m + ' not requested'),\n];\n// The same ledger check as the drafting gate, against the row's stored ledger. A missing\n// SOURCES cell is a report, not a bypass: the edit is accepted and FIDELITY says the check did\n// not run. A stored ledger that no longer parses is the same case, because the draft it\n// belonged to already passed the gate.\nconst fenced = [];\n{\n  const re = /^[ \\t]*```([^\\n`]*)\\n([\\s\\S]*?)^[ \\t]*```[ \\t]*$/gm;\n  let m;\n  while ((m = re.exec(text)) !== null) {\n    const innerBlock = m[2].replace(/\\n$/, '');\n    if (innerBlock.trim()) fenced.push(innerBlock);\n  }\n}\nconst firstLine = (value) => String(value || '').split('\\n').map((l) => l.trim()).filter(Boolean)[0] || 'a fenced block';\nlet fidelity = 'not run';\nlet sourceProblem = '';\nlet added = 0;\nconst storedLedger = String(ctx.SOURCES || '').trim();\nif (storedLedger && text) {\n  try {\n    const data = JSON.parse(storedLedger);\n    const list = Array.isArray(data) ? data : data && Array.isArray(data.sources) ? data.sources : null;\n    if (!list) throw new Error('sources.json carries no sources array');\n    fidelity = 'checked';\n    const ledger = list.filter((e) => e && norm(e.block) !== '');\n    const unverified = [];\n    for (const fencedBlock of fenced) {\n      const key = norm(fencedBlock);\n      const head = firstLine(fencedBlock);\n      const entry = ledger.find((e) => norm(e.block) === key);\n      if (!entry) {\n        // The drafting gate has no exception: a first draft may not fence a line no source\n        // carries. A human feedback round is the one round that may, because the person asked\n        // for that command; it is counted here and the review message names it as unverified.\n        if (ctx.HAS_FEEDBACK) { added += 1; continue; }\n        unverified.push('UNQUOTED: \"' + head + '\" is not in sources.json');\n        continue;\n      }\n      const url = String(entry.url || '').trim() || 'its url';\n      if (entry.found !== true) {\n        unverified.push('SOURCE_NOT_FOUND: \"' + head + '\" was not found at ' + url);\n        continue;\n      }\n      const failure = String(entry.validation_error || '').trim();\n      if (failure) {\n        unverified.push('VALIDATION_FAILED: \"' + head + '\" (' + url + '): ' + failure);\n        continue;\n      }\n      if (norm(entry.excerpt) !== key) {\n        unverified.push('UNQUOTED: \"' + head + '\" no longer matches ' + url);\n      }\n    }\n    if (added) fidelity = 'feedback';\n    if (unverified.length) sourceProblem = unverified.join('; ');\n  } catch (e) {\n    fidelity = 'not run';\n  }\n}\nconst transport = res.error ? String((res.error && res.error.message) || res.error).trim() : '';\nconst message = String((body.error && body.error.message) || body.error || res.statusMessage || transport || '').trim();\nconst failed = status >= 400\n  ? 'IMPROVE_FAILED: HTTP ' + status + (message ? ': ' + message : '')\n  : transport ? 'IMPROVE_FAILED: ' + transport : '';\nlet problem = '';\nif (!text) problem = failed || 'EMPTY_DRAFT: the improver returned no article body';\nelse if (words > limit) problem = 'OVER_BUDGET: ' + words + ' words against a limit of ' + limit + ' (MAX_WORDS=' + max + ')';\nelse if (wrong.length) problem = 'MARKERS: ' + wrong.join(', ');\nelse if (sourceProblem) problem = sourceProblem;\nreturn [{ json: {\n  ...ctx,\n  IMPROVED_TITLE: title || ctx.BASE_TITLE,\n  IMPROVED_TEXT: text,\n  WORD_COUNT: words,\n  SOURCES: String(ctx.SOURCES || ''),\n  SOURCES_TEXT: String(ctx.SOURCES_TEXT || 'none'),\n  FIDELITY: fidelity,\n  UNVERIFIED: added,\n  UNCHANGED: unchanged,\n  PROBLEM: problem,\n} }];"
         }
       },
       {
@@ -5108,63 +4726,7 @@
           -352
         ],
         "parameters": {
-          "jsCode": "// The one convergence node: every branch of the improvement pass meets here, and the nodes\n// that store, upload and commit the draft read this and nothing else. Precedence is\n// resolution, not judgement - an improved draft that passed the code re-check wins, and\n// anything else falls back to the gate-passed draft with the reason riding on the item.\nconst ctx = $('build_improvement_context').first().json;\nconst item = $json;\nconst summary = String($('merge_aspect_findings').first().json.FINDINGS_SUMMARY || '');\nconst base = {\n  text: String(ctx.BASE_TEXT || ''),\n  title: String(ctx.BASE_TITLE || ''),\n  word_count: Number(ctx.BASE_WORD_COUNT || 0),\n};\nconst improved = typeof item.IMPROVED_TEXT === 'string' && item.IMPROVED_TEXT.trim() !== '';\nconst failed = item.error ? String(item.error.message || item.error) : '';\nconst baseFidelity = String(ctx.FIDELITY || 'not run');\nconst out = { ...ctx, ...base, FINDINGS_SUMMARY: summary, FIDELITY: baseFidelity, UNVERIFIED: 0 };\nif (improved && item.UNCHANGED) {\n  out.IMPROVED = 'UNCHANGED';\n  out.IMPROVEMENT_NOTE = ctx.HAS_FEEDBACK\n    ? 'the improver returned the draft unchanged; the feedback was not applied'\n    : 'the improver returned the draft unchanged';\n  // This round added nothing, and a block an earlier round added is not this round's.\n  out.UNVERIFIED = 0;\n} else if (improved && !String(item.PROBLEM || '')) {\n  out.text = item.IMPROVED_TEXT;\n  out.title = String(item.IMPROVED_TITLE || base.title);\n  out.word_count = Number(item.WORD_COUNT || 0);\n  out.SOURCES = String(item.SOURCES || ctx.SOURCES || '');\n  out.SOURCES_TEXT = String(item.SOURCES_TEXT || ctx.SOURCES_TEXT || 'none');\n  out.FIDELITY = String(item.FIDELITY || baseFidelity);\n  out.UNVERIFIED = Number(item.UNVERIFIED || 0);\n  out.IMPROVED = 'IMPROVED';\n  out.IMPROVEMENT_NOTE = summary || 'the findings were applied';\n  if (out.UNVERIFIED) {\n    out.IMPROVEMENT_NOTE += ' (' + out.UNVERIFIED + ' fenced block(s) added on the feedback were not checked against a source)';\n  } else if (out.FIDELITY === 'not run') {\n    out.IMPROVEMENT_NOTE += ' (fidelity: not run)';\n  }\n} else if (improved) {\n  out.IMPROVED = 'FALLBACK';\n  out.IMPROVEMENT_NOTE = String(item.PROBLEM || 'the improved draft failed the objective re-check');\n} else if (failed) {\n  out.IMPROVED = 'FAILED';\n  out.IMPROVEMENT_NOTE = failed;\n} else {\n  out.IMPROVED = 'NONE';\n  out.IMPROVEMENT_NOTE = 'nothing to apply';\n}\nconsole.log('improvement: ' + out.IMPROVED + ' - ' + out.IMPROVEMENT_NOTE);\nreturn [{ json: out }];"
-        }
-      },
-      {
-        "id": "091a2b3c-4d5e-4f67-8819-2a3b4c5d6e7f",
-        "name": "improve_model",
-        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-        "typeVersion": 1.3,
-        "position": [
-          5960,
-          72
-        ],
-        "parameters": {
-          "model": {
-            "__rl": true,
-            "mode": "id",
-            "value": "={{ $('build_improvement_context').first().json.MODEL }}"
-          },
-          "builtInTools": {},
-          "options": {
-            "timeout": 240000,
-            "maxRetries": 5
-          }
-        },
-        "credentials": {
-          "openAiApi": {
-            "id": "LitellmN8nAcct01",
-            "name": "LiteLLM account"
-          }
-        }
-      },
-      {
-        "id": "1a2b3c4d-5e6f-4081-992a-3b4c5d6e7f80",
-        "name": "improve_model_fallback",
-        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-        "typeVersion": 1.3,
-        "position": [
-          6088,
-          72
-        ],
-        "parameters": {
-          "model": {
-            "__rl": true,
-            "mode": "id",
-            "value": "={{ $('build_improvement_context').first().json.MODEL_FALLBACK }}"
-          },
-          "builtInTools": {},
-          "options": {
-            "timeout": 240000,
-            "maxRetries": 5
-          }
-        },
-        "credentials": {
-          "openAiApi": {
-            "id": "LitellmN8nAcct01",
-            "name": "LiteLLM account"
-          }
+          "jsCode": "// The one convergence node: every branch of the improvement pass meets here, and the nodes\n// that store, upload and commit the draft read this and nothing else. Precedence is\n// resolution, not judgement - an improved draft that passed the code re-check wins, and\n// anything else falls back to the gate-passed draft with the reason riding on the item.\nconst ctx = $('build_improvement_context').first().json;\nconst item = $json;\nconst summary = String($('merge_aspect_findings').first().json.FINDINGS_SUMMARY || '');\nconst base = {\n  text: String(ctx.BASE_TEXT || ''),\n  title: String(ctx.BASE_TITLE || ''),\n  word_count: Number(ctx.BASE_WORD_COUNT || 0),\n};\nconst improved = typeof item.IMPROVED_TEXT === 'string' && item.IMPROVED_TEXT.trim() !== '';\nconst failed = item.error ? String(item.error.message || item.error) : '';\nconst problem = String(item.PROBLEM || '');\nconst baseFidelity = String(ctx.FIDELITY || 'not run');\nconst out = { ...ctx, ...base, FINDINGS_SUMMARY: summary, FIDELITY: baseFidelity, UNVERIFIED: 0 };\nif (improved && item.UNCHANGED) {\n  out.IMPROVED = 'UNCHANGED';\n  out.IMPROVEMENT_NOTE = ctx.HAS_FEEDBACK\n    ? 'the improver returned the draft unchanged; the feedback was not applied'\n    : 'the improver returned the draft unchanged';\n  // This round added nothing, and a block an earlier round added is not this round's.\n  out.UNVERIFIED = 0;\n} else if (improved && !problem) {\n  out.text = item.IMPROVED_TEXT;\n  out.title = String(item.IMPROVED_TITLE || base.title);\n  out.word_count = Number(item.WORD_COUNT || 0);\n  out.SOURCES = String(item.SOURCES || ctx.SOURCES || '');\n  out.SOURCES_TEXT = String(item.SOURCES_TEXT || ctx.SOURCES_TEXT || 'none');\n  out.FIDELITY = String(item.FIDELITY || baseFidelity);\n  out.UNVERIFIED = Number(item.UNVERIFIED || 0);\n  out.IMPROVED = 'IMPROVED';\n  out.IMPROVEMENT_NOTE = summary || 'the findings were applied';\n  if (out.UNVERIFIED) {\n    out.IMPROVEMENT_NOTE += ' (' + out.UNVERIFIED + ' fenced block(s) added on the feedback were not checked against a source)';\n  } else if (out.FIDELITY === 'not run') {\n    out.IMPROVEMENT_NOTE += ' (fidelity: not run)';\n  }\n} else if (improved) {\n  out.IMPROVED = 'FALLBACK';\n  out.IMPROVEMENT_NOTE = problem || 'the improved draft failed the objective re-check';\n} else if (failed) {\n  out.IMPROVED = 'FAILED';\n  out.IMPROVEMENT_NOTE = failed;\n} else if (problem) {\n  // The rewrite turn itself failed: the writer answered no article, or the request was\n  // rejected. This is not \"nothing to apply\" - the gate-passed draft is still usable, and\n  // the note says the edit did not happen and why.\n  out.IMPROVED = 'FAILED';\n  out.IMPROVEMENT_NOTE = problem;\n} else {\n  out.IMPROVED = 'NONE';\n  out.IMPROVEMENT_NOTE = 'nothing to apply';\n}\nconsole.log('improvement: ' + out.IMPROVED + ' - ' + out.IMPROVEMENT_NOTE);\nreturn [{ json: out }];"
         }
       },
       {
@@ -5182,6 +4744,88 @@
           "path": "article-lane-run",
           "options": {}
         }
+      },
+      {
+        "parameters": {
+          "jsCode": "// The aspect pass is the writer's turn too: this request names the task, the session and\n// the draft, and the adapter renders each aspect prompt from its own registry. The graph\n// holds no aspect id and no prompt text, so adding an aspect changes the image only.\nconst ctx = $('build_improvement_context').first().json;\nreturn [{ json: {\n  ASPECTS_URL: String(ctx.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '') + '/v1/chat/completions',\n  ASPECTS_BODY: JSON.stringify({\n    task: 'aspects',\n    session_id: String(ctx.SESSION_ID || ''),\n    brief: {\n      topic: String(ctx.TOPIC || ''),\n      description: String(ctx.DESCRIPTION || ''),\n      url: String(ctx.LINK || ''),\n      max_words: Number(ctx.MAX_WORDS) || 0,\n      asset_types: String(ctx.ASSET_TYPES || ''),\n      audience: String(ctx.AUDIENCE || 'NONE'),\n      extra_prompt: String(ctx.EXTRA_PROMPT || ''),\n      feedback: String(ctx.FEEDBACK || ''),\n    },\n    article: { title: String(ctx.BASE_TITLE || ''), text: String(ctx.BASE_TEXT || '') },\n  }),\n} }];"
+        },
+        "id": "1b2a0fe8-3f56-48cb-b78a-d85f9e8baa12",
+        "name": "build_aspects_request",
+        "position": [
+          4480,
+          -144
+        ],
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $json.ASPECTS_URL }}",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ $json.ASPECTS_BODY }}",
+          "options": {
+            "timeout": 900000,
+            "response": {
+              "response": {
+                "neverError": true,
+                "fullResponse": true,
+                "responseFormat": "json"
+              }
+            }
+          }
+        },
+        "id": "6084bdfd-0984-4bf7-8f89-d469f954c44f",
+        "name": "request_aspects",
+        "position": [
+          4704,
+          -144
+        ],
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "jsCode": "// The edit is the same session's next turn: the draft, the findings, and - on a retry -\n// the objective problem the code re-check named. No prompt text and no model id ride on\n// the request; the adapter owns both.\nconst ctx = $('build_improvement_context').first().json;\nconst merged = $('merge_aspect_findings').first().json;\nconst checked = $('check_improved_draft');\nconst problem = checked.isExecuted ? String(checked.last().json.PROBLEM || '') : '';\nreturn [{ json: {\n  IMPROVE_URL: String(ctx.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '') + '/v1/chat/completions',\n  IMPROVE_BODY: JSON.stringify({\n    task: 'improve',\n    session_id: String(ctx.SESSION_ID || ''),\n    brief: {\n      topic: String(ctx.TOPIC || ''),\n      description: String(ctx.DESCRIPTION || ''),\n      url: String(ctx.LINK || ''),\n      max_words: Number(ctx.MAX_WORDS) || 0,\n      asset_types: String(ctx.ASSET_TYPES || ''),\n      audience: String(ctx.AUDIENCE || 'NONE'),\n      extra_prompt: String(ctx.EXTRA_PROMPT || ''),\n      feedback: String(ctx.FEEDBACK || ''),\n    },\n    article: { title: String(ctx.BASE_TITLE || ''), text: String(ctx.BASE_TEXT || '') },\n    findings: String(merged.FINDINGS || ''),\n    problem,\n  }),\n} }];"
+        },
+        "id": "c1cd2073-2def-47e8-b8ca-4d8a4a5dd66e",
+        "name": "build_improve_request",
+        "position": [
+          5728,
+          -16
+        ],
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $json.IMPROVE_URL }}",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ $json.IMPROVE_BODY }}",
+          "options": {
+            "timeout": 600000,
+            "response": {
+              "response": {
+                "neverError": true,
+                "fullResponse": true,
+                "responseFormat": "json"
+              }
+            }
+          }
+        },
+        "id": "a5168ffd-49c7-44af-8383-dedc3ac5eb5a",
+        "name": "request_improve",
+        "position": [
+          5952,
+          -144
+        ],
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "onError": "continueErrorOutput"
       }
     ],
     "connections": {
@@ -6116,50 +5760,6 @@
         "main": [
           [
             {
-              "node": "download_article_aspects",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "download_article_aspects": {
-        "main": [
-          [
-            {
-              "node": "download_article_audiences",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "download_article_audiences": {
-        "main": [
-          [
-            {
-              "node": "download_article_structures",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "download_article_structures": {
-        "main": [
-          [
-            {
-              "node": "download_writer_rules",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "download_writer_rules": {
-        "main": [
-          [
-            {
               "node": "build_improvement_context",
               "type": "main",
               "index": 0
@@ -6171,40 +5771,7 @@
         "main": [
           [
             {
-              "node": "split_aspects",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "split_aspects": {
-        "main": [
-          [
-            {
-              "node": "download_aspect_prompt",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "download_aspect_prompt": {
-        "main": [
-          [
-            {
-              "node": "review_aspect_llm",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "review_aspect_llm": {
-        "main": [
-          [
-            {
-              "node": "merge_aspect_findings",
+              "node": "build_aspects_request",
               "type": "main",
               "index": 0
             }
@@ -6226,36 +5793,7 @@
         "main": [
           [
             {
-              "node": "download_improver_prompt",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "select_final_draft",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "download_improver_prompt": {
-        "main": [
-          [
-            {
-              "node": "improve_article",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "improve_article": {
-        "main": [
-          [
-            {
-              "node": "check_improved_draft",
+              "node": "build_improve_request",
               "type": "main",
               "index": 0
             }
@@ -6298,41 +5836,9 @@
           ],
           [
             {
-              "node": "download_improver_prompt",
+              "node": "build_improve_request",
               "type": "main",
               "index": 0
-            }
-          ]
-        ]
-      },
-      "improve_model": {
-        "ai_languageModel": [
-          [
-            {
-              "node": "review_aspect_llm",
-              "type": "ai_languageModel",
-              "index": 0
-            },
-            {
-              "node": "improve_article",
-              "type": "ai_languageModel",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "improve_model_fallback": {
-        "ai_languageModel": [
-          [
-            {
-              "node": "review_aspect_llm",
-              "type": "ai_languageModel",
-              "index": 1
-            },
-            {
-              "node": "improve_article",
-              "type": "ai_languageModel",
-              "index": 1
             }
           ]
         ]
@@ -6353,6 +5859,64 @@
           [
             {
               "node": "read_article_queue",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "build_aspects_request": {
+        "main": [
+          [
+            {
+              "node": "request_aspects",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "request_aspects": {
+        "main": [
+          [
+            {
+              "node": "merge_aspect_findings",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "merge_aspect_findings",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "build_improve_request": {
+        "main": [
+          [
+            {
+              "node": "request_improve",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "request_improve": {
+        "main": [
+          [
+            {
+              "node": "check_improved_draft",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "check_improved_draft",
               "type": "main",
               "index": 0
             }
@@ -7301,50 +6865,6 @@
       "main": [
         [
           {
-            "node": "download_article_aspects",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "download_article_aspects": {
-      "main": [
-        [
-          {
-            "node": "download_article_audiences",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "download_article_audiences": {
-      "main": [
-        [
-          {
-            "node": "download_article_structures",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "download_article_structures": {
-      "main": [
-        [
-          {
-            "node": "download_writer_rules",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "download_writer_rules": {
-      "main": [
-        [
-          {
             "node": "build_improvement_context",
             "type": "main",
             "index": 0
@@ -7356,40 +6876,7 @@
       "main": [
         [
           {
-            "node": "split_aspects",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "split_aspects": {
-      "main": [
-        [
-          {
-            "node": "download_aspect_prompt",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "download_aspect_prompt": {
-      "main": [
-        [
-          {
-            "node": "review_aspect_llm",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "review_aspect_llm": {
-      "main": [
-        [
-          {
-            "node": "merge_aspect_findings",
+            "node": "build_aspects_request",
             "type": "main",
             "index": 0
           }
@@ -7411,36 +6898,7 @@
       "main": [
         [
           {
-            "node": "download_improver_prompt",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "select_final_draft",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "download_improver_prompt": {
-      "main": [
-        [
-          {
-            "node": "improve_article",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "improve_article": {
-      "main": [
-        [
-          {
-            "node": "check_improved_draft",
+            "node": "build_improve_request",
             "type": "main",
             "index": 0
           }
@@ -7483,41 +6941,9 @@
         ],
         [
           {
-            "node": "download_improver_prompt",
+            "node": "build_improve_request",
             "type": "main",
             "index": 0
-          }
-        ]
-      ]
-    },
-    "improve_model": {
-      "ai_languageModel": [
-        [
-          {
-            "node": "review_aspect_llm",
-            "type": "ai_languageModel",
-            "index": 0
-          },
-          {
-            "node": "improve_article",
-            "type": "ai_languageModel",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "improve_model_fallback": {
-      "ai_languageModel": [
-        [
-          {
-            "node": "review_aspect_llm",
-            "type": "ai_languageModel",
-            "index": 1
-          },
-          {
-            "node": "improve_article",
-            "type": "ai_languageModel",
-            "index": 1
           }
         ]
       ]
@@ -7538,6 +6964,64 @@
         [
           {
             "node": "read_article_queue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "build_aspects_request": {
+      "main": [
+        [
+          {
+            "node": "request_aspects",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "request_aspects": {
+      "main": [
+        [
+          {
+            "node": "merge_aspect_findings",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "merge_aspect_findings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "build_improve_request": {
+      "main": [
+        [
+          {
+            "node": "request_improve",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "request_improve": {
+      "main": [
+        [
+          {
+            "node": "check_improved_draft",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "check_improved_draft",
             "type": "main",
             "index": 0
           }
@@ -12126,236 +11610,6 @@
       }
     },
     {
-      "id": "1a2b3c4d-5e6f-4071-8293-a4b5c6d7e8f9",
-      "name": "download_article_aspects",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        3136,
-        -80
-      ],
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "qUfjfWLGEjV96ljf",
-          "mode": "list",
-          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
-          "cachedResultName": "DownloadTemplate"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "template_name": "datasets/article_aspects.json",
-            "template_vars": "={{ {} }}"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "template_name",
-              "displayName": "template_name",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string"
-            },
-            {
-              "id": "template_vars",
-              "displayName": "template_vars",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "object"
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "2b3c4d5e-6f70-4182-93a4-b5c6d7e8f9a0",
-      "name": "download_article_audiences",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        3360,
-        -80
-      ],
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "qUfjfWLGEjV96ljf",
-          "mode": "list",
-          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
-          "cachedResultName": "DownloadTemplate"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "template_name": "article_audiences.md",
-            "template_vars": "={{ {} }}",
-            "repo_path": "agents/adapters/pi-writer/prompts"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "template_name",
-              "displayName": "template_name",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string"
-            },
-            {
-              "id": "template_vars",
-              "displayName": "template_vars",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "object"
-            },
-            {
-              "id": "repo_path",
-              "displayName": "repo_path",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string"
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "3c4d5e6f-7081-4293-a4b5-c6d7e8f9a0b1",
-      "name": "download_article_structures",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        3584,
-        -80
-      ],
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "qUfjfWLGEjV96ljf",
-          "mode": "list",
-          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
-          "cachedResultName": "DownloadTemplate"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "template_name": "article_structures.md",
-            "template_vars": "={{ {} }}",
-            "repo_path": "agents/adapters/pi-writer/prompts"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "template_name",
-              "displayName": "template_name",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string"
-            },
-            {
-              "id": "template_vars",
-              "displayName": "template_vars",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "object"
-            },
-            {
-              "id": "repo_path",
-              "displayName": "repo_path",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string"
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "5e6f7081-92a3-44b5-c6d7-e8f9a0b1c2d3",
-      "name": "download_writer_rules",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        4032,
-        -80
-      ],
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "qUfjfWLGEjV96ljf",
-          "mode": "list",
-          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
-          "cachedResultName": "DownloadTemplate"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "template_name": "article_writer_system.md",
-            "template_vars": "={{ {} }}",
-            "repo_path": "agents/adapters/pi-writer/prompts"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "template_name",
-              "displayName": "template_name",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string"
-            },
-            {
-              "id": "template_vars",
-              "displayName": "template_vars",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "object"
-            },
-            {
-              "id": "repo_path",
-              "displayName": "repo_path",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string"
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        },
-        "options": {}
-      }
-    },
-    {
       "id": "6f708192-a3b4-45c6-d7e8-f9a0b1c2d3e4",
       "name": "build_improvement_context",
       "type": "n8n-nodes-base.code",
@@ -12365,89 +11619,7 @@
         -80
       ],
       "parameters": {
-        "jsCode": "// One item always: the aspect fan-out starts from a list this node owns, and a fan-out from a\n// possibly empty input never runs the rest of the chain (the prepare_uploads failure, 13401).\n// A missing, unparsable or empty registry throws - the semantic-registry rule: without its\n// definitions the pass must not run quietly on no aspects.\n//\n// The draft of record is resolved here once, because the retry edge re-enters this node and\n// nothing below may read `execute_article_creator` on a run where it did not execute:\n//   1. `select_final_draft`'s own earlier run - a human retry in this execution improves the\n//      draft the human read, not the first draft it came from;\n//   2. `execute_article_creator`'s answer - the first pass of this execution;\n//   3. the `article_drafts` row - a review resumed in a later execution.\nconst row = $('select_article_to_queue').first().json;\nlet registry = {};\ntry {\n  registry = JSON.parse(String($('download_article_aspects').first().json.output || ''));\n} catch (e) {\n  throw new Error('datasets/article_aspects.json is not valid JSON: ' + e.message);\n}\nconst aspects = (Array.isArray(registry.aspects) ? registry.aspects : [])\n  .map((a) => ({\n    ASPECT: String((a && a.id) || '').trim(),\n    ASPECT_PROMPT: String((a && a.prompt) || '').trim(),\n    FOCUS: String((a && a.focus) || '').trim(),\n  }))\n  .filter((a) => a.ASPECT && a.ASPECT_PROMPT);\nif (!aspects.length) throw new Error('datasets/article_aspects.json lists no usable aspect');\n\nconst stored = $('read_draft_for_improvement').first().json || {};\nconst count = (text) => String(text || '')\n  .replace(/<!--[\\s\\S]*?-->/g, ' ')\n  .split(/\\s+/)\n  .filter(Boolean).length;\nconst resolveDraft = () => {\n  if ($('select_final_draft').isExecuted) {\n    const j = $('select_final_draft').last().json;\n    return { text: String(j.text || ''), title: String(j.title || ''), source: 'the draft this run reviewed' };\n  }\n  if ($('execute_article_creator').isExecuted) {\n    const j = $('execute_article_creator').last().json;\n    return { text: String(j.text || ''), title: String(j.title || ''), source: 'the draft this run received' };\n  }\n  const text = String(stored.ARTICLE_TEXT || '');\n  if (!text) throw new Error('no draft to improve: the creator did not run and article_drafts carries no row for ' + String(row.ENTRY_ID || 'this entry'));\n  return { text, title: String(stored.TITLE || ''), source: 'the stored draft' };\n};\nconst base = resolveDraft();\nif (!base.text.trim()) throw new Error('no draft to improve: the resolved draft is empty');\n\n// The ledger travels with the draft for the same reason and in the same order: a resumed\n// review runs in a later execution, and an edit that fences a line the server never verified\n// must fail here. A missing cell is a report, not a bypass: the improved draft is accepted and\n// the note says the fidelity check did not run.\nconst firstLine = (value) => String(value || '').split('\\n').map((l) => l.trim()).filter(Boolean)[0] || 'a fenced block';\nconst describe = (text) => {\n  try {\n    const data = JSON.parse(String(text || ''));\n    const list = Array.isArray(data) ? data : data && Array.isArray(data.sources) ? data.sources : null;\n    if (!list) return 'none';\n    const lines = list.filter((e) => e && String(e.block || '').trim())\n      .map((e) => '- ' + firstLine(e.block) + ' (' + (String(e.url || '').trim() || 'no url') + ')');\n    return lines.join('\\n') || 'none';\n  } catch (e) {\n    return 'none';\n  }\n};\nconst resolveSources = () => {\n  const pick = (value) => String(value || '').trim();\n  if ($('select_final_draft').isExecuted) {\n    const ledger = pick($('select_final_draft').last().json.SOURCES);\n    if (ledger) return ledger;\n  }\n  if ($('execute_article_creator').isExecuted) {\n    const ledger = pick($('execute_article_creator').last().json.SOURCES);\n    if (ledger) return ledger;\n  }\n  return String(row.SOURCES || '');\n};\nconst sources = resolveSources();\n\nlet feedback = String(row.ARTICLE_FEEDBACK || '');\nconst retry = $('notification_retry_or_cancel');\nif (retry.isExecuted) feedback = String((retry.last().json || {}).data?.Feedback || feedback);\n\nconst audience = String(row.AUDIENCE || 'NONE').trim().toUpperCase();\nconsole.log('improvement: ' + aspects.length + ' aspect(s) over ' + base.source + ' at ' + audience +\n  ' (feedback: ' + (feedback.trim() ? 'yes' : 'no') + ')');\nreturn [{ json: {\n  ...row,\n  BASE_TEXT: base.text,\n  BASE_TITLE: base.title,\n  BASE_WORD_COUNT: count(base.text),\n  DRAFT_SOURCE: base.source,\n  SOURCES: sources,\n  SOURCES_TEXT: describe(sources),\n  FIDELITY: sources.trim() ? 'checked' : 'not run',\n  AUDIENCE: audience,\n  AUDIENCES: String($('download_article_audiences').first().json.output || ''),\n  STRUCTURES: String($('download_article_structures').first().json.output || ''),\n  ASPECTS: aspects,\n  FINDINGS_SUMMARY: '',\n  FEEDBACK: feedback,\n  HAS_FEEDBACK: feedback.trim() !== '',\n  MAX_WORDS: Number(row.MAX_WORDS),\n  ASSET_TYPES: String(row.REQUESTED_ASSETS || ''),\n  IMPROVE_MAX_ATTEMPTS: 2,\n  MODEL: 'opencode-go/deepseek-v4.1-flash',\n  MODEL_FALLBACK: 'opencode-go/glm-5.3-flash',\n} }];\n"
-      }
-    },
-    {
-      "id": "708192a3-b4c5-46d7-e8f9-a0b1c2d3e4f5",
-      "name": "split_aspects",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        4480,
-        -144
-      ],
-      "parameters": {
-        "jsCode": "// One item per aspect, from the registry this run fetched. The ids live in the dataset, not in\n// this graph: adding an aspect is a dataset entry plus a prompt file, never a node.\nconst ctx = $('build_improvement_context').first().json;\nconst aspects = Array.isArray(ctx.ASPECTS) ? ctx.ASPECTS : [];\nif (!aspects.length) throw new Error('no aspect to review the draft with');\nreturn aspects.map((a) => ({ json: { ...ctx, ...a } }));\n"
-      }
-    },
-    {
-      "id": "8192a3b4-c5d6-47e8-f9a0-b1c2d3e4f506",
-      "name": "download_aspect_prompt",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        4704,
-        -144
-      ],
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "qUfjfWLGEjV96ljf",
-          "mode": "list",
-          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
-          "cachedResultName": "DownloadTemplate"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "template_name": "={{ $json.ASPECT_PROMPT }}",
-            "template_vars": "={{ {\n\"TITLE\": $('build_improvement_context').first().json.BASE_TITLE,\n\"DRAFT\": $('build_improvement_context').first().json.BASE_TEXT,\n\"TOPIC\": $('build_improvement_context').first().json.TOPIC,\n\"DESCRIPTION\": $('build_improvement_context').first().json.DESCRIPTION,\n\"AUDIENCE\": $('build_improvement_context').first().json.AUDIENCE,\n\"AUDIENCES\": $('build_improvement_context').first().json.AUDIENCES,\n\"STRUCTURES\": $('build_improvement_context').first().json.STRUCTURES,\n} }}"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "template_name",
-              "displayName": "template_name",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string"
-            },
-            {
-              "id": "template_vars",
-              "displayName": "template_vars",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "object"
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "92a3b4c5-d6e7-48f9-a0b1-c2d3e4f50617",
-      "name": "review_aspect_llm",
-      "type": "@n8n/n8n-nodes-langchain.chainLlm",
-      "typeVersion": 1.6,
-      "retryOnFail": true,
-      "maxTries": 5,
-      "waitBetweenTries": 5000,
-      "onError": "continueRegularOutput",
-      "position": [
-        4928,
-        -144
-      ],
-      "parameters": {
-        "promptType": "define",
-        "text": "={{ $json.output }}",
-        "needsFallback": true
+        "jsCode": "// One item always: the review and edit turns start from this context, and a fan-out from a\n// possibly empty input never runs the rest of the chain.\n//\n// The draft of record is resolved here once, because the retry edge re-enters this node and\n// nothing below may read `execute_article_creator` on a run where it did not execute:\n//   1. `select_final_draft`'s own earlier run - a human retry in this execution improves the\n//      draft the human read, not the first draft it came from;\n//   2. `execute_article_creator`'s answer - the first pass of this execution;\n//   3. the `article_drafts` row - a review resumed in a later execution.\nconst row = $('select_article_to_queue').first().json;\nconst stored = $('read_draft_for_improvement').first().json || {};\nconst count = (text) => String(text || '')\n  .replace(/<!--[\\s\\S]*?-->/g, ' ')\n  .split(/\\s+/)\n  .filter(Boolean).length;\nconst resolveDraft = () => {\n  if ($('select_final_draft').isExecuted) {\n    const j = $('select_final_draft').last().json;\n    return { text: String(j.text || ''), title: String(j.title || ''), source: 'the draft this run reviewed' };\n  }\n  if ($('execute_article_creator').isExecuted) {\n    const j = $('execute_article_creator').last().json;\n    return { text: String(j.text || ''), title: String(j.title || ''), source: 'the draft this run received' };\n  }\n  const text = String(stored.ARTICLE_TEXT || '');\n  if (!text) throw new Error('no draft to improve: the creator did not run and article_drafts carries no row for ' + String(row.ENTRY_ID || 'this entry'));\n  return { text, title: String(stored.TITLE || ''), source: 'the stored draft' };\n};\nconst base = resolveDraft();\nif (!base.text.trim()) throw new Error('no draft to improve: the resolved draft is empty');\n\n// The ledger travels with the draft for the same reason and in the same order: a resumed\n// review runs in a later execution, and an edit that fences a line the server never verified\n// must fail here. A missing cell is a report, not a bypass: the improved draft is accepted and\n// the note says the fidelity check did not run.\nconst firstLine = (value) => String(value || '').split('\\n').map((l) => l.trim()).filter(Boolean)[0] || 'a fenced block';\nconst describe = (text) => {\n  try {\n    const data = JSON.parse(String(text || ''));\n    const list = Array.isArray(data) ? data : data && Array.isArray(data.sources) ? data.sources : null;\n    if (!list) return 'none';\n    const lines = list.filter((e) => e && String(e.block || '').trim())\n      .map((e) => '- ' + firstLine(e.block) + ' (' + (String(e.url || '').trim() || 'no url') + ')');\n    return lines.join('\\n') || 'none';\n  } catch (e) {\n    return 'none';\n  }\n};\nconst resolveSources = () => {\n  const pick = (value) => String(value || '').trim();\n  if ($('select_final_draft').isExecuted) {\n    const ledger = pick($('select_final_draft').last().json.SOURCES);\n    if (ledger) return ledger;\n  }\n  if ($('execute_article_creator').isExecuted) {\n    const ledger = pick($('execute_article_creator').last().json.SOURCES);\n    if (ledger) return ledger;\n  }\n  return String(row.SOURCES || '');\n};\nconst sources = resolveSources();\n\nlet feedback = String(row.ARTICLE_FEEDBACK || '');\nconst retry = $('notification_retry_or_cancel');\nif (retry.isExecuted) feedback = String((retry.last().json || {}).data?.Feedback || feedback);\n\nconst audience = String(row.AUDIENCE || 'NONE').trim().toUpperCase();\n// The writer owns every model turn, so this graph carries the endpoint and the session\n// id once, and each request below names only the task and the facts.\nconst writerUrl = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!writerUrl) throw new Error('ARTICLE_WRITER_URL is not set; the writer turns cannot be reached');\nconst sessionId = ('article-' + String(row.row_number || '').trim()).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 80);\nconsole.log('improvement: over ' + base.source + ' at ' + audience +\n  ' (feedback: ' + (feedback.trim() ? 'yes' : 'no') + ')');\nreturn [{ json: {\n  ...row,\n  SESSION_ID: sessionId,\n  ARTICLE_WRITER_URL: writerUrl,\n  BASE_TEXT: base.text,\n  BASE_TITLE: base.title,\n  BASE_WORD_COUNT: count(base.text),\n  DRAFT_SOURCE: base.source,\n  SOURCES: sources,\n  SOURCES_TEXT: describe(sources),\n  FIDELITY: sources.trim() ? 'checked' : 'not run',\n  AUDIENCE: audience,\n  FINDINGS_SUMMARY: '',\n  FEEDBACK: feedback,\n  HAS_FEEDBACK: feedback.trim() !== '',\n  MAX_WORDS: Number(row.MAX_WORDS),\n  ASSET_TYPES: String(row.REQUESTED_ASSETS || ''),\n  IMPROVE_MAX_ATTEMPTS: 2,\n} }];"
       }
     },
     {
@@ -12461,7 +11633,7 @@
         -144
       ],
       "parameters": {
-        "jsCode": "// The reviewers advise; nothing here rejects. Findings are tagged with the aspect that made\n// them and merged into one block for the improver. An aspect that answered `none`, or whose\n// call failed and answered nothing, contributes no findings and the rest still run.\n//\n// The review's own `text` field is read, never the node's input: a chain node carrying\n// `continueRegularOutput` forwards its input on failure, and that input is the downloaded\n// prompt, which contains the literal `<findings>none</findings>` the instruction asks for.\nconst ctx = $('build_improvement_context').first().json;\nconst aspects = $('split_aspects').all().map((i) => i.json);\nconst reviews = $('review_aspect_llm').all().map((i) => i.json);\nconst blocks = [];\nconst summary = [];\nfor (let i = 0; i < aspects.length; i += 1) {\n  const aspect = aspects[i] || {};\n  const answer = String((reviews[i] || {}).text || '');\n  const found = /<findings>([\\s\\S]*?)<\\/findings>/.exec(answer);\n  const body = (found ? found[1] : '').trim();\n  if (!body || /^none\\b/i.test(body)) {\n    summary.push(aspect.ASPECT + ': none');\n    continue;\n  }\n  const count = body.split('\\n').filter((line) => /^\\s*\\d+[.)]/.test(line)).length || 1;\n  summary.push(aspect.ASPECT + ': ' + count);\n  blocks.push('### ' + aspect.ASPECT + (aspect.FOCUS ? ' (' + aspect.FOCUS + ')' : '') + '\\n' + body);\n}\nconst findings = blocks.join('\\n\\n');\nif (!reviews.length) console.log('improvement: no aspect answered; continuing with the feedback only');\nreturn [{ json: {\n  ...ctx,\n  FINDINGS: findings,\n  HAS_FINDINGS: findings.trim() !== '',\n  FINDINGS_SUMMARY: summary.join(', '),\n  HAS_ANY: findings.trim() !== '' || Boolean(ctx.HAS_FEEDBACK),\n} }];\n"
+        "jsCode": "// The reviewers advise; nothing here rejects. The adapter answers one entry per aspect,\n// each already tagged with its id and carrying its own error, so this node merges what\n// answered into the one block the improver reads and counts what did not.\n//\n// A whole-call failure is the same case as one aspect failing: no findings, the summary\n// names it, and the owner's feedback still drives the edit on its own.\nconst ctx = $('build_improvement_context').first().json;\nconst res = $json || {};\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nconst list = Array.isArray(body.findings) ? body.findings : [];\nconst blocks = [];\nconst summary = [];\n// A transport failure arrives as an error item (`onError: continueErrorOutput`): the\n// whole call failed, which is the same case as one aspect failing, not a gate.\nconst transport = res.error ? String((res.error && res.error.message) || res.error).trim() : '';\nif (transport) {\n  summary.push('aspects: unavailable (' + transport + ')');\n} else if (status >= 400 || !list.length) {\n  const message = String((body.error && body.error.message) || body.error || res.statusMessage || '').trim();\n  summary.push('aspects: unavailable' + (status >= 400\n    ? ' (HTTP ' + status + (message ? ': ' + message : '') + ')'\n    : ' (no findings returned)'));\n} else {\n  for (const finding of list) {\n    const aspect = String((finding && finding.aspect) || '').trim() || 'aspect';\n    const focus = String((finding && finding.focus) || '').trim();\n    const error = String((finding && finding.error) || '').trim();\n    const text = String((finding && finding.text) || '').trim();\n    if (error) {\n      summary.push(aspect + ': failed');\n      continue;\n    }\n    if (!text || /^none\\b/i.test(text)) {\n      summary.push(aspect + ': none');\n      continue;\n    }\n    const count = Number((finding && finding.count) || 0) || 1;\n    summary.push(aspect + ': ' + count);\n    blocks.push('### ' + aspect + (focus ? ' (' + focus + ')' : '') + '\\n' + text);\n  }\n}\nconst findings = blocks.join('\\n\\n');\nreturn [{ json: {\n  ...ctx,\n  FINDINGS: findings,\n  HAS_FINDINGS: findings.trim() !== '',\n  FINDINGS_SUMMARY: summary.join(', '),\n  HAS_ANY: findings.trim() !== '' || Boolean(ctx.HAS_FEEDBACK),\n} }];"
       }
     },
     {
@@ -12500,76 +11672,6 @@
       }
     },
     {
-      "id": "c5d6e7f8-091a-4b23-94d5-e6f708192a3b",
-      "name": "download_improver_prompt",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        5728,
-        -16
-      ],
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "qUfjfWLGEjV96ljf",
-          "mode": "list",
-          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
-          "cachedResultName": "DownloadTemplate"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "template_name": "prompts/article_improver.md",
-            "template_vars": "={{ {\n\"TITLE\": $('build_improvement_context').first().json.BASE_TITLE,\n\"DRAFT\": $('build_improvement_context').first().json.BASE_TEXT,\n\"FINDINGS\": $('merge_aspect_findings').first().json.FINDINGS || 'none',\n\"FEEDBACK\": $('merge_aspect_findings').first().json.FEEDBACK || '',\n\"PROBLEM\": $json.PROBLEM || '',\n\"AUDIENCE\": $('build_improvement_context').first().json.AUDIENCE,\n\"AUDIENCES\": $('build_improvement_context').first().json.AUDIENCES,\n\"STRUCTURES\": $('build_improvement_context').first().json.STRUCTURES,\n\"MAX_WORDS\": $('build_improvement_context').first().json.MAX_WORDS,\n\"ASSET_TYPES\": $('build_improvement_context').first().json.ASSET_TYPES,\n\"SOURCES\": $('build_improvement_context').first().json.SOURCES_TEXT,\n} }}"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "template_name",
-              "displayName": "template_name",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string"
-            },
-            {
-              "id": "template_vars",
-              "displayName": "template_vars",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "object"
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "c0a7b2d1-5e3f-4a9b-8c6d-7e8f9a0b1c2d",
-      "name": "improve_article",
-      "type": "@n8n/n8n-nodes-langchain.agent",
-      "typeVersion": 3.1,
-      "alwaysOutputData": false,
-      "onError": "continueErrorOutput",
-      "position": [
-        5952,
-        -144
-      ],
-      "parameters": {
-        "promptType": "define",
-        "text": "={{ $('download_writer_rules').first().json.output + '\\n\\n---\\n\\n' + $('download_improver_prompt').first().json.output }}",
-        "needsFallback": true,
-        "options": {
-          "maxIterations": 8
-        }
-      }
-    },
-    {
       "id": "d6e7f809-1a2b-4c34-85e6-f708192a3b4c",
       "name": "check_improved_draft",
       "type": "n8n-nodes-base.code",
@@ -12579,7 +11681,7 @@
         -224
       ],
       "parameters": {
-        "jsCode": "// The objective half of the improvement, counted in code: the budget and the markers are\n// counts, and a count asked of a model is a count that gets invented. This is the twin of\n// `parse_article` in Article Creator, and a test runs both against one fixture.\nconst ctx = $('build_improvement_context').first().json;\nconst raw = String($json.output || $json.text || '');\nconst block = /<article>([\\s\\S]*?)<\\/article>/.exec(raw);\nconst inner = (block ? block[1] : raw).trim();\nconst HEAD = /^#\\s+(.+?)\\s*$/;\nlet title = '';\nconst body = [];\nfor (const line of inner.split('\\n')) {\n  if (!title && !body.length && HEAD.test(line.trim())) {\n    title = line.trim().replace(HEAD, '$1');\n    continue;\n  }\n  body.push(line);\n}\nconst text = body.join('\\n').trim();\nconst norm = (value) => String(value == null ? '' : value).replace(/\\s+/g, ' ').trim();\n// A round that returns the draft it was given is a failed round, whatever the model says about\n// it: on 2026-11-06 run 15874 the owner's feedback was applied to nothing and the same\n// 1184-word draft went back for review. The convergence node reports it instead of calling it\n// an improvement.\nconst unchanged = norm(text) === norm(ctx.BASE_TEXT)\n  && String(title || ctx.BASE_TITLE) === String(ctx.BASE_TITLE || '');\nconst max = Number(ctx.MAX_WORDS);\nif (!isFinite(max) || max <= 0) throw new Error('MAX_WORDS is required and must be a positive number');\n// A model cannot count words, so a draft a little over the budget is the budget met: 10%\n// covers a counting slip without letting the article run long (row 3, 2026-10-30, died at\n// 1248 words against 1200 with every other check passing). Integer arithmetic, because\n// 1200 * 1.1 is 1320.0000000000002 in a double and Math.ceil would add a word.\nconst limit = Math.ceil(max * 11 / 10);\nconst words = text.replace(/<!--[\\s\\S]*?-->/g, ' ').split(/\\s+/).filter(Boolean).length;\nconst requested = String(ctx.ASSET_TYPES || '').split(',').map((s) => s.trim()).filter(Boolean);\nconst markers = (text.match(/<!--\\s*asset:[a-zA-Z0-9_]+\\s*-->/g) || [])\n  .map((m) => m.replace('<!--', '').replace('-->', '').replace('asset:', '').trim());\nconst wrong = [\n  ...requested.filter((t) => markers.filter((m) => m === t).length !== 1)\n    .map((t) => t + ' x' + markers.filter((m) => m === t).length),\n  ...markers.filter((m) => !requested.includes(m)).map((m) => m + ' not requested'),\n];\n// The same ledger check as the drafting gate, against the row's stored ledger. A missing\n// SOURCES cell is a report, not a bypass: the edit is accepted and FIDELITY says the check did\n// not run. A stored ledger that no longer parses is the same case, because the draft it\n// belonged to already passed the gate.\nconst fenced = [];\n{\n  const re = /^[ \\t]*```([^\\n`]*)\\n([\\s\\S]*?)^[ \\t]*```[ \\t]*$/gm;\n  let m;\n  while ((m = re.exec(text)) !== null) {\n    const innerBlock = m[2].replace(/\\n$/, '');\n    if (innerBlock.trim()) fenced.push(innerBlock);\n  }\n}\nconst firstLine = (value) => String(value || '').split('\\n').map((l) => l.trim()).filter(Boolean)[0] || 'a fenced block';\nlet fidelity = 'not run';\nlet sourceProblem = '';\nlet added = 0;\nconst storedLedger = String(ctx.SOURCES || '').trim();\nif (storedLedger) {\n  try {\n    const data = JSON.parse(storedLedger);\n    const list = Array.isArray(data) ? data : data && Array.isArray(data.sources) ? data.sources : null;\n    if (!list) throw new Error('sources.json carries no sources array');\n    fidelity = 'checked';\n    const ledger = list.filter((e) => e && norm(e.block) !== '');\n    const unverified = [];\n    for (const fencedBlock of fenced) {\n      const key = norm(fencedBlock);\n      const head = firstLine(fencedBlock);\n      const entry = ledger.find((e) => norm(e.block) === key);\n      if (!entry) {\n        // The drafting gate has no exception: a first draft may not fence a line no source\n        // carries. A human feedback round is the one round that may, because the person asked\n        // for that command; it is counted here and the review message names it as unverified.\n        if (ctx.HAS_FEEDBACK) { added += 1; continue; }\n        unverified.push('UNQUOTED: \"' + head + '\" is not in sources.json');\n        continue;\n      }\n      const url = String(entry.url || '').trim() || 'its url';\n      if (entry.found !== true) {\n        unverified.push('SOURCE_NOT_FOUND: \"' + head + '\" was not found at ' + url);\n        continue;\n      }\n      const failure = String(entry.validation_error || '').trim();\n      if (failure) {\n        unverified.push('VALIDATION_FAILED: \"' + head + '\" (' + url + '): ' + failure);\n        continue;\n      }\n      if (norm(entry.excerpt) !== key) {\n        unverified.push('UNQUOTED: \"' + head + '\" no longer matches ' + url);\n      }\n    }\n    if (added) fidelity = 'feedback';\n    if (unverified.length) sourceProblem = unverified.join('; ');\n  } catch (e) {\n    fidelity = 'not run';\n  }\n}\nlet problem = '';\nif (!text) problem = 'EMPTY_DRAFT: the improver returned no article body';\nelse if (words > limit) problem = 'OVER_BUDGET: ' + words + ' words against a limit of ' + limit + ' (MAX_WORDS=' + max + ')';\nelse if (wrong.length) problem = 'MARKERS: ' + wrong.join(', ');\nelse if (sourceProblem) problem = sourceProblem;\nreturn [{ json: {\n  ...ctx,\n  IMPROVED_TITLE: title || ctx.BASE_TITLE,\n  IMPROVED_TEXT: text,\n  WORD_COUNT: words,\n  SOURCES: String(ctx.SOURCES || ''),\n  SOURCES_TEXT: String(ctx.SOURCES_TEXT || 'none'),\n  FIDELITY: fidelity,\n  UNVERIFIED: added,\n  UNCHANGED: unchanged,\n  PROBLEM: problem,\n} }];"
+        "jsCode": "// The objective half of the improvement, counted in code: the budget and the markers are\n// counts, and a count asked of a model is a count that gets invented. This is the twin of\n// `parse_article` in Article Creator, and a test runs both against one fixture.\n//\n// The writer answers the edited article in its response. A transport failure carries no\n// article at all and is reported as one problem, never mistaken for an empty draft.\nconst ctx = $('build_improvement_context').first().json;\nconst res = $json || {};\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nconst article = body.article && typeof body.article === 'object' ? body.article : {};\nconst content = String(((body.choices || [])[0] || {}).message?.content || '');\nconst parseArticle = (value) => {\n  const raw = String(value || '');\n  const block = /<article>([\\s\\S]*?)<\\/article>/.exec(raw);\n  const inner = (block ? block[1] : raw).trim();\n  const HEAD = /^#\\s+(.+?)\\s*$/;\n  let head = '';\n  const lines = [];\n  for (const line of inner.split('\\n')) {\n    if (!head && !lines.length && HEAD.test(line.trim())) {\n      head = line.trim().replace(HEAD, '$1');\n      continue;\n    }\n    lines.push(line);\n  }\n  return { title: head, text: lines.join('\\n').trim() };\n};\nconst answered = parseArticle(content);\nconst title = String(article.text ? article.title || '' : answered.title).trim();\nconst text = String(article.text || answered.text).trim();\nconst norm = (value) => String(value == null ? '' : value).replace(/\\s+/g, ' ').trim();\n// A round that returns the draft it was given is a failed round, whatever the model says about\n// it: on 2026-11-06 run 15874 the owner's feedback was applied to nothing and the same\n// 1184-word draft went back for review. The convergence node reports it instead of calling it\n// an improvement.\nconst unchanged = Boolean(text) && norm(text) === norm(ctx.BASE_TEXT)\n  && String(title || ctx.BASE_TITLE) === String(ctx.BASE_TITLE || '');\nconst max = Number(ctx.MAX_WORDS);\nif (!isFinite(max) || max <= 0) throw new Error('MAX_WORDS is required and must be a positive number');\n// A model cannot count words, so a draft a little over the budget is the budget met: 10%\n// covers a counting slip without letting the article run long (row 3, 2026-10-30, died at\n// 1248 words against 1200 with every other check passing). Integer arithmetic, because\n// 1200 * 1.1 is 1320.0000000000002 in a double and Math.ceil would add a word.\nconst limit = Math.ceil(max * 11 / 10);\nconst words = text.replace(/<!--[\\s\\S]*?-->/g, ' ').split(/\\s+/).filter(Boolean).length;\nconst requested = String(ctx.ASSET_TYPES || '').split(',').map((s) => s.trim()).filter(Boolean);\nconst markers = (text.match(/<!--\\s*asset:[a-zA-Z0-9_]+\\s*-->/g) || [])\n  .map((m) => m.replace('<!--', '').replace('-->', '').replace('asset:', '').trim());\nconst wrong = [\n  ...requested.filter((t) => markers.filter((m) => m === t).length !== 1)\n    .map((t) => t + ' x' + markers.filter((m) => m === t).length),\n  ...markers.filter((m) => !requested.includes(m)).map((m) => m + ' not requested'),\n];\n// The same ledger check as the drafting gate, against the row's stored ledger. A missing\n// SOURCES cell is a report, not a bypass: the edit is accepted and FIDELITY says the check did\n// not run. A stored ledger that no longer parses is the same case, because the draft it\n// belonged to already passed the gate.\nconst fenced = [];\n{\n  const re = /^[ \\t]*```([^\\n`]*)\\n([\\s\\S]*?)^[ \\t]*```[ \\t]*$/gm;\n  let m;\n  while ((m = re.exec(text)) !== null) {\n    const innerBlock = m[2].replace(/\\n$/, '');\n    if (innerBlock.trim()) fenced.push(innerBlock);\n  }\n}\nconst firstLine = (value) => String(value || '').split('\\n').map((l) => l.trim()).filter(Boolean)[0] || 'a fenced block';\nlet fidelity = 'not run';\nlet sourceProblem = '';\nlet added = 0;\nconst storedLedger = String(ctx.SOURCES || '').trim();\nif (storedLedger && text) {\n  try {\n    const data = JSON.parse(storedLedger);\n    const list = Array.isArray(data) ? data : data && Array.isArray(data.sources) ? data.sources : null;\n    if (!list) throw new Error('sources.json carries no sources array');\n    fidelity = 'checked';\n    const ledger = list.filter((e) => e && norm(e.block) !== '');\n    const unverified = [];\n    for (const fencedBlock of fenced) {\n      const key = norm(fencedBlock);\n      const head = firstLine(fencedBlock);\n      const entry = ledger.find((e) => norm(e.block) === key);\n      if (!entry) {\n        // The drafting gate has no exception: a first draft may not fence a line no source\n        // carries. A human feedback round is the one round that may, because the person asked\n        // for that command; it is counted here and the review message names it as unverified.\n        if (ctx.HAS_FEEDBACK) { added += 1; continue; }\n        unverified.push('UNQUOTED: \"' + head + '\" is not in sources.json');\n        continue;\n      }\n      const url = String(entry.url || '').trim() || 'its url';\n      if (entry.found !== true) {\n        unverified.push('SOURCE_NOT_FOUND: \"' + head + '\" was not found at ' + url);\n        continue;\n      }\n      const failure = String(entry.validation_error || '').trim();\n      if (failure) {\n        unverified.push('VALIDATION_FAILED: \"' + head + '\" (' + url + '): ' + failure);\n        continue;\n      }\n      if (norm(entry.excerpt) !== key) {\n        unverified.push('UNQUOTED: \"' + head + '\" no longer matches ' + url);\n      }\n    }\n    if (added) fidelity = 'feedback';\n    if (unverified.length) sourceProblem = unverified.join('; ');\n  } catch (e) {\n    fidelity = 'not run';\n  }\n}\nconst transport = res.error ? String((res.error && res.error.message) || res.error).trim() : '';\nconst message = String((body.error && body.error.message) || body.error || res.statusMessage || transport || '').trim();\nconst failed = status >= 400\n  ? 'IMPROVE_FAILED: HTTP ' + status + (message ? ': ' + message : '')\n  : transport ? 'IMPROVE_FAILED: ' + transport : '';\nlet problem = '';\nif (!text) problem = failed || 'EMPTY_DRAFT: the improver returned no article body';\nelse if (words > limit) problem = 'OVER_BUDGET: ' + words + ' words against a limit of ' + limit + ' (MAX_WORDS=' + max + ')';\nelse if (wrong.length) problem = 'MARKERS: ' + wrong.join(', ');\nelse if (sourceProblem) problem = sourceProblem;\nreturn [{ json: {\n  ...ctx,\n  IMPROVED_TITLE: title || ctx.BASE_TITLE,\n  IMPROVED_TEXT: text,\n  WORD_COUNT: words,\n  SOURCES: String(ctx.SOURCES || ''),\n  SOURCES_TEXT: String(ctx.SOURCES_TEXT || 'none'),\n  FIDELITY: fidelity,\n  UNVERIFIED: added,\n  UNCHANGED: unchanged,\n  PROBLEM: problem,\n} }];"
       }
     },
     {
@@ -12656,63 +11758,7 @@
         -352
       ],
       "parameters": {
-        "jsCode": "// The one convergence node: every branch of the improvement pass meets here, and the nodes\n// that store, upload and commit the draft read this and nothing else. Precedence is\n// resolution, not judgement - an improved draft that passed the code re-check wins, and\n// anything else falls back to the gate-passed draft with the reason riding on the item.\nconst ctx = $('build_improvement_context').first().json;\nconst item = $json;\nconst summary = String($('merge_aspect_findings').first().json.FINDINGS_SUMMARY || '');\nconst base = {\n  text: String(ctx.BASE_TEXT || ''),\n  title: String(ctx.BASE_TITLE || ''),\n  word_count: Number(ctx.BASE_WORD_COUNT || 0),\n};\nconst improved = typeof item.IMPROVED_TEXT === 'string' && item.IMPROVED_TEXT.trim() !== '';\nconst failed = item.error ? String(item.error.message || item.error) : '';\nconst baseFidelity = String(ctx.FIDELITY || 'not run');\nconst out = { ...ctx, ...base, FINDINGS_SUMMARY: summary, FIDELITY: baseFidelity, UNVERIFIED: 0 };\nif (improved && item.UNCHANGED) {\n  out.IMPROVED = 'UNCHANGED';\n  out.IMPROVEMENT_NOTE = ctx.HAS_FEEDBACK\n    ? 'the improver returned the draft unchanged; the feedback was not applied'\n    : 'the improver returned the draft unchanged';\n  // This round added nothing, and a block an earlier round added is not this round's.\n  out.UNVERIFIED = 0;\n} else if (improved && !String(item.PROBLEM || '')) {\n  out.text = item.IMPROVED_TEXT;\n  out.title = String(item.IMPROVED_TITLE || base.title);\n  out.word_count = Number(item.WORD_COUNT || 0);\n  out.SOURCES = String(item.SOURCES || ctx.SOURCES || '');\n  out.SOURCES_TEXT = String(item.SOURCES_TEXT || ctx.SOURCES_TEXT || 'none');\n  out.FIDELITY = String(item.FIDELITY || baseFidelity);\n  out.UNVERIFIED = Number(item.UNVERIFIED || 0);\n  out.IMPROVED = 'IMPROVED';\n  out.IMPROVEMENT_NOTE = summary || 'the findings were applied';\n  if (out.UNVERIFIED) {\n    out.IMPROVEMENT_NOTE += ' (' + out.UNVERIFIED + ' fenced block(s) added on the feedback were not checked against a source)';\n  } else if (out.FIDELITY === 'not run') {\n    out.IMPROVEMENT_NOTE += ' (fidelity: not run)';\n  }\n} else if (improved) {\n  out.IMPROVED = 'FALLBACK';\n  out.IMPROVEMENT_NOTE = String(item.PROBLEM || 'the improved draft failed the objective re-check');\n} else if (failed) {\n  out.IMPROVED = 'FAILED';\n  out.IMPROVEMENT_NOTE = failed;\n} else {\n  out.IMPROVED = 'NONE';\n  out.IMPROVEMENT_NOTE = 'nothing to apply';\n}\nconsole.log('improvement: ' + out.IMPROVED + ' - ' + out.IMPROVEMENT_NOTE);\nreturn [{ json: out }];"
-      }
-    },
-    {
-      "id": "091a2b3c-4d5e-4f67-8819-2a3b4c5d6e7f",
-      "name": "improve_model",
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-      "typeVersion": 1.3,
-      "position": [
-        5960,
-        72
-      ],
-      "parameters": {
-        "model": {
-          "__rl": true,
-          "mode": "id",
-          "value": "={{ $('build_improvement_context').first().json.MODEL }}"
-        },
-        "builtInTools": {},
-        "options": {
-          "timeout": 240000,
-          "maxRetries": 5
-        }
-      },
-      "credentials": {
-        "openAiApi": {
-          "id": "LitellmN8nAcct01",
-          "name": "LiteLLM account"
-        }
-      }
-    },
-    {
-      "id": "1a2b3c4d-5e6f-4081-992a-3b4c5d6e7f80",
-      "name": "improve_model_fallback",
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-      "typeVersion": 1.3,
-      "position": [
-        6088,
-        72
-      ],
-      "parameters": {
-        "model": {
-          "__rl": true,
-          "mode": "id",
-          "value": "={{ $('build_improvement_context').first().json.MODEL_FALLBACK }}"
-        },
-        "builtInTools": {},
-        "options": {
-          "timeout": 240000,
-          "maxRetries": 5
-        }
-      },
-      "credentials": {
-        "openAiApi": {
-          "id": "LitellmN8nAcct01",
-          "name": "LiteLLM account"
-        }
+        "jsCode": "// The one convergence node: every branch of the improvement pass meets here, and the nodes\n// that store, upload and commit the draft read this and nothing else. Precedence is\n// resolution, not judgement - an improved draft that passed the code re-check wins, and\n// anything else falls back to the gate-passed draft with the reason riding on the item.\nconst ctx = $('build_improvement_context').first().json;\nconst item = $json;\nconst summary = String($('merge_aspect_findings').first().json.FINDINGS_SUMMARY || '');\nconst base = {\n  text: String(ctx.BASE_TEXT || ''),\n  title: String(ctx.BASE_TITLE || ''),\n  word_count: Number(ctx.BASE_WORD_COUNT || 0),\n};\nconst improved = typeof item.IMPROVED_TEXT === 'string' && item.IMPROVED_TEXT.trim() !== '';\nconst failed = item.error ? String(item.error.message || item.error) : '';\nconst problem = String(item.PROBLEM || '');\nconst baseFidelity = String(ctx.FIDELITY || 'not run');\nconst out = { ...ctx, ...base, FINDINGS_SUMMARY: summary, FIDELITY: baseFidelity, UNVERIFIED: 0 };\nif (improved && item.UNCHANGED) {\n  out.IMPROVED = 'UNCHANGED';\n  out.IMPROVEMENT_NOTE = ctx.HAS_FEEDBACK\n    ? 'the improver returned the draft unchanged; the feedback was not applied'\n    : 'the improver returned the draft unchanged';\n  // This round added nothing, and a block an earlier round added is not this round's.\n  out.UNVERIFIED = 0;\n} else if (improved && !problem) {\n  out.text = item.IMPROVED_TEXT;\n  out.title = String(item.IMPROVED_TITLE || base.title);\n  out.word_count = Number(item.WORD_COUNT || 0);\n  out.SOURCES = String(item.SOURCES || ctx.SOURCES || '');\n  out.SOURCES_TEXT = String(item.SOURCES_TEXT || ctx.SOURCES_TEXT || 'none');\n  out.FIDELITY = String(item.FIDELITY || baseFidelity);\n  out.UNVERIFIED = Number(item.UNVERIFIED || 0);\n  out.IMPROVED = 'IMPROVED';\n  out.IMPROVEMENT_NOTE = summary || 'the findings were applied';\n  if (out.UNVERIFIED) {\n    out.IMPROVEMENT_NOTE += ' (' + out.UNVERIFIED + ' fenced block(s) added on the feedback were not checked against a source)';\n  } else if (out.FIDELITY === 'not run') {\n    out.IMPROVEMENT_NOTE += ' (fidelity: not run)';\n  }\n} else if (improved) {\n  out.IMPROVED = 'FALLBACK';\n  out.IMPROVEMENT_NOTE = problem || 'the improved draft failed the objective re-check';\n} else if (failed) {\n  out.IMPROVED = 'FAILED';\n  out.IMPROVEMENT_NOTE = failed;\n} else if (problem) {\n  // The rewrite turn itself failed: the writer answered no article, or the request was\n  // rejected. This is not \"nothing to apply\" - the gate-passed draft is still usable, and\n  // the note says the edit did not happen and why.\n  out.IMPROVED = 'FAILED';\n  out.IMPROVEMENT_NOTE = problem;\n} else {\n  out.IMPROVED = 'NONE';\n  out.IMPROVEMENT_NOTE = 'nothing to apply';\n}\nconsole.log('improvement: ' + out.IMPROVED + ' - ' + out.IMPROVEMENT_NOTE);\nreturn [{ json: out }];"
       }
     },
     {
@@ -12730,6 +11776,88 @@
         "path": "article-lane-run",
         "options": {}
       }
+    },
+    {
+      "parameters": {
+        "jsCode": "// The aspect pass is the writer's turn too: this request names the task, the session and\n// the draft, and the adapter renders each aspect prompt from its own registry. The graph\n// holds no aspect id and no prompt text, so adding an aspect changes the image only.\nconst ctx = $('build_improvement_context').first().json;\nreturn [{ json: {\n  ASPECTS_URL: String(ctx.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '') + '/v1/chat/completions',\n  ASPECTS_BODY: JSON.stringify({\n    task: 'aspects',\n    session_id: String(ctx.SESSION_ID || ''),\n    brief: {\n      topic: String(ctx.TOPIC || ''),\n      description: String(ctx.DESCRIPTION || ''),\n      url: String(ctx.LINK || ''),\n      max_words: Number(ctx.MAX_WORDS) || 0,\n      asset_types: String(ctx.ASSET_TYPES || ''),\n      audience: String(ctx.AUDIENCE || 'NONE'),\n      extra_prompt: String(ctx.EXTRA_PROMPT || ''),\n      feedback: String(ctx.FEEDBACK || ''),\n    },\n    article: { title: String(ctx.BASE_TITLE || ''), text: String(ctx.BASE_TEXT || '') },\n  }),\n} }];"
+      },
+      "id": "1b2a0fe8-3f56-48cb-b78a-d85f9e8baa12",
+      "name": "build_aspects_request",
+      "position": [
+        4480,
+        -144
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.ASPECTS_URL }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.ASPECTS_BODY }}",
+        "options": {
+          "timeout": 900000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "6084bdfd-0984-4bf7-8f89-d469f954c44f",
+      "name": "request_aspects",
+      "position": [
+        4704,
+        -144
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// The edit is the same session's next turn: the draft, the findings, and - on a retry -\n// the objective problem the code re-check named. No prompt text and no model id ride on\n// the request; the adapter owns both.\nconst ctx = $('build_improvement_context').first().json;\nconst merged = $('merge_aspect_findings').first().json;\nconst checked = $('check_improved_draft');\nconst problem = checked.isExecuted ? String(checked.last().json.PROBLEM || '') : '';\nreturn [{ json: {\n  IMPROVE_URL: String(ctx.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '') + '/v1/chat/completions',\n  IMPROVE_BODY: JSON.stringify({\n    task: 'improve',\n    session_id: String(ctx.SESSION_ID || ''),\n    brief: {\n      topic: String(ctx.TOPIC || ''),\n      description: String(ctx.DESCRIPTION || ''),\n      url: String(ctx.LINK || ''),\n      max_words: Number(ctx.MAX_WORDS) || 0,\n      asset_types: String(ctx.ASSET_TYPES || ''),\n      audience: String(ctx.AUDIENCE || 'NONE'),\n      extra_prompt: String(ctx.EXTRA_PROMPT || ''),\n      feedback: String(ctx.FEEDBACK || ''),\n    },\n    article: { title: String(ctx.BASE_TITLE || ''), text: String(ctx.BASE_TEXT || '') },\n    findings: String(merged.FINDINGS || ''),\n    problem,\n  }),\n} }];"
+      },
+      "id": "c1cd2073-2def-47e8-b8ca-4d8a4a5dd66e",
+      "name": "build_improve_request",
+      "position": [
+        5728,
+        -16
+      ],
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.IMPROVE_URL }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.IMPROVE_BODY }}",
+        "options": {
+          "timeout": 600000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "a5168ffd-49c7-44af-8383-dedc3ac5eb5a",
+      "name": "request_improve",
+      "position": [
+        5952,
+        -144
+      ],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "onError": "continueErrorOutput"
     }
   ],
   "pinData": {},

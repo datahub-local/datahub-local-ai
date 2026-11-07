@@ -41,6 +41,11 @@ the adapter contract on top.
 | `prompts/authoring.md` at `/opt/pi-render/prompts/` | the instruction is a file, read at run time, not inlined in shell                                     |
 | `--no-tools` **dropped**                            | so the agent can write the composition and run the engine                                             |
 | `--no-skills`, `--no-extensions` **passed**       | nothing installs them; a skill found at run time would be a second, unversioned contract    |
+| `-e builtin:mcp`                                    | the catalog's GitHub and Firecrawl read tools, so the composer can check worked examples; write tools are hidden |
+
+The catalog servers are addressed by `SYMPOZIUM_GITHUB_MCP_URL` and
+`SYMPOZIUM_FIRECRAWL_MCP_URL`, which the deployment injects; the image carries no cluster
+name, and an unset variable omits that server.
 
 Deliberately **not** carried over: `git`. Upstream's Pi image has it because Pi offers
 a repo-cloning tool; nothing in this adapter or the authoring loop calls it, and a
@@ -358,8 +363,8 @@ source, and the variable is honoured the day a passthrough exists.
 
 `prompts/authoring.md` names only what the brief cannot and the framework does not: the
 working directory, `hyperframes` on `PATH`, which `hyperframes docs` topics to read, the
-vendored GSAP, no network at render, how to run the render, and that the composer cannot see
-images. The composition contract, the motion method, the pacing numbers and the pre-render
+catalog's read tools, the vendored GSAP, no network at render, how to run the render, and
+that the composer cannot see images. The composition contract, the motion method, the pacing numbers and the pre-render
 review were removed on 2026-10-11 (`openspec/changes/upgrade-visual-studio-authoring/`): they
 were our own harness competing with the framework's own guidance, and their pacing rules
 mandated the frozen final frame the framework names as a cheap-motion tell. The engine's own

@@ -30,6 +30,14 @@ the session contract. The deltas:
   `source_hosts` answers `403` and is logged with the host.
 - The turn is a session (`v1alpha2`) only. An article needs the session directory and
   the serialized turn; a one-shot Job is refused by name rather than half-served.
+- The catalog's read tools are offered. Pi reads a `mcp.json` naming the GitHub server
+  (`search_code`, `search_repositories`, `get_file_contents`, `list_branches`, `list_commits`,
+  `list_tags`) and Firecrawl's (`search`, `scrape`, `map`); the GitHub server's write tools are
+  hidden. `--no-extensions` stays and `-e builtin:mcp` loads the one extension back.
+  The addresses are `SYMPOZIUM_GITHUB_MCP_URL` and `SYMPOZIUM_FIRECRAWL_MCP_URL`, which the
+  deployment sets: the image carries no cluster names, and an unset variable omits that
+  server. `curl` through the allowlisted proxy remains the path for a page the catalog cannot
+  reach.
 
 ## What it costs
 

@@ -113,6 +113,8 @@ before(async () => {
       SYMPOZIUM_WORKSPACE: workspace,
       SYMPOZIUM_SESSION_PORT: String(port),
       PI_WRITER_PROMPT_DIR: promptsDir,
+      SYMPOZIUM_GITHUB_MCP_URL: "http://github.invalid/mcp",
+      SYMPOZIUM_FIRECRAWL_MCP_URL: "http://firecrawl.invalid/mcp",
       SYMPOZIUM_HARNESS_CONTRACT_VERSION: "v1alpha2",
       MODEL_NAME: "stub",
       MODEL_BASE_URL: "http://127.0.0.1:9/v1",
@@ -249,6 +251,25 @@ test("a retry is a correction of the directory, not a fresh authoring turn", asy
   const prompt = await readFile(join(workspace, "runs", "article-1", "prompt.txt"), "utf8");
   assert.ok(prompt.includes("in place"), "the correction instruction is missing");
   assert.ok(prompt.includes("Working directory:"), prompt);
+});
+
+test("Pi starts with the catalog client and the model is handed its read tools", async () => {
+  // Tools are the job; discovery is not. `--no-extensions` would take the built-in MCP
+  // client with it, so the flag is paired with `-e builtin:mcp`, and the servers Pi reads
+  // are the image's own config rather than anything a caller sends.
+  const mcp = JSON.parse(await readFile(join(dir, "home", ".pi/agent/mcp.json"), "utf8"));
+  assert.deepEqual(Object.keys(mcp.mcpServers).sort(), ["firecrawl", "github"]);
+  assert.equal(mcp.mcpServers.github.url, "http://github.invalid/mcp");
+  assert.equal(mcp.mcpServers.github.exposure, "hidden");
+  assert.equal(mcp.mcpServers.github.toolExposure.search_code, "direct");
+  assert.equal(mcp.mcpServers.firecrawl.url, "http://firecrawl.invalid/mcp");
+  const res = await turn({
+    messages: [{ role: "user", content: "write about the release" }],
+    session_id: "article-mcp",
+  });
+  assert.equal(res.status, 200);
+  const args = await readFile(join(workspace, "runs", "article-mcp", "args.txt"), "utf8");
+  assert.ok(args.includes("-e builtin:mcp"), `Pi was run without the MCP client: ${args}`);
 });
 
 test("the turn's tools see the proxy, and it is unset when the turn returns", async () => {

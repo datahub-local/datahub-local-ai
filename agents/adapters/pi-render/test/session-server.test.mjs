@@ -117,6 +117,8 @@ before(async () => {
       SYMPOZIUM_WORKSPACE: workspace,
       SYMPOZIUM_VENDOR_DIR: vendor,
       SYMPOZIUM_SESSION_PORT: String(port),
+      SYMPOZIUM_GITHUB_MCP_URL: "http://github.invalid/mcp",
+      SYMPOZIUM_FIRECRAWL_MCP_URL: "http://firecrawl.invalid/mcp",
       SYMPOZIUM_HARNESS_CONTRACT_VERSION: "v1alpha2",
       MODEL_NAME: "stub",
       MODEL_BASE_URL: gatewayBase,
@@ -250,6 +252,19 @@ test("Pi runs with tools but without skill or extension discovery", async () => 
     assert.ok(args.includes(flag), `Pi was not run with ${flag}`);
   }
   assert.ok(!args.includes("--no-tools"), "Pi was run without tools; authoring needs them");
+});
+
+test("Pi starts with the catalog client and only the built-in one", async () => {
+  // The built-in MCP client is an extension, so `--no-extensions` removes it unless it is
+  // loaded back explicitly. The servers are the image's own read-only config.
+  const args = await readFile(join(workspace, "runs", "run_args", "args.log"), "utf8");
+  assert.ok(args.includes("-e\nbuiltin:mcp"), `Pi was run without the MCP client: ${args}`);
+  const mcp = JSON.parse(await readFile(join(dir, "home", ".pi/agent/mcp.json"), "utf8"));
+  assert.deepEqual(Object.keys(mcp.mcpServers).sort(), ["firecrawl", "github"]);
+  assert.equal(mcp.mcpServers.github.url, "http://github.invalid/mcp");
+  assert.equal(mcp.mcpServers.github.exposure, "hidden");
+  assert.equal(mcp.mcpServers.github.toolExposure.get_file_contents, "direct");
+  assert.equal(mcp.mcpServers.github.toolExposure.push_files, undefined);
 });
 
 test("the second turn in a session is an edit, not a fresh authoring", async () => {

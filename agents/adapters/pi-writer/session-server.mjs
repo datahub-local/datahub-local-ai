@@ -40,6 +40,7 @@ import {
   DEFAULT_SESSION_WORKSPACE,
   DEFAULT_RETRY,
   agentSettings,
+  mcpConfig,
   parseSourceHosts,
   fillSourceHosts,
   fillTemplate,
@@ -168,6 +169,20 @@ await writeFile(
       },
     },
   })
+);
+
+// The catalog servers that answer "what does this project do, and how is it written?":
+// GitHub for the repository and its examples, Firecrawl for the documentation site.
+// Pi reads this file beside models.json. The addresses are the deployment's, injected as
+// env; the image carries no cluster names, and an unset variable leaves that server out.
+await writeFile(
+  `${process.env.HOME}/.pi/agent/mcp.json`,
+  JSON.stringify(
+    mcpConfig({
+      githubUrl: process.env.SYMPOZIUM_GITHUB_MCP_URL ?? "",
+      firecrawlUrl: process.env.SYMPOZIUM_FIRECRAWL_MCP_URL ?? "",
+    })
+  )
 );
 
 // Pi's retry and idle-timeout settings, which Pi reads from the same agent directory.
@@ -494,7 +509,11 @@ function runPi(prompt, sessionID, onOutput, signal, cwd = workDir, options = {})
       // rendering a manifest are the job. Discovery is off: no skills or extensions
       // are installed anywhere this pod can see.
       "--no-skills",
+      // Discovery stays off, but MCP is a built-in extension and `--no-extensions` would
+      // take it with the rest: only the catalog client is loaded back.
       "--no-extensions",
+      "-e",
+      "builtin:mcp",
       // A review or an edit gets the draft in its prompt and answers in its response. No
       // tools means it cannot fetch a page again, which is the point: those turns may not
       // research, and the model is not asked to write a file the server can write itself.

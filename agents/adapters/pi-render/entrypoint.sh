@@ -6,7 +6,7 @@
 # for this contract. Four deltas, each deliberate:
 #
 #   * `--no-tools` is dropped, so Pi can write the composition and run the engine.
-#   * `--no-skills` is dropped, so Pi can read the skills baked into the image.
+#   * skills and extensions stay disabled; one-shot runs read the engine's own docs.
 #   * the authoring instruction is read from a prompt file, not inlined here.
 #   * the toolchain is pointed at our vendored engine and browser.
 #

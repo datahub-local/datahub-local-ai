@@ -166,4 +166,27 @@ spec:
       ports:
         - port: {{ $s.model.port }}
           protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ printf "%s-mcp-egress" $name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app.kubernetes.io/managed-by: Helm
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: harness-session
+      app.kubernetes.io/instance: {{ $name }}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: mcpserver
+      ports:
+        - port: 8080
+          protocol: TCP
 {{- end }}

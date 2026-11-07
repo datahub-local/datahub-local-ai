@@ -24,6 +24,7 @@ import {
   findExcerpt,
   revalidateLedger,
   articleTurnInstruction,
+  mcpConfig,
 } from "../session-lib.mjs";
 
 const hash = (text) => createHash("sha256").update(text, "utf8").digest("hex");
@@ -226,6 +227,28 @@ test("a body is capped, so a page cannot hide a fence beyond the cap", async () 
   assert.equal(capped.sources[0].found, false, "the fetch read past its cap");
   const whole = await revalidateLedger([{ block, url: `${base}/huge` }], localPolicy({ maxBytes: 10_000 }));
   assert.equal(whole.sources[0].found, true, "the same page carries the fence below the cap");
+});
+
+test("the catalog config declares the read tools and hides the rest", () => {
+  const { mcpServers } = mcpConfig({
+    githubUrl: "http://github.invalid/mcp",
+    firecrawlUrl: "http://firecrawl.invalid/mcp",
+  });
+  assert.equal(mcpServers.github.url, "http://github.invalid/mcp");
+  assert.equal(mcpServers.github.exposure, "hidden");
+  assert.equal(mcpServers.github.toolExposure.search_code, "direct");
+  // The catalog's server carries write tools; a drafting turn may not reach them.
+  for (const write of ["create_or_update_file", "push_files", "create_pull_request", "issue_write"]) {
+    assert.equal(mcpServers.github.toolExposure[write], undefined, `${write} is exposed`);
+  }
+  assert.deepEqual(Object.keys(mcpServers.firecrawl.toolExposure).sort(), [
+    "firecrawl_map",
+    "firecrawl_scrape",
+    "firecrawl_search",
+  ]);
+  // The image carries no address: a deployment that sets neither variable has no catalog.
+  assert.deepEqual(mcpConfig().mcpServers, {});
+  assert.deepEqual(mcpConfig({ firecrawlUrl: "http://firecrawl.invalid/mcp" }).mcpServers.github, undefined);
 });
 
 test("a turn says whether it authors or corrects", () => {

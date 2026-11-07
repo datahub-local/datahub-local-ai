@@ -10,6 +10,12 @@ the work; this file is the map of the sandbox you draft in.
 - The network is an allowlisted proxy: https on 443 to {{ ARTICLE_SOURCE_HOSTS }}. Read
   with `curl -fsSL <url>`. Any other host answers `403` and the refusal is logged with the
   host; do not retry a refused host and do not route around it.
+- When catalog tools are present (`mcp__github__*`, `mcp__firecrawl__*`), use them:
+  `mcp__github__search_code` and `mcp__github__search_repositories` find the project's code
+  and examples, `mcp__github__get_file_contents` reads a file, and
+  `mcp__firecrawl__firecrawl_search` or `mcp__firecrawl__firecrawl_scrape` reads a
+  documentation page. A catalog result is a pointer, not a page you read: open it before
+  you quote it.
 - There is no browser and no cluster. `kubectl` has no credential and no route, and no
   container can be started here, so nothing is proven by asking the cluster. A quoted
   manifest is validated offline with `helm template`.
@@ -40,7 +46,9 @@ the work; this file is the map of the sandbox you draft in.
   breaks are fine, other words are not.
 - `url` is the page you read it on, on an allowlisted host. The server fetches every URL
   after the turn and drops the entry when it does not answer; a fence whose entry was
-  dropped is rejected.
+  dropped is rejected. A file read through `mcp__github__get_file_contents` is cited by
+  its raw URL, `https://raw.githubusercontent.com/<owner>/<repo>/<ref>/<path>`, because
+  that is the address the server can refetch.
 - `validated` is `dry-run` when you rendered the block and `none` when you did not.
   `validation_error` carries what the render said, and is empty when it succeeded.
 

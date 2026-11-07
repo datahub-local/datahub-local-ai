@@ -11,7 +11,8 @@
 // reference for this contract. Three deltas, each deliberate:
 //
 //   * `--no-tools` is dropped, so Pi can write the composition and run the engine.
-//   * `--no-skills` is dropped, so Pi can read the skills baked into the image.
+//   * skills and extensions stay disabled; only the built-in MCP client is loaded, so
+//     the turn can read the catalog's GitHub and Firecrawl servers and nothing else.
 //   * the toolchain is pointed at our vendored engine and browser, and each turn
 //     gets the authoring method appended to whatever the caller sent.
 //
@@ -45,6 +46,7 @@ import {
   DEFAULT_SESSION_WORKSPACE,
   DEFAULT_RETRY,
   agentSettings,
+  mcpConfig,
   stillArgs,
   captureStill,
   outputFps,
@@ -178,6 +180,20 @@ await writeFile(
   })
 );
 
+// The catalog servers that carry what the engine's own docs do not: worked examples and
+// the repository's source. Pi reads this file beside models.json. The addresses are the
+// deployment's, injected as env; the image carries no cluster names, and an unset variable
+// leaves that server out.
+await writeFile(
+  `${process.env.HOME}/.pi/agent/mcp.json`,
+  JSON.stringify(
+    mcpConfig({
+      githubUrl: process.env.SYMPOZIUM_GITHUB_MCP_URL ?? "",
+      firecrawlUrl: process.env.SYMPOZIUM_FIRECRAWL_MCP_URL ?? "",
+    })
+  )
+);
+
 // Pi's retry and idle-timeout settings, which Pi reads from the same agent directory.
 // Without this file the composer runs on the vendor's defaults, where a stream that
 // stalls for longer than the gateway's per-read timeout ends the attempt with no
@@ -266,7 +282,11 @@ function runPi(prompt, sessionID, onOutput, signal, cwd = workDir) {
       // see, and a skill found in the run directory or HOME would compete with the engine's
       // own documentation, which is the only contract this adapter relies on.
       "--no-skills",
+      // Discovery stays off, but MCP is a built-in extension and `--no-extensions` would
+      // take it with the rest: only the catalog client is loaded back.
       "--no-extensions",
+      "-e",
+      "builtin:mcp",
       "--provider",
       "sympozium",
       "--model",

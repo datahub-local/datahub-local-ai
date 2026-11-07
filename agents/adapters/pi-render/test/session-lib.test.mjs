@@ -30,11 +30,34 @@ import {
   DEFAULT_RETRY,
   DEFAULT_GATEWAY_STREAM_TIMEOUT_MS,
   agentSettings,
+  mcpConfig,
 } from "../session-lib.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
 const WORKSPACE = "/tmp/aivideo";
+
+test("the catalog config declares the read tools and hides the rest", () => {
+  const { mcpServers } = mcpConfig({
+    githubUrl: "http://github.invalid/mcp",
+    firecrawlUrl: "http://firecrawl.invalid/mcp",
+  });
+  assert.equal(mcpServers.github.url, "http://github.invalid/mcp");
+  assert.equal(mcpServers.github.exposure, "hidden");
+  assert.equal(mcpServers.github.toolExposure.search_code, "direct");
+  // The catalog's server carries write tools; an authoring turn may not reach them.
+  for (const write of ["create_or_update_file", "push_files", "create_pull_request", "issue_write"]) {
+    assert.equal(mcpServers.github.toolExposure[write], undefined, `${write} is exposed`);
+  }
+  assert.deepEqual(Object.keys(mcpServers.firecrawl.toolExposure).sort(), [
+    "firecrawl_map",
+    "firecrawl_scrape",
+    "firecrawl_search",
+  ]);
+  // The image carries no address: a deployment that sets neither variable has no catalog.
+  assert.deepEqual(mcpConfig().mcpServers, {});
+  assert.deepEqual(mcpConfig({ firecrawlUrl: "http://firecrawl.invalid/mcp" }).mcpServers.github, undefined);
+});
 
 test("the default workspace is under the session PVC mount, not /workspace", () => {
   // A live session mounts the PVC at /tmp and not /workspace; defaulting to

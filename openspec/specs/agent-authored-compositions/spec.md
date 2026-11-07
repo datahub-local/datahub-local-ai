@@ -70,19 +70,28 @@ reported as a failure, not rendered with the defect.
 
 ### Requirement: An authored composition renders offline
 
-An authored composition SHALL render with no outbound network. Every script and
-font it needs SHALL be present locally; a composition referring to a remote
-resource SHALL fail rather than silently render without it.
+An authored composition SHALL render with no outbound network. Every script and font it needs SHALL
+be present locally; a composition referring to a remote resource SHALL fail rather than silently
+render without it. A file read through the catalog while authoring SHALL NOT be referenced by its
+remote address in the composition.
 
 #### Scenario: No network at render time
+
 - **WHEN** an authored composition is rendered with outbound network disabled
 - **THEN** the render completes
 - **AND** the composition's motion and typography are intact
 
 #### Scenario: A remote resource
+
 - **WHEN** an authored composition references a remote script or font
 - **THEN** the render fails naming the reference
 - **AND** it does not silently produce a video missing that resource
+
+#### Scenario: A catalog read is composed in
+
+- **WHEN** the composer uses a pattern found through the catalog
+- **THEN** the file or asset is written locally beside the composition
+- **AND** no URL from the catalog read appears in the authored file
 
 ### Requirement: Authoring runs in the agent fleet only when its capability is proven
 
@@ -205,13 +214,29 @@ of an upstream repository. Its release SHALL be pinned once, and it SHALL NOT re
 manager's default distribution of skills. The image SHALL include the framework's transition
 primitives locally, because the render runs with no network. Every documentation topic the
 composer's guide names SHALL be asserted during the image build, and a mismatch between the
-guide's named topics and that set SHALL fail before the image is published.
+guide's named topics and that set SHALL fail before the image is published. The authoring session
+SHALL additionally offer the cluster catalog's read tools — GitHub (`search_code`,
+`search_repositories`, `get_file_contents`, `list_branches`, `list_commits`, `list_tags`) and
+Firecrawl (`firecrawl_search`, `firecrawl_scrape`, `firecrawl_map`) — declared directly to the
+model, with every other tool on those servers hidden. The engine's documentation SHALL remain the
+contract; a worked example found through the catalog is a pattern to check against it.
 
 #### Scenario: The contract is the installed version's
 
 - **WHEN** the composer needs the framework's composition contract or its timeline rules
 - **THEN** it reads them from the engine binary at the pinned release
 - **AND** the guidance cannot describe a version other than the one that renders
+
+#### Scenario: A worked example is needed
+
+- **WHEN** the brief names a look or effect the engine's docs describe but do not demonstrate
+- **THEN** the composer may find a worked composition through the catalog's read tools
+- **AND** it checks the result against `hyperframes docs` and `hyperframes lint` before using it
+
+#### Scenario: A catalog write tool is named
+
+- **WHEN** a turn tries to reach a catalog write tool such as `create_or_update_file`
+- **THEN** the tool is not declared to the model, because only the read tools carry `direct` exposure
 
 #### Scenario: A motion rule is available
 
@@ -248,6 +273,12 @@ guide's named topics and that set SHALL fail before the image is published.
 - **WHEN** a brief names a scene transition
 - **THEN** the primitives are present locally
 - **AND** the render completes with outbound network disabled
+
+#### Scenario: The catalog does not answer
+
+- **WHEN** a catalog server fails to connect
+- **THEN** the turn continues on the engine's documentation and the authoring method
+- **AND** a turn that cannot author fails by name rather than reporting success
 
 ### Requirement: A re-author carries the reason it failed
 

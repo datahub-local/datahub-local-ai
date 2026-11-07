@@ -18,13 +18,21 @@ above is the work; this file is only a map of the sandbox you run in.
   authoring guidance ends its loop at a preview approval ("otherwise stop at the preview and
   wait"); that step does not exist here, so the render below happens in this turn and the turn
   is not complete until the output file exists.
+- When catalog tools are present (`mcp__github__*`, `mcp__firecrawl__*`), use them:
+  `mcp__github__search_code` and `mcp__github__search_repositories` find worked compositions
+  and the engine's own examples, `mcp__github__get_file_contents` reads one, and
+  `mcp__firecrawl__firecrawl_search` or `mcp__firecrawl__firecrawl_scrape` reads a
+  documentation page. The engine's docs are the contract; an example is a pattern to check
+  against them, never a contract of its own. At most five lookups, then author.
 - The composition's own `data-width`/`data-height` is the frame the video is delivered at, so
   write the frame the brief declares. `--resolution` only picks a preset that is an integer
   multiple of the composition, and a frame that still differs is conformed after the render.
 - A vendored GSAP is served beside the composition as `gsap.min.js`. Reference it as a
   sibling, `<script src="gsap.min.js"></script>`. Never reference a CDN: the render
   runs with no network, and a remote reference fails the render.
-- There is no network at render time. No clocks and no unseeded randomness.
+- There is no network at render time, and the catalog servers are the only network while
+  you author: never put a remote reference or an image URL in the composition. No clocks and
+  no unseeded randomness.
 
 ## How to work
 

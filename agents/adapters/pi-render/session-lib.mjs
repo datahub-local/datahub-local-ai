@@ -171,6 +171,46 @@ export function expiredTranscripts(entries, { cutoffMs, keep } = {}) {
     .map((e) => e.name);
 }
 
+// The catalog's GitHub server exposes 45 tools including writes; an authoring turn reads
+// only these. The server stays hidden, so the rest cannot be reached by name.
+export const GITHUB_READ_TOOLS = [
+  "search_code",
+  "search_repositories",
+  "get_file_contents",
+  "list_branches",
+  "list_commits",
+  "list_tags",
+];
+export const FIRECRAWL_READ_TOOLS = ["firecrawl_search", "firecrawl_scrape", "firecrawl_map"];
+
+// The mcp.json Pi reads from `<agent-dir>/mcp.json`. The URLs come from the deployment,
+// never the image: a release name is a cluster fact, and the core admission policy injects
+// the two variables into this pod. A variable that is unset omits that server, and the
+// instruction names the catalog only when it is there. `direct` is deliberate: codemode is
+// the default exposure and would put a third calling convention between the model and a
+// handful of read tools the instruction names by name.
+export function mcpConfig({ githubUrl = "", firecrawlUrl = "" } = {}) {
+  const direct = (tools) => Object.fromEntries(tools.map((tool) => [tool, "direct"]));
+  const servers = {};
+  if (githubUrl) {
+    servers.github = {
+      url: githubUrl,
+      exposure: "hidden",
+      toolExposure: direct(GITHUB_READ_TOOLS),
+      description: "Search GitHub repositories for code, examples and documentation",
+    };
+  }
+  if (firecrawlUrl) {
+    servers.firecrawl = {
+      url: firecrawlUrl,
+      exposure: "hidden",
+      toolExposure: direct(FIRECRAWL_READ_TOOLS),
+      description: "Search and read documentation pages on the web",
+    };
+  }
+  return { mcpServers: servers };
+}
+
 // The sampling rate for the converted animation. The caller's declared `frames`
 // over `durationSeconds` wins, so a type can be tuned entirely from data (a long,
 // slow clip at a low frame rate) without touching the image; otherwise the declared

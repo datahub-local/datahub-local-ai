@@ -245,6 +245,37 @@ chart (the rename), then core (the bump) — not core first, because a `0.11.2` 
 whose ensemble no longer grants the Secret it names is refused, while a
 `0.10.87` run still naming the old Secret works either way.
 
+## The pi adapters read the core MCP catalog (2026-11-07)
+
+Both sessions serve Pi 1.4, whose MCP client reads `$HOME/.pi/agent/mcp.json`.
+Each adapter writes that file at startup from `session-lib.mjs` (`mcpConfig`):
+core's `mcp-github` and `mcp-firecrawl-http` Services on 8080, with the read
+tools exposed `direct` and every other tool `hidden` — the GitHub server carries
+`create_or_update_file`, `push_files` and `create_pull_request`, and neither
+lane writes to a repository. `--no-extensions` still runs, because it also
+refuses discovered skills; `-e builtin:mcp` loads the one built-in extension
+back.
+
+The addresses are env only: `SYMPOZIUM_GITHUB_MCP_URL` and
+`SYMPOZIUM_FIRECRAWL_MCP_URL`, set by the deployment, and an unset variable
+omits that server. The image carries no cluster name — the release prefix is a
+cluster fact, and baking it would be a second copy of what core already knows.
+Nothing in the CRDs can set that env: the HarnessSession controller builds the
+container's environment from a fixed list and ignores
+`Agent.spec.agents.default.env`, which reaches only the AgentRun path. The
+injection therefore lives in core's `sympozium_upstream_fixes.yaml` (fix 8) as
+a MutatingAdmissionPolicy on pod admission — the same mechanism that file
+already uses for the AgentRun gaps. It patches the container env with or
+without an existing `env` array, because `failurePolicy: Fail` turns a patch
+error into a rejected session. Verified 2026-11-07: a labelled server dry-run
+carries both variables, and a replaced `pi-writer` pod carries them.
+
+The chart adds an additive `mcp-egress` NetworkPolicy: the controller's session
+policy already admits 8080 anywhere, so the rule is not what enables the call,
+it is what states the destination. The writer's loopback source proxy does not
+sit in this path — `NO_PROXY` carries `.svc` and `.cluster.local`, and Node's
+`fetch` ignores the proxy variables.
+
 ## The fleet runs on the LiteLLM gateway now (2026-09-12)
 
 All three ensembles moved off cluster-local Ollama to the LiteLLM gateway in

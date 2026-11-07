@@ -32,7 +32,7 @@ Leave exactly one marker per requested asset type, each alone on its own line, u
 
 ## Research
 
-Read with `curl` as the sandbox map describes: the source link first, then the pages it cites. At most three lookups in total, then write.
+Use the catalog MCP servers or `curl` as the sandbox map describes: the source link first, then the pages it cites. A catalog search, a file read and a fetched page each count as one lookup; at most three in total, then write.
 
 - The Source Material above is what this run already fetched: do not read it again, and do not look it up again.
 - A source counts only if it is about the entry's subject. A same-named person, project, album or event is not it: drop it and stop instead of hunting for a match.

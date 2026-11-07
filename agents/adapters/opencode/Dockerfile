@@ -150,7 +150,7 @@ ENV HOME=/opt/data
 WORKDIR /workspace
 RUN set -eux; \
     opencode --version; \
-    jq -e '.providers.litellm' /etc/opencode/opencode.json; \
+    jq -e '.plugins | index("opencode-plugin-litellm@1.8.1")' /etc/opencode/opencode.json; \
     jq -e '.skills.paths | index("/opt/opencode/skills")' /etc/opencode/opencode.json; \
     jq -e '.mcp.servers.k8s' /etc/opencode/opencode.json; \
     jq -e '.mcp.servers.n8n.headers.Authorization' /etc/opencode/opencode.json; \

@@ -58,7 +58,7 @@ machine-wide config from `/etc/opencode`, and git reads `/etc/gitconfig`.
 
 | Path | What it is |
 | --- | --- |
-| `/etc/opencode/opencode.json` | model, LiteLLM provider, the `reviewer` subagent, MCP servers, skills path, permissions, `update: disable` |
+| `/etc/opencode/opencode.json` | model, LiteLLM plugin, the `reviewer` subagent, MCP servers, skills path, permissions, `update: disable` |
 | `/opt/opencode/AGENTS.md` | the contract, referenced by `instructions` |
 | `/opt/opencode/skills/<name>/SKILL.md` | the detail, loaded on demand: `router` first, then `repo-map`, `taskboard`, `code-shape`, `testing`, `debugging`, `change-shape`, `ship-it`, `review`, `verify` |
 | `/etc/gitconfig` | git identity and the credential helper |
@@ -74,10 +74,14 @@ n8n operations does not carry them.
 `openspec/changes/rework-codeagent-instructions/` is the record, including why the
 split exists and what was rejected.
 
-LiteLLM is a declared provider — `providers.litellm` with the
-`openai-compatible` package — so there is no plugin to install, no cache to warm and
-no activation race; the built-in `opencode` provider is disabled. Four values are
-substituted at runtime: `{env:LITELLM_BASE_URL}`, `{env:OPENCODE_FIRECRAWL_MCP_URL}`,
+`opencode-plugin-litellm` registers the provider itself from
+`{env:LITELLM_BASE_URL}` and `LITELLM_API_KEY`, so there is no `providers.litellm`
+block. The plugin reads the proxy's `/v1/models` response and copies
+`max_input_tokens` and `max_output_tokens` into each model's `limit`; OpenCode's
+`openai-compatible` provider never reads `/model/info`, so a model declared by hand
+would keep its 200000/32000 default instead. Models are discovered, not listed. The
+built-in `opencode` provider is disabled. Four values are substituted at runtime:
+`{env:LITELLM_BASE_URL}`, `{env:OPENCODE_FIRECRAWL_MCP_URL}`,
 `{env:OPENCODE_K8S_MCP_URL}` and `{env:OPENCODE_N8N_MCP_URL}` with its
 `{env:OPENCODE_N8N_MCP_TOKEN}` header.
 `LITELLM_API_KEY` comes from the environment. `OPENCODE_SERVER_PASSWORD` protects
@@ -93,15 +97,17 @@ why the k8s server is registered and `kubectl` is not the answer to anything.
 ## Verified / not verified
 
 Verified by the build: every tool above runs as uid 1000 with `HOME=/opt/data`,
-`git config` resolves `/etc/gitconfig`, the LiteLLM provider parses, the skills path
+`git config` resolves `/etc/gitconfig`, the plugin pin parses, the skills path
 and the k8s entry are present in the config, the n8n entry carries its header,
 both model placeholders and the
 reviewer agent parse, and the minter passes `node --check`. The build asserts no
 individual skill file: the directory is copied whole, and the PR diff is the review.
 
 Not verified here: that a checkout's `uv sync` succeeds against the cluster's PyPI
-path, and that `helmfile template` resolves every chart through the egress proxy.
-Both are checked in `datahub-local-core`'s change tasks, in the running Pod.
+path, that `helmfile template` resolves every chart through the egress proxy, and
+that the plugin's first install from npm completes inside the server's startup
+probe. The first two are checked in `datahub-local-core`'s change tasks, in the
+running Pod; the plugin was checked the same way, in a throwaway `HOME`.
 
 ## Pins and rebuilds
 
@@ -115,6 +121,10 @@ local builds. The base image (`node:22-bookworm-slim`) is deliberately left to t
 weekly adapter rebuild, not to Renovate. Release assets are not sha256-pinned:
 Renovate cannot bump a checksum, so a pin there would fail every bump until it was
 edited by hand.
+
+The plugin is the one dependency not covered by that loop: its version is pinned in
+`opencode.json` and bumped by hand, because Renovate would have to know the
+`plugins` array and the adapter is rebuilt weekly anyway.
 
 The cluster consumes the result by digest. This image's pin is
 `ghcr.io/datahub-local/datahub-local-ai-opencode-adapter: main@sha256:…` in

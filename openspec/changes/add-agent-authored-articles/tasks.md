@@ -143,3 +143,7 @@
   with it. `kubectl` is absent because a client dry-run needs API discovery; no prompt offers it.
 - **1.6 — `[UNVERIFIED]` the live image.** The writer image is built and pinned on the first merge
   to `main`. Until then the seeded digest points at `pi-render`, which refuses the writer's contract.
+- **6.5 — the n8n unit tests were removed.** On 2026-11-07 the owner ruled that no unit test is
+  created for an n8n workflow. `scripts/test_article_sources.py` and the other
+  `agents/n8n/scripts/test_*.py` were deleted, and the `agents/n8n` pytest gate above no longer
+  exists; the adapter tests and the live run carry the coverage.

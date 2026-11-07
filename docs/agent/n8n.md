@@ -1,10 +1,11 @@
 # n8n workflows
 
 > The offline guards cited below (`agents/n8n/scripts/test_*.py`) were removed on
-> 2026-11-05: they asserted committed prompts, datasets and exports, so every
-> correct edit to those files went red. Each sentence below records what was true
-> while a guard existed; the rule it states still stands and is now enforced at
-> review and by the live run.
+> 2026-11-05, and the remaining ones on 2026-11-07: they asserted committed
+> prompts, datasets, Code nodes and exports, so every correct edit to those files
+> went red. Do not add another unit test for an n8n workflow. Each sentence below
+> records what was true while a guard existed; the rule it states still stands and
+> is now enforced at review and by the live run.
 
 `agents/n8n/` is a **backup, not a source.** The `Backup N8N Workflows` flow
 reads the live instance and writes here — core points `BACKUP_GITHUB_REPO_*` at

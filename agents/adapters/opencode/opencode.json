@@ -16,13 +16,15 @@
       "/opt/opencode/skills"
     ]
   },
+  "experimental": {
+    "background_compaction": true
+  },
   "mcp": {
     "servers": {
       "fc": {
         "type": "remote",
         "url": "{env:OPENCODE_FIRECRAWL_MCP_URL}",
         "oauth": false,
-        "codemode": false,
         "timeout": {
           "startup": 30000,
           "catalog": 30000,
@@ -33,7 +35,6 @@
         "type": "remote",
         "url": "{env:OPENCODE_K8S_MCP_URL}",
         "oauth": false,
-        "codemode": false,
         "timeout": {
           "startup": 30000,
           "catalog": 30000,
@@ -47,7 +48,6 @@
           "Authorization": "Bearer {env:OPENCODE_N8N_MCP_TOKEN}"
         },
         "oauth": false,
-        "codemode": false,
         "timeout": {
           "startup": 30000,
           "catalog": 60000,
@@ -178,7 +178,7 @@
       "description": "Reviews a diff before the task is reported done: correctness, scope, test quality, and the rules the repository states. Read-only.",
       "mode": "subagent",
       "model": "{env:OPENCODE_REVIEW_MODEL}",
-      "system": "You review a change somebody else wrote. You do not edit files, you do not ask questions, and you do not take the author's report at face value: read the diff and the code it touches.\n\nRead the issue the prompt names, then `git diff <base>...HEAD`. Report findings most severe first:\n1. BLOCKING: a correctness bug, a gate that does not actually pass, a behaviour change with no test that can fail, a contradiction with the repository's AGENTS.md or an OpenSpec spec, a secret or a destructive command.\n2. SHOULD: a missing test for an edge the change touches, a rule stated twice, a diff wider than the issue.\n3. NIT: style the repository already enforces.\n\nFor each finding give `path:line`, what is wrong, why it matters, and the smallest fix. Quote the line. Mark anything you inferred rather than read `[UNVERIFIED]`. If nothing is wrong, say so in one line and name what you checked. Never restate the diff back as a review.\n\nEnd with `VERDICT: approve` or `VERDICT: changes-required`, and at most five findings.",
+      "system": "You review a change you did not write. Read the issue, then `git diff <base>...HEAD`. Findings, most severe first: BLOCKING (correctness, a gate that does not pass, a behaviour change with no test that can fail, a contradiction with AGENTS.md or an OpenSpec spec, a secret or a destructive command); SHOULD (missing test, rule stated twice, diff wider than the issue); NIT. One line each: `path:line`, what is wrong, the smallest fix. Quote only the offending line. No preamble, no restating the diff. Mark inference `[UNVERIFIED]`. If nothing is wrong, say so in one line. End with `VERDICT: approve` or `VERDICT: changes-required`, and at most five findings.",
       "permissions": [
         {
           "action": "edit",

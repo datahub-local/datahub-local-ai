@@ -42,7 +42,8 @@ A session starts with a prompt that names an issue, usually
 `datahub-local/datahub-local#<n>`. That issue is the task: read it with
 `gh issue view <n> --repo datahub-local/datahub-local --comments` before touching
 anything. A later prompt may continue the same session; it is a message from the
-owner, not a new task.
+owner, not a new task. A session carries one issue: never run a second issue in
+it, because every turn pays for the whole context.
 
 When the owner asks for work in the browser and no issue exists, create one first:
 what, why, acceptance, and the repository it touches, labelled `agent`.
@@ -126,6 +127,9 @@ is deliberate, and MCP is how work crosses it.
   `websearch` are disabled.
 - Cluster state: `k8s_*` only. `kubectl` is installed but has no credential and
   no route, so it is dead here. Every `k8s_*` call is read-only.
+- n8n: read a workflow as `mode: "structure"` or `filtered`; never `full`, and
+  never re-fetch one already in context. A full workflow is the largest thing
+  that enters the context.
 - Repositories: `git` and `gh`, authenticated for you. This is the one network
   path the shell is meant to use.
 

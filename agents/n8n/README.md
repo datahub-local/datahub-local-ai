@@ -14,11 +14,12 @@ scripts/      operational scripts: apply a change to live, extract brand tokens
 
 ## Gates
 
-The offline guards that asserted these files were removed on 2026-11-05: a test
-that pins a prompt, a dataset or an export goes red on the next correct edit,
-because those files are edited for reasons it cannot know. What is left is review
-— the diff, the live apply, the next backup run — and `scripts/`, where the code
-actually runs.
+The offline guards are gone: those that asserted a prompt, a dataset or an export
+were removed on 2026-11-05, and the remaining `scripts/test_*.py` on 2026-11-07.
+A test that pins those files goes red on the next correct edit, because they are
+edited for reasons it cannot know. Do not add another unit test for a workflow, a
+Code node, a prompt or a dataset. What is left is review — the diff, the live
+apply, the next backup run — and `scripts/`, the Python that actually runs.
 
 ## Brand tokens
 

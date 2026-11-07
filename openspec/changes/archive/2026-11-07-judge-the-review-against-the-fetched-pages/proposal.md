@@ -20,8 +20,10 @@ page, and the fourth draft exhausted the bound.
   page is sourced even when the seed page does not carry it; a fact absent from all of them, or a
   citation of a page the writer did not fetch, remains a failure.
 - **The Source Material block says what it is.** It is the entry's seed page, not the whole
-  corpus. The writer's fetched pages are in the same session's earlier turns and the ledger names
-  them, and the prompt points the reviewer at both.
+  corpus. The writer's fetched pages are in the same session's earlier turns, and the prompt
+  points the reviewer at them.
+- **The source link is not treated as an unfetched citation.** The seed page arrives in the brief
+  and the draft must end with `Source: <the link>`, so the citation rule names that exception.
 - **The lane's docs record the rule and the failure that named it.**
 
 ## Capabilities

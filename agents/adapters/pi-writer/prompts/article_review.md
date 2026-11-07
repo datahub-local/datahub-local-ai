@@ -18,7 +18,7 @@ The row's audience level is {{ AUDIENCE }}. The term check below reads at that l
 
 - Length: the body is at most {{ WORD_LIMIT }} words and it is {{ WORD_COUNT }}. Over that limit is a failure; say how many words to cut. The row's budget is {{ MAX_WORDS }}; the limit is the budget plus a counting margin, and the code rejects at the limit, not at the budget.
 - Every requested asset marker is present exactly once, alone on its own line, in the form `<!-- asset:<id> -->` with the type id in place of `<id>`, for these types: {{ ASSET_TYPES }}. The HTML comment is the marker; a bare type id is not, and neither is any other form. A requested type with no marker, a marker naming a type not requested, or a duplicated marker is a failure.
-- Every fact, number, quotation, date, release and citation is present in the entry's inputs, the Source Material, or a page the writer fetched during this run. The writer's fetched pages are in this session's earlier turns, and the ledger names them. A fact from a fetched page is sourced even when the seed page does not carry it; a fact absent from all of them is invented. A citation of a URL the writer did not fetch is a failure.
+- Every fact, number, quotation, date, release and citation is present in the entry's inputs, the Source Material, or a page the writer fetched during this run. The writer's fetched pages are in this session's earlier turns. A fact from a fetched page is sourced even when the seed page does not carry it; a fact absent from all of them is invented. A citation of a URL the writer did not fetch is a failure; the entry's source link is not, because it is the seed page.
 - The subject is named as the entry's inputs spell it.
 - The opening names the subject and the problem it answers, in the reader's world. A definition of the category, or "In this article", is a failure.
 - The close points at what to read or do next. A closing paragraph that restates the article, or that only summarises it, is a failure.
@@ -65,8 +65,8 @@ The block below is the body only. Its H1 is the `Title:` above and is not part o
 ## Source Material
 
 The entry's seed page. The writer may also have fetched up to three more pages during this
-run: they are in this session's earlier turns, and the ledger names them. A fact from a fetched
-page counts even when this seed page does not carry it. The block may be empty.
+run: they are in this session's earlier turns. A fact from a fetched page counts even when this
+seed page does not carry it. The block may be empty.
 
 <source>
 {{ CONTENT }}

@@ -625,6 +625,7 @@
           "workflowInputs": {
             "mappingMode": "defineBelow",
             "value": {
+              "TASK": "draft",
               "TOPIC": "={{ $('select_article_to_queue').item.json.TOPIC || '' }}",
               "DESCRIPTION": "={{ $('select_article_to_queue').item.json.DESCRIPTION || '' }}",
               "URL": "={{ $('select_article_to_queue').item.json.LINK || '' }}",
@@ -638,6 +639,16 @@
             },
             "matchingColumns": [],
             "schema": [
+              {
+                "id": "TASK",
+                "displayName": "TASK",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
               {
                 "id": "TOPIC",
                 "displayName": "TOPIC",
@@ -736,6 +747,46 @@
                 "display": true,
                 "canBeUsedToMatch": true,
                 "type": "number",
+                "removed": false
+              },
+              {
+                "id": "DRAFT_TITLE",
+                "displayName": "DRAFT_TITLE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "DRAFT_TEXT",
+                "displayName": "DRAFT_TEXT",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "FINDINGS",
+                "displayName": "FINDINGS",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "PROBLEM",
+                "displayName": "PROBLEM",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
                 "removed": false
               }
             ],
@@ -4587,7 +4638,7 @@
           -80
         ],
         "parameters": {
-          "jsCode": "// One item always: the review and edit turns start from this context, and a fan-out from a\n// possibly empty input never runs the rest of the chain.\n//\n// The draft of record is resolved here once, because the retry edge re-enters this node and\n// nothing below may read `execute_article_creator` on a run where it did not execute:\n//   1. `select_final_draft`'s own earlier run - a human retry in this execution improves the\n//      draft the human read, not the first draft it came from;\n//   2. `execute_article_creator`'s answer - the first pass of this execution;\n//   3. the `article_drafts` row - a review resumed in a later execution.\nconst row = $('select_article_to_queue').first().json;\nconst stored = $('read_draft_for_improvement').first().json || {};\nconst count = (text) => String(text || '')\n  .replace(/<!--[\\s\\S]*?-->/g, ' ')\n  .split(/\\s+/)\n  .filter(Boolean).length;\nconst resolveDraft = () => {\n  if ($('select_final_draft').isExecuted) {\n    const j = $('select_final_draft').last().json;\n    return { text: String(j.text || ''), title: String(j.title || ''), source: 'the draft this run reviewed' };\n  }\n  if ($('execute_article_creator').isExecuted) {\n    const j = $('execute_article_creator').last().json;\n    return { text: String(j.text || ''), title: String(j.title || ''), source: 'the draft this run received' };\n  }\n  const text = String(stored.ARTICLE_TEXT || '');\n  if (!text) throw new Error('no draft to improve: the creator did not run and article_drafts carries no row for ' + String(row.ENTRY_ID || 'this entry'));\n  return { text, title: String(stored.TITLE || ''), source: 'the stored draft' };\n};\nconst base = resolveDraft();\nif (!base.text.trim()) throw new Error('no draft to improve: the resolved draft is empty');\n\n// The ledger travels with the draft for the same reason and in the same order: a resumed\n// review runs in a later execution, and an edit that fences a line the server never verified\n// must fail here. A missing cell is a report, not a bypass: the improved draft is accepted and\n// the note says the fidelity check did not run.\nconst firstLine = (value) => String(value || '').split('\\n').map((l) => l.trim()).filter(Boolean)[0] || 'a fenced block';\nconst describe = (text) => {\n  try {\n    const data = JSON.parse(String(text || ''));\n    const list = Array.isArray(data) ? data : data && Array.isArray(data.sources) ? data.sources : null;\n    if (!list) return 'none';\n    const lines = list.filter((e) => e && String(e.block || '').trim())\n      .map((e) => '- ' + firstLine(e.block) + ' (' + (String(e.url || '').trim() || 'no url') + ')');\n    return lines.join('\\n') || 'none';\n  } catch (e) {\n    return 'none';\n  }\n};\nconst resolveSources = () => {\n  const pick = (value) => String(value || '').trim();\n  if ($('select_final_draft').isExecuted) {\n    const ledger = pick($('select_final_draft').last().json.SOURCES);\n    if (ledger) return ledger;\n  }\n  if ($('execute_article_creator').isExecuted) {\n    const ledger = pick($('execute_article_creator').last().json.SOURCES);\n    if (ledger) return ledger;\n  }\n  return String(row.SOURCES || '');\n};\nconst sources = resolveSources();\n\nlet feedback = String(row.ARTICLE_FEEDBACK || '');\nconst retry = $('notification_retry_or_cancel');\nif (retry.isExecuted) feedback = String((retry.last().json || {}).data?.Feedback || feedback);\n\nconst audience = String(row.AUDIENCE || 'NONE').trim().toUpperCase();\n// The writer owns every model turn, so this graph carries the endpoint and the session\n// id once, and each request below names only the task and the facts.\nconst writerUrl = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!writerUrl) throw new Error('ARTICLE_WRITER_URL is not set; the writer turns cannot be reached');\nconst sessionId = ('article-' + String(row.row_number || '').trim()).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 80);\nconsole.log('improvement: over ' + base.source + ' at ' + audience +\n  ' (feedback: ' + (feedback.trim() ? 'yes' : 'no') + ')');\nreturn [{ json: {\n  ...row,\n  SESSION_ID: sessionId,\n  ARTICLE_WRITER_URL: writerUrl,\n  BASE_TEXT: base.text,\n  BASE_TITLE: base.title,\n  BASE_WORD_COUNT: count(base.text),\n  DRAFT_SOURCE: base.source,\n  SOURCES: sources,\n  SOURCES_TEXT: describe(sources),\n  FIDELITY: sources.trim() ? 'checked' : 'not run',\n  AUDIENCE: audience,\n  FINDINGS_SUMMARY: '',\n  FEEDBACK: feedback,\n  HAS_FEEDBACK: feedback.trim() !== '',\n  MAX_WORDS: Number(row.MAX_WORDS),\n  ASSET_TYPES: String(row.REQUESTED_ASSETS || ''),\n  IMPROVE_MAX_ATTEMPTS: 2,\n} }];"
+          "jsCode": "// One item always: the review and edit turns start from this context, and a fan-out from a\n// possibly empty input never runs the rest of the chain.\n//\n// The draft of record is resolved here once, because the retry edge re-enters this node and\n// nothing below may read `execute_article_creator` on a run where it did not execute:\n//   1. `select_final_draft`'s own earlier run - a human retry in this execution improves the\n//      draft the human read, not the first draft it came from;\n//   2. `execute_article_creator`'s answer - the first pass of this execution;\n//   3. the `article_drafts` row - a review resumed in a later execution.\nconst row = $('select_article_to_queue').first().json;\nconst stored = $('read_draft_for_improvement').first().json || {};\nconst count = (text) => String(text || '')\n  .replace(/<!--[\\s\\S]*?-->/g, ' ')\n  .split(/\\s+/)\n  .filter(Boolean).length;\nconst resolveDraft = () => {\n  if ($('select_final_draft').isExecuted) {\n    const j = $('select_final_draft').last().json;\n    return { text: String(j.text || ''), title: String(j.title || ''), source: 'the draft this run reviewed' };\n  }\n  if ($('execute_article_creator').isExecuted) {\n    const j = $('execute_article_creator').last().json;\n    return { text: String(j.text || ''), title: String(j.title || ''), source: 'the draft this run received' };\n  }\n  const text = String(stored.ARTICLE_TEXT || '');\n  if (!text) throw new Error('no draft to improve: the creator did not run and article_drafts carries no row for ' + String(row.ENTRY_ID || 'this entry'));\n  return { text, title: String(stored.TITLE || ''), source: 'the stored draft' };\n};\nconst base = resolveDraft();\nif (!base.text.trim()) throw new Error('no draft to improve: the resolved draft is empty');\n\n// The ledger travels with the draft for the same reason and in the same order: a resumed\n// review runs in a later execution, and an edit that fences a line the server never verified\n// must fail here. A missing cell is a report, not a bypass: the improved draft is accepted and\n// the note says the fidelity check did not run.\nconst firstLine = (value) => String(value || '').split('\\n').map((l) => l.trim()).filter(Boolean)[0] || 'a fenced block';\nconst describe = (text) => {\n  try {\n    const data = JSON.parse(String(text || ''));\n    const list = Array.isArray(data) ? data : data && Array.isArray(data.sources) ? data.sources : null;\n    if (!list) return 'none';\n    const lines = list.filter((e) => e && String(e.block || '').trim())\n      .map((e) => '- ' + firstLine(e.block) + ' (' + (String(e.url || '').trim() || 'no url') + ')');\n    return lines.join('\\n') || 'none';\n  } catch (e) {\n    return 'none';\n  }\n};\nconst resolveSources = () => {\n  const pick = (value) => String(value || '').trim();\n  if ($('select_final_draft').isExecuted) {\n    const ledger = pick($('select_final_draft').last().json.SOURCES);\n    if (ledger) return ledger;\n  }\n  if ($('execute_article_creator').isExecuted) {\n    const ledger = pick($('execute_article_creator').last().json.SOURCES);\n    if (ledger) return ledger;\n  }\n  return String(row.SOURCES || '');\n};\nconst sources = resolveSources();\n\nlet feedback = String(row.ARTICLE_FEEDBACK || '');\nconst retry = $('notification_retry_or_cancel');\nif (retry.isExecuted) feedback = String((retry.last().json || {}).data?.Feedback || feedback);\n\nconst audience = String(row.AUDIENCE || 'NONE').trim().toUpperCase();\n// The sub-workflow owns the writer endpoint and the session id, so this context carries only\n// the facts a turn needs; the aspect and edit calls pass these fields through.\nconsole.log('improvement: over ' + base.source + ' at ' + audience +\n  ' (feedback: ' + (feedback.trim() ? 'yes' : 'no') + ')');\nreturn [{ json: {\n  ...row,\n  BASE_TEXT: base.text,\n  BASE_TITLE: base.title,\n  BASE_WORD_COUNT: count(base.text),\n  DRAFT_SOURCE: base.source,\n  SOURCES: sources,\n  SOURCES_TEXT: describe(sources),\n  FIDELITY: sources.trim() ? 'checked' : 'not run',\n  AUDIENCE: audience,\n  FINDINGS_SUMMARY: '',\n  FEEDBACK: feedback,\n  HAS_FEEDBACK: feedback.trim() !== '',\n  MAX_WORDS: Number(row.MAX_WORDS),\n  ASSET_TYPES: String(row.REQUESTED_ASSETS || ''),\n  IMPROVE_MAX_ATTEMPTS: 2,\n} }];"
         }
       },
       {
@@ -4746,85 +4797,411 @@
         }
       },
       {
-        "parameters": {
-          "jsCode": "// The aspect pass is the writer's turn too: this request names the task, the session and\n// the draft, and the adapter renders each aspect prompt from its own registry. The graph\n// holds no aspect id and no prompt text, so adding an aspect changes the image only.\nconst ctx = $('build_improvement_context').first().json;\nreturn [{ json: {\n  ASPECTS_URL: String(ctx.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '') + '/v1/chat/completions',\n  ASPECTS_BODY: JSON.stringify({\n    task: 'aspects',\n    session_id: String(ctx.SESSION_ID || ''),\n    brief: {\n      topic: String(ctx.TOPIC || ''),\n      description: String(ctx.DESCRIPTION || ''),\n      url: String(ctx.LINK || ''),\n      max_words: Number(ctx.MAX_WORDS) || 0,\n      asset_types: String(ctx.ASSET_TYPES || ''),\n      audience: String(ctx.AUDIENCE || 'NONE'),\n      extra_prompt: String(ctx.EXTRA_PROMPT || ''),\n      feedback: String(ctx.FEEDBACK || ''),\n    },\n    article: { title: String(ctx.BASE_TITLE || ''), text: String(ctx.BASE_TEXT || '') },\n  }),\n} }];"
-        },
-        "id": "1b2a0fe8-3f56-48cb-b78a-d85f9e8baa12",
-        "name": "build_aspects_request",
+        "id": "3d6346d1-162e-4c0a-948b-accb5a7aaf7d",
+        "name": "execute_article_aspects",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.3,
         "position": [
           4480,
           -144
         ],
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2
-      },
-      {
         "parameters": {
-          "method": "POST",
-          "url": "={{ $json.ASPECTS_URL }}",
-          "sendBody": true,
-          "specifyBody": "json",
-          "jsonBody": "={{ $json.ASPECTS_BODY }}",
-          "options": {
-            "timeout": 900000,
-            "response": {
-              "response": {
-                "neverError": true,
-                "fullResponse": true,
-                "responseFormat": "json"
+          "workflowId": {
+            "__rl": true,
+            "value": "nPBkIpeObC1Om0LH",
+            "mode": "list",
+            "cachedResultUrl": "/workflow/nPBkIpeObC1Om0LH",
+            "cachedResultName": "Article Creator"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "TASK": "aspects",
+              "TOPIC": "={{ $('build_improvement_context').first().json.TOPIC || '' }}",
+              "DESCRIPTION": "={{ $('build_improvement_context').first().json.DESCRIPTION || '' }}",
+              "URL": "={{ $('build_improvement_context').first().json.LINK || '' }}",
+              "MAX_WORDS": "={{ $('build_improvement_context').first().json.MAX_WORDS }}",
+              "ASSET_TYPES": "={{ $('build_improvement_context').first().json.REQUESTED_ASSETS || '' }}",
+              "EXTRA_PROMPT": "={{ $('build_improvement_context').first().json.EXTRA_PROMPT || '' }}",
+              "FEEDBACK": "={{ $('build_improvement_context').first().json.FEEDBACK || '' }}",
+              "AUDIENCE": "={{ $('build_improvement_context').first().json.AUDIENCE || 'NONE' }}",
+              "ROW_NUMBER": "={{ $('build_improvement_context').first().json.row_number }}",
+              "DRAFT_TITLE": "={{ $('build_improvement_context').first().json.BASE_TITLE || '' }}",
+              "DRAFT_TEXT": "={{ $('build_improvement_context').first().json.BASE_TEXT || '' }}"
+            },
+            "matchingColumns": [],
+            "schema": [
+              {
+                "id": "TASK",
+                "displayName": "TASK",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "TOPIC",
+                "displayName": "TOPIC",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "DESCRIPTION",
+                "displayName": "DESCRIPTION",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "URL",
+                "displayName": "URL",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "CONTENT",
+                "displayName": "CONTENT",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "MAX_WORDS",
+                "displayName": "MAX_WORDS",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "number",
+                "removed": false
+              },
+              {
+                "id": "ASSET_TYPES",
+                "displayName": "ASSET_TYPES",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "EXTRA_PROMPT",
+                "displayName": "EXTRA_PROMPT",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "FEEDBACK",
+                "displayName": "FEEDBACK",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "PREVIOUS_DRAFT",
+                "displayName": "PREVIOUS_DRAFT",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "AUDIENCE",
+                "displayName": "AUDIENCE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "ROW_NUMBER",
+                "displayName": "ROW_NUMBER",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "number",
+                "removed": false
+              },
+              {
+                "id": "DRAFT_TITLE",
+                "displayName": "DRAFT_TITLE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "DRAFT_TEXT",
+                "displayName": "DRAFT_TEXT",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "FINDINGS",
+                "displayName": "FINDINGS",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "PROBLEM",
+                "displayName": "PROBLEM",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
               }
-            }
-          }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true
+          },
+          "options": {}
         },
-        "id": "6084bdfd-0984-4bf7-8f89-d469f954c44f",
-        "name": "request_aspects",
-        "position": [
-          4704,
-          -144
-        ],
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.4,
         "onError": "continueErrorOutput"
       },
       {
-        "parameters": {
-          "jsCode": "// The edit is the same session's next turn: the draft, the findings, and - on a retry -\n// the objective problem the code re-check named. No prompt text and no model id ride on\n// the request; the adapter owns both.\nconst ctx = $('build_improvement_context').first().json;\nconst merged = $('merge_aspect_findings').first().json;\nconst checked = $('check_improved_draft');\nconst problem = checked.isExecuted ? String(checked.last().json.PROBLEM || '') : '';\nreturn [{ json: {\n  IMPROVE_URL: String(ctx.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '') + '/v1/chat/completions',\n  IMPROVE_BODY: JSON.stringify({\n    task: 'improve',\n    session_id: String(ctx.SESSION_ID || ''),\n    brief: {\n      topic: String(ctx.TOPIC || ''),\n      description: String(ctx.DESCRIPTION || ''),\n      url: String(ctx.LINK || ''),\n      max_words: Number(ctx.MAX_WORDS) || 0,\n      asset_types: String(ctx.ASSET_TYPES || ''),\n      audience: String(ctx.AUDIENCE || 'NONE'),\n      extra_prompt: String(ctx.EXTRA_PROMPT || ''),\n      feedback: String(ctx.FEEDBACK || ''),\n    },\n    article: { title: String(ctx.BASE_TITLE || ''), text: String(ctx.BASE_TEXT || '') },\n    findings: String(merged.FINDINGS || ''),\n    problem,\n  }),\n} }];"
-        },
-        "id": "c1cd2073-2def-47e8-b8ca-4d8a4a5dd66e",
-        "name": "build_improve_request",
+        "id": "84a12970-a235-4a67-a91d-f83dcd34a8f4",
+        "name": "execute_article_improve",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.3,
         "position": [
           5728,
-          -16
-        ],
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2
-      },
-      {
-        "parameters": {
-          "method": "POST",
-          "url": "={{ $json.IMPROVE_URL }}",
-          "sendBody": true,
-          "specifyBody": "json",
-          "jsonBody": "={{ $json.IMPROVE_BODY }}",
-          "options": {
-            "timeout": 600000,
-            "response": {
-              "response": {
-                "neverError": true,
-                "fullResponse": true,
-                "responseFormat": "json"
-              }
-            }
-          }
-        },
-        "id": "a5168ffd-49c7-44af-8383-dedc3ac5eb5a",
-        "name": "request_improve",
-        "position": [
-          5952,
           -144
         ],
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.4,
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "nPBkIpeObC1Om0LH",
+            "mode": "list",
+            "cachedResultUrl": "/workflow/nPBkIpeObC1Om0LH",
+            "cachedResultName": "Article Creator"
+          },
+          "workflowInputs": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "TASK": "improve",
+              "TOPIC": "={{ $('build_improvement_context').first().json.TOPIC || '' }}",
+              "DESCRIPTION": "={{ $('build_improvement_context').first().json.DESCRIPTION || '' }}",
+              "URL": "={{ $('build_improvement_context').first().json.LINK || '' }}",
+              "MAX_WORDS": "={{ $('build_improvement_context').first().json.MAX_WORDS }}",
+              "ASSET_TYPES": "={{ $('build_improvement_context').first().json.REQUESTED_ASSETS || '' }}",
+              "EXTRA_PROMPT": "={{ $('build_improvement_context').first().json.EXTRA_PROMPT || '' }}",
+              "FEEDBACK": "={{ $('build_improvement_context').first().json.FEEDBACK || '' }}",
+              "AUDIENCE": "={{ $('build_improvement_context').first().json.AUDIENCE || 'NONE' }}",
+              "ROW_NUMBER": "={{ $('build_improvement_context').first().json.row_number }}",
+              "DRAFT_TITLE": "={{ $('build_improvement_context').first().json.BASE_TITLE || '' }}",
+              "DRAFT_TEXT": "={{ $('build_improvement_context').first().json.BASE_TEXT || '' }}",
+              "FINDINGS": "={{ $('merge_aspect_findings').first().json.FINDINGS || '' }}",
+              "PROBLEM": "={{ $('check_improved_draft').isExecuted ? ($('check_improved_draft').last().json.PROBLEM || '') : '' }}"
+            },
+            "matchingColumns": [],
+            "schema": [
+              {
+                "id": "TASK",
+                "displayName": "TASK",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "TOPIC",
+                "displayName": "TOPIC",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "DESCRIPTION",
+                "displayName": "DESCRIPTION",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "URL",
+                "displayName": "URL",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "CONTENT",
+                "displayName": "CONTENT",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "MAX_WORDS",
+                "displayName": "MAX_WORDS",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "number",
+                "removed": false
+              },
+              {
+                "id": "ASSET_TYPES",
+                "displayName": "ASSET_TYPES",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "EXTRA_PROMPT",
+                "displayName": "EXTRA_PROMPT",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "FEEDBACK",
+                "displayName": "FEEDBACK",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "PREVIOUS_DRAFT",
+                "displayName": "PREVIOUS_DRAFT",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "AUDIENCE",
+                "displayName": "AUDIENCE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "ROW_NUMBER",
+                "displayName": "ROW_NUMBER",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "number",
+                "removed": false
+              },
+              {
+                "id": "DRAFT_TITLE",
+                "displayName": "DRAFT_TITLE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "DRAFT_TEXT",
+                "displayName": "DRAFT_TEXT",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "FINDINGS",
+                "displayName": "FINDINGS",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "PROBLEM",
+                "displayName": "PROBLEM",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true
+          },
+          "options": {}
+        },
         "onError": "continueErrorOutput"
       }
     ],
@@ -5771,7 +6148,7 @@
         "main": [
           [
             {
-              "node": "build_aspects_request",
+              "node": "execute_article_aspects",
               "type": "main",
               "index": 0
             }
@@ -5793,7 +6170,7 @@
         "main": [
           [
             {
-              "node": "build_improve_request",
+              "node": "execute_article_improve",
               "type": "main",
               "index": 0
             }
@@ -5836,7 +6213,7 @@
           ],
           [
             {
-              "node": "build_improve_request",
+              "node": "execute_article_improve",
               "type": "main",
               "index": 0
             }
@@ -5865,18 +6242,7 @@
           ]
         ]
       },
-      "build_aspects_request": {
-        "main": [
-          [
-            {
-              "node": "request_aspects",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "request_aspects": {
+      "execute_article_aspects": {
         "main": [
           [
             {
@@ -5894,18 +6260,7 @@
           ]
         ]
       },
-      "build_improve_request": {
-        "main": [
-          [
-            {
-              "node": "request_improve",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "request_improve": {
+      "execute_article_improve": {
         "main": [
           [
             {
@@ -6876,7 +7231,7 @@
       "main": [
         [
           {
-            "node": "build_aspects_request",
+            "node": "execute_article_aspects",
             "type": "main",
             "index": 0
           }
@@ -6898,7 +7253,7 @@
       "main": [
         [
           {
-            "node": "build_improve_request",
+            "node": "execute_article_improve",
             "type": "main",
             "index": 0
           }
@@ -6941,7 +7296,7 @@
         ],
         [
           {
-            "node": "build_improve_request",
+            "node": "execute_article_improve",
             "type": "main",
             "index": 0
           }
@@ -6970,18 +7325,7 @@
         ]
       ]
     },
-    "build_aspects_request": {
-      "main": [
-        [
-          {
-            "node": "request_aspects",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "request_aspects": {
+    "execute_article_aspects": {
       "main": [
         [
           {
@@ -6999,18 +7343,7 @@
         ]
       ]
     },
-    "build_improve_request": {
-      "main": [
-        [
-          {
-            "node": "request_improve",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "request_improve": {
+    "execute_article_improve": {
       "main": [
         [
           {
@@ -7657,6 +7990,7 @@
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
+            "TASK": "draft",
             "TOPIC": "={{ $('select_article_to_queue').item.json.TOPIC || '' }}",
             "DESCRIPTION": "={{ $('select_article_to_queue').item.json.DESCRIPTION || '' }}",
             "URL": "={{ $('select_article_to_queue').item.json.LINK || '' }}",
@@ -7670,6 +8004,16 @@
           },
           "matchingColumns": [],
           "schema": [
+            {
+              "id": "TASK",
+              "displayName": "TASK",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
             {
               "id": "TOPIC",
               "displayName": "TOPIC",
@@ -7768,6 +8112,46 @@
               "display": true,
               "canBeUsedToMatch": true,
               "type": "number",
+              "removed": false
+            },
+            {
+              "id": "DRAFT_TITLE",
+              "displayName": "DRAFT_TITLE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "DRAFT_TEXT",
+              "displayName": "DRAFT_TEXT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "FINDINGS",
+              "displayName": "FINDINGS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "PROBLEM",
+              "displayName": "PROBLEM",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
               "removed": false
             }
           ],
@@ -11619,7 +12003,7 @@
         -80
       ],
       "parameters": {
-        "jsCode": "// One item always: the review and edit turns start from this context, and a fan-out from a\n// possibly empty input never runs the rest of the chain.\n//\n// The draft of record is resolved here once, because the retry edge re-enters this node and\n// nothing below may read `execute_article_creator` on a run where it did not execute:\n//   1. `select_final_draft`'s own earlier run - a human retry in this execution improves the\n//      draft the human read, not the first draft it came from;\n//   2. `execute_article_creator`'s answer - the first pass of this execution;\n//   3. the `article_drafts` row - a review resumed in a later execution.\nconst row = $('select_article_to_queue').first().json;\nconst stored = $('read_draft_for_improvement').first().json || {};\nconst count = (text) => String(text || '')\n  .replace(/<!--[\\s\\S]*?-->/g, ' ')\n  .split(/\\s+/)\n  .filter(Boolean).length;\nconst resolveDraft = () => {\n  if ($('select_final_draft').isExecuted) {\n    const j = $('select_final_draft').last().json;\n    return { text: String(j.text || ''), title: String(j.title || ''), source: 'the draft this run reviewed' };\n  }\n  if ($('execute_article_creator').isExecuted) {\n    const j = $('execute_article_creator').last().json;\n    return { text: String(j.text || ''), title: String(j.title || ''), source: 'the draft this run received' };\n  }\n  const text = String(stored.ARTICLE_TEXT || '');\n  if (!text) throw new Error('no draft to improve: the creator did not run and article_drafts carries no row for ' + String(row.ENTRY_ID || 'this entry'));\n  return { text, title: String(stored.TITLE || ''), source: 'the stored draft' };\n};\nconst base = resolveDraft();\nif (!base.text.trim()) throw new Error('no draft to improve: the resolved draft is empty');\n\n// The ledger travels with the draft for the same reason and in the same order: a resumed\n// review runs in a later execution, and an edit that fences a line the server never verified\n// must fail here. A missing cell is a report, not a bypass: the improved draft is accepted and\n// the note says the fidelity check did not run.\nconst firstLine = (value) => String(value || '').split('\\n').map((l) => l.trim()).filter(Boolean)[0] || 'a fenced block';\nconst describe = (text) => {\n  try {\n    const data = JSON.parse(String(text || ''));\n    const list = Array.isArray(data) ? data : data && Array.isArray(data.sources) ? data.sources : null;\n    if (!list) return 'none';\n    const lines = list.filter((e) => e && String(e.block || '').trim())\n      .map((e) => '- ' + firstLine(e.block) + ' (' + (String(e.url || '').trim() || 'no url') + ')');\n    return lines.join('\\n') || 'none';\n  } catch (e) {\n    return 'none';\n  }\n};\nconst resolveSources = () => {\n  const pick = (value) => String(value || '').trim();\n  if ($('select_final_draft').isExecuted) {\n    const ledger = pick($('select_final_draft').last().json.SOURCES);\n    if (ledger) return ledger;\n  }\n  if ($('execute_article_creator').isExecuted) {\n    const ledger = pick($('execute_article_creator').last().json.SOURCES);\n    if (ledger) return ledger;\n  }\n  return String(row.SOURCES || '');\n};\nconst sources = resolveSources();\n\nlet feedback = String(row.ARTICLE_FEEDBACK || '');\nconst retry = $('notification_retry_or_cancel');\nif (retry.isExecuted) feedback = String((retry.last().json || {}).data?.Feedback || feedback);\n\nconst audience = String(row.AUDIENCE || 'NONE').trim().toUpperCase();\n// The writer owns every model turn, so this graph carries the endpoint and the session\n// id once, and each request below names only the task and the facts.\nconst writerUrl = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!writerUrl) throw new Error('ARTICLE_WRITER_URL is not set; the writer turns cannot be reached');\nconst sessionId = ('article-' + String(row.row_number || '').trim()).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 80);\nconsole.log('improvement: over ' + base.source + ' at ' + audience +\n  ' (feedback: ' + (feedback.trim() ? 'yes' : 'no') + ')');\nreturn [{ json: {\n  ...row,\n  SESSION_ID: sessionId,\n  ARTICLE_WRITER_URL: writerUrl,\n  BASE_TEXT: base.text,\n  BASE_TITLE: base.title,\n  BASE_WORD_COUNT: count(base.text),\n  DRAFT_SOURCE: base.source,\n  SOURCES: sources,\n  SOURCES_TEXT: describe(sources),\n  FIDELITY: sources.trim() ? 'checked' : 'not run',\n  AUDIENCE: audience,\n  FINDINGS_SUMMARY: '',\n  FEEDBACK: feedback,\n  HAS_FEEDBACK: feedback.trim() !== '',\n  MAX_WORDS: Number(row.MAX_WORDS),\n  ASSET_TYPES: String(row.REQUESTED_ASSETS || ''),\n  IMPROVE_MAX_ATTEMPTS: 2,\n} }];"
+        "jsCode": "// One item always: the review and edit turns start from this context, and a fan-out from a\n// possibly empty input never runs the rest of the chain.\n//\n// The draft of record is resolved here once, because the retry edge re-enters this node and\n// nothing below may read `execute_article_creator` on a run where it did not execute:\n//   1. `select_final_draft`'s own earlier run - a human retry in this execution improves the\n//      draft the human read, not the first draft it came from;\n//   2. `execute_article_creator`'s answer - the first pass of this execution;\n//   3. the `article_drafts` row - a review resumed in a later execution.\nconst row = $('select_article_to_queue').first().json;\nconst stored = $('read_draft_for_improvement').first().json || {};\nconst count = (text) => String(text || '')\n  .replace(/<!--[\\s\\S]*?-->/g, ' ')\n  .split(/\\s+/)\n  .filter(Boolean).length;\nconst resolveDraft = () => {\n  if ($('select_final_draft').isExecuted) {\n    const j = $('select_final_draft').last().json;\n    return { text: String(j.text || ''), title: String(j.title || ''), source: 'the draft this run reviewed' };\n  }\n  if ($('execute_article_creator').isExecuted) {\n    const j = $('execute_article_creator').last().json;\n    return { text: String(j.text || ''), title: String(j.title || ''), source: 'the draft this run received' };\n  }\n  const text = String(stored.ARTICLE_TEXT || '');\n  if (!text) throw new Error('no draft to improve: the creator did not run and article_drafts carries no row for ' + String(row.ENTRY_ID || 'this entry'));\n  return { text, title: String(stored.TITLE || ''), source: 'the stored draft' };\n};\nconst base = resolveDraft();\nif (!base.text.trim()) throw new Error('no draft to improve: the resolved draft is empty');\n\n// The ledger travels with the draft for the same reason and in the same order: a resumed\n// review runs in a later execution, and an edit that fences a line the server never verified\n// must fail here. A missing cell is a report, not a bypass: the improved draft is accepted and\n// the note says the fidelity check did not run.\nconst firstLine = (value) => String(value || '').split('\\n').map((l) => l.trim()).filter(Boolean)[0] || 'a fenced block';\nconst describe = (text) => {\n  try {\n    const data = JSON.parse(String(text || ''));\n    const list = Array.isArray(data) ? data : data && Array.isArray(data.sources) ? data.sources : null;\n    if (!list) return 'none';\n    const lines = list.filter((e) => e && String(e.block || '').trim())\n      .map((e) => '- ' + firstLine(e.block) + ' (' + (String(e.url || '').trim() || 'no url') + ')');\n    return lines.join('\\n') || 'none';\n  } catch (e) {\n    return 'none';\n  }\n};\nconst resolveSources = () => {\n  const pick = (value) => String(value || '').trim();\n  if ($('select_final_draft').isExecuted) {\n    const ledger = pick($('select_final_draft').last().json.SOURCES);\n    if (ledger) return ledger;\n  }\n  if ($('execute_article_creator').isExecuted) {\n    const ledger = pick($('execute_article_creator').last().json.SOURCES);\n    if (ledger) return ledger;\n  }\n  return String(row.SOURCES || '');\n};\nconst sources = resolveSources();\n\nlet feedback = String(row.ARTICLE_FEEDBACK || '');\nconst retry = $('notification_retry_or_cancel');\nif (retry.isExecuted) feedback = String((retry.last().json || {}).data?.Feedback || feedback);\n\nconst audience = String(row.AUDIENCE || 'NONE').trim().toUpperCase();\n// The sub-workflow owns the writer endpoint and the session id, so this context carries only\n// the facts a turn needs; the aspect and edit calls pass these fields through.\nconsole.log('improvement: over ' + base.source + ' at ' + audience +\n  ' (feedback: ' + (feedback.trim() ? 'yes' : 'no') + ')');\nreturn [{ json: {\n  ...row,\n  BASE_TEXT: base.text,\n  BASE_TITLE: base.title,\n  BASE_WORD_COUNT: count(base.text),\n  DRAFT_SOURCE: base.source,\n  SOURCES: sources,\n  SOURCES_TEXT: describe(sources),\n  FIDELITY: sources.trim() ? 'checked' : 'not run',\n  AUDIENCE: audience,\n  FINDINGS_SUMMARY: '',\n  FEEDBACK: feedback,\n  HAS_FEEDBACK: feedback.trim() !== '',\n  MAX_WORDS: Number(row.MAX_WORDS),\n  ASSET_TYPES: String(row.REQUESTED_ASSETS || ''),\n  IMPROVE_MAX_ATTEMPTS: 2,\n} }];"
       }
     },
     {
@@ -11778,85 +12162,411 @@
       }
     },
     {
-      "parameters": {
-        "jsCode": "// The aspect pass is the writer's turn too: this request names the task, the session and\n// the draft, and the adapter renders each aspect prompt from its own registry. The graph\n// holds no aspect id and no prompt text, so adding an aspect changes the image only.\nconst ctx = $('build_improvement_context').first().json;\nreturn [{ json: {\n  ASPECTS_URL: String(ctx.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '') + '/v1/chat/completions',\n  ASPECTS_BODY: JSON.stringify({\n    task: 'aspects',\n    session_id: String(ctx.SESSION_ID || ''),\n    brief: {\n      topic: String(ctx.TOPIC || ''),\n      description: String(ctx.DESCRIPTION || ''),\n      url: String(ctx.LINK || ''),\n      max_words: Number(ctx.MAX_WORDS) || 0,\n      asset_types: String(ctx.ASSET_TYPES || ''),\n      audience: String(ctx.AUDIENCE || 'NONE'),\n      extra_prompt: String(ctx.EXTRA_PROMPT || ''),\n      feedback: String(ctx.FEEDBACK || ''),\n    },\n    article: { title: String(ctx.BASE_TITLE || ''), text: String(ctx.BASE_TEXT || '') },\n  }),\n} }];"
-      },
-      "id": "1b2a0fe8-3f56-48cb-b78a-d85f9e8baa12",
-      "name": "build_aspects_request",
+      "id": "3d6346d1-162e-4c0a-948b-accb5a7aaf7d",
+      "name": "execute_article_aspects",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
       "position": [
         4480,
         -144
       ],
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2
-    },
-    {
       "parameters": {
-        "method": "POST",
-        "url": "={{ $json.ASPECTS_URL }}",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ $json.ASPECTS_BODY }}",
-        "options": {
-          "timeout": 900000,
-          "response": {
-            "response": {
-              "neverError": true,
-              "fullResponse": true,
-              "responseFormat": "json"
+        "workflowId": {
+          "__rl": true,
+          "value": "nPBkIpeObC1Om0LH",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/nPBkIpeObC1Om0LH",
+          "cachedResultName": "Article Creator"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "TASK": "aspects",
+            "TOPIC": "={{ $('build_improvement_context').first().json.TOPIC || '' }}",
+            "DESCRIPTION": "={{ $('build_improvement_context').first().json.DESCRIPTION || '' }}",
+            "URL": "={{ $('build_improvement_context').first().json.LINK || '' }}",
+            "MAX_WORDS": "={{ $('build_improvement_context').first().json.MAX_WORDS }}",
+            "ASSET_TYPES": "={{ $('build_improvement_context').first().json.REQUESTED_ASSETS || '' }}",
+            "EXTRA_PROMPT": "={{ $('build_improvement_context').first().json.EXTRA_PROMPT || '' }}",
+            "FEEDBACK": "={{ $('build_improvement_context').first().json.FEEDBACK || '' }}",
+            "AUDIENCE": "={{ $('build_improvement_context').first().json.AUDIENCE || 'NONE' }}",
+            "ROW_NUMBER": "={{ $('build_improvement_context').first().json.row_number }}",
+            "DRAFT_TITLE": "={{ $('build_improvement_context').first().json.BASE_TITLE || '' }}",
+            "DRAFT_TEXT": "={{ $('build_improvement_context').first().json.BASE_TEXT || '' }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "TASK",
+              "displayName": "TASK",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "TOPIC",
+              "displayName": "TOPIC",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "DESCRIPTION",
+              "displayName": "DESCRIPTION",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "URL",
+              "displayName": "URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "CONTENT",
+              "displayName": "CONTENT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "MAX_WORDS",
+              "displayName": "MAX_WORDS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "ASSET_TYPES",
+              "displayName": "ASSET_TYPES",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "EXTRA_PROMPT",
+              "displayName": "EXTRA_PROMPT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "FEEDBACK",
+              "displayName": "FEEDBACK",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "PREVIOUS_DRAFT",
+              "displayName": "PREVIOUS_DRAFT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "AUDIENCE",
+              "displayName": "AUDIENCE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "ROW_NUMBER",
+              "displayName": "ROW_NUMBER",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "DRAFT_TITLE",
+              "displayName": "DRAFT_TITLE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "DRAFT_TEXT",
+              "displayName": "DRAFT_TEXT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "FINDINGS",
+              "displayName": "FINDINGS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "PROBLEM",
+              "displayName": "PROBLEM",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
             }
-          }
-        }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
       },
-      "id": "6084bdfd-0984-4bf7-8f89-d469f954c44f",
-      "name": "request_aspects",
-      "position": [
-        4704,
-        -144
-      ],
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
       "onError": "continueErrorOutput"
     },
     {
-      "parameters": {
-        "jsCode": "// The edit is the same session's next turn: the draft, the findings, and - on a retry -\n// the objective problem the code re-check named. No prompt text and no model id ride on\n// the request; the adapter owns both.\nconst ctx = $('build_improvement_context').first().json;\nconst merged = $('merge_aspect_findings').first().json;\nconst checked = $('check_improved_draft');\nconst problem = checked.isExecuted ? String(checked.last().json.PROBLEM || '') : '';\nreturn [{ json: {\n  IMPROVE_URL: String(ctx.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '') + '/v1/chat/completions',\n  IMPROVE_BODY: JSON.stringify({\n    task: 'improve',\n    session_id: String(ctx.SESSION_ID || ''),\n    brief: {\n      topic: String(ctx.TOPIC || ''),\n      description: String(ctx.DESCRIPTION || ''),\n      url: String(ctx.LINK || ''),\n      max_words: Number(ctx.MAX_WORDS) || 0,\n      asset_types: String(ctx.ASSET_TYPES || ''),\n      audience: String(ctx.AUDIENCE || 'NONE'),\n      extra_prompt: String(ctx.EXTRA_PROMPT || ''),\n      feedback: String(ctx.FEEDBACK || ''),\n    },\n    article: { title: String(ctx.BASE_TITLE || ''), text: String(ctx.BASE_TEXT || '') },\n    findings: String(merged.FINDINGS || ''),\n    problem,\n  }),\n} }];"
-      },
-      "id": "c1cd2073-2def-47e8-b8ca-4d8a4a5dd66e",
-      "name": "build_improve_request",
+      "id": "84a12970-a235-4a67-a91d-f83dcd34a8f4",
+      "name": "execute_article_improve",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
       "position": [
         5728,
-        -16
-      ],
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $json.IMPROVE_URL }}",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ $json.IMPROVE_BODY }}",
-        "options": {
-          "timeout": 600000,
-          "response": {
-            "response": {
-              "neverError": true,
-              "fullResponse": true,
-              "responseFormat": "json"
-            }
-          }
-        }
-      },
-      "id": "a5168ffd-49c7-44af-8383-dedc3ac5eb5a",
-      "name": "request_improve",
-      "position": [
-        5952,
         -144
       ],
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "nPBkIpeObC1Om0LH",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/nPBkIpeObC1Om0LH",
+          "cachedResultName": "Article Creator"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "TASK": "improve",
+            "TOPIC": "={{ $('build_improvement_context').first().json.TOPIC || '' }}",
+            "DESCRIPTION": "={{ $('build_improvement_context').first().json.DESCRIPTION || '' }}",
+            "URL": "={{ $('build_improvement_context').first().json.LINK || '' }}",
+            "MAX_WORDS": "={{ $('build_improvement_context').first().json.MAX_WORDS }}",
+            "ASSET_TYPES": "={{ $('build_improvement_context').first().json.REQUESTED_ASSETS || '' }}",
+            "EXTRA_PROMPT": "={{ $('build_improvement_context').first().json.EXTRA_PROMPT || '' }}",
+            "FEEDBACK": "={{ $('build_improvement_context').first().json.FEEDBACK || '' }}",
+            "AUDIENCE": "={{ $('build_improvement_context').first().json.AUDIENCE || 'NONE' }}",
+            "ROW_NUMBER": "={{ $('build_improvement_context').first().json.row_number }}",
+            "DRAFT_TITLE": "={{ $('build_improvement_context').first().json.BASE_TITLE || '' }}",
+            "DRAFT_TEXT": "={{ $('build_improvement_context').first().json.BASE_TEXT || '' }}",
+            "FINDINGS": "={{ $('merge_aspect_findings').first().json.FINDINGS || '' }}",
+            "PROBLEM": "={{ $('check_improved_draft').isExecuted ? ($('check_improved_draft').last().json.PROBLEM || '') : '' }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "TASK",
+              "displayName": "TASK",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "TOPIC",
+              "displayName": "TOPIC",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "DESCRIPTION",
+              "displayName": "DESCRIPTION",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "URL",
+              "displayName": "URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "CONTENT",
+              "displayName": "CONTENT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "MAX_WORDS",
+              "displayName": "MAX_WORDS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "ASSET_TYPES",
+              "displayName": "ASSET_TYPES",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "EXTRA_PROMPT",
+              "displayName": "EXTRA_PROMPT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "FEEDBACK",
+              "displayName": "FEEDBACK",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "PREVIOUS_DRAFT",
+              "displayName": "PREVIOUS_DRAFT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "AUDIENCE",
+              "displayName": "AUDIENCE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "ROW_NUMBER",
+              "displayName": "ROW_NUMBER",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": false
+            },
+            {
+              "id": "DRAFT_TITLE",
+              "displayName": "DRAFT_TITLE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "DRAFT_TEXT",
+              "displayName": "DRAFT_TEXT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "FINDINGS",
+              "displayName": "FINDINGS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "PROBLEM",
+              "displayName": "PROBLEM",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
       "onError": "continueErrorOutput"
     }
   ],

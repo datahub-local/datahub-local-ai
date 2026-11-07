@@ -828,10 +828,23 @@ a credential has none or if the export has no published version.
 
 Two workflows. `Article Content Writer` is the entry point (a manual trigger and a cron at
 08:00 UTC Tuesday and Thursday) and owns the sheet, the slug, the assets and the publish;
-`Article Creator` is the sub-workflow that drafts, called with `TOPIC`, `DESCRIPTION`, `URL`,
-`CONTENT`, `MAX_WORDS`, `ASSET_TYPES`, `EXTRA_PROMPT`, `FEEDBACK`, `AUDIENCE` and `ROW_NUMBER`. The creator's
+`Article Creator` is the sub-workflow that runs every writer turn, called with `TASK` (`draft`,
+`aspects` or `improve`), `TOPIC`, `DESCRIPTION`, `URL`, `CONTENT`, `MAX_WORDS`, `ASSET_TYPES`,
+`EXTRA_PROMPT`, `FEEDBACK`, `AUDIENCE` and `ROW_NUMBER`, plus `DRAFT_TITLE` and `DRAFT_TEXT` for
+the aspect and edit turns, `FINDINGS` for the edit and `PROBLEM` on its retry. The creator's
 `executeWorkflowTrigger` is why the public API cannot start it — a verification run goes
 through a temporary `webhook → executeWorkflow` probe, as every live check here has.
+
+**The entry point reaches the writer only through the sub-workflow.** `switch_task` reads
+`TASK`, which `set_workflow_vars` normalises and defaults to `draft`: `aspects` goes to
+`build_aspects_request` → `request_aspects`, `improve` to `build_improve_request` →
+`request_improve`, `draft` to `build_article_request`, and any other value to `bad_task`, which
+fails rather than spending a draft. The aspect and edit requests carry the draft of record and,
+for the edit, the merged findings and the objective problem the entry point's code re-check
+named. Each request's normal and error outputs meet one `noOp` whose item is the sub-workflow's
+answer, so `merge_aspect_findings` and `check_improved_draft` read the same `statusCode`/`body`
+shape whether the turn was called directly or through the sub-workflow. `Article Content Writer`
+holds no writer URL, no request body and no writer HTTP node.
 
 **A draft is reviewed before it is returned, and an over-budget one is retried rather than
 fatal.** The writer owns the review turn: `parse_article` → `build_review_request` →
@@ -883,8 +896,8 @@ which reports either failure as `output: false`: an error status becomes `REVIEW
 `continueErrorOutput` rather than `continueRegularOutput`, because the regular mode forwards the
 node's input unchanged and sets no `json.error` (the 2026-09-28 note above), so a dead connection
 would read as "no verdict" and lose its cause. The loop retries with a real cause and a failed
-reviewer never loses the draft. The same settings are on `request_aspects` and `request_improve`,
-whose parsers read the error item the same way.
+reviewer never loses the draft. The same settings are on `request_aspects` and `request_improve`
+in `Article Creator`, whose answers the entry point's parsers read the same way.
 
 **The gate must name the marker's form, not its id.** The reviewer's check read "spelled as the
 type id", the reviewer took that to mean the bare id, and the first live runs rejected a
@@ -1184,36 +1197,37 @@ helper. A textual assertion cannot see this class: the old code read plausibly a
 valid.
 
 **A draft is improved before the human sees it.** `Article Content Writer` runs one improvement
-pass between `check_draft_error` and `derive_slug`, and the writer owns every model turn in it:
-`build_improvement_context` (one item always; it resolves the draft of record and **throws** when
-none exists), `build_aspects_request` → `request_aspects` → `merge_aspect_findings` →
-`if_has_findings`, then `build_improve_request` → `request_improve` → `check_improved_draft` →
-`switch_improved_ok`. The aspect request names the task, the session and the draft; the adapter
-loads `prompts/article_aspects.json` and its prompt files from the image and answers one entry per
-aspect, so the graph holds no aspect id and no prompt text. `merge_aspect_findings` turns those
-entries into the one tagged block the improver reads and the counts the review message names;
-`if_has_findings` skips the edit when there are no findings and no feedback.
+pass between `check_draft_error` and `derive_slug`, and every model turn in it is one call to
+`Article Creator`: `build_improvement_context` (one item always; it resolves the draft of record
+and **throws** when none exists), `execute_article_aspects` (TASK `aspects`) →
+`merge_aspect_findings` → `if_has_findings`, then `execute_article_improve` (TASK `improve`) →
+`check_improved_draft` → `switch_improved_ok`. The sub-workflow's aspect request names the task,
+the session and the draft; the adapter loads `prompts/article_aspects.json` and its prompt files
+from the image and answers one entry per aspect, so the graph holds no aspect id and no prompt
+text. `merge_aspect_findings` turns those entries into the one tagged block the improver reads and
+the counts the review message names; `if_has_findings` skips the edit when there are no findings
+and no feedback.
 
-`request_improve` carries the draft, the merged findings and — on a retry, read back from
-`check_improved_draft` — the objective problem. The adapter renders `article_improver.md`, runs with
-`--no-tools`, and writes the article it returns. `check_improved_draft` counts the budget and the
-asset markers **in code** — the twin of `parse_article` — and `switch_improved_ok` retries once with
-the objective problem, after which `select_final_draft` is the single convergence node
-`derive_slug`, `store_draft` and `draft_to_file` read (nothing else in the lane may read the
-sub-workflow's answer). `select_final_draft` keeps the three non-improvements apart: `UNCHANGED`
-(the answer repeated the draft), `FALLBACK` (the edit failed the re-check) and `FAILED` (the turn
-returned no article, or the request failed), so a failed edit is reported rather than counted as
-"nothing to apply". The findings are **advisory, never gates**: the only gates stay the drafting
-gate, the re-check and the human, because a judgement gate a drafter cannot read is unfixable by
-construction (the 14055 lesson) and the pass exists to *apply* judgement, which is only safe on
-the advisory side.
+`execute_article_improve` carries the draft, the merged findings and — on a retry, read back from
+`check_improved_draft` — the objective problem into `Article Creator`, whose `build_improve_request`
+posts them. The adapter renders `article_improver.md`, runs with `--no-tools`, and writes the
+article it returns. `check_improved_draft` counts the budget and the asset markers **in code** —
+the twin of `parse_article` — and `switch_improved_ok` retries once with the objective problem,
+after which `select_final_draft` is the single convergence node `derive_slug`, `store_draft` and
+`draft_to_file` read (nothing else in the lane may read the sub-workflow's answer).
+`select_final_draft` keeps the three non-improvements apart: `UNCHANGED` (the answer repeated the
+draft), `FALLBACK` (the edit failed the re-check) and `FAILED` (the turn returned no article, or
+the request failed), so a failed edit is reported rather than counted as "nothing to apply". The
+findings are **advisory, never gates**: the only gates stay the drafting gate, the re-check and
+the human, because a judgement gate a drafter cannot read is unfixable by construction (the 14055
+lesson) and the pass exists to *apply* judgement, which is only safe on the advisory side.
 
-Both improvement requests carry a long timeout, because one HTTP request now covers what used to be
-three serial aspect turns or one whole-draft edit: the aspects call gets `900000 ms` because the
-adapter runs its reviewers one after another in one request and each may spend its 240 s idle
-window, and the edit gets `600000 ms`. The old model nodes could not: at 120 s the improver answered
-`Request timed out` (execution 14450) and fell back to the gate-passed draft, and the edit completed
-at 240 s (execution 14468, 1153 words).
+Both requests inside `Article Creator` carry a long timeout, because one HTTP request now covers
+what used to be three serial aspect turns or one whole-draft edit: the aspects call gets
+`900000 ms` because the adapter runs its reviewers one after another in one request and each may
+spend its 240 s idle window, and the edit gets `600000 ms`. The old model nodes could not: at 120 s
+the improver answered `Request timed out` (execution 14450) and fell back to the gate-passed
+draft, and the edit completed at 240 s (execution 14468, 1153 words).
 
 **The aspects are a registry, not a graph enum.** `agents/adapters/pi-writer/prompts/article_aspects.json`
 lists `structure`, `clarity` and `flow`, each with its prompt file and focus; adding one is an entry

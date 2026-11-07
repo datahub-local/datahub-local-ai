@@ -50,6 +50,21 @@
               {
                 "name": "ROW_NUMBER",
                 "type": "number"
+              },
+              {
+                "name": "TASK"
+              },
+              {
+                "name": "DRAFT_TITLE"
+              },
+              {
+                "name": "DRAFT_TEXT"
+              },
+              {
+                "name": "FINDINGS"
+              },
+              {
+                "name": "PROBLEM"
               }
             ]
           }
@@ -89,6 +104,12 @@
                 "id": "73c7c62f-9301-4d55-9972-df5ccf58919d",
                 "name": "SOURCE_HOSTS",
                 "value": "github.com,raw.githubusercontent.com,datahub-local.alvsanand.com",
+                "type": "string"
+              },
+              {
+                "id": "fa1a7251-e879-450e-bb5e-e29f075d01bf",
+                "name": "TASK",
+                "value": "={{ String($('main_trigger').first().json.TASK || 'draft').trim().toLowerCase() }}",
                 "type": "string"
               }
             ]
@@ -411,6 +432,206 @@
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
         "onError": "continueErrorOutput"
+      },
+      {
+        "id": "ab783cf8-5ff7-4523-9649-08cb69d82362",
+        "name": "switch_task",
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.2,
+        "position": [
+          -16912,
+          -672
+        ],
+        "parameters": {
+          "rules": {
+            "values": [
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "id": "35ea2854-4e5c-4ac2-8441-5448ee688f31",
+                      "leftValue": "={{ $json.TASK }}",
+                      "rightValue": "aspects",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                }
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "id": "056f0c54-7e59-4304-88b6-f29cd9227d1f",
+                      "leftValue": "={{ $json.TASK }}",
+                      "rightValue": "improve",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                }
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "id": "e28c23fd-d92b-458a-b747-c343a91b218a",
+                      "leftValue": "={{ $json.TASK }}",
+                      "rightValue": "draft",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                }
+              }
+            ]
+          },
+          "options": {
+            "fallbackOutput": "extra"
+          }
+        }
+      },
+      {
+        "id": "d85e8598-4280-4716-8b39-cbb49fd46944",
+        "name": "build_aspects_request",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -16448,
+          -528
+        ],
+        "parameters": {
+          "jsCode": "// The aspect pass is the writer's turn too: this request names the task, the session and\n// the draft, and the adapter renders each aspect prompt from its own registry. The graph\n// holds no aspect id and no prompt text, so adding an aspect changes the image only.\nconst req = $('main_trigger').first().json;\nconst config = $('set_workflow_vars').first().json;\nconst row = String(req.ROW_NUMBER || '').trim();\nif (!row) throw new Error('ROW_NUMBER is required: the session id is article-<row>');\nconst base = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!base) throw new Error('ARTICLE_WRITER_URL is not set; the aspect turn cannot be reached');\nconst article = String(req.DRAFT_TEXT || '');\nif (!article.trim()) throw new Error('DRAFT_TEXT is required for the aspect turn');\nconst sessionId = ('article-' + row).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 80);\nreturn [{ json: {\n  ASPECTS_URL: base + '/v1/chat/completions',\n  ASPECTS_BODY: JSON.stringify({\n    task: 'aspects',\n    session_id: sessionId,\n    brief: {\n      topic: String(req.TOPIC || ''),\n      description: String(req.DESCRIPTION || ''),\n      url: String(req.URL || ''),\n      max_words: Number(req.MAX_WORDS) || 0,\n      asset_types: String(req.ASSET_TYPES || ''),\n      audience: String(config.AUDIENCE || 'NONE'),\n      extra_prompt: String(req.EXTRA_PROMPT || ''),\n      feedback: String(req.FEEDBACK || ''),\n    },\n    article: { title: String(req.DRAFT_TITLE || ''), text: article },\n  }),\n} }];"
+        }
+      },
+      {
+        "id": "061fa370-f28c-4b3d-ae2b-e920199f47d8",
+        "name": "request_aspects",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          -16288,
+          -528
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $json.ASPECTS_URL }}",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ $json.ASPECTS_BODY }}",
+          "options": {
+            "timeout": 900000,
+            "response": {
+              "response": {
+                "neverError": true,
+                "fullResponse": true,
+                "responseFormat": "json"
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "a2a010b5-62af-48a9-88f2-dc2e1e2e22e6",
+        "name": "pass_aspects_answer",
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          -16128,
+          -528
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "f115dcf9-95f6-49cc-87db-e64940505847",
+        "name": "build_improve_request",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -16448,
+          -320
+        ],
+        "parameters": {
+          "jsCode": "// The edit is the same session's next turn: the draft, the findings, and - on a retry -\n// the objective problem the content writer's code re-check named. No prompt text and no\n// model id ride on the request; the adapter owns both.\nconst req = $('main_trigger').first().json;\nconst config = $('set_workflow_vars').first().json;\nconst row = String(req.ROW_NUMBER || '').trim();\nif (!row) throw new Error('ROW_NUMBER is required: the session id is article-<row>');\nconst base = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!base) throw new Error('ARTICLE_WRITER_URL is not set; the improve turn cannot be reached');\nconst article = String(req.DRAFT_TEXT || '');\nif (!article.trim()) throw new Error('DRAFT_TEXT is required for the improve turn');\nconst sessionId = ('article-' + row).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 80);\nreturn [{ json: {\n  IMPROVE_URL: base + '/v1/chat/completions',\n  IMPROVE_BODY: JSON.stringify({\n    task: 'improve',\n    session_id: sessionId,\n    brief: {\n      topic: String(req.TOPIC || ''),\n      description: String(req.DESCRIPTION || ''),\n      url: String(req.URL || ''),\n      max_words: Number(req.MAX_WORDS) || 0,\n      asset_types: String(req.ASSET_TYPES || ''),\n      audience: String(config.AUDIENCE || 'NONE'),\n      extra_prompt: String(req.EXTRA_PROMPT || ''),\n      feedback: String(req.FEEDBACK || ''),\n    },\n    article: { title: String(req.DRAFT_TITLE || ''), text: article },\n    findings: String(req.FINDINGS || ''),\n    problem: String(req.PROBLEM || ''),\n  }),\n} }];"
+        }
+      },
+      {
+        "id": "93d7f084-05f7-4284-8fad-3aedb14f82fb",
+        "name": "request_improve",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          -16288,
+          -320
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $json.IMPROVE_URL }}",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ $json.IMPROVE_BODY }}",
+          "options": {
+            "timeout": 600000,
+            "response": {
+              "response": {
+                "neverError": true,
+                "fullResponse": true,
+                "responseFormat": "json"
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "6640784f-439c-430f-8bc5-c15c3ef60e08",
+        "name": "pass_improve_answer",
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          -16128,
+          -320
+        ],
+        "parameters": {}
+      },
+      {
+        "id": "cecdcf9e-3449-4bdd-8edc-7b50c7f31c55",
+        "name": "bad_task",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -16448,
+          -160
+        ],
+        "parameters": {
+          "jsCode": "// A writer turn this graph does not implement must fail loudly: a silent draft would spend\n// a model call on a caller bug.\nconst task = String($('main_trigger').first().json.TASK || '');\nthrow new Error('unknown TASK \"' + task + '\": expected draft, aspects or improve');"
+        }
       }
     ],
     "connections": {
@@ -429,7 +650,7 @@
         "main": [
           [
             {
-              "node": "build_article_request",
+              "node": "switch_task",
               "type": "main",
               "index": 0
             }
@@ -566,6 +787,96 @@
             }
           ]
         ]
+      },
+      "switch_task": {
+        "main": [
+          [
+            {
+              "node": "build_aspects_request",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "build_improve_request",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "build_article_request",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "bad_task",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "build_aspects_request": {
+        "main": [
+          [
+            {
+              "node": "request_aspects",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "request_aspects": {
+        "main": [
+          [
+            {
+              "node": "pass_aspects_answer",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "pass_aspects_answer",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "build_improve_request": {
+        "main": [
+          [
+            {
+              "node": "request_improve",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "request_improve": {
+        "main": [
+          [
+            {
+              "node": "pass_improve_answer",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "pass_improve_answer",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
       }
     },
     "nodeGroups": [],
@@ -593,7 +904,7 @@
       "main": [
         [
           {
-            "node": "build_article_request",
+            "node": "switch_task",
             "type": "main",
             "index": 0
           }
@@ -730,6 +1041,96 @@
           }
         ]
       ]
+    },
+    "switch_task": {
+      "main": [
+        [
+          {
+            "node": "build_aspects_request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "build_improve_request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "build_article_request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "bad_task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "build_aspects_request": {
+      "main": [
+        [
+          {
+            "node": "request_aspects",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "request_aspects": {
+      "main": [
+        [
+          {
+            "node": "pass_aspects_answer",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "pass_aspects_answer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "build_improve_request": {
+      "main": [
+        [
+          {
+            "node": "request_improve",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "request_improve": {
+      "main": [
+        [
+          {
+            "node": "pass_improve_answer",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "pass_improve_answer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "createdAt": "2026-10-15T20:14:57.530Z",
@@ -785,6 +1186,21 @@
             {
               "name": "ROW_NUMBER",
               "type": "number"
+            },
+            {
+              "name": "TASK"
+            },
+            {
+              "name": "DRAFT_TITLE"
+            },
+            {
+              "name": "DRAFT_TEXT"
+            },
+            {
+              "name": "FINDINGS"
+            },
+            {
+              "name": "PROBLEM"
             }
           ]
         }
@@ -824,6 +1240,12 @@
               "id": "73c7c62f-9301-4d55-9972-df5ccf58919d",
               "name": "SOURCE_HOSTS",
               "value": "github.com,raw.githubusercontent.com,datahub-local.alvsanand.com",
+              "type": "string"
+            },
+            {
+              "id": "fa1a7251-e879-450e-bb5e-e29f075d01bf",
+              "name": "TASK",
+              "value": "={{ String($('main_trigger').first().json.TASK || 'draft').trim().toLowerCase() }}",
               "type": "string"
             }
           ]
@@ -1146,6 +1568,206 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "onError": "continueErrorOutput"
+    },
+    {
+      "id": "ab783cf8-5ff7-4523-9649-08cb69d82362",
+      "name": "switch_task",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -16912,
+        -672
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "35ea2854-4e5c-4ac2-8441-5448ee688f31",
+                    "leftValue": "={{ $json.TASK }}",
+                    "rightValue": "aspects",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "056f0c54-7e59-4304-88b6-f29cd9227d1f",
+                    "leftValue": "={{ $json.TASK }}",
+                    "rightValue": "improve",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "e28c23fd-d92b-458a-b747-c343a91b218a",
+                    "leftValue": "={{ $json.TASK }}",
+                    "rightValue": "draft",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      }
+    },
+    {
+      "id": "d85e8598-4280-4716-8b39-cbb49fd46944",
+      "name": "build_aspects_request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -16448,
+        -528
+      ],
+      "parameters": {
+        "jsCode": "// The aspect pass is the writer's turn too: this request names the task, the session and\n// the draft, and the adapter renders each aspect prompt from its own registry. The graph\n// holds no aspect id and no prompt text, so adding an aspect changes the image only.\nconst req = $('main_trigger').first().json;\nconst config = $('set_workflow_vars').first().json;\nconst row = String(req.ROW_NUMBER || '').trim();\nif (!row) throw new Error('ROW_NUMBER is required: the session id is article-<row>');\nconst base = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!base) throw new Error('ARTICLE_WRITER_URL is not set; the aspect turn cannot be reached');\nconst article = String(req.DRAFT_TEXT || '');\nif (!article.trim()) throw new Error('DRAFT_TEXT is required for the aspect turn');\nconst sessionId = ('article-' + row).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 80);\nreturn [{ json: {\n  ASPECTS_URL: base + '/v1/chat/completions',\n  ASPECTS_BODY: JSON.stringify({\n    task: 'aspects',\n    session_id: sessionId,\n    brief: {\n      topic: String(req.TOPIC || ''),\n      description: String(req.DESCRIPTION || ''),\n      url: String(req.URL || ''),\n      max_words: Number(req.MAX_WORDS) || 0,\n      asset_types: String(req.ASSET_TYPES || ''),\n      audience: String(config.AUDIENCE || 'NONE'),\n      extra_prompt: String(req.EXTRA_PROMPT || ''),\n      feedback: String(req.FEEDBACK || ''),\n    },\n    article: { title: String(req.DRAFT_TITLE || ''), text: article },\n  }),\n} }];"
+      }
+    },
+    {
+      "id": "061fa370-f28c-4b3d-ae2b-e920199f47d8",
+      "name": "request_aspects",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -16288,
+        -528
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.ASPECTS_URL }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.ASPECTS_BODY }}",
+        "options": {
+          "timeout": 900000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "a2a010b5-62af-48a9-88f2-dc2e1e2e22e6",
+      "name": "pass_aspects_answer",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -16128,
+        -528
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "f115dcf9-95f6-49cc-87db-e64940505847",
+      "name": "build_improve_request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -16448,
+        -320
+      ],
+      "parameters": {
+        "jsCode": "// The edit is the same session's next turn: the draft, the findings, and - on a retry -\n// the objective problem the content writer's code re-check named. No prompt text and no\n// model id ride on the request; the adapter owns both.\nconst req = $('main_trigger').first().json;\nconst config = $('set_workflow_vars').first().json;\nconst row = String(req.ROW_NUMBER || '').trim();\nif (!row) throw new Error('ROW_NUMBER is required: the session id is article-<row>');\nconst base = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!base) throw new Error('ARTICLE_WRITER_URL is not set; the improve turn cannot be reached');\nconst article = String(req.DRAFT_TEXT || '');\nif (!article.trim()) throw new Error('DRAFT_TEXT is required for the improve turn');\nconst sessionId = ('article-' + row).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 80);\nreturn [{ json: {\n  IMPROVE_URL: base + '/v1/chat/completions',\n  IMPROVE_BODY: JSON.stringify({\n    task: 'improve',\n    session_id: sessionId,\n    brief: {\n      topic: String(req.TOPIC || ''),\n      description: String(req.DESCRIPTION || ''),\n      url: String(req.URL || ''),\n      max_words: Number(req.MAX_WORDS) || 0,\n      asset_types: String(req.ASSET_TYPES || ''),\n      audience: String(config.AUDIENCE || 'NONE'),\n      extra_prompt: String(req.EXTRA_PROMPT || ''),\n      feedback: String(req.FEEDBACK || ''),\n    },\n    article: { title: String(req.DRAFT_TITLE || ''), text: article },\n    findings: String(req.FINDINGS || ''),\n    problem: String(req.PROBLEM || ''),\n  }),\n} }];"
+      }
+    },
+    {
+      "id": "93d7f084-05f7-4284-8fad-3aedb14f82fb",
+      "name": "request_improve",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -16288,
+        -320
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.IMPROVE_URL }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.IMPROVE_BODY }}",
+        "options": {
+          "timeout": 600000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "6640784f-439c-430f-8bc5-c15c3ef60e08",
+      "name": "pass_improve_answer",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -16128,
+        -320
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "cecdcf9e-3449-4bdd-8edc-7b50c7f31c55",
+      "name": "bad_task",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -16448,
+        -160
+      ],
+      "parameters": {
+        "jsCode": "// A writer turn this graph does not implement must fail loudly: a silent draft would spend\n// a model call on a caller bug.\nconst task = String($('main_trigger').first().json.TASK || '');\nthrow new Error('unknown TASK \"' + task + '\": expected draft, aspects or improve');"
+      }
     }
   ],
   "pinData": {},

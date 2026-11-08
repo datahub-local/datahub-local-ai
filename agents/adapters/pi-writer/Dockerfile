@@ -65,6 +65,9 @@ COPY --chmod=0755 entrypoint.sh /usr/local/bin/sympozium-pi-writer-adapter
 # The v1alpha2 session endpoint. The entrypoint dispatches to it on the contract
 # version; a Job is refused by name because an article needs the session directory.
 COPY --chmod=0755 session-server.mjs /usr/local/bin/sympozium-pi-writer-session
+COPY --chmod=0644 bin/check-article.mjs /usr/local/bin/check-article.mjs
+RUN printf '#!/bin/sh\nexec node /usr/local/bin/check-article.mjs "$@"\n' > /usr/local/bin/check-article \
+    && chmod 0755 /usr/local/bin/check-article
 # Pure helpers imported by the session server: paths, the ledger and Pi's settings.
 COPY --chmod=0644 session-lib.mjs /usr/local/bin/session-lib.mjs
 

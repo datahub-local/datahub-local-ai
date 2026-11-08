@@ -56,6 +56,15 @@ if (prompt.includes("You review one long-form technical blog draft.")) {
   process.stdout.write("<output>true</output><explanation>the probe passed</explanation>");
   process.exit(0);
 }
+if (prompt.includes("You audit one article draft")) {
+  // The audit answers the review's verdict plus findings, and it runs with tools: the stub
+  // records whether tools were offered through args.txt, asserted by the test.
+  process.stdout.write(
+    "<output>false</output><explanation>the intro names a schedule no page carries</explanation>" +
+      "<findings>1. close: my-first-agent-heartbeat is on no scraped page — cut it</findings>"
+  );
+  process.exit(0);
+}
 if (prompt.includes("You review one article draft")) {
   const aspect = (prompt.match(/for (clarity|flow|structure) only/) || [])[1] || "aspect";
   process.stdout.write("<findings>1. opening: PROBE_" + aspect.toUpperCase() + " - tighten it</findings>");
@@ -428,6 +437,26 @@ test("a streamed turn frames the answer and still ends with the done marker", as
   const text = await res.text();
   assert.match(text, /"delta":\{"content":"drafted the probe article"\}/);
   assert.ok(text.trimEnd().endsWith("data: [DONE]"));
+});
+
+test("an audit turn runs with tools and returns the verdict plus findings", async () => {
+  const res = await turn({
+    task: "audit",
+    session_id: "article-audit",
+    brief: { topic: "Probe", audience: "LOW", max_words: 900, asset_types: "image_wide" },
+    article: { title: "Probe", text: "## Install\n\nUse it." },
+  });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.review.pass, false);
+  assert.match(body.review.explanation, /schedule no page carries/);
+  assert.match(body.review.explanation, /my-first-agent-heartbeat/, "the findings reach the retry as feedback");
+  assert.equal(body.findings.length, 1);
+  assert.equal(body.findings[0].aspect, "audit");
+  assert.match(body.findings[0].text, /cut it/);
+  // Tools are the point of this turn: the audit reads the artifacts and the transcript itself.
+  const args = await readFile(join(workspace, "runs", "article-audit", "args.txt"), "utf8");
+  assert.ok(!args.includes("--no-tools"), args);
 });
 
 test("a review turn returns a structured verdict and leaves the draft alone", async () => {

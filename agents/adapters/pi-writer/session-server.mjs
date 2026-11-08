@@ -172,7 +172,10 @@ await writeFile(
             // session runs at `minimal`, which this map turns into the `none` the
             // gateway honours. Both numbers are overridable so they can move without
             // a rebuild.
-            thinkingLevelMap: { minimal: "none" },
+            // `minimal` is the default for a reason: at `none` this model writes prose instead of
+            // reasoning until the cap. The other levels are mapped so PI_WRITER_THINKING can move
+            // it deliberately rather than Pi sending no effort at all.
+            thinkingLevelMap: { minimal: "none", low: "low", medium: "medium", high: "high" },
             maxTokens,
           },
         ],
@@ -282,7 +285,7 @@ async function articlePrompt(brief) {
 
 // The writer owns every model turn in the article lane. A request names the turn it
 // wants and the entry's fields; the prompts and the rules that render them stay here.
-const TASKS = new Set(["draft", "review", "aspects", "improve"]);
+const TASKS = new Set(["draft", "review", "audit", "aspects", "improve"]);
 
 function taskOf(request) {
   const task = String(request.task || "draft");
@@ -354,6 +357,38 @@ async function reviewPrompt({ brief, article }) {
     readAudiences(),
   ]);
   return fillTemplate(review, {
+    TITLE: article.title,
+    TEXT: article.text,
+    WORD_COUNT: articleWordCount(article.text),
+    MAX_WORDS: maxWords,
+    WORD_LIMIT: articleWordLimit(maxWords),
+    AUDIENCE: brief.audience ?? "NONE",
+    AUDIENCES: audiences,
+    TOPIC: brief.topic ?? "",
+    DESCRIPTION: brief.description ?? "",
+    URL: brief.url ?? "",
+    ASSET_TYPES: brief.asset_types ?? "",
+    EXTRA_PROMPT: brief.extra_prompt ?? "",
+    FEEDBACK: brief.feedback ?? "",
+    RULES: system,
+    CONTENT: brief.content ?? "",
+  });
+}
+
+// The audit is the review that can look: same session and directory as the draft, tools on, and
+// the derived ledger already on disk. The verdict shape stays the review's so the caller keeps its
+// switch, and the findings ride along in the explanation so the writer's retry carries them.
+async function auditPrompt({ brief, article }) {
+  const maxWords = Number(brief.max_words);
+  if (!Number.isFinite(maxWords) || maxWords <= 0) {
+    throw new Error("an audit needs brief.max_words: the gate enforces the budget");
+  }
+  const [system, audit, audiences] = await Promise.all([
+    readPrompt("article_writer_system.md"),
+    readPrompt("article_audit.md"),
+    readAudiences(),
+  ]);
+  return fillTemplate(audit, {
     TITLE: article.title,
     TEXT: article.text,
     WORD_COUNT: articleWordCount(article.text),
@@ -568,14 +603,20 @@ function runPi(prompt, sessionID, onOutput, signal, cwd = workDir, options = {})
       // into `reasoning_effort: none`; without a non-off level Pi sends no effort
       // and the model reasons until it hits the token cap and returns nothing.
       "--thinking",
-      "minimal",
+      process.env.PI_WRITER_THINKING || "minimal",
       "--session-id",
       sessionID,
       "--session-dir",
       sessionDir,
       prompt,
     ];
-    const child = spawn("pi", args, { cwd, env: process.env, stdio: ["ignore", "pipe", "pipe"] });
+    // The turn's own tooling needs to know which session it is: `check-article` resolves the
+    // transcript from these to prove a block against what the run actually read.
+    const child = spawn("pi", args, {
+      cwd,
+      env: { ...process.env, PI_WRITER_SESSION_ID: sessionID, PI_WRITER_SESSION_DIR: sessionDir },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
     let output = "";
     let stderr = "";
     let exceeded = false;
@@ -964,6 +1005,18 @@ http
           articleHosts = null;
           proxyEnv(null);
           const article = await resolveArticle(request, dir);
+          if (task === "audit") {
+            const prompt = await auditPrompt({ brief: brief || {}, article });
+            const response = await runPi(prompt, sessionID, undefined, cancellation.signal, dir);
+            const verdict = parseReview(response);
+            const findings = parseFindings(response);
+            const explanation = [verdict.explanation, findings.text].filter(Boolean).join(" ");
+            return {
+              response,
+              review: { pass: verdict.pass, explanation },
+              findings: [{ aspect: "audit", focus: "unsupported claims, the ask, educative value", error: "", ...findings }],
+            };
+          }
           if (task === "review") {
             const prompt = await reviewPrompt({ brief: brief || {}, article });
             const response = await runPi(prompt, sessionID, undefined, cancellation.signal, dir, { noTools: true });

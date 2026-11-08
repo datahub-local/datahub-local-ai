@@ -59,18 +59,22 @@ them.** Pi gets a prompt and a proxy and returns text; the server decides the pa
 artifacts, re-reads the sources and counts the words. `session-lib` is that ownership written as
 functions, so the tests exercise it without spawning Pi or binding a port.
 
-The other three turns are review, not drafting:
+The other turns are review, not drafting:
 
-- `task: "review"` judges the draft against the publish gate and answers
-  `<output>true|false</output>` plus an `<explanation>`.
+- `task: "audit"` judges the draft **with tools**: it reads `article.md`, the derived
+  `sources.json` and the session transcript, greps for a claim it doubts and may fetch a page. It
+  answers the review's `<output>true|false</output>` plus `<explanation>` and a `<findings>` list,
+  and the findings are appended to the explanation so the writer's retry carries them. This is the
+  turn that catches an invented name or a requested section that never landed.
+- `task: "review"` is the same verdict without tools, for a caller that wants only the checklist.
 - `task: "aspects"` runs the aspect registry (`prompts/article_aspects.json`) over the draft and
   answers one `<findings>` block per aspect.
 - `task: "improve"` applies findings, human feedback or an objective problem and answers the
   edited article.
 
-Review, aspect and improve turns run `--no-tools`: they may not research, and the server writes
-the article they produce. They continue the same Pi session as the draft, so the model keeps the
-article and the sources it already read.
+Audit runs with tools and the run directory, because its evidence is the artifacts and the
+transcript. Review, aspect and improve run `--no-tools`: they may not research, and the server
+writes the article they produce. All of them continue the same Pi session as the draft.
 
 Derived from the maintained Pi adapter's `session-server.mjs`, which is the reference for
 the session contract. The deltas:
@@ -130,7 +134,9 @@ is reachable.
 ## Fields Pi receives
 
 `MODEL_NAME`, `MODEL_BASE_URL`, `OPENAI_API_KEY`, `SYMPOZIUM_HARNESS_CONTRACT_VERSION`
-(`v1alpha2`), and the optional `PI_WRITER_*` knobs: the context window (500000, the gateway's
+(`v1alpha2`), `PI_WRITER_SESSION_ID` / `PI_WRITER_SESSION_DIR` (what the turn's `check-article`
+resolves its transcript from), `PI_WRITER_THINKING` (default `minimal`, which the model needs),
+and the optional `PI_WRITER_*` knobs: the context window (500000, the gateway's
 `max_input_tokens`), the token cap, the compaction trigger as a percentage of that window (80) and
 the kept-recent percentage (5), the idle timeout and the retry window. `SYMPOZIUM_WORKSPACE` moves
 the run directory; it defaults under `/tmp`, because a session mounts the PVC there and not

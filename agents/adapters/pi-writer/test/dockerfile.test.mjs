@@ -30,6 +30,11 @@ test("the image installs what the guide tells the model to use", () => {
   }
   assert.match(dockerfile, /install -m 0755 "\/tmp\/linux-\$\{arch\}\/helm" \/usr\/local\/bin\/helm/);
   assert.match(guide, /helm template/);
+  // The guide tells the turn to run `check-article` before it answers, so the image has to
+  // carry the command and the library it imports.
+  assert.match(dockerfile, /COPY --chmod=0644 bin\/check-article\.mjs \/usr\/local\/bin\/check-article\.mjs/);
+  assert.match(dockerfile, /exec node \/usr\/local\/bin\/check-article\.mjs/);
+  assert.match(dockerfile, /COPY --chmod=0755 session-server\.mjs \/usr\/local\/bin\/sympozium-pi-writer-session/);
 });
 
 test("the image is the writer's, not the render lane's", () => {

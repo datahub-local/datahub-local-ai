@@ -23,6 +23,7 @@ import {
   sourceUrlRefusal,
   findExcerpt,
   revalidateLedger,
+  scrapeReader,
   articleTurnInstruction,
   mcpConfig,
 } from "../session-lib.mjs";
@@ -258,4 +259,102 @@ test("a turn says whether it authors or corrects", () => {
   assert.ok(correction.includes("earlier"));
   assert.ok(correction.includes("in place"));
   assert.ok(correction.includes("re-reading only what it names"));
+});
+
+// The pod has no internet egress: the only reader that leaves it is the Firecrawl MCP
+// server, so a session there verifies its ledger through that server. These pin the two
+// halves -- the call the reader makes, and the fact that it does not replace the policy.
+const stubScrape = (body, { status = 200 } = {}) => {
+  const calls = [];
+  const fetchUrl = async (url, init) => {
+    calls.push({ url, init });
+    return new Response(body, { status });
+  };
+  return { fetchUrl, calls };
+};
+
+test("the scrape reader calls firecrawl_scrape and unwraps an SSE answer", async () => {
+  const answer = {
+    jsonrpc: "2.0",
+    id: 1,
+    result: { content: [{ type: "text", text: "```bash\nhelm install probe ./chart\n```" }] },
+  };
+  const { fetchUrl, calls } = stubScrape(`event: message\ndata: ${JSON.stringify(answer)}\n\n`);
+  const read = scrapeReader({ endpoint: "http://firecrawl.invalid/mcp", fetchUrl });
+  const page = await read("https://github.com/o/r/blob/main/README.md");
+  assert.equal(page.refusal, undefined);
+  assert.match(page.body, /helm install probe/);
+  const sent = JSON.parse(calls[0].init.body);
+  assert.equal(calls[0].url, "http://firecrawl.invalid/mcp");
+  assert.equal(sent.method, "tools/call");
+  assert.equal(sent.params.name, "firecrawl_scrape");
+  assert.equal(sent.params.arguments.url, "https://github.com/o/r/blob/main/README.md");
+});
+
+test("the scrape reader unwraps the JSON body Firecrawl wraps its markdown in", async () => {
+  const answer = {
+    jsonrpc: "2.0",
+    id: 1,
+    result: {
+      content: [{ type: "text", text: JSON.stringify({ markdown: "apiVersion: v1\nkind: ConfigMap" }) }],
+    },
+  };
+  const { fetchUrl } = stubScrape(JSON.stringify(answer));
+  const page = await scrapeReader({ endpoint: "http://firecrawl.invalid/mcp", fetchUrl })(
+    "https://github.com/o/r/raw/main/x.yaml"
+  );
+  assert.equal(page.body, "apiVersion: v1\nkind: ConfigMap");
+});
+
+test("a scrape that answers an error is a refusal naming it", async () => {
+  const answer = { jsonrpc: "2.0", id: 1, error: { code: -32000, message: "scrape timed out" } };
+  const { fetchUrl } = stubScrape(JSON.stringify(answer));
+  const page = await scrapeReader({ endpoint: "http://firecrawl.invalid/mcp", fetchUrl })(
+    "https://github.com/o/r"
+  );
+  assert.match(page.refusal, /scrape timed out/);
+});
+
+test("a scrape server that answers nothing usable is a refusal, not an empty page", async () => {
+  const { fetchUrl } = stubScrape("not a payload");
+  const page = await scrapeReader({ endpoint: "http://firecrawl.invalid/mcp", fetchUrl })(
+    "https://github.com/o/r"
+  );
+  assert.match(page.refusal, /not an MCP payload/);
+  const down = await scrapeReader({ endpoint: "http://firecrawl.invalid/mcp", fetchUrl: stubScrape("", { status: 503 }).fetchUrl })(
+    "https://github.com/o/r"
+  );
+  assert.match(down.refusal, /HTTP 503/);
+  assert.equal(scrapeReader({ endpoint: "" }), null);
+});
+
+test("a reader verifies the block through the scrape server", async () => {
+  const scraped = "intro\n\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: probe\n";
+  const seen = [];
+  const reader = async (url) => {
+    seen.push(url);
+    return { status: 200, body: scraped };
+  };
+  const { sources, dropped } = await revalidateLedger(
+    [{ block: "apiVersion: v1\nkind: ConfigMap", url: "https://github.com/o/r/blob/main/x.yaml" }],
+    { allowedHosts: ["github.com"], reader }
+  );
+  assert.deepEqual(dropped, []);
+  assert.equal(sources[0].found, true);
+  assert.deepEqual(seen, ["https://github.com/o/r/blob/main/x.yaml"]);
+});
+
+test("a reader does not bypass the source-host policy", async () => {
+  let read = false;
+  const reader = async () => {
+    read = true;
+    return { status: 200, body: "apiVersion: v1" };
+  };
+  const { sources, dropped } = await revalidateLedger(
+    [{ block: "apiVersion: v1", url: "https://elsewhere.example/x" }],
+    { allowedHosts: ["github.com"], reader }
+  );
+  assert.equal(read, false, "an off-list host was scraped");
+  assert.deepEqual(sources, []);
+  assert.match(dropped[0].reason, /not a declared source host/);
 });

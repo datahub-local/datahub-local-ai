@@ -16,10 +16,11 @@ const guide = readFileSync(join(here, "..", "prompts", "writing.md"), "utf8");
 
 test("the image installs what the guide tells the model to use", () => {
   assert.match(dockerfile, /FROM node:22-bookworm-slim/);
-  // The guide names `curl` for reading and `helm template` for validating. A named
-  // command that is not in the image is a turn that fails at the first section. The
-  // checks read the install lines, not the word anywhere in the file: `curl` also
-  // appears in the helm download, and a comment is not an installation.
+  // The guide names `helm template` for validating, and the image must carry it: a named
+  // command it does not is a turn that fails at the first section. The checks read the
+  // install lines, not the word anywhere in the file. `curl` stays in the image for the
+  // proxy probes and for a human debugging a session; the guide no longer tells the model
+  // to use it, because the pod has no route to the internet.
   for (const command of ["curl", "jq"]) {
     assert.match(
       dockerfile,
@@ -28,7 +29,6 @@ test("the image installs what the guide tells the model to use", () => {
     );
   }
   assert.match(dockerfile, /install -m 0755 "\/tmp\/linux-\$\{arch\}\/helm" \/usr\/local\/bin\/helm/);
-  assert.match(guide, /curl -fsSL/);
   assert.match(guide, /helm template/);
 });
 

@@ -1,10 +1,10 @@
 # Pi writer adapter
 
 A Sympozium harness adapter that owns every model turn of the article lane. `task: "draft"`
-fetches the pages the brief cites through an allowlisted proxy, writes `article.md`, writes the
+reads the pages the brief cites through the Firecrawl MCP server, writes `article.md`, writes the
 `sources.json` ledger that names the page each fenced block came from, and hands both to the
-caller. After the turn the server refetches every ledgered URL and rewrites the ledger with what
-it saw, so the model is never the authority on whether a source exists.
+caller. After the turn the server re-reads every ledgered URL through that same server and rewrites
+the ledger with what it saw, so the model is never the authority on whether a source exists.
 
 The other three turns are review, not drafting:
 
@@ -22,22 +22,23 @@ article and the sources it already read.
 Derived from the maintained Pi adapter's `session-server.mjs`, which is the reference for
 the session contract. The deltas:
 
-- `--no-tools` is dropped for a draft, so Pi can fetch a page and render a manifest.
+- `--no-tools` is dropped for a draft, so Pi can search and scrape and render a manifest.
 - Every article prompt lives here, not in n8n: the drafting rules, the publish gate, the three
   aspect reviewers, the improver, the aspect registry and `prompts/writing.md` are baked into
   the image. The caller sends the entry's fields, never prompt text.
-- Outbound reading goes through a loopback forward proxy. Anything off the caller's
-  `source_hosts` answers `403` and is logged with the host.
+- Reading is the Firecrawl MCP server (`search`, `scrape`, `map`) and nothing else: the pod's
+  egress policy admits the model and the MCP servers, so `curl` has no route to the internet and
+  the loopback source proxy cannot reach a page either.
 - The turn is a session (`v1alpha2`) only. An article needs the session directory and
   the serialized turn; a one-shot Job is refused by name rather than half-served.
-- The catalog's read tools are offered. Pi reads a `mcp.json` naming the GitHub server
+- The catalog's read tools are offered. Pi reads a `mcp.json` naming Firecrawl's (`search`,
+  `scrape`, `map`) and, when the deployment sets its address, the GitHub server's read tools
   (`search_code`, `search_repositories`, `get_file_contents`, `list_branches`, `list_commits`,
-  `list_tags`) and Firecrawl's (`search`, `scrape`, `map`); the GitHub server's write tools are
-  hidden. `--no-extensions` stays and `-e builtin:mcp` loads the one extension back.
-  The addresses are `SYMPOZIUM_GITHUB_MCP_URL` and `SYMPOZIUM_FIRECRAWL_MCP_URL`, which the
-  deployment sets: the image carries no cluster names, and an unset variable omits that
-  server. `curl` through the allowlisted proxy remains the path for a page the catalog cannot
-  reach.
+  `list_tags`); the GitHub server's write tools are always hidden. `--no-extensions` stays and
+  `-e builtin:mcp` loads the one extension back. The addresses are `SYMPOZIUM_GITHUB_MCP_URL`
+  and `SYMPOZIUM_FIRECRAWL_MCP_URL`: the image carries no cluster names, and an unset variable
+  omits that server. The prompts name Firecrawl only, because it is the one read path this pod
+  is guaranteed to have.
 
 ## What it costs
 

@@ -32,12 +32,33 @@ Leave exactly one marker per requested asset type, each alone on its own line, u
 
 ## Research
 
-Use the catalog MCP servers or `curl` as the sandbox map describes: the source link first, then the pages it cites. A catalog search, a file read and a fetched page each count as one lookup; at most three in total, then write.
+Use the Firecrawl MCP server (`mcp__firecrawl__firecrawl_search`, `firecrawl_scrape`, `firecrawl_map`) as the sandbox map describes: the source link first, then the pages it cites. `curl` has no route in this pod and no other search tool is offered, so Firecrawl is the only way to read a page. A search, a map and a scrape each count as one lookup.
+
+Two budgets sit inside twenty lookups: at most four searches and sixteen scrapes. A search returns pointers, so spend it once you know what to look for and not again for the same query.
+
+Spend them on what the article will show, in this order, and stop only when the pages you hold carry its claims:
+
+1. The subject's own README or documentation, for the install and usage statement, spelled as the project spells it.
+2. An example the project ships — `examples/`, a quickstart, a test, a sample manifest — for the code the article quotes. `firecrawl_map` the repository's docs page, or search the project name with `examples`, and read the raw file.
+3. The upgrade guide, changelog or release notes, for the version that changed the behaviour the article describes.
+4. A page carrying the error the reader will meet: the troubleshooting section, the test that asserts it, the issue that reports it.
+5. The issues, discussions or design document that says what breaks in practice, so the boundary the article states is one a maintainer or user wrote.
+
+A lookup that answers nothing is not wasted: it is how you learn the page does not say it. Skip the lookup whose answer you already hold, and fetch a second source when one page is the only support for a claim the article rests on.
 
 - The Source Material above is what this run already fetched: do not read it again, and do not look it up again.
 - A source counts only if it is about the entry's subject. A same-named person, project, album or event is not it: drop it and stop instead of hunting for a match.
 - Read a page before you rely on it, and never cite a URL you did not fetch.
-- Write the article as soon as you have one usable source or your lookups are spent, whichever comes first. If nothing usable came back, write from the entry's inputs alone and leave the unknown as an unknown.
+- Write the article when the pages you hold carry its claims, or when your lookups are spent; whichever comes first. If nothing usable came back, write from the entry's inputs alone and leave the unknown as an unknown.
+
+## What the body shows
+
+- At least one fenced block quoted from a page you fetched, whenever the shape teaches a tool: the command and its output, a manifest, a file, a query. Ledger it as `writing.md` says, or the draft is rejected naming it.
+- Quote only from a page whose URL is on the declared source hosts: the server refetches every ledgered URL, and a page off the list can inform the prose but cannot carry a block.
+- A block the reader cannot run as written is a fragment, not an example: elided lines (`...`), a missing import, a namespace or a name nothing earlier introduced. Write it whole and as the page has it — the ledger matches the block's words against that page, so an object renamed inside a block drops its entry. Introduce the name in the prose just above it, or leave the block out.
+- Under a block, one line on what it does and what success looks like when the source shows it. Not a line-by-line translation: one comment inside the block carries the line that is not obvious.
+- When the sources carry the failure the reader will meet — an error text, a rejected apply, a version mismatch — quote it verbatim, then the cause in one sentence and the fix. No error text you did not read.
+- Pin the version the article was checked against, as the source spells it, in the section that first depends on one. When no fetched page states a version, write nothing about versions rather than guess.
 
 ## Reviewer Feedback
 
@@ -51,7 +72,7 @@ HIGHEST PRIORITY. A human rejected the previous draft and asked for these change
 
 {{ PREVIOUS_DRAFT }}
 
-This is the draft the review rejected. Rewrite it applying the Reviewer Feedback: keep what the review did not object to and change only what the feedback names. Do not research again on a retry — the Source Material above is what this attempt has, and a lookup that already answered is not a reason to repeat it. When the block is empty this is the first attempt: write a fresh draft, and research as the Research section allows.
+This is the draft the review rejected. Rewrite it applying the Reviewer Feedback: keep what the review did not object to and change only what the feedback names. A retry may fetch at most four pages, and only to answer a claim the feedback names that the pages you hold do not; a lookup that already answered is not a reason to repeat it. When the block is empty this is the first attempt: write a fresh draft, and research as the Research section allows.
 
 ## Structure
 
@@ -62,7 +83,7 @@ This is the draft the review rejected. Rewrite it applying the Reviewer Feedback
 - Open on the problem in the author's own framing, not on a definition and not on "In this article".
 - Then the reasoning, with the concrete specifics the inputs give: names, versions, configuration, quantities, trade-offs.
 - When the article walks the reader through commands, every step is one action: the command, then what success looks like when the source material carries it, then one sentence on why it is there. Never paste two pages' examples into one path: a step that uses a name no earlier step created is a defect.
-- Close by pointing at what to read or do next — the follow-up article, the first command, the one thing to change. One or two sentences, and never a summary of the article you just wrote.
+- Close by pointing at what to read or do next — the follow-up page, the first command, the one thing to change. One or two sentences, and never a summary of the article you just wrote: name the exact page with the URL you fetched, or the exact command to run now. A URL in that sentence is part of the close, not a second one, and it does not replace the `Source:` line below. "See the documentation" is not a close.
 - Say an unknown as a fact about the software, once. Never write about the article or the work of writing it: no "I did not run this", no "this section", no aside that a sample is missing.
 - Use `##` subheadings only where the structure has more than two parts, and keep them short and concrete.
 - When the source link is set, end the body with a single line: `Source: {{ URL }}`.

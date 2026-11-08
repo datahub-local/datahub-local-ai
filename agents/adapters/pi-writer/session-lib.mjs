@@ -339,7 +339,7 @@ export function sourceUrlRefusal(value, { allowedHosts = [], requireHttps = true
   return null;
 }
 
-// The page's own text for a block, found as a contiguous run of the block's tokens
+// The page's text for a block, found as a contiguous run of the block's tokens
 // with any whitespace between them. Returns null when the page does not carry it.
 export function findExcerpt(body, block) {
   const tokens = normaliseBlock(block).split(" ").filter(Boolean);
@@ -435,11 +435,104 @@ async function fetchLedgerUrl(url, opts) {
   return { refusal: `more than ${maxRedirects} redirects` };
 }
 
+// The MCP payload of a tool call, from a JSON body or an SSE stream. An SSE answer is
+// what a streamable-http MCP server sends when it answers a POST, and a JSON body is
+// what it sends when it does not: both reach here, and neither may be assumed.
+export function mcpToolPayload(text, pageUrl = "") {
+  const raw = String(text ?? "").trim();
+  const candidates = [raw];
+  if (raw.includes("data:")) {
+    for (const event of raw.split(/\r?\n\r?\n/)) {
+      const data = event
+        .split(/\r?\n/)
+        .filter((line) => line.startsWith("data:"))
+        .map((line) => line.slice(5).trim())
+        .join("");
+      if (data) candidates.push(data);
+    }
+  }
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate);
+      if (parsed && (parsed.result || parsed.error)) return parsed;
+    } catch {
+      // not this one; the next candidate is a whole SSE frame's data
+    }
+  }
+  throw new Error(`the scrape answer for ${pageUrl || "the page"} is not an MCP payload`);
+}
+
+// A scrape's text, whether the server returned markdown or the JSON body Firecrawl
+// wraps it in. The markdown is what `findExcerpt` reads, so the wrapper has to go.
+export function scrapeText(payload, pageUrl = "") {
+  if (payload?.error) {
+    const message = payload.error.message ?? JSON.stringify(payload.error);
+    throw new Error(`the scrape failed for ${pageUrl || "the page"}: ${message}`);
+  }
+  const content = payload?.result?.content;
+  const item = Array.isArray(content) ? content.find((entry) => typeof entry?.text === "string") : null;
+  if (!item) throw new Error(`the scrape returned no text for ${pageUrl || "the page"}`);
+  const text = item.text.trim();
+  if (!text.startsWith("{") && !text.startsWith("[")) return text;
+  try {
+    const body = JSON.parse(text);
+    if (typeof body?.markdown === "string") return body.markdown;
+    if (typeof body?.data?.markdown === "string") return body.data.markdown;
+  } catch {
+    // a JSON-looking page body, not a wrapper: keep it as the page's own text
+  }
+  return text;
+}
+
+// A `reader` for `revalidateLedger` that scrapes through the Firecrawl MCP server.
+// The pod's egress policy admits the model and the MCP servers and nothing else, so a
+// direct fetch of the cited host would answer nothing; this is the one path out.
+export function scrapeReader({ endpoint, fetchUrl = fetch, timeoutMs = 45_000 } = {}) {
+  const url = String(endpoint ?? "").trim();
+  if (!url) return null;
+  let id = 0;
+  return async function read(pageUrl) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetchUrl(url, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          accept: "application/json, text/event-stream",
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: (id += 1),
+          method: "tools/call",
+          params: {
+            name: "firecrawl_scrape",
+            arguments: { url: pageUrl, formats: ["markdown"], onlyMainContent: false },
+          },
+        }),
+        signal: controller.signal,
+      });
+      if (!res.ok) return { refusal: `scrape server answered HTTP ${res.status}` };
+      const payload = mcpToolPayload(await res.text(), pageUrl);
+      return { status: 200, body: scrapeText(payload, pageUrl) };
+    } catch (err) {
+      return { refusal: `scrape did not answer: ${err?.message ?? err}` };
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+}
+
 // Verify a ledger against the pages it cites. An entry whose URL does not answer is
 // dropped: the server, not the model, decides whether a source exists. A URL that
 // answers but does not carry the block keeps its entry with `found: false`, which the
 // n8n gate rejects with the block and the URL in the reason -- the two failures are
 // different findings and only one of them is about the URL.
+//
+// `reader` replaces the direct fetch when the pod has no internet egress: the only
+// process that leaves it is the Firecrawl MCP server, so a session there verifies
+// through that server (see `scrapeReader`). The URL policy runs either way, on the
+// citation, before anything is read.
 export async function revalidateLedger(entries, opts = {}) {
   const sources = (Array.isArray(entries) ? entries : []).map(normaliseLedgerEntry);
   const fetched = new Map();
@@ -451,7 +544,13 @@ export async function revalidateLedger(entries, opts = {}) {
       continue;
     }
     if (!fetched.has(entry.url)) {
-      fetched.set(entry.url, await fetchLedgerUrl(entry.url, opts));
+      const refusal = opts.reader
+        ? sourceUrlRefusal(entry.url, opts)
+        : null;
+      fetched.set(
+        entry.url,
+        refusal ? { refusal } : opts.reader ? await opts.reader(entry.url) : await fetchLedgerUrl(entry.url, opts)
+      );
     }
     const page = fetched.get(entry.url);
     if (page.refusal) {

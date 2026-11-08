@@ -7,15 +7,14 @@ the work; this file is the map of the sandbox you draft in.
 
 - The brief names the working directory. Write `article.md` and `sources.json` there, not
   a scratch copy: it is a volume and is what the caller fetches.
-- The network is an allowlisted proxy: https on 443 to {{ ARTICLE_SOURCE_HOSTS }}. Read
-  with `curl -fsSL <url>`. Any other host answers `403` and the refusal is logged with the
-  host; do not retry a refused host and do not route around it.
-- When catalog tools are present (`mcp__github__*`, `mcp__firecrawl__*`), use them:
-  `mcp__github__search_code` and `mcp__github__search_repositories` find the project's code
-  and examples, `mcp__github__get_file_contents` reads a file, and
-  `mcp__firecrawl__firecrawl_search` or `mcp__firecrawl__firecrawl_scrape` reads a
-  documentation page. A catalog result is a pointer, not a page you read: open it before
+- The only network path is the Firecrawl MCP server: `mcp__firecrawl__firecrawl_search` finds
+  pages, `mcp__firecrawl__firecrawl_scrape` reads one, and `mcp__firecrawl__firecrawl_map` lists
+  a site's URLs. `curl` has no route here and no other server is offered, so a page you did not
+  scrape is a page you did not read. A search result is a pointer, not a page: scrape it before
   you quote it.
+- Read raw files, not rendered pages, when the example is code: scrape the raw host's file
+  (`https://raw.githubusercontent.com/<owner>/<repo>/<ref>/<path>`) so the block you quote is the
+  file's own text.
 - There is no browser and no cluster. `kubectl` has no credential and no route, and no
   container can be started here, so nothing is proven by asking the cluster. A quoted
   manifest is validated offline with `helm template`.
@@ -44,11 +43,11 @@ the work; this file is the map of the sandbox you draft in.
 - `block` is the fenced block without its fence, exactly as it appears in `article.md`. The
   server matches it on the page with whitespace collapsed: other indentation and line
   breaks are fine, other words are not.
-- `url` is the page you read it on, on an allowlisted host. The server fetches every URL
-  after the turn and drops the entry when it does not answer; a fence whose entry was
-  dropped is rejected. A file read through `mcp__github__get_file_contents` is cited by
-  its raw URL, `https://raw.githubusercontent.com/<owner>/<repo>/<ref>/<path>`, because
-  that is the address the server can refetch.
+- `url` is the page you scraped it on, on an allowlisted host. The server re-reads every URL
+  after the turn — through the same Firecrawl server — and drops the entry when it does not
+  answer; a fence whose entry was dropped is rejected. A code file is cited by its raw URL,
+  `https://raw.githubusercontent.com/<owner>/<repo>/<ref>/<path>`, because that is the address
+  the server can read again.
 - `validated` is `dry-run` when you rendered the block and `none` when you did not.
   `validation_error` carries what the render said, and is empty when it succeeded.
 

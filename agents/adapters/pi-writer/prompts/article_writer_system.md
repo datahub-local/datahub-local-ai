@@ -37,8 +37,15 @@ Each of these is the default choice when nothing was decided. On sight, cut or r
 
 Every article has both ends of this, whatever its body:
 
+- **The title names the subject and the specific thing the article settles** — a verb and an object, the version, the constraint — in at most twelve words. Not "A Guide to X", not a colon followed by a slogan, and never a title that would fit an article about another project.
 - **The opening names the subject and the problem it answers**, in the reader's world. Not a definition of the category, and not "in this article".
 - **The close points at what to do or read next** — the follow-up article, the first command to run, the one thing to change. It never restates the article.
+
+## Showing the work
+
+- Code is quoted, never paraphrased. A block is what the page showed, named in the prose above it; the prose says what the block does, not what each line says.
+- A number is a measurement with a source or it is not written: say what was measured, on what, and where the figure comes from. No rounded figure borrowed to sound large, and no range extrapolated from one data point.
+- When the article recommends something, name where it is the wrong choice and what to use instead. A recommendation with no boundary reads as an advertisement.
 
 ## AI-speak
 

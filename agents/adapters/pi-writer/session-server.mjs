@@ -47,6 +47,7 @@ import {
   parseLedger,
   serialiseLedger,
   revalidateLedger,
+  scrapeReader,
   articleTurnInstruction,
   splitArticle,
   articleWordCount,
@@ -183,6 +184,16 @@ await writeFile(
       firecrawlUrl: process.env.SYMPOZIUM_FIRECRAWL_MCP_URL ?? "",
     })
   )
+);
+
+// The ledger's re-read leaves the pod, and its egress policy admits the MCP servers only:
+// with no Firecrawl endpoint the verification falls back to a direct fetch, which answers
+// nothing here. Say which one is in use at boot, because both look healthy until a draft
+// is rejected for a block that is on the page.
+console.log(
+  `sympozium pi writer session: ledger verification reads through ${
+    process.env.SYMPOZIUM_FIRECRAWL_MCP_URL ? "the Firecrawl MCP server" : "a direct fetch (no source)"
+  }`
 );
 
 // Pi's retry and idle-timeout settings, which Pi reads from the same agent directory.
@@ -723,7 +734,10 @@ async function verifyLedger(dir, hosts) {
     console.log(`sympozium pi writer session: sources.json is unreadable: ${err?.message ?? err}`);
     return { sources: 0, quoted: 0, dropped: [], error: String(err?.message ?? err) };
   }
-  const { sources, dropped } = await revalidateLedger(ledger, { allowedHosts: hosts });
+  const { sources, dropped } = await revalidateLedger(ledger, {
+    allowedHosts: hosts,
+    reader: scrapeReader({ endpoint: process.env.SYMPOZIUM_FIRECRAWL_MCP_URL ?? "" }),
+  });
   for (const entry of dropped) {
     console.log(`sympozium pi writer session: dropped ledger entry ${entry.url}: ${entry.reason}`);
   }

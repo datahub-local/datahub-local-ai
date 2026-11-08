@@ -4,6 +4,9 @@ Pick the body that fits the entry, and write one article rather than a tour of e
 
 A shape is a sequence of jobs, not a template to fill. These hold for every shape:
 
+- **One block the reader can run.** A shape that teaches a tool carries at least one fenced block quoted from a source and whole enough to run: the command and its output, the manifest, the file. Elisions and undefined names are fragments: introduce the name in the prose above the block, never by editing the block, because the ledger matches its words against the page.
+- **One boundary.** Before the close, one line or one paragraph on when this is not the choice to make, and what to reach for instead. A recommendation with no boundary is an advertisement.
+
 - **One outcome.** Before the first sentence, state in one line what the reader will have done or understood by the end. Every section serves that line; a section serving a different outcome is a different article, so cut it.
 - **One path.** When the shape walks the reader through work, the steps are the only path. An alternative install, a second tool or a "you could also" is one sentence in the prerequisites at most, never a step inside the walk-through and never a numbered sub-step.
 - **Names carry.** Every name a later step uses — cluster, namespace, Secret, ensemble, persona, run, URL — is one an earlier step created, spelled the same. A second page's example that names its own objects is reference, not a step: adapt it to the names this article created, or cut it.
@@ -40,6 +43,7 @@ For a project, tool or release the reader has never seen.
 ## A comparison
 
 - What each thing actually is
+- One table on the dimension that decides the choice, its figures quoted from the sources
 - Where each one wins, with the numbers
 - Where each one fails
 - Who should pick which

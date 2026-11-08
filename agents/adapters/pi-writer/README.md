@@ -6,6 +6,59 @@ reads the pages the brief cites through the Firecrawl MCP server, writes `articl
 caller. After the turn the server re-reads every ledgered URL through that same server and rewrites
 the ledger with what it saw, so the model is never the authority on whether a source exists.
 
+## Architecture
+
+Two processes, one filesystem, one socket. `session-lib.mjs` is not in the pipeline at runtime: it
+is the rule set the server and the tests call, and it writes the config files Pi reads.
+
+```
+n8n (request_article, 900 s)
+  │ POST /v1/chat/completions  {task, brief, session_id, attempt, source_hosts}
+  ▼
+session-server.mjs  ── Node, port 8080, one serialized queue
+  │  1. resolveRunDir(workDir, session_id)        → /tmp/pi-writer/runs/article-<row>/
+  │  2. articlePrompt(brief)                      → prompts/*.md + fillTemplate
+  │  3. articleTurnInstruction({isIteration})     → "write" or "edit in place"
+  │  4. fillSourceHosts(writing.md, hosts)        → sandbox map + allowlist
+  │  5. proxyEnv(hosts)                           → HTTPS_PROXY=127.0.0.1:8081
+  ▼
+spawn("pi", [...])   child process, cwd = the run directory
+  │  --print --session-id article-<row> --session-dir /tmp/pi-sessions
+  │  --no-skills --no-extensions -e builtin:mcp --provider sympozium --model <name>
+  │  reads: $HOME/.pi/agent/{models.json, mcp.json, settings.json}
+  │         written once at boot by agentSettings() / mcpConfig() from session-lib
+  ├──► LiteLLM gateway          (egress policy: the model namespace only)
+  ├──► MCP servers on 8080      (egress policy: pods labelled mcpserver)
+  │      firecrawl: search / scrape / map     github: read tools only
+  └──► loopback proxy on 8081   (same process; no route out of the pod)
+  │
+  │  writes into cwd:  article.md, sources.json
+  ▼ stdout (the <article> block, the verdict, the findings)
+session-server.mjs
+  │  6. splitArticle(stdout) → title + body                    (session-lib)
+  │  7. revalidateLedger(sources.json, {allowedHosts, reader: scrapeReader(...)})
+  │  8. serialiseLedger → sources.json rewritten
+  ▼
+POST response { article: {title, text, word_count, sources, quoted, dropped} }
+n8n then GET /artifacts/<session_id>/article.md|sources.json  (two names, no others)
+```
+
+Where `session-lib` touches that flow, in order:
+
+1. **Boot** — `agentSettings()`, `mcpConfig()` and the session-id regex build the three agent
+   files Pi depends on; `expiredRunDirs` and `expiredTranscripts` prune the PVC.
+2. **Turn** — `resolveRunDir` (the cwd and the artifact root), `fillTemplate`, `fillSourceHosts`
+   and `articleTurnInstruction` (the text Pi receives), `parseSourceHosts` (the allowlist).
+3. **After the turn** — `parseLedger`, `sourceUrlRefusal`, `findExcerpt` and `revalidateLedger`:
+   the model's claim about a source is checked by the server, through `scrapeReader`, which is why
+   the ledger survives a pod with no internet egress.
+4. **Response** — `splitArticle`, `articleWordCount`, `articleWordLimit`.
+
+The boundary that matters: **Pi owns the prose and the files; the server owns every fact about
+them.** Pi gets a prompt and a proxy and returns text; the server decides the paths, reads the
+artifacts, re-reads the sources and counts the words. `session-lib` is that ownership written as
+functions, so the tests exercise it without spawning Pi or binding a port.
+
 The other three turns are review, not drafting:
 
 - `task: "review"` judges the draft against the publish gate and answers

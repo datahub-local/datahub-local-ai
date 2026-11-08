@@ -205,38 +205,32 @@ console.log(
   }`
 );
 
-// A session that outgrows the window answers one character and looks successful from the
-// outside, so the trigger is printed with the window it has to fit inside.
-console.log(
-  `sympozium pi writer session: compacting at ${Number(
-    process.env.PI_WRITER_COMPACT_AT_TOKENS || DEFAULT_COMPACTION.triggerTokens
-  )} tokens (${Number(
-    process.env.PI_WRITER_COMPACT_AT_PERCENT || DEFAULT_COMPACTION.triggerPercent
-  )}%) of a ${contextWindow} window`
+// Pi's retry, idle-timeout and compaction settings, which Pi reads from the same agent
+// directory. Without this file the writer runs on the vendor's defaults, where a stream that
+// stalls for longer than the gateway's per-read timeout ends the attempt with no window left
+// to retry in, and a session is not compacted until the context window is nearly gone.
+const compactionPercent = Number(
+  process.env.PI_WRITER_COMPACT_AT_PERCENT || DEFAULT_COMPACTION.triggerPercent
 );
+const settings = agentSettings({
+  idleTimeoutMs: Number(process.env.PI_WRITER_HTTP_IDLE_MS || DEFAULT_RETRY.idleTimeoutMs),
+  maxRetries: Number(process.env.PI_WRITER_RETRY_MAX || DEFAULT_RETRY.maxRetries),
+  baseDelayMs: Number(process.env.PI_WRITER_RETRY_BASE_MS || DEFAULT_RETRY.baseDelayMs),
+  maxAgentDelayMs: Number(process.env.PI_WRITER_RETRY_MAX_DELAY_MS || DEFAULT_RETRY.maxAgentDelayMs),
+  contextWindow,
+  maxTokens,
+  compactionTriggerPercent: compactionPercent,
+  compactionKeepPercent: Number(
+    process.env.PI_WRITER_COMPACT_KEEP_PERCENT || DEFAULT_COMPACTION.keepPercent
+  ),
+});
+await writeFile(`${process.env.HOME}/.pi/agent/settings.json`, JSON.stringify(settings));
 
-// Pi's retry and idle-timeout settings, which Pi reads from the same agent directory.
-// Without this file the writer runs on the vendor's defaults, where a stream that
-// stalls for longer than the gateway's per-read timeout ends the attempt with no
-// window left to retry in.
-await writeFile(
-  `${process.env.HOME}/.pi/agent/settings.json`,
-  JSON.stringify(
-    agentSettings({
-      idleTimeoutMs: Number(process.env.PI_WRITER_HTTP_IDLE_MS || DEFAULT_RETRY.idleTimeoutMs),
-      maxRetries: Number(process.env.PI_WRITER_RETRY_MAX || DEFAULT_RETRY.maxRetries),
-      baseDelayMs: Number(process.env.PI_WRITER_RETRY_BASE_MS || DEFAULT_RETRY.baseDelayMs),
-      maxAgentDelayMs: Number(process.env.PI_WRITER_RETRY_MAX_DELAY_MS || DEFAULT_RETRY.maxAgentDelayMs),
-      contextWindow,
-      maxTokens,
-      compactionTriggerPercent: Number(
-        process.env.PI_WRITER_COMPACT_AT_PERCENT || DEFAULT_COMPACTION.triggerPercent
-      ),
-      compactionKeepPercent: Number(
-        process.env.PI_WRITER_COMPACT_KEEP_PERCENT || DEFAULT_COMPACTION.keepPercent
-      ),
-    })
-  )
+// A session that outgrows the window answers one character and looks successful from the
+// outside, so the trigger is printed with the window it has to fit inside. Both numbers come
+// from the settings Pi was actually given, not from the environment a second time.
+console.log(
+  `sympozium pi writer session: compacting at ${contextWindow - settings.compaction.reserveTokens} tokens (${compactionPercent}%) of a ${contextWindow} window, keeping ${settings.compaction.keepRecentTokens} recent`
 );
 
 async function writingMethod() {
@@ -767,9 +761,48 @@ function proxyEnv(hosts) {
 
 // After a turn: the ledger's every URL is fetched here, the entries whose URL does
 // not answer are dropped, and the file is rewritten with what the server saw.
-async function verifyLedger(dir, hosts) {
+// When a file was last written, 0 when it does not exist. A draft turn is supposed to write
+// both artifacts; a model that answers in text instead leaves the previous attempt's files in
+// place, and the caller then fetches them as if this run had produced them.
+async function artifactMtime(path) {
+  try {
+    return (await stat(path)).mtimeMs;
+  } catch {
+    return 0;
+  }
+}
+
+// The draft of record for this turn: the file it wrote, or the `<article>` block it answered
+// with when it wrote none. A turn that did neither fails by name rather than handing back the
+// last attempt's article.
+async function adoptDraft(dir, response, before) {
+  const wrote = (await artifactMtime(join(dir, ARTICLE_NAME))) > before.article;
+  if (wrote) return;
+  // The instruction is explicit: a draft answers inside one `<article>` block and writes the
+  // files. Only that block is adopted; bare prose is not a draft, and a truncated answer of a
+  // single character is the case that made this worth being strict about.
+  if (/<article>[\s\S]*?<\/article>/.test(String(response ?? ""))) {
+    const answered = splitArticle(response);
+    if (answered.text) {
+      console.log("sympozium pi writer session: the turn answered without writing article.md; adopting the answer");
+      await writeArticle(dir, answered);
+      return;
+    }
+  }
+  throw new Error("the draft turn answered without writing article.md");
+}
+
+async function verifyLedger(dir, hosts, before) {
   const path = join(dir, LEDGER_NAME);
   let raw;
+  const fresh = !before || (await artifactMtime(path)) > before.ledger;
+  if (!fresh) {
+    // The previous attempt's ledger describes blocks this run never re-read. Keeping it would
+    // let the caller verify an article against sources it did not use.
+    console.log("sympozium pi writer session: the turn did not rewrite sources.json");
+    await writeFile(path, serialiseLedger([]));
+    return { sources: 0, quoted: 0, unquoted: [], dropped: [], error: "the turn wrote no sources.json" };
+  }
   try {
     raw = await readFile(path, "utf8");
   } catch {
@@ -907,6 +940,10 @@ http
             const turnPrompt = `${draftPrompt}\n\n---\n\nWorking directory: ${dir}\n${instruction}\n\n${method}`;
             articleHosts = hosts;
             proxyEnv(hosts);
+            const before = {
+              article: await artifactMtime(join(dir, ARTICLE_NAME)),
+              ledger: await artifactMtime(join(dir, LEDGER_NAME)),
+            };
             try {
               const response = await runPi(
                 turnPrompt,
@@ -924,7 +961,8 @@ http
                 cancellation.signal,
                 dir
               );
-              return { response, ledger: await verifyLedger(dir, hosts) };
+              await adoptDraft(dir, response, before);
+              return { response, ledger: await verifyLedger(dir, hosts, before) };
             } finally {
               articleHosts = null;
               proxyEnv(null);

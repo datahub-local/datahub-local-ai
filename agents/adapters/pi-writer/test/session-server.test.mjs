@@ -45,6 +45,17 @@ if (prompt.includes("You edit one article draft")) {
   process.stdout.write("<article># Probe edited\\n\\nEdited body with PROBE_EDIT.</article>");
   process.exit(0);
 }
+// A drafting turn that answers in text and writes nothing: the server must adopt the block it
+// answered with, and must not read the previous attempt's ledger as this run's.
+if (prompt.includes("STALE_ARTIFACTS")) {
+  process.stdout.write("<article># Adopted title\\n\\nAdopted body, no files written.</article>");
+  process.exit(0);
+}
+// A drafting turn that writes nothing and answers with no block has produced no draft.
+if (prompt.includes("NO_WRITE")) {
+  process.stdout.write("I could not finish the article.");
+  process.exit(0);
+}
 // A quoted manifest, as the real turn would write it after reading the page.
 fs.writeFileSync("article.md", "# Probe\\n\\n## Install\\n\\n" + "\\u0060\\u0060\\u0060bash\\nhelm upgrade --install probe ./chart\\n\\u0060\\u0060\\u0060\\n");
 fs.writeFileSync("sources.json", JSON.stringify({ sources: [
@@ -163,6 +174,33 @@ test("a fence with no ledger entry is named in the answer", async () => {
     body.article.unquoted.some((block) => block.startsWith("kubectl apply -f - <<EOF")),
     JSON.stringify(body.article.unquoted)
   );
+});
+
+test("a draft that answers without writing files has its answer adopted", async () => {
+  const res = await turn({
+    messages: [{ role: "user", content: "STALE_ARTIFACTS write about the release" }],
+    session_id: "article-stale",
+    source_hosts: ["github.com"],
+  });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.article.title, "Adopted title");
+  assert.match(body.article.text, /^Adopted body/);
+  // No ledger was written this turn, so the stale one is not handed back as evidence.
+  assert.match(body.article.error, /no sources\.json/);
+  const stored = await fetch(`${base}/artifacts/article-stale/article.md`);
+  assert.match(await stored.text(), /Adopted body/);
+});
+
+test("a draft that writes nothing and answers no block fails by name", async () => {
+  const res = await turn({
+    messages: [{ role: "user", content: "NO_WRITE write about the release" }],
+    session_id: "article-nowrite",
+    source_hosts: ["github.com"],
+  });
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.match(body.error.message, /answered without writing article\.md/);
 });
 
 test("a turn drafts both files and returns the ledger the server verified", async () => {

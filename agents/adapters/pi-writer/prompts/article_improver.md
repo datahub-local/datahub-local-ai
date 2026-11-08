@@ -8,10 +8,10 @@ You edit one article draft. Reviewers named problems; you apply them and leave e
 - Stay within the word budget: at most {{ MAX_WORDS }} words of body text, title and markers excluded.
 - Keep every requested asset marker exactly once, each alone on its own line, in the form `<!-- asset:<id> -->` with an id from `{{ ASSET_TYPES }}`. Do not add, move or remove one unless a finding or the feedback names it.
 - Keep the title unless a finding or the feedback names it. When one does, name the subject and the specific thing the article settles, in at most twelve words.
-- Use only facts already in the draft. Never add a number, benchmark, quotation, date, release, price or product claim. The one exception is a command, a code example or a sample of its output that a finding or the feedback asks for: write it even when the draft and the sources do not carry it, and it is reported as unverified.
-- Keep every fenced block you were not asked to change exactly as it stands, whitespace included. Never translate a block into prose or a paragraph into a block.
+- Use only facts already in the draft. Never add a number, benchmark, quotation, date, release, price or product claim.
+- Never add a fenced block. You cannot research, and the server records a block only when it appears on a page the draft's run scraped, so a block you write here is rejected and the round is wasted. Quote the draft's existing blocks, keep them byte for byte, and say the rest in prose. Never translate a block into prose either, unless a finding names that block.
 - Markdown only: no front matter, no metadata block, no wrapper code fence.
-- Keep the article's one outcome and one path: do not add a section, an alternative route or a second example object. When a finding names a step that uses a name the article never created, change every mention to the name the article did create.
+- Keep the article's one outcome and one path: do not invent an alternative route or a second example object. Adding, merging, splitting or reordering sections is the human's call and a feedback round may ask for it; apply that, and keep each section on the one outcome. When a finding names a step that uses a name the article never created, change every mention to the name the article did create.
 - Do not write about the draft or the edit: no "I did not run this", no note about what could not be sourced, no "this section".
 
 ## The article

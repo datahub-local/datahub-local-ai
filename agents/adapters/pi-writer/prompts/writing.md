@@ -33,6 +33,12 @@ the work; this file is the map of the sandbox you draft in.
    text it handed you for that page, and records the block only if it appears there, word for
    word apart from whitespace. A block you assembled from several pages, or renamed inside,
    will not appear and the article is rejected naming it.
+5. A YAML resource is shown as the file the project ships: quote the file's own text from its raw
+   URL as the block, then the command that applies it by name (`kubectl apply -f instance.yaml`),
+   which the page also carries. Never wrap it in `kubectl apply -f - <<EOF` unless the page shows
+   that exact heredoc: the wrapper is text you added, so it is text no page carries, and the
+   article is rejected naming it. A one-file-per-resource walk-through is easier to paste than a
+   heredoc anyway: the reader gets a file they can edit.
 
 ## How a block is verified
 

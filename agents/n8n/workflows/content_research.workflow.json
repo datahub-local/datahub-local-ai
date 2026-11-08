@@ -64,6 +64,8 @@
         "name": "search_hn",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.2,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           432,
           -112
@@ -112,6 +114,8 @@
         "name": "search_feeds",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.2,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           432,
           80
@@ -312,6 +316,8 @@
       "name": "search_hn",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         432,
         -112
@@ -360,6 +366,8 @@
       "name": "search_feeds",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         432,
         80

@@ -857,6 +857,8 @@
         "name": "fetch_still",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           4832,
           -528
@@ -3279,6 +3281,8 @@
       "name": "fetch_still",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         4832,
         -528

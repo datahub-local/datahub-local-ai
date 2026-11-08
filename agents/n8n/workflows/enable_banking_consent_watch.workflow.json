@@ -10,6 +10,8 @@
         "notes": "allowUnauthorizedCerts is scoped to the in-cluster kubernetes.default.svc endpoint",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.2,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           304,
           288
@@ -36,6 +38,8 @@
         "notes": "404 is the expected 'Secret not created yet' state",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.2,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           528,
           288
@@ -415,6 +419,8 @@
       "notes": "allowUnauthorizedCerts is scoped to the in-cluster kubernetes.default.svc endpoint",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         304,
         288
@@ -441,6 +447,8 @@
       "notes": "404 is the expected 'Secret not created yet' state",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         528,
         288

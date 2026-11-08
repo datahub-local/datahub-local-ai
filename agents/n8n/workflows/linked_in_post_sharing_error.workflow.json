@@ -31,6 +31,8 @@
         },
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           976,
           -144
@@ -204,6 +206,8 @@
         },
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           1424,
           -144
@@ -529,6 +533,8 @@
       },
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         976,
         -144
@@ -702,6 +708,8 @@
       },
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         1424,
         -144

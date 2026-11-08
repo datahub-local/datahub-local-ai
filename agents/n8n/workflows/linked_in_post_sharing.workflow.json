@@ -312,6 +312,8 @@
         "name": "read_articles_sheet",
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           7456,
           -768
@@ -548,6 +550,8 @@
         "name": "update_status_waiting_approval",
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           8800,
           -768
@@ -786,6 +790,8 @@
         "name": "update_status_cancelled",
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           12608,
           -1488
@@ -1025,6 +1031,8 @@
         "name": "update_status_in_progress",
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           7904,
           -768
@@ -1316,6 +1324,8 @@
         "name": "update_status_error",
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           11264,
           -1632
@@ -1611,6 +1621,8 @@
         "name": "update_status_published_a",
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           13952,
           -1200
@@ -2900,6 +2912,8 @@
         "name": "download_animation",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           11264,
           -1120
@@ -4584,6 +4598,8 @@
       "name": "read_articles_sheet",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         7456,
         -768
@@ -4820,6 +4836,8 @@
       "name": "update_status_waiting_approval",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         8800,
         -768
@@ -5058,6 +5076,8 @@
       "name": "update_status_cancelled",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         12608,
         -1488
@@ -5297,6 +5317,8 @@
       "name": "update_status_in_progress",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         7904,
         -768
@@ -5588,6 +5610,8 @@
       "name": "update_status_error",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         11264,
         -1632
@@ -5883,6 +5907,8 @@
       "name": "update_status_published_a",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         13952,
         -1200
@@ -7172,6 +7198,8 @@
       "name": "download_animation",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         11264,
         -1120

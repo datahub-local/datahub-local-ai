@@ -34,33 +34,6 @@ const arg = (name) => {
 fs.writeFileSync("prompt.txt", prompt);
 fs.writeFileSync("args.txt", process.argv.slice(2).join(" "));
 fs.writeFileSync("env.log", process.env.HTTPS_PROXY || "none");
-// A review or an edit answers in its response and writes nothing; only a drafting turn
-// authors the files. This is what makes the test read the server's own handling of a
-// review rather than a stub's copy of it.
-if (prompt.includes("You review one long-form technical blog draft.")) {
-  process.stdout.write("<output>true</output><explanation>the probe passed</explanation>");
-  process.exit(0);
-}
-if (prompt.includes("You review one article draft")) {
-  const aspect = (prompt.match(/for (clarity|flow|structure) only/) || [])[1] || "aspect";
-  process.stdout.write("<findings>1. opening: PROBE_" + aspect.toUpperCase() + " - tighten it</findings>");
-  process.exit(0);
-}
-if (prompt.includes("You edit one article draft")) {
-  process.stdout.write("<article># Probe edited\\n\\nEdited body with PROBE_EDIT.</article>");
-  process.exit(0);
-}
-// A drafting turn that answers in text and writes nothing: the server must adopt the block it
-// answered with, and must not read the previous attempt's ledger as this run's.
-if (prompt.includes("STALE_ARTIFACTS")) {
-  process.stdout.write("<article># Adopted title\\n\\nAdopted body, no files written.</article>");
-  process.exit(0);
-}
-// A drafting turn that writes nothing and answers with no block has produced no draft.
-if (prompt.includes("NO_WRITE")) {
-  process.stdout.write("I could not finish the article.");
-  process.exit(0);
-}
 // The scrape the turn made, as Pi records it: the call carries the URL, the result the text
 // the model received. The server derives sources.json from this pair, not from the model.
 if (!prompt.includes("NO_SCRAPE")) {
@@ -75,6 +48,40 @@ if (!prompt.includes("NO_SCRAPE")) {
       JSON.stringify({ type: "message", message: { role: "toolResult", toolCallId: "call_probe", toolName: "mcp__firecrawl__firecrawl_scrape", content: [{ type: "text", text: page }], isError: false } }),
     ].join("\\n") + "\\n"
   );
+}
+// A review or an edit answers in its response and writes nothing; only a drafting turn
+// authors the files. This is what makes the test read the server's own handling of a
+// review rather than a stub's copy of it.
+if (prompt.includes("You review one long-form technical blog draft.")) {
+  process.stdout.write("<output>true</output><explanation>the probe passed</explanation>");
+  process.exit(0);
+}
+if (prompt.includes("You review one article draft")) {
+  const aspect = (prompt.match(/for (clarity|flow|structure) only/) || [])[1] || "aspect";
+  process.stdout.write("<findings>1. opening: PROBE_" + aspect.toUpperCase() + " - tighten it</findings>");
+  process.exit(0);
+}
+if (prompt.includes("You edit one article draft")) {
+  // One block the page carries and one it does not: the edit rewrote the article, so the
+  // ledger must be re-derived against this text.
+  const fence = "\\u0060\\u0060\\u0060";
+  process.stdout.write(
+    "<article># Probe edited\\n\\nEdited body with PROBE_EDIT.\\n\\n" +
+      fence + "bash\\nhelm upgrade --install probe ./chart\\n" + fence +
+      "\\n\\n" + fence + "bash\\nkubectl patch agent probe --type=merge -p '{}'\\n" + fence + "</article>"
+  );
+  process.exit(0);
+}
+// A drafting turn that answers in text and writes nothing: the server must adopt the block it
+// answered with, and must not read the previous attempt's ledger as this run's.
+if (prompt.includes("STALE_ARTIFACTS")) {
+  process.stdout.write("<article># Adopted title\\n\\nAdopted body, no files written.</article>");
+  process.exit(0);
+}
+// A drafting turn that writes nothing and answers with no block has produced no draft.
+if (prompt.includes("NO_WRITE")) {
+  process.stdout.write("I could not finish the article.");
+  process.exit(0);
 }
 // A quoted manifest, as the real turn would write it after reading the page.
 fs.writeFileSync("article.md", "# Probe\\n\\n## Install\\n\\n" + "\\u0060\\u0060\\u0060bash\\nhelm upgrade --install probe ./chart\\n\\u0060\\u0060\\u0060\\n");
@@ -512,9 +519,15 @@ test("an improve turn writes the edited article the model returned", async () =>
   const body = await res.json();
   assert.equal(body.task, "improve");
   assert.equal(body.article.title, "Probe edited");
-  assert.equal(body.article.text, "Edited body with PROBE_EDIT.");
+  assert.match(body.article.text, /^Edited body with PROBE_EDIT\./);
   const written = await readFile(join(workspace, "runs", "article-improve", "article.md"), "utf8");
-  assert.equal(written, "# Probe edited\n\nEdited body with PROBE_EDIT.\n");
+  assert.match(written, /^# Probe edited\n\nEdited body with PROBE_EDIT\./);
+  // The edit rewrote the article, so the ledger describes the new text: the block the page
+  // carries is recorded and the block the edit invented is named.
+  assert.equal(body.article.sources, 1);
+  assert.equal(body.article.quoted, 1);
+  assert.equal(body.article.unquoted.length, 1);
+  assert.match(body.article.unquoted[0], /^kubectl patch agent probe/);
   // The owner's feedback and the merged findings reach the turn, which is the issue's
   // headline case: a rejection re-enters the writer with what the person said.
   const prompt = await readFile(join(workspace, "runs", "article-improve", "prompt.txt"), "utf8");

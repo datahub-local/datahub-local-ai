@@ -78,6 +78,8 @@
         "name": "read_article_queue_error",
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           976,
           -144
@@ -164,6 +166,8 @@
         "name": "update_row_error",
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           1648,
           -272
@@ -585,6 +589,8 @@
       "name": "read_article_queue_error",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         976,
         -144
@@ -671,6 +677,8 @@
       "name": "update_row_error",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         1648,
         -272

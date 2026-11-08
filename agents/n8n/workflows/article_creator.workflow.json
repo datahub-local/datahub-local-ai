@@ -337,6 +337,8 @@
         "notes": "The adapter writes article.md in the session directory; the draft is the artifact, not the chat answer.",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           -16128,
           -736
@@ -361,6 +363,8 @@
         "notes": "The rewritten ledger carries the server's found/excerpt/status fields; the gate checks the article against it.",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           -15968,
           -736
@@ -1475,6 +1479,8 @@
       "notes": "The adapter writes article.md in the session directory; the draft is the artifact, not the chat answer.",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         -16128,
         -736
@@ -1499,6 +1505,8 @@
       "notes": "The rewritten ledger carries the server's found/excerpt/status fields; the gate checks the article against it.",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         -15968,
         -736

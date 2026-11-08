@@ -997,7 +997,10 @@ http
           const edited = splitArticle(response);
           if (!edited.text) throw new Error("the improve turn returned no <article> block");
           await writeArticle(dir, { title: edited.title || article.title, text: edited.text });
-          return { response };
+          // The edit rewrote the article, so the ledger it was drafted with no longer describes
+          // it: a block it dropped would keep a stale entry and a block it added would be
+          // reported against a page that never carried it. Re-derive against this text.
+          return { response, ledger: await writeDerivedLedger(dir, sessionID) };
         }));
 
       await sweepIfDue(sessionID);

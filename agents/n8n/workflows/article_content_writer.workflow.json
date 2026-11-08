@@ -40,6 +40,8 @@
         "name": "read_article_queue",
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           0,
           192
@@ -195,6 +197,8 @@
         "name": "update_status_in_progress",
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           1344,
           192
@@ -579,6 +583,8 @@
         "name": "download_content",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
+        "retryOnFail": true,
+        "maxTries": 3,
         "onError": "continueRegularOutput",
         "position": [
           2016,
@@ -1002,6 +1008,8 @@
         "name": "update_article_drafted",
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           6272,
           -352
@@ -1383,6 +1391,8 @@
         "name": "update_article_approved",
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           6944,
           -256
@@ -1769,6 +1779,8 @@
         "name": "update_status_cancelled",
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           7392,
           -272
@@ -2595,6 +2607,8 @@
         "name": "download_asset",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           9184,
           -144
@@ -3246,6 +3260,8 @@
         "name": "get_posts_dir",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           11424,
           64
@@ -3386,6 +3402,8 @@
         "name": "download_asset_publish",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           12992,
           64
@@ -3470,6 +3488,8 @@
         "name": "get_base_ref",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           13888,
           64
@@ -3615,6 +3635,8 @@
         "name": "get_base_ref_again",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           14784,
           208
@@ -3772,6 +3794,8 @@
         "name": "record_published",
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           15904,
           64
@@ -4309,6 +4333,8 @@
         "name": "record_failed_draft",
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           3136,
           128
@@ -7405,6 +7431,8 @@
       "name": "read_article_queue",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         0,
         192
@@ -7560,6 +7588,8 @@
       "name": "update_status_in_progress",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         1344,
         192
@@ -7944,6 +7974,8 @@
       "name": "download_content",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
+      "retryOnFail": true,
+      "maxTries": 3,
       "onError": "continueRegularOutput",
       "position": [
         2016,
@@ -8367,6 +8399,8 @@
       "name": "update_article_drafted",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         6272,
         -352
@@ -8748,6 +8782,8 @@
       "name": "update_article_approved",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         6944,
         -256
@@ -9134,6 +9170,8 @@
       "name": "update_status_cancelled",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         7392,
         -272
@@ -9960,6 +9998,8 @@
       "name": "download_asset",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         9184,
         -144
@@ -10611,6 +10651,8 @@
       "name": "get_posts_dir",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         11424,
         64
@@ -10751,6 +10793,8 @@
       "name": "download_asset_publish",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         12992,
         64
@@ -10835,6 +10879,8 @@
       "name": "get_base_ref",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         13888,
         64
@@ -10980,6 +11026,8 @@
       "name": "get_base_ref_again",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         14784,
         208
@@ -11137,6 +11185,8 @@
       "name": "record_published",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         15904,
         64
@@ -11674,6 +11724,8 @@
       "name": "record_failed_draft",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         3136,
         128

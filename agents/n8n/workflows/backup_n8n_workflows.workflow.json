@@ -294,7 +294,9 @@
           816,
           528
         ],
-        "typeVersion": 4.2
+        "typeVersion": 4.2,
+        "retryOnFail": true,
+        "maxTries": 3
       },
       {
         "parameters": {},
@@ -1495,7 +1497,9 @@
         816,
         528
       ],
-      "typeVersion": 4.2
+      "typeVersion": 4.2,
+      "retryOnFail": true,
+      "maxTries": 3
     },
     {
       "parameters": {},

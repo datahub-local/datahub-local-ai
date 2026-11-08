@@ -46,6 +46,8 @@
         "notes": "allowUnauthorizedCerts is scoped to the in-cluster kubernetes.default.svc endpoint",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.2,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           304,
           288
@@ -72,6 +74,8 @@
         "notes": "allowUnauthorizedCerts is scoped to the in-cluster kubernetes.default.svc endpoint; 404 is the expected 'Secret not created yet' state",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.2,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           528,
           288
@@ -217,6 +221,8 @@
         "notes": "allowUnauthorizedCerts is scoped to the in-cluster kubernetes.default.svc endpoint",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.2,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           304,
           608
@@ -408,6 +414,8 @@
         "notes": "allowUnauthorizedCerts is scoped to the in-cluster kubernetes.default.svc endpoint",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.2,
+        "retryOnFail": true,
+        "maxTries": 3,
         "onError": "continueErrorOutput",
         "position": [
           528,
@@ -483,6 +491,8 @@
         "notes": "allowUnauthorizedCerts is scoped to the in-cluster kubernetes.default.svc endpoint; 404 is the expected 'Secret not created yet' state",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.2,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           1200,
           1008
@@ -794,6 +804,8 @@
         "name": "Get Session Status",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.2,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           1424,
           224
@@ -838,6 +850,8 @@
         "name": "Get Aspsps",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.2,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           1200,
           608
@@ -1901,6 +1915,8 @@
       "notes": "allowUnauthorizedCerts is scoped to the in-cluster kubernetes.default.svc endpoint",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         304,
         288
@@ -1927,6 +1943,8 @@
       "notes": "allowUnauthorizedCerts is scoped to the in-cluster kubernetes.default.svc endpoint; 404 is the expected 'Secret not created yet' state",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         528,
         288
@@ -2072,6 +2090,8 @@
       "notes": "allowUnauthorizedCerts is scoped to the in-cluster kubernetes.default.svc endpoint",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         304,
         608
@@ -2263,6 +2283,8 @@
       "notes": "allowUnauthorizedCerts is scoped to the in-cluster kubernetes.default.svc endpoint",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
+      "retryOnFail": true,
+      "maxTries": 3,
       "onError": "continueErrorOutput",
       "position": [
         528,
@@ -2338,6 +2360,8 @@
       "notes": "allowUnauthorizedCerts is scoped to the in-cluster kubernetes.default.svc endpoint; 404 is the expected 'Secret not created yet' state",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         1200,
         1008
@@ -2649,6 +2673,8 @@
       "name": "Get Session Status",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         1424,
         224
@@ -2693,6 +2719,8 @@
       "name": "Get Aspsps",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         1200,
         608

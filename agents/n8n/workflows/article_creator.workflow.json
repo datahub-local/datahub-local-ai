@@ -1,7 +1,7 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "2282b2f1-16e8-48df-84b9-58e546a86280",
+    "versionId": "8b71b97f-c873-478e-9da2-aba0fc47fcf7",
     "workflowId": "nPBkIpeObC1Om0LH",
     "nodes": [
       {
@@ -200,20 +200,7 @@
           -736
         ],
         "parameters": {
-          "jsCode": "// The verdict the loop branches on. The reviewer's answer is combined with the parser's\n// deterministic checks, and the deterministic half wins: a count asked of a model is a\n// count that gets invented, so `PROBLEM` rejects the draft whatever the reviewer said \u2014\n// and the reason then names the real numbers rather than the reviewer's guess.\nconst parsed = $('parse_article').item.json;\nconst reviewerSays = String($json.output || '').trim() === 'true';\nconst reason = String($json.explanation || '').replace(/\\s+/g, ' ').trim();\nconst problem = String(parsed.PROBLEM || '');\n\nconst accepted = !problem && reviewerSays;\nlet explanation = '';\nif (problem) explanation = problem + (reason ? ' ' + reason : '');\nelse if (!reviewerSays) explanation = reason || 'the reviewer rejected the draft without a reason';\n\nreturn [{ json: { ...$json, output: accepted ? 'true' : 'false', explanation } }];"
-        }
-      },
-      {
-        "id": "3c1b292c-9d8b-48c7-baba-365b1b9ada0e",
-        "name": "parse_review_verdict",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          1400,
-          600
-        ],
-        "parameters": {
-          "jsCode": "// The writer answers a structured verdict, not prose to re-parse: a body without one is\n// a rejection with the reason named, so the retry carries a real cause rather than an\n// empty explanation.\nconst res = $input.first().json;\n// A transport failure arrives as an error item (`onError: continueErrorOutput`) and\n// carries no status: name it, or a dead connection reads as no verdict.\nconst transport = res.error ? String((res.error && res.error.message) || res.error).trim() : '';\nif (transport) return [{ json: { output: 'false', explanation: 'REVIEW: ' + transport } }];\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nconst review = body.review || {};\nif (status >= 400) {\n  const message = String((body.error && body.error.message) || body.error || body.message || '').trim();\n  return [{ json: { output: 'false', explanation: 'REVIEW: HTTP ' + status + (message ? ': ' + message : ' the review turn failed') } }];\n}\nif (typeof review.pass !== 'boolean') {\n  return [{ json: { output: 'false', explanation: 'REVIEW: the writer returned no verdict' } }];\n}\nreturn [{ json: {\n  output: review.pass ? 'true' : 'false',\n  explanation: String(review.explanation || '').replace(/\\s+/g, ' ').trim(),\n} }];"
+          "jsCode": "// The verdict the loop branches on. The reviewer's answer is combined with the parser's\n// deterministic checks, and the deterministic half wins: a count asked of a model is a\n// count that gets invented, so `PROBLEM` rejects the draft whatever the reviewer said —\n// and the reason then names the real numbers rather than the reviewer's guess.\nconst parsed = $('parse_article').item.json;\nconst reviewerSays = String($json.output || '').trim() === 'true';\nconst reason = String($json.explanation || '').replace(/\\s+/g, ' ').trim();\nconst problem = String(parsed.PROBLEM || '');\n\nconst accepted = !problem && reviewerSays;\nlet explanation = '';\nif (problem) explanation = problem + (reason ? ' ' + reason : '');\nelse if (!reviewerSays) explanation = reason || 'the reviewer rejected the draft without a reason';\n\nreturn [{ json: { ...$json, output: accepted ? 'true' : 'false', explanation } }];"
         }
       },
       {
@@ -393,19 +380,41 @@
         }
       },
       {
+        "id": "3c1b292c-9d8b-48c7-baba-365b1b9ada0e",
+        "name": "parse_review_verdict",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1400,
+          600
+        ],
         "parameters": {
-          "jsCode": "// The review is the writer's turn too: n8n sends the draft and the entry's fields,\n// and the adapter renders the gate prompt from its own files. One request carries both,\n// so the verdict is about the draft this run parsed and no second copy of the prompt\n// exists in the workflow.\nconst parsed = $('parse_article').first().json;\nconst req = $('main_trigger').first().json;\nconst config = $('set_workflow_vars').first().json;\nconst base = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!base) throw new Error('ARTICLE_WRITER_URL is not set; the review turn cannot be reached');\nconst sessionId = ('article-' + String(req.ROW_NUMBER || '').trim()).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 80);\nreturn [{ json: {\n  REVIEW_URL: base + '/v1/chat/completions',\n  REVIEW_BODY: JSON.stringify({\n    task: 'review',\n    session_id: sessionId,\n    source_hosts: String(config.SOURCE_HOSTS || '').trim(),\n    brief: {\n      topic: String(req.TOPIC || ''),\n      description: String(req.DESCRIPTION || ''),\n      url: String(req.URL || ''),\n      max_words: Number(req.MAX_WORDS) || 0,\n      asset_types: String(req.ASSET_TYPES || ''),\n      audience: String(config.AUDIENCE || 'NONE'),\n      extra_prompt: String(req.EXTRA_PROMPT || ''),\n      content: String(req.CONTENT || ''),\n      feedback: String(req.FEEDBACK || '').trim(),\n    },\n    article: { title: String(parsed.TITLE || ''), text: String(parsed.TEXT || '') },\n  }),\n} }];"
-        },
+          "jsCode": "// The writer answers a structured verdict, not prose to re-parse: a body without one is\n// a rejection with the reason named, so the retry carries a real cause rather than an\n// empty explanation.\nconst res = $input.first().json;\n// A transport failure arrives as an error item (`onError: continueErrorOutput`) and\n// carries no status: name it, or a dead connection reads as no verdict.\nconst transport = res.error ? String((res.error && res.error.message) || res.error).trim() : '';\nif (transport) return [{ json: { output: 'false', explanation: 'REVIEW: ' + transport } }];\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nconst review = body.review || {};\nif (status >= 400) {\n  const message = String((body.error && body.error.message) || body.error || body.message || '').trim();\n  return [{ json: { output: 'false', explanation: 'REVIEW: HTTP ' + status + (message ? ': ' + message : ' the review turn failed') } }];\n}\nif (typeof review.pass !== 'boolean') {\n  return [{ json: { output: 'false', explanation: 'REVIEW: the writer returned no verdict' } }];\n}\nreturn [{ json: {\n  output: review.pass ? 'true' : 'false',\n  explanation: String(review.explanation || '').replace(/\\s+/g, ' ').trim(),\n} }];"
+        }
+      },
+      {
         "id": "cb01c12e-8da7-4499-b039-38ac94baf912",
         "name": "build_review_request",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
         "position": [
           1000,
           600
         ],
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2
+        "parameters": {
+          "jsCode": "// The review is the writer's turn too: n8n sends the draft and the entry's fields,\n// and the adapter renders the gate prompt from its own files. One request carries both,\n// so the verdict is about the draft this run parsed and no second copy of the prompt\n// exists in the workflow.\nconst parsed = $('parse_article').first().json;\nconst req = $('main_trigger').first().json;\nconst config = $('set_workflow_vars').first().json;\nconst base = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!base) throw new Error('ARTICLE_WRITER_URL is not set; the review turn cannot be reached');\nconst sessionId = ('article-' + String(req.ROW_NUMBER || '').trim()).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 80);\nreturn [{ json: {\n  REVIEW_URL: base + '/v1/chat/completions',\n  REVIEW_BODY: JSON.stringify({\n    task: 'review',\n    session_id: sessionId,\n    source_hosts: String(config.SOURCE_HOSTS || '').trim(),\n    brief: {\n      topic: String(req.TOPIC || ''),\n      description: String(req.DESCRIPTION || ''),\n      url: String(req.URL || ''),\n      max_words: Number(req.MAX_WORDS) || 0,\n      asset_types: String(req.ASSET_TYPES || ''),\n      audience: String(config.AUDIENCE || 'NONE'),\n      extra_prompt: String(req.EXTRA_PROMPT || ''),\n      content: String(req.CONTENT || ''),\n      feedback: String(req.FEEDBACK || '').trim(),\n    },\n    article: { title: String(parsed.TITLE || ''), text: String(parsed.TEXT || '') },\n  }),\n} }];"
+        }
       },
       {
+        "id": "f04ede57-b2c9-431b-b111-73d4b66d2122",
+        "name": "request_review",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "onError": "continueErrorOutput",
+        "position": [
+          1200,
+          600
+        ],
         "parameters": {
           "method": "POST",
           "url": "={{ $json.REVIEW_URL }}",
@@ -422,16 +431,7 @@
               }
             }
           }
-        },
-        "id": "f04ede57-b2c9-431b-b111-73d4b66d2122",
-        "name": "request_review",
-        "position": [
-          1200,
-          600
-        ],
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.4,
-        "onError": "continueErrorOutput"
+        }
       },
       {
         "id": "14f800cc-bdb0-4dfa-988d-766137a16134",
@@ -448,10 +448,10 @@
               {
                 "conditions": {
                   "options": {
-                    "caseSensitive": true,
+                    "version": 2,
                     "leftValue": "",
-                    "typeValidation": "strict",
-                    "version": 2
+                    "caseSensitive": true,
+                    "typeValidation": "strict"
                   },
                   "conditions": [
                     {
@@ -470,10 +470,10 @@
               {
                 "conditions": {
                   "options": {
-                    "caseSensitive": true,
+                    "version": 2,
                     "leftValue": "",
-                    "typeValidation": "strict",
-                    "version": 2
+                    "caseSensitive": true,
+                    "typeValidation": "strict"
                   },
                   "conditions": [
                     {
@@ -492,10 +492,10 @@
               {
                 "conditions": {
                   "options": {
-                    "caseSensitive": true,
+                    "version": 2,
                     "leftValue": "",
-                    "typeValidation": "strict",
-                    "version": 2
+                    "caseSensitive": true,
+                    "typeValidation": "strict"
                   },
                   "conditions": [
                     {
@@ -536,28 +536,28 @@
         "name": "request_aspects",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
+        "onError": "continueErrorOutput",
         "position": [
           -16288,
           -528
         ],
         "parameters": {
-          "method": "POST",
-          "url": "={{ $json.ASPECTS_URL }}",
-          "sendBody": true,
-          "specifyBody": "json",
           "jsonBody": "={{ $json.ASPECTS_BODY }}",
+          "method": "POST",
           "options": {
-            "timeout": 900000,
             "response": {
               "response": {
-                "neverError": true,
                 "fullResponse": true,
+                "neverError": true,
                 "responseFormat": "json"
               }
-            }
-          }
-        },
-        "onError": "continueErrorOutput"
+            },
+            "timeout": 900000
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "url": "={{ $json.ASPECTS_URL }}"
+        }
       },
       {
         "id": "ff897bf7-ac4e-4a48-8caf-912af56a5766",
@@ -588,28 +588,28 @@
         "name": "request_improve",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
+        "onError": "continueErrorOutput",
         "position": [
           -16288,
           -320
         ],
         "parameters": {
-          "method": "POST",
-          "url": "={{ $json.IMPROVE_URL }}",
-          "sendBody": true,
-          "specifyBody": "json",
           "jsonBody": "={{ $json.IMPROVE_BODY }}",
+          "method": "POST",
           "options": {
-            "timeout": 600000,
             "response": {
               "response": {
-                "neverError": true,
                 "fullResponse": true,
+                "neverError": true,
                 "responseFormat": "json"
               }
-            }
-          }
-        },
-        "onError": "continueErrorOutput"
+            },
+            "timeout": 600000
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "url": "={{ $json.IMPROVE_URL }}"
+        }
       },
       {
         "id": "e9481c5f-c6ba-4b63-bf7d-fc0589f7a783",
@@ -637,187 +637,13 @@
       }
     ],
     "connections": {
-      "main_trigger": {
-        "main": [
-          [
-            {
-              "node": "set_workflow_vars",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "set_workflow_vars": {
-        "main": [
-          [
-            {
-              "node": "switch_task",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "parse_article": {
-        "main": [
-          [
-            {
-              "node": "build_review_request",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "merge_article_verdict": {
-        "main": [
-          [
-            {
-              "node": "switch_article_check",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "switch_article_check": {
-        "main": [
-          [
-            {
-              "node": "set_output",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "set_error_max_tries",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "build_article_request",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
       "build_article_request": {
         "main": [
           [
             {
+              "index": 0,
               "node": "request_article",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "request_article": {
-        "main": [
-          [
-            {
-              "node": "fetch_article",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "fetch_article": {
-        "main": [
-          [
-            {
-              "node": "fetch_sources",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "fetch_sources": {
-        "main": [
-          [
-            {
-              "node": "parse_article",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "parse_review_verdict": {
-        "main": [
-          [
-            {
-              "node": "merge_article_verdict",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "build_review_request": {
-        "main": [
-          [
-            {
-              "node": "request_review",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "request_review": {
-        "main": [
-          [
-            {
-              "node": "parse_review_verdict",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "parse_review_verdict",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "switch_task": {
-        "main": [
-          [
-            {
-              "node": "build_aspects_request",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "build_improve_request",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "build_article_request",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "bad_task",
-              "type": "main",
-              "index": 0
+              "type": "main"
             }
           ]
         ]
@@ -826,27 +652,9 @@
         "main": [
           [
             {
+              "index": 0,
               "node": "request_aspects",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "request_aspects": {
-        "main": [
-          [
-            {
-              "node": "pass_aspects_answer",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "pass_aspects_answer",
-              "type": "main",
-              "index": 0
+              "type": "main"
             }
           ]
         ]
@@ -855,9 +663,115 @@
         "main": [
           [
             {
+              "index": 0,
               "node": "request_improve",
-              "type": "main",
-              "index": 0
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "build_review_request": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "request_review",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "fetch_article": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "fetch_sources",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "fetch_sources": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "parse_article",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "main_trigger": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "set_workflow_vars",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "merge_article_verdict": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "switch_article_check",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "parse_article": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "build_review_request",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "parse_review_verdict": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "merge_article_verdict",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "request_article": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "fetch_article",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "request_aspects": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "pass_aspects_answer",
+              "type": "main"
+            }
+          ],
+          [
+            {
+              "index": 0,
+              "node": "pass_aspects_answer",
+              "type": "main"
             }
           ]
         ]
@@ -866,16 +780,102 @@
         "main": [
           [
             {
+              "index": 0,
               "node": "pass_improve_answer",
-              "type": "main",
-              "index": 0
+              "type": "main"
             }
           ],
           [
             {
+              "index": 0,
               "node": "pass_improve_answer",
-              "type": "main",
-              "index": 0
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "request_review": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "parse_review_verdict",
+              "type": "main"
+            }
+          ],
+          [
+            {
+              "index": 0,
+              "node": "parse_review_verdict",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "set_workflow_vars": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "switch_task",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "switch_article_check": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "set_output",
+              "type": "main"
+            }
+          ],
+          [
+            {
+              "index": 0,
+              "node": "set_error_max_tries",
+              "type": "main"
+            }
+          ],
+          [
+            {
+              "index": 0,
+              "node": "build_article_request",
+              "type": "main"
+            }
+          ]
+        ]
+      },
+      "switch_task": {
+        "main": [
+          [
+            {
+              "index": 0,
+              "node": "build_aspects_request",
+              "type": "main"
+            }
+          ],
+          [
+            {
+              "index": 0,
+              "node": "build_improve_request",
+              "type": "main"
+            }
+          ],
+          [
+            {
+              "index": 0,
+              "node": "build_article_request",
+              "type": "main"
+            }
+          ],
+          [
+            {
+              "index": 0,
+              "node": "bad_task",
+              "type": "main"
             }
           ]
         ]
@@ -886,192 +886,18 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-11-06T22:01:55.328Z",
-    "updatedAt": "2026-11-06T22:01:55.328Z"
+    "createdAt": "2026-11-07T13:45:15.394Z",
+    "updatedAt": "2026-11-07T13:45:15.394Z"
   },
-  "activeVersionId": "2282b2f1-16e8-48df-84b9-58e546a86280",
+  "activeVersionId": "8b71b97f-c873-478e-9da2-aba0fc47fcf7",
   "connections": {
-    "main_trigger": {
-      "main": [
-        [
-          {
-            "node": "set_workflow_vars",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "set_workflow_vars": {
-      "main": [
-        [
-          {
-            "node": "switch_task",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "parse_article": {
-      "main": [
-        [
-          {
-            "node": "build_review_request",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "merge_article_verdict": {
-      "main": [
-        [
-          {
-            "node": "switch_article_check",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "switch_article_check": {
-      "main": [
-        [
-          {
-            "node": "set_output",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "set_error_max_tries",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "build_article_request",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "build_article_request": {
       "main": [
         [
           {
+            "index": 0,
             "node": "request_article",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "request_article": {
-      "main": [
-        [
-          {
-            "node": "fetch_article",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "fetch_article": {
-      "main": [
-        [
-          {
-            "node": "fetch_sources",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "fetch_sources": {
-      "main": [
-        [
-          {
-            "node": "parse_article",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "parse_review_verdict": {
-      "main": [
-        [
-          {
-            "node": "merge_article_verdict",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "build_review_request": {
-      "main": [
-        [
-          {
-            "node": "request_review",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "request_review": {
-      "main": [
-        [
-          {
-            "node": "parse_review_verdict",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "parse_review_verdict",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "switch_task": {
-      "main": [
-        [
-          {
-            "node": "build_aspects_request",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "build_improve_request",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "build_article_request",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "bad_task",
-            "type": "main",
-            "index": 0
+            "type": "main"
           }
         ]
       ]
@@ -1080,27 +906,9 @@
       "main": [
         [
           {
+            "index": 0,
             "node": "request_aspects",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "request_aspects": {
-      "main": [
-        [
-          {
-            "node": "pass_aspects_answer",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "pass_aspects_answer",
-            "type": "main",
-            "index": 0
+            "type": "main"
           }
         ]
       ]
@@ -1109,9 +917,115 @@
       "main": [
         [
           {
+            "index": 0,
             "node": "request_improve",
-            "type": "main",
-            "index": 0
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "build_review_request": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "request_review",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "fetch_article": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "fetch_sources",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "fetch_sources": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "parse_article",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "main_trigger": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "set_workflow_vars",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "merge_article_verdict": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "switch_article_check",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "parse_article": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "build_review_request",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "parse_review_verdict": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "merge_article_verdict",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "request_article": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "fetch_article",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "request_aspects": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "pass_aspects_answer",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "pass_aspects_answer",
+            "type": "main"
           }
         ]
       ]
@@ -1120,16 +1034,102 @@
       "main": [
         [
           {
+            "index": 0,
             "node": "pass_improve_answer",
-            "type": "main",
-            "index": 0
+            "type": "main"
           }
         ],
         [
           {
+            "index": 0,
             "node": "pass_improve_answer",
-            "type": "main",
-            "index": 0
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "request_review": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "parse_review_verdict",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "parse_review_verdict",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "set_workflow_vars": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "switch_task",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "switch_article_check": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "set_output",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "set_error_max_tries",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "build_article_request",
+            "type": "main"
+          }
+        ]
+      ]
+    },
+    "switch_task": {
+      "main": [
+        [
+          {
+            "index": 0,
+            "node": "build_aspects_request",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "build_improve_request",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "build_article_request",
+            "type": "main"
+          }
+        ],
+        [
+          {
+            "index": 0,
+            "node": "bad_task",
+            "type": "main"
           }
         ]
       ]
@@ -1338,20 +1338,7 @@
         -736
       ],
       "parameters": {
-        "jsCode": "// The verdict the loop branches on. The reviewer's answer is combined with the parser's\n// deterministic checks, and the deterministic half wins: a count asked of a model is a\n// count that gets invented, so `PROBLEM` rejects the draft whatever the reviewer said \u2014\n// and the reason then names the real numbers rather than the reviewer's guess.\nconst parsed = $('parse_article').item.json;\nconst reviewerSays = String($json.output || '').trim() === 'true';\nconst reason = String($json.explanation || '').replace(/\\s+/g, ' ').trim();\nconst problem = String(parsed.PROBLEM || '');\n\nconst accepted = !problem && reviewerSays;\nlet explanation = '';\nif (problem) explanation = problem + (reason ? ' ' + reason : '');\nelse if (!reviewerSays) explanation = reason || 'the reviewer rejected the draft without a reason';\n\nreturn [{ json: { ...$json, output: accepted ? 'true' : 'false', explanation } }];"
-      }
-    },
-    {
-      "id": "3c1b292c-9d8b-48c7-baba-365b1b9ada0e",
-      "name": "parse_review_verdict",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1400,
-        600
-      ],
-      "parameters": {
-        "jsCode": "// The writer answers a structured verdict, not prose to re-parse: a body without one is\n// a rejection with the reason named, so the retry carries a real cause rather than an\n// empty explanation.\nconst res = $input.first().json;\n// A transport failure arrives as an error item (`onError: continueErrorOutput`) and\n// carries no status: name it, or a dead connection reads as no verdict.\nconst transport = res.error ? String((res.error && res.error.message) || res.error).trim() : '';\nif (transport) return [{ json: { output: 'false', explanation: 'REVIEW: ' + transport } }];\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nconst review = body.review || {};\nif (status >= 400) {\n  const message = String((body.error && body.error.message) || body.error || body.message || '').trim();\n  return [{ json: { output: 'false', explanation: 'REVIEW: HTTP ' + status + (message ? ': ' + message : ' the review turn failed') } }];\n}\nif (typeof review.pass !== 'boolean') {\n  return [{ json: { output: 'false', explanation: 'REVIEW: the writer returned no verdict' } }];\n}\nreturn [{ json: {\n  output: review.pass ? 'true' : 'false',\n  explanation: String(review.explanation || '').replace(/\\s+/g, ' ').trim(),\n} }];"
+        "jsCode": "// The verdict the loop branches on. The reviewer's answer is combined with the parser's\n// deterministic checks, and the deterministic half wins: a count asked of a model is a\n// count that gets invented, so `PROBLEM` rejects the draft whatever the reviewer said —\n// and the reason then names the real numbers rather than the reviewer's guess.\nconst parsed = $('parse_article').item.json;\nconst reviewerSays = String($json.output || '').trim() === 'true';\nconst reason = String($json.explanation || '').replace(/\\s+/g, ' ').trim();\nconst problem = String(parsed.PROBLEM || '');\n\nconst accepted = !problem && reviewerSays;\nlet explanation = '';\nif (problem) explanation = problem + (reason ? ' ' + reason : '');\nelse if (!reviewerSays) explanation = reason || 'the reviewer rejected the draft without a reason';\n\nreturn [{ json: { ...$json, output: accepted ? 'true' : 'false', explanation } }];"
       }
     },
     {
@@ -1531,19 +1518,41 @@
       }
     },
     {
+      "id": "3c1b292c-9d8b-48c7-baba-365b1b9ada0e",
+      "name": "parse_review_verdict",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        600
+      ],
       "parameters": {
-        "jsCode": "// The review is the writer's turn too: n8n sends the draft and the entry's fields,\n// and the adapter renders the gate prompt from its own files. One request carries both,\n// so the verdict is about the draft this run parsed and no second copy of the prompt\n// exists in the workflow.\nconst parsed = $('parse_article').first().json;\nconst req = $('main_trigger').first().json;\nconst config = $('set_workflow_vars').first().json;\nconst base = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!base) throw new Error('ARTICLE_WRITER_URL is not set; the review turn cannot be reached');\nconst sessionId = ('article-' + String(req.ROW_NUMBER || '').trim()).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 80);\nreturn [{ json: {\n  REVIEW_URL: base + '/v1/chat/completions',\n  REVIEW_BODY: JSON.stringify({\n    task: 'review',\n    session_id: sessionId,\n    source_hosts: String(config.SOURCE_HOSTS || '').trim(),\n    brief: {\n      topic: String(req.TOPIC || ''),\n      description: String(req.DESCRIPTION || ''),\n      url: String(req.URL || ''),\n      max_words: Number(req.MAX_WORDS) || 0,\n      asset_types: String(req.ASSET_TYPES || ''),\n      audience: String(config.AUDIENCE || 'NONE'),\n      extra_prompt: String(req.EXTRA_PROMPT || ''),\n      content: String(req.CONTENT || ''),\n      feedback: String(req.FEEDBACK || '').trim(),\n    },\n    article: { title: String(parsed.TITLE || ''), text: String(parsed.TEXT || '') },\n  }),\n} }];"
-      },
+        "jsCode": "// The writer answers a structured verdict, not prose to re-parse: a body without one is\n// a rejection with the reason named, so the retry carries a real cause rather than an\n// empty explanation.\nconst res = $input.first().json;\n// A transport failure arrives as an error item (`onError: continueErrorOutput`) and\n// carries no status: name it, or a dead connection reads as no verdict.\nconst transport = res.error ? String((res.error && res.error.message) || res.error).trim() : '';\nif (transport) return [{ json: { output: 'false', explanation: 'REVIEW: ' + transport } }];\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nconst review = body.review || {};\nif (status >= 400) {\n  const message = String((body.error && body.error.message) || body.error || body.message || '').trim();\n  return [{ json: { output: 'false', explanation: 'REVIEW: HTTP ' + status + (message ? ': ' + message : ' the review turn failed') } }];\n}\nif (typeof review.pass !== 'boolean') {\n  return [{ json: { output: 'false', explanation: 'REVIEW: the writer returned no verdict' } }];\n}\nreturn [{ json: {\n  output: review.pass ? 'true' : 'false',\n  explanation: String(review.explanation || '').replace(/\\s+/g, ' ').trim(),\n} }];"
+      }
+    },
+    {
       "id": "cb01c12e-8da7-4499-b039-38ac94baf912",
       "name": "build_review_request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         1000,
         600
       ],
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2
+      "parameters": {
+        "jsCode": "// The review is the writer's turn too: n8n sends the draft and the entry's fields,\n// and the adapter renders the gate prompt from its own files. One request carries both,\n// so the verdict is about the draft this run parsed and no second copy of the prompt\n// exists in the workflow.\nconst parsed = $('parse_article').first().json;\nconst req = $('main_trigger').first().json;\nconst config = $('set_workflow_vars').first().json;\nconst base = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!base) throw new Error('ARTICLE_WRITER_URL is not set; the review turn cannot be reached');\nconst sessionId = ('article-' + String(req.ROW_NUMBER || '').trim()).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 80);\nreturn [{ json: {\n  REVIEW_URL: base + '/v1/chat/completions',\n  REVIEW_BODY: JSON.stringify({\n    task: 'review',\n    session_id: sessionId,\n    source_hosts: String(config.SOURCE_HOSTS || '').trim(),\n    brief: {\n      topic: String(req.TOPIC || ''),\n      description: String(req.DESCRIPTION || ''),\n      url: String(req.URL || ''),\n      max_words: Number(req.MAX_WORDS) || 0,\n      asset_types: String(req.ASSET_TYPES || ''),\n      audience: String(config.AUDIENCE || 'NONE'),\n      extra_prompt: String(req.EXTRA_PROMPT || ''),\n      content: String(req.CONTENT || ''),\n      feedback: String(req.FEEDBACK || '').trim(),\n    },\n    article: { title: String(parsed.TITLE || ''), text: String(parsed.TEXT || '') },\n  }),\n} }];"
+      }
     },
     {
+      "id": "f04ede57-b2c9-431b-b111-73d4b66d2122",
+      "name": "request_review",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "onError": "continueErrorOutput",
+      "position": [
+        1200,
+        600
+      ],
       "parameters": {
         "method": "POST",
         "url": "={{ $json.REVIEW_URL }}",
@@ -1560,16 +1569,7 @@
             }
           }
         }
-      },
-      "id": "f04ede57-b2c9-431b-b111-73d4b66d2122",
-      "name": "request_review",
-      "position": [
-        1200,
-        600
-      ],
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "onError": "continueErrorOutput"
+      }
     },
     {
       "id": "14f800cc-bdb0-4dfa-988d-766137a16134",
@@ -1586,10 +1586,10 @@
             {
               "conditions": {
                 "options": {
-                  "caseSensitive": true,
+                  "version": 2,
                   "leftValue": "",
-                  "typeValidation": "strict",
-                  "version": 2
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
                 },
                 "conditions": [
                   {
@@ -1608,10 +1608,10 @@
             {
               "conditions": {
                 "options": {
-                  "caseSensitive": true,
+                  "version": 2,
                   "leftValue": "",
-                  "typeValidation": "strict",
-                  "version": 2
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
                 },
                 "conditions": [
                   {
@@ -1630,10 +1630,10 @@
             {
               "conditions": {
                 "options": {
-                  "caseSensitive": true,
+                  "version": 2,
                   "leftValue": "",
-                  "typeValidation": "strict",
-                  "version": 2
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
                 },
                 "conditions": [
                   {
@@ -1674,28 +1674,28 @@
       "name": "request_aspects",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
+      "onError": "continueErrorOutput",
       "position": [
         -16288,
         -528
       ],
       "parameters": {
-        "method": "POST",
-        "url": "={{ $json.ASPECTS_URL }}",
-        "sendBody": true,
-        "specifyBody": "json",
         "jsonBody": "={{ $json.ASPECTS_BODY }}",
+        "method": "POST",
         "options": {
-          "timeout": 900000,
           "response": {
             "response": {
-              "neverError": true,
               "fullResponse": true,
+              "neverError": true,
               "responseFormat": "json"
             }
-          }
-        }
-      },
-      "onError": "continueErrorOutput"
+          },
+          "timeout": 900000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "url": "={{ $json.ASPECTS_URL }}"
+      }
     },
     {
       "id": "ff897bf7-ac4e-4a48-8caf-912af56a5766",
@@ -1726,28 +1726,28 @@
       "name": "request_improve",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
+      "onError": "continueErrorOutput",
       "position": [
         -16288,
         -320
       ],
       "parameters": {
-        "method": "POST",
-        "url": "={{ $json.IMPROVE_URL }}",
-        "sendBody": true,
-        "specifyBody": "json",
         "jsonBody": "={{ $json.IMPROVE_BODY }}",
+        "method": "POST",
         "options": {
-          "timeout": 600000,
           "response": {
             "response": {
-              "neverError": true,
               "fullResponse": true,
+              "neverError": true,
               "responseFormat": "json"
             }
-          }
-        }
-      },
-      "onError": "continueErrorOutput"
+          },
+          "timeout": 600000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "url": "={{ $json.IMPROVE_URL }}"
+      }
     },
     {
       "id": "e9481c5f-c6ba-4b63-bf7d-fc0589f7a783",
@@ -1794,6 +1794,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 0,
-  "updatedAt": "2026-11-06T22:01:55.309Z",
-  "versionId": "2282b2f1-16e8-48df-84b9-58e546a86280"
+  "updatedAt": "2026-11-07T13:45:15.382Z",
+  "versionId": "8b71b97f-c873-478e-9da2-aba0fc47fcf7"
 }

@@ -51,6 +51,11 @@ fs.writeFileSync("sources.json", JSON.stringify({ sources: [
   { block: "helm upgrade --install probe ./chart", url: "http://127.0.0.1:9/page" },
   { block: "helm upgrade --install probe ./chart", url: "https://source.invalid/page" }
 ] }));
+// A second fence with no entry: the caller reports this as UNQUOTED, and the server names it
+// in the answer so the mismatch is visible without the caller's gate.
+if (prompt.includes("UNQUOTED_PROBE")) {
+  fs.appendFileSync("article.md", "\\n\\u0060\\u0060\\u0060bash\\nkubectl apply -f - <<EOF\\nEOF\\n\\u0060\\u0060\\u0060\\n");
+}
 if (prompt.includes("NO_LEDGER")) fs.rmSync("sources.json", { force: true });
 if (prompt.includes("BROKEN_LEDGER")) fs.writeFileSync("sources.json", "{not json");
 // A tool that connects to a host off the list must be refused by the proxy itself, so
@@ -142,6 +147,23 @@ const turn = (body) =>
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
+
+test("a fence with no ledger entry is named in the answer", async () => {
+  const res = await turn({
+    messages: [{ role: "user", content: "UNQUOTED_PROBE write about installing the release" }],
+    session_id: "article-unquoted",
+    source_hosts: ["github.com"],
+  });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  // The entry that verifies is quoted; the appended fence has no entry at all, which is
+  // the caller's UNQUOTED failure. The server never invents the missing entry.
+  assert.equal(body.article.quoted, 0);
+  assert.ok(
+    body.article.unquoted.some((block) => block.startsWith("kubectl apply -f - <<EOF")),
+    JSON.stringify(body.article.unquoted)
+  );
+});
 
 test("a turn drafts both files and returns the ledger the server verified", async () => {
   const res = await turn({

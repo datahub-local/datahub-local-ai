@@ -24,6 +24,10 @@ import {
   findExcerpt,
   revalidateLedger,
   scrapeReader,
+  agentSettings,
+  DEFAULT_COMPACTION,
+  DEFAULT_CONTEXT_WINDOW,
+  DEFAULT_MODEL_MAX_TOKENS,
   articleTurnInstruction,
   mcpConfig,
 } from "../session-lib.mjs";
@@ -357,4 +361,33 @@ test("a reader does not bypass the source-host policy", async () => {
   assert.equal(read, false, "an off-list host was scraped");
   assert.deepEqual(sources, []);
   assert.match(dropped[0].reason, /not a declared source host/);
+});
+
+// Pi's compaction is the only thing that keeps a long-lived row inside the window: its
+// vendor default reserves 16k, so a session is not compacted until the window is nearly gone
+// and a resumed one sends a request the gateway truncates to one character.
+// The trigger is a share of the window so a model change does not need a config change.
+test("the settings compact a session at a share of the window", () => {
+  const settings = agentSettings();
+  assert.equal(settings.compaction.enabled, true);
+  // 80% of 500000 triggers, so the reserve is the remaining 100000.
+  // 80% triggers, but the reserve is floored at the gateway's output cap plus a margin:
+  // 131072 + 16384 leaves less room than 20% of the window, and the cap is the truth.
+  assert.equal(settings.compaction.reserveTokens, DEFAULT_MODEL_MAX_TOKENS + 16_384);
+  assert.equal(settings.compaction.keepRecentTokens, 25_000);
+  assert.equal(DEFAULT_COMPACTION.triggerPercent, 80);
+  assert.equal(DEFAULT_MODEL_MAX_TOKENS, 131_072, "the gateway's max_output_tokens");
+  assert.equal(DEFAULT_CONTEXT_WINDOW, 500_000, "the gateway serves 500000 input tokens");
+});
+
+test("the share follows the window, and the reserve keeps room for the answer", () => {
+  const big = agentSettings({ contextWindow: 1_000_000 });
+  assert.equal(big.compaction.reserveTokens, 200_000, "20% of a window wider than the cap wins");
+  assert.equal(big.compaction.keepRecentTokens, 50_000);
+  // A small window with a large output cap: the reserve is the cap plus the margin, not 20%.
+  const small = agentSettings({ contextWindow: 100_000, maxTokens: 40_000 });
+  assert.equal(small.compaction.reserveTokens, 40_000 + 16_384);
+  assert.throws(() => agentSettings({ compactionTriggerPercent: 100 }), /between 0 and 100/);
+  assert.throws(() => agentSettings({ compactionTriggerPercent: 0 }), /between 0 and 100/);
+  assert.throws(() => agentSettings({ compactionKeepPercent: 90 }), /smaller than the trigger/);
 });

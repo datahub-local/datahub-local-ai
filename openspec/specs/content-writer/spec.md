@@ -990,3 +990,35 @@ the direct fetch and SHALL log at boot which path it uses.
 
 - **WHEN** the ledger cites a host the request did not declare
 - **THEN** the entry is dropped without a scrape being attempted
+
+### Requirement: A writer session is compacted well inside the model window
+
+The writer SHALL write Pi's `compaction` settings rather than leave them to the vendor default: it
+SHALL keep compaction enabled, SHALL express the trigger as a percentage of the context window so a
+change of model needs no configuration change, and SHALL resolve that percentage into the token
+reserve Pi expects, floored so the output cap and the summariser's own request still fit. It SHALL
+refuse a percentage that is not between 0 and 100 or a kept-recent share at or above the trigger,
+and SHALL log the resolved trigger with the window at boot.
+
+#### Scenario: A session that has grown across retries
+
+- **WHEN** a resumed session is larger than the trigger
+- **THEN** Pi compacts it before the next request
+- **AND** the request the gateway receives is the summary plus the recent tokens, not the whole history
+
+#### Scenario: The model window changes
+
+- **WHEN** the deployment points the writer at a model with a different input limit
+- **THEN** only the context window is set
+- **AND** the trigger stays the same share of it
+
+#### Scenario: An unusable share
+
+- **WHEN** the trigger is not between 0 and 100, or the kept-recent share is at or above it
+- **THEN** the server refuses to write the settings file
+- **AND** the pod does not start on a configuration that cannot compact
+
+#### Scenario: Evidence of the bound
+
+- **WHEN** the session server starts
+- **THEN** it logs the resolved trigger, its percentage and the context window it fits inside

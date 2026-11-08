@@ -107,6 +107,30 @@ export const DEFAULT_RETRY = {
   maxAgentDelayMs: 60_000,
 };
 
+// The gateway's per-model `max_input_tokens`. LiteLLM serves 500000 for every
+// `opencode-go/*` model, so Pi's own window and the compaction trigger both scale from this
+// one number: a deployment on a smaller model overrides it with PI_WRITER_CONTEXT_WINDOW.
+export const DEFAULT_CONTEXT_WINDOW = 500_000;
+
+// The gateway's per-model output cap. LiteLLM serves `max_output_tokens: 131072` beside the
+// 500000 input limit, so this is the number Pi's request may reserve, not a preference of
+// ours; a deployment that wants a smaller answer sets PI_WRITER_MAX_TOKENS.
+export const DEFAULT_MODEL_MAX_TOKENS = 131_072;
+
+// Pi compacts a session only when it is about to overflow: its default reserve is 16k, so a
+// session is not compacted until the window is nearly gone, and a long-lived row sends a
+// request the gateway truncates to a single character.
+//
+// The trigger is a share of the window, not a token count, so a deployment that changes the
+// model keeps it. At 80% of 500000 it is 400000: the 65536 output cap still fits, and so
+// does the summariser's own request. The reserve is floored at the output cap plus a margin,
+// because a small window with a large cap would otherwise leave no room to answer in.
+export const DEFAULT_COMPACTION = {
+  triggerPercent: 80,
+  keepPercent: 5,
+  minimumReserveTokens: 16_384,
+};
+
 // The object Pi reads as settings.json. Throws rather than writing a file whose idle
 // timeout would kill an attempt before the gateway could report why it failed.
 export function agentSettings({
@@ -115,17 +139,43 @@ export function agentSettings({
   baseDelayMs = DEFAULT_RETRY.baseDelayMs,
   maxAgentDelayMs = DEFAULT_RETRY.maxAgentDelayMs,
   gatewayStreamTimeoutMs = DEFAULT_GATEWAY_STREAM_TIMEOUT_MS,
+  contextWindow = DEFAULT_CONTEXT_WINDOW,
+  maxTokens = DEFAULT_MODEL_MAX_TOKENS,
+  compactionTriggerPercent = DEFAULT_COMPACTION.triggerPercent,
+  compactionKeepPercent = DEFAULT_COMPACTION.keepPercent,
 } = {}) {
   if (!(idleTimeoutMs > gatewayStreamTimeoutMs)) {
     throw new Error(
       `the writer's idle timeout (${idleTimeoutMs}ms) must exceed the gateway's streaming timeout (${gatewayStreamTimeoutMs}ms)`
     );
   }
+  if (!(compactionTriggerPercent > 0) || compactionTriggerPercent >= 100) {
+    throw new Error(`the compaction trigger (${compactionTriggerPercent}%) must be between 0 and 100`);
+  }
+  if (!(compactionKeepPercent >= 0) || compactionKeepPercent >= compactionTriggerPercent) {
+    throw new Error(
+      `the kept-recent share (${compactionKeepPercent}%) must be smaller than the trigger (${compactionTriggerPercent}%)`
+    );
+  }
+  const reserveTokens = Math.max(
+    DEFAULT_COMPACTION.minimumReserveTokens,
+    Math.ceil((contextWindow * (100 - compactionTriggerPercent)) / 100),
+    // The answer needs room too: the reserve is what the request must leave free.
+    Number(maxTokens) + DEFAULT_COMPACTION.minimumReserveTokens
+  );
   return {
     httpIdleTimeoutMs: idleTimeoutMs,
     // Stated rather than left to the vendor's default: a silent change to it would
     // turn the retry window off, which is the whole of this configuration.
     retry: { enabled: true, maxRetries, baseDelayMs, maxAgentDelayMs },
+    // Pi's own compaction, forced on and tuned: the summary is what the next process
+    // resumes from, so a long-lived row cannot keep re-sending its whole history.
+    // Pi takes these in tokens, so the shares are resolved here.
+    compaction: {
+      enabled: true,
+      reserveTokens,
+      keepRecentTokens: Math.floor((contextWindow * compactionKeepPercent) / 100),
+    },
   };
 }
 

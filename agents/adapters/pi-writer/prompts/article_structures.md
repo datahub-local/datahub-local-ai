@@ -4,7 +4,7 @@ Pick the body that fits the entry, and write one article rather than a tour of e
 
 A shape is a sequence of jobs, not a template to fill. These hold for every shape:
 
-- **One block the reader can run.** A shape that teaches a tool carries at least one fenced block quoted from a source and whole enough to run: the command and its output, the manifest, the file. Elisions and undefined names are fragments: introduce the name in the prose above the block, never by editing the block, because the ledger matches its words against the page.
+- **One block the reader can run.** A shape that teaches a tool carries at least one fenced block quoted from a source and whole enough to run: the command and its output, the manifest, the file. When no fetched page carries one, the step is prose instead: a thinner article beats an unsourced block. Elisions and undefined names are fragments: introduce the name in the prose above the block, never by editing the block, because the ledger matches its words against the page.
 - **One boundary.** Before the close, one line or one paragraph on when this is not the choice to make, and what to reach for instead. A recommendation with no boundary is an advertisement.
 
 - **One outcome.** Before the first sentence, state in one line what the reader will have done or understood by the end. Every section serves that line; a section serving a different outcome is a different article, so cut it.

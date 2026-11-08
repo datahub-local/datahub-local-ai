@@ -39,6 +39,9 @@ import {
   exists,
   DEFAULT_SESSION_WORKSPACE,
   DEFAULT_RETRY,
+  DEFAULT_COMPACTION,
+  DEFAULT_CONTEXT_WINDOW,
+  DEFAULT_MODEL_MAX_TOKENS,
   agentSettings,
   mcpConfig,
   parseSourceHosts,
@@ -46,6 +49,8 @@ import {
   fillTemplate,
   parseLedger,
   serialiseLedger,
+  extractFencedBlocks,
+  normaliseBlock,
   revalidateLedger,
   scrapeReader,
   articleTurnInstruction,
@@ -70,6 +75,10 @@ const proxyPort = Number(process.env.PI_WRITER_PROXY_PORT || "8081");
 // /workspace (only the Job path does), so the workspace must default under the PVC.
 // The caller can still override it.
 const workDir = process.env.SYMPOZIUM_WORKSPACE || DEFAULT_SESSION_WORKSPACE;
+// The window Pi sizes its requests against. LiteLLM serves 500000 input tokens for the
+// writer's model; the compaction trigger is a share of it, so only this moves with the model.
+const contextWindow = Number(process.env.PI_WRITER_CONTEXT_WINDOW || DEFAULT_CONTEXT_WINDOW);
+const maxTokens = Number(process.env.PI_WRITER_MAX_TOKENS || DEFAULT_MODEL_MAX_TOKENS);
 
 // Session state is durable, so it has to expire: an abandoned row would otherwise
 // keep its run directory and Pi transcript forever, and the PVC would fill. The
@@ -156,7 +165,7 @@ await writeFile(
             id: process.env.MODEL_NAME,
             reasoning: true,
             input: ["text"],
-            contextWindow: Number(process.env.PI_WRITER_CONTEXT_WINDOW || "262144"),
+            contextWindow: contextWindow,
             // The gateway's reasoning is billed as output and, left on, this model
             // spends every token it is given thinking and returns no content at all.
             // Pi only sends `reasoning_effort` for a non-off thinking level, so the
@@ -164,7 +173,7 @@ await writeFile(
             // gateway honours. Both numbers are overridable so they can move without
             // a rebuild.
             thinkingLevelMap: { minimal: "none" },
-            maxTokens: Number(process.env.PI_WRITER_MAX_TOKENS || "65536"),
+            maxTokens,
           },
         ],
       },
@@ -196,6 +205,16 @@ console.log(
   }`
 );
 
+// A session that outgrows the window answers one character and looks successful from the
+// outside, so the trigger is printed with the window it has to fit inside.
+console.log(
+  `sympozium pi writer session: compacting at ${Number(
+    process.env.PI_WRITER_COMPACT_AT_TOKENS || DEFAULT_COMPACTION.triggerTokens
+  )} tokens (${Number(
+    process.env.PI_WRITER_COMPACT_AT_PERCENT || DEFAULT_COMPACTION.triggerPercent
+  )}%) of a ${contextWindow} window`
+);
+
 // Pi's retry and idle-timeout settings, which Pi reads from the same agent directory.
 // Without this file the writer runs on the vendor's defaults, where a stream that
 // stalls for longer than the gateway's per-read timeout ends the attempt with no
@@ -208,6 +227,14 @@ await writeFile(
       maxRetries: Number(process.env.PI_WRITER_RETRY_MAX || DEFAULT_RETRY.maxRetries),
       baseDelayMs: Number(process.env.PI_WRITER_RETRY_BASE_MS || DEFAULT_RETRY.baseDelayMs),
       maxAgentDelayMs: Number(process.env.PI_WRITER_RETRY_MAX_DELAY_MS || DEFAULT_RETRY.maxAgentDelayMs),
+      contextWindow,
+      maxTokens,
+      compactionTriggerPercent: Number(
+        process.env.PI_WRITER_COMPACT_AT_PERCENT || DEFAULT_COMPACTION.triggerPercent
+      ),
+      compactionKeepPercent: Number(
+        process.env.PI_WRITER_COMPACT_KEEP_PERCENT || DEFAULT_COMPACTION.keepPercent
+      ),
     })
   )
 );
@@ -443,12 +470,34 @@ function ledgerSummary(entries) {
   );
 }
 
+// A fenced block the ledger never names is the failure the caller reports as UNQUOTED, and it
+// is invisible from the ledger alone: the entries all verify and the article still fails. Count
+// it here so the mismatch is named in the response and the pod log.
+async function unquotedBlocks(dir, entries) {
+  let article;
+  try {
+    article = await readFile(join(dir, ARTICLE_NAME), "utf8");
+  } catch {
+    return [];
+  }
+  const named = new Set((entries || []).map((entry) => normaliseBlock(entry.block)));
+  return extractFencedBlocks(article)
+    .filter((fenced) => !named.has(normaliseBlock(fenced.block)))
+    .map((fenced) => fenced.block.split("\n")[0].trim().slice(0, 120));
+}
+
 async function ledgerCounts(dir) {
   try {
     const entries = parseLedger(await readFile(join(dir, LEDGER_NAME), "utf8"));
-    return { sources: entries.length, quoted: entries.filter((entry) => entry.found === true).length, dropped: [], error: "" };
+    return {
+      sources: entries.length,
+      quoted: entries.filter((entry) => entry.found === true).length,
+      unquoted: await unquotedBlocks(dir, entries),
+      dropped: [],
+      error: "",
+    };
   } catch {
-    return { sources: 0, quoted: 0, dropped: [], error: "the session has no readable sources.json" };
+    return { sources: 0, quoted: 0, unquoted: [], dropped: [], error: "the session has no readable sources.json" };
   }
 }
 
@@ -742,9 +791,16 @@ async function verifyLedger(dir, hosts) {
     console.log(`sympozium pi writer session: dropped ledger entry ${entry.url}: ${entry.reason}`);
   }
   await writeFile(path, serialiseLedger(sources));
+  // Measured against what the turn declared, not what survived verification: an entry with a
+  // dead URL is a different failure and the caller names it separately.
+  const unquoted = await unquotedBlocks(dir, ledger);
+  for (const block of unquoted) {
+    console.log(`sympozium pi writer session: block not in ${LEDGER_NAME}: ${block}`);
+  }
   return {
     sources: sources.length,
     quoted: sources.filter((entry) => entry.found).length,
+    unquoted,
     dropped,
     error: "",
   };

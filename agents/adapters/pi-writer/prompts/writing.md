@@ -31,6 +31,16 @@ the work; this file is the map of the sandbox you draft in.
    fill from memory.
 4. Write the ledger as you go, one entry per fenced block. A block with no entry is an
    invented line and the draft is rejected naming it.
+5. Count before you answer, with two commands in the working directory:
+
+   ```
+   grep -c '^```' article.md
+   jq '.sources | length' sources.json
+   ```
+
+   The first is twice the number of blocks, so it must equal twice the second. When the numbers
+   disagree, the block without an entry is the one to cut or turn into prose; never add an entry
+   for a block no page carries, because the server re-reads the page and the entry is dropped.
 
 ## The source ledger
 

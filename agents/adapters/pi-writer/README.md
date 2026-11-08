@@ -129,9 +129,11 @@ is reachable.
 ## Fields Pi receives
 
 `MODEL_NAME`, `MODEL_BASE_URL`, `OPENAI_API_KEY`, `SYMPOZIUM_HARNESS_CONTRACT_VERSION`
-(`v1alpha2`), and the optional `PI_WRITER_*` knobs for the context window, token cap, idle
-timeout and retry window. `SYMPOZIUM_WORKSPACE` moves the run directory; it defaults under
-`/tmp`, because a session mounts the PVC there and not `/workspace`.
+(`v1alpha2`), and the optional `PI_WRITER_*` knobs: the context window (500000, the gateway's
+`max_input_tokens`), the token cap, the compaction trigger as a percentage of that window (80) and
+the kept-recent percentage (5), the idle timeout and the retry window. `SYMPOZIUM_WORKSPACE` moves
+the run directory; it defaults under `/tmp`, because a session mounts the PVC there and not
+`/workspace`.
 
 ## Tests
 

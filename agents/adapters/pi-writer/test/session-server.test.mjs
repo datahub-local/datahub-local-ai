@@ -25,7 +25,12 @@ let serverLog = "";
 // it was given, because the proxy is enforcement rather than instruction.
 const STUB_PI = `#!/usr/bin/env node
 const fs = require("node:fs");
+const path = require("node:path");
 const prompt = process.argv.at(-1) || "";
+const arg = (name) => {
+  const i = process.argv.indexOf(name);
+  return i >= 0 ? process.argv[i + 1] : "";
+};
 fs.writeFileSync("prompt.txt", prompt);
 fs.writeFileSync("args.txt", process.argv.slice(2).join(" "));
 fs.writeFileSync("env.log", process.env.HTTPS_PROXY || "none");
@@ -56,19 +61,28 @@ if (prompt.includes("NO_WRITE")) {
   process.stdout.write("I could not finish the article.");
   process.exit(0);
 }
+// The scrape the turn made, as Pi records it: the call carries the URL, the result the text
+// the model received. The server derives sources.json from this pair, not from the model.
+if (!prompt.includes("NO_SCRAPE")) {
+  const sessionDir = arg("--session-dir");
+  const sessionId = arg("--session-id");
+  fs.mkdirSync(sessionDir, { recursive: true });
+  const page = "# Probe docs\\n\\n\\u0060\\u0060\\u0060bash\\nhelm upgrade --install probe ./chart\\n\\u0060\\u0060\\u0060\\n";
+  fs.appendFileSync(
+    path.join(sessionDir, "2026-01-01T00-00-00-000Z_" + sessionId + ".jsonl"),
+    [
+      JSON.stringify({ type: "message", message: { role: "assistant", content: [{ type: "toolCall", id: "call_probe", name: "mcp__firecrawl__firecrawl_scrape", arguments: { url: "https://raw.githubusercontent.com/o/r/main/README.md" } }] } }),
+      JSON.stringify({ type: "message", message: { role: "toolResult", toolCallId: "call_probe", toolName: "mcp__firecrawl__firecrawl_scrape", content: [{ type: "text", text: page }], isError: false } }),
+    ].join("\\n") + "\\n"
+  );
+}
 // A quoted manifest, as the real turn would write it after reading the page.
 fs.writeFileSync("article.md", "# Probe\\n\\n## Install\\n\\n" + "\\u0060\\u0060\\u0060bash\\nhelm upgrade --install probe ./chart\\n\\u0060\\u0060\\u0060\\n");
-fs.writeFileSync("sources.json", JSON.stringify({ sources: [
-  { block: "helm upgrade --install probe ./chart", url: "http://127.0.0.1:9/page" },
-  { block: "helm upgrade --install probe ./chart", url: "https://source.invalid/page" }
-] }));
 // A second fence with no entry: the caller reports this as UNQUOTED, and the server names it
 // in the answer so the mismatch is visible without the caller's gate.
 if (prompt.includes("UNQUOTED_PROBE")) {
   fs.appendFileSync("article.md", "\\n\\u0060\\u0060\\u0060bash\\nkubectl apply -f - <<EOF\\nEOF\\n\\u0060\\u0060\\u0060\\n");
 }
-if (prompt.includes("NO_LEDGER")) fs.rmSync("sources.json", { force: true });
-if (prompt.includes("BROKEN_LEDGER")) fs.writeFileSync("sources.json", "{not json");
 // A tool that connects to a host off the list must be refused by the proxy itself, so
 // the turn records the reply it got.
 if (prompt.includes("PROXY_PROBE")) {
@@ -167,9 +181,9 @@ test("a fence with no ledger entry is named in the answer", async () => {
   });
   assert.equal(res.status, 200);
   const body = await res.json();
-  // The entry that verifies is quoted; the appended fence has no entry at all, which is
-  // the caller's UNQUOTED failure. The server never invents the missing entry.
-  assert.equal(body.article.quoted, 0);
+  // The fence the page carries is ledgered; the appended one is on no scraped page, which
+  // is the caller's UNQUOTED failure. The server never invents an entry for it.
+  assert.equal(body.article.quoted, 1);
   assert.ok(
     body.article.unquoted.some((block) => block.startsWith("kubectl apply -f - <<EOF")),
     JSON.stringify(body.article.unquoted)
@@ -186,8 +200,10 @@ test("a draft that answers without writing files has its answer adopted", async 
   const body = await res.json();
   assert.equal(body.article.title, "Adopted title");
   assert.match(body.article.text, /^Adopted body/);
-  // No ledger was written this turn, so the stale one is not handed back as evidence.
-  assert.match(body.article.error, /no sources\.json/);
+  // The adopted answer is the draft of record. It fences nothing, so the derived ledger is
+  // empty rather than the previous attempt's.
+  assert.equal(body.article.sources, 0);
+  assert.deepEqual(body.article.unquoted, []);
   const stored = await fetch(`${base}/artifacts/article-stale/article.md`);
   assert.match(await stored.text(), /Adopted body/);
 });
@@ -203,7 +219,7 @@ test("a draft that writes nothing and answers no block fails by name", async () 
   assert.match(body.error.message, /answered without writing article\.md/);
 });
 
-test("a turn drafts both files and returns the ledger the server verified", async () => {
+test("a turn drafts both files and the server derives the ledger from its transcript", async () => {
   const res = await turn({
     messages: [{ role: "user", content: "write about installing the release" }],
     session_id: "article-1",
@@ -213,17 +229,12 @@ test("a turn drafts both files and returns the ledger the server verified", asyn
   const body = await res.json();
   assert.equal(body.article.name, "article.md");
   assert.equal(body.article.ledger, "sources.json");
-  // Neither entry survives: one is http, the other names a host the caller did not
-  // declare. The server is the authority on both, and it rewrites the file rather
-  // than reporting.
-  assert.equal(body.article.sources, 0);
-  assert.equal(body.article.quoted, 0);
-  assert.equal(body.article.dropped.length, 2);
-  assert.ok(body.article.dropped.some((entry) => /not https/.test(entry.reason)), JSON.stringify(body.article.dropped));
-  assert.ok(
-    body.article.dropped.some((entry) => /not a declared source host/.test(entry.reason)),
-    JSON.stringify(body.article.dropped)
-  );
+  // The ledger is derived from the scrape the turn made, not from any file the model
+  // wrote: one fence, one page, one entry.
+  assert.equal(body.article.sources, 1);
+  assert.equal(body.article.quoted, 1);
+  assert.deepEqual(body.article.unquoted, []);
+  assert.equal(body.article.error, "");
 
   const article = await fetch(`${base}/artifacts/article-1/article.md`);
   assert.equal(article.status, 200);
@@ -234,7 +245,9 @@ test("a turn drafts both files and returns the ledger the server verified", asyn
   const ledger = await fetch(`${base}/artifacts/article-1/sources.json`);
   assert.equal(ledger.status, 200);
   assert.equal(ledger.headers.get("content-type"), "application/json; charset=utf-8");
-  assert.deepEqual(JSON.parse(await ledger.text()), { sources: [] });
+  const derived = JSON.parse(await ledger.text());
+  assert.equal(derived.sources.length, 1);
+  assert.equal(derived.sources[0].url, "https://raw.githubusercontent.com/o/r/main/README.md");
 });
 
 test("a brief is rendered from the adapter's own prompt files", async () => {
@@ -284,22 +297,16 @@ test("the artifact route serves only the two names the turn writes", async () =>
   assert.equal((await fetch(`${base}/artifacts/..%2F..%2Fetc/article.md`)).status, 404);
 });
 
-test("a turn that writes no ledger reports the error instead of a silent pass", async () => {
+test("a turn that scraped nothing has no evidence and says so", async () => {
   const res = await turn({
-    messages: [{ role: "user", content: "NO_LEDGER write about the release" }],
-    session_id: "article-2",
+    messages: [{ role: "user", content: "NO_SCRAPE write about the release" }],
+    session_id: "article-no-scrape",
   });
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.article.sources, 0);
-  assert.match(body.article.error, /wrote no sources\.json/);
-
-  const broken = await turn({
-    messages: [{ role: "user", content: "BROKEN_LEDGER write about the release" }],
-    session_id: "article-3",
-  });
-  assert.equal(broken.status, 200);
-  assert.match((await broken.json()).article.error, /not valid JSON/);
+  assert.match(body.article.error, /scraped no page/);
+  assert.deepEqual(body.article.unquoted, ["helm upgrade --install probe ./chart"]);
 });
 
 test("a retry is a correction of the directory, not a fresh authoring turn", async () => {

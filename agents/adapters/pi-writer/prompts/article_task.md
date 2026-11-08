@@ -53,10 +53,9 @@ A lookup that answers nothing is not wasted: it is how you learn the page does n
 
 ## What the body shows
 
-- At least one fenced block quoted from a page you fetched, whenever the shape teaches a tool and the pages you hold carry one: the command and its output, a manifest, a file, a query. Ledger it as `writing.md` says, or the draft is rejected naming it.
-- A block no fetched page carries is not written, even when the shape wants one for that step. Write the step as prose and say what the reader types in words: a missing block is a thinner article, an unsourced block is a rejected one.
-- Quote only from a page whose URL is on the declared source hosts: the server refetches every ledgered URL, and a page off the list can inform the prose but cannot carry a block.
-- Before you answer, count: every fenced block in `article.md` has one entry in `sources.json`, and the two counts are equal. A block you invented by assembling YAML from several pages is exactly the one with no entry.
+- At least one fenced block quoted from a page you scraped, whenever the shape teaches a tool and the pages you hold carry one: the command and its output, a manifest, a file, a query.
+- A block no scraped page carries is not written, even when the shape wants one for that step. Write the step as prose and say what the reader types in words: a missing block is a thinner article, an unsourced block is a rejected one.
+- Do not write `sources.json`. The server records every fenced block that appears verbatim on a page you scraped and rejects the article naming each block that does not, so a heredoc you assembled from several pages is exactly what gets rejected.
 - A block the reader cannot run as written is a fragment, not an example: elided lines (`...`), a missing import, a namespace or a name nothing earlier introduced. Write it whole and as the page has it — the ledger matches the block's words against that page, so an object renamed inside a block drops its entry. Introduce the name in the prose just above it, or leave the block out.
 - Under a block, one line on what it does and what success looks like when the source shows it. Not a line-by-line translation: one comment inside the block carries the line that is not obvious.
 - When the sources carry the failure the reader will meet — an error text, a rejected apply, a version mismatch — quote it verbatim, then the cause in one sentence and the fix. No error text you did not read.

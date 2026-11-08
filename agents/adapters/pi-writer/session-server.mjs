@@ -45,20 +45,20 @@ import {
   agentSettings,
   mcpConfig,
   parseSourceHosts,
+  hostAllowed,
+  isBlockedHostname,
   fillSourceHosts,
   fillTemplate,
   parseLedger,
   serialiseLedger,
+  deriveLedger,
+  transcriptPages,
   extractFencedBlocks,
   normaliseBlock,
-  revalidateLedger,
-  scrapeReader,
   articleTurnInstruction,
   splitArticle,
   articleWordCount,
   articleWordLimit,
-  hostAllowed,
-  isBlockedHostname,
   ARTICLE_NAME,
   LEDGER_NAME,
 } from "./session-lib.mjs";
@@ -195,13 +195,12 @@ await writeFile(
   )
 );
 
-// The ledger's re-read leaves the pod, and its egress policy admits the MCP servers only:
-// with no Firecrawl endpoint the verification falls back to a direct fetch, which answers
-// nothing here. Say which one is in use at boot, because both look healthy until a draft
-// is rejected for a block that is on the page.
+// The ledger is derived from the transcript, so the one thing worth printing at boot is
+// whether the reads it depends on are configured at all: with no Firecrawl endpoint the
+// turn cannot scrape and every fence comes back unquoted.
 console.log(
-  `sympozium pi writer session: ledger verification reads through ${
-    process.env.SYMPOZIUM_FIRECRAWL_MCP_URL ? "the Firecrawl MCP server" : "a direct fetch (no source)"
+  `sympozium pi writer session: ledger derived from scrapes ${
+    process.env.SYMPOZIUM_FIRECRAWL_MCP_URL ? "through the Firecrawl MCP server" : "(no Firecrawl endpoint set: no block can be quoted)"
   }`
 );
 
@@ -464,29 +463,18 @@ function ledgerSummary(entries) {
   );
 }
 
-// A fenced block the ledger never names is the failure the caller reports as UNQUOTED, and it
-// is invisible from the ledger alone: the entries all verify and the article still fails. Count
-// it here so the mismatch is named in the response and the pod log.
-async function unquotedBlocks(dir, entries) {
-  let article;
-  try {
-    article = await readFile(join(dir, ARTICLE_NAME), "utf8");
-  } catch {
-    return [];
-  }
-  const named = new Set((entries || []).map((entry) => normaliseBlock(entry.block)));
-  return extractFencedBlocks(article)
-    .filter((fenced) => !named.has(normaliseBlock(fenced.block)))
-    .map((fenced) => fenced.block.split("\n")[0].trim().slice(0, 120));
-}
-
 async function ledgerCounts(dir) {
   try {
     const entries = parseLedger(await readFile(join(dir, LEDGER_NAME), "utf8"));
+    const article = await readFile(join(dir, ARTICLE_NAME), "utf8");
+    const named = new Set(entries.map((entry) => normaliseBlock(entry.block)));
+    const unquoted = extractFencedBlocks(article)
+      .filter((fenced) => !named.has(normaliseBlock(fenced.block)))
+      .map((fenced) => fenced.block.split("\n")[0].trim().slice(0, 120));
     return {
       sources: entries.length,
       quoted: entries.filter((entry) => entry.found === true).length,
-      unquoted: await unquotedBlocks(dir, entries),
+      unquoted,
       dropped: [],
       error: "",
     };
@@ -719,8 +707,10 @@ proxyServer.on("connect", (req, socket, head) => {
   const refusal = proxyRefusal(host, { protocol: "https:", port });
   if (refusal) {
     console.log(`sympozium pi writer session: refused ${host} through the source proxy: ${refusal}`);
-    socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
-    socket.destroy();
+    // A client that gave up already is normal: an unhandled write error on this socket would
+    // take the whole session server down with it, and the refusal is the answer either way.
+    socket.on("error", () => {});
+    socket.end("HTTP/1.1 403 Forbidden\r\n\r\n");
     return;
   }
   const upstream = net.connect(Number(port) || 443, host, () => {
@@ -792,51 +782,53 @@ async function adoptDraft(dir, response, before) {
   throw new Error("the draft turn answered without writing article.md");
 }
 
-async function verifyLedger(dir, hosts, before) {
+// The ledger, derived rather than declared: the transcript holds every page this session
+// scraped and the text the model received, so a fence is quoted when it appears in that text
+// and unquoted when it does not. No fetch is repeated to prove a page the pod already read.
+async function writeDerivedLedger(dir, sessionID) {
   const path = join(dir, LEDGER_NAME);
-  let raw;
-  const fresh = !before || (await artifactMtime(path)) > before.ledger;
-  if (!fresh) {
-    // The previous attempt's ledger describes blocks this run never re-read. Keeping it would
-    // let the caller verify an article against sources it did not use.
-    console.log("sympozium pi writer session: the turn did not rewrite sources.json");
-    await writeFile(path, serialiseLedger([]));
-    return { sources: 0, quoted: 0, unquoted: [], dropped: [], error: "the turn wrote no sources.json" };
-  }
+  let article;
   try {
-    raw = await readFile(path, "utf8");
+    article = await readFile(join(dir, ARTICLE_NAME), "utf8");
   } catch {
-    console.log("sympozium pi writer session: the turn wrote no sources.json");
-    return { sources: 0, quoted: 0, dropped: [], error: "the turn wrote no sources.json" };
+    article = "";
   }
-  let ledger;
-  try {
-    ledger = parseLedger(raw);
-  } catch (err) {
-    console.log(`sympozium pi writer session: sources.json is unreadable: ${err?.message ?? err}`);
-    return { sources: 0, quoted: 0, dropped: [], error: String(err?.message ?? err) };
-  }
-  const { sources, dropped } = await revalidateLedger(ledger, {
-    allowedHosts: hosts,
-    reader: scrapeReader({ endpoint: process.env.SYMPOZIUM_FIRECRAWL_MCP_URL ?? "" }),
-  });
-  for (const entry of dropped) {
-    console.log(`sympozium pi writer session: dropped ledger entry ${entry.url}: ${entry.reason}`);
-  }
-  await writeFile(path, serialiseLedger(sources));
-  // Measured against what the turn declared, not what survived verification: an entry with a
-  // dead URL is a different failure and the caller names it separately.
-  const unquoted = await unquotedBlocks(dir, ledger);
+  const pages = await transcriptPages(await readTranscript(sessionID));
+  const { sources, unquoted } = deriveLedger({ article, pages });
   for (const block of unquoted) {
     console.log(`sympozium pi writer session: block not in ${LEDGER_NAME}: ${block}`);
   }
+  await writeFile(path, serialiseLedger(sources));
   return {
     sources: sources.length,
     quoted: sources.filter((entry) => entry.found).length,
     unquoted,
-    dropped,
-    error: "",
+    dropped: [],
+    error: pages.length ? "" : "the turn scraped no page, so no block can be quoted",
   };
+}
+
+// Pi appends one JSONL file per session id; the newest is this run's.
+async function readTranscript(sessionID) {
+  let names;
+  try {
+    names = await readdir(sessionDir);
+  } catch {
+    return [];
+  }
+  const files = names.filter((name) => name.endsWith(`_${sessionID}.jsonl`)).sort();
+  const file = files.at(-1);
+  if (!file) return [];
+  const rows = [];
+  for (const line of (await readFile(join(sessionDir, file), "utf8")).split("\n")) {
+    if (!line.trim()) continue;
+    try {
+      rows.push(JSON.parse(line));
+    } catch {
+      // A transcript cut off mid-line is not evidence, and it is not an error either.
+    }
+  }
+  return rows;
 }
 
 // The aspect registry is the one list of reviewers. Validate it before serving: a missing or
@@ -940,10 +932,7 @@ http
             const turnPrompt = `${draftPrompt}\n\n---\n\nWorking directory: ${dir}\n${instruction}\n\n${method}`;
             articleHosts = hosts;
             proxyEnv(hosts);
-            const before = {
-              article: await artifactMtime(join(dir, ARTICLE_NAME)),
-              ledger: await artifactMtime(join(dir, LEDGER_NAME)),
-            };
+            const before = { article: await artifactMtime(join(dir, ARTICLE_NAME)) };
             try {
               const response = await runPi(
                 turnPrompt,
@@ -962,7 +951,7 @@ http
                 dir
               );
               await adoptDraft(dir, response, before);
-              return { response, ledger: await verifyLedger(dir, hosts, before) };
+              return { response, ledger: await writeDerivedLedger(dir, sessionID) };
             } finally {
               articleHosts = null;
               proxyEnv(null);

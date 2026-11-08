@@ -1,10 +1,11 @@
 # Pi writer adapter
 
 A Sympozium harness adapter that owns every model turn of the article lane. `task: "draft"`
-reads the pages the brief cites through the Firecrawl MCP server, writes `article.md`, writes the
-`sources.json` ledger that names the page each fenced block came from, and hands both to the
-caller. After the turn the server re-reads every ledgered URL through that same server and rewrites
-the ledger with what it saw, so the model is never the authority on whether a source exists.
+reads the pages the brief cites through the Firecrawl MCP server and writes `article.md`. The
+server then derives `sources.json` from Pi's own transcript: every scrape the pod brokered is
+there with its URL and the text the model received, so a fenced block is recorded when it appears
+on a page and rejected when it does not. The model never writes the ledger, so it cannot get it
+wrong.
 
 ## Architecture
 
@@ -32,12 +33,12 @@ spawn("pi", [...])   child process, cwd = the run directory
   │      firecrawl: search / scrape / map     github: read tools only
   └──► loopback proxy on 8081   (same process; no route out of the pod)
   │
-  │  writes into cwd:  article.md, sources.json
+  │  writes into cwd:  article.md
   ▼ stdout (the <article> block, the verdict, the findings)
 session-server.mjs
   │  6. splitArticle(stdout) → title + body                    (session-lib)
-  │  7. revalidateLedger(sources.json, {allowedHosts, reader: scrapeReader(...)})
-  │  8. serialiseLedger → sources.json rewritten
+  │  7. adoptDraft(...) → the file it wrote, or its <article> block
+  │  8. deriveLedger(article, transcriptPages(transcript)) → sources.json
   ▼
 POST response { article: {title, text, word_count, sources, quoted, dropped} }
 n8n then GET /artifacts/<session_id>/article.md|sources.json  (two names, no others)
@@ -49,9 +50,8 @@ Where `session-lib` touches that flow, in order:
    files Pi depends on; `expiredRunDirs` and `expiredTranscripts` prune the PVC.
 2. **Turn** — `resolveRunDir` (the cwd and the artifact root), `fillTemplate`, `fillSourceHosts`
    and `articleTurnInstruction` (the text Pi receives), `parseSourceHosts` (the allowlist).
-3. **After the turn** — `parseLedger`, `sourceUrlRefusal`, `findExcerpt` and `revalidateLedger`:
-   the model's claim about a source is checked by the server, through `scrapeReader`, which is why
-   the ledger survives a pod with no internet egress.
+3. **After the turn** — `transcriptPages` and `deriveLedger`: the ledger is the server's reading
+   of what the model actually received, so a page the pod did not scrape cannot be cited.
 4. **Response** — `splitArticle`, `articleWordCount`, `articleWordLimit`.
 
 The boundary that matters: **Pi owns the prose and the files; the server owns every fact about
@@ -118,8 +118,9 @@ proof available inside the pod.
 | `attempt` | `> 1` means the drafting turn is a correction, even if the article was not written yet |
 | `stream` | SSE chunks instead of one JSON body; a draft only, because a review's answer is structured |
 
-The response carries `article: { name, ledger, title, text, word_count, sources, quoted, dropped, error }` — the counts and drop reasons are the server's, and `error` is
-non-empty when the turn wrote no readable ledger. A `review` answer adds
+The response carries `article: { name, ledger, title, text, word_count, sources, quoted, unquoted, dropped, error }` — the counts are the server's, `unquoted` names the first line of every
+fence no scraped page carried, and `error` is non-empty when the turn scraped nothing. A `review`
+answer adds
 `review: { pass, explanation }`; an `aspects` answer adds
 `findings: [{ aspect, focus, error, text, count }]`.
 
@@ -141,6 +142,6 @@ the run directory; it defaults under `/tmp`, because a session mounts the PVC th
 node --test 'agents/adapters/pi-writer/test/*.test.mjs'
 ```
 
-The ledger tests cover the fetch policy and the matching rule without a network. The
+The ledger tests build transcript rows and cover the derivation and its matching rule, with no network. The
 server test spawns the real server with a stub `pi` on `PATH`, so the artifact route, the
 proxy refusals, the correction instruction and the four task answers are exercised end to end.

@@ -309,13 +309,9 @@ export function serialiseLedger(sources) {
   return `${JSON.stringify({ sources: sources.map(normaliseLedgerEntry) }, null, 2)}\n`;
 }
 
-// ---------------------------------------------------------------------------
-// What the server will fetch. The allowlist is the first gate and the address checks are
-// the second. They read the URL's own host and never a DNS answer: a literal private
-// address or a local name is refused here, while an allowlisted name that resolves
-// privately is the residual SSRF shape the design records as a risk. Every redirect
-// target is refused by the same check, so a public URL cannot hop to a literal one.
-
+// The proxy applies the same host policy the source allowlist states: it reads a CONNECT
+// target, so the host checks are its whole decision. Kept here because the ledger no longer
+// fetches anything, and the proxy still has to answer.
 const PRIVATE_V4 = [
   [/^0\./, 8],
   [/^10\./, 8],
@@ -370,25 +366,6 @@ export function hostAllowed(host, allowedHosts = []) {
   });
 }
 
-// Why this URL may not be fetched, or null when it may. Every reason is a phrase a
-// log line and a test can name.
-export function sourceUrlRefusal(value, { allowedHosts = [], requireHttps = true, allowLoopback = false } = {}) {
-  let url;
-  try {
-    url = new URL(String(value ?? ""));
-  } catch {
-    return "not a URL";
-  }
-  if (url.protocol !== "https:" && url.protocol !== "http:") return `scheme ${url.protocol} is not http or https`;
-  if (requireHttps && url.protocol !== "https:") return "not https";
-  if (url.username || url.password) return "carries credentials";
-  const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
-  const blocked = allowLoopback && isLoopbackHostname(host) ? false : isBlockedHostname(host);
-  if (blocked) return `host ${host} is private or loopback`;
-  if (!hostAllowed(host, allowedHosts)) return `host ${host} is not a declared source host`;
-  return null;
-}
-
 // The page's text for a block, found as a contiguous run of the block's tokens
 // with any whitespace between them. Returns null when the page does not carry it.
 export function findExcerpt(body, block) {
@@ -400,230 +377,98 @@ export function findExcerpt(body, block) {
   return match ? match[0] : null;
 }
 
-export const DEFAULT_LEDGER_FETCH = {
-  maxBytes: 2_000_000,
-  maxRedirects: 3,
-  timeoutMs: 15_000,
-};
-
-async function readCapped(res, maxBytes) {
-  if (!res.body || typeof res.body.getReader !== "function") {
-    const buf = Buffer.from(await res.arrayBuffer());
-    return buf.subarray(0, maxBytes);
-  }
-  const reader = res.body.getReader();
-  const chunks = [];
-  let size = 0;
-  while (size < maxBytes) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    const chunk = Buffer.from(value);
-    const room = maxBytes - size;
-    chunks.push(chunk.subarray(0, room));
-    size += Math.min(chunk.length, room);
-    if (chunk.length > room) {
-      try {
-        await reader.cancel();
-      } catch {
-        // the body is already capped; cancelling best effort
+// One entry per fenced block, from the pages this turn actually scraped. The transcript is
+// the evidence the server already holds: the pod brokered the request and received the text,
+// so a block that appears in it was read, and one that does not was not.
+//
+// What the model saw is what counts, truncation prefix included: a fence that only exists
+// further down the page was never read and must not verify.
+export function transcriptPages(rows) {
+  const calls = new Map();
+  const spill = new Map();
+  const pages = [];
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const message = row && row.type === "message" ? row.message : null;
+    if (!message || !Array.isArray(message.content)) continue;
+    if (message.role === "assistant") {
+      for (const part of message.content) {
+        if (part && part.type === "toolCall" && part.id) {
+          calls.set(part.id, { name: part.name, args: part.arguments || {} });
+        }
       }
-      break;
-    }
-  }
-  return Buffer.concat(chunks);
-}
-
-// Fetch one URL with the policy's gates applied at the start and at every redirect.
-// Returns `{body}` or `{refusal}`; a status is reported, never thrown, so the caller
-// can name it in the drop reason.
-async function fetchLedgerUrl(url, opts) {
-  const {
-    fetchUrl = fetch,
-    allowedHosts = [],
-    requireHttps = true,
-    allowLoopback = false,
-    maxBytes = DEFAULT_LEDGER_FETCH.maxBytes,
-    maxRedirects = DEFAULT_LEDGER_FETCH.maxRedirects,
-    timeoutMs = DEFAULT_LEDGER_FETCH.timeoutMs,
-  } = opts;
-  let current = String(url);
-  for (let hop = 0; hop <= maxRedirects; hop += 1) {
-    const refusal = sourceUrlRefusal(current, { allowedHosts, requireHttps, allowLoopback });
-    if (refusal) return { refusal };
-    const controller = new AbortController();
-    // The budget covers the body, not only the headers: a page that sends a response
-    // line and then dribbles would otherwise hold the serialized turn open until the
-    // caller's own timeout.
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    let res;
-    try {
-      res = await fetchUrl(current, { signal: controller.signal, redirect: "manual" });
-    } catch (err) {
-      clearTimeout(timer);
-      return { refusal: `did not answer: ${err?.message ?? err}` };
-    }
-    if (res.status >= 300 && res.status < 400) {
-      clearTimeout(timer);
-      const location = res.headers.get("location");
-      if (!location) return { refusal: `redirect ${res.status} without a location` };
-      current = new URL(location, current).toString();
       continue;
     }
-    if (!res.ok) {
-      clearTimeout(timer);
-      return { refusal: `answered HTTP ${res.status}` };
+    if (message.role !== "toolResult") continue;
+    const call = calls.get(message.toolCallId);
+    const toolName = String(message.toolName || call?.name || "");
+    const text = message.content
+      .filter((part) => part && part.type === "text" && typeof part.text === "string")
+      .map((part) => part.text)
+      .join("\n");
+    if (!text.trim()) continue;
+    // A scrape is a page. A long one arrives with its middle removed and its full text spilled
+    // to a file, so a later `read` of that file is the same page, not a different source.
+    if (/firecrawl_scrape$/.test(toolName)) {
+      const url = String(call?.args?.url || "").trim();
+      if (!url) continue;
+      const spilled = String(message.details?.fullOutputPath || "").trim();
+      if (spilled) spill.set(spilled, url);
+      pages.push({ url, text: unwrapScrapeText(text) });
+      continue;
     }
-    try {
-      const body = await readCapped(res, maxBytes);
-      return { status: res.status, body: body.toString("utf8"), bodyBytes: body.length };
-    } catch (err) {
-      return { refusal: `did not answer: ${err?.message ?? err}` };
-    } finally {
-      clearTimeout(timer);
+    if (toolName === "read" || /(^|__)read$/.test(toolName)) {
+      const url = spill.get(String(call?.args?.path || "").trim());
+      if (url) pages.push({ url, text });
     }
   }
-  return { refusal: `more than ${maxRedirects} redirects` };
+  return pages;
 }
 
-// The MCP payload of a tool call, from a JSON body or an SSE stream. An SSE answer is
-// what a streamable-http MCP server sends when it answers a POST, and a JSON body is
-// what it sends when it does not: both reach here, and neither may be assumed.
-export function mcpToolPayload(text, pageUrl = "") {
-  const raw = String(text ?? "").trim();
-  const candidates = [raw];
-  if (raw.includes("data:")) {
-    for (const event of raw.split(/\r?\n\r?\n/)) {
-      const data = event
-        .split(/\r?\n/)
-        .filter((line) => line.startsWith("data:"))
-        .map((line) => line.slice(5).trim())
-        .join("");
-      if (data) candidates.push(data);
-    }
-  }
-  for (const candidate of candidates) {
-    try {
-      const parsed = JSON.parse(candidate);
-      if (parsed && (parsed.result || parsed.error)) return parsed;
-    } catch {
-      // not this one; the next candidate is a whole SSE frame's data
-    }
-  }
-  throw new Error(`the scrape answer for ${pageUrl || "the page"} is not an MCP payload`);
-}
-
-// A scrape's text, whether the server returned markdown or the JSON body Firecrawl
-// wraps it in. The markdown is what `findExcerpt` reads, so the wrapper has to go.
-export function scrapeText(payload, pageUrl = "") {
-  if (payload?.error) {
-    const message = payload.error.message ?? JSON.stringify(payload.error);
-    throw new Error(`the scrape failed for ${pageUrl || "the page"}: ${message}`);
-  }
-  const content = payload?.result?.content;
-  const item = Array.isArray(content) ? content.find((entry) => typeof entry?.text === "string") : null;
-  if (!item) throw new Error(`the scrape returned no text for ${pageUrl || "the page"}`);
-  const text = item.text.trim();
-  if (!text.startsWith("{") && !text.startsWith("[")) return text;
+// Firecrawl answers markdown directly or wraps it in `{"markdown": ...}` depending on the
+// server version; both reach the transcript, and the wrapper is not part of the page.
+function unwrapScrapeText(text) {
+  const raw = String(text ?? "");
+  const braced = raw.indexOf("{");
+  const start = raw.startsWith("{") ? 0 : braced > -1 && /^[^{]*\{\s*"markdown"/.test(raw) ? braced : -1;
+  if (start < 0) return raw;
   try {
-    const body = JSON.parse(text);
+    const body = JSON.parse(raw.slice(start));
     if (typeof body?.markdown === "string") return body.markdown;
     if (typeof body?.data?.markdown === "string") return body.data.markdown;
   } catch {
-    // a JSON-looking page body, not a wrapper: keep it as the page's own text
+    // not a wrapper: the page's own text, which may contain braces
   }
-  return text;
+  return raw;
 }
 
-// A `reader` for `revalidateLedger` that scrapes through the Firecrawl MCP server.
-// The pod's egress policy admits the model and the MCP servers and nothing else, so a
-// direct fetch of the cited host would answer nothing; this is the one path out.
-export function scrapeReader({ endpoint, fetchUrl = fetch, timeoutMs = 45_000 } = {}) {
-  const url = String(endpoint ?? "").trim();
-  if (!url) return null;
-  let id = 0;
-  return async function read(pageUrl) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const res = await fetchUrl(url, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          accept: "application/json, text/event-stream",
-        },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: (id += 1),
-          method: "tools/call",
-          params: {
-            name: "firecrawl_scrape",
-            arguments: { url: pageUrl, formats: ["markdown"], onlyMainContent: false },
-          },
-        }),
-        signal: controller.signal,
-      });
-      if (!res.ok) return { refusal: `scrape server answered HTTP ${res.status}` };
-      const payload = mcpToolPayload(await res.text(), pageUrl);
-      return { status: 200, body: scrapeText(payload, pageUrl) };
-    } catch (err) {
-      return { refusal: `scrape did not answer: ${err?.message ?? err}` };
-    } finally {
-      clearTimeout(timer);
-    }
-  };
-}
-
-// Verify a ledger against the pages it cites. An entry whose URL does not answer is
-// dropped: the server, not the model, decides whether a source exists. A URL that
-// answers but does not carry the block keeps its entry with `found: false`, which the
-// n8n gate rejects with the block and the URL in the reason -- the two failures are
-// different findings and only one of them is about the URL.
-//
-// `reader` replaces the direct fetch when the pod has no internet egress: the only
-// process that leaves it is the Firecrawl MCP server, so a session there verifies
-// through that server (see `scrapeReader`). The URL policy runs either way, on the
-// citation, before anything is read.
-export async function revalidateLedger(entries, opts = {}) {
-  const sources = (Array.isArray(entries) ? entries : []).map(normaliseLedgerEntry);
-  const fetched = new Map();
-  const dropped = [];
-  const kept = [];
-  for (const entry of sources) {
-    if (!entry.url) {
-      dropped.push({ block: entry.block, url: entry.url, reason: "no url" });
+export function deriveLedger({ article, pages } = {}) {
+  const scraped = (Array.isArray(pages) ? pages : []).filter((page) => page && page.url && page.text);
+  const sources = [];
+  const unquoted = [];
+  for (const fenced of extractFencedBlocks(String(article ?? ""))) {
+    const key = normaliseBlock(fenced.block);
+    if (!key) continue;
+    const page = scraped.find((candidate) => findExcerpt(candidate.text, fenced.block) !== null);
+    if (!page) {
+      unquoted.push(fenced.block.split("\n")[0].trim().slice(0, 120));
       continue;
     }
-    if (!fetched.has(entry.url)) {
-      const refusal = opts.reader
-        ? sourceUrlRefusal(entry.url, opts)
-        : null;
-      fetched.set(
-        entry.url,
-        refusal ? { refusal } : opts.reader ? await opts.reader(entry.url) : await fetchLedgerUrl(entry.url, opts)
-      );
-    }
-    const page = fetched.get(entry.url);
-    if (page.refusal) {
-      dropped.push({ block: entry.block, url: entry.url, reason: page.refusal });
-      continue;
-    }
-    const excerpt = findExcerpt(page.body, entry.block);
-    kept.push({
-      ...entry,
-      found: excerpt !== null,
-      sha256: excerpt !== null ? sha256Hex(normaliseBlock(entry.block)) : "",
-      excerpt: excerpt ?? "",
-      status: page.status,
-      body_sha256: sha256Hex(page.body),
+    const excerpt = findExcerpt(page.text, fenced.block);
+    sources.push({
+      block: fenced.block,
+      url: page.url,
+      validated: "none",
+      validation_error: "",
+      found: true,
+      sha256: sha256Hex(key),
+      excerpt,
+      status: 200,
+      body_sha256: sha256Hex(page.text),
     });
   }
-  return { sources: kept, dropped };
+  return { sources, unquoted };
 }
 
-// The H1 and the body of an article. A model may wrap its answer in `<article>`, and a
-// turn may have written the file directly; both shapes become the same pair. The body is
-// everything after the first H1 line, because the row stores the title separately and
-// counts the body against the budget.
 export function splitArticle(markdown) {
   const raw = String(markdown || "");
   const block = /<article>([\s\S]*?)<\/article>/.exec(raw);
@@ -665,14 +510,15 @@ export function articleWordLimit(maxWords) {
 export function articleTurnInstruction({ isIteration } = {}) {
   if (isIteration) {
     return (
-      "`article.md` and `sources.json` in this directory are the article from an earlier " +
-      "turn in this session. Apply the request above to the article in place - change what " +
-      "it names and keep the rest, re-reading only what it names - and write both files again."
+      "`article.md` in this directory is the article from an earlier turn in this session. " +
+      "Apply the request above to it in place - change what it names and keep the rest, " +
+      "re-reading only what it names - and write it again. The server writes `sources.json`."
     );
   }
   return (
-    "Write the article to `article.md` in this directory and its source ledger to " +
-    "`sources.json` here. Nothing is published from this turn; the caller fetches both files."
+    "Write the article to `article.md` in this directory. The server writes `sources.json` " +
+    "from the pages you scrape, so every fenced block has to appear verbatim on one of them. " +
+    "Nothing is published from this turn; the caller fetches both files."
   );
 }
 

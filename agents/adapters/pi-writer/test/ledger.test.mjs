@@ -1,11 +1,10 @@
 // The writer's ledger contract, tested without a network and without a model.
 //
-// The ledger is the part the model does not own: these tests pin the policy the server
-// applies to every URL it is asked to verify, and the matching rule a fence has to pass.
+// The ledger is derived from the turn's transcript: the pod brokered every scrape, so the
+// text the model received is the evidence, and a fence either appears in it or it does not.
 
-import { test, before, after } from "node:test";
+import { test } from "node:test";
 import assert from "node:assert/strict";
-import http from "node:http";
 import { createHash } from "node:crypto";
 
 import {
@@ -20,10 +19,9 @@ import {
   parseLedger,
   serialiseLedger,
   sha256Hex,
-  sourceUrlRefusal,
   findExcerpt,
-  revalidateLedger,
-  scrapeReader,
+  transcriptPages,
+  deriveLedger,
   agentSettings,
   DEFAULT_COMPACTION,
   DEFAULT_CONTEXT_WINDOW,
@@ -33,68 +31,6 @@ import {
 } from "../session-lib.mjs";
 
 const hash = (text) => createHash("sha256").update(text, "utf8").digest("hex");
-
-// One local page server stands in for every source. Loopback is allowed only by the
-// tests' own policy (`allowLoopback: true`), which is exactly the difference between
-// this and production: the production call names neither.
-let server;
-let base;
-
-before(async () => {
-  server = http.createServer((req, res) => {
-    if (req.url === "/page") {
-      // The same manifest the article fences, at another indentation: the docs render it
-      // this way and a line-level comparison would call it a different block.
-      res.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
-      res.end("intro\n\napiVersion: v1\nkind:    ConfigMap\nmetadata:\n  name: probe\n\noutro\n");
-      return;
-    }
-    if (req.url === "/without") {
-      res.writeHead(200, { "content-type": "text/plain" });
-      res.end("this page carries no manifest at all");
-      return;
-    }
-    if (req.url === "/redirect-private") {
-      res.writeHead(302, { location: "http://169.254.169.254/latest/meta-data/" });
-      res.end();
-      return;
-    }
-    if (req.url === "/slow") {
-      // Headers arrive, the body never ends: the per-URL budget has to cover the read.
-      res.writeHead(200, { "content-type": "text/plain" });
-      res.write("apiVersion: v1");
-      return;
-    }
-    if (req.url === "/huge") {
-      res.writeHead(200, { "content-type": "text/plain" });
-      res.write("a".repeat(2000));
-      // The fence sits beyond the cap, so finding it would mean the cap did not apply.
-      res.end("apiVersion: v1 kind: ConfigMap metadata: name: late");
-      return;
-    }
-    res.writeHead(404, { "content-type": "text/plain" });
-    res.end("missing");
-  });
-  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-  base = `http://127.0.0.1:${server.address().port}`;
-});
-
-after(async () => {
-  await new Promise((resolve) => server.close(resolve));
-});
-
-const localPolicy = (opts = {}) => ({
-  fetchUrl: fetch,
-  allowedHosts: ["127.0.0.1"],
-  requireHttps: false,
-  allowLoopback: true,
-  ...opts,
-});
-
-test("the contract names the two files the turn writes", () => {
-  assert.equal(ARTICLE_NAME, "article.md");
-  assert.equal(LEDGER_NAME, "sources.json");
-});
 
 test("the source hosts default to the fleet's own pages, and the caller's list wins", () => {
   assert.deepEqual(DEFAULT_ARTICLE_SOURCE_HOSTS, [
@@ -144,96 +80,6 @@ test("the ledger accepts both shapes and rewrites them as the object", () => {
   assert.match(serialiseLedger([entry]), /"sources": \[/);
 });
 
-test("the ledger's match is the page's own text, and a whitespace difference still matches", async () => {
-  const block = "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: probe";
-  const { sources, dropped } = await revalidateLedger([{ block, url: `${base}/page` }], localPolicy());
-  assert.deepEqual(dropped, []);
-  assert.equal(sources.length, 1);
-  assert.equal(sources[0].found, true);
-  assert.equal(sources[0].status, 200);
-  assert.equal(sources[0].sha256, sha256Hex(normaliseBlock(block)));
-  assert.equal(
-    sources[0].body_sha256,
-    hash("intro\n\napiVersion: v1\nkind:    ConfigMap\nmetadata:\n  name: probe\n\noutro\n")
-  );
-  assert.ok(sources[0].excerpt.includes("kind:    ConfigMap"), "the excerpt is the page's text");
-});
-
-test("a page that does not carry the block keeps the entry as found: false", async () => {
-  // The URL answered, so the entry is not about a missing page: it is about a line the
-  // article claims the page says. The gate rejects it; the server does not delete it.
-  const { sources, dropped } = await revalidateLedger(
-    [{ block: "helm install probe ./chart", url: `${base}/without` }],
-    localPolicy()
-  );
-  assert.deepEqual(dropped, []);
-  assert.equal(sources[0].found, false);
-  assert.equal(sources[0].excerpt, "");
-  assert.equal(sources[0].sha256, "");
-});
-
-test("an entry whose URL does not answer is dropped, with the status named", async () => {
-  const { sources, dropped } = await revalidateLedger(
-    [{ block: "helm install probe ./chart", url: `${base}/missing` }],
-    localPolicy()
-  );
-  assert.deepEqual(sources, []);
-  assert.equal(dropped.length, 1);
-  assert.match(dropped[0].reason, /HTTP 404/);
-});
-
-test("an entry with no URL is dropped rather than matched against nothing", async () => {
-  const { sources, dropped } = await revalidateLedger([{ block: "helm install probe" }], localPolicy());
-  assert.deepEqual(sources, []);
-  assert.equal(dropped[0].reason, "no url");
-});
-
-test("the fetch refuses http, credentials, loopback, link-local and private addresses", () => {
-  const allow = { allowedHosts: ["github.com", "10.0.0.1", "169.254.169.254", "localhost"] };
-  assert.equal(sourceUrlRefusal("http://github.com/x", allow), "not https");
-  assert.equal(sourceUrlRefusal("https://user:pass@github.com/x", allow), "carries credentials");
-  assert.match(sourceUrlRefusal("https://10.0.0.1/x", allow), /private or loopback/);
-  assert.match(sourceUrlRefusal("https://169.254.169.254/latest/meta-data/", allow), /private or loopback/);
-  assert.match(sourceUrlRefusal("https://localhost/x", allow), /private or loopback/);
-  assert.match(sourceUrlRefusal("https://example.com/x", allow), /not a declared source host/);
-  assert.equal(sourceUrlRefusal("https://github.com/x", allow), null);
-  // The address checks are about literals, and neither they nor the redirect check resolve a
-  // name: an allowlisted host that resolves privately is the residual risk recorded in design D10.
-  assert.match(sourceUrlRefusal("file:///etc/passwd", allow), /not http or https/);
-  // The loopback exemption a test needs does not reach a link-local address.
-  const loopback = { allowedHosts: ["127.0.0.1", "169.254.169.254"], allowLoopback: true, requireHttps: false };
-  assert.equal(sourceUrlRefusal("http://127.0.0.1/x", loopback), null);
-  assert.match(sourceUrlRefusal("http://169.254.169.254/x", loopback), /private or loopback/);
-});
-
-test("a redirect to a private address is refused before it is followed", async () => {
-  const { sources, dropped } = await revalidateLedger(
-    [{ block: "apiVersion: v1", url: `${base}/redirect-private` }],
-    localPolicy()
-  );
-  assert.deepEqual(sources, []);
-  assert.match(dropped[0].reason, /private or loopback/);
-});
-
-test("the per-URL timeout covers the body, not only the headers", async () => {
-  // A page that sends a response line and then dribbles would otherwise hold the
-  // serialized turn open until the caller's own timeout.
-  const { sources, dropped } = await revalidateLedger(
-    [{ block: "apiVersion: v1", url: `${base}/slow` }],
-    localPolicy({ timeoutMs: 150 })
-  );
-  assert.deepEqual(sources, []);
-  assert.match(dropped[0].reason, /did not answer/);
-});
-
-test("a body is capped, so a page cannot hide a fence beyond the cap", async () => {
-  const block = "apiVersion: v1 kind: ConfigMap metadata: name: late";
-  const capped = await revalidateLedger([{ block, url: `${base}/huge` }], localPolicy({ maxBytes: 500 }));
-  assert.equal(capped.sources[0].found, false, "the fetch read past its cap");
-  const whole = await revalidateLedger([{ block, url: `${base}/huge` }], localPolicy({ maxBytes: 10_000 }));
-  assert.equal(whole.sources[0].found, true, "the same page carries the fence below the cap");
-});
-
 test("the catalog config declares the read tools and hides the rest", () => {
   const { mcpServers } = mcpConfig({
     githubUrl: "http://github.invalid/mcp",
@@ -277,96 +123,6 @@ const stubScrape = (body, { status = 200 } = {}) => {
   return { fetchUrl, calls };
 };
 
-test("the scrape reader calls firecrawl_scrape and unwraps an SSE answer", async () => {
-  const answer = {
-    jsonrpc: "2.0",
-    id: 1,
-    result: { content: [{ type: "text", text: "```bash\nhelm install probe ./chart\n```" }] },
-  };
-  const { fetchUrl, calls } = stubScrape(`event: message\ndata: ${JSON.stringify(answer)}\n\n`);
-  const read = scrapeReader({ endpoint: "http://firecrawl.invalid/mcp", fetchUrl });
-  const page = await read("https://github.com/o/r/blob/main/README.md");
-  assert.equal(page.refusal, undefined);
-  assert.match(page.body, /helm install probe/);
-  const sent = JSON.parse(calls[0].init.body);
-  assert.equal(calls[0].url, "http://firecrawl.invalid/mcp");
-  assert.equal(sent.method, "tools/call");
-  assert.equal(sent.params.name, "firecrawl_scrape");
-  assert.equal(sent.params.arguments.url, "https://github.com/o/r/blob/main/README.md");
-});
-
-test("the scrape reader unwraps the JSON body Firecrawl wraps its markdown in", async () => {
-  const answer = {
-    jsonrpc: "2.0",
-    id: 1,
-    result: {
-      content: [{ type: "text", text: JSON.stringify({ markdown: "apiVersion: v1\nkind: ConfigMap" }) }],
-    },
-  };
-  const { fetchUrl } = stubScrape(JSON.stringify(answer));
-  const page = await scrapeReader({ endpoint: "http://firecrawl.invalid/mcp", fetchUrl })(
-    "https://github.com/o/r/raw/main/x.yaml"
-  );
-  assert.equal(page.body, "apiVersion: v1\nkind: ConfigMap");
-});
-
-test("a scrape that answers an error is a refusal naming it", async () => {
-  const answer = { jsonrpc: "2.0", id: 1, error: { code: -32000, message: "scrape timed out" } };
-  const { fetchUrl } = stubScrape(JSON.stringify(answer));
-  const page = await scrapeReader({ endpoint: "http://firecrawl.invalid/mcp", fetchUrl })(
-    "https://github.com/o/r"
-  );
-  assert.match(page.refusal, /scrape timed out/);
-});
-
-test("a scrape server that answers nothing usable is a refusal, not an empty page", async () => {
-  const { fetchUrl } = stubScrape("not a payload");
-  const page = await scrapeReader({ endpoint: "http://firecrawl.invalid/mcp", fetchUrl })(
-    "https://github.com/o/r"
-  );
-  assert.match(page.refusal, /not an MCP payload/);
-  const down = await scrapeReader({ endpoint: "http://firecrawl.invalid/mcp", fetchUrl: stubScrape("", { status: 503 }).fetchUrl })(
-    "https://github.com/o/r"
-  );
-  assert.match(down.refusal, /HTTP 503/);
-  assert.equal(scrapeReader({ endpoint: "" }), null);
-});
-
-test("a reader verifies the block through the scrape server", async () => {
-  const scraped = "intro\n\napiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: probe\n";
-  const seen = [];
-  const reader = async (url) => {
-    seen.push(url);
-    return { status: 200, body: scraped };
-  };
-  const { sources, dropped } = await revalidateLedger(
-    [{ block: "apiVersion: v1\nkind: ConfigMap", url: "https://github.com/o/r/blob/main/x.yaml" }],
-    { allowedHosts: ["github.com"], reader }
-  );
-  assert.deepEqual(dropped, []);
-  assert.equal(sources[0].found, true);
-  assert.deepEqual(seen, ["https://github.com/o/r/blob/main/x.yaml"]);
-});
-
-test("a reader does not bypass the source-host policy", async () => {
-  let read = false;
-  const reader = async () => {
-    read = true;
-    return { status: 200, body: "apiVersion: v1" };
-  };
-  const { sources, dropped } = await revalidateLedger(
-    [{ block: "apiVersion: v1", url: "https://elsewhere.example/x" }],
-    { allowedHosts: ["github.com"], reader }
-  );
-  assert.equal(read, false, "an off-list host was scraped");
-  assert.deepEqual(sources, []);
-  assert.match(dropped[0].reason, /not a declared source host/);
-});
-
-// Pi's compaction is the only thing that keeps a long-lived row inside the window: its
-// vendor default reserves 16k, so a session is not compacted until the window is nearly gone
-// and a resumed one sends a request the gateway truncates to one character.
-// The trigger is a share of the window so a model change does not need a config change.
 test("the settings compact a session at a share of the window", () => {
   const settings = agentSettings();
   assert.equal(settings.compaction.enabled, true);
@@ -390,4 +146,106 @@ test("the share follows the window, and the reserve keeps room for the answer", 
   assert.throws(() => agentSettings({ compactionTriggerPercent: 100 }), /between 0 and 100/);
   assert.throws(() => agentSettings({ compactionTriggerPercent: 0 }), /between 0 and 100/);
   assert.throws(() => agentSettings({ compactionKeepPercent: 90 }), /smaller than the trigger/);
+});
+
+
+// A transcript row pair, in the shape Pi writes: the call carries the URL, the result the
+// text the model received.
+const scrapeRows = (url, text, id = "call_1") => [
+  { type: "message", message: { role: "assistant", content: [{ type: "toolCall", id, name: "mcp__firecrawl__firecrawl_scrape", arguments: { url, formats: ["markdown"] } }] } },
+  { type: "message", message: { role: "toolResult", toolCallId: id, toolName: "mcp__firecrawl__firecrawl_scrape", content: [{ type: "text", text }], isError: false } },
+];
+
+test("a scrape pair becomes a page with its URL and the text the model saw", () => {
+  const rows = [
+    ...scrapeRows("https://github.com/o/r/blob/main/docs.md", "intro\n\napiVersion: v1\nkind: ConfigMap\n"),
+    // A tool that is not a scrape is not a source: the ledger only cites pages it read.
+    { type: "message", message: { role: "assistant", content: [{ type: "toolCall", id: "call_2", name: "mcp__github__search_code", arguments: { query: "x" } }] } },
+    { type: "message", message: { role: "toolResult", toolCallId: "call_2", toolName: "mcp__github__search_code", content: [{ type: "text", text: "apiVersion: v1 kind: ConfigMap" }] } },
+  ];
+  const pages = transcriptPages(rows);
+  assert.equal(pages.length, 1);
+  assert.equal(pages[0].url, "https://github.com/o/r/blob/main/docs.md");
+  assert.match(pages[0].text, /kind: ConfigMap/);
+});
+
+test("Firecrawl's JSON wrapper is unwrapped before matching", () => {
+  const rows = scrapeRows(
+    "https://raw.githubusercontent.com/o/r/main/x.yaml",
+    JSON.stringify({ markdown: "apiVersion: v1\nkind: Secret" })
+  );
+  assert.equal(transcriptPages(rows)[0].text, "apiVersion: v1\nkind: Secret");
+});
+
+test("the truncated text the model saw is what a block is matched against", () => {
+  // Pi prefixes a truncated result; text beyond the cut was never read, so a fence that only
+  // exists past it must not verify.
+  const seen = "Warning: truncated output (original token count: 900)\napiVersion: v1";
+  const rows = scrapeRows("https://github.com/o/r/blob/main/x.yaml", seen);
+  const article = "# T\n\n```yaml\napiVersion: v1\nkind: Pod\n```\n";
+  const { sources, unquoted } = deriveLedger({ article, pages: transcriptPages(rows) });
+  assert.deepEqual(sources, []);
+  assert.deepEqual(unquoted, ["apiVersion: v1"]);
+});
+
+test("a block on a scraped page is ledgered with that page and nothing else", () => {
+  const page = "# Docs\n\n```bash\nhelm upgrade --install probe ./chart\n```\n";
+  const rows = scrapeRows("https://github.com/o/r/blob/main/README.md", page);
+  const article = "# T\n\n```bash\nhelm upgrade --install probe ./chart\n```\n";
+  const { sources, unquoted } = deriveLedger({ article, pages: transcriptPages(rows) });
+  assert.deepEqual(unquoted, []);
+  assert.equal(sources.length, 1);
+  assert.equal(sources[0].url, "https://github.com/o/r/blob/main/README.md");
+  assert.equal(sources[0].found, true);
+  assert.equal(sources[0].validated, "none");
+  assert.equal(sources[0].sha256, sha256Hex(normaliseBlock("helm upgrade --install probe ./chart")));
+  // The gate reads the file this serialises.
+  assert.match(serialiseLedger(sources), /README\.md/);
+});
+
+test("a heredoc no page carries is unquoted, and the first page that carries it wins", () => {
+  const heredoc = "kubectl apply -f - <<EOF\napiVersion: v1\nkind: Namespace\nmetadata:\n  name: demo\nEOF";
+  const withIt = scrapeRows("https://raw.githubusercontent.com/o/r/main/a.yaml", `x\n${heredoc}\ny`, "call_a");
+  const alsoIt = scrapeRows("https://raw.githubusercontent.com/o/r/main/b.yaml", `x\n${heredoc}\ny`, "call_b");
+  const invented = "kubectl patch sympoziumschedule sre-watchdog-schedule --type=merge -p '{}'";
+  const article = `# T\n\n\`\`\`bash\n${heredoc}\n\`\`\`\n\n\`\`\`bash\n${invented}\n\`\`\`\n`;
+  const { sources, unquoted } = deriveLedger({ article, pages: transcriptPages([...alsoIt, ...withIt]) });
+  assert.equal(sources.length, 1);
+  assert.equal(sources[0].url, "https://raw.githubusercontent.com/o/r/main/b.yaml", "the first scraped page wins");
+  assert.equal(unquoted.length, 1);
+  assert.match(unquoted[0], /kubectl patch sympoziumschedule/);
+});
+
+test("no scrape at all leaves every fence unquoted and no entry invented", () => {
+  const article = "```bash\nkubectl get pods\n```\n";
+  const { sources, unquoted } = deriveLedger({ article, pages: [] });
+  assert.deepEqual(sources, []);
+  assert.deepEqual(unquoted, ["kubectl get pods"]);
+});
+
+// A long page arrives with its middle removed and its full text spilled to a file. Reading that
+// file is the same page, so a block that fell in the removed part still counts.
+test("a read of the spilled scrape output is attributed to the page", () => {
+  const rows = [
+    { type: "message", message: { role: "assistant", content: [{ type: "toolCall", id: "call_s", name: "mcp__firecrawl__firecrawl_scrape", arguments: { url: "https://raw.githubusercontent.com/o/r/main/README.md" } }] } },
+    {
+      type: "message",
+      message: {
+        role: "toolResult",
+        toolCallId: "call_s",
+        toolName: "mcp__firecrawl__firecrawl_scrape",
+        content: [{ type: "text", text: "head…middle truncated…tail" }],
+        details: { fullOutputPath: "/tmp/pi-mcp-abc.txt" },
+      },
+    },
+    { type: "message", message: { role: "assistant", content: [{ type: "toolCall", id: "call_r", name: "read", arguments: { path: "/tmp/pi-mcp-abc.txt", offset: 200 } }] } },
+    { type: "message", message: { role: "toolResult", toolCallId: "call_r", toolName: "read", content: [{ type: "text", text: "apiVersion: v1\nkind: ConfigMap" }] } },
+  ];
+  const pages = transcriptPages(rows);
+  assert.equal(pages.length, 2);
+  assert.equal(pages[1].url, "https://raw.githubusercontent.com/o/r/main/README.md");
+  const article = "```yaml\napiVersion: v1\nkind: ConfigMap\n```\n";
+  const { sources } = deriveLedger({ article, pages });
+  assert.equal(sources.length, 1);
+  assert.equal(sources[0].url, "https://raw.githubusercontent.com/o/r/main/README.md");
 });

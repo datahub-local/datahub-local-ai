@@ -5,8 +5,9 @@ the work; this file is the map of the sandbox you draft in.
 
 ## What you have
 
-- The brief names the working directory. Write `article.md` and `sources.json` there, not
-  a scratch copy: it is a volume and is what the caller fetches.
+- The brief names the working directory. Write `article.md` there, not a scratch copy: it is
+  a volume and is what the caller fetches. Do not write `sources.json`: the server derives it
+  from the pages you scrape and writes it itself.
 - The only network path is the Firecrawl MCP server: `mcp__firecrawl__firecrawl_search` finds
   pages, `mcp__firecrawl__firecrawl_scrape` reads one, and `mcp__firecrawl__firecrawl_map` lists
   a site's URLs. `curl` has no route here and no other server is offered, so a page you did not
@@ -25,49 +26,35 @@ the work; this file is the map of the sandbox you draft in.
    documentation site and its repository files. Start from the pages the brief links, then
    follow the ones they cite.
 2. Quote what a page says. A command, flag, version or manifest field you did not read on a
-   fetched page is not written, and no placeholder stands in for one.
-3. When no fetched page carries what a section needs, fence nothing there and say in one
-   sentence that the source could not be read. That is the correct answer, not a gap to
-   fill from memory.
-4. Write the ledger as you go, one entry per fenced block. A block with no entry is an
-   invented line and the draft is rejected naming it.
-5. Count before you answer, with two commands in the working directory:
+   scraped page is not written, and no placeholder stands in for one.
+3. When no scraped page carries what a section needs, fence nothing there and write the step
+   in prose. That is the correct answer, not a gap to fill from memory.
+4. A fenced block is verified against the page you scraped it from: the server searches the
+   text it handed you for that page, and records the block only if it appears there, word for
+   word apart from whitespace. A block you assembled from several pages, or renamed inside,
+   will not appear and the article is rejected naming it.
 
-   ```
-   grep -c '^```' article.md
-   jq '.sources | length' sources.json
-   ```
+## How a block is verified
 
-   The first is twice the number of blocks, so it must equal twice the second. When the numbers
-   disagree, the block without an entry is the one to cut or turn into prose; never add an entry
-   for a block no page carries, because the server re-reads the page and the entry is dropped.
+You do not write the ledger. The server does, from what it gave you:
 
-## The source ledger
-
-`sources.json` names the page each fenced block was read on:
-
-```json
-{"sources": [{"block": "<the block, verbatim>", "url": "<https page>", "validated": "none", "validation_error": ""}]}
-```
-
-- `block` is the fenced block without its fence, exactly as it appears in `article.md`. The
-  server matches it on the page with whitespace collapsed: other indentation and line
-  breaks are fine, other words are not.
-- `url` is the page you scraped it on, on an allowlisted host. The server re-reads every URL
-  after the turn — through the same Firecrawl server — and drops the entry when it does not
-  answer; a fence whose entry was dropped is rejected. A code file is cited by its raw URL,
-  `https://raw.githubusercontent.com/<owner>/<repo>/<ref>/<path>`, because that is the address
-  the server can read again.
-- `validated` is `dry-run` when you rendered the block and `none` when you did not.
-  `validation_error` carries what the render said, and is empty when it succeeded.
+- For each fenced block in `article.md` it searches every page you scraped this session and, on
+  a match, records one entry naming that page's URL.
+- A block that matches no page gets no entry, and the caller rejects the article naming the
+  block. There is no way to argue with this and no field to fill in: the fix is to quote the
+  page or drop the fence.
+- What counts is the text you actually received. A long page arrives with its **middle** removed:
+  the start and the end survive, joined by a `…N tokens truncated…` marker, and the full text is
+  spilled to a file the result names. A block inside the removed part did not arrive, so either
+  `read` that spilled file (its text then counts as that page) or scrape the raw file instead of
+  the rendered page. A block that appears only in the part you never saw is not quotable, and
+  guessing at it is what gets the article rejected.
 
 ## Validating a manifest
 
 Render a YAML block before you fence it: `helm template <release> <dir>` over a chart, or
 over a one-file chart (`Chart.yaml` plus `templates/<name>.yaml`) when the block is a bare
-manifest. Record `validated: "dry-run"` and put the error in `validation_error` when it
-fails, and leave the block out of the article: a manifest you know is broken is not
-published.
+manifest. Leave a manifest out of the article when you know it is broken.
 
 If a step fails twice with the same error, report that error verbatim rather than guessing
 again. Do not report success for a step you did not run.

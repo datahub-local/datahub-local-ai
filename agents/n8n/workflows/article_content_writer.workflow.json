@@ -1,7 +1,7 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "c27c397f-7997-4b80-8912-0190f4e38393",
+    "versionId": "feaf78df-6ed2-4ff4-b26a-8e7bcc74fe7d",
     "workflowId": "sKsjxDDW40TATaS6",
     "nodes": [
       {
@@ -623,175 +623,175 @@
             "cachedResultName": "Article Creator"
           },
           "workflowInputs": {
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true,
             "mappingMode": "defineBelow",
-            "value": {
-              "TASK": "draft",
-              "TOPIC": "={{ $('select_article_to_queue').item.json.TOPIC || '' }}",
-              "DESCRIPTION": "={{ $('select_article_to_queue').item.json.DESCRIPTION || '' }}",
-              "URL": "={{ $('select_article_to_queue').item.json.LINK || '' }}",
-              "CONTENT": "={{ $('set_link_flags').item.json.LINK_TEXT || '' }}",
-              "MAX_WORDS": "={{ $('select_article_to_queue').item.json.MAX_WORDS }}",
-              "ASSET_TYPES": "={{ $('select_article_to_queue').item.json.REQUESTED_ASSETS || '' }}",
-              "EXTRA_PROMPT": "={{ $('select_article_to_queue').item.json.EXTRA_PROMPT || '' }}",
-              "FEEDBACK": "={{ $('notification_retry_or_cancel').isExecuted ? ($('notification_retry_or_cancel').last().json.data.Feedback || '') : ($('select_article_to_queue').item.json.ARTICLE_FEEDBACK || '') }}",
-              "AUDIENCE": "={{ $('select_article_to_queue').item.json.AUDIENCE || 'NONE' }}",
-              "ROW_NUMBER": "={{ $('select_article_to_queue').item.json.row_number }}"
-            },
             "matchingColumns": [],
             "schema": [
               {
-                "id": "TASK",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "TASK",
+                "id": "TASK",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "TOPIC",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "TOPIC",
+                "id": "TOPIC",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "DESCRIPTION",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "DESCRIPTION",
+                "id": "DESCRIPTION",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "URL",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "URL",
+                "id": "URL",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "CONTENT",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "CONTENT",
+                "id": "CONTENT",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "MAX_WORDS",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "MAX_WORDS",
+                "id": "MAX_WORDS",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "number",
-                "removed": false
+                "type": "number"
               },
               {
-                "id": "ASSET_TYPES",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "ASSET_TYPES",
+                "id": "ASSET_TYPES",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "EXTRA_PROMPT",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "EXTRA_PROMPT",
+                "id": "EXTRA_PROMPT",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "FEEDBACK",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "FEEDBACK",
+                "id": "FEEDBACK",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "AUDIENCE",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "AUDIENCE",
+                "id": "AUDIENCE",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "ROW_NUMBER",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "ROW_NUMBER",
+                "id": "ROW_NUMBER",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "number",
-                "removed": false
+                "type": "number"
               },
               {
-                "id": "DRAFT_TITLE",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "DRAFT_TITLE",
+                "id": "DRAFT_TITLE",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "DRAFT_TEXT",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "DRAFT_TEXT",
+                "id": "DRAFT_TEXT",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "FINDINGS",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "FINDINGS",
+                "id": "FINDINGS",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "PROBLEM",
-                "displayName": "PROBLEM",
-                "required": false,
+                "canBeUsedToMatch": true,
                 "defaultMatch": false,
                 "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "displayName": "PROBLEM",
+                "id": "PROBLEM",
+                "removed": false,
+                "required": false,
+                "type": "string"
               }
             ],
-            "attemptToConvertTypes": false,
-            "convertFieldsToString": true
+            "value": {
+              "ASSET_TYPES": "={{ $('select_article_to_queue').item.json.REQUESTED_ASSETS || '' }}",
+              "AUDIENCE": "={{ $('select_article_to_queue').item.json.AUDIENCE || 'NONE' }}",
+              "CONTENT": "={{ $('set_link_flags').item.json.LINK_TEXT || '' }}",
+              "DESCRIPTION": "={{ $('select_article_to_queue').item.json.DESCRIPTION || '' }}",
+              "EXTRA_PROMPT": "={{ $('select_article_to_queue').item.json.EXTRA_PROMPT || '' }}",
+              "FEEDBACK": "={{ $('notification_retry_or_cancel').isExecuted ? ($('notification_retry_or_cancel').last().json.data.Feedback || '') : ($('select_article_to_queue').item.json.ARTICLE_FEEDBACK || '') }}",
+              "MAX_WORDS": "={{ $('select_article_to_queue').item.json.MAX_WORDS }}",
+              "ROW_NUMBER": "={{ $('select_article_to_queue').item.json.row_number }}",
+              "TASK": "draft",
+              "TOPIC": "={{ $('select_article_to_queue').item.json.TOPIC || '' }}",
+              "URL": "={{ $('select_article_to_queue').item.json.LINK || '' }}"
+            }
           },
           "options": {}
         }
@@ -4801,408 +4801,408 @@
         "name": "execute_article_aspects",
         "type": "n8n-nodes-base.executeWorkflow",
         "typeVersion": 1.3,
+        "onError": "continueErrorOutput",
         "position": [
           4480,
           -144
         ],
         "parameters": {
+          "options": {},
           "workflowId": {
             "__rl": true,
-            "value": "nPBkIpeObC1Om0LH",
-            "mode": "list",
+            "cachedResultName": "Article Creator",
             "cachedResultUrl": "/workflow/nPBkIpeObC1Om0LH",
-            "cachedResultName": "Article Creator"
+            "mode": "list",
+            "value": "nPBkIpeObC1Om0LH"
           },
           "workflowInputs": {
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true,
             "mappingMode": "defineBelow",
-            "value": {
-              "TASK": "aspects",
-              "TOPIC": "={{ $('build_improvement_context').first().json.TOPIC || '' }}",
-              "DESCRIPTION": "={{ $('build_improvement_context').first().json.DESCRIPTION || '' }}",
-              "URL": "={{ $('build_improvement_context').first().json.LINK || '' }}",
-              "MAX_WORDS": "={{ $('build_improvement_context').first().json.MAX_WORDS }}",
-              "ASSET_TYPES": "={{ $('build_improvement_context').first().json.REQUESTED_ASSETS || '' }}",
-              "EXTRA_PROMPT": "={{ $('build_improvement_context').first().json.EXTRA_PROMPT || '' }}",
-              "FEEDBACK": "={{ $('build_improvement_context').first().json.FEEDBACK || '' }}",
-              "AUDIENCE": "={{ $('build_improvement_context').first().json.AUDIENCE || 'NONE' }}",
-              "ROW_NUMBER": "={{ $('build_improvement_context').first().json.row_number }}",
-              "DRAFT_TITLE": "={{ $('build_improvement_context').first().json.BASE_TITLE || '' }}",
-              "DRAFT_TEXT": "={{ $('build_improvement_context').first().json.BASE_TEXT || '' }}"
-            },
             "matchingColumns": [],
             "schema": [
               {
-                "id": "TASK",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "TASK",
+                "id": "TASK",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "TOPIC",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "TOPIC",
+                "id": "TOPIC",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "DESCRIPTION",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "DESCRIPTION",
+                "id": "DESCRIPTION",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "URL",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "URL",
+                "id": "URL",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "CONTENT",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "CONTENT",
+                "id": "CONTENT",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "MAX_WORDS",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "MAX_WORDS",
+                "id": "MAX_WORDS",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "number",
-                "removed": false
+                "type": "number"
               },
               {
-                "id": "ASSET_TYPES",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "ASSET_TYPES",
+                "id": "ASSET_TYPES",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "EXTRA_PROMPT",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "EXTRA_PROMPT",
+                "id": "EXTRA_PROMPT",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "FEEDBACK",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "FEEDBACK",
+                "id": "FEEDBACK",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "PREVIOUS_DRAFT",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "PREVIOUS_DRAFT",
+                "id": "PREVIOUS_DRAFT",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "AUDIENCE",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "AUDIENCE",
+                "id": "AUDIENCE",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "ROW_NUMBER",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "ROW_NUMBER",
+                "id": "ROW_NUMBER",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "number",
-                "removed": false
+                "type": "number"
               },
               {
-                "id": "DRAFT_TITLE",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "DRAFT_TITLE",
+                "id": "DRAFT_TITLE",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "DRAFT_TEXT",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "DRAFT_TEXT",
+                "id": "DRAFT_TEXT",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "FINDINGS",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "FINDINGS",
+                "id": "FINDINGS",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "PROBLEM",
-                "displayName": "PROBLEM",
-                "required": false,
+                "canBeUsedToMatch": true,
                 "defaultMatch": false,
                 "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "displayName": "PROBLEM",
+                "id": "PROBLEM",
+                "removed": false,
+                "required": false,
+                "type": "string"
               }
             ],
-            "attemptToConvertTypes": false,
-            "convertFieldsToString": true
-          },
-          "options": {}
-        },
-        "onError": "continueErrorOutput"
+            "value": {
+              "ASSET_TYPES": "={{ $('build_improvement_context').first().json.REQUESTED_ASSETS || '' }}",
+              "AUDIENCE": "={{ $('build_improvement_context').first().json.AUDIENCE || 'NONE' }}",
+              "DESCRIPTION": "={{ $('build_improvement_context').first().json.DESCRIPTION || '' }}",
+              "DRAFT_TEXT": "={{ $('build_improvement_context').first().json.BASE_TEXT || '' }}",
+              "DRAFT_TITLE": "={{ $('build_improvement_context').first().json.BASE_TITLE || '' }}",
+              "EXTRA_PROMPT": "={{ $('build_improvement_context').first().json.EXTRA_PROMPT || '' }}",
+              "FEEDBACK": "={{ $('build_improvement_context').first().json.FEEDBACK || '' }}",
+              "MAX_WORDS": "={{ $('build_improvement_context').first().json.MAX_WORDS }}",
+              "ROW_NUMBER": "={{ $('build_improvement_context').first().json.row_number }}",
+              "TASK": "aspects",
+              "TOPIC": "={{ $('build_improvement_context').first().json.TOPIC || '' }}",
+              "URL": "={{ $('build_improvement_context').first().json.LINK || '' }}"
+            }
+          }
+        }
       },
       {
         "id": "72dcd178-68f1-45c4-a1c3-e37368dce87a",
         "name": "execute_article_improve",
         "type": "n8n-nodes-base.executeWorkflow",
         "typeVersion": 1.3,
+        "onError": "continueErrorOutput",
         "position": [
           5728,
           -144
         ],
         "parameters": {
+          "options": {},
           "workflowId": {
             "__rl": true,
-            "value": "nPBkIpeObC1Om0LH",
-            "mode": "list",
+            "cachedResultName": "Article Creator",
             "cachedResultUrl": "/workflow/nPBkIpeObC1Om0LH",
-            "cachedResultName": "Article Creator"
+            "mode": "list",
+            "value": "nPBkIpeObC1Om0LH"
           },
           "workflowInputs": {
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true,
             "mappingMode": "defineBelow",
-            "value": {
-              "TASK": "improve",
-              "TOPIC": "={{ $('build_improvement_context').first().json.TOPIC || '' }}",
-              "DESCRIPTION": "={{ $('build_improvement_context').first().json.DESCRIPTION || '' }}",
-              "URL": "={{ $('build_improvement_context').first().json.LINK || '' }}",
-              "MAX_WORDS": "={{ $('build_improvement_context').first().json.MAX_WORDS }}",
-              "ASSET_TYPES": "={{ $('build_improvement_context').first().json.REQUESTED_ASSETS || '' }}",
-              "EXTRA_PROMPT": "={{ $('build_improvement_context').first().json.EXTRA_PROMPT || '' }}",
-              "FEEDBACK": "={{ $('build_improvement_context').first().json.FEEDBACK || '' }}",
-              "AUDIENCE": "={{ $('build_improvement_context').first().json.AUDIENCE || 'NONE' }}",
-              "ROW_NUMBER": "={{ $('build_improvement_context').first().json.row_number }}",
-              "DRAFT_TITLE": "={{ $('build_improvement_context').first().json.BASE_TITLE || '' }}",
-              "DRAFT_TEXT": "={{ $('build_improvement_context').first().json.BASE_TEXT || '' }}",
-              "FINDINGS": "={{ $('merge_aspect_findings').first().json.FINDINGS || '' }}",
-              "PROBLEM": "={{ $('check_improved_draft').isExecuted ? ($('check_improved_draft').last().json.PROBLEM || '') : '' }}"
-            },
             "matchingColumns": [],
             "schema": [
               {
-                "id": "TASK",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "TASK",
+                "id": "TASK",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "TOPIC",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "TOPIC",
+                "id": "TOPIC",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "DESCRIPTION",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "DESCRIPTION",
+                "id": "DESCRIPTION",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "URL",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "URL",
+                "id": "URL",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "CONTENT",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "CONTENT",
+                "id": "CONTENT",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "MAX_WORDS",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "MAX_WORDS",
+                "id": "MAX_WORDS",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "number",
-                "removed": false
+                "type": "number"
               },
               {
-                "id": "ASSET_TYPES",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "ASSET_TYPES",
+                "id": "ASSET_TYPES",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "EXTRA_PROMPT",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "EXTRA_PROMPT",
+                "id": "EXTRA_PROMPT",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "FEEDBACK",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "FEEDBACK",
+                "id": "FEEDBACK",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "PREVIOUS_DRAFT",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "PREVIOUS_DRAFT",
+                "id": "PREVIOUS_DRAFT",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "AUDIENCE",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "AUDIENCE",
+                "id": "AUDIENCE",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "ROW_NUMBER",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "ROW_NUMBER",
+                "id": "ROW_NUMBER",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "number",
-                "removed": false
+                "type": "number"
               },
               {
-                "id": "DRAFT_TITLE",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "DRAFT_TITLE",
+                "id": "DRAFT_TITLE",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "DRAFT_TEXT",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "DRAFT_TEXT",
+                "id": "DRAFT_TEXT",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "FINDINGS",
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
                 "displayName": "FINDINGS",
+                "id": "FINDINGS",
+                "removed": false,
                 "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "type": "string"
               },
               {
-                "id": "PROBLEM",
-                "displayName": "PROBLEM",
-                "required": false,
+                "canBeUsedToMatch": true,
                 "defaultMatch": false,
                 "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string",
-                "removed": false
+                "displayName": "PROBLEM",
+                "id": "PROBLEM",
+                "removed": false,
+                "required": false,
+                "type": "string"
               }
             ],
-            "attemptToConvertTypes": false,
-            "convertFieldsToString": true
-          },
-          "options": {}
-        },
-        "onError": "continueErrorOutput"
+            "value": {
+              "ASSET_TYPES": "={{ $('build_improvement_context').first().json.REQUESTED_ASSETS || '' }}",
+              "AUDIENCE": "={{ $('build_improvement_context').first().json.AUDIENCE || 'NONE' }}",
+              "DESCRIPTION": "={{ $('build_improvement_context').first().json.DESCRIPTION || '' }}",
+              "DRAFT_TEXT": "={{ $('build_improvement_context').first().json.BASE_TEXT || '' }}",
+              "DRAFT_TITLE": "={{ $('build_improvement_context').first().json.BASE_TITLE || '' }}",
+              "EXTRA_PROMPT": "={{ $('build_improvement_context').first().json.EXTRA_PROMPT || '' }}",
+              "FEEDBACK": "={{ $('build_improvement_context').first().json.FEEDBACK || '' }}",
+              "FINDINGS": "={{ $('merge_aspect_findings').first().json.FINDINGS || '' }}",
+              "MAX_WORDS": "={{ $('build_improvement_context').first().json.MAX_WORDS }}",
+              "PROBLEM": "={{ $('check_improved_draft').isExecuted ? ($('check_improved_draft').last().json.PROBLEM || '') : '' }}",
+              "ROW_NUMBER": "={{ $('build_improvement_context').first().json.row_number }}",
+              "TASK": "improve",
+              "TOPIC": "={{ $('build_improvement_context').first().json.TOPIC || '' }}",
+              "URL": "={{ $('build_improvement_context').first().json.LINK || '' }}"
+            }
+          }
+        }
       }
     ],
     "connections": {
@@ -6144,17 +6144,6 @@
           ]
         ]
       },
-      "build_improvement_context": {
-        "main": [
-          [
-            {
-              "node": "execute_article_aspects",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
       "merge_aspect_findings": {
         "main": [
           [
@@ -6242,6 +6231,17 @@
           ]
         ]
       },
+      "build_improvement_context": {
+        "main": [
+          [
+            {
+              "node": "execute_article_aspects",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
       "execute_article_aspects": {
         "main": [
           [
@@ -6284,10 +6284,10 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-11-06T22:02:00.676Z",
-    "updatedAt": "2026-11-06T22:02:00.676Z"
+    "createdAt": "2026-11-07T13:42:18.233Z",
+    "updatedAt": "2026-11-07T13:42:18.233Z"
   },
-  "activeVersionId": "c27c397f-7997-4b80-8912-0190f4e38393",
+  "activeVersionId": "feaf78df-6ed2-4ff4-b26a-8e7bcc74fe7d",
   "connections": {
     "click_trigger": {
       "main": [
@@ -7227,17 +7227,6 @@
         ]
       ]
     },
-    "build_improvement_context": {
-      "main": [
-        [
-          {
-            "node": "execute_article_aspects",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "merge_aspect_findings": {
       "main": [
         [
@@ -7319,6 +7308,17 @@
         [
           {
             "node": "read_article_queue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "build_improvement_context": {
+      "main": [
+        [
+          {
+            "node": "execute_article_aspects",
             "type": "main",
             "index": 0
           }
@@ -7988,175 +7988,175 @@
           "cachedResultName": "Article Creator"
         },
         "workflowInputs": {
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true,
           "mappingMode": "defineBelow",
-          "value": {
-            "TASK": "draft",
-            "TOPIC": "={{ $('select_article_to_queue').item.json.TOPIC || '' }}",
-            "DESCRIPTION": "={{ $('select_article_to_queue').item.json.DESCRIPTION || '' }}",
-            "URL": "={{ $('select_article_to_queue').item.json.LINK || '' }}",
-            "CONTENT": "={{ $('set_link_flags').item.json.LINK_TEXT || '' }}",
-            "MAX_WORDS": "={{ $('select_article_to_queue').item.json.MAX_WORDS }}",
-            "ASSET_TYPES": "={{ $('select_article_to_queue').item.json.REQUESTED_ASSETS || '' }}",
-            "EXTRA_PROMPT": "={{ $('select_article_to_queue').item.json.EXTRA_PROMPT || '' }}",
-            "FEEDBACK": "={{ $('notification_retry_or_cancel').isExecuted ? ($('notification_retry_or_cancel').last().json.data.Feedback || '') : ($('select_article_to_queue').item.json.ARTICLE_FEEDBACK || '') }}",
-            "AUDIENCE": "={{ $('select_article_to_queue').item.json.AUDIENCE || 'NONE' }}",
-            "ROW_NUMBER": "={{ $('select_article_to_queue').item.json.row_number }}"
-          },
           "matchingColumns": [],
           "schema": [
             {
-              "id": "TASK",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "TASK",
+              "id": "TASK",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "TOPIC",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "TOPIC",
+              "id": "TOPIC",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "DESCRIPTION",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "DESCRIPTION",
+              "id": "DESCRIPTION",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "URL",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "URL",
+              "id": "URL",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "CONTENT",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "CONTENT",
+              "id": "CONTENT",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "MAX_WORDS",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "MAX_WORDS",
+              "id": "MAX_WORDS",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "number",
-              "removed": false
+              "type": "number"
             },
             {
-              "id": "ASSET_TYPES",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "ASSET_TYPES",
+              "id": "ASSET_TYPES",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "EXTRA_PROMPT",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "EXTRA_PROMPT",
+              "id": "EXTRA_PROMPT",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "FEEDBACK",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "FEEDBACK",
+              "id": "FEEDBACK",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "AUDIENCE",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "AUDIENCE",
+              "id": "AUDIENCE",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "ROW_NUMBER",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "ROW_NUMBER",
+              "id": "ROW_NUMBER",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "number",
-              "removed": false
+              "type": "number"
             },
             {
-              "id": "DRAFT_TITLE",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "DRAFT_TITLE",
+              "id": "DRAFT_TITLE",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "DRAFT_TEXT",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "DRAFT_TEXT",
+              "id": "DRAFT_TEXT",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "FINDINGS",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "FINDINGS",
+              "id": "FINDINGS",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "PROBLEM",
-              "displayName": "PROBLEM",
-              "required": false,
+              "canBeUsedToMatch": true,
               "defaultMatch": false,
               "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "displayName": "PROBLEM",
+              "id": "PROBLEM",
+              "removed": false,
+              "required": false,
+              "type": "string"
             }
           ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
+          "value": {
+            "ASSET_TYPES": "={{ $('select_article_to_queue').item.json.REQUESTED_ASSETS || '' }}",
+            "AUDIENCE": "={{ $('select_article_to_queue').item.json.AUDIENCE || 'NONE' }}",
+            "CONTENT": "={{ $('set_link_flags').item.json.LINK_TEXT || '' }}",
+            "DESCRIPTION": "={{ $('select_article_to_queue').item.json.DESCRIPTION || '' }}",
+            "EXTRA_PROMPT": "={{ $('select_article_to_queue').item.json.EXTRA_PROMPT || '' }}",
+            "FEEDBACK": "={{ $('notification_retry_or_cancel').isExecuted ? ($('notification_retry_or_cancel').last().json.data.Feedback || '') : ($('select_article_to_queue').item.json.ARTICLE_FEEDBACK || '') }}",
+            "MAX_WORDS": "={{ $('select_article_to_queue').item.json.MAX_WORDS }}",
+            "ROW_NUMBER": "={{ $('select_article_to_queue').item.json.row_number }}",
+            "TASK": "draft",
+            "TOPIC": "={{ $('select_article_to_queue').item.json.TOPIC || '' }}",
+            "URL": "={{ $('select_article_to_queue').item.json.LINK || '' }}"
+          }
         },
         "options": {}
       }
@@ -12166,408 +12166,408 @@
       "name": "execute_article_aspects",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
+      "onError": "continueErrorOutput",
       "position": [
         4480,
         -144
       ],
       "parameters": {
+        "options": {},
         "workflowId": {
           "__rl": true,
-          "value": "nPBkIpeObC1Om0LH",
-          "mode": "list",
+          "cachedResultName": "Article Creator",
           "cachedResultUrl": "/workflow/nPBkIpeObC1Om0LH",
-          "cachedResultName": "Article Creator"
+          "mode": "list",
+          "value": "nPBkIpeObC1Om0LH"
         },
         "workflowInputs": {
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true,
           "mappingMode": "defineBelow",
-          "value": {
-            "TASK": "aspects",
-            "TOPIC": "={{ $('build_improvement_context').first().json.TOPIC || '' }}",
-            "DESCRIPTION": "={{ $('build_improvement_context').first().json.DESCRIPTION || '' }}",
-            "URL": "={{ $('build_improvement_context').first().json.LINK || '' }}",
-            "MAX_WORDS": "={{ $('build_improvement_context').first().json.MAX_WORDS }}",
-            "ASSET_TYPES": "={{ $('build_improvement_context').first().json.REQUESTED_ASSETS || '' }}",
-            "EXTRA_PROMPT": "={{ $('build_improvement_context').first().json.EXTRA_PROMPT || '' }}",
-            "FEEDBACK": "={{ $('build_improvement_context').first().json.FEEDBACK || '' }}",
-            "AUDIENCE": "={{ $('build_improvement_context').first().json.AUDIENCE || 'NONE' }}",
-            "ROW_NUMBER": "={{ $('build_improvement_context').first().json.row_number }}",
-            "DRAFT_TITLE": "={{ $('build_improvement_context').first().json.BASE_TITLE || '' }}",
-            "DRAFT_TEXT": "={{ $('build_improvement_context').first().json.BASE_TEXT || '' }}"
-          },
           "matchingColumns": [],
           "schema": [
             {
-              "id": "TASK",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "TASK",
+              "id": "TASK",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "TOPIC",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "TOPIC",
+              "id": "TOPIC",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "DESCRIPTION",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "DESCRIPTION",
+              "id": "DESCRIPTION",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "URL",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "URL",
+              "id": "URL",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "CONTENT",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "CONTENT",
+              "id": "CONTENT",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "MAX_WORDS",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "MAX_WORDS",
+              "id": "MAX_WORDS",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "number",
-              "removed": false
+              "type": "number"
             },
             {
-              "id": "ASSET_TYPES",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "ASSET_TYPES",
+              "id": "ASSET_TYPES",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "EXTRA_PROMPT",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "EXTRA_PROMPT",
+              "id": "EXTRA_PROMPT",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "FEEDBACK",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "FEEDBACK",
+              "id": "FEEDBACK",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "PREVIOUS_DRAFT",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "PREVIOUS_DRAFT",
+              "id": "PREVIOUS_DRAFT",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "AUDIENCE",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "AUDIENCE",
+              "id": "AUDIENCE",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "ROW_NUMBER",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "ROW_NUMBER",
+              "id": "ROW_NUMBER",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "number",
-              "removed": false
+              "type": "number"
             },
             {
-              "id": "DRAFT_TITLE",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "DRAFT_TITLE",
+              "id": "DRAFT_TITLE",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "DRAFT_TEXT",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "DRAFT_TEXT",
+              "id": "DRAFT_TEXT",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "FINDINGS",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "FINDINGS",
+              "id": "FINDINGS",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "PROBLEM",
-              "displayName": "PROBLEM",
-              "required": false,
+              "canBeUsedToMatch": true,
               "defaultMatch": false,
               "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "displayName": "PROBLEM",
+              "id": "PROBLEM",
+              "removed": false,
+              "required": false,
+              "type": "string"
             }
           ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        },
-        "options": {}
-      },
-      "onError": "continueErrorOutput"
+          "value": {
+            "ASSET_TYPES": "={{ $('build_improvement_context').first().json.REQUESTED_ASSETS || '' }}",
+            "AUDIENCE": "={{ $('build_improvement_context').first().json.AUDIENCE || 'NONE' }}",
+            "DESCRIPTION": "={{ $('build_improvement_context').first().json.DESCRIPTION || '' }}",
+            "DRAFT_TEXT": "={{ $('build_improvement_context').first().json.BASE_TEXT || '' }}",
+            "DRAFT_TITLE": "={{ $('build_improvement_context').first().json.BASE_TITLE || '' }}",
+            "EXTRA_PROMPT": "={{ $('build_improvement_context').first().json.EXTRA_PROMPT || '' }}",
+            "FEEDBACK": "={{ $('build_improvement_context').first().json.FEEDBACK || '' }}",
+            "MAX_WORDS": "={{ $('build_improvement_context').first().json.MAX_WORDS }}",
+            "ROW_NUMBER": "={{ $('build_improvement_context').first().json.row_number }}",
+            "TASK": "aspects",
+            "TOPIC": "={{ $('build_improvement_context').first().json.TOPIC || '' }}",
+            "URL": "={{ $('build_improvement_context').first().json.LINK || '' }}"
+          }
+        }
+      }
     },
     {
       "id": "72dcd178-68f1-45c4-a1c3-e37368dce87a",
       "name": "execute_article_improve",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
+      "onError": "continueErrorOutput",
       "position": [
         5728,
         -144
       ],
       "parameters": {
+        "options": {},
         "workflowId": {
           "__rl": true,
-          "value": "nPBkIpeObC1Om0LH",
-          "mode": "list",
+          "cachedResultName": "Article Creator",
           "cachedResultUrl": "/workflow/nPBkIpeObC1Om0LH",
-          "cachedResultName": "Article Creator"
+          "mode": "list",
+          "value": "nPBkIpeObC1Om0LH"
         },
         "workflowInputs": {
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true,
           "mappingMode": "defineBelow",
-          "value": {
-            "TASK": "improve",
-            "TOPIC": "={{ $('build_improvement_context').first().json.TOPIC || '' }}",
-            "DESCRIPTION": "={{ $('build_improvement_context').first().json.DESCRIPTION || '' }}",
-            "URL": "={{ $('build_improvement_context').first().json.LINK || '' }}",
-            "MAX_WORDS": "={{ $('build_improvement_context').first().json.MAX_WORDS }}",
-            "ASSET_TYPES": "={{ $('build_improvement_context').first().json.REQUESTED_ASSETS || '' }}",
-            "EXTRA_PROMPT": "={{ $('build_improvement_context').first().json.EXTRA_PROMPT || '' }}",
-            "FEEDBACK": "={{ $('build_improvement_context').first().json.FEEDBACK || '' }}",
-            "AUDIENCE": "={{ $('build_improvement_context').first().json.AUDIENCE || 'NONE' }}",
-            "ROW_NUMBER": "={{ $('build_improvement_context').first().json.row_number }}",
-            "DRAFT_TITLE": "={{ $('build_improvement_context').first().json.BASE_TITLE || '' }}",
-            "DRAFT_TEXT": "={{ $('build_improvement_context').first().json.BASE_TEXT || '' }}",
-            "FINDINGS": "={{ $('merge_aspect_findings').first().json.FINDINGS || '' }}",
-            "PROBLEM": "={{ $('check_improved_draft').isExecuted ? ($('check_improved_draft').last().json.PROBLEM || '') : '' }}"
-          },
           "matchingColumns": [],
           "schema": [
             {
-              "id": "TASK",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "TASK",
+              "id": "TASK",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "TOPIC",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "TOPIC",
+              "id": "TOPIC",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "DESCRIPTION",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "DESCRIPTION",
+              "id": "DESCRIPTION",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "URL",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "URL",
+              "id": "URL",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "CONTENT",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "CONTENT",
+              "id": "CONTENT",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "MAX_WORDS",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "MAX_WORDS",
+              "id": "MAX_WORDS",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "number",
-              "removed": false
+              "type": "number"
             },
             {
-              "id": "ASSET_TYPES",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "ASSET_TYPES",
+              "id": "ASSET_TYPES",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "EXTRA_PROMPT",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "EXTRA_PROMPT",
+              "id": "EXTRA_PROMPT",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "FEEDBACK",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "FEEDBACK",
+              "id": "FEEDBACK",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "PREVIOUS_DRAFT",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "PREVIOUS_DRAFT",
+              "id": "PREVIOUS_DRAFT",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "AUDIENCE",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "AUDIENCE",
+              "id": "AUDIENCE",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "ROW_NUMBER",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "ROW_NUMBER",
+              "id": "ROW_NUMBER",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "number",
-              "removed": false
+              "type": "number"
             },
             {
-              "id": "DRAFT_TITLE",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "DRAFT_TITLE",
+              "id": "DRAFT_TITLE",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "DRAFT_TEXT",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "DRAFT_TEXT",
+              "id": "DRAFT_TEXT",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "FINDINGS",
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
               "displayName": "FINDINGS",
+              "id": "FINDINGS",
+              "removed": false,
               "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "type": "string"
             },
             {
-              "id": "PROBLEM",
-              "displayName": "PROBLEM",
-              "required": false,
+              "canBeUsedToMatch": true,
               "defaultMatch": false,
               "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string",
-              "removed": false
+              "displayName": "PROBLEM",
+              "id": "PROBLEM",
+              "removed": false,
+              "required": false,
+              "type": "string"
             }
           ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        },
-        "options": {}
-      },
-      "onError": "continueErrorOutput"
+          "value": {
+            "ASSET_TYPES": "={{ $('build_improvement_context').first().json.REQUESTED_ASSETS || '' }}",
+            "AUDIENCE": "={{ $('build_improvement_context').first().json.AUDIENCE || 'NONE' }}",
+            "DESCRIPTION": "={{ $('build_improvement_context').first().json.DESCRIPTION || '' }}",
+            "DRAFT_TEXT": "={{ $('build_improvement_context').first().json.BASE_TEXT || '' }}",
+            "DRAFT_TITLE": "={{ $('build_improvement_context').first().json.BASE_TITLE || '' }}",
+            "EXTRA_PROMPT": "={{ $('build_improvement_context').first().json.EXTRA_PROMPT || '' }}",
+            "FEEDBACK": "={{ $('build_improvement_context').first().json.FEEDBACK || '' }}",
+            "FINDINGS": "={{ $('merge_aspect_findings').first().json.FINDINGS || '' }}",
+            "MAX_WORDS": "={{ $('build_improvement_context').first().json.MAX_WORDS }}",
+            "PROBLEM": "={{ $('check_improved_draft').isExecuted ? ($('check_improved_draft').last().json.PROBLEM || '') : '' }}",
+            "ROW_NUMBER": "={{ $('build_improvement_context').first().json.row_number }}",
+            "TASK": "improve",
+            "TOPIC": "={{ $('build_improvement_context').first().json.TOPIC || '' }}",
+            "URL": "={{ $('build_improvement_context').first().json.LINK || '' }}"
+          }
+        }
+      }
     }
   ],
   "pinData": {},
@@ -12601,6 +12601,6 @@
   },
   "tags": [],
   "triggerCount": 2,
-  "updatedAt": "2026-11-06T22:02:00.653Z",
-  "versionId": "c27c397f-7997-4b80-8912-0190f4e38393"
+  "updatedAt": "2026-11-07T13:42:18.216Z",
+  "versionId": "feaf78df-6ed2-4ff4-b26a-8e7bcc74fe7d"
 }

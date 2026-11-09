@@ -166,78 +166,6 @@ at one path, and every consumer of the set SHALL read the de-duplicated set rath
 - **THEN** the requested set carries the hero once
 - **AND** the hero rule does not prepend a second one
 
-### Requirement: A human retry is handed the draft the human rejected
-
-When a person asks for changes to a draft they read, the pass that regenerates it SHALL receive
-the draft they were reading, so the change is an edit rather than a fresh article. In this lane
-that pass is the improvement pass: the retry SHALL NOT re-enter the drafting sub-workflow, and the
-draft of record SHALL be resolved in this order — the converged draft of this run, then the
-drafting call's own answer, then the stored draft row — so a review resumed in a later execution
-still improves the draft the person read. The draft SHALL be the one that was on screen when the
-feedback was written and not an earlier round's, the first pass SHALL send none, and a drafting
-pass re-rendered inside one invocation SHALL prefer the draft its own gate just rejected.
-
-A round that carries human feedback SHALL change the draft: a returned body and title equal to the
-ones it was given SHALL be reported as unchanged and SHALL NOT be reported as an improvement. A
-feedback round MAY add a fenced block no fetched page carries, because the person asking for it is
-the authority the ledger otherwise stands in for; such a block SHALL be counted and named to the
-reviewer as unverified. A block the ledger does carry and that failed verification — not found,
-failed validation, drifted excerpt — SHALL still fail on a feedback round, and a round without
-human feedback SHALL keep the strict rule.
-
-#### Scenario: A human asks for one change
-
-- **WHEN** a person answers the review with feedback and the graph re-enters the improvement pass
-- **THEN** the improvement prompt carries the draft they were reading and the feedback
-- **AND** the parts of it the feedback does not name are kept
-
-#### Scenario: A review resumed in a later execution still edits the reviewed draft
-
-- **WHEN** the approval is answered after the run that presented the draft has ended
-- **THEN** the draft of record is read from the stored draft row
-- **AND** the improvement edits that draft rather than drafting from nothing
-
-#### Scenario: A third round edits the second draft
-
-- **WHEN** a draft is sent for review a second time and rejected again
-- **THEN** the improvement pass carries the most recently reviewed draft
-- **AND** it does not carry the first round's draft
-
-#### Scenario: The first authoring sends nothing
-
-- **WHEN** a draft is produced for the first time in a run
-- **THEN** no previous draft or human feedback is applied
-- **AND** the prompt's previous-draft block is empty
-
-#### Scenario: The internal review loop is unaffected
-
-- **WHEN** the drafting pass is re-rendered by the internal review gate inside one invocation
-- **THEN** it edits the draft that gate just rejected
-- **AND** the improvement pass's draft of record does not displace it
-
-#### Scenario: A feedback round adds a command no fetched page carries
-
-- **WHEN** a person asks for a command the project's documentation does not contain
-- **THEN** the improvement pass writes it as a fenced block
-- **AND** the block is counted and the review message names it as unverified
-
-#### Scenario: A first-draft edit may not add such a block
-
-- **WHEN** a round without human feedback fences a block no ledger entry carries
-- **THEN** the edit fails the code re-check naming the block
-- **AND** the pre-improvement draft is presented for review
-
-#### Scenario: Feedback does not excuse a ledgered block the page lost
-
-- **WHEN** a feedback round keeps a block whose ledger entry is `found: false`
-- **THEN** the edit fails the code re-check naming the page
-
-#### Scenario: A feedback round that changes nothing says so
-
-- **WHEN** a feedback round returns the body and title it was given
-- **THEN** the outcome is reported as unchanged, not improved
-- **AND** the reviewer is told the feedback was not applied
-
 ### Requirement: An article is written for the row's audience
 
 An entry SHALL carry an audience level — `NONE`, `LOW`, `MEDIUM` or `ADVANCED` — and the
@@ -793,42 +721,6 @@ returns no article SHALL be reported failed, distinct from nothing to apply.
 - **THEN** it is read from the adapter image
 - **AND** no copy exists under `agents/n8n/`
 
-### Requirement: The entry point reaches the writer through Article Creator
-
-Every article writer turn SHALL run inside `Article Creator`. The entry point SHALL select the
-turn with a `TASK` input whose values are `draft`, `aspects` and `improve`, defaulting to `draft`,
-and SHALL NOT post to the writer adapter itself. The entry point SHALL pass the draft of record,
-the merged findings and, on a retry, the objective problem named by its code re-check into the
-sub-workflow; the sub-workflow SHALL answer the adapter's result, so the entry point reads one
-response shape for a direct call and for a sub-workflow answer.
-
-A task the sub-workflow does not implement SHALL fail the run naming the task, and SHALL NOT fall
-back to drafting.
-
-#### Scenario: The aspect pass is a call to the sub-workflow
-
-- **WHEN** the improvement pass starts
-- **THEN** the entry point calls `Article Creator` with `TASK` `aspects` and the draft of record
-- **AND** the entry point contains no HTTP node that posts to the writer adapter
-
-#### Scenario: The edit pass is a call to the sub-workflow
-
-- **WHEN** the findings or human feedback call for an edit
-- **THEN** the entry point calls `Article Creator` with `TASK` `improve`, the draft of record and the merged findings
-- **AND** a retry also carries the objective problem the code re-check named
-
-#### Scenario: An unimplemented task does not draft
-
-- **WHEN** a caller asks `Article Creator` for a task it does not implement
-- **THEN** the run fails naming the task
-- **AND** no draft is spent
-
-#### Scenario: The answer crosses the boundary unchanged
-
-- **WHEN** the sub-workflow returns an aspect or edit answer
-- **THEN** the entry point's parser reads the same status and body it would read from a direct call
-- **AND** a transport failure is still an error item, not a missing answer
-
 ### Requirement: An article that teaches a tool shows a block the reader can run
 
 A draft whose shape teaches a tool SHALL carry at least one fenced block quoted from a page the run
@@ -1127,3 +1019,58 @@ automatically.
 - **WHEN** a retry drafts again
 - **THEN** it starts in a session of its own rather than continuing the previous transcript
 - **AND** the previous draft and the reason are in its brief
+
+### Requirement: A human retry re-drafts with the draft they rejected
+
+When a person asks for changes to a draft they read, the entry point SHALL call `Article Creator`
+with `TASK: draft` again, passing the draft they were reading and their feedback, and the turn
+SHALL author in a session of its own rather than continuing the session it replaces. The new draft
+SHALL pass the same drafting gate as the first, and SHALL be presented for review with the feedback
+marked applied only when the body actually changed.
+
+#### Scenario: A human asks for one change
+
+- **WHEN** a person answers the review with feedback
+- **THEN** the next draft is authored with that feedback and the draft they read
+- **AND** the parts the feedback does not name are kept where the facts allow
+
+#### Scenario: The retry is its own session
+
+- **WHEN** the human retry runs
+- **THEN** it starts in a new session with the previous draft in its brief
+- **AND** it does not continue the transcript of the draft it replaces
+
+#### Scenario: A review resumed in a later execution
+
+- **WHEN** the approval is answered after the run that presented the draft has ended
+- **THEN** the draft of record is read from the stored draft row
+- **AND** the retry carries it
+
+### Requirement: The entry point passes only the drafting task
+
+Every article writer turn SHALL run inside `Article Creator`. The entry point SHALL select the turn
+with a `TASK` input whose default is `draft` and SHALL pass `draft` for the automatic path, SHALL
+NOT pass `aspects` or `improve`, and SHALL NOT post to the writer adapter itself. The sub-workflow
+SHALL answer the adapter's result, so the entry point reads one response shape.
+
+A task the sub-workflow does not implement SHALL fail the run naming the task, and SHALL NOT fall
+back to drafting.
+
+#### Scenario: The automatic path drafts once
+
+- **WHEN** the entry point calls the writer for an entry
+- **THEN** it passes `TASK: draft`
+- **AND** it contains no HTTP node that posts to the writer adapter
+- **AND** no aspect or edit call is made
+
+#### Scenario: The other tasks stay available
+
+- **WHEN** an operator asks `Article Creator` for `review`, `audit`, `aspects` or `improve`
+- **THEN** the sub-workflow serves it
+- **AND** the entry point does not pass it
+
+#### Scenario: An unimplemented task does not draft
+
+- **WHEN** a caller asks `Article Creator` for a task it does not implement
+- **THEN** the run fails naming the task
+- **AND** no draft is spent

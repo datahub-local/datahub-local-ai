@@ -868,6 +868,15 @@ async function adoptDraft(dir, response, before) {
       return;
     }
   }
+  // A turn may answer with the article itself, unwrapped. The H1 and a body's length are the
+  // shape; a meta answer ("nothing changed since the last pass") or a truncated one has neither,
+  // which is the case the strict rule was added for and still rejects.
+  const plain = String(response ?? "").trim();
+  if (/^#\s+\S/m.test(plain) && plain.length >= 600) {
+    console.log("sympozium pi writer session: the turn answered with the article unwrapped; adopting it");
+    await writeArticle(dir, splitArticle(plain));
+    return;
+  }
   throw new Error("the draft turn answered without writing article.md");
 }
 

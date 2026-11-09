@@ -102,6 +102,12 @@ if (prompt.includes("NO_WRITE")) {
   process.stdout.write("I could not finish the article.");
   process.exit(0);
 }
+// A turn can answer with the article itself, unwrapped: the server adopts it rather than
+// failing a run whose draft is right there in the response.
+if (prompt.includes("PLAIN_ANSWER")) {
+  process.stdout.write("# Plain draft\\n\\n" + "A sentence of the body that the reader follows. ".repeat(20));
+  process.exit(0);
+}
 // A quoted manifest, as the real turn would write it after reading the page.
 fs.writeFileSync("article.md", "# Probe\\n\\n## Install\\n\\n" + "\\u0060\\u0060\\u0060bash\\nhelm upgrade --install probe ./chart\\n\\u0060\\u0060\\u0060\\n");
 // A second fence with no entry: the caller reports this as UNQUOTED, and the server names it
@@ -243,6 +249,20 @@ test("a draft that writes nothing and answers no block fails by name", async () 
   assert.equal(res.status, 400);
   const body = await res.json();
   assert.match(body.error.message, /answered without writing article\.md/);
+});
+
+test("a turn that answers the article unwrapped is adopted instead of failing the run", async () => {
+  const res = await turn({
+    messages: [{ role: "user", content: "PLAIN_ANSWER write about the release" }],
+    session_id: "article-plain",
+    source_hosts: ["github.com"],
+  });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.article.title, "Plain draft");
+  assert.match(body.article.text, /^A sentence of the body/);
+  const stored = await readFile(join(workspace, "runs", "article-plain", "article.md"), "utf8");
+  assert.match(stored, /^# Plain draft\n\nA sentence of the body/);
 });
 
 test("a turn drafts both files and the server derives the ledger from its transcript", async () => {

@@ -62,19 +62,23 @@ functions, so the tests exercise it without spawning Pi or binding a port.
 The other turns are review, not drafting:
 
 - `task: "audit"` judges the draft **with tools**: it reads `article.md`, the derived
-  `sources.json` and the session transcript, greps for a claim it doubts and may fetch a page. It
-  answers the review's `<output>true|false</output>` plus `<explanation>` and a `<findings>` list,
-  and the findings are appended to the explanation so the writer's retry carries them. This is the
-  turn that catches an invented name or a requested section that never landed.
+  `sources.json` and the session transcript, greps for a claim it doubts and may fetch a page. The
+  adapter derives the ledger first and hands it the blocks no page carries plus the URLs the
+  session read, so each finding names the fix — quote that page verbatim, write it as prose, or
+  cut it. It answers the review's `<output>true|false</output>` plus `<explanation>` and a
+  `<findings>` list, the findings are appended to the explanation so the writer's retry carries
+  them, and a draft with an unquoted block is never a pass whatever it concluded.
 - `task: "review"` is the same verdict without tools, for a caller that wants only the checklist.
 - `task: "aspects"` runs the aspect registry (`prompts/article_aspects.json`) over the draft and
   answers one `<findings>` block per aspect.
 - `task: "improve"` applies findings, human feedback or an objective problem and answers the
-  edited article.
+  edited article. It may fetch (four lookups, same allowlist) for one purpose: pasting a block
+  byte for byte from the page a finding names.
 
-Audit runs with tools and the run directory, because its evidence is the artifacts and the
-transcript. Review, aspect and improve run `--no-tools`: they may not research, and the server
-writes the article they produce. All of them continue the same Pi session as the draft.
+Audit and improve run with tools, the run directory and the source proxy, because their evidence
+is the artifacts and the transcript. Review and the aspect pass run `--no-tools`: they may not
+research, and the server writes the article they produce. All of them continue the same Pi
+session as the draft.
 
 Derived from the maintained Pi adapter's `session-server.mjs`, which is the reference for
 the session contract. The deltas:
@@ -111,7 +115,7 @@ proof available inside the pod.
 
 | field | meaning |
 | --- | --- |
-| `task` | `draft` (default), `review`, `aspects` or `improve` |
+| `task` | `draft` (default), `review`, `audit`, `aspects` or `improve` |
 | `brief` | the entry's fields: `topic`, `description`, `url`, `max_words`, `asset_types`, `audience`, `extra_prompt`, `content`, `feedback`. The server renders the prompt from its own files |
 | `article` | the draft of record for `review`, `aspects` and `improve`: `{ title, text }`. The caller resolves it, so the turn reviews exactly what the caller decided |
 | `findings` | the merged aspect findings for `improve`, as one text block |
@@ -134,8 +138,8 @@ is reachable.
 ## Fields Pi receives
 
 `MODEL_NAME`, `MODEL_BASE_URL`, `OPENAI_API_KEY`, `SYMPOZIUM_HARNESS_CONTRACT_VERSION`
-(`v1alpha2`), `PI_WRITER_SESSION_ID` / `PI_WRITER_SESSION_DIR` (what the turn's `check-article`
-resolves its transcript from), `PI_WRITER_THINKING` (default `minimal`, which the model needs),
+(`v1alpha2`), `PI_WRITER_SESSION_ID` / `PI_WRITER_SESSION_DIR` / `PI_WRITER_SESSION_FILE` (what the turn's
+`check-article` and the auditor resolve their transcript from), `PI_WRITER_THINKING` (default `minimal`, which the model needs),
 and the optional `PI_WRITER_*` knobs: the context window (500000, the gateway's
 `max_input_tokens`), the token cap, the compaction trigger as a percentage of that window (80) and
 the kept-recent percentage (5), the idle timeout and the retry window. `SYMPOZIUM_WORKSPACE` moves

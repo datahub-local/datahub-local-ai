@@ -445,12 +445,15 @@ export function deriveLedger({ article, pages } = {}) {
   const scraped = (Array.isArray(pages) ? pages : []).filter((page) => page && page.url && page.text);
   const sources = [];
   const unquoted = [];
+  const unquotedBlocks = [];
   for (const fenced of extractFencedBlocks(String(article ?? ""))) {
     const key = normaliseBlock(fenced.block);
     if (!key) continue;
     const page = scraped.find((candidate) => findExcerpt(candidate.text, fenced.block) !== null);
     if (!page) {
-      unquoted.push(fenced.block.split("\n")[0].trim().slice(0, 120));
+      const firstLine = fenced.block.split("\n")[0].trim().slice(0, 120);
+      unquoted.push(firstLine);
+      unquotedBlocks.push({ block: fenced.block, firstLine });
       continue;
     }
     const excerpt = findExcerpt(page.text, fenced.block);
@@ -466,7 +469,7 @@ export function deriveLedger({ article, pages } = {}) {
       body_sha256: sha256Hex(page.text),
     });
   }
-  return { sources, unquoted };
+  return { sources, unquoted, unquotedBlocks };
 }
 
 export function splitArticle(markdown) {

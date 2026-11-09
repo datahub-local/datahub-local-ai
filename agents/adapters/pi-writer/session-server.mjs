@@ -378,7 +378,7 @@ async function reviewPrompt({ brief, article }) {
 // The audit is the review that can look: same session and directory as the draft, tools on, and
 // the derived ledger already on disk. The verdict shape stays the review's so the caller keeps its
 // switch, and the findings ride along in the explanation so the writer's retry carries them.
-async function auditPrompt({ brief, article }) {
+async function auditPrompt({ brief, article, unquoted = [], pages = [], sessionFile = "" }) {
   const maxWords = Number(brief.max_words);
   if (!Number.isFinite(maxWords) || maxWords <= 0) {
     throw new Error("an audit needs brief.max_words: the gate enforces the budget");
@@ -404,6 +404,19 @@ async function auditPrompt({ brief, article }) {
     FEEDBACK: brief.feedback ?? "",
     RULES: system,
     CONTENT: brief.content ?? "",
+    SESSION_FILE: sessionFile || "unavailable",
+    // The gate's own findings, not the auditor's: a block listed here cannot publish, and the
+    // audit's job is to name the concrete fix (the page to quote, or prose) rather than repeat
+    // the first line back to the writer.
+    UNQUOTED: unquoted.length
+      ? unquoted
+          .map(
+            (entry, index) =>
+              `${index + 1}. starts \`${entry.firstLine}\`:\n\n\`\`\`\n${String(entry.block).slice(0, 1600)}\n\`\`\``
+          )
+          .join("\n\n")
+      : "none",
+    PAGES: pages.length ? pages.map((url) => `- ${url}`).join("\n") : "none",
   });
 }
 
@@ -445,7 +458,7 @@ async function aspectPrompt(aspect, { brief, article }) {
   });
 }
 
-async function improvePrompt({ brief, article, findings, problem }) {
+async function improvePrompt({ brief, article, findings, problem, hosts }) {
   const [template, audiences, structures] = await Promise.all([
     readPrompt("article_improver.md"),
     readAudiences(),
@@ -462,6 +475,7 @@ async function improvePrompt({ brief, article, findings, problem }) {
     STRUCTURES: structures,
     MAX_WORDS: brief.max_words ?? "",
     ASSET_TYPES: brief.asset_types ?? "",
+    HOSTS: Array.isArray(hosts) && hosts.length ? hosts.join(", ") : "none declared",
   });
 }
 
@@ -611,10 +625,16 @@ function runPi(prompt, sessionID, onOutput, signal, cwd = workDir, options = {})
       prompt,
     ];
     // The turn's own tooling needs to know which session it is: `check-article` resolves the
-    // transcript from these to prove a block against what the run actually read.
+    // transcript from these to prove a block against what the run actually read, and the
+    // auditor greps the same file for a claim it has to settle.
     const child = spawn("pi", args, {
       cwd,
-      env: { ...process.env, PI_WRITER_SESSION_ID: sessionID, PI_WRITER_SESSION_DIR: sessionDir },
+      env: {
+        ...process.env,
+        PI_WRITER_SESSION_ID: sessionID,
+        PI_WRITER_SESSION_DIR: sessionDir,
+        ...(options.sessionFile ? { PI_WRITER_SESSION_FILE: options.sessionFile } : {}),
+      },
       stdio: ["ignore", "pipe", "pipe"],
     });
     let output = "";
@@ -835,7 +855,7 @@ async function writeDerivedLedger(dir, sessionID) {
     article = "";
   }
   const pages = await transcriptPages(await readTranscript(sessionID));
-  const { sources, unquoted } = deriveLedger({ article, pages });
+  const { sources, unquoted, unquotedBlocks } = deriveLedger({ article, pages });
   for (const block of unquoted) {
     console.log(`sympozium pi writer session: block not in ${LEDGER_NAME}: ${block}`);
   }
@@ -844,24 +864,32 @@ async function writeDerivedLedger(dir, sessionID) {
     sources: sources.length,
     quoted: sources.filter((entry) => entry.found).length,
     unquoted,
+    unquotedBlocks: unquotedBlocks ?? [],
+    // The URLs the session actually read: the auditor names one of these as the fix, and a
+    // page outside it has to be fetched before its block can be quoted.
+    pages: [...new Set(pages.map((page) => page.url))],
     dropped: [],
     error: pages.length ? "" : "the turn scraped no page, so no block can be quoted",
   };
 }
 
 // Pi appends one JSONL file per session id; the newest is this run's.
-async function readTranscript(sessionID) {
+async function transcriptFile(sessionID) {
   let names;
   try {
     names = await readdir(sessionDir);
   } catch {
-    return [];
+    return "";
   }
   const files = names.filter((name) => name.endsWith(`_${sessionID}.jsonl`)).sort();
-  const file = files.at(-1);
+  return files.length ? join(sessionDir, files.at(-1)) : "";
+}
+
+async function readTranscript(sessionID) {
+  const file = await transcriptFile(sessionID);
   if (!file) return [];
   const rows = [];
-  for (const line of (await readFile(join(sessionDir, file), "utf8")).split("\n")) {
+  for (const line of (await readFile(file, "utf8")).split("\n")) {
     if (!line.trim()) continue;
     try {
       rows.push(JSON.parse(line));
@@ -1000,20 +1028,43 @@ http
           }
 
           // A review or an edit reads the draft the caller resolved and answers in its
-          // response. No tools and no proxy: those turns may not research, and the server
-          // writes the article a review of them produces.
+          // response. No proxy by default: a turn that may not research cannot reach a page.
           articleHosts = null;
           proxyEnv(null);
           const article = await resolveArticle(request, dir);
           if (task === "audit") {
-            const prompt = await auditPrompt({ brief: brief || {}, article });
-            const response = await runPi(prompt, sessionID, undefined, cancellation.signal, dir);
+            // The gate runs first so the auditor argues with a list instead of guessing. A
+            // block no page carries is named here with its own text and the pages the session
+            // read, so the finding is the fix the retry applies rather than the gate's first
+            // line handed back to a writer that cannot tell which block it means.
+            const ledger = await writeDerivedLedger(dir, sessionID);
+            let response;
+            articleHosts = hosts;
+            proxyEnv(hosts);
+            try {
+              const prompt = await auditPrompt({
+                brief: brief || {},
+                article,
+                unquoted: ledger.unquotedBlocks,
+                pages: ledger.pages,
+                sessionFile: await transcriptFile(sessionID),
+              });
+              response = await runPi(prompt, sessionID, undefined, cancellation.signal, dir, {
+                sessionFile: await transcriptFile(sessionID),
+              });
+            } finally {
+              articleHosts = null;
+              proxyEnv(null);
+            }
             const verdict = parseReview(response);
             const findings = parseFindings(response);
             const explanation = [verdict.explanation, findings.text].filter(Boolean).join(" ");
             return {
               response,
-              review: { pass: verdict.pass, explanation },
+              // A draft the gate rejects does not pass, whatever the auditor concluded: the
+              // count is code's, and a pass here would tell the writer the draft is fine in the
+              // same breath as the gate naming blocks that cannot publish.
+              review: { pass: verdict.pass && ledger.unquoted.length === 0, explanation },
               findings: [{ aspect: "audit", focus: "unsupported claims, the ask, educative value", error: "", ...findings }],
             };
           }
@@ -1045,8 +1096,20 @@ http
             article,
             findings: request.findings,
             problem: request.problem,
+            hosts,
           });
-          const response = await runPi(prompt, sessionID, undefined, cancellation.signal, dir, { noTools: true });
+          // The edit may fetch, because the fix the audit names is often a page: a block it
+          // must quote cannot be written from memory, and this turn is where the gate's last
+          // findings are applied. Same allowlist and same budget as the draft.
+          let response;
+          articleHosts = hosts;
+          proxyEnv(hosts);
+          try {
+            response = await runPi(prompt, sessionID, undefined, cancellation.signal, dir);
+          } finally {
+            articleHosts = null;
+            proxyEnv(null);
+          }
           const edited = splitArticle(response);
           if (!edited.text) throw new Error("the improve turn returned no <article> block");
           await writeArticle(dir, { title: edited.title || article.title, text: edited.text });

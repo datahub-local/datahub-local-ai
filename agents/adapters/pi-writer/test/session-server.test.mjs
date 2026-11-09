@@ -58,7 +58,12 @@ if (prompt.includes("You review one long-form technical blog draft.")) {
 }
 if (prompt.includes("You audit one article draft")) {
   // The audit answers the review's verdict plus findings, and it runs with tools: the stub
-  // records whether tools were offered through args.txt, asserted by the test.
+  // records whether tools were offered through args.txt, asserted by the test. AUDIT_PASS is
+  // the cheerfully wrong auditor the server must overrule when the gate found a block.
+  if (prompt.includes("AUDIT_PASS")) {
+    process.stdout.write("<output>true</output><explanation>everything traces to a page</explanation><findings>none</findings>");
+    process.exit(0);
+  }
   process.stdout.write(
     "<output>false</output><explanation>the intro names a schedule no page carries</explanation>" +
       "<findings>1. close: my-first-agent-heartbeat is on no scraped page — cut it</findings>"
@@ -459,6 +464,33 @@ test("an audit turn runs with tools and returns the verdict plus findings", asyn
   assert.ok(!args.includes("--no-tools"), args);
 });
 
+test("an audit cannot pass a draft the gate rejects, and the prompt carries the block and the pages", async () => {
+  const article = {
+    title: "Probe",
+    text:
+      "## Install\n\n```bash\nhelm upgrade --install probe ./chart\n```\n\n" +
+      "## Ensemble\n\n```yaml\napiVersion: sympozium.ai/v1alpha1\nkind: Ensemble\nmetadata:\n  name: research-pipeline\n```\n",
+  };
+  const res = await turn({
+    task: "audit",
+    session_id: "article-audit-gate",
+    source_hosts: ["raw.githubusercontent.com"],
+    brief: { topic: "Probe", audience: "LOW", max_words: 900, asset_types: "image_wide", extra_prompt: "AUDIT_PASS" },
+    article,
+  });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  // The stub auditor says the draft is fine; the gate found a block no page carries, and the
+  // count is code's, so the audit cannot wave it through.
+  assert.equal(body.review.pass, false);
+  const prompt = await readFile(join(workspace, "runs", "article-audit-gate", "prompt.txt"), "utf8");
+  // The auditor argues with a list, not a guess: the block's own text and the pages already read.
+  assert.match(prompt, /kind: Ensemble/);
+  assert.match(prompt, /raw\.githubusercontent\.com\/o\/r\/main\/README\.md/);
+  // Its evidence is the transcript, and the path the prompt names is the session's own file.
+  assert.match(prompt, /_article-audit-gate\.jsonl/);
+});
+
 test("a review turn returns a structured verdict and leaves the draft alone", async () => {
   const res = await turn({
     task: "review",
@@ -543,6 +575,7 @@ test("an improve turn writes the edited article the model returned", async () =>
     },
     article: { title: "Probe", text: "## Install\n\nUse it." },
     findings: "PROBE_FINDINGS: tighten the opening",
+    source_hosts: ["github.com"],
   });
   assert.equal(res.status, 200);
   const body = await res.json();
@@ -562,6 +595,10 @@ test("an improve turn writes the edited article the model returned", async () =>
   const prompt = await readFile(join(workspace, "runs", "article-improve", "prompt.txt"), "utf8");
   assert.match(prompt, /PROBE_HUMAN_FEEDBACK/);
   assert.match(prompt, /PROBE_FINDINGS: tighten the opening/);
+  assert.match(prompt, /hosts `github\.com`/, "the edit names the hosts it may fetch to quote a block");
+  // An edit that must quote a page has to be able to read it, so tools stay on.
+  const args = await readFile(join(workspace, "runs", "article-improve", "args.txt"), "utf8");
+  assert.ok(!args.includes("--no-tools"), args);
 });
 
 test("a review of a session with no draft fails by name", async () => {

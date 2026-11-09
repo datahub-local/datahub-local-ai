@@ -377,6 +377,145 @@ export function findExcerpt(body, block) {
   return match ? match[0] : null;
 }
 
+// A name is a token whose presence on a page means something: it carries a digit or a
+// separator, so `k8s-ops`, `gpt-4o`, `sympozium.ai/v1alpha1` and `OPENAI_API_KEY` are names
+// while `the` and `running` are prose. A plain word being on a page proves nothing, and
+// checking it would only make every block pass.
+export function isNameToken(token) {
+  const value = String(token ?? "").trim().replace(/^["'`]+|["'`]+$/g, "");
+  if (value.length < 2 || value.length > 120) return false;
+  if (!/^[A-Za-z0-9][A-Za-z0-9._/@:-]*$/.test(value)) return false;
+  if (/^\d+$/.test(value)) return false;
+  if (/^(true|false|null|yes|no)$/i.test(value)) return false;
+  return /[0-9]/.test(value) || /[-_/:.@]/.test(value);
+}
+
+function valueNames(value) {
+  return String(value ?? "")
+    .split(/[\s,]+/)
+    .filter(Boolean)
+    .filter(isNameToken);
+}
+
+function yamlNames(block) {
+  const names = new Set();
+  const problems = [];
+  const lines = String(block ?? "").split("\n");
+  // Only a `|` or `>` key opens a scalar whose body may sit at any indentation; any other
+  // unindented line that is not a field is a syntax error, not prose.
+  let previousWasScalar = false;
+  for (const raw of lines) {
+    const line = raw.replace(/\s+$/, "");
+    const text = line.trim();
+    if (!text || text.startsWith("#")) {
+      previousWasScalar = false;
+      continue;
+    }
+    if (/\t/.test(line.slice(0, line.length - line.trimStart().length))) {
+      problems.push("a tab indents a line");
+    }
+    if ((line.match(/"/g) || []).length % 2) problems.push("an unbalanced double quote");
+    const key = /^\s*(?:-\s+)?([A-Za-z0-9_.\-/]+):(?:\s|$)/.exec(line);
+    if (key) {
+      // A field name is evidence even when it is a plain word: it is the schema.
+      names.add(key[1]);
+      const rest = line.slice(key[0].length);
+      for (const name of valueNames(rest)) names.add(name);
+      previousWasScalar = /^[|>][-+]?$/.test(rest.trim());
+      continue;
+    }
+    if (/^\s*-\s+/.test(line)) {
+      for (const name of valueNames(line.replace(/^\s*-\s+/, ""))) names.add(name);
+      previousWasScalar = false;
+      continue;
+    }
+    // A block scalar's body or an indented continuation is prose the page carries whole.
+    if (previousWasScalar || /^\s+\S/.test(line)) {
+      previousWasScalar = false;
+      continue;
+    }
+    problems.push(`an unparsed line: ${text.slice(0, 40)}`);
+  }
+  return { names: [...names], problems };
+}
+
+function shellNames(block) {
+  const names = new Set();
+  const commands = String(block ?? "").replace(/\\\n/g, " ");
+  for (const line of commands.split("\n")) {
+    const text = line.replace(/#.*$/, "").trim();
+    if (!text) continue;
+    const tokens = text.split(/\s+/).filter(Boolean);
+    const head = tokens[0];
+    if (head && /^[A-Za-z][A-Za-z0-9._-]*$/.test(head)) names.add(head);
+    for (const token of tokens) {
+      if (/^--?[A-Za-z][A-Za-z0-9-]*$/.test(token)) names.add(token);
+      const assignment = /^([A-Za-z_][A-Za-z0-9_]*)=(.+)$/.exec(token);
+      if (assignment) {
+        names.add(assignment[1]);
+        for (const name of valueNames(assignment[2])) names.add(name);
+        continue;
+      }
+      for (const name of valueNames(token)) names.add(name);
+    }
+  }
+  return { names: [...names], problems: [] };
+}
+
+function jsonNames(block) {
+  let data;
+  try {
+    data = JSON.parse(block);
+  } catch (err) {
+    return { names: [], problems: [`not valid JSON: ${String(err.message).slice(0, 60)}`] };
+  }
+  const names = new Set();
+  const walk = (value) => {
+    if (Array.isArray(value)) {
+      value.forEach(walk);
+      return;
+    }
+    if (value && typeof value === "object") {
+      for (const [key, inner] of Object.entries(value)) {
+        names.add(key);
+        walk(inner);
+      }
+      return;
+    }
+    if (typeof value === "string") for (const name of valueNames(value)) names.add(name);
+  };
+  walk(data);
+  return { names: [...names], problems: [] };
+}
+
+// The names a block uses, by the language it fences itself as. The languages the articles
+// actually fence are YAML, shell, JSON and plain output; anything else is checked for the
+// same distinctive tokens, because an output block naming an invented object has to fail.
+export function blockNames(block, lang = "") {
+  const language = String(lang || "").trim().toLowerCase();
+  if (["yaml", "yml"].includes(language)) return yamlNames(block);
+  if (["bash", "sh", "shell", "console", "zsh"].includes(language)) return shellNames(block);
+  if (["json", "jsonc"].includes(language)) return jsonNames(block);
+  return { names: valueNames(block), problems: [] };
+}
+
+// The page that carries the most of a block's names, and the names no page carries.
+export function verifyBlock(block, lang, pages) {
+  const scraped = (Array.isArray(pages) ? pages : []).filter((page) => page && page.url && page.text);
+  const { names, problems } = blockNames(block, lang);
+  const missing = names.filter((name) => !scraped.some((page) => page.text.includes(name)));
+  let best = null;
+  let bestHits = -1;
+  for (const page of scraped) {
+    const hits = names.filter((name) => page.text.includes(name)).length;
+    if (hits > bestHits) {
+      best = page;
+      bestHits = hits;
+    }
+  }
+  return { names, missing, problems, page: best, hits: Math.max(bestHits, 0) };
+}
+
 // One entry per fenced block, from the pages this turn actually scraped. The transcript is
 // the evidence the server already holds: the pod brokered the request and received the text,
 // so a block that appears in it was read, and one that does not was not.
@@ -449,24 +588,54 @@ export function deriveLedger({ article, pages } = {}) {
   for (const fenced of extractFencedBlocks(String(article ?? ""))) {
     const key = normaliseBlock(fenced.block);
     if (!key) continue;
-    const page = scraped.find((candidate) => findExcerpt(candidate.text, fenced.block) !== null);
-    if (!page) {
-      const firstLine = fenced.block.split("\n")[0].trim().slice(0, 120);
-      unquoted.push(firstLine);
-      unquotedBlocks.push({ block: fenced.block, firstLine });
+    const firstLine = fenced.block.split("\n")[0].trim().slice(0, 120);
+    // A byte-for-byte copy is the strongest evidence and needs no names: the page carries
+    // the block itself.
+    const exact = scraped.find((candidate) => findExcerpt(candidate.text, fenced.block) !== null);
+    if (exact) {
+      sources.push({
+        block: fenced.block,
+        url: exact.url,
+        validated: "none",
+        validation_error: "",
+        found: true,
+        mode: "quoted",
+        sha256: sha256Hex(key),
+        excerpt: findExcerpt(exact.text, fenced.block),
+        status: 200,
+        body_sha256: sha256Hex(exact.text),
+      });
       continue;
     }
-    const excerpt = findExcerpt(page.text, fenced.block);
+    // Anything else is a composed block, and composes are how an article shows a resource
+    // the docs describe rather than one they print. It is evidence when every name it uses
+    // is on a page this session read; an invented object (a name no page carries) still fails.
+    const verdict = verifyBlock(fenced.block, fenced.lang, scraped);
+    if (verdict.problems.length || verdict.missing.length) {
+      const reason = [...verdict.problems, ...verdict.missing.map((name) => `"${name}" is on no page`)].join("; ");
+      unquoted.push(firstLine);
+      unquotedBlocks.push({ block: fenced.block, firstLine, lang: fenced.lang, reason });
+      continue;
+    }
+    if (!verdict.names.length) {
+      // Nothing checkable in it and no page carries it whole: treat it as unverified.
+      unquoted.push(firstLine);
+      unquotedBlocks.push({ block: fenced.block, firstLine, lang: fenced.lang, reason: "no name in it can be checked" });
+      continue;
+    }
     sources.push({
       block: fenced.block,
-      url: page.url,
+      url: verdict.page ? verdict.page.url : "",
       validated: "none",
       validation_error: "",
       found: true,
+      mode: "derived",
+      names: verdict.names.length,
+      missing: [],
       sha256: sha256Hex(key),
-      excerpt,
+      excerpt: "",
       status: 200,
-      body_sha256: sha256Hex(page.text),
+      body_sha256: verdict.page ? sha256Hex(verdict.page.text) : "",
     });
   }
   return { sources, unquoted, unquotedBlocks };

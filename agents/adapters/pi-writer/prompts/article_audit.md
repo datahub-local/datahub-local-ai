@@ -32,13 +32,13 @@ You have tools and the run's directory. Use them for evidence, never to rewrite 
 
 ## The gate already rejected these blocks
 
-A fenced block publishes only when it appears, word for word, on a page this session read. The gate found these blocks on no page:
+A fenced block publishes when it is a word-for-word copy of a page this session read, or when every name it uses is on one. The gate found these blocks failing both:
 
 {{ UNQUOTED }}
 
 Every block above is a finding, and its fix has one of three forms (when the list says `none`, there is no block finding to make):
 
-- the page that carries it, which you fetched this turn and quote in the finding, byte for byte;
+- the page that carries its names, which you fetched this turn, naming the field or object the writer got wrong;
 - no page carries it, so the step goes in prose with no fence;
 - no page carries it and the section does not need it, so it is cut.
 
@@ -69,4 +69,4 @@ Answer with, in this order and nothing else:
 
 `N. <section>: <what is unsupported, missing or wrong> — <the exact fix, with the block quoted when the fix is a quotation>`
 
-For a rejected block, name the page URL and paste the page's own text, byte for byte, in the finding. Name the section by its own heading, or `opening` / `close`. At most six findings, most important first. Write `<findings>none</findings>` when there is none, and never invent one to fill the list.
+For a rejected block, name the page URL and the exact names it is missing, or paste the page's own text when you fetched it. Name the section by its own heading, or `opening` / `close`. At most six findings, most important first. Write `<findings>none</findings>` when there is none, and never invent one to fill the list.

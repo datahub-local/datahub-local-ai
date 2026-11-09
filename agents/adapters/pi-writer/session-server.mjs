@@ -884,13 +884,14 @@ async function writeDerivedLedger(dir, sessionID) {
   }
   const pages = await transcriptPages(await readTranscript(sessionID));
   const { sources, unquoted, unquotedBlocks } = deriveLedger({ article, pages });
-  for (const block of unquoted) {
-    console.log(`sympozium pi writer session: block not in ${LEDGER_NAME}: ${block}`);
+  for (const block of unquotedBlocks ?? []) {
+    console.log(`sympozium pi writer session: block not in ${LEDGER_NAME}: ${block.firstLine}${block.reason ? ` (${block.reason})` : ""}`);
   }
   await writeFile(path, serialiseLedger(sources));
   return {
     sources: sources.length,
-    quoted: sources.filter((entry) => entry.found).length,
+    quoted: sources.filter((entry) => entry.mode === "quoted").length,
+    derived: sources.filter((entry) => entry.mode === "derived").length,
     unquoted,
     unquotedBlocks: unquotedBlocks ?? [],
     // The URLs the session actually read: the auditor names one of these as the fix, and a
@@ -1023,11 +1024,11 @@ http
       // reading and rewriting `sources.json`.
       const result = await serializeTurn(sessionID, async () => {
           if (task === "draft") {
-            // The instruction follows the directory, not the caller: a session that
-            // already holds an article is edited. A correction is also declared by
-            // `attempt > 1`, because the artifact may not have been written by a turn
-            // that failed mid-way.
-            const isIteration = (await exists(join(dir, ARTICLE_NAME))) || Number(request.attempt) > 1;
+            // The instruction follows the directory: a session that already holds an article
+            // is edited, a fresh one is authored. The caller starts every attempt in its own
+            // session now, so `attempt > 1` no longer means "edit what is here" — a retry
+            // carries the previous draft in its brief instead.
+            const isIteration = await exists(join(dir, ARTICLE_NAME));
             const method = fillSourceHosts(await writingMethod(), hosts);
             const instruction = articleTurnInstruction({ isIteration });
             const turnPrompt = `${draftPrompt}\n\n---\n\nWorking directory: ${dir}\n${instruction}\n\n${method}`;

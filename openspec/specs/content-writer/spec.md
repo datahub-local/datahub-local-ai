@@ -238,71 +238,6 @@ human feedback SHALL keep the strict rule.
 - **THEN** the outcome is reported as unchanged, not improved
 - **AND** the reviewer is told the feedback was not applied
 
-### Requirement: A draft is improved before it reaches a human review
-
-A gate-passed draft SHALL be improved before it is presented for human review. One reviewer
-per aspect — structure, clarity and flow at minimum — SHALL review the draft and return
-advisory findings, and an improvement pass SHALL edit the draft applying those findings and any
-human feedback. The aspect reviewers SHALL NOT reject a draft, gate a round, or spend a retry
-bound: their findings are input to the improvement pass, and the only gates SHALL remain the
-drafting gate's objective checks, the code re-check, and the human approval.
-
-The improvement SHALL be verified in code before it is delivered: the improved draft's body
-SHALL be within the entry's word budget and SHALL carry every requested asset marker exactly
-once. An improved draft that fails either SHALL be retried with the objective problem stated,
-at most once, and the run SHALL then fall back to the gate-passed pre-improvement draft with the
-reason recorded. A count SHALL be taken in code, never asked of a model.
-
-A failure inside the improvement pass SHALL degrade rather than block: an aspect reviewer that
-cannot answer records no findings for its aspect and the rest run; an improvement pass that
-fails records the reason and falls back to the gate-passed draft. The improvement outcome —
-improved, unchanged, fallback, failed, or nothing to apply — SHALL be visible to the human
-reviewer with the draft, and an unchanged outcome SHALL say the feedback was not applied. An
-aspect registry that is missing, unparsable or empty SHALL fail the run loudly rather than
-improve nothing quietly.
-
-#### Scenario: Findings are applied and the draft is improved
-
-- **WHEN** the aspect reviewers return findings
-- **THEN** the improvement pass edits the draft applying them
-- **AND** the draft presented for review is the improved one, with the outcome named
-
-#### Scenario: Nothing to apply leaves the draft unchanged
-
-- **WHEN** every aspect returns no findings and there is no human feedback
-- **THEN** no improvement pass runs
-- **AND** the draft presented for review is the drafting pass's own, with the outcome named
-
-#### Scenario: An improved draft outside the objective checks is not delivered
-
-- **WHEN** the improved draft exceeds the word budget or drifts a requested asset marker
-- **THEN** the failure is counted in code and the improvement is retried once with the problem
-- **AND** the draft presented for review is the gate-passed one, with the fallback recorded
-
-#### Scenario: A failed improvement pass does not lose the draft
-
-- **WHEN** the improvement pass fails after its retries
-- **THEN** the gate-passed draft is presented for review
-- **AND** the reason is recorded and named to the reviewer
-
-#### Scenario: A failed aspect reviewer does not fail the others
-
-- **WHEN** one aspect's review cannot answer
-- **THEN** that aspect records no findings
-- **AND** the remaining aspects' findings still reach the improvement pass
-
-#### Scenario: A human retry edits the draft the human read
-
-- **WHEN** a person answers the review with feedback
-- **THEN** the improvement pass re-enters with that feedback and the draft the person was reading
-- **AND** the parts of it the feedback does not name are kept
-
-#### Scenario: An unchanged round is not delivered as an improvement
-
-- **WHEN** the improvement pass returns the draft it was given
-- **THEN** the draft of record is the one that was presented before
-- **AND** the outcome is named unchanged rather than improved
-
 ### Requirement: An article is written for the row's audience
 
 An entry SHALL carry an audience level — `NONE`, `LOW`, `MEDIUM` or `ADVANCED` — and the
@@ -1025,24 +960,32 @@ and SHALL log the resolved trigger with the window at boot.
 
 ### Requirement: The source ledger is derived from the turn's transcript
 
-The session server SHALL write `sources.json` itself, from the pages the turn actually scraped:
-for every fenced block in the article it SHALL search the text the model received for that page
-and SHALL record one entry naming the page when the block appears on it. A block that appears on
-no scraped page SHALL get no entry, which the gate reports as unquoted. The model SHALL NOT be
-asked to write the ledger, and no separate fetch SHALL be made to verify a page the pod already
-brokered.
+The session server SHALL write `sources.json` itself, from the pages the turn actually scraped. A
+fenced block that appears on a scraped page SHALL be recorded as `quoted` with that page's URL. A
+block that is not that copy SHALL be recorded as `derived` when it parses by its language and every
+name it uses — field, flag, image, kind, object name — appears on a page the session read, with the
+entry naming the page that carries the most of them. A block with a name on no page, or with a line
+its language cannot parse, SHALL get no entry and SHALL be reported with that name. The model SHALL
+NOT be asked to write the ledger, and no separate fetch SHALL be made to verify a page the pod
+already brokered.
 
 #### Scenario: A quoted block
 
 - **WHEN** the article fences a block that appears in a page the turn scraped
-- **THEN** the ledger carries one entry with that block and that page's URL
+- **THEN** the ledger carries one entry with that block, that page's URL and `mode: quoted`
 - **AND** the entry is written by the server, not returned by the model
+
+#### Scenario: A composed block from a page's own names
+
+- **WHEN** the article fences a resource assembled from fields the scraped page documents
+- **THEN** the ledger carries one entry with `mode: derived` and the page carrying those names
+- **AND** the gate accepts it
 
 #### Scenario: An invented block
 
-- **WHEN** the article fences a heredoc the model assembled from several pages
+- **WHEN** the article fences a block naming an object no scraped page carries
 - **THEN** no entry is written for it
-- **AND** the gate rejects the draft naming the block as unquoted
+- **AND** the gate rejects the draft naming that object
 
 #### Scenario: Text the model never received
 
@@ -1051,28 +994,22 @@ brokered.
 
 ### Requirement: The draft is audited by a turn that can read the artifacts
 
-Before a draft reaches a human, the adapter SHALL offer an `audit` task that runs in the draft's
-session and working directory with tools and the source proxy enabled. The adapter SHALL derive
-the ledger before the audit and SHALL give it every fenced block no page carries together with the
-URLs this session read. The audit SHALL answer the publish verdict and a findings list, and each
-unquoted block SHALL become a finding naming its section and one fix: the page that carries the
-block quoted verbatim, prose with no fence, or removal. A draft with any unquoted block SHALL NOT
-carry a passing verdict, whatever the audit concluded. The findings SHALL reach the writer as
-feedback on the next attempt. The audit SHALL NOT write the article, and SHALL NOT report the
-counts code already decides: budget, asset markers, heading numbering or the source line.
+The adapter SHALL keep offering an `audit` task that runs in the run's directory with tools and the
+source proxy, reads the article, the derived ledger and the session transcript, and answers a
+verdict with findings. The lane SHALL NOT call it in the automatic path: one authoring turn is the
+draft of record, and the audit, the aspect pass and the edit remain available on demand. The audit
+SHALL NOT write the article, and SHALL NOT report the counts code already decides.
 
 #### Scenario: A block no page carries
 
-- **WHEN** the draft fences a block that no page this session read contains
-- **THEN** the audit's prompt carries that block and the pages read
-- **AND** the finding names the page to quote, or says to write it as prose or cut it
-- **AND** the verdict is false even when the audit answered true
+- **WHEN** the draft fences a block whose names no page carries
+- **THEN** an on-demand audit's prompt carries that block and the pages read
+- **AND** the finding names the page to quote, the missing name, or says to write it as prose
 
 #### Scenario: A claim no page carries
 
 - **WHEN** the draft names a schedule, field or version that appears in no scraped page
 - **THEN** the audit reports it as a finding naming the section
-- **AND** the explanation the retry carries includes that finding
 
 #### Scenario: A requested section that never landed
 
@@ -1088,6 +1025,11 @@ counts code already decides: budget, asset markers, heading numbering or the sou
 
 - **WHEN** the audit is told to search the session transcript or fetch a page
 - **THEN** the transcript path is set in its environment and the proxy admits the declared hosts
+
+#### Scenario: The lane does not audit
+
+- **WHEN** a draft passes the code gate
+- **THEN** it is presented for human review without an audit, an aspect pass or an edit
 
 ### Requirement: The drafting turn can test its own fences before answering
 
@@ -1159,3 +1101,29 @@ remain the drafting session's transcript, named in its prompt.
 - **WHEN** the drafting session holds a large transcript
 - **THEN** the audit's prompt carries the article and the gate list, not that transcript
 - **AND** it is told the path of the transcript to search
+
+### Requirement: The lane authors a draft in one turn
+
+The lane SHALL call the drafting task once per attempt, SHALL gate the answer in code, and SHALL
+present the accepted draft for human review without an aspect pass or an edit. A draft the gate
+rejects SHALL be retried at most once, in a session of its own, carrying the previous draft and the
+gate's reason; a second rejection SHALL reach the human with the reason rather than being rewritten
+automatically.
+
+#### Scenario: A gate-passed draft
+
+- **WHEN** the drafting turn's answer passes the code gate
+- **THEN** it is stored and presented for review
+- **AND** no aspect, audit or edit call is made
+
+#### Scenario: A rejected draft
+
+- **WHEN** the code gate rejects the answer
+- **THEN** one retry runs in a new session carrying the previous draft and the reason
+- **AND** a second rejection reaches the human with the reason
+
+#### Scenario: The retry is a new session
+
+- **WHEN** a retry drafts again
+- **THEN** it starts in a session of its own rather than continuing the previous transcript
+- **AND** the previous draft and the reason are in its brief

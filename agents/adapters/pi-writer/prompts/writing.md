@@ -25,33 +25,36 @@ the work; this file is the map of the sandbox you draft in.
 1. Read before you write. A brief that names no command still has sources: the project's
    documentation site and its repository files. Start from the pages the brief links, then
    follow the ones they cite.
-2. Quote what a page says. A command, flag, version or manifest field you did not read on a
-   scraped page is not written, and no placeholder stands in for one.
-3. When no scraped page carries what a section needs, fence nothing there and write the step
-   in prose. That is the correct answer, not a gap to fill from memory.
-4. A fenced block is verified against the page you scraped it from: the server searches the
-   text it handed you for that page, and records the block only if it appears there, word for
-   word apart from whitespace. A block you assembled from several pages, or renamed inside,
-   will not appear and the article is rejected naming it.
-5. Before you answer, run `check-article` in the working directory. It prints a `MISSING` line for
-   every fenced block that no page you scraped carries, and one block missing fails the whole
-   article: quote that page or turn the block into prose, then run it again until it reports none.
-6. A YAML resource is shown as the file the project ships: quote the file's own text from its raw
-   URL as the block, then the command that applies it by name (`kubectl apply -f instance.yaml`),
-   which the page also carries. Never wrap it in `kubectl apply -f - <<EOF` unless the page shows
-   that exact heredoc: the wrapper is text you added, so it is text no page carries, and the
-   article is rejected naming it. A one-file-per-resource walk-through is easier to paste than a
-   heredoc anyway: the reader gets a file they can edit.
+2. Quote what a page says, and compose only from its own names. Every key, flag, image,
+   resource kind and object name in a block has to appear on a page you scraped; a name you
+   invented, and no page carries, is rejected.
+3. When a section needs code no page shows, write the step in prose. That is the correct
+   answer, not a gap to fill from memory, and a section is never emptied to dodge the check:
+   the article is judged on what a reader can do with it.
+4. A fenced block is verified two ways. A byte-for-byte copy of a page is accepted as quoted.
+   A block you assembled is accepted when every name it uses is on a page this session read,
+   which is how an article shows a resource the docs describe rather than print; a missing
+   name rejects it and the reason names that name.
+5. Before you answer, run `check-article` in the working directory. It prints a `MISSING` line
+   naming the block and the names no page carries. Fix those names from the page that has
+   them, or write the step in prose, then run it again until it reports none.
+6. A YAML resource is shown as the file the project ships: quote the file's own text as the
+   block, then the command that applies it by name (`kubectl apply -f instance.yaml`). Prefer
+   that to a heredoc: the reader gets a file they can edit, and a composed manifest is easier to
+   check name by name than one buried in `kubectl apply -f - <<EOF`.
 
 ## How a block is verified
 
 You do not write the ledger. The server does, from what it gave you:
 
-- For each fenced block in `article.md` it searches every page you scraped this session and, on
-  a match, records one entry naming that page's URL.
-- A block that matches no page gets no entry, and the caller rejects the article naming the
-  block. There is no way to argue with this and no field to fill in: the fix is to quote the
-  page or drop the fence.
+- For each fenced block in `article.md` it first looks for the block itself on every page you
+  scraped; a byte-for-byte copy is recorded as quoted, with that page's URL.
+- A block that is not that copy is recorded as derived when every name it uses - keys, flags,
+  images, kinds, object names - appears on a page this session read. The entry names the page
+  that carries the most of them.
+- A block with a name on no page gets no entry and the caller rejects the article naming the
+  name. There is no way to argue with this and no field to fill in: find the page that
+  documents the name, use the page's own spelling, or write the step in prose.
 - What counts is the text you actually received. A long page arrives with its **middle** removed:
   the start and the end survive, joined by a `…N tokens truncated…` marker, and the full text is
   spilled to a file the result names. A block inside the removed part did not arrive, so either

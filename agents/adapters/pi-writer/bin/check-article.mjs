@@ -41,8 +41,10 @@ async function main() {
       // a transcript cut mid-line is not evidence
     }
   }
-  const { sources, unquoted } = deriveLedger({ article: text, pages: transcriptPages(rows) });
-  for (const block of unquoted) console.log(`MISSING: ${block}`);
+  const { sources, unquoted, unquotedBlocks } = deriveLedger({ article: text, pages: transcriptPages(rows) });
+  for (const block of unquotedBlocks ?? []) {
+    console.log(`MISSING: ${block.firstLine}${block.reason ? ` — ${block.reason}` : ""}`);
+  }
   console.log(`${sources.length} block(s) quoted, ${unquoted.length} missing`);
   return unquoted.length ? 1 : 0;
 }

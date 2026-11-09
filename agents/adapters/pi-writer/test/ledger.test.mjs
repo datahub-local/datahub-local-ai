@@ -249,3 +249,92 @@ test("a read of the spilled scrape output is attributed to the page", () => {
   assert.equal(sources.length, 1);
   assert.equal(sources[0].url, "https://raw.githubusercontent.com/o/r/main/README.md");
 });
+
+// The structural half: an article shows a resource the docs describe, and the docs rarely
+// print the exact YAML the article needs. A composed block is evidence when every name in it
+// is on a page this run read; an invented name still fails, and now the reason names it.
+const ENSEMBLES_PAGE = `# Ensembles
+
+An Ensemble is a pack of Agents. The example below is called research-pipeline, with a lead
+and an analyst. It is applied with \`kubectl apply -f ensemble.yaml\`.
+
+apiVersion: sympozium.ai/v1alpha1
+kind: Ensemble
+metadata:
+  name: research-pipeline
+spec:
+  workflowType: pipeline
+  agentConfigs:
+    - name: lead
+      systemPrompt: "You are a lead."
+    - name: analyst
+      systemPrompt: "You are an analyst."
+`;
+
+test("a composed block whose names are all on a page is derived, with that page", () => {
+  const rows = scrapeRows("https://raw.githubusercontent.com/o/r/main/docs/concepts/ensembles.md", ENSEMBLES_PAGE);
+  const composed = [
+    "apiVersion: sympozium.ai/v1alpha1",
+    "kind: Ensemble",
+    "metadata:",
+    "  name: research-pipeline",
+    "spec:",
+    "  workflowType: pipeline",
+    "  agentConfigs:",
+    "    - name: analyst",
+    "      systemPrompt: \"You are an analyst.\"",
+  ].join("\n");
+  const article = `# T\n\n\`\`\`yaml\n${composed}\n\`\`\`\n`;
+  const { sources, unquoted } = deriveLedger({ article, pages: transcriptPages(rows) });
+  assert.deepEqual(unquoted, []);
+  assert.equal(sources.length, 1);
+  assert.equal(sources[0].mode, "derived", "not a byte copy, so it is verified by its names");
+  assert.match(sources[0].url, /docs\/concepts\/ensembles\.md/);
+  assert.equal(sources[0].found, true);
+  assert.equal(sources[0].excerpt, "");
+});
+
+test("a composed block naming an object no page carries is rejected, and the reason names it", () => {
+  const rows = scrapeRows("https://raw.githubusercontent.com/o/r/main/docs/concepts/ensembles.md", ENSEMBLES_PAGE);
+  const composed = "apiVersion: sympozium.ai/v1alpha1\nkind: Ensemble\nmetadata:\n  name: my-first-agent-heartbeat\nspec:\n  workflowType: pipeline\n";
+  const article = `# T\n\n\`\`\`yaml\n${composed}\n\`\`\`\n`;
+  const { sources, unquoted, unquotedBlocks } = deriveLedger({ article, pages: transcriptPages(rows) });
+  assert.deepEqual(sources, []);
+  assert.equal(unquoted.length, 1);
+  assert.match(unquotedBlocks[0].reason, /my-first-agent-heartbeat/);
+});
+
+test("a YAML block with a line that is not a field is rejected as malformed", () => {
+  const rows = scrapeRows("https://raw.githubusercontent.com/o/r/main/docs.md", "kind: Ensemble\nname: lead\n");
+  const article = "# T\n\n```yaml\nkind: Ensemble\nname: lead\nthis line is not a field\n```\n";
+  const { sources, unquotedBlocks } = deriveLedger({ article, pages: transcriptPages(rows) });
+  assert.deepEqual(sources, []);
+  assert.match(unquotedBlocks[0].reason, /unparsed line/);
+});
+
+test("a composed command whose flags and names are documented is derived", () => {
+  const page = "Create the secret with `kubectl create secret generic my-openai-key --from-literal=OPENAI_API_KEY=sk-test`.";
+  const rows = scrapeRows("https://raw.githubusercontent.com/o/r/main/docs/getting-started.md", page);
+  const article = "# T\n\n```bash\nkubectl create secret generic my-openai-key \\\n  --from-literal=OPENAI_API_KEY=sk-test\n```\n";
+  const { sources, unquoted } = deriveLedger({ article, pages: transcriptPages(rows) });
+  assert.deepEqual(unquoted, []);
+  assert.equal(sources[0].mode, "derived");
+});
+
+test("a byte-for-byte copy stays quoted and keeps its excerpt", () => {
+  const page = "# Docs\n\n```bash\nhelm upgrade --install probe ./chart\n```\n";
+  const rows = scrapeRows("https://raw.githubusercontent.com/o/r/main/README.md", page);
+  const article = "# T\n\n```bash\nhelm upgrade --install probe ./chart\n```\n";
+  const { sources } = deriveLedger({ article, pages: transcriptPages(rows) });
+  assert.equal(sources[0].mode, "quoted");
+  assert.equal(sources[0].excerpt, "helm upgrade --install probe ./chart");
+});
+
+test("the ledger round-trips the mode the gate reads", () => {
+  const page = ENSEMBLES_PAGE;
+  const rows = scrapeRows("https://raw.githubusercontent.com/o/r/main/docs/concepts/ensembles.md", page);
+  const article = "# T\n\n```yaml\napiVersion: sympozium.ai/v1alpha1\nkind: Ensemble\nmetadata:\n  name: research-pipeline\nspec:\n  workflowType: pipeline\n  agentConfigs:\n    - name: analyst\n```\n";
+  const { sources } = deriveLedger({ article, pages: transcriptPages(rows) });
+  const parsed = parseLedger(serialiseLedger(sources));
+  assert.equal(parsed[0].mode, "derived");
+});

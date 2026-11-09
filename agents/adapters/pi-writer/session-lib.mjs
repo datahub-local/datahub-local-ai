@@ -390,11 +390,22 @@ export function isNameToken(token) {
   return /[0-9]/.test(value) || /[-_/:.@]/.test(value);
 }
 
+// A value with whitespace in it is prose, not a name: `systemPrompt: "You are a lead."` names
+// nothing a page has to carry, and splitting it produced findings like `team.` on no page. An
+// inline list or map is the exception, because its members are names.
 function valueNames(value) {
-  return String(value ?? "")
-    .split(/[\s,]+/)
-    .filter(Boolean)
-    .filter(isNameToken);
+  const text = String(value ?? "").trim().replace(/^["']|["']$/g, "");
+  if (!text) return [];
+  if (/^[[{]/.test(text)) {
+    return text
+      .replace(/^[[{]/, "")
+      .replace(/[\]}]$/, "")
+      .split(/[\s,]+/)
+      .filter(Boolean)
+      .filter(isNameToken);
+  }
+  if (/\s/.test(text)) return [];
+  return isNameToken(text) ? [text] : [];
 }
 
 function yamlNames(block) {

@@ -338,3 +338,24 @@ test("the ledger round-trips the mode the gate reads", () => {
   const parsed = parseLedger(serialiseLedger(sources));
   assert.equal(parsed[0].mode, "derived");
 });
+
+test("a quoted prose value is not a name the page must carry", () => {
+  // The Ensemble block's systemPrompt values are sentences. Splitting them made "team." and
+  // "hours." findings on 2026-11-09, and the draft was rejected three times for prose.
+  const rows = scrapeRows("https://raw.githubusercontent.com/o/r/main/docs/concepts/ensembles.md", ENSEMBLES_PAGE);
+  const composed = [
+    "apiVersion: sympozium.ai/v1alpha1",
+    "kind: Ensemble",
+    "metadata:",
+    "  name: research-pipeline",
+    "spec:",
+    "  workflowType: pipeline",
+    "  agentConfigs:",
+    "    - name: analyst",
+    "      systemPrompt: \"You are a data analyst.\"",
+  ].join("\n");
+  const article = `# T\n\n\`\`\`yaml\n${composed}\n\`\`\`\n`;
+  const { sources, unquotedBlocks } = deriveLedger({ article, pages: transcriptPages(rows) });
+  assert.deepEqual(unquotedBlocks, []);
+  assert.equal(sources[0].mode, "derived");
+});

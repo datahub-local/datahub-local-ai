@@ -787,7 +787,9 @@
               "ROW_NUMBER": "={{ $('select_article_to_queue').item.json.row_number }}",
               "TASK": "draft",
               "TOPIC": "={{ $('select_article_to_queue').item.json.TOPIC || '' }}",
-              "URL": "={{ $('select_article_to_queue').item.json.LINK || '' }}"
+              "URL": "={{ $('select_article_to_queue').item.json.LINK || '' }}",
+              "DRAFT_TEXT": "={{ $('first_draft').isExecuted ? $('first_draft').last().json.text || '' : '' }}",
+              "DRAFT_TITLE": "={{ $('first_draft').isExecuted ? $('first_draft').last().json.title || '' : '' }}"
             }
           },
           "options": {}
@@ -7481,7 +7483,9 @@
             "ROW_NUMBER": "={{ $('select_article_to_queue').item.json.row_number }}",
             "TASK": "draft",
             "TOPIC": "={{ $('select_article_to_queue').item.json.TOPIC || '' }}",
-            "URL": "={{ $('select_article_to_queue').item.json.LINK || '' }}"
+            "URL": "={{ $('select_article_to_queue').item.json.LINK || '' }}",
+            "DRAFT_TEXT": "={{ $('first_draft').isExecuted ? $('first_draft').last().json.text || '' : '' }}",
+            "DRAFT_TITLE": "={{ $('first_draft').isExecuted ? $('first_draft').last().json.title || '' : '' }}"
           }
         },
         "options": {}

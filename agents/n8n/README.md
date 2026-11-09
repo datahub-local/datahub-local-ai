@@ -6,7 +6,7 @@ renderers they drive.
 ```
 workflows/    exported n8n workflows (a backup of the live instance)
 datasets/     JSON fetched at run time by DownloadTemplate
-prompts/      prompt templates fetched by DownloadTemplate
+prompts/      prompt templates still fetched by DownloadTemplate; the article and post prompts live in agents/adapters/pi-writer/prompts/
 templates/    HTML/SVG markup the animated and SVG asset types assemble
 render/       the standalone video render service (its own README)
 scripts/      operational scripts: apply a change to live, extract brand tokens

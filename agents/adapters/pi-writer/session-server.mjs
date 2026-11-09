@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 // The v1alpha2 session endpoint for the Pi writer adapter.
 //
-// One job: given a brief, fetch the pages it cites and draft `article.md` plus the
-// `sources.json` ledger that says where each fenced block was read. A `HarnessSession`
-// runs this as a long-lived Deployment, so Pi keeps its state across turns and the
-// caller's retry continues the same directory instead of paying for every source again.
+// Two lanes share this server. The article lane is the original job: given a brief, fetch the
+// pages it cites and draft `article.md` plus the `sources.json` ledger that says where each
+// fenced block was read. The post lane is one short post: the source text arrives on the brief,
+// the turn has no tools, and `draft` and `review` are the only tasks it serves.
+//
+// A `HarnessSession` runs this as a long-lived Deployment, so Pi keeps its state across turns
+// and the caller's retry continues the same directory instead of paying for every source again.
 //
 // Derived from the maintained Pi adapter's session-server.mjs, which is the reference
 // for this contract. The deltas are the article lane's own:
@@ -59,8 +62,10 @@ import {
   splitArticle,
   articleWordCount,
   articleWordLimit,
+  chooseDirectives,
   ARTICLE_NAME,
   LEDGER_NAME,
+  POST_DIRECTIVES_NAME,
 } from "./session-lib.mjs";
 
 const port = Number(process.env.SYMPOZIUM_SESSION_PORT || "8080");
@@ -254,7 +259,7 @@ async function readPrompt(name) {
   try {
     return await readFile(path, "utf8");
   } catch {
-    throw new Error(`the article prompt ${name} is missing at ${path}`);
+    throw new Error(`the prompt ${name} is missing at ${path}`);
   }
 }
 
@@ -291,6 +296,16 @@ function taskOf(request) {
   const task = String(request.task || "draft");
   if (!TASKS.has(task)) throw new Error(`unknown task ${task}`);
   return task;
+}
+
+// An absent lane is the article lane, so every caller that predates the post lane keeps its
+// behaviour. The post lane has only the two turns it needs: it drafts and it gates.
+const LANES = new Set(["article", "post"]);
+
+function laneOf(request) {
+  const lane = String(request.lane || "article");
+  if (!LANES.has(lane)) throw new Error(`unknown lane ${lane}`);
+  return lane;
 }
 
 function emptyArticle() {
@@ -477,6 +492,105 @@ async function improvePrompt({ brief, article, findings, problem, hosts }) {
     ASSET_TYPES: brief.asset_types ?? "",
     HOSTS: Array.isArray(hosts) && hosts.length ? hosts.join(", ") : "none declared",
   });
+}
+
+// ---------------------------------------------------------------------------
+// The post lane.
+//
+// Its two turns share the session and the directory with the article lane, but none of its
+// artifacts: the source text arrives on the brief, no page is fetched, and the answer is the
+// post itself. The prompts and the variety draw live here, so the rule pair the drafter and
+// the gate both read has one copy.
+
+function postWordRange(brief) {
+  const value = brief && typeof brief === "object" ? brief : {};
+  const min = Number(value.min_words) > 0 ? Number(value.min_words) : 150;
+  const max = Number(value.max_words) > 0 ? Number(value.max_words) : 200;
+  return { min, max };
+}
+
+async function postPrompts(brief) {
+  const { min, max } = postWordRange(brief);
+  const [system, post, review, rules, aiSpeak] = await Promise.all([
+    readPrompt("linkedin_post_system.md"),
+    readPrompt("linkedin_post.md"),
+    readPrompt("linkedin_post_review.md"),
+    readPrompt("linkedin_post_rules.md"),
+    readPrompt("ai_speak.md"),
+  ]);
+  return {
+    system,
+    post,
+    review,
+    rules: fillTemplate(rules, { MIN_WORDS: min, MAX_WORDS: max, AI_SPEAK: aiSpeak }),
+  };
+}
+
+async function postDraftPrompt({ brief, directives }) {
+  const { system, post, rules } = await postPrompts(brief);
+  const text = fillTemplate(post, {
+    RULES: rules,
+    EXTRA_PROMPT: brief.extra_prompt ?? "",
+    CONTENT: brief.content ?? "",
+    VARIETY_DIRECTIVES: directives,
+    FEEDBACK: brief.feedback ?? "",
+    PREVIOUS_POST: brief.previous_post ?? "",
+  });
+  return `${system}\n\n---\n\n${text}`;
+}
+
+async function postReviewPrompt({ brief, text, directives }) {
+  const { review, rules } = await postPrompts(brief);
+  return fillTemplate(review, {
+    RULES: rules,
+    EXTRA_PROMPT: brief.extra_prompt ?? "",
+    VARIETY_DIRECTIVES: directives,
+    FEEDBACK: brief.feedback ?? "",
+    URL: brief.url ?? "",
+    TEXT: text,
+  });
+}
+
+async function readPostDirectives(dir) {
+  try {
+    const stored = JSON.parse(await readFile(join(dir, POST_DIRECTIVES_NAME), "utf8"));
+    if (stored && typeof stored.directives === "string" && stored.directives.trim()) return stored;
+  } catch {
+    // A missing or unreadable file is a fresh draw, not a failed turn.
+  }
+  return null;
+}
+
+// One set per post: drawn before the first draft, kept in the run directory, and read back
+// by the gate so it judges the shape the drafter was given. A swept session draws again.
+async function resolvePostDirectives(dir, brief) {
+  const stored = await readPostDirectives(dir);
+  if (stored) return stored;
+  const chosen = chooseDirectives({
+    variety: await readPrompt("linkedin_variety.md"),
+    hook: brief.hook,
+    hookOpening: brief.hook_opening,
+    minWords: brief.min_words,
+    maxWords: brief.max_words,
+  });
+  await writeFile(join(dir, POST_DIRECTIVES_NAME), `${JSON.stringify(chosen, null, 2)}\n`);
+  return chosen;
+}
+
+// The draft answers inside one `<output>` block and the gate answers the verdict and its
+// explanation. Both are rebuilt here so the caller reads the same tags it read from the model
+// node, whatever wrapper the turn used.
+function postDraftAnswer(response) {
+  const raw = String(response ?? "").trim();
+  const block = /<output>([\s\S]*?)<\/output>/.exec(raw);
+  const text = (block ? block[1] : raw).trim();
+  if (!text) throw new Error("the post turn returned no text");
+  return `<output>${text}</output>`;
+}
+
+function postReviewAnswer(response) {
+  const verdict = parseReview(response);
+  return `<output>${verdict.pass}</output><explanation>${verdict.explanation}</explanation>`;
 }
 
 function parseReview(text) {
@@ -986,17 +1100,25 @@ http
     try {
       const request = await readJSON(req);
       const task = taskOf(request);
-      // `brief` is the article lane's shape; `messages` stays for a plain-text caller and
-      // for the contract's own smoke checks.
+      const lane = laneOf(request);
+      // `brief` is both lanes' shape; `messages` stays for a plain-text caller and for the
+      // contract's own smoke checks.
       const brief = request.brief && typeof request.brief === "object" ? request.brief : null;
-      if (task === "draft" && !brief && !Array.isArray(request.messages)) {
+      if (lane === "article" && task === "draft" && !brief && !Array.isArray(request.messages)) {
         throw new Error("a draft needs brief or messages");
+      }
+      if (lane === "post") {
+        if (!brief) throw new Error("a post turn needs a brief");
+        if (task !== "draft" && task !== "review") throw new Error(`the post lane has no ${task} task`);
+        if (task === "review" && !String(request.post?.text ?? "").trim()) {
+          throw new Error("a post review needs post.text");
+        }
       }
       const sessionID = safeSessionId(request.session_id);
       const hosts = parseSourceHosts(request.source_hosts);
-      // Streaming is the drafting turn's shape. A review answers one JSON body, because
-      // its result is structured and a partial verdict cannot be read.
-      const stream = request.stream === true && task === "draft";
+      // Streaming is the article drafting turn's shape. A post draft is one short answer and
+      // a review is structured, so neither streams.
+      const stream = lane === "article" && request.stream === true && task === "draft";
       const id = `chatcmpl-${randomUUID()}`;
       const cancellation = new AbortController();
       let clientGone = false;
@@ -1022,7 +1144,7 @@ http
       const dir = resolveRunDir(workDir, sessionID);
       await mkdir(dir, { recursive: true });
       const draftPrompt =
-        task === "draft"
+        lane === "article" && task === "draft"
           ? brief
             ? await articlePrompt(brief)
             : promptFrom(request.messages)
@@ -1032,6 +1154,34 @@ http
       // request for the same session would otherwise start its turn while this one is
       // reading and rewriting `sources.json`.
       const result = await serializeTurn(sessionID, async () => {
+          if (lane === "post") {
+            // The post lane fetches nothing: the source text is on the brief, so no proxy,
+            // no allowlist and no artifact. The chosen directives are read back from the
+            // run directory, which is what makes the gate judge the drafter's own shape.
+            proxyEnv(null);
+            const direct = brief || {};
+            const chosen = await resolvePostDirectives(dir, direct);
+            if (task === "draft") {
+              const prompt = await postDraftPrompt({ brief: direct, directives: chosen.directives });
+              const response = await runPi(prompt, sessionID, undefined, cancellation.signal, dir, {
+                noTools: true,
+              });
+              return {
+                response,
+                post: { text: postDraftAnswer(response), directives: chosen.directives },
+              };
+            }
+            const prompt = await postReviewPrompt({
+              brief: direct,
+              text: String(request.post?.text ?? "").trim(),
+              directives: chosen.directives,
+            });
+            const response = await runPi(prompt, sessionID, undefined, cancellation.signal, dir, {
+              noTools: true,
+            });
+            return { response, post: { text: postReviewAnswer(response) } };
+          }
+
           if (task === "draft") {
             // The instruction follows the directory: a session that already holds an article
             // is edited, a fresh one is authored. The caller starts every attempt in its own
@@ -1181,9 +1331,14 @@ http
         return;
       }
       if (clientGone) {
-        // The work is done and on disk; only the answer had nowhere to go. The caller's next
-        // attempt continues this session and adopts the artifacts.
-        console.log("sympozium pi writer session: the caller hung up; the turn finished and its artifacts are on disk");
+        // The article's work is done and on disk; only the answer had nowhere to go. The
+        // caller's next attempt continues this session and adopts the artifacts. A post has
+        // no artifact, so the turn is lost and the next attempt drafts again.
+        console.log(
+          lane === "post"
+            ? "sympozium pi writer session: the caller hung up; the post turn finished with nowhere to answer"
+            : "sympozium pi writer session: the caller hung up; the turn finished and its artifacts are on disk"
+        );
         return;
       }
       const payload = {
@@ -1193,8 +1348,9 @@ http
         model: process.env.MODEL_NAME,
         task,
         choices: [{ index: 0, message: { role: "assistant", content: result.response }, finish_reason: "stop" }],
-        article: await articleAnswer(dir, result.ledger),
       };
+      if (lane === "post") payload.post = result.post;
+      else payload.article = await articleAnswer(dir, result.ledger);
       if (result.review) payload.review = result.review;
       if (result.findings) payload.findings = result.findings;
       const body = JSON.stringify(payload);

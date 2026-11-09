@@ -350,3 +350,81 @@ image rebuild.
 - **WHEN** `OPENCODE_REVIEW_MODEL` is set to another declared model
 - **THEN** the next rollout reviews with it
 - **AND** no image is rebuilt
+
+### Requirement: A session is bounded to one issue and its context stays small
+
+A session SHALL carry one issue. The agent SHALL NOT run a second issue in it and
+SHALL read an n8n workflow as `structure` or `filtered`, never `full`, and SHALL
+NOT re-fetch one already in context. The adapter SHALL expose MCP tools through
+Code Mode and SHALL summarize in the background as the default compaction
+threshold approaches. The reviewer subagent SHALL return at most five findings,
+one line each.
+
+#### Scenario: A second issue arrives in a live session
+
+- **WHEN** a prompt names an issue other than the session's issue
+- **THEN** the agent reports the mismatch and does not start that work
+- **AND** Hermes dispatches it in a new session
+
+#### Scenario: The agent needs a workflow definition
+
+- **WHEN** an n8n tool can answer the question
+- **THEN** the request uses `structure` or `filtered`
+- **AND** a workflow already in context is not fetched again
+
+#### Scenario: The session reaches the compaction threshold
+
+- **WHEN** the estimated context nears the default threshold
+- **THEN** the summary is produced in the background
+- **AND** the turn does not wait for it
+
+#### Scenario: The reviewer reports
+
+- **WHEN** the review subagent finishes
+- **THEN** it returns at most five one-line findings and a verdict
+
+### Requirement: A fix on an open pull request is reported on the issue
+
+When the agent changes code on a branch whose pull request is already open, because
+the owner asked, a review found something, or the gate failed, it SHALL push to
+that branch and SHALL comment the issue once per round with what changed and the
+gate result. The comment SHALL carry the `<!-- taskboard:agent -->` marker. A merged
+pull request SHALL NOT be pushed to: a later change SHALL start a new branch from
+`main` and a new pull request.
+
+#### Scenario: The owner asks for a fix
+
+- **WHEN** the owner's comment reaches the session while its pull request is open
+- **THEN** the agent pushes the fix to the same branch
+- **AND** it comments the issue with what changed and the gate result
+
+#### Scenario: A review finding is fixed
+
+- **WHEN** the agent fixes a finding the reviewer raised
+- **THEN** it re-runs the gate and pushes
+- **AND** the issue gets the same one-comment report, not a second review request
+
+#### Scenario: The pull request already merged
+
+- **WHEN** the owner asks for more after the merge
+- **THEN** the agent cuts a new branch from `main`
+- **AND** it opens a new pull request that references the issue
+
+### Requirement: A decision made in the web UI is recorded on the issue
+
+When the `question` tool returns an answer, the agent SHALL comment the issue with
+the question and the answer before continuing, because that answer may never have
+reached the issue. When the answer arrives as a prompt, it was relayed from the
+issue or Slack, and the agent SHALL NOT repeat it. The comment SHALL carry the
+`<!-- taskboard:agent -->` marker.
+
+#### Scenario: The owner picks an option in the web UI
+
+- **WHEN** the question tool returns the chosen option
+- **THEN** the agent comments the issue with the question and the answer
+- **AND** it continues the turn without waiting for Hermes
+
+#### Scenario: The owner answers on the issue
+
+- **WHEN** the answer arrives as `The owner wrote: …`
+- **THEN** the agent does not post a second copy of the decision

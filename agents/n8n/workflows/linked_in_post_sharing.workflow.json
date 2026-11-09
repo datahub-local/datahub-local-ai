@@ -204,7 +204,8 @@
               "ENABLE_CHECK": "true",
               "FEEDBACK": "={{ $('notification_retry_or_cancel').isExecuted && $('notification_retry_or_cancel').last().json.data.Feedback ? $('notification_retry_or_cancel').last().json.data.Feedback : '' }}",
               "HOOK": "={{ $('select_article_to_post').item.json.HOOK || '' }}",
-              "PREVIOUS_POST": "={{ $('execute_post_creator').isExecuted ? ($('execute_post_creator').last().json.text || '') : '' }}"
+              "PREVIOUS_POST": "={{ $('execute_post_creator').isExecuted ? ($('execute_post_creator').last().json.text || '') : '' }}",
+              "ROW_NUMBER": "={{ $('select_article_to_post').item.json.row_number }}"
             },
             "matchingColumns": [],
             "schema": [
@@ -296,6 +297,16 @@
                 "display": true,
                 "canBeUsedToMatch": true,
                 "type": "string",
+                "removed": false
+              },
+              {
+                "id": "ROW_NUMBER",
+                "displayName": "ROW_NUMBER",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "number",
                 "removed": false
               }
             ],
@@ -4490,7 +4501,8 @@
             "ENABLE_CHECK": "true",
             "FEEDBACK": "={{ $('notification_retry_or_cancel').isExecuted && $('notification_retry_or_cancel').last().json.data.Feedback ? $('notification_retry_or_cancel').last().json.data.Feedback : '' }}",
             "HOOK": "={{ $('select_article_to_post').item.json.HOOK || '' }}",
-            "PREVIOUS_POST": "={{ $('execute_post_creator').isExecuted ? ($('execute_post_creator').last().json.text || '') : '' }}"
+            "PREVIOUS_POST": "={{ $('execute_post_creator').isExecuted ? ($('execute_post_creator').last().json.text || '') : '' }}",
+            "ROW_NUMBER": "={{ $('select_article_to_post').item.json.row_number }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -4582,6 +4594,16 @@
               "display": true,
               "canBeUsedToMatch": true,
               "type": "string",
+              "removed": false
+            },
+            {
+              "id": "ROW_NUMBER",
+              "displayName": "ROW_NUMBER",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
               "removed": false
             }
           ],

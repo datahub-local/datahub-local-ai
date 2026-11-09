@@ -5,50 +5,6 @@
     "workflowId": "PaeHFdCsdoVbQx11",
     "nodes": [
       {
-        "id": "aedd481c-fff5-417a-a202-f697005601a6",
-        "name": "create_post_ai",
-        "type": "@n8n/n8n-nodes-langchain.chainLlm",
-        "typeVersion": 1.6,
-        "alwaysOutputData": false,
-        "retryOnFail": true,
-        "maxTries": 5,
-        "waitBetweenTries": 5000,
-        "position": [
-          -15552,
-          -992
-        ],
-        "parameters": {
-          "promptType": "define",
-          "text": "={{ $('download_post_prompt').item.json.output }}",
-          "needsFallback": true,
-          "messages": {
-            "messageValues": [
-              {
-                "message": "={{ $('download_post_system_prompt').item.json.output }}"
-              }
-            ]
-          }
-        }
-      },
-      {
-        "id": "4fcc2aad-e372-45ce-a595-1ff7af6ee2ad",
-        "name": "check_rules_llm",
-        "type": "@n8n/n8n-nodes-langchain.chainLlm",
-        "typeVersion": 1.6,
-        "retryOnFail": true,
-        "maxTries": 5,
-        "waitBetweenTries": 5000,
-        "position": [
-          -14528,
-          -912
-        ],
-        "parameters": {
-          "promptType": "define",
-          "text": "={{ $('download_post_review_prompt').item.json.output }}",
-          "needsFallback": true
-        }
-      },
-      {
         "id": "d36aa02f-3279-4793-bf0c-28d0fa4298b1",
         "name": "switch_check_rules_llm",
         "type": "n8n-nodes-base.switch",
@@ -147,12 +103,6 @@
           "assignments": {
             "assignments": [
               {
-                "id": "3278d703-6413-4117-95ef-f5e639096d2b",
-                "name": "RULES",
-                "value": "={{ $('download_post_rules_prompt').item.json.output }}",
-                "type": "string"
-              },
-              {
                 "id": "97804ec0-c646-438a-bbc8-fad3b1081264",
                 "name": "MAX_TRIES",
                 "value": 3,
@@ -177,18 +127,6 @@
                 "type": "string"
               },
               {
-                "id": "52b87bd1-627b-4af4-b73a-433a1b3caccd",
-                "name": "MODEL",
-                "value": "opencode-go/deepseek-v4.1-flash",
-                "type": "string"
-              },
-              {
-                "id": "708efbf7-5a7f-4dd7-a5b4-1eb73ac77883",
-                "name": "MODEL_FALLBACK",
-                "value": "opencode-go/glm-5.3-flash",
-                "type": "string"
-              },
-              {
                 "id": "45561a7c-0cb2-4bff-a5e2-a4bbe69d14e3",
                 "name": "ENABLE_CHECK",
                 "value": "={{ $('main_trigger').item.json.ENABLE_CHECK || 'false' }}",
@@ -198,19 +136,6 @@
           },
           "includeOtherFields": true,
           "options": {}
-        }
-      },
-      {
-        "id": "dd1dfb5f-278f-463a-abce-4b97ebb7c81a",
-        "name": "set_variety_directives",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          -16224,
-          -880
-        ],
-        "parameters": {
-          "jsCode": "// Randomly pick variety directives so consecutive posts never share the same shape.\n// The options and their weights live in prompts/linkedin_variety.md; this node selects\n// them and formats the line the drafter reads.\n\n// The hook is the one the curator's judge classified from the article and stored on\n// the row; it is NOT re-picked here. The opening shape comes from the registry entry\n// for that id, so the hook the post opens on and the hook the visual was built for are\n// the same decision. When the row carries no hook (a hand-written row), the writer\n// chooses the shape that fits.\nconst reg = $('parse_hook_registry').first().json;\nconst BY_ID = reg.byId || {};\nconst hookId = String($('main_trigger').first().json.HOOK || '').trim().toUpperCase();\nconst entry = BY_ID[hookId] || null;\nconst hook = entry\n  ? hookId + ': ' + String(entry.opening || '')\n  : 'the opening shape that best fits the content';\n\nconst text = String($('variety_directives').first().json.TEXT || '');\n\n// One option set per section, as `weight | band | directive`. The band is used by the\n// length section; the weight duplicates an option in the draw (MEDIUM twice, etc.).\nconst section = (name) => {\n  const lines = text.split('\\n');\n  const start = lines.findIndex((l) => l.trim() === '## ' + name);\n  if (start < 0) return [];\n  const out = [];\n  for (let i = start + 1; i < lines.length; i++) {\n    const line = lines[i].trim();\n    if (line.startsWith('## ')) break;\n    if (!line) continue;\n    const parts = line.split('|').map((s) => s.trim());\n    if (parts.length !== 3) continue;\n    out.push({ weight: Math.max(1, Math.round(Number(parts[0]) || 1)), key: parts[1], text: parts[2] });\n  }\n  return out;\n};\nconst group = (name) => {\n  const options = section(name);\n  if (!options.length) throw new Error('prompts/linkedin_variety.md carries no ' + name + ' options');\n  return options;\n};\nconst pick = (options) => {\n  const pool = [];\n  for (const o of options) for (let i = 0; i < o.weight; i++) pool.push(o);\n  return pool[Math.floor(Math.random() * pool.length)];\n};\n\nconst format = pick(group('format')).text;\nconst band = pick(group('length'));\nconst closing = pick(group('closing')).text;\n\n// The word target is a point inside [MIN_WORDS, MAX_WORDS], not a percentage of MAX.\n// A percentage of MAX can fall below MIN - 40% of 300 is 120 against a minimum of 180 -\n// and the directives are declared MANDATORY in the prompt, so the model follows the\n// contradiction down and writes short.\nconst MIN_WORDS = $('main_trigger').first().json.MIN_WORDS || 150;\nconst MAX_WORDS = $('main_trigger').first().json.MAX_WORDS || 200;\nconst span = Math.max(0, MAX_WORDS - MIN_WORDS);\nconst target = (frac) => Math.round(MIN_WORDS + span * frac);\nconst length = band.key + ': aim for about ' + target(Number(band.text)) +\n  ' words, never fewer than ' + MIN_WORDS + ' and never more than ' + MAX_WORDS;\n\nconst VARIETY_DIRECTIVES = [\n  `- Hook — ${hook}.`,\n  `- Format — ${format}.`,\n  `- Length — ${length}.`,\n  `- Closing — ${closing}. The \"Source here\" line and hashtags always follow the body regardless.`,\n].join('\\n');\n\nreturn [{ json: { ...$input.first().json, VARIETY_DIRECTIVES } }];\n"
         }
       },
       {
@@ -238,205 +163,6 @@
                 "type": "string"
               }
             ]
-          },
-          "options": {}
-        }
-      },
-      {
-        "id": "0aa35d43-7472-4ebe-b5e6-bc0213d3be0d",
-        "name": "download_post_prompt",
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.2,
-        "position": [
-          -16000,
-          -880
-        ],
-        "parameters": {
-          "workflowId": {
-            "__rl": true,
-            "value": "qUfjfWLGEjV96ljf",
-            "mode": "list",
-            "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
-            "cachedResultName": "DownloadTemplate"
-          },
-          "workflowInputs": {
-            "mappingMode": "defineBelow",
-            "value": {
-              "template_vars": "={{ {\n\"RULES\": $('set_workflow_vars').first().json.RULES,\n\"EXTRA_PROMPT\": $('main_trigger').first().json.EXTRA_PROMPT,\n\"CONTENT\": $('main_trigger').first().json.CONTENT,\n\"VARIETY_DIRECTIVES\": $('set_variety_directives').first().json.VARIETY_DIRECTIVES,\n\"FEEDBACK\": ($('main_trigger').first().json.FEEDBACK || \"\") + ($json.explanation ? \"\\nInternal review rejected the previous draft with: \" + $json.explanation : \"\"),\n\"PREVIOUS_POST\": $('parse_llm_output').isExecuted ? $('parse_llm_output').last().json.result : ($('main_trigger').first().json.PREVIOUS_POST || \"\"),\n} }}",
-              "template_name": "prompts/linkedin_post.md"
-            },
-            "matchingColumns": [],
-            "schema": [
-              {
-                "id": "template_name",
-                "displayName": "template_name",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string"
-              },
-              {
-                "id": "template_vars",
-                "displayName": "template_vars",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "object"
-              }
-            ],
-            "attemptToConvertTypes": false,
-            "convertFieldsToString": true
-          },
-          "options": {}
-        }
-      },
-      {
-        "id": "4dfca31e-e087-47e5-a40a-31f8d481010e",
-        "name": "download_post_system_prompt",
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.2,
-        "position": [
-          -15776,
-          -992
-        ],
-        "parameters": {
-          "workflowId": {
-            "__rl": true,
-            "value": "qUfjfWLGEjV96ljf",
-            "mode": "list",
-            "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
-            "cachedResultName": "DownloadTemplate"
-          },
-          "workflowInputs": {
-            "mappingMode": "defineBelow",
-            "value": {
-              "template_name": "=prompts/linkedin_post_system.md",
-              "template_vars": "={{ {} }}"
-            },
-            "matchingColumns": [],
-            "schema": [
-              {
-                "id": "template_name",
-                "displayName": "template_name",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string"
-              },
-              {
-                "id": "template_vars",
-                "displayName": "template_vars",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "object"
-              }
-            ],
-            "attemptToConvertTypes": false,
-            "convertFieldsToString": true
-          },
-          "options": {}
-        }
-      },
-      {
-        "id": "6549c8a4-f260-407b-9e20-df8f5c4800fb",
-        "name": "download_post_review_prompt",
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.2,
-        "position": [
-          -14752,
-          -912
-        ],
-        "parameters": {
-          "workflowId": {
-            "__rl": true,
-            "value": "qUfjfWLGEjV96ljf",
-            "mode": "list",
-            "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
-            "cachedResultName": "DownloadTemplate"
-          },
-          "workflowInputs": {
-            "mappingMode": "defineBelow",
-            "value": {
-              "template_vars": "={{ {\n\"RULES\": $('set_workflow_vars').first().json.RULES,\n\"EXTRA_PROMPT\": $('main_trigger').first().json.EXTRA_PROMPT,\n\"URL\": $('main_trigger').first().json.URL,\n\"TEXT\": $json.text,\n\"VARIETY_DIRECTIVES\": $('set_variety_directives').first().json.VARIETY_DIRECTIVES,\n\"FEEDBACK\": $('main_trigger').first().json.FEEDBACK || \"\",\n} }}",
-              "template_name": "prompts/linkedin_post_review.md"
-            },
-            "matchingColumns": [],
-            "schema": [
-              {
-                "id": "template_name",
-                "displayName": "template_name",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string"
-              },
-              {
-                "id": "template_vars",
-                "displayName": "template_vars",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "object"
-              }
-            ],
-            "attemptToConvertTypes": false,
-            "convertFieldsToString": true
-          },
-          "options": {}
-        }
-      },
-      {
-        "id": "eca73597-562f-4bff-bbf0-520daa48a3f1",
-        "name": "download_post_rules_prompt",
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.2,
-        "position": [
-          -17120,
-          -880
-        ],
-        "parameters": {
-          "workflowId": {
-            "__rl": true,
-            "value": "qUfjfWLGEjV96ljf",
-            "mode": "list",
-            "cachedResultName": "DownloadTemplate"
-          },
-          "workflowInputs": {
-            "mappingMode": "defineBelow",
-            "value": {
-              "template_vars": "={{ {\n\"MIN_WORDS\": $('main_trigger').item.json.MIN_WORDS || 150,\n\"MAX_WORDS\": $('main_trigger').item.json.MAX_WORDS || 200,\n\"AI_SPEAK\": $('download_ai_speak').first().json.output\n} }}",
-              "template_name": "prompts/linkedin_post_rules.md"
-            },
-            "matchingColumns": [],
-            "schema": [
-              {
-                "id": "template_name",
-                "displayName": "template_name",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string"
-              },
-              {
-                "id": "template_vars",
-                "displayName": "template_vars",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "object"
-              }
-            ],
-            "attemptToConvertTypes": false,
-            "convertFieldsToString": true
           },
           "options": {}
         }
@@ -481,6 +207,10 @@
               },
               {
                 "name": "PREVIOUS_POST"
+              },
+              {
+                "name": "ROW_NUMBER",
+                "type": "number"
               }
             ]
           }
@@ -496,7 +226,7 @@
           -912
         ],
         "parameters": {
-          "jsCode": "for (const item of $input.all()) {\n  const { text } = item.json;\n\n  const output = text.includes('<output>') && text.includes('</output>')\n    ? text.split('<output>')[1].split('</output>')[0]\n    : 'false';\n\n  // The gate's reason for rejecting this draft. download_post_prompt puts it in\n  // the next attempt's Reviewer Feedback block, and set_error_max_tries reports\n  // it, so it is flattened to one line for both the prompt and the sheet cell.\n  const explanation = text.includes('<explanation>') && text.includes('</explanation>')\n    ? text.split('<explanation>')[1].split('</explanation>')[0].replace(/\\s+/g, ' ').trim()\n    : '';\n\n  item.json.output = output;\n  item.json.explanation = explanation;\n}\n\nreturn $input.all();"
+          "jsCode": "for (const item of $input.all()) {\n  const { text } = item.json;\n\n  const output = text.includes('<output>') && text.includes('</output>')\n    ? text.split('<output>')[1].split('</output>')[0]\n    : 'false';\n\n  // The gate's reason for rejecting this draft. build_post_request puts it in\n  // the next attempt's Reviewer Feedback block, and set_error_max_tries reports\n  // it, so it is flattened to one line for both the prompt and the sheet cell.\n  const explanation = text.includes('<explanation>') && text.includes('</explanation>')\n    ? text.split('<explanation>')[1].split('</explanation>')[0].replace(/\\s+/g, ' ').trim()\n    : '';\n\n  item.json.output = output;\n  item.json.explanation = explanation;\n}\n\nreturn $input.all();"
         }
       },
       {
@@ -532,62 +262,6 @@
           },
           "looseTypeValidation": true,
           "options": {}
-        }
-      },
-      {
-        "id": "500e2c45-a17f-46ee-8a97-68a57492b087",
-        "name": "ai_model_fallback",
-        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-        "typeVersion": 1.3,
-        "position": [
-          -15416,
-          -776
-        ],
-        "parameters": {
-          "model": {
-            "__rl": true,
-            "mode": "id",
-            "value": "={{ $('set_workflow_vars').item.json.MODEL_FALLBACK }}"
-          },
-          "builtInTools": {},
-          "options": {
-            "maxRetries": 5,
-            "timeout": 120000
-          }
-        },
-        "credentials": {
-          "openAiApi": {
-            "id": "LitellmN8nAcct01",
-            "name": "LiteLLM account"
-          }
-        }
-      },
-      {
-        "id": "08ca09dd-4f72-4084-9422-9986a34f99e9",
-        "name": "ai_model",
-        "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-        "typeVersion": 1.3,
-        "position": [
-          -15544,
-          -776
-        ],
-        "parameters": {
-          "model": {
-            "__rl": true,
-            "mode": "id",
-            "value": "={{ $('set_workflow_vars').item.json.MODEL }}"
-          },
-          "builtInTools": {},
-          "options": {
-            "maxRetries": 5,
-            "timeout": 120000
-          }
-        },
-        "credentials": {
-          "openAiApi": {
-            "id": "LitellmN8nAcct01",
-            "name": "LiteLLM account"
-          }
         }
       },
       {
@@ -663,124 +337,190 @@
           -880
         ],
         "parameters": {
-          "jsCode": "// datasets/hook_types.json, parsed once. set_variety_directives reads byId to turn\n// the row's HOOK id into the opening shape the registry declares for it.\nconst raw = $json.output || '{}';\nlet cfg;\ntry {\n  cfg = JSON.parse(raw);\n} catch (e) {\n  throw new Error('datasets/hook_types.json is not valid JSON: ' + e.message);\n}\nconst arr = (v, d) => (Array.isArray(v) ? v : d);\nconst str = (v) => String(v == null ? '' : v);\nconst byId = {};\nfor (const h of arr(cfg.hooks, [])) {\n  if (h && h.id) byId[str(h.id).toUpperCase()] = h;\n}\nreturn [{ json: { byId } }];\n"
+          "jsCode": "// datasets/hook_types.json, parsed once. build_post_request reads byId to turn\n// the row's HOOK id into the opening shape the registry declares for it.\nconst raw = $json.output || '{}';\nlet cfg;\ntry {\n  cfg = JSON.parse(raw);\n} catch (e) {\n  throw new Error('datasets/hook_types.json is not valid JSON: ' + e.message);\n}\nconst arr = (v, d) => (Array.isArray(v) ? v : d);\nconst str = (v) => String(v == null ? '' : v);\nconst byId = {};\nfor (const h of arr(cfg.hooks, [])) {\n  if (h && h.id) byId[str(h.id).toUpperCase()] = h;\n}\nreturn [{ json: { byId } }];\n"
         }
       },
       {
-        "id": "707702fb-e12a-4034-a59d-ff81a603a2d2",
-        "name": "download_ai_speak",
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.2,
-        "position": [
-          -1248,
-          -112
-        ],
-        "parameters": {
-          "workflowId": {
-            "__rl": true,
-            "value": "qUfjfWLGEjV96ljf",
-            "mode": "list",
-            "cachedResultName": "DownloadTemplate"
-          },
-          "workflowInputs": {
-            "mappingMode": "defineBelow",
-            "value": {
-              "template_name": "prompts/ai_speak.md",
-              "template_vars": "={{ {} }}"
-            },
-            "matchingColumns": [],
-            "schema": [
-              {
-                "id": "template_name",
-                "displayName": "template_name",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string"
-              },
-              {
-                "id": "template_vars",
-                "displayName": "template_vars",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "object"
-              }
-            ],
-            "attemptToConvertTypes": false,
-            "convertFieldsToString": true
-          },
-          "options": {}
-        }
-      },
-      {
-        "id": "f35d82fc-7543-4143-a5bc-559d65a8e42d",
-        "name": "download_variety_directives",
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.2,
-        "position": [
-          -16672,
-          -656
-        ],
-        "parameters": {
-          "workflowId": {
-            "__rl": true,
-            "value": "qUfjfWLGEjV96ljf",
-            "mode": "list",
-            "cachedResultName": "DownloadTemplate",
-            "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf"
-          },
-          "workflowInputs": {
-            "mappingMode": "defineBelow",
-            "value": {
-              "template_name": "prompts/linkedin_variety.md",
-              "template_vars": "={{ {} }}"
-            },
-            "matchingColumns": [],
-            "schema": [
-              {
-                "id": "template_name",
-                "displayName": "template_name",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "string"
-              },
-              {
-                "id": "template_vars",
-                "displayName": "template_vars",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "canBeUsedToMatch": true,
-                "type": "object"
-              }
-            ],
-            "attemptToConvertTypes": false,
-            "convertFieldsToString": true
-          },
-          "options": {}
-        }
-      },
-      {
-        "id": "a654f097-dacb-40e1-b9b9-36bbbae8e57e",
-        "name": "variety_directives",
+        "id": "c1355bb7-d688-4659-b8a6-d0f92dc2aa41",
+        "name": "build_post_request",
+        "notes": "The entry as values; the prompt, the variety draw and the rules live in the pi-writer adapter.",
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          -16448,
-          -656
+          -16000,
+          -880
         ],
         "parameters": {
-          "jsCode": "// prompts/linkedin_variety.md is the one copy of the variety option sets. It is fetched\n// once; set_variety_directives selects from it and formats the directives.\nreturn [{ json: { TEXT: String($json.output || '') } }];\n"
+          "jsCode": "// The post session receives the entry's fields, never prompt text. The prompts, the\n// variety draw and the rule pair the drafter and the gate share live in the writer adapter,\n// so this graph cannot drift from the words the model reads. `session_id` is the row, so a\n// human retry continues the session and the directives it already chose.\nconst vars = $('main_trigger').first().json;\nconst row = String(vars.ROW_NUMBER || '').trim();\nif (!row) throw new Error('ROW_NUMBER is required: the session id is post-<row>');\nconst base = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!base) throw new Error('ARTICLE_WRITER_URL is not set; the post session cannot be reached');\nconst sessionId = ('post-' + row).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 80);\n// On a retry this node is fed by switch_check_rules_llm's retry output, so $json carries\n// the gate's explanation; on the first attempt it carries the hook registry.\nconst explanation = String(($json && $json.explanation) || '').trim();\nconst feedback = [\n  String(vars.FEEDBACK || '').trim(),\n  explanation ? 'Internal review rejected the previous draft with: ' + explanation : '',\n].filter(Boolean).join('\\n');\n// The hook is the curator's decision on the row; this graph only resolves its opening\n// shape from the one registry, and the adapter formats the directive.\nconst byId = $('parse_hook_registry').first().json.byId || {};\nconst hookId = String(vars.HOOK || '').trim().toUpperCase();\nconst entry = byId[hookId] || null;\nconst brief = {\n  content: String(vars.CONTENT || ''),\n  url: String(vars.URL || 'https://www.alvsanand.com'),\n  post_type: String(vars.POST_TYPE || 'LinkedIn Post'),\n  min_words: Number(vars.MIN_WORDS) || 150,\n  max_words: Number(vars.MAX_WORDS) || 200,\n  extra_prompt: String(vars.EXTRA_PROMPT || ''),\n  feedback,\n  previous_post: String(vars.PREVIOUS_POST || '').trim(),\n  hook: hookId,\n  hook_opening: entry ? String(entry.opening || '') : '',\n};\nreturn [{ json: {\n  SESSION_ID: sessionId,\n  ATTEMPT: $runIndex + 1,\n  POST_URL: base + '/v1/chat/completions',\n  BRIEF: brief,\n  POST_BODY: JSON.stringify({ lane: 'post', task: 'draft', session_id: sessionId, attempt: $runIndex + 1, brief }),\n} }];"
+        }
+      },
+      {
+        "id": "d4ea4f28-2580-4f42-b48e-dafce444ffe0",
+        "name": "request_post",
+        "notes": "A refused turn is data: neverError keeps its message for read_post_answer to name.",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          -15776,
+          -992
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $json.POST_URL }}",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ $json.POST_BODY }}",
+          "options": {
+            "timeout": 900000,
+            "response": {
+              "response": {
+                "neverError": true,
+                "fullResponse": true,
+                "responseFormat": "json"
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "5b2bae6b-7a2d-4491-936d-9f4f35411150",
+        "name": "read_post_answer",
+        "notes": "HTTP answer -> {text}, the item shape parse_llm_output reads.",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -15552,
+          -992
+        ],
+        "parameters": {
+          "jsCode": "// The adapter answers {statusCode, body}; a refused turn is named here rather than parsed\n// as an empty draft, and the text is rebuilt in the shape the two Code nodes below read.\nconst res = $input.first().json;\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nif (status >= 400) {\n  const message = String((body.error && body.error.message) || body.error || body.message || '').trim();\n  throw new Error('the post session refused the turn: HTTP ' + status + (message ? ': ' + message : ''));\n}\nconst text = body && body.post && typeof body.post.text === 'string' ? body.post.text : '';\nif (!text.trim()) throw new Error('the post session returned no post text');\nreturn [{ json: { ...res, text } }];"
+        }
+      },
+      {
+        "id": "43ee6f8c-9127-4e7f-85a7-f4833cc3b4ea",
+        "name": "build_review_request",
+        "notes": "The draft of record plus the session id; the gate prompt stays in the adapter.",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -14700,
+          -992
+        ],
+        "parameters": {
+          "jsCode": "// The gate is a writer turn too. It gets the draft n8n parsed, so it reviews exactly what\n// this attempt produced; the same session carries the directives the drafter was given.\nconst parsed = $('parse_llm_output').first().json;\nconst req = $('build_post_request').first().json;\nconst text = String(parsed.result || '').trim();\nif (!text) throw new Error('the gate has no post to review');\nreturn [{ json: {\n  POST_URL: req.POST_URL,\n  POST_BODY: JSON.stringify({ lane: 'post', task: 'review', session_id: req.SESSION_ID, brief: req.BRIEF, post: { text } }),\n} }];"
+        }
+      },
+      {
+        "id": "0d485719-12d6-4857-882d-9d3727016091",
+        "name": "request_review",
+        "notes": "The gate turn: a refused review is data for read_check_answer to name.",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "position": [
+          -14752,
+          -912
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $json.POST_URL }}",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ $json.POST_BODY }}",
+          "options": {
+            "timeout": 900000,
+            "response": {
+              "response": {
+                "neverError": true,
+                "fullResponse": true,
+                "responseFormat": "json"
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "d859ba76-b9df-43cd-b9be-3d5cd3fd21c9",
+        "name": "read_check_answer",
+        "notes": "HTTP answer -> {text}; the verdict tags are rebuilt by the adapter.",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -14528,
+          -912
+        ],
+        "parameters": {
+          "jsCode": "// The adapter answers {statusCode, body}; a refused turn is named here rather than parsed\n// as an empty draft, and the text is rebuilt in the shape the two Code nodes below read.\nconst res = $input.first().json;\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nif (status >= 400) {\n  const message = String((body.error && body.error.message) || body.error || body.message || '').trim();\n  throw new Error('the post session refused the turn: HTTP ' + status + (message ? ': ' + message : ''));\n}\nconst text = body && body.post && typeof body.post.text === 'string' ? body.post.text : '';\nif (!text.trim()) throw new Error('the post session returned no post text');\nreturn [{ json: { ...res, text } }];"
         }
       }
     ],
     "connections": {
-      "create_post_ai": {
+      "main_trigger": {
+        "main": [
+          [
+            {
+              "node": "set_workflow_vars",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "set_workflow_vars": {
+        "main": [
+          [
+            {
+              "node": "download_hook_registry",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "download_hook_registry": {
+        "main": [
+          [
+            {
+              "node": "parse_hook_registry",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "parse_hook_registry": {
+        "main": [
+          [
+            {
+              "node": "build_post_request",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "build_post_request": {
+        "main": [
+          [
+            {
+              "node": "request_post",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "request_post": {
+        "main": [
+          [
+            {
+              "node": "read_post_answer",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "read_post_answer": {
         "main": [
           [
             {
@@ -791,11 +531,73 @@
           ]
         ]
       },
-      "check_rules_llm": {
+      "parse_llm_output": {
+        "main": [
+          [
+            {
+              "node": "if_enabled_check",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "if_enabled_check": {
+        "main": [
+          [
+            {
+              "node": "build_review_request",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "set_output",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "build_review_request": {
+        "main": [
+          [
+            {
+              "node": "request_review",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "request_review": {
+        "main": [
+          [
+            {
+              "node": "read_check_answer",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "read_check_answer": {
         "main": [
           [
             {
               "node": "parse_llm_check_output",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "parse_llm_check_output": {
+        "main": [
+          [
+            {
+              "node": "switch_check_rules_llm",
               "type": "main",
               "index": 0
             }
@@ -820,211 +622,7 @@
           ],
           [
             {
-              "node": "download_post_prompt",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "set_workflow_vars": {
-        "main": [
-          [
-            {
-              "node": "download_hook_registry",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "download_post_prompt": {
-        "main": [
-          [
-            {
-              "node": "download_post_system_prompt",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "download_post_system_prompt": {
-        "main": [
-          [
-            {
-              "node": "create_post_ai",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "download_post_review_prompt": {
-        "main": [
-          [
-            {
-              "node": "check_rules_llm",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "download_post_rules_prompt": {
-        "main": [
-          [
-            {
-              "node": "set_workflow_vars",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "main_trigger": {
-        "main": [
-          [
-            {
-              "node": "download_ai_speak",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "parse_llm_check_output": {
-        "main": [
-          [
-            {
-              "node": "switch_check_rules_llm",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "if_enabled_check": {
-        "main": [
-          [
-            {
-              "node": "download_post_review_prompt",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "set_output",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "ai_model_fallback": {
-        "ai_languageModel": [
-          [
-            {
-              "node": "check_rules_llm",
-              "type": "ai_languageModel",
-              "index": 1
-            },
-            {
-              "node": "create_post_ai",
-              "type": "ai_languageModel",
-              "index": 1
-            }
-          ]
-        ]
-      },
-      "set_variety_directives": {
-        "main": [
-          [
-            {
-              "node": "download_post_prompt",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "ai_model": {
-        "ai_languageModel": [
-          [
-            {
-              "node": "create_post_ai",
-              "type": "ai_languageModel",
-              "index": 0
-            },
-            {
-              "node": "check_rules_llm",
-              "type": "ai_languageModel",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "parse_llm_output": {
-        "main": [
-          [
-            {
-              "node": "if_enabled_check",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "download_hook_registry": {
-        "main": [
-          [
-            {
-              "node": "parse_hook_registry",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "parse_hook_registry": {
-        "main": [
-          [
-            {
-              "node": "download_variety_directives",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "download_ai_speak": {
-        "main": [
-          [
-            {
-              "node": "download_post_rules_prompt",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "download_variety_directives": {
-        "main": [
-          [
-            {
-              "node": "variety_directives",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "variety_directives": {
-        "main": [
-          [
-            {
-              "node": "set_variety_directives",
+              "node": "build_post_request",
               "type": "main",
               "index": 0
             }
@@ -1042,7 +640,73 @@
   },
   "activeVersionId": "97f0d3a2-0cfb-4eab-b783-08d09c8b0f6b",
   "connections": {
-    "create_post_ai": {
+    "main_trigger": {
+      "main": [
+        [
+          {
+            "node": "set_workflow_vars",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "set_workflow_vars": {
+      "main": [
+        [
+          {
+            "node": "download_hook_registry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "download_hook_registry": {
+      "main": [
+        [
+          {
+            "node": "parse_hook_registry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "parse_hook_registry": {
+      "main": [
+        [
+          {
+            "node": "build_post_request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "build_post_request": {
+      "main": [
+        [
+          {
+            "node": "request_post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "request_post": {
+      "main": [
+        [
+          {
+            "node": "read_post_answer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "read_post_answer": {
       "main": [
         [
           {
@@ -1053,11 +717,73 @@
         ]
       ]
     },
-    "check_rules_llm": {
+    "parse_llm_output": {
+      "main": [
+        [
+          {
+            "node": "if_enabled_check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if_enabled_check": {
+      "main": [
+        [
+          {
+            "node": "build_review_request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "set_output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "build_review_request": {
+      "main": [
+        [
+          {
+            "node": "request_review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "request_review": {
+      "main": [
+        [
+          {
+            "node": "read_check_answer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "read_check_answer": {
       "main": [
         [
           {
             "node": "parse_llm_check_output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "parse_llm_check_output": {
+      "main": [
+        [
+          {
+            "node": "switch_check_rules_llm",
             "type": "main",
             "index": 0
           }
@@ -1082,211 +808,7 @@
         ],
         [
           {
-            "node": "download_post_prompt",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "set_workflow_vars": {
-      "main": [
-        [
-          {
-            "node": "download_hook_registry",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "download_post_prompt": {
-      "main": [
-        [
-          {
-            "node": "download_post_system_prompt",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "download_post_system_prompt": {
-      "main": [
-        [
-          {
-            "node": "create_post_ai",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "download_post_review_prompt": {
-      "main": [
-        [
-          {
-            "node": "check_rules_llm",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "download_post_rules_prompt": {
-      "main": [
-        [
-          {
-            "node": "set_workflow_vars",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "main_trigger": {
-      "main": [
-        [
-          {
-            "node": "download_ai_speak",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "parse_llm_check_output": {
-      "main": [
-        [
-          {
-            "node": "switch_check_rules_llm",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "if_enabled_check": {
-      "main": [
-        [
-          {
-            "node": "download_post_review_prompt",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "set_output",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "ai_model_fallback": {
-      "ai_languageModel": [
-        [
-          {
-            "node": "check_rules_llm",
-            "type": "ai_languageModel",
-            "index": 1
-          },
-          {
-            "node": "create_post_ai",
-            "type": "ai_languageModel",
-            "index": 1
-          }
-        ]
-      ]
-    },
-    "set_variety_directives": {
-      "main": [
-        [
-          {
-            "node": "download_post_prompt",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "ai_model": {
-      "ai_languageModel": [
-        [
-          {
-            "node": "create_post_ai",
-            "type": "ai_languageModel",
-            "index": 0
-          },
-          {
-            "node": "check_rules_llm",
-            "type": "ai_languageModel",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "parse_llm_output": {
-      "main": [
-        [
-          {
-            "node": "if_enabled_check",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "download_hook_registry": {
-      "main": [
-        [
-          {
-            "node": "parse_hook_registry",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "parse_hook_registry": {
-      "main": [
-        [
-          {
-            "node": "download_variety_directives",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "download_ai_speak": {
-      "main": [
-        [
-          {
-            "node": "download_post_rules_prompt",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "download_variety_directives": {
-      "main": [
-        [
-          {
-            "node": "variety_directives",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "variety_directives": {
-      "main": [
-        [
-          {
-            "node": "set_variety_directives",
+            "node": "build_post_request",
             "type": "main",
             "index": 0
           }
@@ -1303,50 +825,6 @@
   "name": "LinkedIn Post Creator",
   "nodeGroups": [],
   "nodes": [
-    {
-      "id": "aedd481c-fff5-417a-a202-f697005601a6",
-      "name": "create_post_ai",
-      "type": "@n8n/n8n-nodes-langchain.chainLlm",
-      "typeVersion": 1.6,
-      "alwaysOutputData": false,
-      "retryOnFail": true,
-      "maxTries": 5,
-      "waitBetweenTries": 5000,
-      "position": [
-        -15552,
-        -992
-      ],
-      "parameters": {
-        "promptType": "define",
-        "text": "={{ $('download_post_prompt').item.json.output }}",
-        "needsFallback": true,
-        "messages": {
-          "messageValues": [
-            {
-              "message": "={{ $('download_post_system_prompt').item.json.output }}"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "id": "4fcc2aad-e372-45ce-a595-1ff7af6ee2ad",
-      "name": "check_rules_llm",
-      "type": "@n8n/n8n-nodes-langchain.chainLlm",
-      "typeVersion": 1.6,
-      "retryOnFail": true,
-      "maxTries": 5,
-      "waitBetweenTries": 5000,
-      "position": [
-        -14528,
-        -912
-      ],
-      "parameters": {
-        "promptType": "define",
-        "text": "={{ $('download_post_review_prompt').item.json.output }}",
-        "needsFallback": true
-      }
-    },
     {
       "id": "d36aa02f-3279-4793-bf0c-28d0fa4298b1",
       "name": "switch_check_rules_llm",
@@ -1446,12 +924,6 @@
         "assignments": {
           "assignments": [
             {
-              "id": "3278d703-6413-4117-95ef-f5e639096d2b",
-              "name": "RULES",
-              "value": "={{ $('download_post_rules_prompt').item.json.output }}",
-              "type": "string"
-            },
-            {
               "id": "97804ec0-c646-438a-bbc8-fad3b1081264",
               "name": "MAX_TRIES",
               "value": 3,
@@ -1476,18 +948,6 @@
               "type": "string"
             },
             {
-              "id": "52b87bd1-627b-4af4-b73a-433a1b3caccd",
-              "name": "MODEL",
-              "value": "opencode-go/deepseek-v4.1-flash",
-              "type": "string"
-            },
-            {
-              "id": "708efbf7-5a7f-4dd7-a5b4-1eb73ac77883",
-              "name": "MODEL_FALLBACK",
-              "value": "opencode-go/glm-5.3-flash",
-              "type": "string"
-            },
-            {
               "id": "45561a7c-0cb2-4bff-a5e2-a4bbe69d14e3",
               "name": "ENABLE_CHECK",
               "value": "={{ $('main_trigger').item.json.ENABLE_CHECK || 'false' }}",
@@ -1497,19 +957,6 @@
         },
         "includeOtherFields": true,
         "options": {}
-      }
-    },
-    {
-      "id": "dd1dfb5f-278f-463a-abce-4b97ebb7c81a",
-      "name": "set_variety_directives",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        -16224,
-        -880
-      ],
-      "parameters": {
-        "jsCode": "// Randomly pick variety directives so consecutive posts never share the same shape.\n// The options and their weights live in prompts/linkedin_variety.md; this node selects\n// them and formats the line the drafter reads.\n\n// The hook is the one the curator's judge classified from the article and stored on\n// the row; it is NOT re-picked here. The opening shape comes from the registry entry\n// for that id, so the hook the post opens on and the hook the visual was built for are\n// the same decision. When the row carries no hook (a hand-written row), the writer\n// chooses the shape that fits.\nconst reg = $('parse_hook_registry').first().json;\nconst BY_ID = reg.byId || {};\nconst hookId = String($('main_trigger').first().json.HOOK || '').trim().toUpperCase();\nconst entry = BY_ID[hookId] || null;\nconst hook = entry\n  ? hookId + ': ' + String(entry.opening || '')\n  : 'the opening shape that best fits the content';\n\nconst text = String($('variety_directives').first().json.TEXT || '');\n\n// One option set per section, as `weight | band | directive`. The band is used by the\n// length section; the weight duplicates an option in the draw (MEDIUM twice, etc.).\nconst section = (name) => {\n  const lines = text.split('\\n');\n  const start = lines.findIndex((l) => l.trim() === '## ' + name);\n  if (start < 0) return [];\n  const out = [];\n  for (let i = start + 1; i < lines.length; i++) {\n    const line = lines[i].trim();\n    if (line.startsWith('## ')) break;\n    if (!line) continue;\n    const parts = line.split('|').map((s) => s.trim());\n    if (parts.length !== 3) continue;\n    out.push({ weight: Math.max(1, Math.round(Number(parts[0]) || 1)), key: parts[1], text: parts[2] });\n  }\n  return out;\n};\nconst group = (name) => {\n  const options = section(name);\n  if (!options.length) throw new Error('prompts/linkedin_variety.md carries no ' + name + ' options');\n  return options;\n};\nconst pick = (options) => {\n  const pool = [];\n  for (const o of options) for (let i = 0; i < o.weight; i++) pool.push(o);\n  return pool[Math.floor(Math.random() * pool.length)];\n};\n\nconst format = pick(group('format')).text;\nconst band = pick(group('length'));\nconst closing = pick(group('closing')).text;\n\n// The word target is a point inside [MIN_WORDS, MAX_WORDS], not a percentage of MAX.\n// A percentage of MAX can fall below MIN - 40% of 300 is 120 against a minimum of 180 -\n// and the directives are declared MANDATORY in the prompt, so the model follows the\n// contradiction down and writes short.\nconst MIN_WORDS = $('main_trigger').first().json.MIN_WORDS || 150;\nconst MAX_WORDS = $('main_trigger').first().json.MAX_WORDS || 200;\nconst span = Math.max(0, MAX_WORDS - MIN_WORDS);\nconst target = (frac) => Math.round(MIN_WORDS + span * frac);\nconst length = band.key + ': aim for about ' + target(Number(band.text)) +\n  ' words, never fewer than ' + MIN_WORDS + ' and never more than ' + MAX_WORDS;\n\nconst VARIETY_DIRECTIVES = [\n  `- Hook — ${hook}.`,\n  `- Format — ${format}.`,\n  `- Length — ${length}.`,\n  `- Closing — ${closing}. The \"Source here\" line and hashtags always follow the body regardless.`,\n].join('\\n');\n\nreturn [{ json: { ...$input.first().json, VARIETY_DIRECTIVES } }];\n"
       }
     },
     {
@@ -1537,205 +984,6 @@
               "type": "string"
             }
           ]
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "0aa35d43-7472-4ebe-b5e6-bc0213d3be0d",
-      "name": "download_post_prompt",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        -16000,
-        -880
-      ],
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "qUfjfWLGEjV96ljf",
-          "mode": "list",
-          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
-          "cachedResultName": "DownloadTemplate"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "template_vars": "={{ {\n\"RULES\": $('set_workflow_vars').first().json.RULES,\n\"EXTRA_PROMPT\": $('main_trigger').first().json.EXTRA_PROMPT,\n\"CONTENT\": $('main_trigger').first().json.CONTENT,\n\"VARIETY_DIRECTIVES\": $('set_variety_directives').first().json.VARIETY_DIRECTIVES,\n\"FEEDBACK\": ($('main_trigger').first().json.FEEDBACK || \"\") + ($json.explanation ? \"\\nInternal review rejected the previous draft with: \" + $json.explanation : \"\"),\n\"PREVIOUS_POST\": $('parse_llm_output').isExecuted ? $('parse_llm_output').last().json.result : ($('main_trigger').first().json.PREVIOUS_POST || \"\"),\n} }}",
-            "template_name": "prompts/linkedin_post.md"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "template_name",
-              "displayName": "template_name",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string"
-            },
-            {
-              "id": "template_vars",
-              "displayName": "template_vars",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "object"
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "4dfca31e-e087-47e5-a40a-31f8d481010e",
-      "name": "download_post_system_prompt",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        -15776,
-        -992
-      ],
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "qUfjfWLGEjV96ljf",
-          "mode": "list",
-          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
-          "cachedResultName": "DownloadTemplate"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "template_name": "=prompts/linkedin_post_system.md",
-            "template_vars": "={{ {} }}"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "template_name",
-              "displayName": "template_name",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string"
-            },
-            {
-              "id": "template_vars",
-              "displayName": "template_vars",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "object"
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "6549c8a4-f260-407b-9e20-df8f5c4800fb",
-      "name": "download_post_review_prompt",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        -14752,
-        -912
-      ],
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "qUfjfWLGEjV96ljf",
-          "mode": "list",
-          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf",
-          "cachedResultName": "DownloadTemplate"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "template_vars": "={{ {\n\"RULES\": $('set_workflow_vars').first().json.RULES,\n\"EXTRA_PROMPT\": $('main_trigger').first().json.EXTRA_PROMPT,\n\"URL\": $('main_trigger').first().json.URL,\n\"TEXT\": $json.text,\n\"VARIETY_DIRECTIVES\": $('set_variety_directives').first().json.VARIETY_DIRECTIVES,\n\"FEEDBACK\": $('main_trigger').first().json.FEEDBACK || \"\",\n} }}",
-            "template_name": "prompts/linkedin_post_review.md"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "template_name",
-              "displayName": "template_name",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string"
-            },
-            {
-              "id": "template_vars",
-              "displayName": "template_vars",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "object"
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "eca73597-562f-4bff-bbf0-520daa48a3f1",
-      "name": "download_post_rules_prompt",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        -17120,
-        -880
-      ],
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "qUfjfWLGEjV96ljf",
-          "mode": "list",
-          "cachedResultName": "DownloadTemplate"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "template_vars": "={{ {\n\"MIN_WORDS\": $('main_trigger').item.json.MIN_WORDS || 150,\n\"MAX_WORDS\": $('main_trigger').item.json.MAX_WORDS || 200,\n\"AI_SPEAK\": $('download_ai_speak').first().json.output\n} }}",
-            "template_name": "prompts/linkedin_post_rules.md"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "template_name",
-              "displayName": "template_name",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string"
-            },
-            {
-              "id": "template_vars",
-              "displayName": "template_vars",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "object"
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
         },
         "options": {}
       }
@@ -1780,6 +1028,10 @@
             },
             {
               "name": "PREVIOUS_POST"
+            },
+            {
+              "name": "ROW_NUMBER",
+              "type": "number"
             }
           ]
         }
@@ -1795,7 +1047,7 @@
         -912
       ],
       "parameters": {
-        "jsCode": "for (const item of $input.all()) {\n  const { text } = item.json;\n\n  const output = text.includes('<output>') && text.includes('</output>')\n    ? text.split('<output>')[1].split('</output>')[0]\n    : 'false';\n\n  // The gate's reason for rejecting this draft. download_post_prompt puts it in\n  // the next attempt's Reviewer Feedback block, and set_error_max_tries reports\n  // it, so it is flattened to one line for both the prompt and the sheet cell.\n  const explanation = text.includes('<explanation>') && text.includes('</explanation>')\n    ? text.split('<explanation>')[1].split('</explanation>')[0].replace(/\\s+/g, ' ').trim()\n    : '';\n\n  item.json.output = output;\n  item.json.explanation = explanation;\n}\n\nreturn $input.all();"
+        "jsCode": "for (const item of $input.all()) {\n  const { text } = item.json;\n\n  const output = text.includes('<output>') && text.includes('</output>')\n    ? text.split('<output>')[1].split('</output>')[0]\n    : 'false';\n\n  // The gate's reason for rejecting this draft. build_post_request puts it in\n  // the next attempt's Reviewer Feedback block, and set_error_max_tries reports\n  // it, so it is flattened to one line for both the prompt and the sheet cell.\n  const explanation = text.includes('<explanation>') && text.includes('</explanation>')\n    ? text.split('<explanation>')[1].split('</explanation>')[0].replace(/\\s+/g, ' ').trim()\n    : '';\n\n  item.json.output = output;\n  item.json.explanation = explanation;\n}\n\nreturn $input.all();"
       }
     },
     {
@@ -1831,62 +1083,6 @@
         },
         "looseTypeValidation": true,
         "options": {}
-      }
-    },
-    {
-      "id": "500e2c45-a17f-46ee-8a97-68a57492b087",
-      "name": "ai_model_fallback",
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-      "typeVersion": 1.3,
-      "position": [
-        -15416,
-        -776
-      ],
-      "parameters": {
-        "model": {
-          "__rl": true,
-          "mode": "id",
-          "value": "={{ $('set_workflow_vars').item.json.MODEL_FALLBACK }}"
-        },
-        "builtInTools": {},
-        "options": {
-          "maxRetries": 5,
-          "timeout": 120000
-        }
-      },
-      "credentials": {
-        "openAiApi": {
-          "id": "LitellmN8nAcct01",
-          "name": "LiteLLM account"
-        }
-      }
-    },
-    {
-      "id": "08ca09dd-4f72-4084-9422-9986a34f99e9",
-      "name": "ai_model",
-      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
-      "typeVersion": 1.3,
-      "position": [
-        -15544,
-        -776
-      ],
-      "parameters": {
-        "model": {
-          "__rl": true,
-          "mode": "id",
-          "value": "={{ $('set_workflow_vars').item.json.MODEL }}"
-        },
-        "builtInTools": {},
-        "options": {
-          "maxRetries": 5,
-          "timeout": 120000
-        }
-      },
-      "credentials": {
-        "openAiApi": {
-          "id": "LitellmN8nAcct01",
-          "name": "LiteLLM account"
-        }
       }
     },
     {
@@ -1962,119 +1158,119 @@
         -880
       ],
       "parameters": {
-        "jsCode": "// datasets/hook_types.json, parsed once. set_variety_directives reads byId to turn\n// the row's HOOK id into the opening shape the registry declares for it.\nconst raw = $json.output || '{}';\nlet cfg;\ntry {\n  cfg = JSON.parse(raw);\n} catch (e) {\n  throw new Error('datasets/hook_types.json is not valid JSON: ' + e.message);\n}\nconst arr = (v, d) => (Array.isArray(v) ? v : d);\nconst str = (v) => String(v == null ? '' : v);\nconst byId = {};\nfor (const h of arr(cfg.hooks, [])) {\n  if (h && h.id) byId[str(h.id).toUpperCase()] = h;\n}\nreturn [{ json: { byId } }];\n"
+        "jsCode": "// datasets/hook_types.json, parsed once. build_post_request reads byId to turn\n// the row's HOOK id into the opening shape the registry declares for it.\nconst raw = $json.output || '{}';\nlet cfg;\ntry {\n  cfg = JSON.parse(raw);\n} catch (e) {\n  throw new Error('datasets/hook_types.json is not valid JSON: ' + e.message);\n}\nconst arr = (v, d) => (Array.isArray(v) ? v : d);\nconst str = (v) => String(v == null ? '' : v);\nconst byId = {};\nfor (const h of arr(cfg.hooks, [])) {\n  if (h && h.id) byId[str(h.id).toUpperCase()] = h;\n}\nreturn [{ json: { byId } }];\n"
       }
     },
     {
-      "id": "707702fb-e12a-4034-a59d-ff81a603a2d2",
-      "name": "download_ai_speak",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        -1248,
-        -112
-      ],
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "qUfjfWLGEjV96ljf",
-          "mode": "list",
-          "cachedResultName": "DownloadTemplate"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "template_name": "prompts/ai_speak.md",
-            "template_vars": "={{ {} }}"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "template_name",
-              "displayName": "template_name",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string"
-            },
-            {
-              "id": "template_vars",
-              "displayName": "template_vars",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "object"
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "f35d82fc-7543-4143-a5bc-559d65a8e42d",
-      "name": "download_variety_directives",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.2,
-      "position": [
-        -16672,
-        -656
-      ],
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "qUfjfWLGEjV96ljf",
-          "mode": "list",
-          "cachedResultName": "DownloadTemplate",
-          "cachedResultUrl": "/workflow/qUfjfWLGEjV96ljf"
-        },
-        "workflowInputs": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "template_name": "prompts/linkedin_variety.md",
-            "template_vars": "={{ {} }}"
-          },
-          "matchingColumns": [],
-          "schema": [
-            {
-              "id": "template_name",
-              "displayName": "template_name",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "string"
-            },
-            {
-              "id": "template_vars",
-              "displayName": "template_vars",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "canBeUsedToMatch": true,
-              "type": "object"
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "a654f097-dacb-40e1-b9b9-36bbbae8e57e",
-      "name": "variety_directives",
+      "id": "c1355bb7-d688-4659-b8a6-d0f92dc2aa41",
+      "name": "build_post_request",
+      "notes": "The entry as values; the prompt, the variety draw and the rules live in the pi-writer adapter.",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -16448,
-        -656
+        -16000,
+        -880
       ],
       "parameters": {
-        "jsCode": "// prompts/linkedin_variety.md is the one copy of the variety option sets. It is fetched\n// once; set_variety_directives selects from it and formats the directives.\nreturn [{ json: { TEXT: String($json.output || '') } }];\n"
+        "jsCode": "// The post session receives the entry's fields, never prompt text. The prompts, the\n// variety draw and the rule pair the drafter and the gate share live in the writer adapter,\n// so this graph cannot drift from the words the model reads. `session_id` is the row, so a\n// human retry continues the session and the directives it already chose.\nconst vars = $('main_trigger').first().json;\nconst row = String(vars.ROW_NUMBER || '').trim();\nif (!row) throw new Error('ROW_NUMBER is required: the session id is post-<row>');\nconst base = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!base) throw new Error('ARTICLE_WRITER_URL is not set; the post session cannot be reached');\nconst sessionId = ('post-' + row).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 80);\n// On a retry this node is fed by switch_check_rules_llm's retry output, so $json carries\n// the gate's explanation; on the first attempt it carries the hook registry.\nconst explanation = String(($json && $json.explanation) || '').trim();\nconst feedback = [\n  String(vars.FEEDBACK || '').trim(),\n  explanation ? 'Internal review rejected the previous draft with: ' + explanation : '',\n].filter(Boolean).join('\\n');\n// The hook is the curator's decision on the row; this graph only resolves its opening\n// shape from the one registry, and the adapter formats the directive.\nconst byId = $('parse_hook_registry').first().json.byId || {};\nconst hookId = String(vars.HOOK || '').trim().toUpperCase();\nconst entry = byId[hookId] || null;\nconst brief = {\n  content: String(vars.CONTENT || ''),\n  url: String(vars.URL || 'https://www.alvsanand.com'),\n  post_type: String(vars.POST_TYPE || 'LinkedIn Post'),\n  min_words: Number(vars.MIN_WORDS) || 150,\n  max_words: Number(vars.MAX_WORDS) || 200,\n  extra_prompt: String(vars.EXTRA_PROMPT || ''),\n  feedback,\n  previous_post: String(vars.PREVIOUS_POST || '').trim(),\n  hook: hookId,\n  hook_opening: entry ? String(entry.opening || '') : '',\n};\nreturn [{ json: {\n  SESSION_ID: sessionId,\n  ATTEMPT: $runIndex + 1,\n  POST_URL: base + '/v1/chat/completions',\n  BRIEF: brief,\n  POST_BODY: JSON.stringify({ lane: 'post', task: 'draft', session_id: sessionId, attempt: $runIndex + 1, brief }),\n} }];"
+      }
+    },
+    {
+      "id": "d4ea4f28-2580-4f42-b48e-dafce444ffe0",
+      "name": "request_post",
+      "notes": "A refused turn is data: neverError keeps its message for read_post_answer to name.",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -15776,
+        -992
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.POST_URL }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.POST_BODY }}",
+        "options": {
+          "timeout": 900000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "5b2bae6b-7a2d-4491-936d-9f4f35411150",
+      "name": "read_post_answer",
+      "notes": "HTTP answer -> {text}, the item shape parse_llm_output reads.",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -15552,
+        -992
+      ],
+      "parameters": {
+        "jsCode": "// The adapter answers {statusCode, body}; a refused turn is named here rather than parsed\n// as an empty draft, and the text is rebuilt in the shape the two Code nodes below read.\nconst res = $input.first().json;\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nif (status >= 400) {\n  const message = String((body.error && body.error.message) || body.error || body.message || '').trim();\n  throw new Error('the post session refused the turn: HTTP ' + status + (message ? ': ' + message : ''));\n}\nconst text = body && body.post && typeof body.post.text === 'string' ? body.post.text : '';\nif (!text.trim()) throw new Error('the post session returned no post text');\nreturn [{ json: { ...res, text } }];"
+      }
+    },
+    {
+      "id": "43ee6f8c-9127-4e7f-85a7-f4833cc3b4ea",
+      "name": "build_review_request",
+      "notes": "The draft of record plus the session id; the gate prompt stays in the adapter.",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -14700,
+        -992
+      ],
+      "parameters": {
+        "jsCode": "// The gate is a writer turn too. It gets the draft n8n parsed, so it reviews exactly what\n// this attempt produced; the same session carries the directives the drafter was given.\nconst parsed = $('parse_llm_output').first().json;\nconst req = $('build_post_request').first().json;\nconst text = String(parsed.result || '').trim();\nif (!text) throw new Error('the gate has no post to review');\nreturn [{ json: {\n  POST_URL: req.POST_URL,\n  POST_BODY: JSON.stringify({ lane: 'post', task: 'review', session_id: req.SESSION_ID, brief: req.BRIEF, post: { text } }),\n} }];"
+      }
+    },
+    {
+      "id": "0d485719-12d6-4857-882d-9d3727016091",
+      "name": "request_review",
+      "notes": "The gate turn: a refused review is data for read_check_answer to name.",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -14752,
+        -912
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.POST_URL }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.POST_BODY }}",
+        "options": {
+          "timeout": 900000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "d859ba76-b9df-43cd-b9be-3d5cd3fd21c9",
+      "name": "read_check_answer",
+      "notes": "HTTP answer -> {text}; the verdict tags are rebuilt by the adapter.",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -14528,
+        -912
+      ],
+      "parameters": {
+        "jsCode": "// The adapter answers {statusCode, body}; a refused turn is named here rather than parsed\n// as an empty draft, and the text is rebuilt in the shape the two Code nodes below read.\nconst res = $input.first().json;\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nif (status >= 400) {\n  const message = String((body.error && body.error.message) || body.error || body.message || '').trim();\n  throw new Error('the post session refused the turn: HTTP ' + status + (message ? ': ' + message : ''));\n}\nconst text = body && body.post && typeof body.post.text === 'string' ? body.post.text : '';\nif (!text.trim()) throw new Error('the post session returned no post text');\nreturn [{ json: { ...res, text } }];"
       }
     }
   ],

@@ -705,6 +705,81 @@ export function articleTurnInstruction({ isIteration } = {}) {
   );
 }
 
+// The post lane's chosen variety set, stored beside the run so the gate reads the same
+// directives the drafter was given. A swept session draws a fresh set.
+export const POST_DIRECTIVES_NAME = "directives.json";
+
+// The post lane's variety draw. The option sets are the adapter's own prompt file, and the
+// draw is code: a weight duplicates an option in the pool, the length band is a point inside
+// the requested range rather than a share of the maximum, and the hook opening is the row's
+// decision passed in as a value. `random` is injectable so a test can pin the draw.
+export function chooseDirectives({
+  variety,
+  hook = "",
+  hookOpening = "",
+  minWords,
+  maxWords,
+  random = Math.random,
+} = {}) {
+  const section = (name) => {
+    const lines = String(variety ?? "").split("\n");
+    const start = lines.findIndex((line) => line.trim() === `## ${name}`);
+    if (start < 0) return [];
+    const options = [];
+    for (let i = start + 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (line.startsWith("## ")) break;
+      if (!line) continue;
+      const parts = line.split("|").map((part) => part.trim());
+      if (parts.length !== 3) continue;
+      options.push({
+        weight: Math.max(1, Math.round(Number(parts[0]) || 1)),
+        key: parts[1],
+        text: parts[2],
+      });
+    }
+    return options;
+  };
+  const group = (name) => {
+    const options = section(name);
+    if (!options.length) throw new Error(`linkedin_variety.md carries no ${name} options`);
+    return options;
+  };
+  const pick = (options) => {
+    const pool = [];
+    for (const option of options) for (let i = 0; i < option.weight; i++) pool.push(option);
+    const index = Math.min(pool.length - 1, Math.floor(random() * pool.length));
+    return pool[Math.max(0, index)];
+  };
+
+  const hookId = String(hook ?? "").trim().toUpperCase();
+  const opening = String(hookOpening ?? "").trim();
+  const hookLine = hookId && opening ? `${hookId}: ${opening}` : "the opening shape that best fits the content";
+  const format = pick(group("format"));
+  const band = pick(group("length"));
+  const closing = pick(group("closing"));
+
+  const min = Number(minWords) > 0 ? Number(minWords) : 150;
+  const max = Number(maxWords) > 0 ? Number(maxWords) : 200;
+  const span = Math.max(0, max - min);
+  const target = (fraction) => Math.round(min + span * Number(fraction));
+  const length =
+    `${band.key}: aim for about ${target(band.text)} words, never fewer than ${min} and never more than ${max}`;
+
+  return {
+    hook: hookLine,
+    format: format.text,
+    length: band.key,
+    closing: closing.text,
+    directives: [
+      `- Hook — ${hookLine}.`,
+      `- Format — ${format.text}.`,
+      `- Length — ${length}.`,
+      `- Closing — ${closing.text}. The "Source here" line and hashtags always follow the body regardless.`,
+    ].join("\n"),
+  };
+}
+
 // Whether a file exists, used to decide that a session already holds an article.
 export async function exists(path) {
   try {

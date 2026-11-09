@@ -1,6 +1,6 @@
 # Post variety directives
 
-One option set per post, selected by `set_variety_directives` so consecutive posts never
+One option set per post, selected by the writer session so consecutive posts never
 share the same shape. The weight is how often the option is chosen; the middle column is the
 band name (`length` only); the last column is the directive the drafter reads.
 

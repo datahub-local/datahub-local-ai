@@ -245,6 +245,16 @@ Eight structural things worth knowing before editing an export:
   items: there is nothing more to read. A Merge cannot express the join either — append runs per
   input and `combine` merges fields rather than listing items — so a multi-type caller is a
   per-type caller.
+- **Splitting the items is not enough: `Execute Sub-workflow` defaults to `mode: once` and folds
+  them back into a single execution.** Fanning out gave *two items into one call*, and the
+  studio's `normalize_input` reads `$input.first()`, so the second type was never authored.
+  Measured 2026-11-09 on the article flow (execution 16209, row 3): `split_pending_types` emitted
+  `image_wide,svg_wide`, one studio execution (16225) arrived with both trigger items,
+  `parse_registry` shaped one branch, and the gate reported `svg_wide=MISSING` — the same
+  notice the 2026-10-17 fix was supposed to end. The node needs `mode: each` (one execution per
+  item); it is a parameter on the node, not a second node. That run also showed the retry cost of
+  a static pending set: four rounds re-authored `image_wide` four times, so the split drops types
+  already `APPROVED`/`COMMITTED` before it fans out.
 - **`$('node').first()` does not mean output 0: it means *the output the graph connects that
   node to*, resolved by walking upstream from the reading node.** `execute_author` carries
   `continueErrorOutput`, and on 2026-10-25 its error output was wired into `agent_result` so a
@@ -284,23 +294,22 @@ Eight structural things worth knowing before editing an export:
   every `ai_tool` source in every export, so the next one fails offline rather than at the model.
 - **A rule the gate enforces must be satisfiable by the rules the drafter
   follows.** `LinkedIn Post Creator` drafts text and then reviews it in the same
-  execution against `linkedin_post_rules.md` *plus* the row's `EXTRA_PROMPT`,
-  retrying a rejection from scratch. On 2026-09-30 that made one article
-  unpublishable: row 58 is about an agent *harness*, `harness` was on the banned
-  AI-speak list, and the drafting rules at the same time require naming the
-  technology from the source — so no draft could satisfy both, and five drafts
-  ended in `MAX_RETRIES_EXCEEDED` (execution 11728, via 11726). The same word had
-  been accepted days earlier with 7 and 8 uses (executions 11311, 11317), so the
-  gate's verdict on a legitimate technical term was a coin flip. A banned-word
-  list must ban a word in its *hype* usage and allow it where it names the
-  subject; that rule lives in **two** files that have to change together —
-  `prompts/linkedin_post_rules.md` for the drafter,
-  `prompts/linkedin_post_review.md` for the gate — and a retry carries the gate's
-  own `<explanation>` into the next prompt so a rejection for the same reason
-  cannot repeat. Both are prompt files, read from GitHub `main` by
-  `DownloadTemplate`, so this class of fix is live on push; a node change is not,
-  which is how the export half of that fix was reverted by the nightly backup
-  before it had been applied.
+  execution against the AI-speak list *plus* the row's `EXTRA_PROMPT`, retrying a
+  rejection from scratch. On 2026-09-30 that made one article unpublishable: row 58
+  is about an agent *harness*, `harness` was on the banned AI-speak list, and the
+  drafting rules at the same time require naming the technology from the source —
+  so no draft could satisfy both, and five drafts ended in
+  `MAX_RETRIES_EXCEEDED` (execution 11728, via 11726). The same word had been
+  accepted days earlier with 7 and 8 uses (executions 11311, 11317), so the gate's
+  verdict on a legitimate technical term was a coin flip. A banned-word list must
+  ban a word in its *hype* usage and allow it where it names the subject; that rule
+  lives in **two** files that have to change together —
+  `agents/adapters/pi-writer/prompts/linkedin_post_rules.md` for the drafter and
+  `linkedin_post_review.md` for the gate — and a retry carries the gate's own
+  `<explanation>` into the next prompt so a rejection for the same reason cannot
+  repeat. Both are in the writer adapter's image now, so a wording fix ships with
+  the image rather than on push; the two copies cannot drift because they are the
+  same directory.
 - **The subject owns the judgment; the source owns the work.** `LinkedIn Post
   Creator` is handed a third-party article and told to write from the poster's
   expertise, so a first fix that only asked it to *name* the company failed: on
@@ -311,10 +320,10 @@ Eight structural things worth knowing before editing an export:
   own experience", L14 "confident because you build these systems daily", L35
   "whatever the post presents as experience belongs to that subject" — so the
   split has to be stated in those rules and not only in the attribution one. The
-  pair is `prompts/linkedin_post_rules.md` (drafter) and
-  `prompts/linkedin_post_review.md` (gate), live on push. The composer is not
-  affected: it is briefed with the post text and renders it impersonally, which
-  is why the video can read truer than the post it came from.
+  pair is `agents/adapters/pi-writer/prompts/linkedin_post_rules.md` (drafter) and
+  `linkedin_post_review.md` (gate), one directory in the writer image. The composer
+  is not affected: it is briefed with the post text and renders it impersonally,
+  which is why the video can read truer than the post it came from.
 - **A `PUT` edits the draft; only publishing changes what runs, and publishing
   validates every node.** Adding the animated-media branch left live's top-level
   graph at 40 nodes while `activeVersion` still held 29 — the schedule would have
@@ -746,9 +755,11 @@ fails, and the manual `POST_MEDIA=STATIC` override.
 
 The judge returns `hook` and a `visual` intent in the same call that reads the article;
 `admit_to_backlog` writes them as the `HOOK`, `VISUAL_FORM`, `POST_MEDIA` and `SCENES`
-columns (`POST_MEDIA` is `ANIMATED` or `STATIC`). `LinkedIn Post Creator`'s `set_variety_directives` reads `HOOK` and maps it through
-the registry — it no longer re-picks a hook at random, and `classify_content` is retired. A
-list-shaped article (a roundup, a state-of — the `ROUNDUP` hook) *may* declare
+columns (`POST_MEDIA` is `ANIMATED` or `STATIC`). `LinkedIn Post Creator` resolves the row's
+`HOOK` through the registry and sends its `opening` to the writer session, which formats the hook
+directive and draws the format, length and closing from its own variety file. Hook and visual
+classification live in the curator's judge (`classify_content` is retired); the post lane no longer
+picks either. A list-shaped article (a roundup, a state-of — the `ROUNDUP` hook) *may* declare
 a scene count — the file defaults every hook to 0 and the judge sets it — so it is authored
 as one item per scene in the existing `animation_linkedin` type, with no new media kind.
 Because the lane usually sends no count, an intro cannot key on one: the three animation
@@ -758,10 +769,9 @@ a human retry asked for the title). A queued row that predates the columns is re
 curator itself (`select_unclassified_queue` → a bounded loop, 12 rows a run) so the
 backlog is backfilled over a few days and a row that slips through is repaired on the next
 run; an unreadable verdict leaves the row unclassified rather than recording a guess. The
-registry and the prompts are read from GitHub `main`, so
-those halves are live on push; the workflow edits are live only after
-`scripts/apply_workflow_changes.py`. The single-source property and the wiring are asserted
-offline in `agents/n8n/scripts/test_hook_registry.py`.
+registry is read from GitHub `main`, so that half is live on push; the post prompts live in the
+writer adapter's image and ship with it, and the workflow edits are live only after
+`scripts/apply_workflow_changes.py`.
 
 ## LinkedIn post media
 
@@ -1118,14 +1128,14 @@ that ends on what the reader sees. `article_review.md` rejects those defects so 
 retries with the failure named, and `article_aspect_structure.md` reports them on the improvement
 pass.
 
-**The AI-speak list is written where each lane reads it.** `agents/n8n/prompts/ai_speak.md` holds
-the banned words, the filler phrases and the robotic scaffolding for the LinkedIn lane, whose rules
-file injects it as `{{ AI_SPEAK }}`. The article lane's list now lives in
-`agents/adapters/pi-writer/prompts/article_writer_system.md`, because the drafting prompt is the
-adapter's and the image cannot fetch a file from `agents/n8n`; the article gate reads that same file
-as `RULES`, so the drafter and its gate still read one copy. The clause that matters is kept with
-both: a listed word is banned as filler and allowed when it names the subject, an article about a
-harness says "the Standard harness". The two lanes' lists can diverge, slowly and on purpose: the
+**The AI-speak list is written where each lane reads it.**
+`agents/adapters/pi-writer/prompts/ai_speak.md` holds the banned words, the filler phrases and the
+robotic scaffolding for the LinkedIn lane, whose rules file injects it as `{{ AI_SPEAK }}`; the gate
+reads the same rendered rules, so the two turns cannot diverge. The article lane's list lives in
+`article_writer_system.md` in the same directory, because the drafting prompt is the adapter's;
+the article gate reads that same file as `RULES`. The clause that matters is kept with both: a
+listed word is banned as filler and allowed when it names the subject, an article about a harness
+says "the Standard harness". The two lanes' lists can diverge, slowly and on purpose: the
 2026-09-30 failure was a gate enforcing a list the drafter was not reading, not two lanes holding
 different words.
 
@@ -1406,6 +1416,15 @@ per subscribed feed and per missing reference person, carrying `fetched`, `in_wi
 counters to the same record, and `build_digest` prints one line per reference person with no
 admitted row and the stage that stopped it, plus an admitted `mix by category` line of people,
 companies and community rows.
+
+**The lane's two turns are writer sessions.** `LinkedIn Post Creator` posts the row's values to the
+`pi-writer` session with `lane: "post"` and `session_id: post-<row>`; the adapter renders the post
+prompts from its own image, draws the format, length and closing once per session, and answers
+`<output>…</output>`. A retry continues the same session, so the gate judges the directives the
+draft was given; the gate is the same session with `task: "review"`. `parse_llm_output`,
+`parse_llm_check_output`, `MAX_TRIES` and `ENABLE_CHECK` are unchanged, and the export holds no
+`ai_languageModel` node. The reason is the 2026-09-30 rule pair: a rule the drafter and the gate
+share is now one directory in the image instead of two files fetched at run time.
 
 ## Content board intake and the queue ceiling
 

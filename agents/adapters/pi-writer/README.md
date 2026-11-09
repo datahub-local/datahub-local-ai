@@ -1,11 +1,15 @@
 # Pi writer adapter
 
-A Sympozium harness adapter that owns every model turn of the article lane. `task: "draft"`
-reads the pages the brief cites through the Firecrawl MCP server and writes `article.md`. The
-server then derives `sources.json` from Pi's own transcript: every scrape the pod brokered is
-there with its URL and the text the model received, so a fenced block is recorded when it appears
-on a page and rejected when it does not. The model never writes the ledger, so it cannot get it
-wrong.
+A Sympozium harness adapter that owns every model turn of the article lane and the LinkedIn post
+lane. `task: "draft"` reads the pages the brief cites through the Firecrawl MCP server and writes
+`article.md`. The server then derives `sources.json` from Pi's own transcript: every scrape the pod
+brokered is there with its URL and the text the model received, so a fenced block is recorded when
+it appears on a page and rejected when it does not. The model never writes the ledger, so it cannot
+get it wrong.
+
+The post lane is the same server with `lane: "post"`: it drafts and gates one post from the text on
+the brief, with no tools, no artifacts and no source allowlist. Its prompts, its AI-speak list and
+its variety option sets live in `prompts/`, and the draw is code in `session-lib`.
 
 ## Architecture
 
@@ -101,6 +105,29 @@ the session contract. The deltas:
   omits that server. The prompts name Firecrawl only, because it is the one read path this pod
   is guaranteed to have.
 
+## The post lane
+
+```
+n8n (LinkedIn Post Creator)
+  │ POST /v1/chat/completions  {lane: "post", task: "draft", session_id: post-<row>, brief}
+  ▼
+session-server.mjs
+  │  resolvePostDirectives → prompts/linkedin_variety.md, hook opening, word range
+  │  postDraftPrompt       → linkedin_post_system.md + linkedin_post.md + rules/ai_speak
+  ▼
+spawn("pi", [--no-tools, ...])   no proxy, no MCP servers, no artifacts
+  ▼
+{ post: { text: "<output>…</output>", directives } }
+
+n8n then POSTs {task: "review", post: {text}} to the same session:
+  postReviewPrompt → linkedin_post_review.md + the stored directives
+  ← { post: { text: "<output>true|false</output><explanation>…</explanation>" } }
+```
+
+The draw is a function, not a model turn: the weights duplicate an option in the pool, the length
+band is a point inside `[min_words, max_words]`, and the hook opening is the row's. `directives.json`
+is the one piece of state the two turns share, and a session swept between attempts draws a new set.
+
 ## What it costs
 
 `node:22-bookworm-slim`, `curl`, `jq`, the pinned Pi package and a pinned `helm` (about
@@ -115,22 +142,31 @@ proof available inside the pod.
 
 | field | meaning |
 | --- | --- |
-| `task` | `draft` (default), `review`, `audit`, `aspects` or `improve` |
-| `brief` | the entry's fields: `topic`, `description`, `url`, `max_words`, `asset_types`, `audience`, `extra_prompt`, `content`, `feedback`. The server renders the prompt from its own files |
+| `lane` | `article` (default) or `post`. A post turn has only `draft` and `review`, needs a `brief`, and runs with no tools |
+| `task` | `draft` (default), `review`, `audit`, `aspects` or `improve`; the post lane serves `draft` and `review` |
+| `brief` | the entry's fields: `topic`, `description`, `url`, `max_words`, `asset_types`, `audience`, `extra_prompt`, `content`, `feedback`. The post lane adds `post_type`, `min_words`, `previous_post`, `hook` and `hook_opening`. The server renders the prompt from its own files |
 | `article` | the draft of record for `review`, `aspects` and `improve`: `{ title, text }`. The caller resolves it, so the turn reviews exactly what the caller decided |
+| `post` | the draft of record for a post `review`: `{ text }`. The caller resolves it from what it parsed |
 | `findings` | the merged aspect findings for `improve`, as one text block |
 | `problem` | the objective failure a retry has to fix (`OVER_BUDGET`, `MARKERS`, a source problem) |
 | `messages` | a plain-text fallback for a caller that is not the article lane; its last user message is sent to Pi unchanged |
 | `session_id` | the row's session; one directory per id, so a retry continues in place |
-| `source_hosts` | the allowlist for a draft (a string or array); the image default applies when absent |
+| `source_hosts` | the allowlist for an article draft (a string or array); the image default applies when absent |
 | `attempt` | `> 1` means the drafting turn is a correction, even if the article was not written yet |
-| `stream` | SSE chunks instead of one JSON body; a draft only, because a review's answer is structured |
+| `stream` | SSE chunks instead of one JSON body; an article draft only, because a review's answer is structured |
 
 The response carries `article: { name, ledger, title, text, word_count, sources, quoted, unquoted, dropped, error }` — the counts are the server's, `unquoted` names the first line of every
 fence no scraped page carried, and `error` is non-empty when the turn scraped nothing. A `review`
 answer adds
 `review: { pass, explanation }`; an `aspects` answer adds
 `findings: [{ aspect, focus, error, text, count }]`.
+
+A post turn answers `post: { text }` instead of `article`. The text is always wrapped in the tags
+the caller's parsers read: `<output>…</output>` for a draft, and
+`<output>true|false</output><explanation>…</explanation>` for a review. A draft also returns the
+directives it was given (`post.directives`). The chosen set is written to `directives.json` in the
+run directory and reused by every later turn of the session, so the gate judges the shape the
+drafter was given.
 
 `GET /artifacts/<session_id>/article.md|sources.json` serves the two files. No other name
 is reachable.

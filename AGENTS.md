@@ -34,10 +34,12 @@ output. Put deterministic logic in code and durable rationale in documentation;
 do not turn prompts into tutorials, copied schemas, or background essays.
 
 **Every instruction a model reads is declared in a prompt file or the authoring
-brief.** In n8n that is `agents/n8n/prompts/*.md`, fetched by `DownloadTemplate`
-with its placeholders filled; every article-lane prompt is
+brief.** The article and LinkedIn post lanes are both
 `agents/adapters/pi-writer/prompts/*.md`, rendered by the adapter from the entry's
-fields; in Sympozium it is `systemPromptFile` / `schedule.taskFile`. The brief
+fields; in n8n a prompt still lives under `agents/n8n/prompts/*.md` where a lane
+has not moved to the writer session (its datasets and the image/visual prompts),
+fetched by `DownloadTemplate` with its placeholders filled; in Sympozium it is
+`systemPromptFile` / `schedule.taskFile`. The brief
 (megaprompt) is assembled in a Code node or by the adapter from those files plus
 values, and may own selection and formatting — never a rule, a definition or an
 example that exists nowhere else. An inline instruction in a Code

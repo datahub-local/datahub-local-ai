@@ -2325,7 +2325,8 @@
             "attemptToConvertTypes": false,
             "convertFieldsToString": true
           },
-          "options": {}
+          "options": {},
+          "mode": "each"
         },
         "id": "10c1c3ca-68f8-4f8b-b665-0f6479066092",
         "name": "execute_visual_studio",
@@ -4306,7 +4307,7 @@
       },
       {
         "parameters": {
-          "jsCode": "// One studio call per pending type. The studio answers with one asset per response item and\n// a sub-workflow's response is its last node's LAST run, so a two-type request reaches the\n// caller as a single asset -- the other branch's item is dropped inside n8n. Measured\n// 2026-10-17: the studio authored and rendered both (execution 13722, `svg_wide` stored at\n// `visual-studio/13722-svg_wide.svg`) and the caller received one asset (execution 13720),\n// so the publish gate reported `svg_wide=MISSING`. One call per type keeps every asset:\n// each call has one branch, one response item, and one asset in it.\nconst row = $('select_article_to_queue').first().json;\nconst draft = $('read_draft_for_assets').first().json;\nconst pending = String(row.PENDING_ASSETS || row.ASSET_TYPES || 'svg_wide')\n  .split(',').map((s) => s.trim()).filter(Boolean);\nif (!pending.length) throw new Error('no asset type is pending for row ' + row.row_number);\nreturn pending.map((type) => ({ json: {\n  ...row,\n  ...draft,\n  ASSET_TYPE: type,\n  ROUND: Number(row.ARTICLE_ROUND || 0) + 1,\n} }));\n"
+          "jsCode": "// One studio call per pending type. Execute Sub-workflow defaults to `mode: once`, which\n// passes every item into a SINGLE studio execution, and the studio's `normalize_input` reads\n// `$input.first()` -- so a two-item call authored the first type and dropped the rest.\n// Measured 2026-11-09 (execution 16209): `split_pending_types` emitted image_wide and\n// svg_wide, one call ran with both, and `svg_wide` was never authored; the publish gate\n// reported `svg_wide=MISSING`. The node now carries `mode: each`, one execution per type.\n//\n// A retry re-enters here, so a type the reviewer already accepted drops out; otherwise the\n// retry re-authors it and puts it back in review (row 3 re-authored image_wide four times).\nconst row = $('select_article_to_queue').first().json;\nconst draft = $('read_draft_for_assets').first().json;\nconst read = (node) => {\n  try { return $(node).all().map((i) => i.json); } catch (e) { return []; }\n};\nconst accepted = new Set(\n  [...read('read_asset_rows_for_entry'), ...read('mark_asset_approved')]\n    .filter((r) => ['APPROVED', 'COMMITTED'].includes(String(r.STATUS || '').toUpperCase()))\n    .map((r) => String(r.ASSET_TYPE || '')),\n);\nconst pending = String(row.PENDING_ASSETS || row.ASSET_TYPES || 'svg_wide')\n  .split(',').map((s) => s.trim()).filter(Boolean)\n  .filter((type) => !accepted.has(type));\nif (!pending.length) throw new Error('every requested asset is already approved for row ' + row.row_number);\nreturn pending.map((type) => ({ json: {\n  ...row,\n  ...draft,\n  ASSET_TYPE: type,\n  ROUND: Number(row.ARTICLE_ROUND || 0) + 1,\n} }));\n"
         },
         "id": "d63e1a99-4f73-4c5d-b132-9e7f0c4a8b53",
         "name": "split_pending_types",
@@ -9021,7 +9022,8 @@
           "attemptToConvertTypes": false,
           "convertFieldsToString": true
         },
-        "options": {}
+        "options": {},
+        "mode": "each"
       },
       "id": "10c1c3ca-68f8-4f8b-b665-0f6479066092",
       "name": "execute_visual_studio",
@@ -11002,7 +11004,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// One studio call per pending type. The studio answers with one asset per response item and\n// a sub-workflow's response is its last node's LAST run, so a two-type request reaches the\n// caller as a single asset -- the other branch's item is dropped inside n8n. Measured\n// 2026-10-17: the studio authored and rendered both (execution 13722, `svg_wide` stored at\n// `visual-studio/13722-svg_wide.svg`) and the caller received one asset (execution 13720),\n// so the publish gate reported `svg_wide=MISSING`. One call per type keeps every asset:\n// each call has one branch, one response item, and one asset in it.\nconst row = $('select_article_to_queue').first().json;\nconst draft = $('read_draft_for_assets').first().json;\nconst pending = String(row.PENDING_ASSETS || row.ASSET_TYPES || 'svg_wide')\n  .split(',').map((s) => s.trim()).filter(Boolean);\nif (!pending.length) throw new Error('no asset type is pending for row ' + row.row_number);\nreturn pending.map((type) => ({ json: {\n  ...row,\n  ...draft,\n  ASSET_TYPE: type,\n  ROUND: Number(row.ARTICLE_ROUND || 0) + 1,\n} }));\n"
+        "jsCode": "// One studio call per pending type. Execute Sub-workflow defaults to `mode: once`, which\n// passes every item into a SINGLE studio execution, and the studio's `normalize_input` reads\n// `$input.first()` -- so a two-item call authored the first type and dropped the rest.\n// Measured 2026-11-09 (execution 16209): `split_pending_types` emitted image_wide and\n// svg_wide, one call ran with both, and `svg_wide` was never authored; the publish gate\n// reported `svg_wide=MISSING`. The node now carries `mode: each`, one execution per type.\n//\n// A retry re-enters here, so a type the reviewer already accepted drops out; otherwise the\n// retry re-authors it and puts it back in review (row 3 re-authored image_wide four times).\nconst row = $('select_article_to_queue').first().json;\nconst draft = $('read_draft_for_assets').first().json;\nconst read = (node) => {\n  try { return $(node).all().map((i) => i.json); } catch (e) { return []; }\n};\nconst accepted = new Set(\n  [...read('read_asset_rows_for_entry'), ...read('mark_asset_approved')]\n    .filter((r) => ['APPROVED', 'COMMITTED'].includes(String(r.STATUS || '').toUpperCase()))\n    .map((r) => String(r.ASSET_TYPE || '')),\n);\nconst pending = String(row.PENDING_ASSETS || row.ASSET_TYPES || 'svg_wide')\n  .split(',').map((s) => s.trim()).filter(Boolean)\n  .filter((type) => !accepted.has(type));\nif (!pending.length) throw new Error('every requested asset is already approved for row ' + row.row_number);\nreturn pending.map((type) => ({ json: {\n  ...row,\n  ...draft,\n  ASSET_TYPE: type,\n  ROUND: Number(row.ARTICLE_ROUND || 0) + 1,\n} }));\n"
       },
       "id": "d63e1a99-4f73-4c5d-b132-9e7f0c4a8b53",
       "name": "split_pending_types",

@@ -75,6 +75,20 @@ if (prompt.includes("You audit one article draft")) {
   );
   process.exit(0);
 }
+if (prompt.includes("You are a writing assistant for creating LinkedIn posts.")) {
+  process.stdout.write("<output>PROBE_POST_BODY\\n\\nSource here: SOME_URL\\n\\n#Probe</output>");
+  process.exit(0);
+}
+if (prompt.includes("You review a LinkedIn post for formatting, tone and compliance.")) {
+  // The gate's own verdict: the caller maps these two tags into its retry switch, so a
+  // rejection has to carry the explanation the next attempt receives.
+  if (prompt.includes("PROBE_REJECT_POST")) {
+    process.stdout.write("<output>false</output><explanation>PROBE_POST_REASON: the hook is missing</explanation>");
+    process.exit(0);
+  }
+  process.stdout.write("<output>true</output><explanation>the post passed</explanation>");
+  process.exit(0);
+}
 if (prompt.includes("You review one article draft")) {
   const aspect = (prompt.match(/for (clarity|flow|structure) only/) || [])[1] || "aspect";
   process.stdout.write("<findings>1. opening: PROBE_" + aspect.toUpperCase() + " - tighten it</findings>");
@@ -697,4 +711,132 @@ test("the server refuses to start when the aspect registry is unusable", async (
   const code = await new Promise((resolve) => refused.on("close", resolve));
   assert.notEqual(code, 0);
   assert.match(output, /article_aspects\.json is unusable/);
+});
+
+// ---------------------------------------------------------------------------
+// The post lane. Same session server, no tools, no artifacts: the answer is the post.
+
+const postBrief = {
+  content: "PROBE_POST_CONTENT",
+  url: "https://example.com/probe-post",
+  post_type: "LinkedIn Post",
+  min_words: 150,
+  max_words: 300,
+  extra_prompt: "PROBE_POST_EXTRA",
+  feedback: "PROBE_POST_FEEDBACK",
+  previous_post: "",
+  hook: "TRADE_OFF",
+  hook_opening: "open by framing the trade-off most people ignore",
+};
+
+test("a post draft is one writer turn and answers in the block the caller parses", async () => {
+  const res = await turn({
+    lane: "post",
+    task: "draft",
+    session_id: "post-1",
+    brief: postBrief,
+  });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.task, "draft");
+  assert.equal(body.article, undefined, "a post turn has no article artifact");
+  assert.match(body.post.text, /^<output>PROBE_POST_BODY/);
+  assert.match(body.post.directives, /- Hook — TRADE_OFF: open by framing the trade-off most people ignore\./);
+
+  // The prompt is the adapter's: the entry's values reach it and no placeholder survives.
+  const prompt = await readFile(join(workspace, "runs", "post-1", "prompt.txt"), "utf8");
+  for (const value of ["PROBE_POST_CONTENT", "PROBE_POST_EXTRA", "PROBE_POST_FEEDBACK", "- Format — ", "TRADE_OFF: open by framing"]) {
+    assert.ok(prompt.includes(value), `${value} did not reach the post prompt`);
+  }
+  assert.ok(!/\{\{\s*[A-Z_]+\s*\}\}/.test(prompt), "a post placeholder was left unrendered");
+
+  // No tools and no article file: the post cannot research and writes no artifact.
+  const args = await readFile(join(workspace, "runs", "post-1", "args.txt"), "utf8");
+  assert.match(args, /--no-tools/);
+  await assert.rejects(readFile(join(workspace, "runs", "post-1", "article.md"), "utf8"));
+
+  // The set is kept on disk so the gate reads the same one.
+  const stored = JSON.parse(await readFile(join(workspace, "runs", "post-1", "directives.json"), "utf8"));
+  assert.equal(stored.directives, body.post.directives);
+});
+
+test("the gate reviews the caller's post against the directives the draft was given", async () => {
+  const res = await turn({
+    lane: "post",
+    task: "review",
+    session_id: "post-1",
+    brief: postBrief,
+    post: { text: "PROBE_POST_BODY" },
+  });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.article, undefined);
+  assert.equal(body.post.text, "<output>true</output><explanation>the post passed</explanation>");
+  const prompt = await readFile(join(workspace, "runs", "post-1", "prompt.txt"), "utf8");
+  assert.match(prompt, /PROBE_POST_BODY/);
+  assert.match(prompt, /TRADE_OFF: open by framing the trade-off most people ignore/);
+  assert.match(prompt, /https:\/\/example\.com\/probe-post/);
+  const args = await readFile(join(workspace, "runs", "post-1", "args.txt"), "utf8");
+  assert.match(args, /--no-tools/);
+});
+
+test("a rejected post carries the gate's reason in the verdict the retry reads", async () => {
+  const res = await turn({
+    lane: "post",
+    task: "review",
+    session_id: "post-1",
+    brief: postBrief,
+    post: { text: "PROBE_REJECT_POST" },
+  });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.post.text, "<output>false</output><explanation>PROBE_POST_REASON: the hook is missing</explanation>");
+});
+
+test("a post review without the draft fails by name", async () => {
+  const res = await turn({
+    lane: "post",
+    task: "review",
+    session_id: "post-empty",
+    brief: postBrief,
+  });
+  assert.equal(res.status, 400);
+  assert.match((await res.json()).error.message, /post\.text/);
+});
+
+test("the post lane refuses a task it does not have", async () => {
+  const res = await turn({
+    lane: "post",
+    task: "audit",
+    session_id: "post-audit",
+    brief: postBrief,
+    post: { text: "PROBE_POST_BODY" },
+  });
+  assert.equal(res.status, 400);
+  assert.match((await res.json()).error.message, /no audit task/);
+});
+
+test("an unknown lane is refused rather than served as an article", async () => {
+  const res = await turn({
+    lane: "podcast",
+    task: "draft",
+    session_id: "lane-unknown",
+    brief: postBrief,
+  });
+  assert.equal(res.status, 400);
+  assert.match((await res.json()).error.message, /unknown lane podcast/);
+});
+
+test("a gate on a session with no stored directives draws and records one", async () => {
+  const res = await turn({
+    lane: "post",
+    task: "review",
+    session_id: "post-fresh-review",
+    brief: postBrief,
+    post: { text: "PROBE_POST_BODY" },
+  });
+  assert.equal(res.status, 200);
+  const stored = JSON.parse(await readFile(join(workspace, "runs", "post-fresh-review", "directives.json"), "utf8"));
+  assert.match(stored.directives, /- Format — /);
+  assert.match(stored.directives, /- Closing — /);
 });

@@ -1299,7 +1299,7 @@
             "mode": "list",
             "cachedResultName": "workflows"
           },
-          "message": "=Review the article for row {{ $('select_article_to_queue').item.json.row_number }} - {{ $('derive_slug').item.json.DRAFT_TITLE }} (round {{ $('select_article_to_queue').item.json.ARTICLE_ROUND + 1 }}). The full draft is the file above; the runner-up for this entry is not included.",
+          "message": "=Review the article for row {{ $('select_article_to_queue').item.json.row_number }} - {{ $('derive_slug').item.json.DRAFT_TITLE }} (round {{ $('select_article_to_queue').item.json.ARTICLE_ROUND + 1 }}). The full draft is the file above; the runner-up for this entry is not included. {{ $('first_draft').item.json.REVIEW_FINDINGS ? 'Reviewer notes: ' + $('first_draft').item.json.REVIEW_FINDINGS : '' }} {{ !$('first_draft').item.json.REVIEW_FINDINGS && $('first_draft').item.json.REVIEW_NOTE ? $('first_draft').item.json.REVIEW_NOTE : '' }}",
           "approvalOptions": {
             "values": {
               "approvalType": "double"
@@ -4655,7 +4655,7 @@
           -176
         ],
         "parameters": {
-          "jsCode": "// One authoring turn is the draft of record. The aspect pass, the edit and its re-check\n// are out of the automatic path: each was another model turn with its own timeout and its\n// own way to fail, and three of the last six failed runs failed at one of those seams. The\n// creator's answer already passed the drafting gate in the sub-workflow.\nconst row = $('select_article_to_queue').first().json;\nconst created = $('execute_article_creator').last().json;\nconst text = String(created.text || '');\nif (!text.trim()) throw new Error('the creator returned no draft');\nreturn [{ json: {\n  ...row,\n  text,\n  title: String(created.title || ''),\n  word_count: Number(created.word_count || 0),\n  SOURCES: String(created.SOURCES || row.SOURCES || ''),\n  SOURCES_TEXT: String(created.SOURCES_TEXT || 'none'),\n  FIDELITY: String(created.FIDELITY || 'not run'),\n  UNVERIFIED: 0,\n  IMPROVED: 'NONE',\n  IMPROVEMENT_NOTE: 'one authoring turn',\n  FINDINGS_SUMMARY: '',\n} }];"
+          "jsCode": "// One authoring turn is the draft of record. The aspect pass, the edit and its re-check\n// are out of the automatic path: each was another model turn with its own timeout and its\n// own way to fail, and three of the last six failed runs failed at one of those seams. The\n// creator's answer already passed the drafting gate in the sub-workflow.\nconst row = $('select_article_to_queue').first().json;\nconst created = $('execute_article_creator').last().json;\nconst text = String(created.text || '');\nif (!text.trim()) throw new Error('the creator returned no draft');\nreturn [{ json: {\n  ...row,\n  text,\n  title: String(created.title || ''),\n  word_count: Number(created.word_count || 0),\n  SOURCES: String(created.SOURCES || row.SOURCES || ''),\n  SOURCES_TEXT: String(created.SOURCES_TEXT || 'none'),\n  FIDELITY: String(created.FIDELITY || 'not run'),\n  UNVERIFIED: 0,\n  IMPROVED: 'NONE',\n  IMPROVEMENT_NOTE: 'one authoring turn',\n  FINDINGS_SUMMARY: '',\n  REVIEW_NOTE: String(created.REVIEW_NOTE || ''),\n  REVIEW_FINDINGS: String(created.REVIEW_FINDINGS || ''),\n} }];"
         }
       }
     ],
@@ -7995,7 +7995,7 @@
           "mode": "list",
           "cachedResultName": "workflows"
         },
-        "message": "=Review the article for row {{ $('select_article_to_queue').item.json.row_number }} - {{ $('derive_slug').item.json.DRAFT_TITLE }} (round {{ $('select_article_to_queue').item.json.ARTICLE_ROUND + 1 }}). The full draft is the file above; the runner-up for this entry is not included.",
+        "message": "=Review the article for row {{ $('select_article_to_queue').item.json.row_number }} - {{ $('derive_slug').item.json.DRAFT_TITLE }} (round {{ $('select_article_to_queue').item.json.ARTICLE_ROUND + 1 }}). The full draft is the file above; the runner-up for this entry is not included. {{ $('first_draft').item.json.REVIEW_FINDINGS ? 'Reviewer notes: ' + $('first_draft').item.json.REVIEW_FINDINGS : '' }} {{ !$('first_draft').item.json.REVIEW_FINDINGS && $('first_draft').item.json.REVIEW_NOTE ? $('first_draft').item.json.REVIEW_NOTE : '' }}",
         "approvalOptions": {
           "values": {
             "approvalType": "double"
@@ -11351,7 +11351,7 @@
         -176
       ],
       "parameters": {
-        "jsCode": "// One authoring turn is the draft of record. The aspect pass, the edit and its re-check\n// are out of the automatic path: each was another model turn with its own timeout and its\n// own way to fail, and three of the last six failed runs failed at one of those seams. The\n// creator's answer already passed the drafting gate in the sub-workflow.\nconst row = $('select_article_to_queue').first().json;\nconst created = $('execute_article_creator').last().json;\nconst text = String(created.text || '');\nif (!text.trim()) throw new Error('the creator returned no draft');\nreturn [{ json: {\n  ...row,\n  text,\n  title: String(created.title || ''),\n  word_count: Number(created.word_count || 0),\n  SOURCES: String(created.SOURCES || row.SOURCES || ''),\n  SOURCES_TEXT: String(created.SOURCES_TEXT || 'none'),\n  FIDELITY: String(created.FIDELITY || 'not run'),\n  UNVERIFIED: 0,\n  IMPROVED: 'NONE',\n  IMPROVEMENT_NOTE: 'one authoring turn',\n  FINDINGS_SUMMARY: '',\n} }];"
+        "jsCode": "// One authoring turn is the draft of record. The aspect pass, the edit and its re-check\n// are out of the automatic path: each was another model turn with its own timeout and its\n// own way to fail, and three of the last six failed runs failed at one of those seams. The\n// creator's answer already passed the drafting gate in the sub-workflow.\nconst row = $('select_article_to_queue').first().json;\nconst created = $('execute_article_creator').last().json;\nconst text = String(created.text || '');\nif (!text.trim()) throw new Error('the creator returned no draft');\nreturn [{ json: {\n  ...row,\n  text,\n  title: String(created.title || ''),\n  word_count: Number(created.word_count || 0),\n  SOURCES: String(created.SOURCES || row.SOURCES || ''),\n  SOURCES_TEXT: String(created.SOURCES_TEXT || 'none'),\n  FIDELITY: String(created.FIDELITY || 'not run'),\n  UNVERIFIED: 0,\n  IMPROVED: 'NONE',\n  IMPROVEMENT_NOTE: 'one authoring turn',\n  FINDINGS_SUMMARY: '',\n  REVIEW_NOTE: String(created.REVIEW_NOTE || ''),\n  REVIEW_FINDINGS: String(created.REVIEW_FINDINGS || ''),\n} }];"
       }
     }
   ],

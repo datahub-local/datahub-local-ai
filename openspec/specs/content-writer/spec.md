@@ -18,13 +18,11 @@ single-flight state. Read the second group as the frame the first sits in.
 
 ### Requirement: A draft is reviewed before it is returned
 
-The draft SHALL pass the drafting gate's objective checks before it leaves `Article Creator`: the
-word budget, the requested asset markers, the session's answer and the source ledger, each counted
-in code. A draft the gate rejects SHALL be regenerated with the gate's own reason carried into the
-next attempt, and the number of attempts SHALL be bounded, so a draft that cannot satisfy the gate
-reports a reason instead of being returned or retried forever. No model review SHALL run between
-the gate and the return; the `review` and `audit` tasks remain available on demand, and the human
-review is the judgement step.
+The draft SHALL pass the drafting gate's counted checks before it leaves `Article Creator`: the
+answer carries an H1 and a body, the word budget with its margin, the requested asset markers, and
+no transport or session failure. A draft the gate rejects SHALL be regenerated with the gate's own
+reason carried into the next attempt, and the number of attempts SHALL be bounded. The source
+ledger SHALL NOT be part of that verdict: it is data the reviewer reads.
 
 The length budget SHALL be checked in code rather than trusted to a model: a count a model is asked
 for is a count it may invent. A draft outside the budget SHALL be rejected whatever the answer says,
@@ -65,6 +63,12 @@ and the reason SHALL name the real count and the budget.
 - **WHEN** a draft is accepted after an earlier attempt was rejected
 - **THEN** the answer's error field is empty
 - **AND** the earlier reason is not returned with the accepted draft
+
+#### Scenario: A block no page carries is not a rejection
+
+- **WHEN** the ledger records a fenced block with no page behind it
+- **THEN** the gate still accepts the draft if the counted checks pass
+- **AND** the block is named to the reviewer instead
 
 ### Requirement: The review judges facts against the pages the writer fetched
 
@@ -885,45 +889,6 @@ already brokered.
 - **WHEN** a block would match only the part of a page beyond the truncation the model saw
 - **THEN** the block is not verified, because it was never read
 
-### Requirement: The draft is audited by a turn that can read the artifacts
-
-The adapter SHALL keep offering an `audit` task that runs in the run's directory with tools and the
-source proxy, reads the article, the derived ledger and the session transcript, and answers a
-verdict with findings. The lane SHALL NOT call it in the automatic path: one authoring turn is the
-draft of record, and the audit, the aspect pass and the edit remain available on demand. The audit
-SHALL NOT write the article, and SHALL NOT report the counts code already decides.
-
-#### Scenario: A block no page carries
-
-- **WHEN** the draft fences a block whose names no page carries
-- **THEN** an on-demand audit's prompt carries that block and the pages read
-- **AND** the finding names the page to quote, the missing name, or says to write it as prose
-
-#### Scenario: A claim no page carries
-
-- **WHEN** the draft names a schedule, field or version that appears in no scraped page
-- **THEN** the audit reports it as a finding naming the section
-
-#### Scenario: A requested section that never landed
-
-- **WHEN** the entry's feedback asks for a section the draft does not carry
-- **THEN** the audit reports the missing section as the finding that blocks the draft
-
-#### Scenario: The audit disagrees with the code gate
-
-- **WHEN** the audit passes a draft the parser rejects
-- **THEN** the parser's problem still rejects it, because the count is code's
-
-#### Scenario: The audit's evidence is reachable
-
-- **WHEN** the audit is told to search the session transcript or fetch a page
-- **THEN** the transcript path is set in its environment and the proxy admits the declared hosts
-
-#### Scenario: The lane does not audit
-
-- **WHEN** a draft passes the code gate
-- **THEN** it is presented for human review without an audit, an aspect pass or an edit
-
 ### Requirement: The drafting turn can test its own fences before answering
 
 The image SHALL carry a command that applies the server's own derivation to the article and the
@@ -1081,3 +1046,27 @@ one.
 - **WHEN** the approval is answered after the run that presented the draft has ended
 - **THEN** the draft of record is read from the stored draft row
 - **AND** the retry carries it
+
+### Requirement: The reviewer advises and never blocks
+
+After a draft passes the gate, the lane SHALL run one `audit` turn with the ledger, the session
+transcript and the pages, and SHALL present its findings to the human next to the draft. The
+findings SHALL NOT reject the draft, SHALL NOT trigger a retry, and a review that fails or cannot
+answer SHALL add a note rather than fail the round.
+
+#### Scenario: Findings reach the human
+
+- **WHEN** the reviewer returns findings
+- **THEN** the Slack review message carries them with the draft
+- **AND** the draft is presented whatever they say
+
+#### Scenario: The reviewer cannot answer
+
+- **WHEN** the audit turn fails or the request dies
+- **THEN** the draft is presented with a note naming the failure
+- **AND** no attempt is spent
+
+#### Scenario: Two drafts, one reviewer call each
+
+- **WHEN** the gate rejects an attempt and the retry passes
+- **THEN** the reviewer runs on the accepted draft only

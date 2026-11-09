@@ -320,7 +320,7 @@
           "specifyBody": "json",
           "jsonBody": "={{ $json.ARTICLE_BODY }}",
           "options": {
-            "timeout": 900000,
+            "timeout": 1800000,
             "response": {
               "response": {
                 "neverError": true,
@@ -426,7 +426,7 @@
           "specifyBody": "json",
           "jsonBody": "={{ $json.REVIEW_BODY }}",
           "options": {
-            "timeout": 600000,
+            "timeout": 900000,
             "response": {
               "response": {
                 "neverError": true,
@@ -608,7 +608,7 @@
                 "responseFormat": "json"
               }
             },
-            "timeout": 600000
+            "timeout": 900000
           },
           "sendBody": true,
           "specifyBody": "json",
@@ -1462,7 +1462,7 @@
         "specifyBody": "json",
         "jsonBody": "={{ $json.ARTICLE_BODY }}",
         "options": {
-          "timeout": 900000,
+          "timeout": 1800000,
           "response": {
             "response": {
               "neverError": true,
@@ -1568,7 +1568,7 @@
         "specifyBody": "json",
         "jsonBody": "={{ $json.REVIEW_BODY }}",
         "options": {
-          "timeout": 600000,
+          "timeout": 900000,
           "response": {
             "response": {
               "neverError": true,
@@ -1750,7 +1750,7 @@
               "responseFormat": "json"
             }
           },
-          "timeout": 600000
+          "timeout": 900000
         },
         "sendBody": true,
         "specifyBody": "json",

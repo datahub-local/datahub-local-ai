@@ -34,6 +34,11 @@ const arg = (name) => {
 fs.writeFileSync("prompt.txt", prompt);
 fs.writeFileSync("args.txt", process.argv.slice(2).join(" "));
 fs.writeFileSync("env.log", process.env.HTTPS_PROXY || "none");
+// A turn that takes measurable time, for the concurrency test: two sessions must overlap,
+// and two turns of one session must not.
+if (prompt.includes("SLEEP_PROBE")) {
+  require("node:child_process").execSync("sleep 0.4");
+}
 // The scrape the turn made, as Pi records it: the call carries the URL, the result the text
 // the model received. The server derives sources.json from this pair, not from the model.
 if (!prompt.includes("NO_SCRAPE")) {
@@ -465,18 +470,19 @@ test("an audit turn runs with tools and returns the verdict plus findings", asyn
 });
 
 test("an audit cannot pass a draft the gate rejects, and the prompt carries the block and the pages", async () => {
-  const article = {
-    title: "Probe",
-    text:
-      "## Install\n\n```bash\nhelm upgrade --install probe ./chart\n```\n\n" +
-      "## Ensemble\n\n```yaml\napiVersion: sympozium.ai/v1alpha1\nkind: Ensemble\nmetadata:\n  name: research-pipeline\n```\n",
-  };
+  // A draft first, because the audit's evidence is the writer's own session: the transcript it
+  // is told to grep and the pages it may name are that session's.
+  const draft = await turn({
+    session_id: "article-audit-gate",
+    source_hosts: ["raw.githubusercontent.com"],
+    messages: [{ role: "user", content: "UNQUOTED_PROBE write the probe article" }],
+  });
+  assert.equal(draft.status, 200);
   const res = await turn({
     task: "audit",
     session_id: "article-audit-gate",
     source_hosts: ["raw.githubusercontent.com"],
     brief: { topic: "Probe", audience: "LOW", max_words: 900, asset_types: "image_wide", extra_prompt: "AUDIT_PASS" },
-    article,
   });
   assert.equal(res.status, 200);
   const body = await res.json();
@@ -485,7 +491,7 @@ test("an audit cannot pass a draft the gate rejects, and the prompt carries the 
   assert.equal(body.review.pass, false);
   const prompt = await readFile(join(workspace, "runs", "article-audit-gate", "prompt.txt"), "utf8");
   // The auditor argues with a list, not a guess: the block's own text and the pages already read.
-  assert.match(prompt, /kind: Ensemble/);
+  assert.match(prompt, /kubectl apply -f - <<EOF/);
   assert.match(prompt, /raw\.githubusercontent\.com\/o\/r\/main\/README\.md/);
   // Its evidence is the transcript, and the path the prompt names is the session's own file.
   assert.match(prompt, /_article-audit-gate\.jsonl/);
@@ -599,6 +605,31 @@ test("an improve turn writes the edited article the model returned", async () =>
   // An edit that must quote a page has to be able to read it, so tools stay on.
   const args = await readFile(join(workspace, "runs", "article-improve", "args.txt"), "utf8");
   assert.ok(!args.includes("--no-tools"), args);
+});
+
+test("two rows run at once while one row's turns stay in order", async () => {
+  // The lane picks one row per execution and two executions can overlap. The adapter used to
+  // serialize every session, so the second row's draft waited out the first row's twenty-minute
+  // turn and died at the caller's timeout. Different sessions are different files, so they run.
+  const started = Date.now();
+  const [a, b] = await Promise.all([
+    turn({ session_id: "article-parallel-a", source_hosts: ["github.com"], messages: [{ role: "user", content: "SLEEP_PROBE write run A" }] }),
+    turn({ session_id: "article-parallel-b", source_hosts: ["github.com"], messages: [{ role: "user", content: "SLEEP_PROBE write run B" }] }),
+  ]);
+  const elapsed = Date.now() - started;
+  assert.equal(a.status, 200);
+  assert.equal(b.status, 200);
+  assert.ok(elapsed < 700, `two sessions took ${elapsed}ms; one must not wait for the other`);
+
+  // The same session is still one turn at a time: Pi's transcript is a shared file, and two
+  // turns writing it at once interleave.
+  const again = Date.now();
+  await Promise.all([
+    turn({ session_id: "article-parallel-a", source_hosts: ["github.com"], messages: [{ role: "user", content: "SLEEP_PROBE second A1" }] }),
+    turn({ session_id: "article-parallel-a", source_hosts: ["github.com"], messages: [{ role: "user", content: "SLEEP_PROBE second A2" }] }),
+  ]);
+  const serial = Date.now() - again;
+  assert.ok(serial >= 700, `one session's two turns took ${serial}ms; they must not overlap`);
 });
 
 test("a review of a session with no draft fails by name", async () => {

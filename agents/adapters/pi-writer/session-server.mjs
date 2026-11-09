@@ -680,9 +680,22 @@ function writeSSE(res, value) {
   if (!res.writableEnded) res.write(`data: ${JSON.stringify(value)}\n\n`);
 }
 
-// One turn at a time: Pi's session file is a shared resource and concurrent turns
-// against it interleave. The contract asks adapters to serialize.
-let queue = Promise.resolve();
+// One turn at a time per session: Pi's session file is a shared resource and concurrent
+// turns against it interleave. Two rows are different sessions with different files and
+// directories, so they must not queue behind each other — a row that waits out another row's
+// twenty-minute turn is what outlived the caller's deadline and lost its draft.
+const sessionQueues = new Map();
+function serializeTurn(sessionID, run) {
+  const previous = sessionQueues.get(sessionID) ?? Promise.resolve();
+  const next = previous.catch(() => undefined).then(run);
+  sessionQueues.set(sessionID, next);
+  next
+    .catch(() => undefined)
+    .finally(() => {
+      if (sessionQueues.get(sessionID) === next) sessionQueues.delete(sessionID);
+    });
+  return next;
+}
 
 // ---------------------------------------------------------------------------
 // The source allowlist proxy.
@@ -690,11 +703,26 @@ let queue = Promise.resolve();
 // An instruction is not enforcement, and the CNI here is not FQDN-aware, so the
 // allowlist lives in front of the tools: `curl` in a bash tool honours
 // `HTTPS_PROXY`, and anything off the list answers 403 here with the host logged.
-// The list is per turn because the caller names the hosts; turns are serialized, so
-// one module-level value is the turn's.
-let articleHosts = null;
+// The list is per turn because the caller names the hosts, and more than one row may be
+// in flight: the proxy admits only hosts every active turn declared, so a turn that names
+// fewer hosts can never be widened by a neighbour that names more.
+const turnHosts = new Set();
+
+function allowHosts(hosts) {
+  const key = JSON.stringify(Array.isArray(hosts) ? hosts : []);
+  turnHosts.add(key);
+  return () => turnHosts.delete(key);
+}
+
+function activeHosts() {
+  if (!turnHosts.size) return null;
+  return [...turnHosts]
+    .map((key) => JSON.parse(key))
+    .reduce((allowed, hosts) => allowed.filter((host) => hosts.includes(host)));
+}
 
 function proxyRefusal(host, { protocol = "https:", port = "443" } = {}) {
+  const articleHosts = activeHosts();
   if (!articleHosts) return "no turn is fetching";
   // The instruction says https on 443, and the server's own ledger fetch enforces the same.
   // A proxy that forwarded plain http or another port would be a wider gate than the one
@@ -961,8 +989,14 @@ http
       const stream = request.stream === true && task === "draft";
       const id = `chatcmpl-${randomUUID()}`;
       const cancellation = new AbortController();
+      let clientGone = false;
       res.once("close", () => {
-        if (!res.writableEnded) cancellation.abort();
+        if (res.writableEnded) return;
+        clientGone = true;
+        // A draft is the artifact, not the answer: finishing it after the caller's timeout is
+        // what lets the next attempt adopt the work instead of paying for it again. Every
+        // other turn exists only in its response, so a hung-up caller cancels it.
+        if (task !== "draft") cancellation.abort();
       });
       if (stream) {
         res.writeHead(200, {
@@ -987,9 +1021,7 @@ http
       // The ledger verification runs inside the serialized turn, not after it: a second
       // request for the same session would otherwise start its turn while this one is
       // reading and rewriting `sources.json`.
-      const result = await (queue = queue
-        .catch(() => undefined)
-        .then(async () => {
+      const result = await serializeTurn(sessionID, async () => {
           if (task === "draft") {
             // The instruction follows the directory, not the caller: a session that
             // already holds an article is edited. A correction is also declared by
@@ -999,7 +1031,7 @@ http
             const method = fillSourceHosts(await writingMethod(), hosts);
             const instruction = articleTurnInstruction({ isIteration });
             const turnPrompt = `${draftPrompt}\n\n---\n\nWorking directory: ${dir}\n${instruction}\n\n${method}`;
-            articleHosts = hosts;
+            const release = allowHosts(hosts);
             proxyEnv(hosts);
             const before = { article: await artifactMtime(join(dir, ARTICLE_NAME)) };
             try {
@@ -1022,14 +1054,13 @@ http
               await adoptDraft(dir, response, before);
               return { response, ledger: await writeDerivedLedger(dir, sessionID) };
             } finally {
-              articleHosts = null;
+              release();
               proxyEnv(null);
             }
           }
 
           // A review or an edit reads the draft the caller resolved and answers in its
           // response. No proxy by default: a turn that may not research cannot reach a page.
-          articleHosts = null;
           proxyEnv(null);
           const article = await resolveArticle(request, dir);
           if (task === "audit") {
@@ -1038,8 +1069,14 @@ http
             // read, so the finding is the fix the retry applies rather than the gate's first
             // line handed back to a writer that cannot tell which block it means.
             const ledger = await writeDerivedLedger(dir, sessionID);
+            // The audit reads the artifacts, not the writer's conversation. A fresh session keeps
+            // its prompt to the article, the gate list and the prompts themselves, instead of
+            // re-sending a 500k-token draft transcript — which is what made this turn take ten
+            // minutes and outlive the caller's review timeout. Its evidence is unchanged: the
+            // writer's transcript file is named in the prompt and it greps that.
+            const auditSession = `${sessionID.slice(0, 70)}-audit`;
             let response;
-            articleHosts = hosts;
+            const release = allowHosts(hosts);
             proxyEnv(hosts);
             try {
               const prompt = await auditPrompt({
@@ -1049,11 +1086,11 @@ http
                 pages: ledger.pages,
                 sessionFile: await transcriptFile(sessionID),
               });
-              response = await runPi(prompt, sessionID, undefined, cancellation.signal, dir, {
+              response = await runPi(prompt, auditSession, undefined, cancellation.signal, dir, {
                 sessionFile: await transcriptFile(sessionID),
               });
             } finally {
-              articleHosts = null;
+              release();
               proxyEnv(null);
             }
             const verdict = parseReview(response);
@@ -1102,12 +1139,12 @@ http
           // must quote cannot be written from memory, and this turn is where the gate's last
           // findings are applied. Same allowlist and same budget as the draft.
           let response;
-          articleHosts = hosts;
+          const release = allowHosts(hosts);
           proxyEnv(hosts);
           try {
             response = await runPi(prompt, sessionID, undefined, cancellation.signal, dir);
           } finally {
-            articleHosts = null;
+            release();
             proxyEnv(null);
           }
           const edited = splitArticle(response);
@@ -1117,11 +1154,12 @@ http
           // it: a block it dropped would keep a stale entry and a block it added would be
           // reported against a page that never carried it. Re-derive against this text.
           return { response, ledger: await writeDerivedLedger(dir, sessionID) };
-        }));
+        });
 
       await sweepIfDue(sessionID);
 
       if (stream) {
+        if (clientGone) return;
         writeSSE(res, {
           id,
           object: "chat.completion.chunk",
@@ -1130,6 +1168,12 @@ http
           choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
         });
         if (!res.writableEnded) res.end("data: [DONE]\n\n");
+        return;
+      }
+      if (clientGone) {
+        // The work is done and on disk; only the answer had nowhere to go. The caller's next
+        // attempt continues this session and adopts the artifacts.
+        console.log("sympozium pi writer session: the caller hung up; the turn finished and its artifacts are on disk");
         return;
       }
       const payload = {

@@ -61,6 +61,10 @@ jobs:
   sympozium:
     name: Sympozium ensembles
     runs-on: ubuntu-latest
+    env:
+      # helmfile HEADs its releases/latest after `helmfile version` and exits 3
+      # when that call times out, which failed this job on 2026-11-09.
+      HELMFILE_UPGRADE_NOTICE_DISABLED: "true"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

@@ -191,19 +191,6 @@
         }
       },
       {
-        "id": "7116b794-c002-41b6-95de-933574f03aa3",
-        "name": "merge_article_verdict",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          -14608,
-          -736
-        ],
-        "parameters": {
-          "jsCode": "// The verdict the loop branches on. The reviewer's answer is combined with the parser's\n// deterministic checks, and the deterministic half wins: a count asked of a model is a\n// count that gets invented, so `PROBLEM` rejects the draft whatever the reviewer said —\n// and the reason then names the real numbers rather than the reviewer's guess.\nconst parsed = $('parse_article').item.json;\nconst reviewerSays = String($json.output || '').trim() === 'true';\nconst reason = String($json.explanation || '').replace(/\\s+/g, ' ').trim();\nconst problem = String(parsed.PROBLEM || '');\n\nconst accepted = !problem && reviewerSays;\nlet explanation = '';\nif (problem) explanation = problem + (reason ? ' ' + reason : '');\nelse if (!reviewerSays) explanation = reason || 'the reviewer rejected the draft without a reason';\n\nreturn [{ json: { ...$json, output: accepted ? 'true' : 'false', explanation } }];"
-        }
-      },
-      {
         "id": "d0754c43-3343-4443-9461-99a9568224d9",
         "name": "set_error_max_tries",
         "type": "n8n-nodes-base.set",
@@ -378,60 +365,6 @@
                 "neverError": true,
                 "fullResponse": true,
                 "responseFormat": "text"
-              }
-            }
-          }
-        }
-      },
-      {
-        "id": "3c1b292c-9d8b-48c7-baba-365b1b9ada0e",
-        "name": "parse_review_verdict",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          1400,
-          600
-        ],
-        "parameters": {
-          "jsCode": "// The writer answers a structured verdict, not prose to re-parse: a body without one is\n// a rejection with the reason named, so the retry carries a real cause rather than an\n// empty explanation.\nconst res = $input.first().json;\n// A transport failure arrives as an error item (`onError: continueErrorOutput`) and\n// carries no status: name it, or a dead connection reads as no verdict.\nconst transport = res.error ? String((res.error && res.error.message) || res.error).trim() : '';\nif (transport) return [{ json: { output: 'false', explanation: 'REVIEW: ' + transport } }];\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nconst review = body.review || {};\nif (status >= 400) {\n  const message = String((body.error && body.error.message) || body.error || body.message || '').trim();\n  return [{ json: { output: 'false', explanation: 'REVIEW: HTTP ' + status + (message ? ': ' + message : ' the review turn failed') } }];\n}\nif (typeof review.pass !== 'boolean') {\n  return [{ json: { output: 'false', explanation: 'REVIEW: the writer returned no verdict' } }];\n}\nreturn [{ json: {\n  output: review.pass ? 'true' : 'false',\n  explanation: String(review.explanation || '').replace(/\\s+/g, ' ').trim(),\n} }];"
-        }
-      },
-      {
-        "id": "cb01c12e-8da7-4499-b039-38ac94baf912",
-        "name": "build_review_request",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          1000,
-          600
-        ],
-        "parameters": {
-          "jsCode": "// The audit is the writer's turn too, and it has tools: n8n sends the draft and the entry's\n// fields, and the adapter's auditor reads the artifacts and the transcript to check a claim.\n// and the adapter renders the gate prompt from its own files. One request carries both,\n// so the verdict is about the draft this run parsed and no second copy of the prompt\n// exists in the workflow.\nconst parsed = $('parse_article').first().json;\nconst req = $('main_trigger').first().json;\nconst config = $('set_workflow_vars').first().json;\nconst base = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!base) throw new Error('ARTICLE_WRITER_URL is not set; the review turn cannot be reached');\nconst sessionId = ('article-' + String(req.ROW_NUMBER || '').trim()).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 80);\nreturn [{ json: {\n  REVIEW_URL: base + '/v1/chat/completions',\n  REVIEW_BODY: JSON.stringify({\n    task: 'audit',\n    session_id: sessionId,\n    source_hosts: String(config.SOURCE_HOSTS || '').trim(),\n    brief: {\n      topic: String(req.TOPIC || ''),\n      description: String(req.DESCRIPTION || ''),\n      url: String(req.URL || ''),\n      max_words: Number(req.MAX_WORDS) || 0,\n      asset_types: String(req.ASSET_TYPES || ''),\n      audience: String(config.AUDIENCE || 'NONE'),\n      extra_prompt: String(req.EXTRA_PROMPT || ''),\n      content: String(req.CONTENT || ''),\n      feedback: String(req.FEEDBACK || '').trim(),\n    },\n    article: { title: String(parsed.TITLE || ''), text: String(parsed.TEXT || '') },\n  }),\n} }];"
-        }
-      },
-      {
-        "id": "f04ede57-b2c9-431b-b111-73d4b66d2122",
-        "name": "request_review",
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.4,
-        "onError": "continueErrorOutput",
-        "position": [
-          1200,
-          600
-        ],
-        "parameters": {
-          "method": "POST",
-          "url": "={{ $json.REVIEW_URL }}",
-          "sendBody": true,
-          "specifyBody": "json",
-          "jsonBody": "={{ $json.REVIEW_BODY }}",
-          "options": {
-            "timeout": 900000,
-            "response": {
-              "response": {
-                "neverError": true,
-                "fullResponse": true,
-                "responseFormat": "json"
               }
             }
           }
@@ -637,6 +570,19 @@
         ],
         "parameters": {
           "errorMessage": "={{ 'unknown TASK \"' + String($('main_trigger').first().json.TASK || '') + '\": expected draft, aspects or improve' }}"
+        }
+      },
+      {
+        "id": "e2b5c8d3-0000-4000-8000-000000000001",
+        "name": "gate_verdict",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          6400,
+          0
+        ],
+        "parameters": {
+          "jsCode": "// The loop branches on the parser's verdict alone. The internal audit was a second model\n// turn per attempt: it could reject a draft the code gate passed, and on 2026-11-09 it did\n// exactly that on attempt 2. The human review is the judgement step; the code gate is the\n// only automatic one. The audit task stays on the adapter for on-demand use.\nconst parsed = $('parse_article').item.json;\nconst problem = String(parsed.PROBLEM || '').trim();\nreturn [{ json: { output: problem ? 'false' : 'true', explanation: problem } }];"
         }
       }
     ],
@@ -928,17 +874,6 @@
         ]
       ]
     },
-    "build_review_request": {
-      "main": [
-        [
-          {
-            "index": 0,
-            "node": "request_review",
-            "type": "main"
-          }
-        ]
-      ]
-    },
     "fetch_article": {
       "main": [
         [
@@ -972,35 +907,13 @@
         ]
       ]
     },
-    "merge_article_verdict": {
-      "main": [
-        [
-          {
-            "index": 0,
-            "node": "switch_article_check",
-            "type": "main"
-          }
-        ]
-      ]
-    },
     "parse_article": {
       "main": [
         [
           {
-            "index": 0,
-            "node": "build_review_request",
-            "type": "main"
-          }
-        ]
-      ]
-    },
-    "parse_review_verdict": {
-      "main": [
-        [
-          {
-            "index": 0,
-            "node": "merge_article_verdict",
-            "type": "main"
+            "node": "gate_verdict",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -1047,24 +960,6 @@
           {
             "index": 0,
             "node": "pass_improve_answer",
-            "type": "main"
-          }
-        ]
-      ]
-    },
-    "request_review": {
-      "main": [
-        [
-          {
-            "index": 0,
-            "node": "parse_review_verdict",
-            "type": "main"
-          }
-        ],
-        [
-          {
-            "index": 0,
-            "node": "parse_review_verdict",
             "type": "main"
           }
         ]
@@ -1134,6 +1029,17 @@
             "index": 0,
             "node": "bad_task",
             "type": "main"
+          }
+        ]
+      ]
+    },
+    "gate_verdict": {
+      "main": [
+        [
+          {
+            "node": "switch_article_check",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -1333,19 +1239,6 @@
       }
     },
     {
-      "id": "7116b794-c002-41b6-95de-933574f03aa3",
-      "name": "merge_article_verdict",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        -14608,
-        -736
-      ],
-      "parameters": {
-        "jsCode": "// The verdict the loop branches on. The reviewer's answer is combined with the parser's\n// deterministic checks, and the deterministic half wins: a count asked of a model is a\n// count that gets invented, so `PROBLEM` rejects the draft whatever the reviewer said —\n// and the reason then names the real numbers rather than the reviewer's guess.\nconst parsed = $('parse_article').item.json;\nconst reviewerSays = String($json.output || '').trim() === 'true';\nconst reason = String($json.explanation || '').replace(/\\s+/g, ' ').trim();\nconst problem = String(parsed.PROBLEM || '');\n\nconst accepted = !problem && reviewerSays;\nlet explanation = '';\nif (problem) explanation = problem + (reason ? ' ' + reason : '');\nelse if (!reviewerSays) explanation = reason || 'the reviewer rejected the draft without a reason';\n\nreturn [{ json: { ...$json, output: accepted ? 'true' : 'false', explanation } }];"
-      }
-    },
-    {
       "id": "d0754c43-3343-4443-9461-99a9568224d9",
       "name": "set_error_max_tries",
       "type": "n8n-nodes-base.set",
@@ -1520,60 +1413,6 @@
               "neverError": true,
               "fullResponse": true,
               "responseFormat": "text"
-            }
-          }
-        }
-      }
-    },
-    {
-      "id": "3c1b292c-9d8b-48c7-baba-365b1b9ada0e",
-      "name": "parse_review_verdict",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1400,
-        600
-      ],
-      "parameters": {
-        "jsCode": "// The writer answers a structured verdict, not prose to re-parse: a body without one is\n// a rejection with the reason named, so the retry carries a real cause rather than an\n// empty explanation.\nconst res = $input.first().json;\n// A transport failure arrives as an error item (`onError: continueErrorOutput`) and\n// carries no status: name it, or a dead connection reads as no verdict.\nconst transport = res.error ? String((res.error && res.error.message) || res.error).trim() : '';\nif (transport) return [{ json: { output: 'false', explanation: 'REVIEW: ' + transport } }];\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nconst review = body.review || {};\nif (status >= 400) {\n  const message = String((body.error && body.error.message) || body.error || body.message || '').trim();\n  return [{ json: { output: 'false', explanation: 'REVIEW: HTTP ' + status + (message ? ': ' + message : ' the review turn failed') } }];\n}\nif (typeof review.pass !== 'boolean') {\n  return [{ json: { output: 'false', explanation: 'REVIEW: the writer returned no verdict' } }];\n}\nreturn [{ json: {\n  output: review.pass ? 'true' : 'false',\n  explanation: String(review.explanation || '').replace(/\\s+/g, ' ').trim(),\n} }];"
-      }
-    },
-    {
-      "id": "cb01c12e-8da7-4499-b039-38ac94baf912",
-      "name": "build_review_request",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1000,
-        600
-      ],
-      "parameters": {
-        "jsCode": "// The audit is the writer's turn too, and it has tools: n8n sends the draft and the entry's\n// fields, and the adapter's auditor reads the artifacts and the transcript to check a claim.\n// and the adapter renders the gate prompt from its own files. One request carries both,\n// so the verdict is about the draft this run parsed and no second copy of the prompt\n// exists in the workflow.\nconst parsed = $('parse_article').first().json;\nconst req = $('main_trigger').first().json;\nconst config = $('set_workflow_vars').first().json;\nconst base = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!base) throw new Error('ARTICLE_WRITER_URL is not set; the review turn cannot be reached');\nconst sessionId = ('article-' + String(req.ROW_NUMBER || '').trim()).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 80);\nreturn [{ json: {\n  REVIEW_URL: base + '/v1/chat/completions',\n  REVIEW_BODY: JSON.stringify({\n    task: 'audit',\n    session_id: sessionId,\n    source_hosts: String(config.SOURCE_HOSTS || '').trim(),\n    brief: {\n      topic: String(req.TOPIC || ''),\n      description: String(req.DESCRIPTION || ''),\n      url: String(req.URL || ''),\n      max_words: Number(req.MAX_WORDS) || 0,\n      asset_types: String(req.ASSET_TYPES || ''),\n      audience: String(config.AUDIENCE || 'NONE'),\n      extra_prompt: String(req.EXTRA_PROMPT || ''),\n      content: String(req.CONTENT || ''),\n      feedback: String(req.FEEDBACK || '').trim(),\n    },\n    article: { title: String(parsed.TITLE || ''), text: String(parsed.TEXT || '') },\n  }),\n} }];"
-      }
-    },
-    {
-      "id": "f04ede57-b2c9-431b-b111-73d4b66d2122",
-      "name": "request_review",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "onError": "continueErrorOutput",
-      "position": [
-        1200,
-        600
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $json.REVIEW_URL }}",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ $json.REVIEW_BODY }}",
-        "options": {
-          "timeout": 900000,
-          "response": {
-            "response": {
-              "neverError": true,
-              "fullResponse": true,
-              "responseFormat": "json"
             }
           }
         }
@@ -1779,6 +1618,19 @@
       ],
       "parameters": {
         "errorMessage": "={{ 'unknown TASK \"' + String($('main_trigger').first().json.TASK || '') + '\": expected draft, aspects or improve' }}"
+      }
+    },
+    {
+      "id": "e2b5c8d3-0000-4000-8000-000000000001",
+      "name": "gate_verdict",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6400,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// The loop branches on the parser's verdict alone. The internal audit was a second model\n// turn per attempt: it could reject a draft the code gate passed, and on 2026-11-09 it did\n// exactly that on attempt 2. The human review is the judgement step; the code gate is the\n// only automatic one. The audit task stays on the adapter for on-demand use.\nconst parsed = $('parse_article').item.json;\nconst problem = String(parsed.PROBLEM || '').trim();\nreturn [{ json: { output: problem ? 'false' : 'true', explanation: problem } }];"
       }
     }
   ],

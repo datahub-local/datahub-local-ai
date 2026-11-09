@@ -1,7 +1,7 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "8cb2c399-cb6c-4170-a7c7-0186c5f85e1a",
+    "versionId": "604708a6-41c3-408f-b5d9-a0f1a86e43dd",
     "workflowId": "33uWLrAzZMm4SOP8",
     "nodes": [
       {
@@ -277,6 +277,7 @@
       {
         "id": "c1a00001-0001-4001-8001-000000000009",
         "name": "send_error_notification",
+        "webhookId": "d8749821-b294-47da-953c-9192a2aea637",
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
@@ -301,8 +302,7 @@
             "id": "DszMmPE7WwOjHQjz",
             "name": "Slack account"
           }
-        },
-        "webhookId": "d8749821-b294-47da-953c-9192a2aea637"
+        }
       }
     ],
     "connections": {
@@ -407,10 +407,10 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-10-16T03:27:31.102Z",
-    "updatedAt": "2026-10-16T03:27:31.102Z"
+    "createdAt": "2026-11-08T15:32:14.823Z",
+    "updatedAt": "2026-11-08T15:32:14.823Z"
   },
-  "activeVersionId": "8cb2c399-cb6c-4170-a7c7-0186c5f85e1a",
+  "activeVersionId": "604708a6-41c3-408f-b5d9-a0f1a86e43dd",
   "connections": {
     "error_trigger": {
       "main": [
@@ -788,6 +788,7 @@
     {
       "id": "c1a00001-0001-4001-8001-000000000009",
       "name": "send_error_notification",
+      "webhookId": "d8749821-b294-47da-953c-9192a2aea637",
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
@@ -812,8 +813,7 @@
           "id": "DszMmPE7WwOjHQjz",
           "name": "Slack account"
         }
-      },
-      "webhookId": "d8749821-b294-47da-953c-9192a2aea637"
+      }
     }
   ],
   "pinData": null,
@@ -833,6 +833,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 0,
-  "updatedAt": "2026-10-16T13:34:39.254Z",
-  "versionId": "8cb2c399-cb6c-4170-a7c7-0186c5f85e1a"
+  "updatedAt": "2026-11-08T15:32:14.814Z",
+  "versionId": "604708a6-41c3-408f-b5d9-a0f1a86e43dd"
 }

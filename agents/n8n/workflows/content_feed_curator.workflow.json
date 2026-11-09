@@ -1,7 +1,7 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "aab47661-7575-46ad-be14-5f4086057c67",
+    "versionId": "6f7f47f1-394f-4d3d-a36e-9d7166e7f075",
     "workflowId": "iIA5QN5HuK21TmBX",
     "nodes": [
       {
@@ -172,10 +172,10 @@
         "notes": "articles_2_linkedin is frozen history. Read for the already-seen set only, so nothing published before the migration can be queued again.",
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
-        "retryOnFail": true,
-        "maxTries": 3,
         "executeOnce": true,
         "alwaysOutputData": true,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           -19456,
           2112
@@ -217,10 +217,10 @@
         "notes": "content_queue: the live queue. Referenced by tab name so it resolves as soon as the tab exists. Both reads sit on the single-item spine so they never run per candidate.",
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
-        "retryOnFail": true,
-        "maxTries": 3,
         "executeOnce": true,
         "alwaysOutputData": true,
+        "retryOnFail": true,
+        "maxTries": 3,
         "position": [
           -19232,
           2112
@@ -748,9 +748,9 @@
         "notes": "ORIGIN=AUTO + STATUS=QUEUE only, and only rows past their hook TTL or over the backlog cap. Manual rows and anything past QUEUE are never touched. Most runs expire nothing.",
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
+        "alwaysOutputData": false,
         "retryOnFail": true,
         "maxTries": 3,
-        "alwaysOutputData": false,
         "position": [
           -16064,
           1264
@@ -1848,9 +1848,9 @@
         "notes": "Writes CANCELED (one L - this lane's spelling) for rows build_cancel_rows selected: anything still QUEUE, IN_PROGRESS or WAITING_APPROVAL whose UPDATE_DATE is older than cancel_after_days. Nothing else is touched; most runs cancel nothing.",
         "type": "n8n-nodes-base.googleSheets",
         "typeVersion": 4.6,
+        "alwaysOutputData": false,
         "retryOnFail": true,
         "maxTries": 3,
-        "alwaysOutputData": false,
         "position": [
           -16064,
           1744
@@ -2667,10 +2667,10 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-11-07T07:43:16.270Z",
-    "updatedAt": "2026-11-07T07:43:16.270Z"
+    "createdAt": "2026-11-08T15:32:23.625Z",
+    "updatedAt": "2026-11-08T15:32:23.625Z"
   },
-  "activeVersionId": "aab47661-7575-46ad-be14-5f4086057c67",
+  "activeVersionId": "6f7f47f1-394f-4d3d-a36e-9d7166e7f075",
   "connections": {
     "click_trigger": {
       "main": [
@@ -3422,10 +3422,10 @@
       "notes": "articles_2_linkedin is frozen history. Read for the already-seen set only, so nothing published before the migration can be queued again.",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
-      "retryOnFail": true,
-      "maxTries": 3,
       "executeOnce": true,
       "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         -19456,
         2112
@@ -3467,10 +3467,10 @@
       "notes": "content_queue: the live queue. Referenced by tab name so it resolves as soon as the tab exists. Both reads sit on the single-item spine so they never run per candidate.",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
-      "retryOnFail": true,
-      "maxTries": 3,
       "executeOnce": true,
       "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
       "position": [
         -19232,
         2112
@@ -3998,9 +3998,9 @@
       "notes": "ORIGIN=AUTO + STATUS=QUEUE only, and only rows past their hook TTL or over the backlog cap. Manual rows and anything past QUEUE are never touched. Most runs expire nothing.",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
+      "alwaysOutputData": false,
       "retryOnFail": true,
       "maxTries": 3,
-      "alwaysOutputData": false,
       "position": [
         -16064,
         1264
@@ -5098,9 +5098,9 @@
       "notes": "Writes CANCELED (one L - this lane's spelling) for rows build_cancel_rows selected: anything still QUEUE, IN_PROGRESS or WAITING_APPROVAL whose UPDATE_DATE is older than cancel_after_days. Nothing else is touched; most runs cancel nothing.",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.6,
+      "alwaysOutputData": false,
       "retryOnFail": true,
       "maxTries": 3,
-      "alwaysOutputData": false,
       "position": [
         -16064,
         1744
@@ -5364,6 +5364,6 @@
   },
   "tags": [],
   "triggerCount": 1,
-  "updatedAt": "2026-11-07T07:43:16.247Z",
-  "versionId": "aab47661-7575-46ad-be14-5f4086057c67"
+  "updatedAt": "2026-11-08T15:32:23.610Z",
+  "versionId": "6f7f47f1-394f-4d3d-a36e-9d7166e7f075"
 }

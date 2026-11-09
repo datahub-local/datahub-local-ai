@@ -1,10 +1,20 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "88a1085d-37a0-404b-9751-b28321841193",
+    "versionId": "10edf2a7-9588-4eb7-ba48-0cf83e5d3cf9",
     "workflowId": "yOLSrRQsp4rv1Wjv",
     "nodes": [
       {
+        "id": "1646cbc5-a8de-46fa-a578-fe5423dbcae6",
+        "name": "read_articles_sheet_error",
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4.6,
+        "retryOnFail": true,
+        "maxTries": 3,
+        "position": [
+          976,
+          -144
+        ],
         "parameters": {
           "documentId": {
             "__rl": true,
@@ -29,16 +39,6 @@
             }
           }
         },
-        "type": "n8n-nodes-base.googleSheets",
-        "typeVersion": 4.6,
-        "retryOnFail": true,
-        "maxTries": 3,
-        "position": [
-          976,
-          -144
-        ],
-        "id": "1646cbc5-a8de-46fa-a578-fe5423dbcae6",
-        "name": "read_articles_sheet_error",
         "credentials": {
           "googleSheetsOAuth2Api": {
             "id": "pGARJmt50qz64xOo",
@@ -47,30 +47,40 @@
         }
       },
       {
-        "parameters": {
-          "jsCode": "const filteredEntries = $input.all().map(item=>item.json).filter(item => item.EXECUTION_ID.toString() === $('set_workflow_vars').first().json.workflowId.toString()\n);\n\nconsole.log(filteredEntries)\n\nreturn filteredEntries.slice(0, 1);"
-        },
+        "id": "281d4d77-4875-47d9-bc1b-f3ceb316af97",
+        "name": "select_article_with_error",
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
           1200,
           -144
         ],
-        "id": "281d4d77-4875-47d9-bc1b-f3ceb316af97",
-        "name": "select_article_with_error"
+        "parameters": {
+          "jsCode": "const filteredEntries = $input.all().map(item=>item.json).filter(item => item.EXECUTION_ID.toString() === $('set_workflow_vars').first().json.workflowId.toString()\n);\n\nconsole.log(filteredEntries)\n\nreturn filteredEntries.slice(0, 1);"
+        }
       },
       {
-        "parameters": {},
+        "id": "362249d6-1c68-4c95-b4e2-9d5264e89784",
+        "name": "error_trigger",
         "type": "n8n-nodes-base.errorTrigger",
         "typeVersion": 1,
         "position": [
           320,
           -144
         ],
-        "id": "362249d6-1c68-4c95-b4e2-9d5264e89784",
-        "name": "error_trigger"
+        "parameters": {}
       },
       {
+        "id": "404c9408-0833-4ebb-b58c-2eddc22ee7a2",
+        "name": "update_status_error_trigger",
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4.6,
+        "retryOnFail": true,
+        "maxTries": 3,
+        "position": [
+          1424,
+          -144
+        ],
         "parameters": {
           "operation": "update",
           "documentId": {
@@ -204,16 +214,6 @@
           },
           "options": {}
         },
-        "type": "n8n-nodes-base.googleSheets",
-        "typeVersion": 4.6,
-        "retryOnFail": true,
-        "maxTries": 3,
-        "position": [
-          1424,
-          -144
-        ],
-        "id": "404c9408-0833-4ebb-b58c-2eddc22ee7a2",
-        "name": "update_status_error_trigger",
         "credentials": {
           "googleSheetsOAuth2Api": {
             "id": "pGARJmt50qz64xOo",
@@ -222,6 +222,14 @@
         }
       },
       {
+        "id": "3086e119-857a-4e51-a508-4d5d6f2785c2",
+        "name": "set_error_trigger",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          1648,
+          -144
+        ],
         "parameters": {
           "assignments": {
             "assignments": [
@@ -234,17 +242,18 @@
             ]
           },
           "options": {}
-        },
-        "type": "n8n-nodes-base.set",
-        "typeVersion": 3.4,
-        "position": [
-          1648,
-          -144
-        ],
-        "id": "3086e119-857a-4e51-a508-4d5d6f2785c2",
-        "name": "set_error_trigger"
+        }
       },
       {
+        "id": "6c4affe5-d3de-4895-9063-a7d65595a741",
+        "name": "send_error_trigger_notification",
+        "webhookId": "faa5f272-06d5-4d4d-ad75-e17f49c6fbc8",
+        "type": "n8n-nodes-base.slack",
+        "typeVersion": 2.3,
+        "position": [
+          1856,
+          32
+        ],
         "parameters": {
           "select": "channel",
           "channelId": {
@@ -258,15 +267,6 @@
             "includeLinkToWorkflow": true
           }
         },
-        "type": "n8n-nodes-base.slack",
-        "typeVersion": 2.3,
-        "position": [
-          1856,
-          32
-        ],
-        "id": "6c4affe5-d3de-4895-9063-a7d65595a741",
-        "name": "send_error_trigger_notification",
-        "webhookId": "faa5f272-06d5-4d4d-ad75-e17f49c6fbc8",
         "credentials": {
           "slackApi": {
             "id": "DszMmPE7WwOjHQjz",
@@ -275,6 +275,14 @@
         }
       },
       {
+        "id": "4bb7401f-d142-4429-b445-2e5214de3355",
+        "name": "set_workflow_vars",
+        "type": "n8n-nodes-base.set",
+        "typeVersion": 3.4,
+        "position": [
+          528,
+          -144
+        ],
         "parameters": {
           "assignments": {
             "assignments": [
@@ -287,17 +295,17 @@
             ]
           },
           "options": {}
-        },
-        "type": "n8n-nodes-base.set",
-        "typeVersion": 3.4,
-        "position": [
-          528,
-          -144
-        ],
-        "id": "4bb7401f-d142-4429-b445-2e5214de3355",
-        "name": "set_workflow_vars"
+        }
       },
       {
+        "id": "994f9ebd-5a69-46ef-9817-409e88176060",
+        "name": "if_workfowId",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "position": [
+          752,
+          -144
+        ],
         "parameters": {
           "conditions": {
             "options": {
@@ -321,15 +329,7 @@
             "combinator": "and"
           },
           "options": {}
-        },
-        "type": "n8n-nodes-base.if",
-        "typeVersion": 2.3,
-        "position": [
-          752,
-          -144
-        ],
-        "id": "994f9ebd-5a69-46ef-9817-409e88176060",
-        "name": "if_workfowId"
+        }
       }
     ],
     "connections": {
@@ -413,13 +413,13 @@
     },
     "nodeGroups": [],
     "authors": "no name",
-    "name": "Version 88a1085d",
-    "description": "",
-    "autosaved": true,
-    "createdAt": "2026-09-26T15:40:44.779Z",
-    "updatedAt": "2026-09-26T15:40:46.121Z"
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "createdAt": "2026-11-08T15:32:48.802Z",
+    "updatedAt": "2026-11-08T15:32:48.802Z"
   },
-  "activeVersionId": "88a1085d-37a0-404b-9751-b28321841193",
+  "activeVersionId": "10edf2a7-9588-4eb7-ba48-0cf83e5d3cf9",
   "connections": {
     "read_articles_sheet_error": {
       "main": [
@@ -507,6 +507,16 @@
   "nodeGroups": [],
   "nodes": [
     {
+      "id": "1646cbc5-a8de-46fa-a578-fe5423dbcae6",
+      "name": "read_articles_sheet_error",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "position": [
+        976,
+        -144
+      ],
       "parameters": {
         "documentId": {
           "__rl": true,
@@ -531,16 +541,6 @@
           }
         }
       },
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.6,
-      "retryOnFail": true,
-      "maxTries": 3,
-      "position": [
-        976,
-        -144
-      ],
-      "id": "1646cbc5-a8de-46fa-a578-fe5423dbcae6",
-      "name": "read_articles_sheet_error",
       "credentials": {
         "googleSheetsOAuth2Api": {
           "id": "pGARJmt50qz64xOo",
@@ -549,30 +549,40 @@
       }
     },
     {
-      "parameters": {
-        "jsCode": "const filteredEntries = $input.all().map(item=>item.json).filter(item => item.EXECUTION_ID.toString() === $('set_workflow_vars').first().json.workflowId.toString()\n);\n\nconsole.log(filteredEntries)\n\nreturn filteredEntries.slice(0, 1);"
-      },
+      "id": "281d4d77-4875-47d9-bc1b-f3ceb316af97",
+      "name": "select_article_with_error",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
         1200,
         -144
       ],
-      "id": "281d4d77-4875-47d9-bc1b-f3ceb316af97",
-      "name": "select_article_with_error"
+      "parameters": {
+        "jsCode": "const filteredEntries = $input.all().map(item=>item.json).filter(item => item.EXECUTION_ID.toString() === $('set_workflow_vars').first().json.workflowId.toString()\n);\n\nconsole.log(filteredEntries)\n\nreturn filteredEntries.slice(0, 1);"
+      }
     },
     {
-      "parameters": {},
+      "id": "362249d6-1c68-4c95-b4e2-9d5264e89784",
+      "name": "error_trigger",
       "type": "n8n-nodes-base.errorTrigger",
       "typeVersion": 1,
       "position": [
         320,
         -144
       ],
-      "id": "362249d6-1c68-4c95-b4e2-9d5264e89784",
-      "name": "error_trigger"
+      "parameters": {}
     },
     {
+      "id": "404c9408-0833-4ebb-b58c-2eddc22ee7a2",
+      "name": "update_status_error_trigger",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "position": [
+        1424,
+        -144
+      ],
       "parameters": {
         "operation": "update",
         "documentId": {
@@ -706,16 +716,6 @@
         },
         "options": {}
       },
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.6,
-      "retryOnFail": true,
-      "maxTries": 3,
-      "position": [
-        1424,
-        -144
-      ],
-      "id": "404c9408-0833-4ebb-b58c-2eddc22ee7a2",
-      "name": "update_status_error_trigger",
       "credentials": {
         "googleSheetsOAuth2Api": {
           "id": "pGARJmt50qz64xOo",
@@ -724,6 +724,14 @@
       }
     },
     {
+      "id": "3086e119-857a-4e51-a508-4d5d6f2785c2",
+      "name": "set_error_trigger",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1648,
+        -144
+      ],
       "parameters": {
         "assignments": {
           "assignments": [
@@ -736,17 +744,18 @@
           ]
         },
         "options": {}
-      },
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        1648,
-        -144
-      ],
-      "id": "3086e119-857a-4e51-a508-4d5d6f2785c2",
-      "name": "set_error_trigger"
+      }
     },
     {
+      "id": "6c4affe5-d3de-4895-9063-a7d65595a741",
+      "name": "send_error_trigger_notification",
+      "webhookId": "faa5f272-06d5-4d4d-ad75-e17f49c6fbc8",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        1856,
+        32
+      ],
       "parameters": {
         "select": "channel",
         "channelId": {
@@ -760,15 +769,6 @@
           "includeLinkToWorkflow": true
         }
       },
-      "type": "n8n-nodes-base.slack",
-      "typeVersion": 2.3,
-      "position": [
-        1856,
-        32
-      ],
-      "id": "6c4affe5-d3de-4895-9063-a7d65595a741",
-      "name": "send_error_trigger_notification",
-      "webhookId": "faa5f272-06d5-4d4d-ad75-e17f49c6fbc8",
       "credentials": {
         "slackApi": {
           "id": "DszMmPE7WwOjHQjz",
@@ -777,6 +777,14 @@
       }
     },
     {
+      "id": "4bb7401f-d142-4429-b445-2e5214de3355",
+      "name": "set_workflow_vars",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        528,
+        -144
+      ],
       "parameters": {
         "assignments": {
           "assignments": [
@@ -789,17 +797,17 @@
           ]
         },
         "options": {}
-      },
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        528,
-        -144
-      ],
-      "id": "4bb7401f-d142-4429-b445-2e5214de3355",
-      "name": "set_workflow_vars"
+      }
     },
     {
+      "id": "994f9ebd-5a69-46ef-9817-409e88176060",
+      "name": "if_workfowId",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        752,
+        -144
+      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -823,15 +831,7 @@
           "combinator": "and"
         },
         "options": {}
-      },
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [
-        752,
-        -144
-      ],
-      "id": "994f9ebd-5a69-46ef-9817-409e88176060",
-      "name": "if_workfowId"
+      }
     }
   ],
   "pinData": {},
@@ -852,6 +852,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 0,
-  "updatedAt": "2026-09-26T15:40:44.762Z",
-  "versionId": "88a1085d-37a0-404b-9751-b28321841193"
+  "updatedAt": "2026-11-08T15:32:48.791Z",
+  "versionId": "10edf2a7-9588-4eb7-ba48-0cf83e5d3cf9"
 }

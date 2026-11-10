@@ -770,6 +770,16 @@
               "removed": false,
               "required": false,
               "type": "string"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "MAX_FIGURES",
+              "id": "MAX_FIGURES",
+              "removed": false,
+              "required": false,
+              "type": "number"
             }
           ],
           "value": {
@@ -785,7 +795,8 @@
             "TOPIC": "={{ $('select_article_to_queue').item.json.TOPIC || '' }}",
             "URL": "={{ $('select_article_to_queue').item.json.LINK || '' }}",
             "DRAFT_TEXT": "={{ $('first_draft').isExecuted ? $('first_draft').last().json.text || '' : '' }}",
-            "DRAFT_TITLE": "={{ $('first_draft').isExecuted ? $('first_draft').last().json.title || '' : '' }}"
+            "DRAFT_TITLE": "={{ $('first_draft').isExecuted ? $('first_draft').last().json.title || '' : '' }}",
+            "MAX_FIGURES": "={{ $('select_article_to_queue').item.json.MAX_FIGURES || 3 }}"
           }
         },
         "options": {}
@@ -1665,7 +1676,7 @@
           "conditions": [
             {
               "id": "assets-pending",
-              "leftValue": "={{ String($('select_article_to_queue').item.json.PENDING_ASSETS || '').trim() !== '' }}",
+              "leftValue": "={{ String($('derive_asset_plan').item.json.PENDING_ASSETS || '').trim() !== '' }}",
               "rightValue": "",
               "operator": {
                 "type": "boolean",
@@ -2276,7 +2287,7 @@
             "ASSET_TYPES": "={{ $json.ASSET_TYPE }}",
             "FEEDBACK": "={{ $('notification_retry_or_cancel_asset').isExecuted ? ($('notification_retry_or_cancel_asset').last().json.data.Feedback || '') : '' }}",
             "EXTRA_PROMPT": "={{ $json.EXTRA_PROMPT || '' }}",
-            "SESSION_ID": "={{ 'blog-' + $json.ENTRY_ID }}"
+            "SESSION_ID": "={{ $json.SESSION_ID || ('blog-' + $json.ENTRY_ID) }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -2370,7 +2381,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// One item per asset the studio answered with. The run STATUS is deliberately not what is\n// branched on: it is PARTIAL whenever any requested type is unavailable, so an unavailable\n// type would take the whole set with it. Each asset's own STATUS is the decision, and a type\n// the registry does not declare arrives here as an asset carrying its reason.\n//\n// Every response item is read, not the first: the studio answers with one item per asset\n// branch because its own merge runs once per branch, so a two-type request arrives as two\n// items carrying one asset each. Reading only the first of them is how the svg was\n// authored, rendered and then dropped -- the asset rows never saw it and the publish gate found it\n// MISSING (execution 13705, 2026-10-17).\nconst responses = $input.all().map((i) => i.json || {});\nconst resp = responses[0] || {};\nconst row = $('select_article_to_queue').first().json;\nconst assets = responses.flatMap((r) => (Array.isArray(r.ASSETS) ? r.ASSETS : []));\nif (!assets.length) throw new Error('the studio returned no asset at all (runs ' + responses.map((r) => r.RUN_ID || '?').join(',') + ', status ' + (resp.STATUS || '?') + ')');\nreturn assets.map((a) => ({\n  json: {\n    ...row,\n    ROUND: Number(row.ARTICLE_ROUND || 0) + 1,\n    RUN_ID: resp.RUN_ID || '',\n    SESSION_ID: resp.SESSION_ID || '',\n    ASSET_TYPE: a.ASSET_TYPE || '',\n    ASSET_STATUS: a.STATUS || '',\n    ERROR: a.ERROR || '',\n    CONTENT_TYPE: a.CONTENT_TYPE || '',\n    FORMAT: a.FORMAT || '',\n    S3_KEY: a.S3_KEY || '',\n    S3_BYTES: a.S3_BYTES || 0,\n    IMAGE: a.IMAGE || '',\n  },\n}));\n"
+        "jsCode": "// One item per asset the studio answered with. The run STATUS is deliberately not what is\n// branched on: it is PARTIAL whenever any requested type is unavailable, so an unavailable\n// type would take the whole set with it. Each asset's own STATUS is the decision, and a type\n// the registry does not declare arrives here as an asset carrying its reason.\n//\n// Every response item is read, not the first: the studio answers with one item per asset\n// branch because its own merge runs once per branch, so a two-type request arrives as two\n// items carrying one asset each. Reading only the first of them is how the svg was\n// authored, rendered and then dropped -- the asset rows never saw it and the publish gate found it\n// MISSING (execution 13705, 2026-10-17).\nconst responses = $input.all().map((i) => i.json || {});\nconst resp = responses[0] || {};\nconst row = $('select_article_to_queue').first().json;\nconst assets = responses.flatMap((r) => (Array.isArray(r.ASSETS) ? r.ASSETS : []));\n// A figure is requested as the registry type `figure`, once per slot: the row's type is the\n// slot (`figure_2`), which is what keeps its own review state, S3 key and committed path.\nconst slot = (() => {\n  try { return String($('execute_visual_studio').item.json.SLOT || '').trim(); } catch (e) { return ''; }\n})();\nif (!assets.length) throw new Error('the studio returned no asset at all (runs ' + responses.map((r) => r.RUN_ID || '?').join(',') + ', status ' + (resp.STATUS || '?') + ')');\nreturn assets.map((a) => ({\n  json: {\n    ...row,\n    ROUND: Number(row.ARTICLE_ROUND || 0) + 1,\n    RUN_ID: resp.RUN_ID || '',\n    SESSION_ID: resp.SESSION_ID || '',\n    ASSET_TYPE: slot || a.ASSET_TYPE || '',\n    ASSET_STATUS: a.STATUS || '',\n    ERROR: a.ERROR || '',\n    CONTENT_TYPE: a.CONTENT_TYPE || '',\n    FORMAT: a.FORMAT || '',\n    S3_KEY: a.S3_KEY || '',\n    S3_BYTES: a.S3_BYTES || 0,\n    IMAGE: a.IMAGE || '',\n  },\n}));\n"
       },
       "id": "4b7cb7b1-bd02-4ec9-9379-4fce5e19a4f6",
       "name": "split_assets",
@@ -3229,7 +3240,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Every requested type approved and none left in review: only then is there one commit.\n//\n// The check reads the stored rows rather than this run's history, so a resumed run that\n// approved two of three assets earlier still publishes once the third clears. A cancelled\n// asset keeps the article from committing, which is the deliberate direction: the run reports\n// instead of publishing a post that is missing a picture it asked for.\n// The set comes from the selector, which derived it once and runs on every path. A second\n// derivation here is how a gate ends up prepending a type the selector never asked for, which\n// blocks every run forever.\nconst effective = String($('select_article_to_queue').first().json.REQUESTED_ASSETS || '')\n  .split(',')\n  .map((s) => s.trim())\n  .filter(Boolean);\nconst rows = $('read_asset_rows').all().map((i) => i.json);\nconst statusOf = (type) => {\n  const row = rows.find((r) => String(r.ASSET_TYPE || '') === type);\n  return row ? String(row.STATUS || '').toUpperCase() : 'MISSING';\n};\nconst blocking = effective.filter((type) => !['APPROVED', 'COMMITTED'].includes(statusOf(type)));\n// The verdict is data and the branch on it is the next node: returning nothing here is how a\n// blocked publish ended the execution as `success`, with no commit and no notice at all\n// (execution 13705, 2026-10-17 -- the svg had never reached the asset rows).\nconst report = blocking.map((t) => t + '=' + statusOf(t)).join(', ');\nif (blocking.length) console.log('not committing: ' + report);\nreturn [{ json: {\n  ...$('select_article_to_queue').first().json,\n  ASSET_ROWS: effective.map((type) => rows.find((r) => String(r.ASSET_TYPE || '') === type)),\n  BLOCKED: blocking.length > 0,\n  BLOCKING: report || 'none',\n} }];\n"
+        "jsCode": "// Every requested type approved and none left in review: only then is there one commit.\n//\n// The check reads the stored rows rather than this run's history, so a resumed run that\n// approved two of three assets earlier still publishes once the third clears. A cancelled\n// asset keeps the article from committing, which is the deliberate direction: the run reports\n// instead of publishing a post that is missing a picture it asked for.\n// The set comes from the selector, which derived it once and runs on every path. A second\n// derivation here is how a gate ends up prepending a type the selector never asked for, which\n// blocks every run forever.\n// The plan, not the sheet's asset list: the figures it carries exist only in the approved draft.\nconst effective = String($('derive_asset_plan').first().json.REQUESTED_ASSETS || '')\n  .split(',')\n  .map((s) => s.trim())\n  .filter(Boolean);\nconst rows = $('read_asset_rows').all().map((i) => i.json);\nconst statusOf = (type) => {\n  const row = rows.find((r) => String(r.ASSET_TYPE || '') === type);\n  return row ? String(row.STATUS || '').toUpperCase() : 'MISSING';\n};\nconst blocking = effective.filter((type) => !['APPROVED', 'COMMITTED'].includes(statusOf(type)));\n// The verdict is data and the branch on it is the next node: returning nothing here is how a\n// blocked publish ended the execution as `success`, with no commit and no notice at all\n// (execution 13705, 2026-10-17 -- the svg had never reached the asset rows).\nconst report = blocking.map((t) => t + '=' + statusOf(t)).join(', ');\nif (blocking.length) console.log('not committing: ' + report);\nreturn [{ json: {\n  ...$('select_article_to_queue').first().json,\n  ASSET_ROWS: effective.map((type) => rows.find((r) => String(r.ASSET_TYPE || '') === type)),\n  BLOCKED: blocking.length > 0,\n  BLOCKING: report || 'none',\n} }];\n"
       },
       "id": "609795aa-d79b-4be9-baba-2335443de487",
       "name": "if_all_assets_approved",
@@ -3342,7 +3353,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// One item per file to commit: the article, then each approved asset. Front matter is\n// composed here rather than asked of the model (D5), a marker is replaced in place, and a\n// requested type whose marker the draft omitted is placed after the opening section instead\n// of being dropped - one live draft in three answered image,svg with the image marker only.\n// Only the entry's requested types are committed: a row for anything else is a leftover\n// from an earlier request, and committing it adds an image no marker references.\nconst row = $('disambiguate_slug').first().json;\nconst draft = $('read_draft_for_publish').first().json;\nconst slug = row.SLUG;\nconst text = String(draft.ARTICLE_TEXT || '');\nconst title = String(draft.TITLE || '').trim();\nif (!text.trim()) throw new Error('the stored draft is empty; refusing to commit');\nif (!title.trim()) throw new Error('the stored draft has no title');\n\nconst categories = String($('select_article_to_queue').first().json.CATEGORIES || 'General')\n  .split(',').map((s) => s.trim()).filter(Boolean);\nconst now = new Date();\nconst iso = now.toISOString();\nconst day = iso.slice(0, 10);\nconst front = ['---', 'date: ' + day, 'authors: [alvsanand]', 'categories: [' + categories.join(', ') + ']', '---', ''].join('\\n');\n\nconst requestedTypes = String($('select_article_to_queue').first().json.REQUESTED_ASSETS || '')\n  .split(',').map((s) => s.trim()).filter(Boolean);\nconst rows = $('read_asset_rows_for_publish').all().map((i) => i.json);\nconst stale = rows.map((a) => String(a.ASSET_TYPE || '')).filter((type) => !requestedTypes.includes(type));\nif (stale.length) console.log('not committing, not requested by this entry: ' + stale.join(', '));\n// The extension comes from the content type, which is what the asset row carries. Splitting on\n// the slash alone turns `image/svg+xml` into `svg+xml`, which is not an extension: the hero SVG\n// committed at `docs/img/<slug>-svg_wide.svg+xml` and the article referenced that path.\nconst EXT = { 'image/svg+xml': 'svg', 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp',\n  'image/gif': 'gif', 'video/mp4': 'mp4', 'text/html': 'html' };\nconst extOf = (a) => EXT[String(a.CONTENT_TYPE || '').toLowerCase()]\n  || (String(a.CONTENT_TYPE || '').split('/')[1] || 'png').replace('jpeg', 'jpg');\nconst assets = rows.filter((a) => requestedTypes.includes(String(a.ASSET_TYPE || ''))).map((a) => ({\n  type: String(a.ASSET_TYPE || ''),\n  ext: extOf(a),\n  alt: (title + ' - ' + String(a.ASSET_TYPE || '').replace(/_/g, ' ')).slice(0, 120),\n}));\n// The file lands under the docs source directory, but the site serves it from the root: every\n// hand-written post references /img/..., so a reference to /docs/img/... is a 404. The committed\n// path and the published reference are therefore two different strings.\nconst pathOf = (a) => 'docs/img/' + slug + '-' + a.type + '.' + a.ext;\nconst sitePathOf = (a) => '/img/' + slug + '-' + a.type + '.' + a.ext;\n\nlet body = text.replace(/^#\\s+.*\\n?/, '').trim();\nconst missing = [];\nfor (const a of assets) {\n  const marker = new RegExp('<!--\\\\s*asset:' + a.type + '\\\\s*-->', 'g');\n  const reference = '![' + a.alt + '](' + sitePathOf(a) + '){ width=\"80%\" }';\n  if (marker.test(body)) body = body.replace(marker, reference);\n  else missing.push(a.type);\n}\nif (missing.length) {\n  const lines = body.split('\\n');\n  const heading = lines.findIndex((l, i) => i > 0 && l.startsWith('## '));\n  const at = heading === -1 ? lines.length : heading;\n  lines.splice(at, 0, '', ...missing.map((type) => {\n    const a = assets.find((x) => x.type === type);\n    return '![' + a.alt + '](' + sitePathOf(a) + '){ width=\"80%\" }';\n  }), '');\n  body = lines.join('\\n');\n  console.log('placed without a marker: ' + missing.join(', '));\n}\n\n// The site is served at `www.`, and the blog plugin's slug is the *title* slugified - \"isn't\"\n// loses its apostrophe rather than gaining a hyphen - so the entry's SLUG is not the URL. Read\n// off the published post, 2026-10-18.\nconst slugOf = (s) => String(s).toLowerCase().replace(/['\\u2019]/g, '')\n  .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');\nconst urlSlug = slugOf(title);\n\nconst files = [{\n  PATH: 'docs/blog/posts/' + day.slice(0, 4) + day.slice(5, 7) + '-' + slug + '.md',\n  TEXT: front + '# ' + title + '\\n\\n' + body + '\\n',\n  BINARY: false,\n}];\nfor (const a of assets) files.push({ PATH: pathOf(a), ASSET_TYPE: a.type, BINARY: true });\n\nreturn files.map((f) => ({\n  json: {\n    ...$('select_article_to_queue').first().json,\n    SLUG: slug,\n    DRAFT_TITLE: title,\n    PUBLISHED_URL: 'https://www.alvsanand.com/blog/' + day.slice(0, 4) + '/' + day.slice(5, 7) + '/' + day.slice(8, 10) + '/' + urlSlug + '/',\n    FILE_PATH: f.PATH,\n    FILE_TEXT: f.TEXT || '',\n    FILE_IS_BINARY: f.BINARY,\n    ASSET_TYPE: f.ASSET_TYPE || '',\n    COMMIT_MESSAGE: 'docs(blog): ' + title,\n  },\n}));\n"
+        "jsCode": "// One item per file to commit: the article, then each approved asset. Front matter is\n// composed here rather than asked of the model (D5), a marker is replaced in place, and a\n// requested type whose marker the draft omitted is placed after the opening section instead\n// of being dropped - one live draft in three answered image,svg with the image marker only.\n// Only the entry's requested types are committed: a row for anything else is a leftover\n// from an earlier request, and committing it adds an image no marker references.\nconst row = $('disambiguate_slug').first().json;\nconst draft = $('read_draft_for_publish').first().json;\nconst slug = row.SLUG;\nconst text = String(draft.ARTICLE_TEXT || '');\nconst title = String(draft.TITLE || '').trim();\nif (!text.trim()) throw new Error('the stored draft is empty; refusing to commit');\nif (!title.trim()) throw new Error('the stored draft has no title');\n\nconst categories = String($('select_article_to_queue').first().json.CATEGORIES || 'General')\n  .split(',').map((s) => s.trim()).filter(Boolean);\nconst now = new Date();\nconst iso = now.toISOString();\nconst day = iso.slice(0, 10);\nconst front = ['---', 'date: ' + day, 'authors: [alvsanand]', 'categories: [' + categories.join(', ') + ']', '---', ''].join('\\n');\n\nconst plan = $('derive_asset_plan').first().json;\nconst requestedTypes = String(plan.REQUESTED_ASSETS || '')\n  .split(',').map((s) => s.trim()).filter(Boolean);\nconst rows = $('read_asset_rows_for_publish').all().map((i) => i.json);\nconst stale = rows.map((a) => String(a.ASSET_TYPE || '')).filter((type) => !requestedTypes.includes(type));\nif (stale.length) console.log('not committing, not requested by this entry: ' + stale.join(', '));\n// The extension comes from the content type, which is what the asset row carries. Splitting on\n// the slash alone turns `image/svg+xml` into `svg+xml`, which is not an extension: the hero SVG\n// committed at `docs/img/<slug>-svg_wide.svg+xml` and the article referenced that path.\nconst EXT = { 'image/svg+xml': 'svg', 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp',\n  'image/gif': 'gif', 'video/mp4': 'mp4', 'text/html': 'html' };\nconst extOf = (a) => EXT[String(a.CONTENT_TYPE || '').toLowerCase()]\n  || (String(a.CONTENT_TYPE || '').split('/')[1] || 'png').replace('jpeg', 'jpg');\nconst isFigure = (type) => /^figure_\\d+$/.test(type);\nconst headingOf = (slot) => {\n  const fig = (Array.isArray(plan.FIGURES) ? plan.FIGURES : []).find((f) => f.SLOT === slot);\n  return fig ? String(fig.HEADING || '') : '';\n};\nconst assets = rows.filter((a) => requestedTypes.includes(String(a.ASSET_TYPE || ''))).map((a) => {\n  const type = String(a.ASSET_TYPE || '');\n  return {\n    type,\n    ext: extOf(a),\n    alt: isFigure(type)\n      ? (headingOf(type) || (title + ' - figure')).slice(0, 120)\n      : (title + ' - ' + type.replace(/_/g, ' ')).slice(0, 120),\n  };\n});\nconst heroAssets = assets.filter((a) => !isFigure(a.type));\nconst figureAssets = assets.filter((a) => isFigure(a.type))\n  .sort((a, b) => Number(a.type.split('_')[1]) - Number(b.type.split('_')[1]));\n// The file lands under the docs source directory, but the site serves it from the root: every\n// hand-written post references /img/..., so a reference to /docs/img/... is a 404. The committed\n// path and the published reference are therefore two different strings.\nconst pathOf = (a) => 'docs/img/' + slug + '-' + a.type + '.' + a.ext;\nconst sitePathOf = (a) => '/img/' + slug + '-' + a.type + '.' + a.ext;\nconst reference = (a) => '![' + a.alt + '](' + sitePathOf(a) + '){ width=\"80%\" }';\n\nlet body = text.replace(/^#\\s+.*\\n?/, '').trim();\nconst missing = [];\nfor (const a of heroAssets) {\n  const marker = new RegExp('<!--\\\\s*asset:' + a.type + '\\\\s*-->', 'g');\n  if (marker.test(body)) body = body.replace(marker, reference(a));\n  else missing.push(a.type);\n}\nif (missing.length) {\n  const lines = body.split('\\n');\n  const heading = lines.findIndex((l, i) => i > 0 && l.startsWith('## '));\n  const at = heading === -1 ? lines.length : heading;\n  lines.splice(at, 0, '', ...missing.map((type) => {\n    const a = heroAssets.find((x) => x.type === type);\n    return reference(a);\n  }), '');\n  body = lines.join('\\n');\n  console.log('placed without a marker: ' + missing.join(', '));\n}\n// Section figures are positional: the k-th marker is the k-th row. A disagreement is a failed\n// commit, never a guess, because the wrong picture under a paragraph reads as a content bug.\nconst markerCount = (body.match(/<!--\\s*asset:figure\\s*-->/g) || []).length;\nif (markerCount !== figureAssets.length) {\n  throw new Error('the draft carries ' + markerCount + ' figure markers for ' + figureAssets.length\n    + ' figure rows; refusing to commit');\n}\nfor (const a of figureAssets) body = body.replace(/<!--\\s*asset:figure\\s*-->/, reference(a));\n\n// The site is served at `www.`, and the blog plugin's slug is the *title* slugified - \"isn't\"\n// loses its apostrophe rather than gaining a hyphen - so the entry's SLUG is not the URL. Read\n// off the published post, 2026-10-18.\nconst slugOf = (s) => String(s).toLowerCase().replace(/['\\u2019]/g, '')\n  .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');\nconst urlSlug = slugOf(title);\n\nconst files = [{\n  PATH: 'docs/blog/posts/' + day.slice(0, 4) + day.slice(5, 7) + '-' + slug + '.md',\n  TEXT: front + '# ' + title + '\\n\\n' + body + '\\n',\n  BINARY: false,\n}];\nfor (const a of assets) files.push({ PATH: pathOf(a), ASSET_TYPE: a.type, BINARY: true });\n\nreturn files.map((f) => ({\n  json: {\n    ...$('select_article_to_queue').first().json,\n    SLUG: slug,\n    DRAFT_TITLE: title,\n    PUBLISHED_URL: 'https://www.alvsanand.com/blog/' + day.slice(0, 4) + '/' + day.slice(5, 7) + '/' + day.slice(8, 10) + '/' + urlSlug + '/',\n    FILE_PATH: f.PATH,\n    FILE_TEXT: f.TEXT || '',\n    FILE_IS_BINARY: f.BINARY,\n    ASSET_TYPE: f.ASSET_TYPE || '',\n    COMMIT_MESSAGE: 'docs(blog): ' + title,\n  },\n}));\n"
       },
       "id": "7dd79a5c-5779-4594-b86e-dc8d35aee1bf",
       "name": "build_commit_files",
@@ -4342,7 +4353,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// One studio call per pending type. Execute Sub-workflow defaults to `mode: once`, which\n// passes every item into a SINGLE studio execution, and the studio's `normalize_input` reads\n// `$input.first()` -- so a two-item call authored the first type and dropped the rest.\n// Measured 2026-11-09 (execution 16209): `split_pending_types` emitted image_wide and\n// svg_wide, one call ran with both, and `svg_wide` was never authored; the publish gate\n// reported `svg_wide=MISSING`. The node now carries `mode: each`, one execution per type.\n//\n// A retry re-enters here, so a type the reviewer already accepted drops out; otherwise the\n// retry re-authors it and puts it back in review (row 3 re-authored image_wide four times).\nconst row = $('select_article_to_queue').first().json;\nconst draft = $('read_draft_for_assets').first().json;\nconst read = (node) => {\n  try { return $(node).all().map((i) => i.json); } catch (e) { return []; }\n};\nconst accepted = new Set(\n  [...read('read_asset_rows_for_entry'), ...read('mark_asset_approved')]\n    .filter((r) => ['APPROVED', 'COMMITTED'].includes(String(r.STATUS || '').toUpperCase()))\n    .map((r) => String(r.ASSET_TYPE || '')),\n);\nconst pending = String(row.PENDING_ASSETS || row.ASSET_TYPES || 'svg_wide')\n  .split(',').map((s) => s.trim()).filter(Boolean)\n  .filter((type) => !accepted.has(type));\nif (!pending.length) throw new Error('every requested asset is already approved for row ' + row.row_number);\nreturn pending.map((type) => ({ json: {\n  ...row,\n  ...draft,\n  ASSET_TYPE: type,\n  ROUND: Number(row.ARTICLE_ROUND || 0) + 1,\n} }));\n"
+        "jsCode": "// One studio call per pending slot: the declared hero types, then each figure the approved\n// draft carries. A figure is requested as the registry type `figure` and stored under its own\n// slot (`figure_1`...), with the section it sits in as the brief, so five figures are five\n// sections rather than five takes on the opening. mode: each on the studio node means one\n// execution per item; the studio's normalize_input reads $input.first().\nconst plan = $('derive_asset_plan').first().json;\nconst row = $('select_article_to_queue').first().json;\nconst draft = $('read_draft_for_assets').first().json;\n// The plan was derived before this run approved anything, so an approval made here (the review\n// turns) must still drop out when a retry re-enters this node. read_asset_rows_for_entry is not\n// used: it is the run-start read, taken before a re-approved article retired its figure rows.\nconst read = (node) => {\n  try { return $(node).all().map((i) => i.json); } catch (e) { return []; }\n};\nconst accepted = new Set(read('mark_asset_approved')\n  .filter((r) => ['APPROVED', 'COMMITTED'].includes(String(r.STATUS || '').toUpperCase()))\n  .map((r) => String(r.ASSET_TYPE || '')));\nconst pending = String(plan.PENDING_ASSETS || '').split(',').map((s) => s.trim()).filter(Boolean)\n  .filter((slot) => !accepted.has(slot));\nif (!pending.length) throw new Error('every requested asset is already approved for row ' + row.row_number);\nconst figures = new Map((Array.isArray(plan.FIGURES) ? plan.FIGURES : []).map((f) => [f.SLOT, f]));\nconst extra = String(row.EXTRA_PROMPT || '');\nreturn pending.map((slot) => {\n  const fig = figures.get(slot);\n  return { json: {\n    ...row,\n    ...draft,\n    ASSET_TYPE: fig ? 'figure' : slot,\n    SLOT: fig ? slot : '',\n    // A figure gets its own studio session: the render adapter edits in place when the\n    // session directory exists, so sharing `blog-<entry>` would make figure_2 a correction\n    // of figure_1 rather than its own section.\n    SESSION_ID: fig ? 'blog-' + row.ENTRY_ID + '-' + slot : 'blog-' + row.ENTRY_ID,\n    EXTRA_PROMPT: fig\n      ? 'Illustrate only this section of the article; do not illustrate the whole article.\\n\\n## '\n        + fig.HEADING + '\\n\\n' + fig.SECTION + (extra ? '\\n\\n' + extra : '')\n      : extra,\n    ROUND: Number(row.ARTICLE_ROUND || 0) + 1,\n  } };\n});\n"
       },
       "id": "d63e1a99-4f73-4c5d-b132-9e7f0c4a8b53",
       "name": "split_pending_types",
@@ -4693,6 +4704,124 @@
         2912,
         -288
       ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// The approved draft is the asset plan: the hero types the entry declared, plus one slot per\n// <!-- asset:figure --> marker in document order. The pending split, the publish gate and the\n// commit all read this item; a second derivation is how a marker and its row stop agreeing.\n//\n// A marker inside a fence is illustration text, not a marker: same rule as parse_article and\n// check-article. A figure before the first section is refused because the hero owns that place.\nconst row = $('select_article_to_queue').first().json;\nconst draft = String(($('read_draft_for_assets').first().json || {}).ARTICLE_TEXT || '');\nif (!draft.trim()) throw new Error('row ' + row.row_number + ' has no stored draft to plan assets from');\n\nconst hero = String(row.REQUESTED_ASSETS || '').split(',').map((s) => s.trim()).filter(Boolean);\nconst lines = draft.split('\\n');\nlet inFence = false;\nconst headings = [];\nconst markerLines = [];\nlines.forEach((line, index) => {\n  const trimmed = line.trim();\n  if (/^```/.test(trimmed)) { inFence = !inFence; return; }\n  if (inFence) return;\n  if (/^## /.test(trimmed)) headings.push({ index, heading: trimmed.replace(/^##\\s+/, '').trim() });\n  if (/^<!--\\s*asset:figure\\s*-->$/.test(trimmed)) markerLines.push(index);\n});\n\nconst figures = markerLines.map((index, i) => {\n  const before = headings.filter((h) => h.index < index);\n  if (!before.length) throw new Error('a figure marker sits before the first section: the hero owns that position');\n  const heading = before[before.length - 1];\n  const after = headings.find((h) => h.index > index);\n  const section = lines\n    .slice(heading.index + 1, after ? after.index : lines.length)\n    .filter((line) => !/^<!--\\s*asset:figure\\s*-->$/.test(line.trim()))\n    .join('\\n').trim().slice(0, 1500);\n  return { SLOT: 'figure_' + (i + 1), INDEX: i + 1, HEADING: heading.heading, SECTION: section };\n});\nconst maxFigures = Number(row.MAX_FIGURES) > 0 ? Number(row.MAX_FIGURES) : 3;\nif (figures.length > maxFigures) {\n  throw new Error('the draft carries ' + figures.length + ' figure markers against a cap of ' + maxFigures);\n}\n\nconst requested = [...hero, ...figures.map((f) => f.SLOT)];\nconst accepted = new Set($('read_asset_rows_for_plan').all().map((i) => i.json || {})\n  .filter((r) => ['APPROVED', 'COMMITTED'].includes(String(r.STATUS || '').toUpperCase()))\n  .map((r) => String(r.ASSET_TYPE || '')));\nconst pending = requested.filter((slot) => !accepted.has(slot));\nreturn [{ json: {\n  ...row,\n  HERO_TYPES: hero.join(','),\n  FIGURE_SLOTS: figures.map((f) => f.SLOT).join(','),\n  FIGURES: figures,\n  REQUESTED_ASSETS: requested.join(','),\n  PENDING_ASSETS: pending.join(','),\n} }];\n"
+      },
+      "id": "2fe5a6e0-a2c0-4135-8289-a0fc0a554535",
+      "name": "derive_asset_plan",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5040,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "article_assets"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "ENTRY_ID",
+              "keyValue": "={{ $('select_article_to_queue').item.json.ENTRY_ID }}"
+            }
+          ]
+        }
+      },
+      "id": "8146f463-2100-4765-b956-8e2c9a00cd71",
+      "name": "read_asset_rows_for_plan",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        4936,
+        176
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Every figure row belongs to the previous draft's plan. A new draft can move, drop or add a\n// slot, so they are retired before the new plan is authored; the hero keeps its approval.\n// One sentinel item when there is nothing to retire, because a node with no items stops the\n// branch and the publish path behind it.\nconst row = $('select_article_to_queue').first().json;\nconst rows = $('read_asset_rows_for_entry').all().map((i) => i.json || {});\nconst figures = rows.filter((r) => /^figure_\\d+$/.test(String(r.ASSET_TYPE || '')));\nif (!figures.length) return [{ json: { ENTRY_ID: row.ENTRY_ID, ASSET_TYPE: '__none__' } }];\nreturn figures.map((r) => ({ json: { ENTRY_ID: String(r.ENTRY_ID || row.ENTRY_ID), ASSET_TYPE: String(r.ASSET_TYPE) } }));\n"
+      },
+      "id": "66dd2608-5266-4fa9-a5b1-94b2caed2993",
+      "name": "figures_to_retire",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4704,
+        350
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "article_assets"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "ENTRY_ID",
+              "keyValue": "={{ $json.ENTRY_ID }}"
+            },
+            {
+              "keyName": "ASSET_TYPE",
+              "keyValue": "={{ $json.ASSET_TYPE }}"
+            }
+          ]
+        },
+        "matchType": "allConditions",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "STATUS": "CANCELLED"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "STATUS",
+              "displayName": "STATUS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "9e5cf16f-e243-440f-ad23-31a7acfc79f4",
+      "name": "retire_figures",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        4704,
+        520
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Collapse the retire update's one-item-per-row answer back to the run's single item: the\n// draft read behind this node filters on the selector, and N copies of the plan would fan the\n// studio out N times.\nreturn [{ json: $('select_article_to_queue').first().json }];\n"
+      },
+      "id": "909ff4f6-5ae8-4085-b270-39946b2b32ab",
+      "name": "after_retire",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4704,
+        690
+      ]
     }
   ],
   "connections": {
@@ -4813,7 +4942,7 @@
         ],
         [
           {
-            "node": "read_asset_rows_for_publish",
+            "node": "read_draft_for_assets",
             "type": "main",
             "index": 0
           }
@@ -4984,7 +5113,7 @@
       "main": [
         [
           {
-            "node": "if_assets_pending",
+            "node": "figures_to_retire",
             "type": "main",
             "index": 0
           }
@@ -5046,7 +5175,7 @@
       "main": [
         [
           {
-            "node": "split_pending_types",
+            "node": "read_asset_rows_for_plan",
             "type": "main",
             "index": 0
           }
@@ -5649,7 +5778,7 @@
       "main": [
         [
           {
-            "node": "read_draft_for_assets",
+            "node": "split_pending_types",
             "type": "main",
             "index": 0
           }
@@ -5657,6 +5786,61 @@
         [
           {
             "node": "read_asset_rows_for_publish",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "figures_to_retire": {
+      "main": [
+        [
+          {
+            "node": "retire_figures",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "retire_figures": {
+      "main": [
+        [
+          {
+            "node": "after_retire",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "read_asset_rows_for_plan": {
+      "main": [
+        [
+          {
+            "node": "derive_asset_plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "derive_asset_plan": {
+      "main": [
+        [
+          {
+            "node": "if_assets_pending",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "after_retire": {
+      "main": [
+        [
+          {
+            "node": "read_draft_for_assets",
             "type": "main",
             "index": 0
           }

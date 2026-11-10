@@ -1186,21 +1186,36 @@ are the LinkedIn feed's 4:5 pair; the blog is read in a text column, so a 4:5 as
 poster. `board_intake.json` defaulted every imported row to `image,svg`, and `select_article_to_queue`
 counted `image` as a hero, so no wide frame was ever prepended — row gh-80, imported from the board,
 was authored as a **928x1152** png (studio execution 15286), and that was the article's lead image
-at 80% width in a text column. The intake default is `svg_wide` only now — the composer-authored
-wide SVG, no raster — and the selector normalizes `image` to `image_wide` and `svg` to `svg_wide`
+at 80% width in a text column. The intake default is `svg_wide` now — the composer-authored wide
+SVG hero, no raster — and the selector normalizes `image` to `image_wide` and `svg` to `svg_wide`
 before it derives the set: the sheet still carries rows written under the old default, and a fix
 that only touched the default would leave them portrait. A row that explicitly names `image` or
 `image_wide` still gets that raster; the image model is no longer an intake default, not a removed
-type. Both halves are one rule in one node, and the spec's older requirement — `image` is the
+type. Section figures are not in `ASSET_TYPES` at all: the approved draft decides how many, up to
+`MAX_FIGURES` (blank = 3), and `derive_asset_plan` turns them into `figure_1…figure_N`. Both halves are one rule in one node, and the spec's older requirement — `image` is the
 hero, blank resolves to `image,svg` — said the opposite and was corrected with it.
+
+**A section figure is a positional slot, and the approved draft is the plan.** The writer may place
+`<!-- asset:figure -->` after a section that needs a diagram, at most `MAX_FIGURES` times; the marker
+carries no index, because an index is a number the model gets wrong and the parser can instead number
+the markers in document order. `derive_asset_plan` is the one derivation: it reads the stored draft
+and the run's asset rows, emits the hero types plus `figure_1…figure_N`, each figure with its section
+heading and the section's text, and everything downstream — `split_pending_types`, the publish gate,
+`build_commit_files` — reads that item. The studio is asked for the registry type `figure` once per
+slot with the section as the brief, so five figures are five sections, not five readings of the
+opening; the row keeps the slot name (`figure_2`), so its own review, S3 key and committed path stay
+separate. `build_commit_files` replaces the k-th marker with the `figure_<k>` reference and refuses
+the commit when the marker count and the row count disagree. `retire_figures` cancels the previous
+draft's `figure_*` rows when an article is re-approved, because a new draft can move or drop a slot;
+the hero keeps its approval.
 
 **A row whose assets are all approved publishes when its article is re-approved, instead of failing
 the pending check.** The draft branch ended at `read_draft_for_assets` unconditionally, and
 `split_pending_types` throws when nothing is pending — so a row reset to `QUEUE` after its article
 was cleared, with its only requested asset already `APPROVED`, drafted and was approved and then
 died on `every requested asset is already approved for row 3` (execution 16387, 2026-11-10).
-`if_assets_pending` now sits between `update_article_approved` and the studio: it reads the
-selector's `PENDING_ASSETS`, sends a non-empty set to `read_draft_for_assets` and an empty one to
+`if_assets_pending` now sits between `derive_asset_plan` and the studio: it reads the plan's
+`PENDING_ASSETS`, sends a non-empty set to `split_pending_types` and an empty one to
 `read_asset_rows_for_publish`, so the run reaches the publish gate instead of throwing. The
 `split_pending_types` throw stays as an invariant for a graph edit that bypasses the new branch.
 

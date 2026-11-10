@@ -53,7 +53,7 @@
   "_comment_max_entries_per_category": "Per-category Miniflux fetch cap. Two runs in a row truncated at 690/800 and 695/769, so one category was overflowing 600. The cost of raising it is one larger Miniflux response, not more LLM tokens - max_candidates and judge_n are what bound the spend.",
   "max_entries_per_category": 1000,
 
-  "_comment_adding_feeds": "ADDING MINIFLUX FEEDS DOES NOT INCREASE OUTPUT. The funnel is 834 raw -> 60 pool -> 24 judged -> 4 admitted, and 648 of the raw candidates were already discarded by the pool cap. More feeds move raw from 834 to 1500 and `over cap` from 648 to 1314; pool, judged and admitted do not change, because max_candidates and judge_n are the binding constraints, not supply. What feeds DO change is the QUALITY of the 60, since the pool is filled best-first inside each category quota - and that raises the judge yield, which is the only thing that raises output. So add feeds where a category cannot fill its quota: Data filled 12 of a quota of 13 on the run that motivated this, and each of Data/AI/DevOps now has a quota of ~20 rather than ~13, so all three need more supply than before. Read `quota -> filled` in the digest and feed whichever comes in under quota.",
+  "_comment_adding_feeds": "ADDING MINIFLUX FEEDS DOES NOT INCREASE OUTPUT. The funnel is 834 raw -> 60 pool -> 24 judged -> 4 admitted, and 648 of the raw candidates were already discarded by the pool cap. More feeds move raw from 834 to 1500 and `over cap` from 648 to 1314; pool, judged and admitted do not change, because max_candidates and judge_n are the binding constraints, not supply. What feeds DO change is the QUALITY of the 60, since the pool is filled best-first inside each category quota - and that raises the judge yield, which is the only thing that raises output. So add feeds where a category cannot fill its quota: Data filled 12 of a quota of 13 on the run that motivated this, and the quota is now 25 for Data, 20 for AI and 15 for DevOps, so all three need more supply than before. Read `quota -> filled` in the digest and feed whichever comes in under quota.",
   "min_title_chars": 15,
 
   "_comment_min_content_words": "Below this a candidate is thin_content and the judge loop fetches the real article through the Download Content sub-workflow first. Hacker News candidates are always thin - they are bare links - so they always take that path.",
@@ -62,7 +62,7 @@
   "_comment_caps": "max_candidates bounds the HN engagement lookup (one to two HTTP calls each); judge_n bounds the LLM spend (one call per finalist, each reading up to 12k characters of article). Everything before those two numbers is free.",
   "max_candidates": 60,
 
-  "_comment_pool_allocation": "There is deliberately no max_per_category knob. The pool is allocated by category_weights, normalised over the categories present in the run, so each category competes only against itself. A flat ceiling of 20 gave Tech 20 of the 60 slots while Hacker News contributed 40 candidates and got 1: a bare link has no excerpt for the keyword match, so it loses to any full Miniflux article and the cap then deleted 39/40 of a source that had just been added. Both of those categories are gone now - Tech is excluded, HN candidates are routed into the three real categories - so the 60 slots split roughly Data 21 / AI 20 / DevOps 19. Watch the `quota -> filled` line in the digest.",
+  "_comment_pool_allocation": "There is deliberately no max_per_category knob. The pool is allocated by category_weights, normalised over the categories present in the run, so each category competes only against itself. A flat ceiling of 20 gave Tech 20 of the 60 slots while Hacker News contributed 40 candidates and got 1: a bare link has no excerpt for the keyword match, so it loses to any full Miniflux article and the cap then deleted 39/40 of a source that had just been added. Both of those categories are gone now - Tech is excluded, HN candidates are routed into the three real categories - so the 60 slots split roughly Data 25 / AI 20 / DevOps 15. Watch the `quota -> filled` line in the digest.",
   "_comment_max_per_host": "cncf.io took 8 of 60 pool slots on one run - 8 judge calls that can only return the same argument eight times. The slate caps hosts too, but it can only pick from what the pool contains.",
   "max_per_host": 3,
 
@@ -128,11 +128,11 @@
     "MEDIUM": 0.5
   },
 
-  "_comment_categories": "Three categories only: Data, AI and DevOps. They scale the final score AND set each category's share of the candidate pool (see _comment_pool_allocation). Keys match the Miniflux category titles from datahub-local-core/releases/media/files/scripts/miniflux/miniflux_config.yaml. Tech and News are in exclude_categories now rather than carrying a low weight - a weight of 0.65 still bought Tech 14 of 60 pool slots on one run because unfilled quota redistributes, and Tech is the category the judge blocks hardest. HN is deliberately NOT a category any more: it is a source, and its candidates are classified into these three by title against category_keywords (see _comment_hn_routing). With three weights, a run holding all of them allocates roughly Data 21 / AI 20 / DevOps 19 of 60 - triple what any of them got before.",
+  "_comment_categories": "Three categories only: Data, AI and DevOps. They scale the final score AND set each category's share of the candidate pool (see _comment_pool_allocation). Keys match the Miniflux category titles from datahub-local-core/releases/media/files/scripts/miniflux/miniflux_config.yaml. Tech and News are in exclude_categories now rather than carrying a low weight - a weight of 0.65 still bought Tech 14 of 60 pool slots on one run because unfilled quota redistributes, and Tech is the category the judge blocks hardest. HN is deliberately NOT a category any more: it is a source, and its candidates are classified into these three by title against category_keywords (see _comment_hn_routing). The weights are ranked rather than equal: Data 1.0 > AI 0.8 > DevOps 0.6, so a run holding all of them allocates roughly Data 25 / AI 20 / DevOps 15 of 60 and also scores a DevOps story 40% lower than an equally good Data one.",
   "category_weights": {
     "Data": 1.0,
-    "AI": 1.0,
-    "DevOps": 0.95,
+    "AI": 0.8,
+    "DevOps": 0.6,
     "default": 0.0
   },
 

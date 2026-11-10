@@ -28,10 +28,12 @@
 
 - [x] 3.1 `node --test 'agents/adapters/pi-writer/test/*.test.mjs'` passes.
 - [x] 3.2 `openspec validate --all` passes.
-- [ ] 3.3 Rebuild and publish the `pi-writer` adapter image, then pin its digest in
+- [x] 3.3 Rebuild and publish the `pi-writer` adapter image, then pin its digest in
       `agents/sympozium/values/default.yaml.gotmpl` before the prompt and `check-article` change
       reaches the cluster. `blocked by` the image pipeline (CI publishes on merge; the pin is the
-      follow-up commit).
+      follow-up commit). **Landed 2026-11-10:** `eeccf02` changed `agents/adapters/pi-writer`, the
+      publish run rebuilt and re-pinned the adapter, and `07a154f` carries the new digest
+      (`sha256:f3dbca38…`) three minutes later.
 - [ ] 3.4 Live check after the image is pinned: one drafting turn where the model is forced past the
       limit runs `check-article`, cuts the body, and the gate accepts the answer in the same attempt.
       `[UNVERIFIED]` until the image is deployed.

@@ -276,6 +276,7 @@ async function articlePrompt(brief) {
     DESCRIPTION: entry.description ?? "",
     URL: entry.url ?? "",
     MAX_WORDS: entry.max_words ?? "",
+    MAX_FIGURES: entry.max_figures ?? "",
     ASSET_TYPES: entry.asset_types ?? "",
     AUDIENCE: entry.audience ?? "NONE",
     AUDIENCES: audiences,

@@ -15,7 +15,9 @@
     "viewport": 1280
   },
   "max_types_per_request": 3,
-  "default_types": ["image"],
+  "default_types": [
+    "image"
+  ],
   "types": [
     {
       "id": "image",
@@ -145,6 +147,17 @@
       "aspect": "16:9",
       "form": "diagram",
       "durationSeconds": 12,
+      "available": true
+    },
+    {
+      "id": "figure",
+      "brandKind": "diagrammatic",
+      "name": "Section figure",
+      "author": "agent",
+      "render": "static",
+      "format": "svg",
+      "aspect": "16:9",
+      "form": "diagram",
       "available": true
     },
     {

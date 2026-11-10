@@ -323,7 +323,7 @@ The writer SHALL be able to search for the entry's subject and to read a page it
 
 ### Requirement: Assets are produced and reviewed as a set
 
-The system SHALL request the entry's visual asset set from the `visual-studio` capability, naming types from that capability's registry. A raster hero SHALL always be requested and is the article's hero — the image social platforms preview when the page carries no `og:image`, which this blog does not emit; a blank `ASSET_TYPES` SHALL resolve to `image_wide,svg_wide`, and a declared list SHALL add to the hero rather than replace it. This lane SHALL request wide frames only: a row naming the portrait `image` or `svg` SHALL be normalized to `image_wide` or `svg_wide` before the set is requested, because the article is read in a text column and a 4:5 asset is a phone poster there. The request SHALL carry the entry's session identity, so a later request for the same entry continues the same authoring. Each asset SHALL be recorded as its own row in `article_assets` with a review state distinct from the article review state and from every other asset's, and SHALL be sent to Slack for that asset's approval.
+The system SHALL request the entry's visual asset set from the `visual-studio` capability, naming types from that capability's registry. A raster hero SHALL always be requested and is the article's hero — the image social platforms preview when the page carries no `og:image`, which this blog does not emit; a blank `ASSET_TYPES` SHALL resolve to `image_wide,svg_wide`, and a declared list SHALL add to the hero rather than replace it. This lane SHALL request wide frames only: a row naming the portrait `image` or `svg` SHALL be normalized to `image_wide` or `svg_wide` before the set is requested, because the article is read in a text column and a 4:5 asset is a phone poster there. The request SHALL carry the entry's session identity, so a later request for the same entry continues the same authoring. Each asset SHALL be recorded as its own row in `article_assets` with a review state distinct from the article review state and from every other asset's, and SHALL be sent to Slack for that asset's approval. A row SHALL be identified by the entry and the asset type together, and a write for one type MUST NOT change another type's row.
 
 #### Scenario: Asset set produced
 - **WHEN** an article draft exists for the entry
@@ -345,6 +345,11 @@ The system SHALL request the entry's visual asset set from the `visual-studio` c
 - **WHEN** the entry requests a type the registry does not declare
 - **THEN** that asset's review state is an error state naming the type
 - **AND** the other requested assets are produced and reviewed normally
+
+#### Scenario: One asset's row is written
+- **WHEN** an asset is stored or its review state changes
+- **THEN** only the row with that entry and that asset type is written
+- **AND** every other requested asset keeps its own row and review state
 
 ### Requirement: The article and every asset are reviewed and approved separately
 
@@ -1070,3 +1075,103 @@ answer SHALL add a note rather than fail the round.
 
 - **WHEN** the gate rejects an attempt and the retry passes
 - **THEN** the reviewer runs on the accepted draft only
+
+### Requirement: The drafting turn reports the body's count before answering
+
+The adapter SHALL hand the drafting and editing turns the row's word budget, and the image SHALL
+carry a command that prints the body's word count against the limit the gate enforces, computed by
+the same functions the gate uses, and exits non-zero when the body is past that limit. The drafting,
+article-task and editing prompts SHALL require the command before the turn answers and SHALL
+require the body to be cut until it reports inside the limit. The budget SHALL be supplied per turn,
+so a retry reads the row's current value rather than one stored beside the session.
+
+#### Scenario: A draft past the limit
+
+- **WHEN** the turn runs the command on a body past the ten percent limit
+- **THEN** it prints the body's count, the limit and the words to cut
+- **AND** it exits non-zero
+- **AND** the turn cuts the body and runs it again before answering
+
+#### Scenario: A draft inside the limit
+
+- **WHEN** the turn runs the command on a body at or under the limit
+- **THEN** it prints the count and the limit
+- **AND** it exits zero
+
+#### Scenario: No budget on the turn
+
+- **WHEN** the turn carries no budget
+- **THEN** the command prints no count against a limit
+- **AND** it does not fail for length
+
+### Requirement: An article is drafted from sources it has read
+
+The drafting pass SHALL be a session turn with a working directory and read/fetch tools, not a single
+prompt carrying one fetched page. The session SHALL be given the entry, the audience and the rules,
+SHALL fetch the project's own documentation and repository files over HTTPS, and SHALL write two
+artifacts: the article and a source ledger naming, for every fenced line, the URL it was read from.
+
+#### Scenario: A row whose link is a brief
+
+- **WHEN** the entry's link carries a brief but no commands, chart or version
+- **THEN** the session reads the project's documentation and repository files before drafting
+- **AND** the draft quotes the commands it found, each ledgered with its URL
+
+#### Scenario: A source cannot be read
+
+- **WHEN** no fetched page carries a command for a section
+- **THEN** that section fences nothing and says in one sentence that the source could not be read
+- **AND** no placeholder stands in for a command
+
+### Requirement: Fenced lines are verified against a ledger the model does not own
+
+Every fenced line in an article SHALL appear in the source ledger. The session server, not the model,
+SHALL fetch each ledgered URL after the turn and drop the entries that do not answer; the drafting
+gate and the improvement re-check MUST reject a fenced line that is absent from the ledger or whose
+ledger entry was dropped, naming the line and the URL.
+
+#### Scenario: An invented command
+
+- **WHEN** a fenced line does not appear in the ledger
+- **THEN** the draft is rejected naming the line
+- **AND** the retry is attempted within the existing bound
+
+#### Scenario: A URL that does not answer
+
+- **WHEN** a ledgered URL fails the server's fetch
+- **THEN** its entry is dropped before n8n reads the ledger
+- **AND** a fence quoting that line is rejected
+
+### Requirement: The review gate judges fidelity against the ledger
+
+The review gate SHALL be handed the ledger and SHALL check that the draft's commands, versions and
+manifest fields are the ones it names, rather than recalling the source material.
+
+#### Scenario: A command the ledger does not carry
+
+- **WHEN** the draft fences a flag or a version that no ledger entry names
+- **THEN** the gate rejects the draft and names it
+
+### Requirement: Outbound access is limited to declared source hosts
+
+The article session SHALL fetch only from the hosts declared for it, and the limit SHALL be enforced
+below the instruction — a proxy the container's tools go through — so a host off the list is refused
+whether the server, a tool or the agent asked for it.
+
+#### Scenario: A host outside the list
+
+- **WHEN** a fetch names a host the deployment does not declare
+- **THEN** the request is refused through the proxy and the refusal is logged with the host
+- **AND** no bytes from that host reach the session
+
+### Requirement: A quoted manifest is validated before it is fenced
+
+A fenced YAML block SHALL be rendered or dry-run before it is written, and its ledger entry SHALL
+record whether that validation ran and whether it failed. A block whose validation failed MUST NOT
+appear in the article.
+
+#### Scenario: A manifest that does not parse
+
+- **WHEN** a quoted manifest fails the session's offline validation
+- **THEN** the ledger records the failure
+- **AND** the draft is rejected naming the block and the failure

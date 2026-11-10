@@ -144,7 +144,7 @@ proof available inside the pod.
 | --- | --- |
 | `lane` | `article` (default) or `post`. A post turn has only `draft` and `review`, needs a `brief`, and runs with no tools |
 | `task` | `draft` (default), `review`, `audit`, `aspects` or `improve`; the post lane serves `draft` and `review` |
-| `brief` | the entry's fields: `topic`, `description`, `url`, `max_words`, `asset_types`, `audience`, `extra_prompt`, `content`, `feedback`. The post lane adds `post_type`, `min_words`, `previous_post`, `hook` and `hook_opening`. The server renders the prompt from its own files |
+| `brief` | the entry's fields: `topic`, `description`, `url`, `max_words`, `max_figures`, `asset_types`, `audience`, `extra_prompt`, `content`, `feedback`. The post lane adds `post_type`, `min_words`, `previous_post`, `hook` and `hook_opening`. The server renders the prompt from its own files |
 | `article` | the draft of record for `review`, `aspects` and `improve`: `{ title, text }`. The caller resolves it, so the turn reviews exactly what the caller decided |
 | `post` | the draft of record for a post `review`: `{ text }`. The caller resolves it from what it parsed |
 | `findings` | the merged aspect findings for `improve`, as one text block |

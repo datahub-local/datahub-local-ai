@@ -1,7 +1,7 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "97f0d3a2-0cfb-4eab-b783-08d09c8b0f6b",
+    "versionId": "a5f2faba-2e31-4e03-8808-f4789b08929e",
     "workflowId": "PaeHFdCsdoVbQx11",
     "nodes": [
       {
@@ -454,11 +454,25 @@
       }
     ],
     "connections": {
-      "main_trigger": {
+      "switch_check_rules_llm": {
         "main": [
           [
             {
-              "node": "set_workflow_vars",
+              "node": "set_output",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "set_error_max_tries",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "build_post_request",
               "type": "main",
               "index": 0
             }
@@ -470,6 +484,57 @@
           [
             {
               "node": "download_hook_registry",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "main_trigger": {
+        "main": [
+          [
+            {
+              "node": "set_workflow_vars",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "parse_llm_check_output": {
+        "main": [
+          [
+            {
+              "node": "switch_check_rules_llm",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "if_enabled_check": {
+        "main": [
+          [
+            {
+              "node": "build_review_request",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "set_output",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "parse_llm_output": {
+        "main": [
+          [
+            {
+              "node": "if_enabled_check",
               "type": "main",
               "index": 0
             }
@@ -531,35 +596,6 @@
           ]
         ]
       },
-      "parse_llm_output": {
-        "main": [
-          [
-            {
-              "node": "if_enabled_check",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "if_enabled_check": {
-        "main": [
-          [
-            {
-              "node": "build_review_request",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "set_output",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
       "build_review_request": {
         "main": [
           [
@@ -592,42 +628,6 @@
             }
           ]
         ]
-      },
-      "parse_llm_check_output": {
-        "main": [
-          [
-            {
-              "node": "switch_check_rules_llm",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "switch_check_rules_llm": {
-        "main": [
-          [
-            {
-              "node": "set_output",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "set_error_max_tries",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "build_post_request",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
       }
     },
     "nodeGroups": [],
@@ -635,16 +635,30 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-10-19T17:55:44.032Z",
-    "updatedAt": "2026-10-19T17:55:44.032Z"
+    "createdAt": "2026-11-09T21:47:00.793Z",
+    "updatedAt": "2026-11-09T21:47:00.793Z"
   },
-  "activeVersionId": "97f0d3a2-0cfb-4eab-b783-08d09c8b0f6b",
+  "activeVersionId": "a5f2faba-2e31-4e03-8808-f4789b08929e",
   "connections": {
-    "main_trigger": {
+    "switch_check_rules_llm": {
       "main": [
         [
           {
-            "node": "set_workflow_vars",
+            "node": "set_output",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "set_error_max_tries",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "build_post_request",
             "type": "main",
             "index": 0
           }
@@ -656,6 +670,57 @@
         [
           {
             "node": "download_hook_registry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "main_trigger": {
+      "main": [
+        [
+          {
+            "node": "set_workflow_vars",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "parse_llm_check_output": {
+      "main": [
+        [
+          {
+            "node": "switch_check_rules_llm",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if_enabled_check": {
+      "main": [
+        [
+          {
+            "node": "build_review_request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "set_output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "parse_llm_output": {
+      "main": [
+        [
+          {
+            "node": "if_enabled_check",
             "type": "main",
             "index": 0
           }
@@ -717,35 +782,6 @@
         ]
       ]
     },
-    "parse_llm_output": {
-      "main": [
-        [
-          {
-            "node": "if_enabled_check",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "if_enabled_check": {
-      "main": [
-        [
-          {
-            "node": "build_review_request",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "set_output",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "build_review_request": {
       "main": [
         [
@@ -773,42 +809,6 @@
         [
           {
             "node": "parse_llm_check_output",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "parse_llm_check_output": {
-      "main": [
-        [
-          {
-            "node": "switch_check_rules_llm",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "switch_check_rules_llm": {
-      "main": [
-        [
-          {
-            "node": "set_output",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "set_error_max_tries",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "build_post_request",
             "type": "main",
             "index": 0
           }
@@ -1294,6 +1294,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 0,
-  "updatedAt": "2026-10-19T17:55:44.027Z",
-  "versionId": "97f0d3a2-0cfb-4eab-b783-08d09c8b0f6b"
+  "updatedAt": "2026-11-09T21:47:00.779Z",
+  "versionId": "a5f2faba-2e31-4e03-8808-f4789b08929e"
 }

@@ -1194,6 +1194,16 @@ that only touched the default would leave them portrait. A row that explicitly n
 type. Both halves are one rule in one node, and the spec's older requirement — `image` is the
 hero, blank resolves to `image,svg` — said the opposite and was corrected with it.
 
+**A row whose assets are all approved publishes when its article is re-approved, instead of failing
+the pending check.** The draft branch ended at `read_draft_for_assets` unconditionally, and
+`split_pending_types` throws when nothing is pending — so a row reset to `QUEUE` after its article
+was cleared, with its only requested asset already `APPROVED`, drafted and was approved and then
+died on `every requested asset is already approved for row 3` (execution 16387, 2026-11-10).
+`if_assets_pending` now sits between `update_article_approved` and the studio: it reads the
+selector's `PENDING_ASSETS`, sends a non-empty set to `read_draft_for_assets` and an empty one to
+`read_asset_rows_for_publish`, so the run reaches the publish gate instead of throwing. The
+`split_pending_types` throw stays as an invariant for a graph edit that bypasses the new branch.
+
 **An SVG commits with an `.svg` extension, which the content type does not give you by splitting it.**
 `build_commit_files` derived the extension as `CONTENT_TYPE.split('/')[1]`, and an SVG asset reports
 `image/svg+xml` — so the path came out `docs/img/<slug>-svg_wide.svg+xml` and the article referenced

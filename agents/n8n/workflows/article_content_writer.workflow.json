@@ -1655,6 +1655,41 @@
     },
     {
       "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "assets-pending",
+              "leftValue": "={{ String($('select_article_to_queue').item.json.PENDING_ASSETS || '').trim() !== '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "6312ef42-5725-446b-94f0-ed526971471c",
+      "name": "if_assets_pending",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        4820,
+        -192
+      ]
+    },
+    {
+      "parameters": {
         "operation": "sendAndWait",
         "select": "channel",
         "channelId": {
@@ -4949,7 +4984,7 @@
       "main": [
         [
           {
-            "node": "read_draft_for_assets",
+            "node": "if_assets_pending",
             "type": "main",
             "index": 0
           }
@@ -5604,6 +5639,24 @@
         [
           {
             "node": "derive_slug",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if_assets_pending": {
+      "main": [
+        [
+          {
+            "node": "read_draft_for_assets",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "read_asset_rows_for_publish",
             "type": "main",
             "index": 0
           }

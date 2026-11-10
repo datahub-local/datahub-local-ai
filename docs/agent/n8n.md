@@ -1186,10 +1186,12 @@ are the LinkedIn feed's 4:5 pair; the blog is read in a text column, so a 4:5 as
 poster. `board_intake.json` defaulted every imported row to `image,svg`, and `select_article_to_queue`
 counted `image` as a hero, so no wide frame was ever prepended — row gh-80, imported from the board,
 was authored as a **928x1152** png (studio execution 15286), and that was the article's lead image
-at 80% width in a text column. The intake default is `image_wide,svg_wide` now, and the selector
-normalizes `image` to `image_wide` and `svg` to `svg_wide` before it derives the set: the sheet still
-carries rows written under the old default, and a fix that only touched the default would leave them
-portrait. Both halves are one rule in one node, and the spec's older requirement — `image` is the
+at 80% width in a text column. The intake default is `svg_wide` only now — the composer-authored
+wide SVG, no raster — and the selector normalizes `image` to `image_wide` and `svg` to `svg_wide`
+before it derives the set: the sheet still carries rows written under the old default, and a fix
+that only touched the default would leave them portrait. A row that explicitly names `image` or
+`image_wide` still gets that raster; the image model is no longer an intake default, not a removed
+type. Both halves are one rule in one node, and the spec's older requirement — `image` is the
 hero, blank resolves to `image,svg` — said the opposite and was corrected with it.
 
 **An SVG commits with an `.svg` extension, which the content type does not give you by splitting it.**

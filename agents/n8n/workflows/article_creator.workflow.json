@@ -1,7 +1,7 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "ebd682d0-822d-4387-94b0-841ee65d33fe",
+    "versionId": "001d0571-a8e5-4644-b198-ae1ba4cfb28f",
     "workflowId": "nPBkIpeObC1Om0LH",
     "nodes": [
       {
@@ -686,17 +686,6 @@
           ]
         ]
       },
-      "build_review_request": {
-        "main": [
-          [
-            {
-              "index": 0,
-              "node": "request_review",
-              "type": "main"
-            }
-          ]
-        ]
-      },
       "fetch_article": {
         "main": [
           [
@@ -730,35 +719,13 @@
           ]
         ]
       },
-      "merge_article_verdict": {
-        "main": [
-          [
-            {
-              "index": 0,
-              "node": "switch_article_check",
-              "type": "main"
-            }
-          ]
-        ]
-      },
       "parse_article": {
         "main": [
           [
             {
-              "index": 0,
-              "node": "build_review_request",
-              "type": "main"
-            }
-          ]
-        ]
-      },
-      "parse_review_verdict": {
-        "main": [
-          [
-            {
-              "index": 0,
-              "node": "merge_article_verdict",
-              "type": "main"
+              "node": "gate_verdict",
+              "type": "main",
+              "index": 0
             }
           ]
         ]
@@ -810,24 +777,6 @@
           ]
         ]
       },
-      "request_review": {
-        "main": [
-          [
-            {
-              "index": 0,
-              "node": "parse_review_verdict",
-              "type": "main"
-            }
-          ],
-          [
-            {
-              "index": 0,
-              "node": "parse_review_verdict",
-              "type": "main"
-            }
-          ]
-        ]
-      },
       "set_workflow_vars": {
         "main": [
           [
@@ -843,9 +792,9 @@
         "main": [
           [
             {
-              "index": 0,
-              "node": "set_output",
-              "type": "main"
+              "node": "build_review_request",
+              "type": "main",
+              "index": 0
             }
           ],
           [
@@ -895,6 +844,50 @@
             }
           ]
         ]
+      },
+      "gate_verdict": {
+        "main": [
+          [
+            {
+              "node": "switch_article_check",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "build_review_request": {
+        "main": [
+          [
+            {
+              "node": "request_review",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "request_review": {
+        "main": [
+          [
+            {
+              "node": "review_note",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "review_note": {
+        "main": [
+          [
+            {
+              "node": "set_output",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
       }
     },
     "nodeGroups": [],
@@ -902,10 +895,10 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-11-08T16:55:13.150Z",
-    "updatedAt": "2026-11-08T16:55:13.150Z"
+    "createdAt": "2026-11-09T14:52:05.822Z",
+    "updatedAt": "2026-11-09T14:52:05.822Z"
   },
-  "activeVersionId": "ebd682d0-822d-4387-94b0-841ee65d33fe",
+  "activeVersionId": "001d0571-a8e5-4644-b198-ae1ba4cfb28f",
   "connections": {
     "build_article_request": {
       "main": [
@@ -1819,6 +1812,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 0,
-  "updatedAt": "2026-11-08T16:55:13.141Z",
-  "versionId": "ebd682d0-822d-4387-94b0-841ee65d33fe"
+  "updatedAt": "2026-11-09T14:52:05.808Z",
+  "versionId": "001d0571-a8e5-4644-b198-ae1ba4cfb28f"
 }

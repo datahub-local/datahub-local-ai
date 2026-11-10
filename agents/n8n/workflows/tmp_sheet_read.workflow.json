@@ -1,0 +1,117 @@
+{
+  "active": false,
+  "activeVersion": null,
+  "activeVersionId": null,
+  "connections": {
+    "hook": {
+      "main": [
+        [
+          {
+            "node": "sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "sheet": {
+      "main": [
+        [
+          {
+            "node": "pack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2026-11-09T10:55:36.919Z",
+  "id": "5DnwgDmUci8GT4QQ",
+  "isArchived": false,
+  "meta": null,
+  "name": "tmp-sheet-read",
+  "nodeGroups": [],
+  "nodes": [
+    {
+      "id": "c1f0c3aa-0000-4000-8000-000000000001",
+      "name": "hook",
+      "webhookId": "c1f0c3aa-0000-4000-8000-0000000000read",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "tmp-sheet-read",
+        "responseMode": "lastNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "c1f0c3aa-0000-4000-8000-000000000002",
+      "name": "sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "operation": "read",
+        "options": {},
+        "documentId": {
+          "__rl": true,
+          "value": "1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI",
+          "mode": "list",
+          "cachedResultName": "content_planner"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "article_queue",
+          "mode": "name",
+          "cachedResultName": "article_queue"
+        }
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "pGARJmt50qz64xOo",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "c1f0c3aa-0000-4000-8000-000000000003",
+      "name": "pack",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        0
+      ],
+      "parameters": {
+        "jsCode": "return [{ json: { rows: $input.all().map((i) => i.json) } }];"
+      }
+    }
+  ],
+  "pinData": null,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "role": "workflow:owner",
+      "workflowId": "5DnwgDmUci8GT4QQ",
+      "projectId": "zcGU09G6dy4Oah3l",
+      "createdAt": "2026-11-09T10:55:36.919Z",
+      "updatedAt": "2026-11-09T10:55:36.919Z"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2026-11-09T10:55:36.919Z",
+  "versionId": "a1af792c-b51c-43ff-bb2c-88bd216b488c"
+}

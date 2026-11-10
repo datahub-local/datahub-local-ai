@@ -1,18 +1,39 @@
 #!/usr/bin/env node
 // The writer's own check, before it answers: every fenced block in the article has to appear on a
-// page this session scraped. Same rule the server applies afterwards, so a missing block is caught
-// while the turn can still fix it instead of costing a rejected round.
+// page this session scraped, and the body has to be inside this run's word limit. Same rules the
+// server applies afterwards, so a miss is caught while the turn can still fix it instead of costing
+// a rejected round.
 //
 // Usage: check-article [article.md]
 
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 
-import { transcriptPages, deriveLedger } from "./session-lib.mjs";
+import {
+  transcriptPages,
+  deriveLedger,
+  splitArticle,
+  articleWordCount,
+  articleWordLimit,
+} from "./session-lib.mjs";
 
 const dir = process.env.PI_WRITER_SESSION_DIR || "/tmp/pi-sessions";
 const id = process.env.PI_WRITER_SESSION_ID || "";
-const article = process.argv[2] || "article.md";
+const file = process.argv[2] || "article.md";
+// The budget is the turn's, not the file's: the server passes it on every drafting and editing
+// turn, so a retry under the same row reads the same limit the gate will enforce.
+const budget = Number(process.env.PI_WRITER_MAX_WORDS || 0);
+
+// The gate counts the body after the H1, with markers removed. A plain `wc -w article.md` adds the
+// title and every marker word, so the two numbers differ; this is the number the gate uses.
+function wordVerdict(text) {
+  if (!Number.isFinite(budget) || budget <= 0) return { over: false, line: "" };
+  const limit = articleWordLimit(budget);
+  const words = articleWordCount(splitArticle(text).text);
+  const over = words > limit;
+  const cut = over ? ` — cut at least ${words - limit} words` : "";
+  return { over, line: `WORDS: ${words} of ${limit} (budget ${budget})${cut}` };
+}
 
 async function main() {
   if (!id) {
@@ -21,19 +42,21 @@ async function main() {
   }
   let text;
   try {
-    text = await readFile(article, "utf8");
+    text = await readFile(file, "utf8");
   } catch {
-    console.error(`check-article: no ${article} in ${process.cwd()}`);
+    console.error(`check-article: no ${file} in ${process.cwd()}`);
     return 2;
   }
+  const words = wordVerdict(text);
+  if (words.line) console.log(words.line);
   const names = (await readdir(dir).catch(() => [])).filter((name) => name.endsWith(`_${id}.jsonl`)).sort();
-  const file = names.at(-1);
-  if (!file) {
+  const transcript = names.at(-1);
+  if (!transcript) {
     console.error(`check-article: no transcript for ${id} in ${dir}; no page can be proved`);
     return 2;
   }
   const rows = [];
-  for (const line of (await readFile(join(dir, file), "utf8")).split("\n")) {
+  for (const line of (await readFile(join(dir, transcript), "utf8")).split("\n")) {
     if (!line.trim()) continue;
     try {
       rows.push(JSON.parse(line));
@@ -46,7 +69,7 @@ async function main() {
     console.log(`MISSING: ${block.firstLine}${block.reason ? ` — ${block.reason}` : ""}`);
   }
   console.log(`${sources.length} block(s) quoted, ${unquoted.length} missing`);
-  return unquoted.length ? 1 : 0;
+  return unquoted.length || words.over ? 1 : 0;
 }
 
 process.exitCode = await main();

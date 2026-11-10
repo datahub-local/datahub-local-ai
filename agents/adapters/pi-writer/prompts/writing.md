@@ -35,9 +35,13 @@ the work; this file is the map of the sandbox you draft in.
    A block you assembled is accepted when every name it uses is on a page this session read,
    which is how an article shows a resource the docs describe rather than print; a missing
    name rejects it and the reason names that name.
-5. Before you answer, run `check-article` in the working directory. It prints a `MISSING` line
-   naming the block and the names no page carries. Fix those names from the page that has
-   them, or write the step in prose, then run it again until it reports none.
+5. Before you answer, run `check-article` in the working directory. It prints
+   `WORDS: <n> of <limit>` for the body — the run's own count, with the title and asset
+   markers excluded — and a `MISSING` line for every fenced block whose names no page
+   carries. Cut the body until the count is inside the limit, fix those names from the page
+   that has them, or write the step in prose, then run it again until it reports no `MISSING`
+   line and the count is inside. `wc -w article.md` counts the title and the marker words
+   too, so it is a rough guide only; `check-article` is the number the gate uses.
 6. A YAML resource is shown as the file the project ships: quote the file's own text as the
    block, then the command that applies it by name (`kubectl apply -f instance.yaml`). Prefer
    that to a heredoc: the reader gets a file they can edit, and a composed manifest is easier to

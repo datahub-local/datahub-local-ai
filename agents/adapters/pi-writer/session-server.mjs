@@ -747,6 +747,9 @@ function runPi(prompt, sessionID, onOutput, signal, cwd = workDir, options = {})
         ...process.env,
         PI_WRITER_SESSION_ID: sessionID,
         PI_WRITER_SESSION_DIR: sessionDir,
+        // Per turn, because the run directory outlives a budget edit: a retry must read the
+        // row's current limit, and `check-article` is the count the writer is held to.
+        ...(Number(options.budget) > 0 ? { PI_WRITER_MAX_WORDS: String(options.budget) } : {}),
         ...(options.sessionFile ? { PI_WRITER_SESSION_FILE: options.sessionFile } : {}),
       },
       stdio: ["ignore", "pipe", "pipe"],
@@ -1209,7 +1212,8 @@ http
                       })
                   : undefined,
                 cancellation.signal,
-                dir
+                dir,
+                { budget: brief?.max_words }
               );
               await adoptDraft(dir, response, before);
               return { response, ledger: await writeDerivedLedger(dir, sessionID) };
@@ -1302,7 +1306,9 @@ http
           const release = allowHosts(hosts);
           proxyEnv(hosts);
           try {
-            response = await runPi(prompt, sessionID, undefined, cancellation.signal, dir);
+            response = await runPi(prompt, sessionID, undefined, cancellation.signal, dir, {
+              budget: brief?.max_words,
+            });
           } finally {
             release();
             proxyEnv(null);

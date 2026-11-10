@@ -30,6 +30,9 @@ test("the image installs what the guide tells the model to use", () => {
   }
   assert.match(dockerfile, /install -m 0755 "\/tmp\/linux-\$\{arch\}\/helm" \/usr\/local\/bin\/helm/);
   assert.match(guide, /helm template/);
+  // `article_audit.md` tells the auditor `rg` is installed, and the auditor greps the transcript
+  // with it; the base image carries no ripgrep, so the apt block has to.
+  assert.match(dockerfile, /apt-get install[\s\S]*?\n\s+ripgrep\b/);
   // The guide tells the turn to run `check-article` before it answers, so the image has to
   // carry the command and the library it imports.
   assert.match(dockerfile, /COPY --chmod=0644 bin\/check-article\.mjs \/usr\/local\/bin\/check-article\.mjs/);

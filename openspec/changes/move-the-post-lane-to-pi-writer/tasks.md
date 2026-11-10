@@ -47,18 +47,25 @@
 - [x] 2.3 Keep the hook registry read: `download_hook_registry` + `parse_hook_registry` are the
   only remaining download; resolve the row's `HOOK` to its `opening` and pass `hook` and
   `hook_opening` as values. Do not copy the registry into the adapter.
-- [ ] 2.4 Apply live with `apply_workflow_changes.py --changes --require-edge` after confirming each
+- [x] 2.4 Apply live with `apply_workflow_changes.py --changes --require-edge` after confirming each
   premise edge, re-activate, and re-read: both copies identical, the retired nodes absent from both,
   the workflow active. Do not add a test that asserts the export (owner rule, 2026-11-07).
+  **Landed 2026-11-09:** dry run confirmed all five premise edges; applied both workflows, re-read
+  live equals the committed exports (creator 16 nodes, sharing 52), both `active=true`, and the creator
+  carries no `langchain` node.
 - [x] 2.5 `linked_in_post_sharing.workflow.json`, both copies: add `ROW_NUMBER` to
   `execute_post_creator`'s inputs (`select_article_to_post.row_number`) and its schema, so the
   session id is `post-<row>`; the contract's other inputs are unchanged.
-- [ ] 2.6 Publish the `pi-writer` image: the prompts and the session server are in it, so the live
+- [x] 2.6 Publish the `pi-writer` image: the prompts and the session server are in it, so the live
   lane cannot serve `lane: "post"` until `publish-images.yaml` has built it and pinned the digest in
   `agents/sympozium/values/default.yaml.gotmpl`, and ArgoCD has rolled the session.
+  **Landed 2026-11-09:** publish run `42705454198` completed, pin `a04ab52` (`87f201c2…`), ArgoCD
+  hard-refreshed and the deployment rolled; the pod lists all six post prompt files.
 - [ ] 2.7 Verify the two paths offline as far as possible and then live: `ENABLE_CHECK=true` with a
   forced rejection (the explanation appears in the next attempt) and `ENABLE_CHECK=false` (the first
-  draft reaches `set_output`).
+  draft reaches `set_output`). The adapter contract was smoke-tested live on 2026-11-09: a
+  `post-smoke-*` session drafted (directives drawn, `<output>` body) and its gate rejected it with a
+  named subject-switch reason. The n8n side still needs one scheduled/pick-up run for each branch.
 
 ## 3. Removal and documentation
 

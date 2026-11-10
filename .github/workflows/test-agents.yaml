@@ -41,6 +41,23 @@ jobs:
       - name: Test session helpers
         run: node --test 'agents/adapters/pi-render/test/*.test.mjs'
 
+  pi-writer-adapter:
+    name: pi-writer adapter session and check tools
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # Offline: the server test spawns the real server with a stub `pi` on PATH,
+      # and `check-article` runs against a fake run directory. No image needed.
+      - name: Test the writer session
+        run: node --test 'agents/adapters/pi-writer/test/*.test.mjs'
+
   opencode-adapter:
     name: opencode adapter credential helpers
     runs-on: ubuntu-latest

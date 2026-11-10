@@ -175,7 +175,9 @@ is reachable.
 
 `MODEL_NAME`, `MODEL_BASE_URL`, `OPENAI_API_KEY`, `SYMPOZIUM_HARNESS_CONTRACT_VERSION`
 (`v1alpha2`), `PI_WRITER_SESSION_ID` / `PI_WRITER_SESSION_DIR` / `PI_WRITER_SESSION_FILE` (what the turn's
-`check-article` and the auditor resolve their transcript from), `PI_WRITER_THINKING` (default `minimal`, which the model needs),
+`check-article` and the auditor resolve their transcript from), `PI_WRITER_MAX_WORDS` (the turn's
+budget, which `check-article` turns into the body's count and the gate's limit, set per turn because
+a session outlives the row), `PI_WRITER_THINKING` (default `minimal`, which the model needs),
 and the optional `PI_WRITER_*` knobs: the context window (500000, the gateway's
 `max_input_tokens`), the token cap, the compaction trigger as a percentage of that window (80) and
 the kept-recent percentage (5), the idle timeout and the retry window. `SYMPOZIUM_WORKSPACE` moves

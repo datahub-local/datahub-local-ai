@@ -884,6 +884,19 @@ whatever the reviewer's `<output>` said, and prefixes the reason with the parser
 462 words, so cut 22 words.` A `MAX_WORDS` that is missing or non-positive still
 throws: that is a caller bug, not a draft to retry.
 
+**The writer counts its own words before it answers, because it cannot count prose.** The drafting
+turn was told "at most 1200" and nothing else, so it wrote 1,377 and every retry it spent landed
+past the 1,320 limit; row 4 (execution 16323, 2026-11-10) ended `MAX_RETRIES_EXCEEDED:
+OVER_BUDGET: 1377 words against a limit of 1320`. The server now passes the turn's budget as
+`PI_WRITER_MAX_WORDS` to the draft and improve turns, and `check-article` prints
+`WORDS: <n> of <limit> (budget <max>) — cut at least <k> words` using the same `articleWordCount`
+and `articleWordLimit` as the gate, exiting non-zero when the body is past the limit. `writing.md`,
+`article_task.md` and `article_improver.md` tell the model to run it and cut until the count is
+inside; `wc -w article.md` counts the title and marker words too, so the prompt names it as a rough
+guide and `check-article` as the number the gate uses. The image carries `wc`, `grep`, `jq` and now
+`rg` (the audit prompt already claimed it).
+
+
 **The gate allows a 10% counting margin, and the reviewer is told that limit rather than the
 budget.** `limit = Math.ceil(max * 11 / 10)` — integer arithmetic on purpose, because `1200 * 1.1`
 is `1320.0000000000002` in a double and `Math.ceil` would then add a word, in a place nobody looks.
@@ -956,6 +969,17 @@ requested type is `APPROVED` (the selector computes `pending` from the same set)
 filter is on the type and not on the status: a status condition could only drop an asset the gate
 had cleared. `test_the_requested_set_is_derived_once_and_read_by_its_consumers` pins that the hero
 rule exists in exactly one node.
+
+**Every multi-condition Data Table filter must set `matchType: allConditions`.** n8n 2.47's Data
+Table node defaults `matchType` to `anyCondition`, and the four nodes that carry two conditions —
+`store_assets`, `mark_asset_approved`, `mark_asset_cancelled`, `record_asset_paths` — had no
+`matchType` in their parameters. So `ENTRY_ID = gh-80` **or** `ASSET_TYPE = svg_wide` matched every
+row for the entry: the `store_assets` upsert for `svg_wide` updated the `image_wide` row too and
+wrote `ASSET_TYPE: svg_wide` into it, leaving no `image_wide` row at all. The publish gate then
+reported `image_wide=MISSING` and stopped the run with a notice telling the reader to re-run "once
+every requested asset is approved" — which no longer described the state (row 3, 2026-11-10). All
+four now carry `matchType: allConditions` in the export and live; a single-condition filter needs no
+`matchType` because there is nothing to combine.
 
 **A retry is handed the draft it rejected, in both lanes.** The reviewer's reason says "apply these
 changes", and the drafting prompt carried the reason and no draft — so the drafter rewrote from

@@ -22,6 +22,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
     jq \
+    ripgrep \
     && rm -rf /var/lib/apt/lists/*
 
 # Pi, installed exactly as the upstream adapter installs it: the pinned package,

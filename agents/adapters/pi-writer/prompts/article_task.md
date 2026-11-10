@@ -5,7 +5,7 @@ Write one article for the blog.
 - Topic: {{ TOPIC }}
 - Description: {{ DESCRIPTION }}
 - Source link: {{ URL }}
-- Length budget: at most {{ MAX_WORDS }} words of body text, title and markers excluded
+- Length budget: at most {{ MAX_WORDS }} words of body text, title and markers excluded. `check-article` prints the run's own count and limit; a draft past the limit is rejected by code, not by a reader.
 - Requested visual assets: {{ ASSET_TYPES }}
 
 ## Audience
@@ -91,4 +91,4 @@ This is the draft the review rejected. Rewrite it applying the Reviewer Feedback
 - When the source link is set, end the body with a single line: `Source: {{ URL }}`.
 - No bullet-point padding: a list only where the items are genuinely parallel.
 
-Answer inside a single `<article>` block, in Markdown, starting with the H1 title, and stay within the word budget.
+Answer inside a single `<article>` block, in Markdown, starting with the H1 title. Run `check-article` before you answer and cut the body until the count it prints is inside the limit; do not estimate the count.

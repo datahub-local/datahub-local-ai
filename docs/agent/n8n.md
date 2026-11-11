@@ -310,6 +310,15 @@ Eight structural things worth knowing before editing an export:
   repeat. Both are in the writer adapter's image now, so a wording fix ships with
   the image rather than on push; the two copies cannot drift because they are the
   same directory.
+- **The gate reads the draft before the source URL is rendered.** `parse_llm_output`
+  substituted the row's URL into the source line in place, and `build_review_request`
+  sent that same text to `pi-writer`, whose rules require the exact placeholder
+  `Source here: SOME_URL` — so every draft was rejected for the URL the graph had
+  just written, and the run ended `MAX_RETRIES_EXCEEDED` on that reason each time
+  (2026-11-11). The node now returns both forms: `review_text` with the line reset
+  to the placeholder, which `build_review_request` sends, and `result` with the URL
+  rendered, which `set_output` publishes. A new consumer of the post text has to
+  pick the field it wants; the adapter still owns the rule, the graph owns the URL.
 - **The subject owns the judgment; the source owns the work.** `LinkedIn Post
   Creator` is handed a third-party article and told to write from the poster's
   expertise, so a first fix that only asked it to *name* the company failed: on

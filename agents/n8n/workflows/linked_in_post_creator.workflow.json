@@ -274,7 +274,7 @@
           -992
         ],
         "parameters": {
-          "jsCode": "// n8n Code node — mode: \"Run Once for Each Item\"\n\nconst url = $('set_workflow_vars').item.json.URL;\nconst text = $json.text;\n\n// Pull the <output>...</output> block; fall back to the whole text if absent\nconst match = /<output>([\\s\\S]*?)<\\/output>/.exec(text);\nlet result = match ? match[1].trim() : text;\n\n// Apply the two replacements (function form = $-safe URLs)\nresult = result\n  .replace(/(Source here: ).*/g, (m, p1) => p1 + url)\n  .replace(/(.*): SOME_URL/g,   (m, p1) => p1 + ': ' + url);\n\nreturn { json: { ...$json, result } };"
+          "jsCode": "// n8n Code node — mode: \"Run Once for Each Item\"\n\nconst url = $('set_workflow_vars').item.json.URL;\nconst text = $json.text;\n\n// Pull the <output>...</output> block; fall back to the whole text if absent\nconst match = /<output>([\\s\\S]*?)<\\/output>/.exec(text);\nlet result = match ? match[1].trim() : text;\n\n// The gate demands the exact placeholder, so it gets the line before any URL is rendered;\n// substituting here first made every draft fail for the URL it had just been handed.\nconst review_text = result.replace(/^Source here:.*$/gm, 'Source here: SOME_URL');\nresult = review_text\n  .replace(/(Source here: )SOME_URL/g, (m, p1) => p1 + url)\n  .replace(/(.*): SOME_URL/g,   (m, p1) => p1 + ': ' + url);\n\nreturn { json: { ...$json, review_text, result } };"
         }
       },
       {
@@ -407,7 +407,7 @@
           -992
         ],
         "parameters": {
-          "jsCode": "// The gate is a writer turn too. It gets the draft n8n parsed, so it reviews exactly what\n// this attempt produced; the same session carries the directives the drafter was given.\nconst parsed = $('parse_llm_output').first().json;\nconst req = $('build_post_request').first().json;\nconst text = String(parsed.result || '').trim();\nif (!text) throw new Error('the gate has no post to review');\nreturn [{ json: {\n  POST_URL: req.POST_URL,\n  POST_BODY: JSON.stringify({ lane: 'post', task: 'review', session_id: req.SESSION_ID, brief: req.BRIEF, post: { text } }),\n} }];"
+          "jsCode": "// The gate is a writer turn too. It gets the draft n8n parsed, so it reviews exactly what\n// this attempt produced; the same session carries the directives the drafter was given.\nconst parsed = $('parse_llm_output').first().json;\nconst req = $('build_post_request').first().json;\nconst text = String(parsed.review_text || '').trim();\nif (!text) throw new Error('the gate has no post to review');\nreturn [{ json: {\n  POST_URL: req.POST_URL,\n  POST_BODY: JSON.stringify({ lane: 'post', task: 'review', session_id: req.SESSION_ID, brief: req.BRIEF, post: { text } }),\n} }];"
         }
       },
       {
@@ -1095,7 +1095,7 @@
         -992
       ],
       "parameters": {
-        "jsCode": "// n8n Code node — mode: \"Run Once for Each Item\"\n\nconst url = $('set_workflow_vars').item.json.URL;\nconst text = $json.text;\n\n// Pull the <output>...</output> block; fall back to the whole text if absent\nconst match = /<output>([\\s\\S]*?)<\\/output>/.exec(text);\nlet result = match ? match[1].trim() : text;\n\n// Apply the two replacements (function form = $-safe URLs)\nresult = result\n  .replace(/(Source here: ).*/g, (m, p1) => p1 + url)\n  .replace(/(.*): SOME_URL/g,   (m, p1) => p1 + ': ' + url);\n\nreturn { json: { ...$json, result } };"
+        "jsCode": "// n8n Code node — mode: \"Run Once for Each Item\"\n\nconst url = $('set_workflow_vars').item.json.URL;\nconst text = $json.text;\n\n// Pull the <output>...</output> block; fall back to the whole text if absent\nconst match = /<output>([\\s\\S]*?)<\\/output>/.exec(text);\nlet result = match ? match[1].trim() : text;\n\n// The gate demands the exact placeholder, so it gets the line before any URL is rendered;\n// substituting here first made every draft fail for the URL it had just been handed.\nconst review_text = result.replace(/^Source here:.*$/gm, 'Source here: SOME_URL');\nresult = review_text\n  .replace(/(Source here: )SOME_URL/g, (m, p1) => p1 + url)\n  .replace(/(.*): SOME_URL/g,   (m, p1) => p1 + ': ' + url);\n\nreturn { json: { ...$json, review_text, result } };"
       }
     },
     {
@@ -1228,7 +1228,7 @@
         -992
       ],
       "parameters": {
-        "jsCode": "// The gate is a writer turn too. It gets the draft n8n parsed, so it reviews exactly what\n// this attempt produced; the same session carries the directives the drafter was given.\nconst parsed = $('parse_llm_output').first().json;\nconst req = $('build_post_request').first().json;\nconst text = String(parsed.result || '').trim();\nif (!text) throw new Error('the gate has no post to review');\nreturn [{ json: {\n  POST_URL: req.POST_URL,\n  POST_BODY: JSON.stringify({ lane: 'post', task: 'review', session_id: req.SESSION_ID, brief: req.BRIEF, post: { text } }),\n} }];"
+        "jsCode": "// The gate is a writer turn too. It gets the draft n8n parsed, so it reviews exactly what\n// this attempt produced; the same session carries the directives the drafter was given.\nconst parsed = $('parse_llm_output').first().json;\nconst req = $('build_post_request').first().json;\nconst text = String(parsed.review_text || '').trim();\nif (!text) throw new Error('the gate has no post to review');\nreturn [{ json: {\n  POST_URL: req.POST_URL,\n  POST_BODY: JSON.stringify({ lane: 'post', task: 'review', session_id: req.SESSION_ID, brief: req.BRIEF, post: { text } }),\n} }];"
       }
     },
     {

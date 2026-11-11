@@ -25,6 +25,12 @@ What stays this repository's concern:
   WORKDIR and lands on `sys.path`, so `/app/semantic/` shadows the `semantic`
   package and the server dies with `module 'semantic' has no attribute
   'register'`.
+- **The timeout budget.** A tool call is bounded by the server's backend timeout,
+  the `MCPServer.spec.timeout`, the Hermes client timeout and the Pod probe, in
+  that order of increasing patience. Every server here sets `spec.timeout`
+  explicitly rather than taking the 30s chart default; the effective values and
+  the ordering rule are in
+  [`datahub-local-ai-mcp/docs/deployment.md`](https://github.com/datahub-local/datahub-local-ai-mcp/blob/main/docs/deployment.md#timeouts).
 
 | Server             | ConfigMap              | Source of the data                                                                                                                                         |
 | ------------------ | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |

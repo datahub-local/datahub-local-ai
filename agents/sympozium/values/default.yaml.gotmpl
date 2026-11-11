@@ -6,6 +6,7 @@ sympozium_mcp_servers:
     image: ghcr.io/datahub-local/mcp-homelab-facts
     tag: main
     toolsPrefix: facts
+    timeout: 60
     configMap: mcp-homelab-facts
     garageSecret: mcp-s3-token
     garageTokenKey: GARAGE_ADMIN_TOKEN
@@ -19,6 +20,7 @@ sympozium_mcp_servers:
     image: ghcr.io/datahub-local/mcp-utils
     tag: main
     toolsPrefix: utils
+    timeout: 130
     observabilityEnv: false
     kubernetesReader: false
     envSecret: mcp-utils-s3
@@ -28,6 +30,7 @@ sympozium_mcp_servers:
     image: ghcr.io/datahub-local/mcp-semantic
     tag: main
     toolsPrefix: semantic
+    timeout: 60
     configMap: mcp-semantic
     observabilityEnv: false
     kubernetesReader: false
@@ -43,6 +46,7 @@ sympozium_mcp_servers:
     image: ghcr.io/datahub-local/mcp-semantic
     tag: main
     toolsPrefix: finance
+    timeout: 60
     configMap: mcp-semantic-finance
     observabilityEnv: false
     kubernetesReader: false

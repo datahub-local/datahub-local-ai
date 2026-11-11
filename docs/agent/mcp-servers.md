@@ -26,10 +26,12 @@ What stays this repository's concern:
   package and the server dies with `module 'semantic' has no attribute
   'register'`.
 - **The timeout budget.** A tool call is bounded by the server's backend timeout,
-  the `MCPServer.spec.timeout`, the Hermes client timeout and the Pod probe, in
-  that order of increasing patience. Every server here sets `spec.timeout`
-  explicitly rather than taking the 30s chart default; the effective values and
-  the ordering rule are in
+  the `MCPServer.spec.timeout` and the Hermes client timeout, in that order of
+  increasing patience. The Pod probe is a separate layer: it decides whether the
+  process survives, not whether the call completes, which is why it is the layer
+  that restarted postgres. Every server here sets `spec.timeout` explicitly
+  rather than taking the 30s chart default; the effective values and the ordering
+  rule are in
   [`datahub-local-ai-mcp/docs/deployment.md`](https://github.com/datahub-local/datahub-local-ai-mcp/blob/main/docs/deployment.md#timeouts).
 
 | Server             | ConfigMap              | Source of the data                                                                                                                                         |

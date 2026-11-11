@@ -23,7 +23,7 @@
 
 ## 4. Companion changes
 
-- [x] 4.1 `datahub-local-core`: set an explicit Hermes client `timeout` for every
-  registered server, each above its bridge with headroom.
-- [x] 4.2 `datahub-local-ai-mcp`: commit the table and record why the firecrawl
-  300s and the postgres park loop were not timeout-size problems.
+- [x] 4.1 `datahub-local-core` PR #284 (open): set an explicit Hermes client
+  `timeout` for every registered server, each above its bridge with headroom.
+- [x] 4.2 `datahub-local-ai-mcp` PR #3 (open): commit the table and record why the
+  firecrawl 300s and the postgres park loop were not timeout-size problems.

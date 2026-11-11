@@ -27,4 +27,4 @@ repository SHALL link to that table rather than keep a second copy.
 
 - **WHEN** a new MCP server omits `timeout`
 - **THEN** the render carries 30s
-- **AND** the change is rejected unless its backend ceiling is at most 20s
+- **AND** the change is rejected unless an explicit `timeout` with at least 10s of headroom over the ceiling is set

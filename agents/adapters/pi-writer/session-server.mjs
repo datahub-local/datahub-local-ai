@@ -512,6 +512,7 @@ function postWordRange(brief) {
 
 async function postPrompts(brief) {
   const { min, max } = postWordRange(brief);
+  const url = brief && typeof brief === "object" ? String(brief.url ?? "") : "";
   const [system, post, review, rules, aiSpeak] = await Promise.all([
     readPrompt("linkedin_post_system.md"),
     readPrompt("linkedin_post.md"),
@@ -523,7 +524,7 @@ async function postPrompts(brief) {
     system,
     post,
     review,
-    rules: fillTemplate(rules, { MIN_WORDS: min, MAX_WORDS: max, AI_SPEAK: aiSpeak }),
+    rules: fillTemplate(rules, { MIN_WORDS: min, MAX_WORDS: max, AI_SPEAK: aiSpeak, URL: url }),
   };
 }
 

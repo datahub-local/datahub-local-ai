@@ -128,5 +128,7 @@ Before answering, re-read the draft top to bottom and fix it in place:
 5. Feedback — every reviewer instruction above applied.
 6. Naming — the product, technology or company the post is about is named in the opening sentences, not left as an abstraction.
 7. Tail — the line `Source here: SOME_URL` exactly, then 3-5 hashtags.
+8. Attribution — on a host other than alvsanand.com, the source's analysis is stated as fact or attributed, never as the subject's own experience or rule.
+9. Freshness — no sentence from the examples or the directives survives; the closing names this post's own decision.
 
 Apply the fixes silently. Output ONLY the corrected post inside `<output></output>`, with no checklist and no commentary.

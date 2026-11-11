@@ -310,6 +310,15 @@ Eight structural things worth knowing before editing an export:
   repeat. Both are in the writer adapter's image now, so a wording fix ships with
   the image rather than on push; the two copies cannot drift because they are the
   same directory.
+- **The post session is the article, not the sheet row.** `session_id` was
+  `post-<ROW_NUMBER>`, and row numbers move: expiring rows deletes them, so the next
+  admit shifts every later row up. On 2026-11-11 row 31 held the agentic-debt article
+  at 10:30 and the Postgres article at 18:26, and the evening post inherited the
+  morning's `directives.json` (ARCHITECTURE opening) while its own row carried
+  `HOOK=MISCONCEPTION`; the gate passed it because it checks the stored directives.
+  The id is now an FNV-1a hash of the URL, so a retry of the same article continues
+  its session and a different article draws fresh directives. It also removes the
+  `ROW_NUMBER` requirement, which is what a manual test of the sub-workflow tripped on.
 - **The gate reads the draft before the source URL is rendered.** `parse_llm_output`
   substituted the row's URL into the source line in place, and `build_review_request`
   sent that same text to `pi-writer`, whose rules require the exact placeholder
@@ -332,7 +341,11 @@ Eight structural things worth knowing before editing an export:
   pair is `agents/adapters/pi-writer/prompts/linkedin_post_rules.md` (drafter) and
   `linkedin_post_review.md` (gate), one directory in the writer image. The composer
   is not affected: it is briefed with the post text and renders it impersonally,
-  which is why the video can read truer than the post it came from.
+  which is why the video can read truer than the post it came from. The rule is now
+  host-aware: `alvsanand.com` is the subject's own site, where first person may claim
+  the work; every other host keeps the third-party reading, and the gate rejects
+  "my rule"/"my finding" about their analysis. Both prompts receive the URL through
+  the same `{{ URL }}` fill, so the host test cannot drift between them.
 - **A `PUT` edits the draft; only publishing changes what runs, and publishing
   validates every node.** Adding the animated-media branch left live's top-level
   graph at 40 nodes while `activeVersion` still held 29 — the schedule would have
@@ -1478,7 +1491,8 @@ admitted row and the stage that stopped it, plus an admitted `mix by category` l
 companies and community rows.
 
 **The lane's two turns are writer sessions.** `LinkedIn Post Creator` posts the row's values to the
-`pi-writer` session with `lane: "post"` and `session_id: post-<row>`; the adapter renders the post
+`pi-writer` session with `lane: "post"` and `session_id: post-<hash of URL>` (the article, not the
+sheet position — see the row-number trap above); the adapter renders the post
 prompts from its own image, draws the format, length and closing once per session, and answers
 `<output>…</output>`. A retry continues the same session, so the gate judges the directives the
 draft was given; the gate is the same session with `task: "review"`. `parse_llm_output`,

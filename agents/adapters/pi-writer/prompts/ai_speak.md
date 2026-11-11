@@ -10,3 +10,4 @@ Words that mark a text as machine-written. A listed word is banned **as filler**
 Never open or close a section with these, and never use them as a heading. They are the shape a model reaches for when it has nothing to say.
 
 - "Main takeaways", "Key points:", "In summary:", "In conclusion:", "To sum up", "Let's explore", "Here's what you need to know"
+- Opening frames: "A common misconception is that", "It's a common misconception", "Most people think", "It's no secret that", "In today's world", "Picture this"

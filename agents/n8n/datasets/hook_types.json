@@ -17,7 +17,7 @@
       "id": "MISCONCEPTION",
       "group": "argument",
       "when": "the article corrects a belief the audience commonly holds",
-      "opening": "open by naming the common misconception and correcting it",
+      "opening": "open by stating the wrong belief flatly and correcting it, never framed as 'a common misconception'",
       "visual": { "form": "diagram", "scenes": 0 },
       "image": "Two panels side by side: MYTH on the left, dim, cracked or faded; REALITY on the right, lit, intact and accented. One crossing stroke or arrow moves from the myth to the reality. The headline states the correction."
     },

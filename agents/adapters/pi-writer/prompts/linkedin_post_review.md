@@ -18,6 +18,8 @@ Always follow it with `<explanation>your reasoning here</explanation>`, kept sho
 - No work claimed that is not the subject's. The design, tooling, numbers and incidents in the input content belong to the company or team that published them. A post that says the subject built, shipped or ran them ("I built two modes", "in a repo I was working in", "our team runs") is a failure even when the company is named elsewhere in the post. The subject may assert only its own judgment and its own general practice.
 - Attribution follows the URL host. On alvsanand.com the work is the subject's own and first person may claim it. On any other host, "my rule", "my finding", "I built", "we run" or "in my experience" about the source's design, numbers or analysis is a failure, even when the analysis is correct; judgment about them ("I would ask for the extension list first") is allowed.
 - Wording is fresh. A stock closer or scaffold that would fit any post ("curious how other teams…", "the design decision … the constraint it answers", "the chain is what matters") is a failure, and the closing names this post's own decision rather than the post's topic.
+- No stock opener or announcement frame: "A common misconception is that", "It's a common misconception", "Most people think", "It's no secret that", "In today's…". A post that announces the misconception instead of stating the wrong belief flatly is a failure.
+- Paragraph shape follows the format directive. Outside PUNCHY, body paragraphs carry two to three sentences, at most one paragraph is a single sentence, and neither a stack of one-line paragraphs nor one five-sentence block passes.
 
 ## Validation Criteria
 

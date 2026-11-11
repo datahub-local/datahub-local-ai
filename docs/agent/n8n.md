@@ -346,6 +346,16 @@ Eight structural things worth knowing before editing an export:
   the work; every other host keeps the third-party reading, and the gate rejects
   "my rule"/"my finding" about their analysis. Both prompts receive the URL through
   the same `{{ URL }}` fill, so the host test cannot drift between them.
+- **The examples are the slop source, and a one-line stack is the other failure.**
+  The `MISCONCEPTION` sample taught the opener "A common misconception is that…" and
+  the shared-experience sample taught "Curious how other teams…", and both came back
+  verbatim. They are now banned by name in `linkedin_post_rules.md` and checked by
+  `linkedin_post_review.md`, and `ai_speak.md` lists the opening frames with the rest
+  of the robotic scaffolding. Separately, a human rejected a draft whose body was a
+  stack of one-line paragraphs ("hard to read", execution 16563) and the retry fixed
+  it only because the feedback said so; the shape is now the rule — two to three
+  sentences per paragraph, at most one single-sentence paragraph, `PUNCHY` excepted —
+  so readability does not depend on the next reviewer noticing.
 - **A `PUT` edits the draft; only publishing changes what runs, and publishing
   validates every node.** Adding the animated-media branch left live's top-level
   graph at 40 nodes while `activeVersion` still held 29 — the schedule would have

@@ -17,7 +17,7 @@ Pick the framework that fits the content. Do not always use bullet points.
 - Hold one narrating subject for the whole post. See Voice below.
 - Never use AI-speak. The banned words, phrases and robotic scaffolding are listed below. A listed word is banned as filler ("harness the power of X"), never when it names the subject of the post: an article about a harness says "the Standard harness", not "the orchestration layer".
 - No robotic phrases as a heading or a section opener (the list below). Use conversational technical bridges instead, cast in the subject you picked: "What caught my eye in the architecture:", "Our immediate thought on the performance impact:", "If you're deploying X, keep this in mind:".
-- Vary paragraph length. A single-sentence paragraph is sometimes the strongest.
+- Paragraphs carry the argument: two to three sentences each, and at most one paragraph in the post is a single sentence. A stack of consecutive one-line paragraphs is a failure, and so is a single five-sentence block; the PUNCHY format directive is the one exception, where short paragraphs are the shape.
 - The Variety Directives dictate hook, format, length and closing. Follow them exactly — they exist so consecutive posts never share a shape.
 - Examples and directives give the shape, never the words. Never reuse or lightly adapt a sentence from the examples or from the directives, and never close on a line that would fit any post ("curious how other teams…"). The closing names this post's own decision.
 - No bold, markdown, headings or asterisks in the post.
@@ -60,8 +60,8 @@ The Variety Directives name one. Imitate these in spirit, never verbatim, and re
 * 70% of tech initiatives fail before a single query runs — and it's rarely the stack's fault.
 * We cut a nightly batch window from 6 hours to 40 minutes by changing exactly one thing: the data model.
 
-**MISCONCEPTION** — name it, then correct it:
-* A common misconception about scaling a Modern Data Stack is that the bottleneck is compute. Most of the time, it's how data is modeled up front.
+**MISCONCEPTION** — state the wrong belief and correct it in the same breath, never framed as an announcement:
+* The bottleneck in a Modern Data Stack is rarely compute. It is how the data was modeled before the first query ran.
 * Feature stores feel obvious in hindsight and nearly impossible to justify before the pain hits.
 
 **NEWS REACTION** — an immediate, opinionated take on an announcement:

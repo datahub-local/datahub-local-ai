@@ -5,17 +5,30 @@
 ### Requirement: MCP timeouts are explicit and ordered
 
 Every `MCPServer` this repository renders SHALL state `spec.timeout` rather than
-take the chart's 30s default, and the value SHALL sit above the server's own
-backend ceiling with at least 10 seconds of headroom. The four layers (server
-backend, catalog bridge, Hermes client, Pod probe) and their effective values
-SHALL be recorded once in `datahub-local-ai-mcp/docs/deployment.md`, and this
-repository SHALL link to that table rather than keep a second copy.
+take the chart's 30s default, and every persona that mounts one SHALL state the
+same or a larger `mcpServers[].timeout`. The bridge applies the persona value and
+inherits the catalog value only when that entry omits one, so the catalog number
+alone cannot bound an agent's call. Each value SHALL sit above both the server's
+own backend ceiling and the measured p-max of its slowest tool, with at least 10
+seconds of headroom. The four layers (server backend, catalog bridge, Hermes
+client, Pod probe) and their effective values SHALL be recorded once in
+`datahub-local-ai-mcp/docs/deployment.md`, and this repository SHALL link to that
+table rather than keep a second copy.
 
 #### Scenario: A server with a backend ceiling near the chart default
 
 - **WHEN** a server's own Prometheus, Loki or Trino timeout is 20s or 30s
 - **THEN** its rendered `MCPServer` carries a `timeout` of at least 60s
+- **AND** its measured p-max is below that value with at least 10s of headroom
 - **AND** the bridge does not expire before the server can return its own error
+
+#### Scenario: A persona states a timeout below its catalog entry
+
+- **WHEN** a persona's `mcpServers[].timeout` is lower than the entry this chart
+  renders for the same server
+- **THEN** the render fails, because the bridge applies the persona value and the
+  catalog value cannot bound that call
+- **AND** the persona states the same or a larger value
 
 #### Scenario: A server with a long internal fetch
 

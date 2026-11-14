@@ -40,7 +40,7 @@ mcpServers:
   # 1. Pre-computed readings and the whole resolve-and-investigate chain, one
   #    call per question. Try these first.
   - name: datahub-local-ai-mcp-homelab-facts
-    timeout: 30
+    timeout: 90
     toolsPrefix: facts
     toolsAllow:
       - find_object
@@ -105,7 +105,7 @@ mcpServers:
   #    answer what exists, these answer how much. There is no run_sql here by
   #    design - the compiler owns every expression.
   - name: datahub-local-ai-mcp-semantic
-    timeout: 30
+    timeout: 60
     toolsPrefix: semantic
     toolsAllow:
       - list_metrics

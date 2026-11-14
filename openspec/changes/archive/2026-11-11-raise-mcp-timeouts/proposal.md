@@ -31,7 +31,9 @@ alone would have changed no agent's call.
   set by the measured calls, not by the 20s HTTP ceilings.
 - `semantic` and `semantic-finance` set `timeout: 60` on their `MCPServer`;
   `homelab-oracle.yaml` states 60 for `semantic`, so the persona does not undercut
-  the catalog.
+  the catalog. The same file's `trino` entry goes from 30 to 60 to match core's
+  catalog; that server is rendered by `datahub-local-core`, so the new gate cannot
+  see it.
 - `utils` sets `timeout: 130`, above the 120s temp fetch. The 120 exists for n8n's
   direct `temp_store` call, which bypasses the catalog; no agent mounts the server.
 - `agents/sympozium/templates/ensembles.yaml` fails the render when a persona's

@@ -93,7 +93,7 @@ mcpServers:
   #    another. explain_query is registered and deliberately not taken.
   #    Rationale, and the two core-side blockers, in ../../../MEMORY.md.
   - name: datahub-local-core-automation-mcp-trino
-    timeout: 30
+    timeout: 60
     toolsPrefix: trino
     toolsAllow:
       - list_catalogs

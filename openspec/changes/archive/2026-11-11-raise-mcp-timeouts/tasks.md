@@ -7,7 +7,8 @@
 - [x] 1.2 Set `timeout: 130` on `utils`, above its 120s temp fetch.
 - [x] 1.3 State the same value on every persona entry that mounts one of these
   servers: 90 for `homelab-facts` in the six `homelab-ops` personas and
-  `homelab-oracle`, and 60 for `semantic` in `homelab-oracle`.
+  `homelab-oracle`, 60 for `semantic` in `homelab-oracle`, and 60 for its `trino`
+  entry to match core's catalog.
 - [x] 1.4 Fail the render when a persona's `mcpServers[].timeout` is lower than the
   catalog entry it mounts, because the bridge applies the persona value.
 

@@ -7,8 +7,9 @@
 - [x] 1.2 Set `timeout: 130` on `utils`, above its 120s temp fetch.
 - [x] 1.3 State the same value on every persona entry that mounts one of these
   servers: 90 for `homelab-facts` in the six `homelab-ops` personas and
-  `homelab-oracle`, 60 for `semantic` in `homelab-oracle`, and 60 for its `trino`
-  entry to match core's catalog.
+  `homelab-oracle`, 60 for `semantic` in `homelab-oracle`, 60 for its `trino`
+  entry to match core's catalog, and 60 for `db-steward`'s `postgres` entry to
+  match core's catalog.
 - [x] 1.4 Fail the render when a persona's `mcpServers[].timeout` is lower than the
   catalog entry it mounts, because the bridge applies the persona value.
 
@@ -22,8 +23,7 @@
 ## 3. Gate
 
 - [x] 3.1 `helmfile template` in `agents/sympozium/` renders the four new values
-  and the eight persona entries, and fails when a persona is below its catalog
-  entry.
+  and every persona entry, and fails when a persona is below its catalog entry.
 - [x] 3.2 `uv run -- pytest agents/sympozium/tests/ -q` passes.
 - [x] 3.3 `uv run -- ruff check agents/sympozium/files/ agents/sympozium/tests/`
   passes.

@@ -60,8 +60,8 @@ them is a server change, not a bridge number.
 ## Impact
 
 - `agents/sympozium/values/default.yaml.gotmpl`: four `timeout` values.
-- `agents/sympozium/projects/*/agents/*.yaml`: the eight persona entries that
-  mount these servers.
+- `agents/sympozium/projects/*/agents/*.yaml`: the persona entries that mount
+  these servers.
 - `agents/sympozium/templates/ensembles.yaml`: the persona-versus-catalog gate.
 - `docs/agent/mcp-servers.md`: one paragraph pointing at the shared table and
   naming the value the bridge applies.

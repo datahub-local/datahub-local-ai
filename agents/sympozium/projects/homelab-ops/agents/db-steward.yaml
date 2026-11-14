@@ -36,7 +36,7 @@ mcpServers:
       - volume_fill
       - promql
   - name: datahub-local-core-automation-mcp-postgres
-    timeout: 30
+    timeout: 60
     toolsPrefix: pg
     toolsAllow:
       - analyze_db_health

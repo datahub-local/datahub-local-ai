@@ -99,8 +99,8 @@ mounts it.
 
 ## Definition of done
 
-- `helmfile template` in `agents/sympozium/` renders the four new values and the
-  eight persona entries, and fails when a persona is below its catalog entry.
+- `helmfile template` in `agents/sympozium/` renders the four new values and every
+  persona entry, and fails when a persona is below its catalog entry.
 - `uv run -- pytest agents/sympozium/tests/ -q` and `ruff` pass.
 - `openspec validate --all` passes with this change present.
 - The shared table in `datahub-local-ai-mcp/docs/deployment.md` lists the effective

@@ -25,6 +25,21 @@ What stays this repository's concern:
   WORKDIR and lands on `sys.path`, so `/app/semantic/` shadows the `semantic`
   package and the server dies with `module 'semantic' has no attribute
   'register'`.
+- **The timeout budget.** A tool call is bounded by the server's backend timeout,
+  the bridge timeout and the Hermes client timeout, in that order of increasing
+  patience. The Pod probe is a separate layer: it decides whether the process
+  survives, not whether the call completes, which is why it is the layer that
+  restarted postgres. The bridge applies `mcpServers[].timeout` on the persona;
+  the `MCPServer.spec.timeout` is inherited only when that entry omits one
+  (Sympozium `resolveMCPServerURLs`, v0.13.0), so raising the catalog alone
+  changes nothing for an agent that states its own value. Every persona that
+  mounts one of this chart's four servers states the same value as the entry this
+  chart renders, and the render fails when one is lower. `homelab-facts` is 90s
+  because its name-resolving tools
+  list thirteen kinds from the Kubernetes API; the measured p-max was 60.2s, not
+  because of its 20s Prometheus and Loki ceilings. The effective values and the
+  ordering rule are in
+  [`datahub-local-ai-mcp/docs/deployment.md`](https://github.com/datahub-local/datahub-local-ai-mcp/blob/main/docs/deployment.md#timeouts).
 
 | Server             | ConfigMap              | Source of the data                                                                                                                                         |
 | ------------------ | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |

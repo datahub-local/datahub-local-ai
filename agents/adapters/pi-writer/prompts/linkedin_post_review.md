@@ -10,7 +10,7 @@ Always follow it with `<explanation>your reasoning here</explanation>`, kept sho
 
 - Professional yet authentic — not motivational, not polished sales copy.
 - No banned AI-speak from the list in the validation criteria below, used as filler, and none of its robotic scaffolding as a heading or a section opener. A listed word that names the subject of the post is not a violation: an article about a harness may say "the Standard harness".
-- Hook, format, length and closing match the assigned variety directives. A bulleted post when PURE PROSE was assigned, or a closing question when HOT TAKE was assigned, is a failure.
+- Hook, format, length and closing match the assigned variety directives. A list body when PURE PROSE was assigned, a `-` list when NUMBERED LIST was assigned, or a closing question when HOT TAKE was assigned, is a failure.
 - The product, technology or company the post is about is named in the opening sentences, not left as an abstraction. A post that never names its subject is a failure.
 - Word count of the body is within the range the Validation Criteria state. Count the words; below the minimum is a failure even if the post reads well.
 - One narrating subject from first line to last, with grammar agreeing throughout. Which one it is does not matter — first person singular, first person plural and a named team are all valid — but any switch between them is a failure on its own, even if the post reads well. Also a failure: the subject's own work attributed to "a team" or "one company". "You" for the reader and "other teams" when addressing the audience are not switches.
@@ -19,7 +19,8 @@ Always follow it with `<explanation>your reasoning here</explanation>`, kept sho
 - Attribution follows the URL host. On alvsanand.com the work is the subject's own and first person may claim it. On any other host, "my rule", "my finding", "I built", "we run" or "in my experience" about the source's design, numbers or analysis is a failure, even when the analysis is correct; judgment about them ("I would ask for the extension list first") is allowed.
 - Wording is fresh. A stock closer or scaffold that would fit any post ("curious how other teams…", "the design decision … the constraint it answers", "the chain is what matters") is a failure, and the closing names this post's own decision rather than the post's topic.
 - No stock opener or announcement frame: "A common misconception is that", "It's a common misconception", "Most people think", "It's no secret that", "In today's…". A post that announces the misconception instead of stating the wrong belief flatly is a failure.
-- Paragraph shape follows the format directive. Outside PUNCHY, body paragraphs carry two to three sentences, at most one paragraph is a single sentence, and neither a stack of one-line paragraphs nor one five-sentence block passes.
+- Shape follows the format directive. LIST BODY and NUMBERED LIST carry the same structure: a lead of one or two sentences, exactly one list of three or four one-line items with the assigned marker, then a closing paragraph of two to three sentences. Two lists, a nested item, an item that runs to a sentence of its own, bold, asterisks, or a marker other than the one assigned is a failure. A list body's lead or close made of one-line paragraphs is a failure too.
+- PURE PROSE carries no list at all: three or four paragraphs of two to three sentences, never two single-sentence paragraphs in a row, and never one five-sentence block.
 
 ## Validation Criteria
 

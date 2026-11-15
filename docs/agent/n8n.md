@@ -353,9 +353,17 @@ Eight structural things worth knowing before editing an export:
   `linkedin_post_review.md`, and `ai_speak.md` lists the opening frames with the rest
   of the robotic scaffolding. Separately, a human rejected a draft whose body was a
   stack of one-line paragraphs ("hard to read", execution 16563) and the retry fixed
-  it only because the feedback said so; the shape is now the rule — two to three
-  sentences per paragraph, at most one single-sentence paragraph, `PUNCHY` excepted —
-  so readability does not depend on the next reviewer noticing.
+  it only because the feedback said so; the shape is now the rule, so readability does
+  not depend on the next reviewer noticing. On 2026-11-14 a human rejected the same
+  shape again, and the `PUNCHY` option was still written as "several very short
+  paragraphs, at least two of them a single sentence": the directive asked for the
+  failure. The default is now a **list body** — a one-to-two-sentence lead, exactly one
+  list of three or four one-line items marked `-` (or `1.` for NUMBERED LIST), and a
+  two-to-three-sentence close, with no second list, no nesting and no bold. `PURE PROSE`
+  keeps the paragraph shape: three or four paragraphs, two to three sentences each,
+  never two single-sentence paragraphs in a row. Both halves of the gate count the
+  shape, because a directive that asks for one-liners and a rule that forbids them is
+  the loop that produced this twice.
 - **A `PUT` edits the draft; only publishing changes what runs, and publishing
   validates every node.** Adding the animated-media branch left live's top-level
   graph at 40 nodes while `activeVersion` still held 29 — the schedule would have

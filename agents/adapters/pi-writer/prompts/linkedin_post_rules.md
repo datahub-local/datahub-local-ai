@@ -17,10 +17,11 @@ Pick the framework that fits the content. Do not always use bullet points.
 - Hold one narrating subject for the whole post. See Voice below.
 - Never use AI-speak. The banned words, phrases and robotic scaffolding are listed below. A listed word is banned as filler ("harness the power of X"), never when it names the subject of the post: an article about a harness says "the Standard harness", not "the orchestration layer".
 - No robotic phrases as a heading or a section opener (the list below). Use conversational technical bridges instead, cast in the subject you picked: "What caught my eye in the architecture:", "Our immediate thought on the performance impact:", "If you're deploying X, keep this in mind:".
-- Paragraphs carry the argument: two to three sentences each, and at most one paragraph in the post is a single sentence. A stack of consecutive one-line paragraphs is a failure, and so is a single five-sentence block; the PUNCHY format directive is the one exception, where short paragraphs are the shape.
+- The body is a list unless the format directive assigns PURE PROSE: a lead of one or two sentences, then exactly one list of three or four one-line items, then a closing paragraph of two to three sentences. Markers are plain text only — `-` for LIST BODY, `1.` onwards for NUMBERED LIST — one line per item, no bold, no asterisks, no nesting, and no second list anywhere in the post.
+- Prose paragraphs carry two to three sentences each, and never two single-sentence paragraphs in a row. A stack of consecutive one-line paragraphs is a failure, and so is a single five-sentence block.
 - The Variety Directives dictate hook, format, length and closing. Follow them exactly — they exist so consecutive posts never share a shape.
 - Examples and directives give the shape, never the words. Never reuse or lightly adapt a sentence from the examples or from the directives, and never close on a line that would fit any post ("curious how other teams…"). The closing names this post's own decision.
-- No bold, markdown, headings or asterisks in the post.
+- No bold, markdown, headings or asterisks in the post. A plain `-` or `1.` list marker is the only structure allowed, and only on the shape rules above.
 - End with the source line `Source here: SOME_URL` — that exact placeholder — then 3-5 technical hashtags (e.g. #DataEngineering, #ModernDataStack, #ApacheSpark).
 - Between {{ MIN_WORDS }} and {{ MAX_WORDS }} words. Fewer than {{ MIN_WORDS }} is a failure; the Length directive picks the target inside that range.
 - Output ONLY inside `<output></output>`.

@@ -12,17 +12,17 @@ const draw = (random, extra = {}) =>
 
 test("a zero draw takes the first weighted option and puts the length inside the range", () => {
   const chosen = draw(() => 0);
-  assert.match(chosen.directives, /PURE PROSE: no bullet points at all/);
+  assert.match(chosen.directives, /LIST BODY: a two-sentence lead/);
   assert.match(chosen.directives, /MEDIUM: aim for about 225 words, never fewer than 150 and never more than 300/);
   assert.match(chosen.directives, /DIRECT QUESTION/);
 });
 
 test("the draw reads the weights as duplication, not as a percentage", () => {
-  // format carries 2 | PURE PROSE, 2 | PUNCHY, 1 | ONE BULLET BLOCK: a draw at 0.4 is the
-  // second PUNCHY slot, and 0.8 is the bullet block. A plain average of three would put
-  // 0.4 inside PURE PROSE and quietly change the distribution.
-  assert.match(draw(() => 0.4).directives, /PUNCHY/);
-  assert.match(draw(() => 0.8).directives, /ONE BULLET BLOCK/);
+  // format carries 2 | LIST BODY, 2 | PURE PROSE, 1 | NUMBERED LIST: a draw at 0.4 is the
+  // first PURE PROSE slot, and 0.8 is the numbered list. A plain average of three would
+  // put 0.4 inside the list slots and quietly change the distribution.
+  assert.match(draw(() => 0.4).directives, /PURE PROSE/);
+  assert.match(draw(() => 0.8).directives, /NUMBERED LIST/);
 });
 
 test("the hook opening is the row's decision, and a row without one leaves the shape to the writer", () => {

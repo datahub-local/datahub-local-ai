@@ -672,7 +672,17 @@ failed composer costs one asset, not the run: `execute_author` carries
 alone can see (for a deck, the deck is kept and the missing paired video is reported). Before
 2026-10-24 the authoring call forwarded its input and set no `json.error`, so the asset named
 the store's 404 on an artifact that was never rendered and the session's reason (`EEXIST`,
-a stalled model call) was lost. `Visual Studio Prune` runs daily at 04:00 UTC and deletes rows of
+a stalled model call) was lost. **`continueErrorOutput` splits one result across two outputs, so
+the failure path has to read output 1**: on 2026-11-14 (execution 16743) a 40-minute authoring
+timeout left output 0 empty, `agent_result` and `prepare_stills` both read `first(0)` unguarded,
+and the run died with `Cannot read properties of undefined (reading 'json')` — the asset
+reported the store node's absence instead of the timeout and the caller's fallback never ran.
+Now `agent_result` reads both outputs and `prepare_stills` tolerates the empty one. The
+authoring call waits **1 800 000 ms** per try (2 tries, 20 s apart): a 30 s / 900-frame 4:5
+composition costs ≈ 5 min per full render on the software GPU, and the composer in that run
+spent 25 of its 40 minutes on five of them, so the timeout is a budget the composer can still
+exceed — its own iterations are the cost, not the model's answer. `Visual Studio Prune` runs
+daily at 04:00 UTC and deletes rows of
 `TemporalFiles` whose `updatedAt` is older than an hour — the same rule `File Webhook`
 applies on request, and the reason a quiet week cannot leave its rows behind — and the
 bucket objects under `visual-studio/` older than **two days** — the delete is proven by

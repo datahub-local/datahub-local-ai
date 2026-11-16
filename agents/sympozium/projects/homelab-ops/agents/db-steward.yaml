@@ -25,7 +25,7 @@ memory:
 
 mcpServers:
   - name: datahub-local-ai-mcp-homelab-facts
-    timeout: 30
+    timeout: 90
     toolsPrefix: facts
     toolsAllow:
       - postgres_health
@@ -36,7 +36,7 @@ mcpServers:
       - volume_fill
       - promql
   - name: datahub-local-core-automation-mcp-postgres
-    timeout: 30
+    timeout: 60
     toolsPrefix: pg
     toolsAllow:
       - analyze_db_health

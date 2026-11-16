@@ -1877,6 +1877,26 @@ refuses a second comment per PR per run. Until it exists, read the PRs after a
 reviewer run; the failure is silent (three calls, `Succeeded`, 1,415 bytes of
 result).
 
+## The bridge timeout is the persona's, and the facts server is one worker (2026-11-14)
+
+A `MCPServer.spec.timeout` is only the fallback. The controller writes the bridge
+timeout from `AgentRun.spec.mcpServers[].timeout` and inherits the catalog value
+only when that entry is absent (`resolveMCPServerURLs`, v0.13.0:
+`if srv.Timeout == 0 && mcpServer.Spec.Timeout > 0`). Every persona stated 30, so
+raising the catalog alone changed no agent's call. Both places now state 90 for
+`homelab-facts`, and `templates/ensembles.yaml` fails a persona below its catalog
+entry.
+
+Measured against the live server on 2026-11-14: `find_object` p50 35.6s and max
+40.7s, `logs` 33.4 and 52.3, `why_failed` 42.8 and 60.2, over 22 calls at a 180s
+client ceiling. The base cost is the Kubernetes list fan-out (thirteen kinds in
+`find_object`), not Prometheus or Loki, which none of the three calls reaches on a
+running pod. Every 30s call was cut at 30.01s. A retry behind the abandoned call
+took 64.9s, because `server.py` runs every JSON-RPC request, `initialize`
+included, on a one-worker executor, so an abandoned tool keeps the worker until
+it finishes. Shortening the fan-out or widening the executor is the next fix;
+the bridge number is 90.
+
 ## The facts server: code gathers, the model writes
 
 The MCP repository exists because **every failure in this fleet was a tool-loop failure,

@@ -22,7 +22,7 @@ memory:
 
 mcpServers:
   - name: datahub-local-ai-mcp-homelab-facts
-    timeout: 30
+    timeout: 90
     toolsPrefix: facts
     toolsAllow:
       - argocd_drift

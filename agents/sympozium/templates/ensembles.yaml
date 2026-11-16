@@ -36,6 +36,12 @@
 {{-   if not $personaFiles }}
 {{-     fail (printf "%s: no personas in agents/" $project) }}
 {{-   end }}
+{{-   $catalogTimeouts := dict }}
+{{-   range $serverName, $server := ($.Values.sympozium_mcp_servers | default dict) }}
+{{-     if $server.enabled }}
+{{-       $_ := set $catalogTimeouts (printf "%s-mcp-%s" $.Values.release_name $serverName) (int ($server.timeout | default 30)) }}
+{{-     end }}
+{{-   end }}
 {{-   $personas := list }}
 {{-   range $personaPath, $_ := $personaFiles }}
 {{-     $persona := $.Files.Get $personaPath | fromYaml }}
@@ -53,6 +59,10 @@
 {{-     range $server := ($persona.mcpServers | default list) }}
 {{-       if not $server.toolsPrefix }}
 {{-         fail (printf "%s: mcpServer %q has no toolsPrefix; toolsAllow cannot be mapped to toolPolicy" $personaPath ($server.name | toString)) }}
+{{-       end }}
+{{-       $catalogTimeout := index $catalogTimeouts ($server.name | toString) }}
+{{-       if and $catalogTimeout (lt (int ($server.timeout | default 0)) (int $catalogTimeout)) }}
+{{-         fail (printf "%s: mcpServer %q states timeout %v, below the %vs this chart renders; the bridge applies the persona value, so the catalog value cannot bound the call." $personaPath ($server.name | toString) ($server.timeout | default 0) $catalogTimeout) }}
 {{-       end }}
 {{-       range $tool := ($server.toolsAllow | default list) }}
 {{-         $declared = append $declared (printf "%s_%s" $server.toolsPrefix $tool) }}

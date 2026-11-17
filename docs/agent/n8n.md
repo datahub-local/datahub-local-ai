@@ -387,7 +387,10 @@ Eight structural things worth knowing before editing an export:
 
 One workflow turns a source text into visual assets, driven by the type registry
 `agents/n8n/datasets/visual_types.json`. Adding a type is a change to that file, not a
-branch in the graph. Eleven types: `image` (authored by the Gemini image model, png),
+branch in the graph — but the file reaches the run through `download_registry`, i.e.
+`DownloadTemplate` reading `BACKUP_GITHUB_REPO_*` on `main`, so a type is live only once it is
+pushed: an applied enum without the pushed dataset answers `unknown asset type: <id>` (measured
+2026-11-17, run 16947). Fourteen types: `image` (authored by the Gemini image model, png),
 `image_wide` (the same raster at 16:9), `animation` (authored by the composer agent, mp4),
 `animation_linkedin` (authored by the composer agent, gif, inside LinkedIn's GIF cap),
 `animation_linkedin_video` (authored by the composer agent, mp4, at the feed's 4:5 aspect),
@@ -395,7 +398,11 @@ branch in the graph. Eleven types: `image` (authored by the Gemini image model, 
 at the feed's aspect; a pattern is not a sequence, so it declares no per-scene floor),
 `tiles_wide` (the same loop at 16:9), `svg` (authored by the composer agent, a self-contained
 animated SVG), `svg_wide` (the same
-animated SVG at 16:9), `deck` (authored by the composer agent, a self-contained HTML
+animated SVG at 16:9), `sketch` (authored by the composer agent, a hand-drawn diagram whose
+strokes draw themselves on, mp4 at 16:9; one drawing, so no per-scene floor and no intro
+scene), `sketch_svg` (the same drawing as a self-contained animated SVG at 16:9), `figure`
+(the composer's static SVG at 16:9 for one section brief), `deck` (authored by the composer
+agent, a self-contained HTML
 presentation that the same run also renders to mp4) and `launch_card` (authored by the
 composer agent, a still png at the announcement frame). A type declares its `brandKind`
 (`diagrammatic` or `photographic`), its output format and the frame the composer is briefed
@@ -613,20 +620,31 @@ than `PI_RENDER_SESSION_TTL_DAYS` (default 7, matching the prune window below; `
 on startup and throttled after each turn, never the session in flight.
 `openspec/changes/add-visual-studio-iteration/` is the record.
 
-**FORCE and STYLE.** `FORCE` is `auto | diagram | story | data | poster | code | chart | timeline | quote | ui | manga | retro | launch | tiles`;
+**FORCE and STYLE.** `FORCE` is `auto | diagram | story | data | poster | code | chart | timeline | quote | ui | manga | retro | launch | tiles | sketch`;
 `auto` lets the composer choose the form, anything else pins it, and a forced form is honoured or
 reported, never silently replaced. The vocabulary is one committed file, `prompts/visual_forms.md`,
 fetched by the studio (into the brief) and by the curator (into the judge prompt as `{{ FORMS }}`),
 so the judge that overrides a hook's default and the composer that builds it read the same
 definitions — but the **enum** is duplicated into the graph, so adding a form is a registry *and*
 graph change, not a prompt push: `normalize_input`'s `const FORCES` and the curator's `parse_judge`
-and `parse_judge_backfill` `const FORMS` must carry the new name, and `test_hook_registry.py` and
-`test_visual_studio_graph.py` fail until all three do. A missed copy is loud at run time as well —
-`normalize_input` refuses a `FORCE` its enum lacks, naming the value. `STYLE` names a brand scheme (`dark | light`). `FORCE`
+and `parse_judge_backfill` `const FORMS` must carry the new name. Nothing offline asserts that any
+more (the tests that did were removed with the rest on 2026-11-07), so a missed copy is caught only
+at run time — where it is at least loud: `normalize_input` refuses a `FORCE` its enum lacks, naming
+the value. `STYLE` names a brand scheme (`dark | light`). `FORCE`
 is validated in `normalize_input`, which is where a fixed enum belongs; `STYLE` is resolved
 and validated in `brand_tokens`, because the scheme names are data in `brand.json` and a
 hardcoded default would be a second copy of that decision. An unknown value in either
 fails loudly, naming it.
+
+**A sketch is authored, not drawn by a library.** `rough.js`, Excalidraw's renderer and GSAP's
+`DrawSVGPlugin` are all absent: `vendor/` holds core `gsap.min.js` only, and nothing may be loaded
+from a CDN at render time. So the `sketch` look is two authored techniques the composer already has
+— a wobble that is a seeded, index-derived offset on an authored path (the motion rules' own rule
+for a handmade feel), and a draw-on that is `stroke-dasharray` = path length against a
+`stroke-dashoffset` animated to zero, staggered in reading order. Roughening with a blur or
+displacement filter is rejected: the screenshot-capture render pays for it and the review judges a
+blurred drawing. `sketch` and `sketch_svg` both keep the brand palette and typeface, so the
+hand-drawn read comes from geometry and no sketch typeface is added to `brand.json` or the image.
 
 **Creating it on a fresh instance**, in order:
 

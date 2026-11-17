@@ -46,6 +46,9 @@ def raw_invoices(bootstrap_servers: str, topic: str, group_id: str = "bodega-dlt
 
     ingested_at = datetime.now(UTC).isoformat()
     idle_rounds, max_idle, poll_timeout = 0, 3, 10.0
+    # pyiceberg refuses a batch holding two rows for one key, and one drain can span
+    # several daily n8n republishes; keep the highest offset per invoice (last-write-wins).
+    by_invoice: dict[str, dict] = {}
     try:
         while idle_rounds < max_idle:
             msg = consumer.poll(timeout=poll_timeout)
@@ -60,7 +63,7 @@ def raw_invoices(bootstrap_servers: str, topic: str, group_id: str = "bodega-dlt
                 continue
             idle_rounds = 0
             data = json.loads(msg.value().decode("utf-8"))
-            yield {
+            row = {
                 "invoice_number":     data["invoice"]["number"],
                 "invoice_date":       data["invoice"]["date"],
                 "operator_id":        data["invoice"]["operator"],
@@ -79,7 +82,9 @@ def raw_invoices(bootstrap_servers: str, topic: str, group_id: str = "bodega-dlt
                 "_ingested_at":       ingested_at,
                 "_batch_timestamp":   data.get("batch_timestamp"),
             }
+            by_invoice[row["invoice_number"]] = row
             consumer.commit(message=msg, asynchronous=False)
+        yield from by_invoice.values()
     finally:
         consumer.close()
 

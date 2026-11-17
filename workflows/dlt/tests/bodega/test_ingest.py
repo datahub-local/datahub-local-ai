@@ -139,6 +139,16 @@ class TestRawInvoicesKafkaBehaviour:
         records, _ = _collect([None, None, m1, None, m2, None, None, None])
         assert len(records) == 2
 
+    def test_drain_keeps_last_republication_of_an_invoice(self):
+        # One drain can span several n8n runs, each republishing the same invoice;
+        # the batch must hold one row per invoice or pyiceberg's upsert refuses it.
+        old = {**SAMPLE_INVOICE, "batch_timestamp": "2026-11-09T08:00:00+00:00"}
+        new = {**SAMPLE_INVOICE, "batch_timestamp": "2026-11-10T08:00:00+00:00"}
+        records, _ = _collect([_make_msg(old, offset=1), _make_msg(new, offset=2), None, None, None])
+        assert len(records) == 1
+        assert records[0]["_kafka_offset"] == 2
+        assert records[0]["_batch_timestamp"] == "2026-11-10T08:00:00+00:00"
+
     def test_consumer_committed_after_each_message(self):
         m1 = _make_msg(SAMPLE_INVOICE, offset=0)
         m2 = _make_msg(INVOICE_2, offset=1)

@@ -76,7 +76,17 @@ if (prompt.includes("You audit one article draft")) {
   process.exit(0);
 }
 if (prompt.includes("You are a writing assistant for creating LinkedIn posts.")) {
-  process.stdout.write("<output>PROBE_POST_BODY\\n\\nSource here: SOME_URL\\n\\n#Probe</output>");
+  // The classification the lane asks for when the brief carries the eligibility list: the
+  // marker in the extra rules names the id, so a test can pin a valid, a missing or an
+  // off-list answer without a model.
+  const tag = prompt.includes("PROBE_HOOK_CONTRARIAN")
+    ? "\\n<hook>CONTRARIAN</hook>"
+    : prompt.includes("PROBE_HOOK_TRADE_OFF")
+      ? "\\n<hook>TRADE_OFF</hook>"
+      : prompt.includes("PROBE_HOOK_BOGUS")
+        ? "\\n<hook>WAR_STORY</hook>"
+        : "";
+  process.stdout.write("<output>PROBE_POST_BODY\\n\\nSource here: SOME_URL\\n\\n#Probe</output>" + tag);
   process.exit(0);
 }
 if (prompt.includes("You review a LinkedIn post for formatting, tone and compliance.")) {
@@ -840,6 +850,7 @@ test("a post draft is one writer turn and answers in the block the caller parses
   assert.equal(body.article, undefined, "a post turn has no article artifact");
   assert.match(body.post.text, /^<output>PROBE_POST_BODY/);
   assert.match(body.post.directives, /- Hook — TRADE_OFF: open by framing the trade-off most people ignore\./);
+  assert.equal(body.post.hook, "TRADE_OFF");
 
   // The prompt is the adapter's: the entry's values reach it and no placeholder survives.
   const prompt = await readFile(join(workspace, "runs", "post-1", "prompt.txt"), "utf8");
@@ -939,30 +950,77 @@ test("a gate on a session with no stored directives draws and records one", asyn
   assert.match(stored.directives, /- Closing — /);
 });
 
-test("the judge's angle reaches the draft prompt", async () => {
-  const res = await turn({
-    lane: "post",
-    task: "draft",
-    session_id: "post-angle",
-    brief: { ...postBrief, angle: "PROBE_POST_ANGLE: argue that migration cost decides the tooling" },
-  });
+// The row's hook is the curator's writ; a row without one is the normal pre-draft state, so
+// the writer classifies on its own turn and the adapter records the choice.
+const hookBrief = {
+  ...postBrief,
+  hook: "",
+  hook_opening: "",
+  hooks: [
+    { id: "TRADE_OFF", when: "PROBE_WHEN_TRADE", opening: "PROBE_OPEN_TRADE" },
+    { id: "CONTRARIAN", when: "PROBE_WHEN_CONTRA", opening: "PROBE_OPEN_CONTRA" },
+  ],
+};
+
+test("a hook-less brief offers the eligibility list and the chosen hook becomes the session's", async () => {
+  const brief = { ...hookBrief, extra_prompt: "PROBE_HOOK_TRADE_OFF" };
+  const res = await turn({ lane: "post", task: "draft", session_id: "post-choose", brief });
   assert.equal(res.status, 200);
-  const prompt = await readFile(join(workspace, "runs", "post-angle", "prompt.txt"), "utf8");
-  assert.match(prompt, /PROBE_POST_ANGLE: argue that migration cost decides the tooling/);
-  assert.ok(!/\{\{\s*ANGLE\s*\}\}/.test(prompt), "the angle placeholder was left unrendered");
+  const body = await res.json();
+  assert.equal(body.post.hook, "TRADE_OFF");
+  const prompt = await readFile(join(workspace, "runs", "post-choose", "prompt.txt"), "utf8");
+  for (const value of ["PROBE_WHEN_TRADE", "PROBE_OPEN_TRADE", "PROBE_WHEN_CONTRA", "<hook>ID</hook>"]) {
+    assert.ok(prompt.includes(value), `${value} did not reach the post prompt`);
+  }
+  // The tag is the classification, never part of the post the caller publishes.
+  assert.ok(!/<hook>/.test(body.post.text), body.post.text);
+
+  const stored = JSON.parse(await readFile(join(workspace, "runs", "post-choose", "directives.json"), "utf8"));
+  assert.equal(stored.hook_id, "TRADE_OFF");
+  assert.match(stored.directives, /- Hook — TRADE_OFF: PROBE_OPEN_TRADE\./);
+  assert.equal(stored.directives, body.post.directives, "the caller receives the set that was stored");
 });
 
-test("a post without an angle renders an empty angle block", async () => {
-  // The column is empty on most rows, so an absent direction cannot leak a placeholder into
-  // the prompt: the drafter reads the section with nothing in it and ignores it.
-  const res = await turn({
-    lane: "post",
-    task: "draft",
-    session_id: "post-no-angle",
-    brief: { ...postBrief, angle: "" },
-  });
+test("an assigned hook writes to it and the list is not offered", async () => {
+  const brief = { ...postBrief, hooks: hookBrief.hooks };
+  const res = await turn({ lane: "post", task: "draft", session_id: "post-assigned", brief });
   assert.equal(res.status, 200);
-  const prompt = await readFile(join(workspace, "runs", "post-no-angle", "prompt.txt"), "utf8");
-  assert.ok(!/\{\{\s*ANGLE\s*\}\}/.test(prompt), "the angle placeholder was left unrendered");
-  assert.ok(!prompt.includes("PROBE_POST_ANGLE"), "an angle reached a post that named none");
+  const body = await res.json();
+  assert.equal(body.post.hook, "TRADE_OFF");
+  const prompt = await readFile(join(workspace, "runs", "post-assigned", "prompt.txt"), "utf8");
+  assert.match(prompt, /TRADE_OFF: open by framing the trade-off most people ignore/);
+  assert.ok(!prompt.includes("PROBE_WHEN_TRADE"), "the list is not offered when a hook is assigned");
+  const stored = JSON.parse(await readFile(join(workspace, "runs", "post-assigned", "directives.json"), "utf8"));
+  assert.equal(stored.hook_id, "TRADE_OFF");
 });
+
+test("an answer with no <hook> when the list was offered fails by name", async () => {
+  const res = await turn({ lane: "post", task: "draft", session_id: "post-no-hook", brief: hookBrief });
+  assert.equal(res.status, 400);
+  assert.match((await res.json()).error.message, /carries no <hook> tag although the brief offered 2/);
+  // Nothing was classified: the drawn set is stored with no hook, so the next turn offers the list.
+  const stored = JSON.parse(await readFile(join(workspace, "runs", "post-no-hook", "directives.json"), "utf8"));
+  assert.equal(stored.hook_id, "");
+});
+
+test("a hook id outside the offered list fails by name", async () => {
+  const brief = { ...hookBrief, extra_prompt: "PROBE_HOOK_BOGUS" };
+  const res = await turn({ lane: "post", task: "draft", session_id: "post-bad-hook", brief });
+  assert.equal(res.status, 400);
+  assert.match((await res.json()).error.message, /<hook>WAR_STORY<\/hook>, which the brief's hook list does not carry/);
+});
+
+test("a retry whose directives carry a hook does not re-choose", async () => {
+  // The same session as the first choice, and the model answers a different id: the stored
+  // hook stands, because re-choosing per attempt would move the shape under the gate.
+  const brief = { ...hookBrief, extra_prompt: "PROBE_HOOK_CONTRARIAN" };
+  const res = await turn({ lane: "post", task: "draft", session_id: "post-choose", brief });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.post.hook, "TRADE_OFF");
+  const prompt = await readFile(join(workspace, "runs", "post-choose", "prompt.txt"), "utf8");
+  assert.ok(!prompt.includes("PROBE_WHEN_CONTRA"), "the retry does not re-offer the list");
+  const stored = JSON.parse(await readFile(join(workspace, "runs", "post-choose", "directives.json"), "utf8"));
+  assert.equal(stored.hook_id, "TRADE_OFF");
+});
+

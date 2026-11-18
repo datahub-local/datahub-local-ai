@@ -195,7 +195,6 @@
               "ENABLE_CHECK": "true",
               "FEEDBACK": "={{ $('notification_retry_or_cancel').isExecuted && $('notification_retry_or_cancel').last().json.data ? ((String($('notification_retry_or_cancel').last().json.data.Directive || '').trim() && String($('notification_retry_or_cancel').last().json.data.Directive || '').trim() !== 'Other') ? '[' + String($('notification_retry_or_cancel').last().json.data.Directive || '').trim() + '] ' : '') + String($('notification_retry_or_cancel').last().json.data.Feedback || '') : '' }}",
               "HOOK": "={{ $('select_article_to_post').item.json.HOOK || '' }}",
-              "ANGLE": "={{ $('select_article_to_post').item.json.ANGLE || '' }}",
               "PREVIOUS_POST": "={{ $('execute_post_creator').isExecuted ? ($('execute_post_creator').last().json.text || '') : '' }}",
               "ROW_NUMBER": "={{ $('select_article_to_post').item.json.row_number }}"
             },
@@ -279,16 +278,6 @@
                 "display": true,
                 "canBeUsedToMatch": true,
                 "type": "string",
-                "removed": false
-              },
-              {
-                "id": "ANGLE",
-                "displayName": "ANGLE",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": true,
                 "removed": false
               },
               {
@@ -2122,8 +2111,7 @@
               "POST_CONTENT": "={{ $('execute_post_creator').item.json.text }}",
               "FEEDBACK": "={{ $('notification_retry_or_cancel_image').isExecuted && $('notification_retry_or_cancel_image').last().json.data.Feedback ? $('notification_retry_or_cancel_image').last().json.data.Feedback : '' }}",
               "HOOK": "={{ $('select_article_to_post').item.json.HOOK || '' }}",
-              "EVIDENCE": "={{ $('select_article_to_post').item.json.EVIDENCE || '' }}",
-              "ANGLE": "={{ $('select_article_to_post').item.json.ANGLE || '' }}"
+              "EVIDENCE": "={{ $('select_article_to_post').item.json.RATIONALE || '' }}"
             },
             "matchingColumns": [
               "POST_CONTENT"
@@ -2182,16 +2170,6 @@
               {
                 "id": "EVIDENCE",
                 "displayName": "EVIDENCE",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": true,
-                "removed": false
-              },
-              {
-                "id": "ANGLE",
-                "displayName": "ANGLE",
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
@@ -2358,7 +2336,7 @@
           "workflowInputs": {
             "mappingMode": "defineBelow",
             "value": {
-              "CONTENT": "={{ (($('select_article_to_post').item.json.EVIDENCE || $('select_article_to_post').item.json.ANGLE) ? \"The article's concrete detail: \" + ($('select_article_to_post').item.json.EVIDENCE || '') + \"\\nThe judged angle: \" + ($('select_article_to_post').item.json.ANGLE || '') + \"\\n\\n\" : '') + $('execute_post_creator').item.json.text }}",
+              "CONTENT": "={{ ($('select_article_to_post').item.json.RATIONALE ? \"The article's concrete detail: \" + ($('select_article_to_post').item.json.RATIONALE || '') + \"\\n\\n\" : '') + $('execute_post_creator').item.json.text }}",
               "ASSET_TYPES": "animation_linkedin_video",
               "FEEDBACK": "={{ $('build_retry_feedback').isExecuted ? $('build_retry_feedback').last().json.FEEDBACK : ($('notification_retry_or_cancel_animation').isExecuted ? ($('notification_retry_or_cancel_animation').last().json.data.Feedback || '') : '') }}",
               "FORCE": "={{ $('select_article_to_post').item.json.VISUAL_FORM || 'auto' }}",
@@ -3110,6 +3088,300 @@
           10816,
           -352
         ]
+      },
+      {
+        "parameters": {
+          "jsCode": "// The writer classified on this turn, so its choice becomes the row's. HOOK and the\n// registry's visual defaults for it are written before the text approval, which is what\n// the animated branch, the still fallback and the review read. The snapshot this run\n// selected is stamped too: those branches read $('select_article_to_post').item.json, and\n// a sheet write alone would not reach an item read at the top of the run. Both status\n// columns stay untouched; a Cancel at the approval leaves these cells and the row is\n// CANCELED there anyway.\nconst row = $('select_article_to_post').first().json;\nconst draft = $('execute_post_creator').first().json || {};\nconst HOOK = String(draft.HOOK || '').trim().toUpperCase();\nconst VISUAL_FORM = String(draft.VISUAL_FORM || '').trim().toLowerCase();\nconst SCENES = String(draft.SCENES == null ? '' : draft.SCENES).trim();\nif (!HOOK) {\n  throw new Error('the post creator returned no hook: row ' + row.row_number + ' would publish without its classification');\n}\nrow.HOOK = HOOK;\nrow.VISUAL_FORM = VISUAL_FORM;\nrow.SCENES = SCENES;\nconsole.log('build_hook_columns: row ' + row.row_number + ' ' + HOOK + ' / ' + (VISUAL_FORM || 'auto') + ' / scenes ' + (SCENES || '0'));\nreturn [{ json: { row_number: row.row_number, HOOK, VISUAL_FORM, SCENES } }];\n"
+        },
+        "id": "b7c1e2f3-4a55-4b66-8c77-000000000001",
+        "name": "build_hook_columns",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          8576,
+          -768
+        ]
+      },
+      {
+        "parameters": {
+          "operation": "update",
+          "documentId": {
+            "__rl": true,
+            "value": "1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI",
+            "mode": "list",
+            "cachedResultName": "content_planner",
+            "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit?usp=drivesdk"
+          },
+          "sheetName": {
+            "__rl": true,
+            "value": "content_queue",
+            "mode": "name"
+          },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "row_number": "={{ $json.row_number }}",
+              "HOOK": "={{ $json.HOOK }}",
+              "VISUAL_FORM": "={{ $json.VISUAL_FORM }}",
+              "SCENES": "={{ $json.SCENES }}"
+            },
+            "matchingColumns": [
+              "row_number"
+            ],
+            "schema": [
+              {
+                "id": "URL",
+                "displayName": "URL",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "TITLE",
+                "displayName": "TITLE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "STATUS",
+                "displayName": "STATUS",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "PRIORITY",
+                "displayName": "PRIORITY",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "SCORE",
+                "displayName": "SCORE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "ORIGIN",
+                "displayName": "ORIGIN",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "TOPIC",
+                "displayName": "TOPIC",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "SOURCE",
+                "displayName": "SOURCE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "RATIONALE",
+                "displayName": "RATIONALE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "HOOK",
+                "displayName": "HOOK",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              },
+              {
+                "id": "VISUAL_FORM",
+                "displayName": "VISUAL_FORM",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              },
+              {
+                "id": "POST_MEDIA",
+                "displayName": "POST_MEDIA",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "SCENES",
+                "displayName": "SCENES",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              },
+              {
+                "id": "EXTRA_PROMPT",
+                "displayName": "EXTRA_PROMPT",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "MAX_WORDS",
+                "displayName": "MAX_WORDS",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "PUBLISHED_AT",
+                "displayName": "PUBLISHED_AT",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "UPDATE_DATE",
+                "displayName": "UPDATE_DATE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "RELEASE_DATE",
+                "displayName": "RELEASE_DATE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "LINKEDIN_URL",
+                "displayName": "LINKEDIN_URL",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "ENTRY_ID",
+                "displayName": "ENTRY_ID",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "ERROR",
+                "displayName": "ERROR",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "EXECUTION_ID",
+                "displayName": "EXECUTION_ID",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "row_number",
+                "displayName": "row_number",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "number",
+                "canBeUsedToMatch": true,
+                "readOnly": true,
+                "removed": false
+              }
+            ],
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": false
+          },
+          "options": {}
+        },
+        "id": "b7c1e2f3-4a55-4b66-8c77-000000000002",
+        "name": "update_hook_columns",
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4.6,
+        "position": [
+          8688,
+          -768
+        ],
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "pGARJmt50qz64xOo",
+            "name": "Google Sheets account"
+          }
+        },
+        "retryOnFail": true,
+        "maxTries": 3
       }
     ],
     "connections": {
@@ -3157,7 +3429,7 @@
         "main": [
           [
             {
-              "node": "update_status_waiting_approval",
+              "node": "build_hook_columns",
               "type": "main",
               "index": 0
             }
@@ -3724,6 +3996,28 @@
             }
           ]
         ]
+      },
+      "build_hook_columns": {
+        "main": [
+          [
+            {
+              "node": "update_hook_columns",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "update_hook_columns": {
+        "main": [
+          [
+            {
+              "node": "update_status_waiting_approval",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
       }
     },
     "nodeGroups": [],
@@ -3780,7 +4074,7 @@
       "main": [
         [
           {
-            "node": "update_status_waiting_approval",
+            "node": "build_hook_columns",
             "type": "main",
             "index": 0
           }
@@ -4347,6 +4641,28 @@
           }
         ]
       ]
+    },
+    "build_hook_columns": {
+      "main": [
+        [
+          {
+            "node": "update_hook_columns",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "update_hook_columns": {
+      "main": [
+        [
+          {
+            "node": "update_status_waiting_approval",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "createdAt": "2025-05-26T15:30:12.395Z",
@@ -4549,7 +4865,6 @@
             "ENABLE_CHECK": "true",
             "FEEDBACK": "={{ $('notification_retry_or_cancel').isExecuted && $('notification_retry_or_cancel').last().json.data ? ((String($('notification_retry_or_cancel').last().json.data.Directive || '').trim() && String($('notification_retry_or_cancel').last().json.data.Directive || '').trim() !== 'Other') ? '[' + String($('notification_retry_or_cancel').last().json.data.Directive || '').trim() + '] ' : '') + String($('notification_retry_or_cancel').last().json.data.Feedback || '') : '' }}",
             "HOOK": "={{ $('select_article_to_post').item.json.HOOK || '' }}",
-            "ANGLE": "={{ $('select_article_to_post').item.json.ANGLE || '' }}",
             "PREVIOUS_POST": "={{ $('execute_post_creator').isExecuted ? ($('execute_post_creator').last().json.text || '') : '' }}",
             "ROW_NUMBER": "={{ $('select_article_to_post').item.json.row_number }}"
           },
@@ -4633,16 +4948,6 @@
               "display": true,
               "canBeUsedToMatch": true,
               "type": "string",
-              "removed": false
-            },
-            {
-              "id": "ANGLE",
-              "displayName": "ANGLE",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
               "removed": false
             },
             {
@@ -6476,8 +6781,7 @@
             "POST_CONTENT": "={{ $('execute_post_creator').item.json.text }}",
             "FEEDBACK": "={{ $('notification_retry_or_cancel_image').isExecuted && $('notification_retry_or_cancel_image').last().json.data.Feedback ? $('notification_retry_or_cancel_image').last().json.data.Feedback : '' }}",
             "HOOK": "={{ $('select_article_to_post').item.json.HOOK || '' }}",
-            "EVIDENCE": "={{ $('select_article_to_post').item.json.EVIDENCE || '' }}",
-            "ANGLE": "={{ $('select_article_to_post').item.json.ANGLE || '' }}"
+            "EVIDENCE": "={{ $('select_article_to_post').item.json.RATIONALE || '' }}"
           },
           "matchingColumns": [
             "POST_CONTENT"
@@ -6536,16 +6840,6 @@
             {
               "id": "EVIDENCE",
               "displayName": "EVIDENCE",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "ANGLE",
-              "displayName": "ANGLE",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -6712,7 +7006,7 @@
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "CONTENT": "={{ (($('select_article_to_post').item.json.EVIDENCE || $('select_article_to_post').item.json.ANGLE) ? \"The article's concrete detail: \" + ($('select_article_to_post').item.json.EVIDENCE || '') + \"\\nThe judged angle: \" + ($('select_article_to_post').item.json.ANGLE || '') + \"\\n\\n\" : '') + $('execute_post_creator').item.json.text }}",
+            "CONTENT": "={{ ($('select_article_to_post').item.json.RATIONALE ? \"The article's concrete detail: \" + ($('select_article_to_post').item.json.RATIONALE || '') + \"\\n\\n\" : '') + $('execute_post_creator').item.json.text }}",
             "ASSET_TYPES": "animation_linkedin_video",
             "FEEDBACK": "={{ $('build_retry_feedback').isExecuted ? $('build_retry_feedback').last().json.FEEDBACK : ($('notification_retry_or_cancel_animation').isExecuted ? ($('notification_retry_or_cancel_animation').last().json.data.Feedback || '') : '') }}",
             "FORCE": "={{ $('select_article_to_post').item.json.VISUAL_FORM || 'auto' }}",
@@ -7464,6 +7758,300 @@
         10816,
         -352
       ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// The writer classified on this turn, so its choice becomes the row's. HOOK and the\n// registry's visual defaults for it are written before the text approval, which is what\n// the animated branch, the still fallback and the review read. The snapshot this run\n// selected is stamped too: those branches read $('select_article_to_post').item.json, and\n// a sheet write alone would not reach an item read at the top of the run. Both status\n// columns stay untouched; a Cancel at the approval leaves these cells and the row is\n// CANCELED there anyway.\nconst row = $('select_article_to_post').first().json;\nconst draft = $('execute_post_creator').first().json || {};\nconst HOOK = String(draft.HOOK || '').trim().toUpperCase();\nconst VISUAL_FORM = String(draft.VISUAL_FORM || '').trim().toLowerCase();\nconst SCENES = String(draft.SCENES == null ? '' : draft.SCENES).trim();\nif (!HOOK) {\n  throw new Error('the post creator returned no hook: row ' + row.row_number + ' would publish without its classification');\n}\nrow.HOOK = HOOK;\nrow.VISUAL_FORM = VISUAL_FORM;\nrow.SCENES = SCENES;\nconsole.log('build_hook_columns: row ' + row.row_number + ' ' + HOOK + ' / ' + (VISUAL_FORM || 'auto') + ' / scenes ' + (SCENES || '0'));\nreturn [{ json: { row_number: row.row_number, HOOK, VISUAL_FORM, SCENES } }];\n"
+      },
+      "id": "b7c1e2f3-4a55-4b66-8c77-000000000001",
+      "name": "build_hook_columns",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        8576,
+        -768
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI",
+          "mode": "list",
+          "cachedResultName": "content_planner",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "content_queue",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "row_number": "={{ $json.row_number }}",
+            "HOOK": "={{ $json.HOOK }}",
+            "VISUAL_FORM": "={{ $json.VISUAL_FORM }}",
+            "SCENES": "={{ $json.SCENES }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "URL",
+              "displayName": "URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "TITLE",
+              "displayName": "TITLE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "STATUS",
+              "displayName": "STATUS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "PRIORITY",
+              "displayName": "PRIORITY",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "SCORE",
+              "displayName": "SCORE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "ORIGIN",
+              "displayName": "ORIGIN",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "TOPIC",
+              "displayName": "TOPIC",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "SOURCE",
+              "displayName": "SOURCE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "RATIONALE",
+              "displayName": "RATIONALE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "HOOK",
+              "displayName": "HOOK",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "VISUAL_FORM",
+              "displayName": "VISUAL_FORM",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "POST_MEDIA",
+              "displayName": "POST_MEDIA",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "SCENES",
+              "displayName": "SCENES",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "EXTRA_PROMPT",
+              "displayName": "EXTRA_PROMPT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "MAX_WORDS",
+              "displayName": "MAX_WORDS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "PUBLISHED_AT",
+              "displayName": "PUBLISHED_AT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "UPDATE_DATE",
+              "displayName": "UPDATE_DATE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "RELEASE_DATE",
+              "displayName": "RELEASE_DATE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "LINKEDIN_URL",
+              "displayName": "LINKEDIN_URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "ENTRY_ID",
+              "displayName": "ENTRY_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "ERROR",
+              "displayName": "ERROR",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "EXECUTION_ID",
+              "displayName": "EXECUTION_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "b7c1e2f3-4a55-4b66-8c77-000000000002",
+      "name": "update_hook_columns",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        8688,
+        -768
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "pGARJmt50qz64xOo",
+          "name": "Google Sheets account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3
     }
   ],
   "pinData": {},

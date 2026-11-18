@@ -65,6 +65,9 @@ import {
   articleWordCount,
   articleWordLimit,
   chooseDirectives,
+  applyChosenHook,
+  parsePostHook,
+  renderHookList,
   ARTICLE_NAME,
   LEDGER_NAME,
   POST_DIRECTIVES_NAME,
@@ -544,13 +547,15 @@ async function postPrompts(brief) {
   };
 }
 
-async function postDraftPrompt({ brief, directives }) {
+async function postDraftPrompt({ brief, directives, assignedHook = "" }) {
   const { system, post, rules } = await postPrompts(brief);
+  // The list is only an offer: a row that already carries a hook (or a session whose
+  // directives already chose one) is told the shape through the directives instead.
   const text = fillTemplate(post, {
     RULES: rules,
     EXTRA_PROMPT: brief.extra_prompt ?? "",
-    ANGLE: brief.angle ?? "",
     CONTENT: brief.content ?? "",
+    HOOKS: assignedHook ? "" : renderHookList(brief.hooks),
     VARIETY_DIRECTIVES: directives,
     FEEDBACK: brief.feedback ?? "",
     PREVIOUS_POST: brief.previous_post ?? "",
@@ -598,11 +603,12 @@ async function resolvePostDirectives(dir, brief) {
 
 // The draft answers inside one `<output>` block and the gate answers the verdict and its
 // explanation. Both are rebuilt here so the caller reads the same tags it read from the model
-// node, whatever wrapper the turn used.
+// node, whatever wrapper the turn used. The `<hook>` tag is the classification, not the post:
+// a model that puts it inside the block would otherwise publish it.
 function postDraftAnswer(response) {
   const raw = String(response ?? "").trim();
   const block = /<output>([\s\S]*?)<\/output>/.exec(raw);
-  const text = (block ? block[1] : raw).trim();
+  const text = (block ? block[1] : raw).replace(/<hook>[\s\S]*?<\/hook>/gi, "").trim();
   if (!text) throw new Error("the post turn returned no text");
   return `<output>${text}</output>`;
 }
@@ -1187,14 +1193,28 @@ http
             proxyEnv(null);
             const direct = brief || {};
             const chosen = await resolvePostDirectives(dir, direct);
+            // The row's hook wins, then the one an earlier turn of this session chose: either
+            // way the writer is told its shape and the brief stops offering the list.
+            const assignedHook = String(chosen.hook_id || direct.hook || "")
+              .trim()
+              .toUpperCase();
             if (task === "draft") {
-              const prompt = await postDraftPrompt({ brief: direct, directives: chosen.directives });
+              const prompt = await postDraftPrompt({ brief: direct, directives: chosen.directives, assignedHook });
               const response = await runPi(prompt, sessionID, undefined, cancellation.signal, dir, {
                 noTools: true,
               });
+              const parsed = parsePostHook(response, { hooks: direct.hooks, assigned: assignedHook });
+              if (parsed.error) throw new Error(parsed.error);
+              // The chosen hook becomes the session's stored directive, so the gate judges it
+              // and a retry neither re-chooses nor loses the shape the drafter wrote.
+              let stored = chosen;
+              if (parsed.hook && parsed.hook !== assignedHook) {
+                stored = applyChosenHook(chosen, { hook: parsed.hook, hookOpening: parsed.opening });
+                await writeFile(join(dir, POST_DIRECTIVES_NAME), `${JSON.stringify(stored, null, 2)}\n`);
+              }
               return {
                 response,
-                post: { text: postDraftAnswer(response), directives: chosen.directives },
+                post: { text: postDraftAnswer(response), hook: stored.hook_id || parsed.hook, directives: stored.directives },
               };
             }
             const prompt = await postReviewPrompt({

@@ -161,6 +161,24 @@
                 "name": "omImage ",
                 "value": "",
                 "type": "string"
+              },
+              {
+                "id": "3f17d2c4-0001-4a10-9a11-000000000001",
+                "name": "HOOK",
+                "value": "={{ $('parse_llm_output').item.json.HOOK }}",
+                "type": "string"
+              },
+              {
+                "id": "3f17d2c4-0001-4a10-9a11-000000000002",
+                "name": "VISUAL_FORM",
+                "value": "={{ $('parse_llm_output').item.json.VISUAL_FORM }}",
+                "type": "string"
+              },
+              {
+                "id": "3f17d2c4-0001-4a10-9a11-000000000003",
+                "name": "SCENES",
+                "value": "={{ $('parse_llm_output').item.json.SCENES }}",
+                "type": "string"
               }
             ]
           },
@@ -204,9 +222,6 @@
               },
               {
                 "name": "HOOK"
-              },
-              {
-                "name": "ANGLE"
               },
               {
                 "name": "PREVIOUS_POST"
@@ -277,7 +292,7 @@
           -928
         ],
         "parameters": {
-          "jsCode": "// n8n Code node — mode: \"Run Once for Each Item\"\n\nconst url = $('set_workflow_vars').item.json.URL;\nconst text = $json.text;\n\n// Pull the <output>...</output> block; fall back to the whole text if absent\nconst match = /<output>([\\s\\S]*?)<\\/output>/.exec(text);\nlet result = match ? match[1].trim() : text;\n\n// The gate demands the exact placeholder, so it gets the line before any URL is rendered;\n// substituting here first made every draft fail for the URL it had just been handed.\nconst review_text = result.replace(/^Source here:.*$/gm, 'Source here: SOME_URL');\nresult = review_text\n  .replace(/(Source here: )SOME_URL/g, (m, p1) => p1 + url)\n  .replace(/(.*): SOME_URL/g,   (m, p1) => p1 + ': ' + url);\n\nreturn { json: { ...$json, review_text, result } };"
+          "jsCode": "// n8n Code node — mode: \"Run Once for Each Item\"\n\nconst url = $('set_workflow_vars').item.json.URL;\nconst text = $json.text;\n\n// Pull the <output>...</output> block; fall back to the whole text if absent\nconst match = /<output>([\\s\\S]*?)<\\/output>/.exec(text);\nlet result = match ? match[1].trim() : text;\n\n// The gate demands the exact placeholder, so it gets the line before any URL is rendered;\n// substituting here first made every draft fail for the URL it had just been handed.\nconst review_text = result.replace(/^Source here:.*$/gm, 'Source here: SOME_URL');\nresult = review_text\n  .replace(/(Source here: )SOME_URL/g, (m, p1) => p1 + url)\n  .replace(/(.*): SOME_URL/g,   (m, p1) => p1 + ': ' + url);\n\n// The hook, classified once per post. The row's HOOK wins; otherwise this turn's answer\n// carries the writer's choice - as the adapter's recorded `hook`, or as the\n// <hook>ID</hook> tag beside the block - and it is validated here against the one\n// registry. The registry's visual defaults ride with it, so the media branches and the\n// still fallback read the row exactly as they did when the curator chose.\nconst byId = $('parse_hook_registry').first().json.byId || {};\nconst assigned = String($('set_workflow_vars').item.json.HOOK || '').trim().toUpperCase();\nconst tagged = (/<hook>\\s*([A-Za-z0-9_]+)\\s*<\\/hook>/i.exec(text) || [])[1] || '';\nconst hook = assigned || String($json.hook || tagged || '').trim().toUpperCase();\nif (!hook) throw new Error('no hook: the row carries none and the writer answered no <hook> tag');\nconst entry = byId[hook];\nif (!entry) throw new Error('the answer chose hook ' + hook + ', which datasets/hook_types.json does not carry');\nconst visual = entry.visual || {};\n\nreturn { json: { ...$json, review_text, result,\n  HOOK: hook,\n  VISUAL_FORM: String(visual.form || '').toLowerCase(),\n  SCENES: String(visual.scenes == null ? 0 : visual.scenes) } };\n"
         }
       },
       {
@@ -354,7 +369,7 @@
           -848
         ],
         "parameters": {
-          "jsCode": "// The post session is keyed on the article URL, not the sheet position: expiring rows\n// renumbers the sheet, and a row number reused by a later article continued that\n// article's session and its directives. The URL keeps a retry on the same article in\n// one session and draws fresh directives for a new one.\nconst vars = $('main_trigger').first().json;\nconst url = String(vars.URL || '').trim();\nif (!url) throw new Error('URL is required: the session id is derived from it');\nconst base = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!base) throw new Error('ARTICLE_WRITER_URL is not set; the post session cannot be reached');\nlet h = 2166136261;\nfor (const ch of url) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619); }\nconst sessionId = 'post-' + (h >>> 0).toString(36);\n// On a retry this node is fed by switch_check_rules_llm's retry output, so $json carries\n// the gate's explanation; on the first attempt it carries the hook registry.\nconst explanation = String(($json && $json.explanation) || '').trim();\nconst feedback = [\n  String(vars.FEEDBACK || '').trim(),\n  explanation ? 'Internal review rejected the previous draft with: ' + explanation : '',\n].filter(Boolean).join('\\n');\n// The hook is the curator's decision on the row; this graph only resolves its opening\n// shape from the one registry, and the adapter formats the directive.\nconst byId = $('parse_hook_registry').first().json.byId || {};\nconst hookId = String(vars.HOOK || '').trim().toUpperCase();\nconst entry = byId[hookId] || null;\nconst brief = {\n  content: String(vars.CONTENT || ''),\n  url: String(vars.URL || 'https://www.alvsanand.com'),\n  post_type: String(vars.POST_TYPE || 'LinkedIn Post'),\n  min_words: Number(vars.MIN_WORDS) || 150,\n  max_words: Number(vars.MAX_WORDS) || 200,\n  extra_prompt: String(vars.EXTRA_PROMPT || ''),\n  feedback,\n  previous_post: String(vars.PREVIOUS_POST || '').trim(),\n  hook: hookId,\n  hook_opening: entry ? String(entry.opening || '') : '',\n  // The judge's angle, beside the hook opening it belongs to. Blank on a manual row.\n  angle: String(vars.ANGLE || '').trim(),\n};\nreturn [{ json: {\n  SESSION_ID: sessionId,\n  ATTEMPT: $runIndex + 1,\n  POST_URL: base + '/v1/chat/completions',\n  BRIEF: brief,\n  POST_BODY: JSON.stringify({ lane: 'post', task: 'draft', session_id: sessionId, attempt: $runIndex + 1, brief }),\n} }];"
+          "jsCode": "// The post session is keyed on the article URL, not the sheet position: expiring rows\n// renumbers the sheet, and a row number reused by a later article continued that\n// article's session and its directives. The URL keeps a retry on the same article in\n// one session and draws fresh directives for a new one.\nconst vars = $('main_trigger').first().json;\nconst url = String(vars.URL || '').trim();\nif (!url) throw new Error('URL is required: the session id is derived from it');\nconst base = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!base) throw new Error('ARTICLE_WRITER_URL is not set; the post session cannot be reached');\nlet h = 2166136261;\nfor (const ch of url) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619); }\nconst sessionId = 'post-' + (h >>> 0).toString(36);\n// On a retry this node is fed by switch_check_rules_llm's retry output, so $json carries\n// the gate's explanation; on the first attempt it carries the hook registry.\nconst explanation = String(($json && $json.explanation) || '').trim();\nconst feedback = [\n  String(vars.FEEDBACK || '').trim(),\n  explanation ? 'Internal review rejected the previous draft with: ' + explanation : '',\n].filter(Boolean).join('\\n');\n// The row's HOOK is a decision already taken - a human edit, a row queued before the\n// writer classified, or a retry whose session chose - so it is resolved to its opening\n// shape and the writer writes to it. A blank row is the normal pre-draft state: the brief\n// carries the eligibility list and the writer classifies on the draft turn.\nconst byId = $('parse_hook_registry').first().json.byId || {};\nconst hookId = String(vars.HOOK || '').trim().toUpperCase();\nconst entry = byId[hookId] || null;\nconst brief = {\n  content: String(vars.CONTENT || ''),\n  url: String(vars.URL || 'https://www.alvsanand.com'),\n  post_type: String(vars.POST_TYPE || 'LinkedIn Post'),\n  min_words: Number(vars.MIN_WORDS) || 150,\n  max_words: Number(vars.MAX_WORDS) || 200,\n  extra_prompt: String(vars.EXTRA_PROMPT || ''),\n  feedback,\n  previous_post: String(vars.PREVIOUS_POST || '').trim(),\n  hook: hookId,\n  hook_opening: entry ? String(entry.opening || '') : '',\n};\nif (!hookId) {\n  brief.hooks = Object.keys(byId).map((id) => ({\n    id,\n    when: String(byId[id].when || ''),\n    opening: String(byId[id].opening || ''),\n  }));\n}\nreturn [{ json: {\n  SESSION_ID: sessionId,\n  ATTEMPT: $runIndex + 1,\n  POST_URL: base + '/v1/chat/completions',\n  BRIEF: brief,\n  POST_BODY: JSON.stringify({ lane: 'post', task: 'draft', session_id: sessionId, attempt: $runIndex + 1, brief }),\n} }];\n"
         }
       },
       {
@@ -396,7 +411,7 @@
           -928
         ],
         "parameters": {
-          "jsCode": "// The adapter answers {statusCode, body}; a refused turn is named here rather than parsed\n// as an empty draft, and the text is rebuilt in the shape the two Code nodes below read.\nconst res = $input.first().json;\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nif (status >= 400) {\n  const message = String((body.error && body.error.message) || body.error || body.message || '').trim();\n  throw new Error('the post session refused the turn: HTTP ' + status + (message ? ': ' + message : ''));\n}\nconst text = body && body.post && typeof body.post.text === 'string' ? body.post.text : '';\nif (!text.trim()) throw new Error('the post session returned no post text');\nreturn [{ json: { ...res, text } }];"
+          "jsCode": "// The adapter answers {statusCode, body}; a refused turn is named here rather than parsed\n// as an empty draft, and the text is rebuilt in the shape the two Code nodes below read.\n// `hook` is the classification the adapter recorded on the turn, when it classified.\nconst res = $input.first().json;\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nif (status >= 400) {\n  const message = String((body.error && body.error.message) || body.error || body.message || '').trim();\n  throw new Error('the post session refused the turn: HTTP ' + status + (message ? ': ' + message : ''));\n}\nconst text = body && body.post && typeof body.post.text === 'string' ? body.post.text : '';\nif (!text.trim()) throw new Error('the post session returned no post text');\nconst hook = String((body.post && body.post.hook) || '').trim().toUpperCase();\nreturn [{ json: { ...res, text, hook } }];\n"
         }
       },
       {
@@ -985,6 +1000,24 @@
               "name": "omImage ",
               "value": "",
               "type": "string"
+            },
+            {
+              "id": "3f17d2c4-0001-4a10-9a11-000000000001",
+              "name": "HOOK",
+              "value": "={{ $('parse_llm_output').item.json.HOOK }}",
+              "type": "string"
+            },
+            {
+              "id": "3f17d2c4-0001-4a10-9a11-000000000002",
+              "name": "VISUAL_FORM",
+              "value": "={{ $('parse_llm_output').item.json.VISUAL_FORM }}",
+              "type": "string"
+            },
+            {
+              "id": "3f17d2c4-0001-4a10-9a11-000000000003",
+              "name": "SCENES",
+              "value": "={{ $('parse_llm_output').item.json.SCENES }}",
+              "type": "string"
             }
           ]
         },
@@ -1028,9 +1061,6 @@
             },
             {
               "name": "HOOK"
-            },
-            {
-              "name": "ANGLE"
             },
             {
               "name": "PREVIOUS_POST"
@@ -1101,7 +1131,7 @@
         -928
       ],
       "parameters": {
-        "jsCode": "// n8n Code node — mode: \"Run Once for Each Item\"\n\nconst url = $('set_workflow_vars').item.json.URL;\nconst text = $json.text;\n\n// Pull the <output>...</output> block; fall back to the whole text if absent\nconst match = /<output>([\\s\\S]*?)<\\/output>/.exec(text);\nlet result = match ? match[1].trim() : text;\n\n// The gate demands the exact placeholder, so it gets the line before any URL is rendered;\n// substituting here first made every draft fail for the URL it had just been handed.\nconst review_text = result.replace(/^Source here:.*$/gm, 'Source here: SOME_URL');\nresult = review_text\n  .replace(/(Source here: )SOME_URL/g, (m, p1) => p1 + url)\n  .replace(/(.*): SOME_URL/g,   (m, p1) => p1 + ': ' + url);\n\nreturn { json: { ...$json, review_text, result } };"
+        "jsCode": "// n8n Code node — mode: \"Run Once for Each Item\"\n\nconst url = $('set_workflow_vars').item.json.URL;\nconst text = $json.text;\n\n// Pull the <output>...</output> block; fall back to the whole text if absent\nconst match = /<output>([\\s\\S]*?)<\\/output>/.exec(text);\nlet result = match ? match[1].trim() : text;\n\n// The gate demands the exact placeholder, so it gets the line before any URL is rendered;\n// substituting here first made every draft fail for the URL it had just been handed.\nconst review_text = result.replace(/^Source here:.*$/gm, 'Source here: SOME_URL');\nresult = review_text\n  .replace(/(Source here: )SOME_URL/g, (m, p1) => p1 + url)\n  .replace(/(.*): SOME_URL/g,   (m, p1) => p1 + ': ' + url);\n\n// The hook, classified once per post. The row's HOOK wins; otherwise this turn's answer\n// carries the writer's choice - as the adapter's recorded `hook`, or as the\n// <hook>ID</hook> tag beside the block - and it is validated here against the one\n// registry. The registry's visual defaults ride with it, so the media branches and the\n// still fallback read the row exactly as they did when the curator chose.\nconst byId = $('parse_hook_registry').first().json.byId || {};\nconst assigned = String($('set_workflow_vars').item.json.HOOK || '').trim().toUpperCase();\nconst tagged = (/<hook>\\s*([A-Za-z0-9_]+)\\s*<\\/hook>/i.exec(text) || [])[1] || '';\nconst hook = assigned || String($json.hook || tagged || '').trim().toUpperCase();\nif (!hook) throw new Error('no hook: the row carries none and the writer answered no <hook> tag');\nconst entry = byId[hook];\nif (!entry) throw new Error('the answer chose hook ' + hook + ', which datasets/hook_types.json does not carry');\nconst visual = entry.visual || {};\n\nreturn { json: { ...$json, review_text, result,\n  HOOK: hook,\n  VISUAL_FORM: String(visual.form || '').toLowerCase(),\n  SCENES: String(visual.scenes == null ? 0 : visual.scenes) } };\n"
       }
     },
     {
@@ -1178,7 +1208,7 @@
         -848
       ],
       "parameters": {
-        "jsCode": "// The post session is keyed on the article URL, not the sheet position: expiring rows\n// renumbers the sheet, and a row number reused by a later article continued that\n// article's session and its directives. The URL keeps a retry on the same article in\n// one session and draws fresh directives for a new one.\nconst vars = $('main_trigger').first().json;\nconst url = String(vars.URL || '').trim();\nif (!url) throw new Error('URL is required: the session id is derived from it');\nconst base = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!base) throw new Error('ARTICLE_WRITER_URL is not set; the post session cannot be reached');\nlet h = 2166136261;\nfor (const ch of url) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619); }\nconst sessionId = 'post-' + (h >>> 0).toString(36);\n// On a retry this node is fed by switch_check_rules_llm's retry output, so $json carries\n// the gate's explanation; on the first attempt it carries the hook registry.\nconst explanation = String(($json && $json.explanation) || '').trim();\nconst feedback = [\n  String(vars.FEEDBACK || '').trim(),\n  explanation ? 'Internal review rejected the previous draft with: ' + explanation : '',\n].filter(Boolean).join('\\n');\n// The hook is the curator's decision on the row; this graph only resolves its opening\n// shape from the one registry, and the adapter formats the directive.\nconst byId = $('parse_hook_registry').first().json.byId || {};\nconst hookId = String(vars.HOOK || '').trim().toUpperCase();\nconst entry = byId[hookId] || null;\nconst brief = {\n  content: String(vars.CONTENT || ''),\n  url: String(vars.URL || 'https://www.alvsanand.com'),\n  post_type: String(vars.POST_TYPE || 'LinkedIn Post'),\n  min_words: Number(vars.MIN_WORDS) || 150,\n  max_words: Number(vars.MAX_WORDS) || 200,\n  extra_prompt: String(vars.EXTRA_PROMPT || ''),\n  feedback,\n  previous_post: String(vars.PREVIOUS_POST || '').trim(),\n  hook: hookId,\n  hook_opening: entry ? String(entry.opening || '') : '',\n  // The judge's angle, beside the hook opening it belongs to. Blank on a manual row.\n  angle: String(vars.ANGLE || '').trim(),\n};\nreturn [{ json: {\n  SESSION_ID: sessionId,\n  ATTEMPT: $runIndex + 1,\n  POST_URL: base + '/v1/chat/completions',\n  BRIEF: brief,\n  POST_BODY: JSON.stringify({ lane: 'post', task: 'draft', session_id: sessionId, attempt: $runIndex + 1, brief }),\n} }];"
+        "jsCode": "// The post session is keyed on the article URL, not the sheet position: expiring rows\n// renumbers the sheet, and a row number reused by a later article continued that\n// article's session and its directives. The URL keeps a retry on the same article in\n// one session and draws fresh directives for a new one.\nconst vars = $('main_trigger').first().json;\nconst url = String(vars.URL || '').trim();\nif (!url) throw new Error('URL is required: the session id is derived from it');\nconst base = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!base) throw new Error('ARTICLE_WRITER_URL is not set; the post session cannot be reached');\nlet h = 2166136261;\nfor (const ch of url) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619); }\nconst sessionId = 'post-' + (h >>> 0).toString(36);\n// On a retry this node is fed by switch_check_rules_llm's retry output, so $json carries\n// the gate's explanation; on the first attempt it carries the hook registry.\nconst explanation = String(($json && $json.explanation) || '').trim();\nconst feedback = [\n  String(vars.FEEDBACK || '').trim(),\n  explanation ? 'Internal review rejected the previous draft with: ' + explanation : '',\n].filter(Boolean).join('\\n');\n// The row's HOOK is a decision already taken - a human edit, a row queued before the\n// writer classified, or a retry whose session chose - so it is resolved to its opening\n// shape and the writer writes to it. A blank row is the normal pre-draft state: the brief\n// carries the eligibility list and the writer classifies on the draft turn.\nconst byId = $('parse_hook_registry').first().json.byId || {};\nconst hookId = String(vars.HOOK || '').trim().toUpperCase();\nconst entry = byId[hookId] || null;\nconst brief = {\n  content: String(vars.CONTENT || ''),\n  url: String(vars.URL || 'https://www.alvsanand.com'),\n  post_type: String(vars.POST_TYPE || 'LinkedIn Post'),\n  min_words: Number(vars.MIN_WORDS) || 150,\n  max_words: Number(vars.MAX_WORDS) || 200,\n  extra_prompt: String(vars.EXTRA_PROMPT || ''),\n  feedback,\n  previous_post: String(vars.PREVIOUS_POST || '').trim(),\n  hook: hookId,\n  hook_opening: entry ? String(entry.opening || '') : '',\n};\nif (!hookId) {\n  brief.hooks = Object.keys(byId).map((id) => ({\n    id,\n    when: String(byId[id].when || ''),\n    opening: String(byId[id].opening || ''),\n  }));\n}\nreturn [{ json: {\n  SESSION_ID: sessionId,\n  ATTEMPT: $runIndex + 1,\n  POST_URL: base + '/v1/chat/completions',\n  BRIEF: brief,\n  POST_BODY: JSON.stringify({ lane: 'post', task: 'draft', session_id: sessionId, attempt: $runIndex + 1, brief }),\n} }];\n"
       }
     },
     {
@@ -1220,7 +1250,7 @@
         -928
       ],
       "parameters": {
-        "jsCode": "// The adapter answers {statusCode, body}; a refused turn is named here rather than parsed\n// as an empty draft, and the text is rebuilt in the shape the two Code nodes below read.\nconst res = $input.first().json;\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nif (status >= 400) {\n  const message = String((body.error && body.error.message) || body.error || body.message || '').trim();\n  throw new Error('the post session refused the turn: HTTP ' + status + (message ? ': ' + message : ''));\n}\nconst text = body && body.post && typeof body.post.text === 'string' ? body.post.text : '';\nif (!text.trim()) throw new Error('the post session returned no post text');\nreturn [{ json: { ...res, text } }];"
+        "jsCode": "// The adapter answers {statusCode, body}; a refused turn is named here rather than parsed\n// as an empty draft, and the text is rebuilt in the shape the two Code nodes below read.\n// `hook` is the classification the adapter recorded on the turn, when it classified.\nconst res = $input.first().json;\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nif (status >= 400) {\n  const message = String((body.error && body.error.message) || body.error || body.message || '').trim();\n  throw new Error('the post session refused the turn: HTTP ' + status + (message ? ': ' + message : ''));\n}\nconst text = body && body.post && typeof body.post.text === 'string' ? body.post.text : '';\nif (!text.trim()) throw new Error('the post session returned no post text');\nconst hook = String((body.post && body.post.hook) || '').trim().toUpperCase();\nreturn [{ json: { ...res, text, hook } }];\n"
       }
     },
     {

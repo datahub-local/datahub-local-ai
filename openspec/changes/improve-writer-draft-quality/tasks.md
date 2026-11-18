@@ -56,8 +56,9 @@
 - [x] 3.1 `agents/n8n/datasets/hook_types.json`: `RELEASE` and `NEWS_REACTION` `opening`
       values name the headline change in the first lines, then the take. **Done**; the
       file carries 0 `{{` occurrences, so the empty-template_vars fetch rule holds.
-- [x] 3.2 `agents/n8n/prompts/curator_judge.md`: angle rule gains the release carve-out —
-      the headline change may be the angle's subject. **Done**.
+- [x] 3.2 ~~`curator_judge.md` angle carve-out~~ — superseded: the angle field is
+      removed entirely (D8), so the registry opening (3.1) is the whole news fix; nothing
+      in the judge prompt names the change because the judge writes no direction.
 - [x] 3.3 No gate edit: `linkedin_post_review.md` judges the hook opening through the
       existing directive check. Confirmed by reading; the offline guard tests were
       deleted in `02fe540`, so the check is review plus the next live run. Verify a
@@ -81,37 +82,34 @@
       executing committed jsCode against stub items.) Both halves done: 0 structural
       problems across all six touched exports, harness green on every new expression.
 
-## 5. Angle and evidence passthrough
+## 5. Evidence passthrough (the judge writes no direction)
 
-- [x] 5.1 `content_feed_curator.workflow.json`: `admit_to_backlog` (both copies) writes
-      `ANGLE` and `EVIDENCE` from the parsed verdict, with `build_queue_rows` and the
-      append node's mapping+schema carrying both columns (a column the append does not
-      name is a write the run fails on). `content_queue` gains both columns by hand before
-      the next curator run. Known gap, accepted: the backfill pass does not write them, so
-      a repaired row keeps blank cells — the D5 blank-degrade case.
-- [x] 5.2 `linked_in_post_sharing.workflow.json`: the post writer brief carries the row's
-      `ANGLE` (declared input on `linked_in_post_creator.main_trigger`, into
-      `build_post_request`'s brief); the animated branch prepends the detail/angle block
-      to the studio call's `CONTENT` (empty row = today's CONTENT); the still fallback
-      passes `EVIDENCE`/`ANGLE` to `LinkedIn Image Creator`, whose
-      `download_image_prompt.template_vars` now carries both keys — verified against
-      DownloadTemplate's own logic: `missing: []`.
-- [x] 5.3 `agents/n8n/prompts/linkedin_image_prompt.md`: gains an `{{ EVIDENCE }}` /
-      `{{ ANGLE }}` block beside `{{ POST_CONTENT }}` — the detail that justified
-      admission is named for the director. **Done, but push-gated**: `check_template_vars_present`
-      stops the run on a placeholder the caller lacks (measured against `HEAD`:
-      `missing: ['ANGLE','EVIDENCE']`), so the `linked_in_image_creator`
-      graph apply (5.2's wiring) must land before or with this file's push — see design
-      D8.
-- [ ] 5.4 A queued row's angle and evidence survive to the visual brief; a blank cell
-      degrades to today's behaviour. `[UNVERIFIED] until the next live run`
-- [x] 5.5 The adapter renders the angle into the post drafting prompt: `## Angle`
-      section in `linkedin_post.md` filled from `brief.angle` (follow it unless Reviewer
-      Feedback names another; empty = ignore); the review prompt gains nothing — the
-      angle is direction, not a gate check. Suite 93/93; the two new tests fail with the
-      fill removed.
-- [ ] 5.4 A queued row's angle and evidence survive to the visual brief; a blank cell
-      degrades to today's behaviour. `[UNVERIFIED] until the next live run`
+- [x] 5.1 `content_feed_curator.workflow.json`: the judge's `angle` field is removed
+      end to end — `curator_judge.md` (bullet, examples, output schema), `parse_judge`,
+      `admit_to_backlog` (`EXTRA_PROMPT: j.angle` goes; `EXTRA_PROMPT` returns to
+      human-only) and the digest's brief line. `grep 'j.angle'` is 0; `MODEL` is
+      `glm-5.3` in both copies (`MODEL_FALLBACK` unchanged). A judge answer that still
+      returns an angle is ignored (harness-fed, verified). The earlier
+      `ANGLE`/`EVIDENCE` columns were duplicates and are already reverted out of the
+      append.
+- [x] 5.2 `linked_in_post_sharing.workflow.json`: the animated branch prefixes the
+      studio call's `CONTENT` with "The article's concrete detail: <`RATIONALE`>" only;
+      the still fallback passes `EVIDENCE` (from `RATIONALE`) to `LinkedIn Image
+      Creator`; the angle half is gone from both paths. The post writer brief needs no
+      direction field — the writer takes its position from the article text it reads.
+- [x] 5.3 `agents/n8n/prompts/linkedin_image_prompt.md`: carries one
+      `{{ EVIDENCE }}` line beside `{{ POST_CONTENT }}`, filled from `RATIONALE`; the
+      `{{ ANGLE }}` line is removed with the angle itself. **Push-gated**:
+      `check_template_vars_present` stops the run on a placeholder the caller lacks, and
+      `HEAD`'s image creator passes no `EVIDENCE`, so the `linked_in_image_creator` graph
+      apply (5.2's wiring) must land before or with this file's push — see design D9.
+- [ ] 5.4 A queued row's evidence survives to the visual brief; a blank cell degrades to
+      today's behaviour. `[UNVERIFIED] until the next live run`
+- [x] 5.6 The adapter states the outline's precedence: where the row's `DESCRIPTION`
+      itself sketches a structure, the approved outline outranks it — in
+      `article_task.md`, `article_improver.md`, and (as "refine, not replace") in
+      `article_outline.md`. Found in review: a human-authored board brief may carry its
+      own structure, and the draft would otherwise read two competing plans.
 
 ## 6. Model upgrade
 
@@ -127,12 +125,50 @@
 - [ ] 6.3 Rollout (`helmfile apply` in `agents/sympozium/`), then one live outline + draft
       run on the new model; the drafting turn's word-count discipline still holds.
       `[UNVERIFIED]`
+- [ ] 6.4 The curator judge's `MODEL` moves to `opencode-go/glm-5.3`
+      (`set_workflow_vars`, both copies; `MODEL_FALLBACK` stays `glm-5.3-flash`): the
+      decisions that bind the writer — hook, visual intent, postability — are made by the
+      tier that writes. Judge calls are small and bounded per run, so the cost is cents.
+      Applied with the curator graph in 9.1. `[UNVERIFIED] until the next live run`
 
-## 7. Live applies and verification
+## 8. Writer-side classification
 
-- [ ] 7.1 Show the owner the export diffs, then apply each graph with
+- [x] 8.1 `curator_judge.md` and `content_feed_curator.workflow.json`: the judge sheds
+      `hook` and `visual` too — `curator_judge.md` is 34 lines, selection only
+      (`postability`, `blocked`, `evidence`). The judge's registry/forms fetches are
+      removed (11 nodes, backfill chain included), `admit_to_backlog` writes `HOOK`/
+      `VISUAL_FORM`/`SCENES` blank with `POST_MEDIA=ANIMATED`, and a verdict still
+      carrying `hook`/`visual` is ignored (harness-fed). The backfill re-judge pass is
+      retired; intake, ranking, ceiling and digest untouched.
+- [x] 8.2 `linked_in_post_creator.workflow.json`: a blank row `HOOK` puts the rendered
+      eligibility list on the brief; a set `HOOK` keeps today's resolve path. The answer
+      parse resolves `hook = assigned || post.hook || <hook>ID</hook>`, validates against
+      `byId` in code, and emits the registry's visual defaults with named failures.
+- [x] 8.3 `linked_in_post_sharing.workflow.json`: `update_hook_columns` writes `HOOK`,
+      `VISUAL_FORM`, `SCENES` at draft-parse and stamps the run's row snapshot so the
+      media branches read the classification without a consumer edit.
+- [x] 8.4 Adapter: `## Hook` section, `<hook>` parse with named errors, the chosen hook
+      stored in `directives.json` (a retry does not re-choose; a swept session re-draws
+      per the existing rule), `post: { text, hook, directives }` on the answer.
+- [x] 8.5 Verified offline: full suite **100/100**, structural checks both copies, 16/16
+      Node-harness cases, `j.angle` count 0, and the curator export no longer references
+      the hook registry or `{{ HOOKS }}`/`{{ FORMS }}` anywhere. `[UNVERIFIED] live until
+      9.1`
+- [x] 8.6 The flagged TTL consequence is closed by reasoning, not left open: blank
+      `HOOK` at admission means `build_expire_rows` sees `ttl_days.default` for a queued
+      row — but the 7-day ceiling cancels in-play rows regardless and is deliberately
+      shorter than every hook TTL (the recorded fact in AGENTS.md), so the TTL was never
+      the binding constraint for `QUEUE` rows; published rows carry their hook (written
+      at draft-parse), so `PUBLISHED_AT` TTLs still apply per hook. No policy change
+      needed. `[UNVERIFIED] against the live sheet's actual values`
+
+## 9. Live applies and verification
+
+- [ ] 9.1 Show the owner the export diffs, then apply each graph with
       `scripts/apply_workflow_changes.py` `--changes` batches guarded by
       `--require-edge`; read back, re-activate, diff against the exports.
-- [ ] 7.2 Drive one article row end to end from a webhook probe: outline form → approval
-      → draft follows the outline → retry directive reaches the improved draft.
-- [ ] 7.3 `openspec validate --all` and the full adapter test run green.
+- [ ] 9.2 Drive one article row end to end from a webhook probe: outline form → approval
+      → draft follows the outline → retry directive reaches the improved draft. One post
+      row end to end: blank `HOOK` → the writer answers `<hook>` → the row is classified
+      before the visual branch reads it.
+- [ ] 9.3 `openspec validate --all` and the full adapter test run green.

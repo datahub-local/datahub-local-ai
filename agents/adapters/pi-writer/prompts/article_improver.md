@@ -62,7 +62,7 @@ A code check rejected the previous edit for one of these reasons. Fix exactly th
 
 ## Approved Outline
 
-The article is this outline: its sections in this order, each doing the job it names. Where the reviewer feedback conflicts with it, the feedback wins; if the block is empty, no outline was approved and the draft's own sections stand.
+The article is this outline: its sections in this order, each doing the job it names. Where the reviewer feedback conflicts with it, the feedback wins; if the block is empty, no outline was approved and the draft's own sections stand. Where the Description itself sketches a structure, this outline outranks it; the Description stays context for the idea, its facts and its links.
 
 <outline>
 {{ OUTLINE }}

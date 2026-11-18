@@ -122,7 +122,7 @@ session-server.mjs
   ▼
 spawn("pi", [--no-tools, ...])   no proxy, no MCP servers, no artifacts
   ▼
-{ post: { text: "<output>…</output>", directives } }
+{ post: { text: "<output>…</output>", hook, directives } }
 
 n8n then POSTs {task: "review", post: {text}} to the same session:
   postReviewPrompt → linkedin_post_review.md + the stored directives
@@ -149,7 +149,7 @@ proof available inside the pod.
 | --- | --- |
 | `lane` | `article` (default) or `post`. A post turn has only `draft` and `review`, needs a `brief`, and runs with no tools |
 | `task` | `draft` (default), `outline`, `review`, `audit`, `aspects` or `improve`; the post lane serves `draft` and `review` |
-| `brief` | the entry's fields: `topic`, `description`, `url`, `max_words`, `max_figures`, `asset_types`, `audience`, `extra_prompt`, `content`, `feedback`, `outline`. The post lane adds `post_type`, `min_words`, `previous_post`, `hook`, `hook_opening` and `angle`. The server renders the prompt from its own files |
+| `brief` | the entry's fields: `topic`, `description`, `url`, `max_words`, `max_figures`, `asset_types`, `audience`, `extra_prompt`, `content`, `feedback`, `outline`. The post lane adds `post_type`, `min_words`, `previous_post`, `hook`, `hook_opening` and `hooks` (the eligibility list the writer chooses from when no hook is assigned). The server renders the prompt from its own files |
 | `article` | the draft of record for `review`, `aspects` and `improve`: `{ title, text }`. The caller resolves it, so the turn reviews exactly what the caller decided |
 | `post` | the draft of record for a post `review`: `{ text }`. The caller resolves it from what it parsed |
 | `findings` | the merged aspect findings for `improve`, as one text block |
@@ -170,12 +170,16 @@ answer adds
 article written to an approved outline is given it as `brief.outline`; the drafting and improvement
 prompts state that the sections follow it, and feedback outranks it.
 
-A post turn answers `post: { text }` instead of `article`. The text is always wrapped in the tags
-the caller's parsers read: `<output>…</output>` for a draft, and
+A post turn answers `post: { text, hook }` instead of `article`. The text is always wrapped in
+the tags the caller's parsers read: `<output>…</output>` for a draft, and
 `<output>true|false</output><explanation>…</explanation>` for a review. A draft also returns the
-directives it was given (`post.directives`). The chosen set is written to `directives.json` in the
-run directory and reused by every later turn of the session, so the gate judges the shape the
-drafter was given.
+directives it was given (`post.directives`). When the brief carries a `hooks` list and no
+`hook`, the writer chooses exactly one and answers `<hook>ID</hook>` after its `</output>`
+block; that tag is the `post.hook` the caller writes to the row, and an answer that names none
+of the list is refused by name rather than returned blank. The chosen set is written to
+`directives.json` in the run directory — the chosen hook included — and reused by every later
+turn of the session, so the gate judges the shape the drafter was given and a retry does not
+re-choose.
 
 `GET /artifacts/<session_id>/article.md|sources.json` serves the two files. No other name
 is reachable.

@@ -64,29 +64,32 @@ what is new, spelled exactly as the article states it — then the implication t
 and for `NEWS_REACTION` "open with your immediate take, naming what was announced in the
 same breath". The hook opening is injected into the post drafter's directives and judged
 by `linkedin_post_review.md` through the existing directive check, so both halves move
-with the one registry edit. In `curator_judge.md`, the angle rule gains one sentence:
-for a release or announcement, the headline change itself may be the angle's subject —
-name it and the test, not only the tension. Both files are fetched from `main`, so the
-fix is live on push; no graph apply.
+with the one registry edit. The first version also carved the release's headline change
+into the judge's angle rule; the angle field is now removed entirely (D8), so the registry
+opening is the whole fix. Both files are fetched from `main`, so the change is live on
+push; no graph apply.
 
-### D5 — The judge's angle and evidence are carried, not dropped
+### D5 — The judge selects and categorizes; the writer writes
 
-`admit_to_backlog` writes `ANGLE` and `EVIDENCE` to `content_queue` (columns added by
-hand). Consumers:
+Corrected twice in review. The live admission already wrote the judge's **evidence into
+`RATIONALE`**; the angle it wrote into `EXTRA_PROMPT` — first duplicated into new
+columns, then reverted — is now **removed outright** (owner decision): a ≤30-word
+direction written by a cheaper model was steering a smarter one that is not allowed to
+overrule it, and the Spark 4.3 post is that failure. The judge's job is categorization
+(hook, visual form, scenes) and selection (postability, blocked, evidence); the position
+the post argues is the writer's own, taken from the article text it already reads.
+`EXTRA_PROMPT` returns to human-only free direction. What survives of the passthrough is
+the one consumer that never saw the values:
 
-- **Post drafter**: the writer brief gains the angle beside the hook opening — the
-  direction the judge chose reaches the model that writes the first lines.
-- **Animated visual**: the branch prepends a short block to the studio's `CONTENT` — the
-  article's concrete detail and the angle — so the composer's anchor is the article's
-  fact, not only the post's framing. No studio contract change: it rides in the brief
-  the composer already reads.
-- **Still fallback**: `linkedin_image_prompt.md` gains an `{{ EVIDENCE }}`/`{{ ANGLE }}`
-  block beside `{{ POST_CONTENT }}`, so the raster director sees the same detail.
+- **Animated visual**: the studio call's `CONTENT` is prefixed with "The article's
+  concrete detail: <`RATIONALE`>" when the row carries one. No studio contract change.
+- **Still fallback**: `linkedin_image_prompt.md` carries an `{{ EVIDENCE }}` line beside
+  `{{ POST_CONTENT }}`, filled from `RATIONALE` by the image-creator's template vars
+  (the placeholder name is internal; the sheet column is unchanged).
 
-Both fields are bounded by the judge prompt (≤30 and ≤20 words), so the passthrough adds
-no payload risk. Blank cells (rows queued before the columns existed) degrade to today's
-behaviour: the consumers read empty strings. The backfill pass is not extended — a row
-repaired by it keeps blank cells, which is this same degrade.
+Evidence is bounded (≤20 words), so the passthrough adds no payload risk. Blank cells
+degrade to today's behaviour. The backfill pass writes neither, so a row repaired by it
+keeps a blank cell — the same degrade.
 
 ### D6 — The retry menu is the form, the feedback path is unchanged
 
@@ -121,14 +124,39 @@ thinking level stays `minimal`, and the prompt discipline (word counting via
 `check-article`) is model-agnostic, but the first draft on the new model is the real
 test, not an assumption.
 
-### D8 — Push order
+### D8 — The curator selects; the writer classifies and writes
+
+Two owner decisions in one direction. The judge's `MODEL` moves to `opencode-go/glm-5.3`
+(`set_workflow_vars`, both copies): selection is now its whole job — `postability`,
+`blocked`, `evidence` — and the gate that decides what enters the queue at all deserves
+the tier that writes. Its calls are small (≤12k characters in, a short JSON verdict out,
+one per finalist, bounded per run), so the cost is cents. `MODEL_FALLBACK` stays
+`glm-5.3-flash`; a fallback inside the same provider's quota is the known caveat.
+
+The judge no longer categorizes. The `angle` field is removed outright — a ≤30-word
+direction written by one model was steering a smarter one that could not overrule it (the
+Spark 4.3 failure) — and the `hook` and `visual` fields move to the writer's draft turn,
+which is when classification quality matters and which the stronger model performs
+anyway. `build_post_request` already fetches the one registry; when the row's `HOOK` is
+blank the brief carries the eligibility list (`when` + `opening` per hook) and the
+writer answers `<hook>ID</hook>` beside the post, choosing exactly one hook whose `when`
+the article satisfies. The graph validates the id against the registry in code, writes
+`HOOK` plus the hook's registry visual defaults (`VISUAL_FORM`, `SCENES`) to the row at
+parse, and the visual branch and still fallback read the row exactly as before —
+classify-once holds, later. A row whose `HOOK` is already set (a human edit, a
+pre-change row) keeps today's resolve path and the writer is told the assigned shape; a
+retry continues the session, whose stored directives carry the chosen hook, so a
+re-draft does not re-choose. The curator's backfill re-judge pass retires: hook-less
+queued rows are no longer a defect to repair, they are the normal pre-draft state.
+
+### D9 — Push order
 
 The writer image holds the article prompts: build and pin the digest first, then apply
 both article graphs in one `--changes` batch. The registry and judge edits are live on
 push. **The image prompt is not**: `prompts/linkedin_image_prompt.md` now carries
-`{{ EVIDENCE }}` and `{{ ANGLE }}`, and `DownloadTemplate`'s `check_template_vars_present`
+`{{ EVIDENCE }}`, and `DownloadTemplate`'s `check_template_vars_present`
 stops the run (`stop_and_error`) on any placeholder the caller's `template_vars` lacks —
-measured against the committed export, which passes neither key. So the
+measured against the committed export, which passes no such key. So the
 `linked_in_image_creator` graph apply that adds both keys to the fetch **must land before
 or with** the push of that prompt file; a push-first ordering breaks every still-fallback
 image run. The post-lane graph edits are otherwise independent of the image and can apply

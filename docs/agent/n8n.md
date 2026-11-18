@@ -809,37 +809,43 @@ request.
 
 ## Post hooks and the visual intent
 
-A post's **hook** is decided once, by the curator's judge, and carried on the row. The
-single list is `agents/n8n/datasets/hook_types.json` (15–20 hooks grouped by intent —
-argument, evidence, news, reference, narrative), and it is the only copy: the judge prompt
-is injected the list as `{{ HOOKS }}`, the post generator reads the chosen hook's opening
-shape from it, and the LinkedIn Image Creator reads the chosen hook's raster composition
-device from it. Each hook declares `when` (eligibility), `opening` (the shape the post's
-first lines take — format, length and closing stay the generator's own variety), `visual`
-(`form` one of `FORCE`, `scenes`) and `image`. **Animation is unconditional**: no hook
-declares a motion flag and the judge has none to set, so every admitted row is
-`POST_MEDIA=ANIMATED`; the still-image path is only the fallback when the visual author
-fails, and the manual `POST_MEDIA=STATIC` override.
+A post's **hook** is decided once, by the **writer's own drafting turn**, and carried on
+the row. The single list is `agents/n8n/datasets/hook_types.json` (19 hooks grouped by
+intent — argument, evidence, news, reference, narrative), and it is the only copy: the
+post creator fetches it (`download_hook_registry`), a row whose `HOOK` is blank is handed
+the rendered eligibility list on the writer's brief and the writer answers
+`<hook>ID</hook>` beside the post, and the chosen hook's `opening` and registry visual
+defaults are written to the row at draft-parse. Each hook declares `when` (eligibility),
+`opening` (the shape the post's first lines take — format, length and closing stay the
+writer's own variety), `visual` (`form` one of `FORCE`, `scenes`) and `image`.
+**Animation is unconditional**: no hook declares a motion flag and nothing sets one, so
+every admitted row is `POST_MEDIA=ANIMATED`; the still-image path is only the fallback
+when the visual author fails, and the manual `POST_MEDIA=STATIC` override.
 
-The judge returns `hook` and a `visual` intent in the same call that reads the article;
-`admit_to_backlog` writes them as the `HOOK`, `VISUAL_FORM`, `POST_MEDIA` and `SCENES`
-columns (`POST_MEDIA` is `ANIMATED` or `STATIC`). `LinkedIn Post Creator` resolves the row's
-`HOOK` through the registry and sends its `opening` to the writer session, which formats the hook
-directive and draws the format, length and closing from its own variety file. Hook and visual
-classification live in the curator's judge (`classify_content` is retired); the post lane no longer
-picks either. A list-shaped article (a roundup, a state-of — the `ROUNDUP` hook) *may* declare
-a scene count — the file defaults every hook to 0 and the judge sets it — so it is authored
-as one item per scene in the existing `animation_linkedin` type, with no new media kind.
-Because the lane usually sends no count, an intro cannot key on one: the three animation
-types declare `introScene`, and `build_author_brief` asks for an opening title naming the
-subject whether `SCENES` is declared or blank (run 14335 opened cold on 2026-10-19, and only
-a human retry asked for the title). A queued row that predates the columns is re-judged by the
-curator itself (`select_unclassified_queue` → a bounded loop, 12 rows a run) so the
-backlog is backfilled over a few days and a row that slips through is repaired on the next
-run; an unreadable verdict leaves the row unclassified rather than recording a guess. The
-registry is read from GitHub `main`, so that half is live on push; the post prompts live in the
-writer adapter's image and ship with it, and the workflow edits are live only after
-`scripts/apply_workflow_changes.py`.
+The judge is a **selection gate only**: `postability`, `blocked` and `evidence` (written
+to `RATIONALE`) are its whole verdict, and it runs on `glm-5.3` with `glm-5.3-flash` as
+fallback. It no longer classifies — the judge-written `angle` was removed outright (a
+≤30-word direction from one model was steering a smarter one that could not overrule
+it), and the hook/visual choice moved to the drafting turn, which is when classification
+matters and which the stronger model performs anyway. `admit_to_backlog` writes `HOOK`,
+`VISUAL_FORM` and `SCENES` blank; `LinkedIn Post Sharing` writes them
+(`update_hook_columns`) once the draft's `<hook>` answer is parsed and validated against
+the registry in code, so the animated branch and the still fallback read the row exactly
+as before — classify-once holds, later. A row whose `HOOK` is already set — a human edit,
+a pre-change row — keeps the assigned shape, and a retry continues the session whose
+stored directives carry the chosen hook, so a re-draft does not re-choose. The backfill
+re-judge pass is retired: a hook-less queued row is the normal pre-draft state, not a
+defect. The registry is read from GitHub `main`, so that half is live on push; the post
+prompts live in the writer adapter's image and ship with it, and the workflow edits are
+live only after `scripts/apply_workflow_changes.py`. The shape above is the committed
+design — the live instance still runs the judge-classified variant until the applies
+land. `[UNVERIFIED] live`
+
+Because the lane sends no count unless the chosen hook's default carries one, an intro
+cannot key on one: the three animation types declare `introScene`, and
+`build_author_brief` asks for an opening title naming the subject whether `SCENES` is
+declared or blank (run 14335 opened cold on 2026-10-19, and only a human retry asked for
+the title).
 
 ## LinkedIn post media
 
@@ -906,12 +912,25 @@ a credential has none or if the export has no published version.
 
 Two workflows. `Article Content Writer` is the entry point (a manual trigger and a cron at
 08:00 UTC Tuesday and Thursday) and owns the sheet, the slug, the assets and the publish;
-`Article Creator` is the sub-workflow that runs every writer turn, called with `TASK` (`draft`,
-`aspects` or `improve`), `TOPIC`, `DESCRIPTION`, `URL`, `CONTENT`, `MAX_WORDS`, `ASSET_TYPES`,
+`Article Creator` is the sub-workflow that runs every writer turn, called with `TASK` (`outline`,
+`draft`, `aspects` or `improve`), `TOPIC`, `DESCRIPTION`, `URL`, `CONTENT`, `MAX_WORDS`, `ASSET_TYPES`,
 `EXTRA_PROMPT`, `FEEDBACK`, `AUDIENCE` and `ROW_NUMBER`, plus `DRAFT_TITLE` and `DRAFT_TEXT` for
 the aspect and edit turns, `FINDINGS` for the edit and `PROBLEM` on its retry. The creator's
 `executeWorkflowTrigger` is why the public API cannot start it — a verification run goes
 through a temporary `webhook → executeWorkflow` probe, as every live check here has.
+
+**An outline gates the draft.** Before any draft, an **outline turn** runs: `TASK=outline` proposes two or three candidate indexes
+(shape, one-line outcome, ordered sections with a one-line job each) from the entry's
+fields and the row's source seed — same session, `--no-tools`, no lookups — and a
+blocking Slack form picks one (or cancels). The chosen index, plus any edits the form's
+textarea carries, is written to `article_queue.OUTLINE` and passed to the drafting and
+improvement turns as the plan the article writes to; where the row's `DESCRIPTION`
+itself sketches a structure, the approved outline outranks it. An outline turn that fails
+or parses empty retries once, then the row goes `ERROR` through `build_failure` — a
+blind draft is never the fallback. The drafting **gate does not count sections against
+the outline** (the counted-sections registry of 2026-10-30 was reverted the same day):
+its enforcement is the writer that reads it and the human who approved it. A stale
+claim resumes with its `OUTLINE` cell set and drafts directly. `[UNVERIFIED] live`
 
 **The entry point reaches the writer only through the sub-workflow.** `switch_task` reads
 `TASK`, which `set_workflow_vars` normalises and defaults to `draft`: `aspects` goes to

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
-import { chooseDirectives } from "../session-lib.mjs";
+import { chooseDirectives, parsePostHook, applyChosenHook, renderHookList } from "../session-lib.mjs";
 
 const variety = await readFile(fileURLToPath(new URL("../prompts/linkedin_variety.md", import.meta.url)), "utf8");
 
@@ -51,4 +51,51 @@ test("a missing option set fails by name rather than drawing an empty directive"
     () => chooseDirectives({ variety: "## format\n\n2 | | PURE PROSE\n", minWords: 150, maxWords: 200 }),
     /carries no length options/
   );
+});
+
+const hooks = [
+  { id: "TRADE_OFF", when: "PROBE_WHEN_TRADE", opening: "PROBE_OPEN_TRADE" },
+  { id: "CONTRARIAN", when: "PROBE_WHEN_CONTRA", opening: "PROBE_OPEN_CONTRA" },
+];
+
+test("the eligibility list carries each hook's when and opening, one line each", () => {
+  assert.equal(
+    renderHookList(hooks),
+    "- TRADE_OFF — when: PROBE_WHEN_TRADE; open: PROBE_OPEN_TRADE\n" +
+      "- CONTRARIAN — when: PROBE_WHEN_CONTRA; open: PROBE_OPEN_CONTRA"
+  );
+  assert.equal(renderHookList(undefined), "");
+  assert.equal(renderHookList([{ when: "no id" }]), "");
+});
+
+test("a hook-less answer's tag is the choice, and an id off the list fails by name", () => {
+  const chosen = parsePostHook("post body\n<hook> contrarian </hook>", { hooks });
+  assert.deepEqual(chosen, { hook: "CONTRARIAN", opening: "PROBE_OPEN_CONTRA", error: "" });
+
+  const missing = parsePostHook("post body", { hooks });
+  assert.equal(missing.hook, "");
+  assert.match(missing.error, /carries no <hook> tag although the brief offered 2/);
+
+  const unknown = parsePostHook("<output>body</output><hook>WAR_STORY</hook>", { hooks });
+  assert.match(unknown.error, /<hook>WAR_STORY<\/hook>, which the brief's hook list does not carry/);
+});
+
+test("an assigned hook needs no tag, and an empty list offers nothing to fail on", () => {
+  assert.deepEqual(parsePostHook("post body", { hooks, assigned: "trade_off" }), {
+    hook: "TRADE_OFF",
+    opening: "",
+    error: "",
+  });
+  assert.deepEqual(parsePostHook("post body", { hooks: [] }), { hook: "", opening: "", error: "" });
+});
+
+test("the chosen hook rewrites the stored directive and its id, so the gate judges that shape", () => {
+  const drawn = draw(() => 0);
+  assert.equal(drawn.hook_id, "");
+  const chosen = applyChosenHook(drawn, { hook: "contrarian", hookOpening: "open with a blunt statement" });
+  assert.equal(chosen.hook_id, "CONTRARIAN");
+  assert.match(chosen.directives, /- Hook — CONTRARIAN: open with a blunt statement\./);
+  // The other three directives are the drawn ones, untouched.
+  assert.match(chosen.directives, /- Format — LIST BODY: a two-sentence lead/);
+  assert.match(chosen.directives, /- Closing — DIRECT QUESTION/);
 });

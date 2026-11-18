@@ -87,7 +87,7 @@ This is the draft the review rejected. Rewrite it applying the Reviewer Feedback
 
 ## Approved Outline
 
-The article is this outline: its sections in this order, each doing the job it names. Where the Reviewer Feedback conflicts with it, the feedback wins; if the block is empty, no outline was approved and the Structure section alone decides the shape.
+The article is this outline: its sections in this order, each doing the job it names. Where the Reviewer Feedback conflicts with it, the feedback wins; if the block is empty, no outline was approved and the Structure section alone decides the shape. Where the Description itself sketches a structure, this outline outranks it; the Description stays context for the idea, its facts and its links.
 
 <outline>
 {{ OUTLINE }}

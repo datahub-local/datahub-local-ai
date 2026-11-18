@@ -851,6 +851,9 @@ export function chooseDirectives({
 
   return {
     hook: hookLine,
+    // The id is what a later turn reads back: a session whose directives carry a hook has
+    // already classified, so its retries write to that hook instead of choosing again.
+    hook_id: hookId,
     format: format.text,
     length: band.key,
     closing: closing.text,
@@ -860,6 +863,63 @@ export function chooseDirectives({
       `- Length — ${length}.`,
       `- Closing — ${closing.text}. The "Source here" line and hashtags always follow the body regardless.`,
     ].join("\n"),
+  };
+}
+
+// The eligibility list a hook-less row hands the writer: one line per hook, its `when` and
+// its `opening`, so the choice and the shape it implies arrive in the same block.
+export function renderHookList(hooks) {
+  return (Array.isArray(hooks) ? hooks : [])
+    .map((hook) => {
+      const id = String(hook?.id ?? "").trim().toUpperCase();
+      if (!id) return "";
+      return `- ${id} — when: ${String(hook?.when ?? "").trim()}; open: ${String(hook?.opening ?? "").trim()}`;
+    })
+    .filter(Boolean)
+    .join("\n");
+}
+
+// The writer's classification, read from the tag beside its post. A row that already carries
+// a hook has nothing to choose; an answer that names none of the offered list is a failure
+// naming the tag, never a blank the caller would write to the sheet as a decision.
+export function parsePostHook(answer, { hooks = [], assigned = "" } = {}) {
+  const chosen = String(assigned ?? "").trim().toUpperCase();
+  if (chosen) return { hook: chosen, opening: "", error: "" };
+  const offered = (Array.isArray(hooks) ? hooks : [])
+    .map((hook) => ({ id: String(hook?.id ?? "").trim().toUpperCase(), opening: String(hook?.opening ?? "").trim() }))
+    .filter((hook) => hook.id);
+  if (!offered.length) return { hook: "", opening: "", error: "" };
+  const tagged = /<hook>\s*([A-Za-z0-9_]+)\s*<\/hook>/.exec(String(answer ?? ""));
+  if (!tagged) {
+    return {
+      hook: "",
+      opening: "",
+      error: `the post answer carries no <hook> tag although the brief offered ${offered.length} eligible hook(s)`,
+    };
+  }
+  const id = tagged[1].toUpperCase();
+  const entry = offered.find((hook) => hook.id === id);
+  if (!entry) {
+    return { hook: "", opening: "", error: `the post answer chose <hook>${id}</hook>, which the brief's hook list does not carry` };
+  }
+  return { hook: entry.id, opening: entry.opening, error: "" };
+}
+
+// The gate reads the directives the drafter was given, so a hook chosen on the draft turn
+// rewrites that one directive: the review and every later turn of the session judge the
+// shape the drafter actually wrote.
+export function applyChosenHook(chosen, { hook = "", hookOpening = "" } = {}) {
+  const base = chosen && typeof chosen === "object" ? chosen : {};
+  const id = String(hook ?? "").trim().toUpperCase();
+  if (!id) return { ...base };
+  const opening = String(hookOpening ?? "").trim();
+  if (!opening) return { ...base, hook_id: id };
+  const hookLine = `${id}: ${opening}`;
+  return {
+    ...base,
+    hook: hookLine,
+    hook_id: id,
+    directives: String(base.directives ?? "").replace(/^- Hook — .*$/m, `- Hook — ${hookLine}.`),
   };
 }
 

@@ -34,14 +34,19 @@ reliable pair in the fleet.
   chosen index is stored on the row and given to the draft and improve turns as the plan
   to write to. The drafting gate does not count sections against it.
 - **The news opening is required, not implied.** `RELEASE` and `NEWS_REACTION` hook
-  openings state the headline change in the first lines, then the take; the judge's angle
-  rule gains the release carve-out so the angle may name what is new.
+  openings state the headline change in the first lines, then the take.
 - **A directive menu on the retry forms.** Both draft/post retry forms gain a dropdown
   (structure or order wrong / wrong focus / change tone / make concise / explain more)
   whose value is prepended to the free-text feedback.
-- **The judge's angle and evidence reach the consumers.** `content_queue` gains `ANGLE`
-  and `EVIDENCE` columns; the post writer brief receives the angle, and the visual briefs
-  (animated branch and the still image director) carry the evidence beside the post text.
+- **The judge stops writing direction — and classification moves to the writer.** The
+  `angle` field is removed from the classification outright, and the `hook`/`visual`
+  choice moves into the drafting turn: a row with a blank `HOOK` carries the registry's
+  eligibility list on its brief and the writer answers `<hook>ID</hook>`, whose parse
+  writes `HOOK` and the hook's visual defaults to the row. The curator becomes a pure
+  selection gate (postability, blocked, evidence, on `glm-5.3`), the classify-once
+  invariant holds at draft time, and the backfill re-judge pass retires. The one consumer
+  that never saw the judge's values — the visual path — receives the article's evidence
+  (`RATIONALE`) beside the post text.
 - **The writer pod moves to `opencode-go/glm-5.3`.** One values change; the outline
   turn, the draft and the improvement pass run on the stronger tier.
 
@@ -53,28 +58,29 @@ reliable pair in the fleet.
   improvement turn write to it; the retry form offers named directives.
 - `post-hook-taxonomy`: `RELEASE` and `NEWS_REACTION` openings require the change itself,
   and the judge's angle may be the change.
-- `linkedin-post-publishing`: the queue row carries `ANGLE` and `EVIDENCE`; the angle
-  reaches the post drafter, the evidence reaches both visual briefs; the post retry form
-  offers named directives.
+- `linkedin-post-publishing`: the visual briefs carry the row's evidence (`RATIONALE`)
+  and angle (`EXTRA_PROMPT`); the post retry form offers named directives.
 
 ## Impact
 
-- `agents/adapters/pi-writer/` — new `article_outline.md` prompt and `task: "outline"`
-  handling; `article_task.md`/`article_improver.md` gain `{{ OUTLINE }}`; the post lane's
-  brief gains the angle. Image rebuilt and digest pinned (graph edits wait for it).
+- `agents/adapters/pi-writer/` — the outline prompt and `task: "outline"` handling; the
+  `{{ OUTLINE }}` sections; the outline's precedence over a structure the Description
+  itself sketches. Image rebuilt and digest pinned (graph edits wait for it).
 - `agents/n8n/workflows/article_content_writer.workflow.json` and
   `article_creator.workflow.json` — outline phase before drafting, outline Slack form,
   `OUTLINE` passthrough, retry-form dropdown.
-- `agents/n8n/workflows/linked_in_post_sharing.workflow.json` — retry-form dropdown,
-  angle/evidence passthrough into the visual calls.
-- `agents/n8n/workflows/content_feed_curator.workflow.json` — `admit_to_backlog` writes
-  `ANGLE`/`EVIDENCE`.
+- `agents/n8n/workflows/linked_in_post_sharing.workflow.json` — retry-form dropdown;
+  the visual calls read the row's `RATIONALE` (evidence) and `EXTRA_PROMPT` (angle).
+- `agents/n8n/workflows/content_feed_curator.workflow.json` — no change: the live
+  admission already writes the angle to `EXTRA_PROMPT` and the evidence to `RATIONALE`.
 - `agents/n8n/datasets/hook_types.json`, `agents/n8n/prompts/curator_judge.md`,
   `agents/n8n/prompts/linkedin_image_prompt.md` — opening text, angle carve-out,
   evidence block. Live on push (fetched from `main`).
 - `agents/sympozium/values/default.yaml.gotmpl` — `sympozium_pi_writer.model.name`.
-- Hand-added sheet columns before first run: `article_queue.OUTLINE`,
-  `content_queue.ANGLE`, `content_queue.EVIDENCE`.
+- Hand-added sheet columns before first run: `article_queue.OUTLINE` only. The
+  `content_queue.ANGLE`/`EVIDENCE` columns added first were reverted in review — the
+  judge's angle and evidence already live in `EXTRA_PROMPT`/`RATIONALE`, and the curator
+  appends exactly the 22 columns the sheet keeps.
 - Cross-repo: `datahub-local-core` LiteLLM routing for `glm-5.3` and its
   `pricing.extraEntries` — the gateway's model availability is a rollout dependency, not
   this change's code. `[UNVERIFIED]`

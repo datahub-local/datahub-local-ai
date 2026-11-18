@@ -687,6 +687,89 @@ export function articleWordLimit(maxWords) {
   return Math.ceil((max * 11) / 10);
 }
 
+// The outline turn's prompt. Its file contents arrive as arguments because this module reads
+// no prompts: the server reads them, and the test passes the real files.
+export function outlinePrompt(brief, { template, structures, audiences } = {}) {
+  const entry = brief && typeof brief === "object" ? brief : {};
+  return fillTemplate(template, {
+    TOPIC: entry.topic ?? "",
+    DESCRIPTION: entry.description ?? "",
+    URL: entry.url ?? "",
+    MAX_WORDS: entry.max_words ?? "",
+    ASSET_TYPES: entry.asset_types ?? "",
+    AUDIENCE: entry.audience ?? "NONE",
+    AUDIENCES: audiences ?? "",
+    EXTRA_PROMPT: entry.extra_prompt ?? "",
+    CONTENT: entry.content ?? "",
+    STRUCTURES: structures ?? "",
+  });
+}
+
+// A section line is `name — job`. The em dash is the format; the other separators are what a
+// model writes when it substitutes a hyphen or a colon, and reading them costs nothing.
+function splitOutlineSection(text) {
+  const value = String(text ?? "").trim();
+  for (const separator of ["—", "–", " - ", ": "]) {
+    const at = value.indexOf(separator);
+    if (at > 0) return [value.slice(0, at).trim(), value.slice(at + separator.length).trim()];
+  }
+  return [value, ""];
+}
+
+// The outline answer as data. The block is the whole contract — the caller never reads model
+// text — so anything that breaks the pinned form answers no options and the reason, the same
+// degrade the findings and the verdict use. The counts are the format's, not a gate's: the
+// approved outline binds the writer and the human, per the design.
+export function parseOutline(text) {
+  const answer = String(text ?? "");
+  const block = /<outline>([\s\S]*?)<\/outline>/.exec(answer);
+  if (!block) return { options: [], error: "the answer carries no balanced <outline> block" };
+  const options = [];
+  let current = null;
+  for (const raw of block[1].split("\n")) {
+    const line = raw.trim();
+    if (!line) continue;
+    if (/^option\s+\d+\s*[:.]?$/i.test(line)) {
+      current = { shape: "", outcome: "", sections: [] };
+      options.push(current);
+      continue;
+    }
+    if (!current) {
+      return { options: [], error: `the block opens with "${line.slice(0, 40)}" before its first option` };
+    }
+    const field = /^(shape|outcome|sections)\s*:\s*(.*)$/i.exec(line);
+    if (field) {
+      const name = field[1].toLowerCase();
+      if (name === "sections") continue;
+      current[name] = field[2].trim();
+      continue;
+    }
+    const bullet = /^[-*]\s+(.+)$/.exec(line);
+    if (bullet) {
+      const [name, job] = splitOutlineSection(bullet[1]);
+      if (!name || !job) {
+        return { options: [], error: `a section line in option ${options.length} carries no "name — job": ${line.slice(0, 60)}` };
+      }
+      current.sections.push({ name, job });
+      continue;
+    }
+    return { options: [], error: `the block carries a line that is not part of its form: ${line.slice(0, 60)}` };
+  }
+  if (!options.length) return { options: [], error: "the block lists no option" };
+  if (options.length < 2 || options.length > 3) {
+    return { options: [], error: `the block lists ${options.length} options; 2 or 3 are required` };
+  }
+  for (const [index, option] of options.entries()) {
+    const label = `option ${index + 1}`;
+    if (!option.shape) return { options: [], error: `${label} names no shape` };
+    if (!option.outcome) return { options: [], error: `${label} states no outcome` };
+    if (option.sections.length < 3 || option.sections.length > 8) {
+      return { options: [], error: `${label} lists ${option.sections.length} sections; 3 to 8 are required` };
+    }
+  }
+  return { options, error: "" };
+}
+
 // The mechanical half of a turn: where to write and whether the turn authors or
 // corrects. The correction names the files already in the directory so a retry edits
 // them instead of paying for a fresh read of every source.

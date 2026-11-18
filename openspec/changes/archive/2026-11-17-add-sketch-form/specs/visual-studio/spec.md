@@ -51,11 +51,12 @@ rate it declares, so its length is a registry value.
 - **AND** a caller's scene count does not stretch it, because its shape is one continuous
   field
 
-#### Scenario: A sketch is one drawing
+#### Scenario: A sketch declares no scene plan
 - **WHEN** a sketch type is read
 - **THEN** it declares no per-scene floor and no intro scene
-- **AND** a caller's scene count does not stretch it, because its shape is one drawing
-  completing
+- **AND** a caller's scene count does not stretch it
+- **AND** the composer's own storyboard may still sequence the drawing, because the registry
+  constrains what a type declares, not what a form forbids
 
 ### Requirement: The request may force the form
 

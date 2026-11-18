@@ -85,6 +85,14 @@ This is the draft the review rejected. Rewrite it applying the Reviewer Feedback
 
 {{ STRUCTURES }}
 
+## Approved Outline
+
+The article is this outline: its sections in this order, each doing the job it names. Where the Reviewer Feedback conflicts with it, the feedback wins; if the block is empty, no outline was approved and the Structure section alone decides the shape.
+
+<outline>
+{{ OUTLINE }}
+</outline>
+
 ## Shape
 
 - Open on the problem in the author's own framing, not on a definition and not on "In this article".

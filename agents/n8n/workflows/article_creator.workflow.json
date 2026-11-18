@@ -69,6 +69,9 @@
               {
                 "name": "MAX_FIGURES",
                 "type": "number"
+              },
+              {
+                "name": "OUTLINE"
               }
             ]
           }
@@ -303,7 +306,7 @@
           -736
         ],
         "parameters": {
-          "jsCode": "// The request the article session receives: the entry's fields, nothing that reads like\n// an instruction. The prompt, the shapes and the audience levels live in the writer\n// adapter, so this graph cannot drift from the text the model is given. `session_id` is the\n// row, so a retry continues the session directory and its fetched corpus instead of paying\n// for every source again, and `attempt` tells the adapter this turn is a correction. The\n// source hosts ride on the request because the pod cannot read the deployment values:\n// `AgentRuntime.spec` carries no env, so the allowlist the proxy enforces arrives here.\nconst vars = $('main_trigger').first().json;\nconst config = $('set_workflow_vars').first().json;\nconst row = String(vars.ROW_NUMBER || '').trim();\nif (!row) throw new Error('ROW_NUMBER is required: the session id is article-<row>');\nconst base = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!base) throw new Error('ARTICLE_WRITER_URL is not set; the article session cannot be reached');\n// One session per attempt. A retry used to continue the same Pi session, so its transcript\n// grew to megabytes, compaction dropped the pages the ledger needs, and the turn took half\n// an hour. A fresh session carries the previous draft and the reason instead.\n// One session per row, for its whole life: the first draft and every later feedback round\n// continue it, so the writer keeps the pages it read and the asks it already applied. A\n// fresh session per attempt made a retry forget everything but the newest feedback.\nconst sessionId = ('article-' + row).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 80);\nconst hosts = String(config.SOURCE_HOSTS || '').trim();\n// On a retry this node is fed by `switch_article_check`'s retry output, so `$json`\n// carries the reviewer's `explanation`; on the first attempt it carries the audiences.\nconst explanation = String(($json && $json.explanation) || '').trim();\nconst feedback = [\n  String(vars.FEEDBACK || '').trim(),\n  explanation ? 'The previous attempt failed the code check: ' + explanation : '',\n].filter(Boolean).join('\\n');\n// A human retry runs in its own execution, so `parse_article` has not run yet; the draft\n// the person read arrives in DRAFT_TEXT. Without it the retry re-drafts from the row and the\n// newest feedback alone, which is how the 2026-11-09 retry replaced the whole walk-through\n// with a provider how-to.\nconst previous = String(vars.DRAFT_TEXT || '').trim()\n  || ($('parse_article').isExecuted ? String($('parse_article').last().json.TEXT || '') : '');\nreturn [{ json: {\n  SESSION_ID: sessionId,\n  ATTEMPT: $runIndex + 1,\n  ARTICLE_URL: base + '/v1/chat/completions',\n  ARTIFACT_BASE: base + '/artifacts/' + sessionId,\n  SOURCE_HOSTS: hosts,\n  ARTICLE_BODY: JSON.stringify({\n    session_id: sessionId,\n    stream: false,\n    source_hosts: hosts,\n    attempt: $runIndex + 1,\n    brief: {\n      topic: String(vars.TOPIC || ''),\n      description: String(vars.DESCRIPTION || ''),\n      url: String(vars.URL || ''),\n      max_words: Number(vars.MAX_WORDS) || 0,\n      max_figures: Number(vars.MAX_FIGURES) || 3,\n      asset_types: String(vars.ASSET_TYPES || ''),\n      audience: String(config.AUDIENCE || 'NONE'),\n      extra_prompt: String(vars.EXTRA_PROMPT || ''),\n      content: String(vars.CONTENT || ''),\n      feedback,\n      previous_draft: previous,\n    },\n  }),\n} }];"
+          "jsCode": "// The request the article session receives: the entry's fields, nothing that reads like\n// an instruction. The prompt, the shapes and the audience levels live in the writer\n// adapter, so this graph cannot drift from the text the model is given. `session_id` is the\n// row, so a retry continues the session directory and its fetched corpus instead of paying\n// for every source again, and `attempt` tells the adapter this turn is a correction. The\n// source hosts ride on the request because the pod cannot read the deployment values:\n// `AgentRuntime.spec` carries no env, so the allowlist the proxy enforces arrives here.\nconst vars = $('main_trigger').first().json;\nconst config = $('set_workflow_vars').first().json;\nconst row = String(vars.ROW_NUMBER || '').trim();\nif (!row) throw new Error('ROW_NUMBER is required: the session id is article-<row>');\nconst base = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!base) throw new Error('ARTICLE_WRITER_URL is not set; the article session cannot be reached');\n// One session per attempt. A retry used to continue the same Pi session, so its transcript\n// grew to megabytes, compaction dropped the pages the ledger needs, and the turn took half\n// an hour. A fresh session carries the previous draft and the reason instead.\n// One session per row, for its whole life: the first draft and every later feedback round\n// continue it, so the writer keeps the pages it read and the asks it already applied. A\n// fresh session per attempt made a retry forget everything but the newest feedback.\nconst sessionId = ('article-' + row).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 80);\nconst hosts = String(config.SOURCE_HOSTS || '').trim();\n// On a retry this node is fed by `switch_article_check`'s retry output, so `$json`\n// carries the reviewer's `explanation`; on the first attempt it carries the audiences.\nconst explanation = String(($json && $json.explanation) || '').trim();\nconst feedback = [\n  String(vars.FEEDBACK || '').trim(),\n  explanation ? 'The previous attempt failed the code check: ' + explanation : '',\n].filter(Boolean).join('\\n');\n// A human retry runs in its own execution, so `parse_article` has not run yet; the draft\n// the person read arrives in DRAFT_TEXT. Without it the retry re-drafts from the row and the\n// newest feedback alone, which is how the 2026-11-09 retry replaced the whole walk-through\n// with a provider how-to.\nconst previous = String(vars.DRAFT_TEXT || '').trim()\n  || ($('parse_article').isExecuted ? String($('parse_article').last().json.TEXT || '') : '');\nreturn [{ json: {\n  SESSION_ID: sessionId,\n  ATTEMPT: $runIndex + 1,\n  ARTICLE_URL: base + '/v1/chat/completions',\n  ARTIFACT_BASE: base + '/artifacts/' + sessionId,\n  SOURCE_HOSTS: hosts,\n  ARTICLE_BODY: JSON.stringify({\n    session_id: sessionId,\n    stream: false,\n    source_hosts: hosts,\n    attempt: $runIndex + 1,\n    brief: {\n      topic: String(vars.TOPIC || ''),\n      description: String(vars.DESCRIPTION || ''),\n      url: String(vars.URL || ''),\n      max_words: Number(vars.MAX_WORDS) || 0,\n      max_figures: Number(vars.MAX_FIGURES) || 3,\n      asset_types: String(vars.ASSET_TYPES || ''),\n      audience: String(config.AUDIENCE || 'NONE'),\n      extra_prompt: String(vars.EXTRA_PROMPT || ''),\n      content: String(vars.CONTENT || ''),\n      feedback,\n      previous_draft: previous,\n      outline: String(vars.OUTLINE || ''),\n    },\n  }),\n} }];"
         }
       },
       {
@@ -463,6 +466,28 @@
                   ],
                   "combinator": "and"
                 }
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "version": 2,
+                    "leftValue": "",
+                    "caseSensitive": true,
+                    "typeValidation": "strict"
+                  },
+                  "conditions": [
+                    {
+                      "id": "b4d8e1f6-7c2a-4f9b-8e3d-5a6c7b8d9e01",
+                      "leftValue": "={{ $json.TASK }}",
+                      "rightValue": "outline",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                }
               }
             ]
           },
@@ -533,7 +558,7 @@
           -320
         ],
         "parameters": {
-          "jsCode": "// The edit is the same session's next turn: the draft, the findings, and - on a retry -\n// the objective problem the content writer's code re-check named. No prompt text and no\n// model id ride on the request; the adapter owns both.\nconst req = $('main_trigger').first().json;\nconst config = $('set_workflow_vars').first().json;\nconst row = String(req.ROW_NUMBER || '').trim();\nif (!row) throw new Error('ROW_NUMBER is required: the session id is article-<row>');\nconst base = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!base) throw new Error('ARTICLE_WRITER_URL is not set; the improve turn cannot be reached');\nconst article = String(req.DRAFT_TEXT || '');\nif (!article.trim()) throw new Error('DRAFT_TEXT is required for the improve turn');\nconst sessionId = ('article-' + row).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 80);\nreturn [{ json: {\n  IMPROVE_URL: base + '/v1/chat/completions',\n  IMPROVE_BODY: JSON.stringify({\n    task: 'improve',\n    session_id: sessionId,\n    brief: {\n      topic: String(req.TOPIC || ''),\n      description: String(req.DESCRIPTION || ''),\n      url: String(req.URL || ''),\n      max_words: Number(req.MAX_WORDS) || 0,\n      asset_types: String(req.ASSET_TYPES || ''),\n      audience: String(config.AUDIENCE || 'NONE'),\n      extra_prompt: String(req.EXTRA_PROMPT || ''),\n      feedback: String(req.FEEDBACK || ''),\n    },\n    article: { title: String(req.DRAFT_TITLE || ''), text: article },\n    findings: String(req.FINDINGS || ''),\n    problem: String(req.PROBLEM || ''),\n  }),\n} }];"
+          "jsCode": "// The edit is the same session's next turn: the draft, the findings, and - on a retry -\n// the objective problem the content writer's code re-check named. No prompt text and no\n// model id ride on the request; the adapter owns both.\nconst req = $('main_trigger').first().json;\nconst config = $('set_workflow_vars').first().json;\nconst row = String(req.ROW_NUMBER || '').trim();\nif (!row) throw new Error('ROW_NUMBER is required: the session id is article-<row>');\nconst base = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!base) throw new Error('ARTICLE_WRITER_URL is not set; the improve turn cannot be reached');\nconst article = String(req.DRAFT_TEXT || '');\nif (!article.trim()) throw new Error('DRAFT_TEXT is required for the improve turn');\nconst sessionId = ('article-' + row).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 80);\nreturn [{ json: {\n  IMPROVE_URL: base + '/v1/chat/completions',\n  IMPROVE_BODY: JSON.stringify({\n    task: 'improve',\n    session_id: sessionId,\n    brief: {\n      topic: String(req.TOPIC || ''),\n      description: String(req.DESCRIPTION || ''),\n      url: String(req.URL || ''),\n      max_words: Number(req.MAX_WORDS) || 0,\n      asset_types: String(req.ASSET_TYPES || ''),\n      audience: String(config.AUDIENCE || 'NONE'),\n      extra_prompt: String(req.EXTRA_PROMPT || ''),\n      feedback: String(req.FEEDBACK || ''),\n      outline: String(req.OUTLINE || ''),\n    },\n    article: { title: String(req.DRAFT_TITLE || ''), text: article },\n    findings: String(req.FINDINGS || ''),\n    problem: String(req.PROBLEM || ''),\n  }),\n} }];"
         }
       },
       {
@@ -585,7 +610,62 @@
           -160
         ],
         "parameters": {
-          "errorMessage": "={{ 'unknown TASK \"' + String($('main_trigger').first().json.TASK || '') + '\": expected draft, aspects or improve' }}"
+          "errorMessage": "={{ 'unknown TASK \"' + String($('main_trigger').first().json.TASK || '') + '\": expected draft, outline, aspects or improve' }}"
+        }
+      },
+      {
+        "id": "7454b1fc-762c-4378-8798-2c11b1748b18",
+        "name": "build_outline_request",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -16448,
+          -864
+        ],
+        "parameters": {
+          "jsCode": "// The outline turn plans the article before it is drafted, from the entry's fields and the\n// row's seed: no feedback and no previous draft, because there is no draft yet. The session\n// id is the row's, so the plan and its draft are one thread; `--no-tools` in the adapter\n// means this turn fetches no page, which is why no source hosts ride on it.\nconst req = $('main_trigger').first().json;\nconst config = $('set_workflow_vars').first().json;\nconst row = String(req.ROW_NUMBER || '').trim();\nif (!row) throw new Error('ROW_NUMBER is required: the session id is article-<row>');\nconst base = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!base) throw new Error('ARTICLE_WRITER_URL is not set; the outline turn cannot be reached');\nconst sessionId = ('article-' + row).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 80);\nreturn [{ json: {\n  OUTLINE_URL: base + '/v1/chat/completions',\n  OUTLINE_BODY: JSON.stringify({\n    lane: 'article',\n    task: 'outline',\n    session_id: sessionId,\n    attempt: $runIndex + 1,\n    brief: {\n      topic: String(req.TOPIC || ''),\n      description: String(req.DESCRIPTION || ''),\n      url: String(req.URL || ''),\n      content: String(req.CONTENT || ''),\n      audience: String(config.AUDIENCE || 'NONE'),\n      extra_prompt: String(req.EXTRA_PROMPT || ''),\n      max_words: Number(req.MAX_WORDS) || 0,\n      asset_types: String(req.ASSET_TYPES || ''),\n    },\n  }),\n} }];"
+        }
+      },
+      {
+        "id": "64a221e3-d555-40b3-bc59-4849c2010593",
+        "name": "request_outline",
+        "notes": "One --no-tools planning turn: 600 s, against the draft's 1800 s, because the plan reads no page.",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "onError": "continueErrorOutput",
+        "position": [
+          -16288,
+          -864
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $json.OUTLINE_URL }}",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ $json.OUTLINE_BODY }}",
+          "options": {
+            "timeout": 600000,
+            "response": {
+              "response": {
+                "neverError": true,
+                "fullResponse": true,
+                "responseFormat": "json"
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "9ae7d544-e471-422c-adfb-acdc3bd1ccfd",
+        "name": "outline_answer",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -16128,
+          -864
+        ],
+        "parameters": {
+          "jsCode": "// Both outputs of the outline call meet here, the way `review_note` joins the reviewer's: the\n// regular one carries {statusCode, body}, the error one carries json.error and no status. The\n// caller reads OPTIONS and OUTLINE_ERROR and never the model's text - the adapter parsed the\n// <outline> block into this structure, per the design's \"the graph never reads raw model text\".\nconst res = $input.first().json || {};\nconst note = (value) => String(value == null ? '' : value).replace(/\\s+/g, ' ').trim();\nconst transport = res.error ? note((res.error && res.error.message) || res.error) : '';\nif (transport) return [{ json: { OPTIONS: [], OUTLINE_ERROR: 'OUTLINE: ' + transport } }];\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nif (status >= 400) {\n  const message = note((body.error && body.error.message) || body.error || body.message);\n  return [{ json: { OPTIONS: [], OUTLINE_ERROR: 'OUTLINE: HTTP ' + status + (message ? ': ' + message : ' the outline turn failed') } }];\n}\nconst outline = body.outline && typeof body.outline === 'object' ? body.outline : {};\nconst failure = note(outline.error);\nif (failure) return [{ json: { OPTIONS: [], OUTLINE_ERROR: 'OUTLINE: ' + failure } }];\nconst options = (Array.isArray(outline.options) ? outline.options : []).map((option) => ({\n  shape: note(option && option.shape),\n  outcome: note(option && option.outcome),\n  sections: (Array.isArray(option && option.sections) ? option.sections : []).map((section) => ({\n    name: note(section && section.name),\n    job: note(section && section.job),\n  })),\n}));\nreturn [{ json: { OPTIONS: options, OUTLINE_ERROR: '' } }];"
         }
       },
       {
@@ -686,6 +766,35 @@
               "index": 0,
               "node": "request_improve",
               "type": "main"
+            }
+          ]
+        ]
+      },
+      "build_outline_request": {
+        "main": [
+          [
+            {
+              "node": "request_outline",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "request_outline": {
+        "main": [
+          [
+            {
+              "node": "outline_answer",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "outline_answer",
+              "type": "main",
+              "index": 0
             }
           ]
         ]
@@ -842,9 +951,16 @@
           ],
           [
             {
-              "index": 0,
+              "node": "build_outline_request",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
               "node": "bad_task",
-              "type": "main"
+              "type": "main",
+              "index": 0
             }
           ]
         ]
@@ -933,6 +1049,35 @@
             "index": 0,
             "node": "request_improve",
             "type": "main"
+          }
+        ]
+      ]
+    },
+    "build_outline_request": {
+      "main": [
+        [
+          {
+            "node": "request_outline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "request_outline": {
+      "main": [
+        [
+          {
+            "node": "outline_answer",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "outline_answer",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -1089,9 +1234,16 @@
         ],
         [
           {
-            "index": 0,
+            "node": "build_outline_request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "bad_task",
-            "type": "main"
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -1213,6 +1365,9 @@
             {
               "name": "MAX_FIGURES",
               "type": "number"
+            },
+            {
+              "name": "OUTLINE"
             }
           ]
         }
@@ -1447,7 +1602,7 @@
         -736
       ],
       "parameters": {
-        "jsCode": "// The request the article session receives: the entry's fields, nothing that reads like\n// an instruction. The prompt, the shapes and the audience levels live in the writer\n// adapter, so this graph cannot drift from the text the model is given. `session_id` is the\n// row, so a retry continues the session directory and its fetched corpus instead of paying\n// for every source again, and `attempt` tells the adapter this turn is a correction. The\n// source hosts ride on the request because the pod cannot read the deployment values:\n// `AgentRuntime.spec` carries no env, so the allowlist the proxy enforces arrives here.\nconst vars = $('main_trigger').first().json;\nconst config = $('set_workflow_vars').first().json;\nconst row = String(vars.ROW_NUMBER || '').trim();\nif (!row) throw new Error('ROW_NUMBER is required: the session id is article-<row>');\nconst base = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!base) throw new Error('ARTICLE_WRITER_URL is not set; the article session cannot be reached');\n// One session per attempt. A retry used to continue the same Pi session, so its transcript\n// grew to megabytes, compaction dropped the pages the ledger needs, and the turn took half\n// an hour. A fresh session carries the previous draft and the reason instead.\n// One session per row, for its whole life: the first draft and every later feedback round\n// continue it, so the writer keeps the pages it read and the asks it already applied. A\n// fresh session per attempt made a retry forget everything but the newest feedback.\nconst sessionId = ('article-' + row).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 80);\nconst hosts = String(config.SOURCE_HOSTS || '').trim();\n// On a retry this node is fed by `switch_article_check`'s retry output, so `$json`\n// carries the reviewer's `explanation`; on the first attempt it carries the audiences.\nconst explanation = String(($json && $json.explanation) || '').trim();\nconst feedback = [\n  String(vars.FEEDBACK || '').trim(),\n  explanation ? 'The previous attempt failed the code check: ' + explanation : '',\n].filter(Boolean).join('\\n');\n// A human retry runs in its own execution, so `parse_article` has not run yet; the draft\n// the person read arrives in DRAFT_TEXT. Without it the retry re-drafts from the row and the\n// newest feedback alone, which is how the 2026-11-09 retry replaced the whole walk-through\n// with a provider how-to.\nconst previous = String(vars.DRAFT_TEXT || '').trim()\n  || ($('parse_article').isExecuted ? String($('parse_article').last().json.TEXT || '') : '');\nreturn [{ json: {\n  SESSION_ID: sessionId,\n  ATTEMPT: $runIndex + 1,\n  ARTICLE_URL: base + '/v1/chat/completions',\n  ARTIFACT_BASE: base + '/artifacts/' + sessionId,\n  SOURCE_HOSTS: hosts,\n  ARTICLE_BODY: JSON.stringify({\n    session_id: sessionId,\n    stream: false,\n    source_hosts: hosts,\n    attempt: $runIndex + 1,\n    brief: {\n      topic: String(vars.TOPIC || ''),\n      description: String(vars.DESCRIPTION || ''),\n      url: String(vars.URL || ''),\n      max_words: Number(vars.MAX_WORDS) || 0,\n      max_figures: Number(vars.MAX_FIGURES) || 3,\n      asset_types: String(vars.ASSET_TYPES || ''),\n      audience: String(config.AUDIENCE || 'NONE'),\n      extra_prompt: String(vars.EXTRA_PROMPT || ''),\n      content: String(vars.CONTENT || ''),\n      feedback,\n      previous_draft: previous,\n    },\n  }),\n} }];"
+        "jsCode": "// The request the article session receives: the entry's fields, nothing that reads like\n// an instruction. The prompt, the shapes and the audience levels live in the writer\n// adapter, so this graph cannot drift from the text the model is given. `session_id` is the\n// row, so a retry continues the session directory and its fetched corpus instead of paying\n// for every source again, and `attempt` tells the adapter this turn is a correction. The\n// source hosts ride on the request because the pod cannot read the deployment values:\n// `AgentRuntime.spec` carries no env, so the allowlist the proxy enforces arrives here.\nconst vars = $('main_trigger').first().json;\nconst config = $('set_workflow_vars').first().json;\nconst row = String(vars.ROW_NUMBER || '').trim();\nif (!row) throw new Error('ROW_NUMBER is required: the session id is article-<row>');\nconst base = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!base) throw new Error('ARTICLE_WRITER_URL is not set; the article session cannot be reached');\n// One session per attempt. A retry used to continue the same Pi session, so its transcript\n// grew to megabytes, compaction dropped the pages the ledger needs, and the turn took half\n// an hour. A fresh session carries the previous draft and the reason instead.\n// One session per row, for its whole life: the first draft and every later feedback round\n// continue it, so the writer keeps the pages it read and the asks it already applied. A\n// fresh session per attempt made a retry forget everything but the newest feedback.\nconst sessionId = ('article-' + row).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 80);\nconst hosts = String(config.SOURCE_HOSTS || '').trim();\n// On a retry this node is fed by `switch_article_check`'s retry output, so `$json`\n// carries the reviewer's `explanation`; on the first attempt it carries the audiences.\nconst explanation = String(($json && $json.explanation) || '').trim();\nconst feedback = [\n  String(vars.FEEDBACK || '').trim(),\n  explanation ? 'The previous attempt failed the code check: ' + explanation : '',\n].filter(Boolean).join('\\n');\n// A human retry runs in its own execution, so `parse_article` has not run yet; the draft\n// the person read arrives in DRAFT_TEXT. Without it the retry re-drafts from the row and the\n// newest feedback alone, which is how the 2026-11-09 retry replaced the whole walk-through\n// with a provider how-to.\nconst previous = String(vars.DRAFT_TEXT || '').trim()\n  || ($('parse_article').isExecuted ? String($('parse_article').last().json.TEXT || '') : '');\nreturn [{ json: {\n  SESSION_ID: sessionId,\n  ATTEMPT: $runIndex + 1,\n  ARTICLE_URL: base + '/v1/chat/completions',\n  ARTIFACT_BASE: base + '/artifacts/' + sessionId,\n  SOURCE_HOSTS: hosts,\n  ARTICLE_BODY: JSON.stringify({\n    session_id: sessionId,\n    stream: false,\n    source_hosts: hosts,\n    attempt: $runIndex + 1,\n    brief: {\n      topic: String(vars.TOPIC || ''),\n      description: String(vars.DESCRIPTION || ''),\n      url: String(vars.URL || ''),\n      max_words: Number(vars.MAX_WORDS) || 0,\n      max_figures: Number(vars.MAX_FIGURES) || 3,\n      asset_types: String(vars.ASSET_TYPES || ''),\n      audience: String(config.AUDIENCE || 'NONE'),\n      extra_prompt: String(vars.EXTRA_PROMPT || ''),\n      content: String(vars.CONTENT || ''),\n      feedback,\n      previous_draft: previous,\n      outline: String(vars.OUTLINE || ''),\n    },\n  }),\n} }];"
       }
     },
     {
@@ -1607,6 +1762,28 @@
                 ],
                 "combinator": "and"
               }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "b4d8e1f6-7c2a-4f9b-8e3d-5a6c7b8d9e01",
+                    "leftValue": "={{ $json.TASK }}",
+                    "rightValue": "outline",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
             }
           ]
         },
@@ -1677,7 +1854,7 @@
         -320
       ],
       "parameters": {
-        "jsCode": "// The edit is the same session's next turn: the draft, the findings, and - on a retry -\n// the objective problem the content writer's code re-check named. No prompt text and no\n// model id ride on the request; the adapter owns both.\nconst req = $('main_trigger').first().json;\nconst config = $('set_workflow_vars').first().json;\nconst row = String(req.ROW_NUMBER || '').trim();\nif (!row) throw new Error('ROW_NUMBER is required: the session id is article-<row>');\nconst base = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!base) throw new Error('ARTICLE_WRITER_URL is not set; the improve turn cannot be reached');\nconst article = String(req.DRAFT_TEXT || '');\nif (!article.trim()) throw new Error('DRAFT_TEXT is required for the improve turn');\nconst sessionId = ('article-' + row).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 80);\nreturn [{ json: {\n  IMPROVE_URL: base + '/v1/chat/completions',\n  IMPROVE_BODY: JSON.stringify({\n    task: 'improve',\n    session_id: sessionId,\n    brief: {\n      topic: String(req.TOPIC || ''),\n      description: String(req.DESCRIPTION || ''),\n      url: String(req.URL || ''),\n      max_words: Number(req.MAX_WORDS) || 0,\n      asset_types: String(req.ASSET_TYPES || ''),\n      audience: String(config.AUDIENCE || 'NONE'),\n      extra_prompt: String(req.EXTRA_PROMPT || ''),\n      feedback: String(req.FEEDBACK || ''),\n    },\n    article: { title: String(req.DRAFT_TITLE || ''), text: article },\n    findings: String(req.FINDINGS || ''),\n    problem: String(req.PROBLEM || ''),\n  }),\n} }];"
+        "jsCode": "// The edit is the same session's next turn: the draft, the findings, and - on a retry -\n// the objective problem the content writer's code re-check named. No prompt text and no\n// model id ride on the request; the adapter owns both.\nconst req = $('main_trigger').first().json;\nconst config = $('set_workflow_vars').first().json;\nconst row = String(req.ROW_NUMBER || '').trim();\nif (!row) throw new Error('ROW_NUMBER is required: the session id is article-<row>');\nconst base = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!base) throw new Error('ARTICLE_WRITER_URL is not set; the improve turn cannot be reached');\nconst article = String(req.DRAFT_TEXT || '');\nif (!article.trim()) throw new Error('DRAFT_TEXT is required for the improve turn');\nconst sessionId = ('article-' + row).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 80);\nreturn [{ json: {\n  IMPROVE_URL: base + '/v1/chat/completions',\n  IMPROVE_BODY: JSON.stringify({\n    task: 'improve',\n    session_id: sessionId,\n    brief: {\n      topic: String(req.TOPIC || ''),\n      description: String(req.DESCRIPTION || ''),\n      url: String(req.URL || ''),\n      max_words: Number(req.MAX_WORDS) || 0,\n      asset_types: String(req.ASSET_TYPES || ''),\n      audience: String(config.AUDIENCE || 'NONE'),\n      extra_prompt: String(req.EXTRA_PROMPT || ''),\n      feedback: String(req.FEEDBACK || ''),\n      outline: String(req.OUTLINE || ''),\n    },\n    article: { title: String(req.DRAFT_TITLE || ''), text: article },\n    findings: String(req.FINDINGS || ''),\n    problem: String(req.PROBLEM || ''),\n  }),\n} }];"
       }
     },
     {
@@ -1729,7 +1906,62 @@
         -160
       ],
       "parameters": {
-        "errorMessage": "={{ 'unknown TASK \"' + String($('main_trigger').first().json.TASK || '') + '\": expected draft, aspects or improve' }}"
+        "errorMessage": "={{ 'unknown TASK \"' + String($('main_trigger').first().json.TASK || '') + '\": expected draft, outline, aspects or improve' }}"
+      }
+    },
+    {
+      "id": "7454b1fc-762c-4378-8798-2c11b1748b18",
+      "name": "build_outline_request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -16448,
+        -864
+      ],
+      "parameters": {
+        "jsCode": "// The outline turn plans the article before it is drafted, from the entry's fields and the\n// row's seed: no feedback and no previous draft, because there is no draft yet. The session\n// id is the row's, so the plan and its draft are one thread; `--no-tools` in the adapter\n// means this turn fetches no page, which is why no source hosts ride on it.\nconst req = $('main_trigger').first().json;\nconst config = $('set_workflow_vars').first().json;\nconst row = String(req.ROW_NUMBER || '').trim();\nif (!row) throw new Error('ROW_NUMBER is required: the session id is article-<row>');\nconst base = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!base) throw new Error('ARTICLE_WRITER_URL is not set; the outline turn cannot be reached');\nconst sessionId = ('article-' + row).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 80);\nreturn [{ json: {\n  OUTLINE_URL: base + '/v1/chat/completions',\n  OUTLINE_BODY: JSON.stringify({\n    lane: 'article',\n    task: 'outline',\n    session_id: sessionId,\n    attempt: $runIndex + 1,\n    brief: {\n      topic: String(req.TOPIC || ''),\n      description: String(req.DESCRIPTION || ''),\n      url: String(req.URL || ''),\n      content: String(req.CONTENT || ''),\n      audience: String(config.AUDIENCE || 'NONE'),\n      extra_prompt: String(req.EXTRA_PROMPT || ''),\n      max_words: Number(req.MAX_WORDS) || 0,\n      asset_types: String(req.ASSET_TYPES || ''),\n    },\n  }),\n} }];"
+      }
+    },
+    {
+      "id": "64a221e3-d555-40b3-bc59-4849c2010593",
+      "name": "request_outline",
+      "notes": "One --no-tools planning turn: 600 s, against the draft's 1800 s, because the plan reads no page.",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "onError": "continueErrorOutput",
+      "position": [
+        -16288,
+        -864
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.OUTLINE_URL }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.OUTLINE_BODY }}",
+        "options": {
+          "timeout": 600000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "9ae7d544-e471-422c-adfb-acdc3bd1ccfd",
+      "name": "outline_answer",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -16128,
+        -864
+      ],
+      "parameters": {
+        "jsCode": "// Both outputs of the outline call meet here, the way `review_note` joins the reviewer's: the\n// regular one carries {statusCode, body}, the error one carries json.error and no status. The\n// caller reads OPTIONS and OUTLINE_ERROR and never the model's text - the adapter parsed the\n// <outline> block into this structure, per the design's \"the graph never reads raw model text\".\nconst res = $input.first().json || {};\nconst note = (value) => String(value == null ? '' : value).replace(/\\s+/g, ' ').trim();\nconst transport = res.error ? note((res.error && res.error.message) || res.error) : '';\nif (transport) return [{ json: { OPTIONS: [], OUTLINE_ERROR: 'OUTLINE: ' + transport } }];\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nif (status >= 400) {\n  const message = note((body.error && body.error.message) || body.error || body.message);\n  return [{ json: { OPTIONS: [], OUTLINE_ERROR: 'OUTLINE: HTTP ' + status + (message ? ': ' + message : ' the outline turn failed') } }];\n}\nconst outline = body.outline && typeof body.outline === 'object' ? body.outline : {};\nconst failure = note(outline.error);\nif (failure) return [{ json: { OPTIONS: [], OUTLINE_ERROR: 'OUTLINE: ' + failure } }];\nconst options = (Array.isArray(outline.options) ? outline.options : []).map((option) => ({\n  shape: note(option && option.shape),\n  outcome: note(option && option.outcome),\n  sections: (Array.isArray(option && option.sections) ? option.sections : []).map((section) => ({\n    name: note(section && section.name),\n    job: note(section && section.job),\n  })),\n}));\nreturn [{ json: { OPTIONS: options, OUTLINE_ERROR: '' } }];"
       }
     },
     {

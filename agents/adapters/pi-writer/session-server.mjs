@@ -59,6 +59,8 @@ import {
   extractFencedBlocks,
   normaliseBlock,
   articleTurnInstruction,
+  outlinePrompt,
+  parseOutline,
   splitArticle,
   articleWordCount,
   articleWordLimit,
@@ -284,14 +286,27 @@ async function articlePrompt(brief) {
     CONTENT: entry.content ?? "",
     FEEDBACK: entry.feedback ?? "",
     PREVIOUS_DRAFT: entry.previous_draft ?? "",
+    OUTLINE: entry.outline ?? "",
     STRUCTURES: structures,
   });
   return `${system}\n\n---\n\n${text}`;
 }
 
+// The planning turn before the draft: the same entry fields the drafting prompt sees, the
+// shapes and the audience levels, and no article. It gets no system prompt because it writes
+// an index, not prose.
+async function outlineRequestPrompt(brief) {
+  const [template, structures, audiences] = await Promise.all([
+    readPrompt("article_outline.md"),
+    readStructures(),
+    readAudiences(),
+  ]);
+  return outlinePrompt(brief, { template, structures, audiences });
+}
+
 // The writer owns every model turn in the article lane. A request names the turn it
 // wants and the entry's fields; the prompts and the rules that render them stay here.
-const TASKS = new Set(["draft", "review", "audit", "aspects", "improve"]);
+const TASKS = new Set(["outline", "draft", "review", "audit", "aspects", "improve"]);
 
 function taskOf(request) {
   const task = String(request.task || "draft");
@@ -491,6 +506,7 @@ async function improvePrompt({ brief, article, findings, problem, hosts }) {
     STRUCTURES: structures,
     MAX_WORDS: brief.max_words ?? "",
     ASSET_TYPES: brief.asset_types ?? "",
+    OUTLINE: brief.outline ?? "",
     HOSTS: Array.isArray(hosts) && hosts.length ? hosts.join(", ") : "none declared",
   });
 }
@@ -533,6 +549,7 @@ async function postDraftPrompt({ brief, directives }) {
   const text = fillTemplate(post, {
     RULES: rules,
     EXTRA_PROMPT: brief.extra_prompt ?? "",
+    ANGLE: brief.angle ?? "",
     CONTENT: brief.content ?? "",
     VARIETY_DIRECTIVES: directives,
     FEEDBACK: brief.feedback ?? "",
@@ -1112,6 +1129,10 @@ http
       if (lane === "article" && task === "draft" && !brief && !Array.isArray(request.messages)) {
         throw new Error("a draft needs brief or messages");
       }
+      // The outline is planned from the entry's fields, so there is nothing to plan without them.
+      if (lane === "article" && task === "outline" && !brief) {
+        throw new Error("an outline needs brief");
+      }
       if (lane === "post") {
         if (!brief) throw new Error("a post turn needs a brief");
         if (task !== "draft" && task !== "review") throw new Error(`the post lane has no ${task} task`);
@@ -1185,6 +1206,17 @@ http
               noTools: true,
             });
             return { response, post: { text: postReviewAnswer(response) } };
+          }
+
+          if (task === "outline") {
+            // Planning reaches no page: coverage and order are decided from the entry and the
+            // seed, so the turn has no tools, spends no lookup and writes no artifact.
+            proxyEnv(null);
+            const prompt = await outlineRequestPrompt(brief || {});
+            const response = await runPi(prompt, sessionID, undefined, cancellation.signal, dir, {
+              noTools: true,
+            });
+            return { response, outline: parseOutline(response) };
           }
 
           if (task === "draft") {
@@ -1358,9 +1390,11 @@ http
         choices: [{ index: 0, message: { role: "assistant", content: result.response }, finish_reason: "stop" }],
       };
       if (lane === "post") payload.post = result.post;
-      else payload.article = await articleAnswer(dir, result.ledger);
+      // An outline precedes the draft, so the session has no article artifact to report yet.
+      else if (task !== "outline") payload.article = await articleAnswer(dir, result.ledger);
       if (result.review) payload.review = result.review;
       if (result.findings) payload.findings = result.findings;
+      if (result.outline) payload.outline = result.outline;
       const body = JSON.stringify(payload);
       res.writeHead(200, { "content-type": "application/json", "content-length": Buffer.byteLength(body) }).end(body);
     } catch (err) {

@@ -92,11 +92,23 @@ part a model can control deterministically.
 
 ## Open questions
 
+- **The mp4 and the svg took different shapes.** Run 16955 opened on a title scene and sequenced
+  five scenes; run 16965 is one frame. D4 asked for one drawing and got it only in the SVG, because
+  the type declares no `introScene` and absence is not a prohibition. If the mp4 should be one
+  drawing too, the form definition has to say so (and forbid a title card) — the registry has no
+  field for "never a title scene".
+- **The mp4's draw-on is slow against its scene length.** At 7.5 s of 12 the frame held roughly 5%
+  of its ink, mid-way through scene 4. Options measured nothing yet: a longer
+  `durationSeconds` (18), a `SCENES` cap on the type, or a per-scene stagger rule in the form.
+  [UNVERIFIED] which of the three fixes it, and whether an unattended viewer reads a half-drawn
+  scene as broken or as drawing.
+- **A static svg has no encoder, so its self-declared length is unenforced.** Run 16965's sidecar
+  says `duration: 15` against the type's 12 s; nothing conforms an SVG, and the still capture uses
+  the declared 12 s. Harmless here (the settled frame is the last one), but it means the container
+  guarantee documented for `mp4` does not exist for `svg`.
 - [UNVERIFIED] Whether the article lane should prefer `sketch_svg` for a step-by-step section. That
   is the `figure` slot's brief (`add-variable-figure-slots`), not this change; this change only makes
   the type available to a caller that asks for it.
-- [UNVERIFIED] Whether one seeded wobble reads as "hand-drawn" at 1280 px without stroke width
-  variation. The first live render is the measurement.
 
 ## Definition of done
 

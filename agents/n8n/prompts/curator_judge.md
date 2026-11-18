@@ -29,7 +29,7 @@ An article can be well written, popular and on-topic and still fail this. A laun
 
 {{ HOOKS }}
 
-- `angle` — max 30 words, the direction the post argues, written as an instruction to the writer. Name the technology and the test or tension the post turns on. Open with a verb (`Argue that…`, `Judge … by …`, `Take the position that…`). Never restate the title, never name a hook, format, length or closing — the writer draws those — and never hand back a fact the article already states: the writer opens with whatever you write here.
+- `angle` — max 30 words, the direction the post argues, written as an instruction to the writer. Name the technology and the test or tension the post turns on. Open with a verb (`Argue that…`, `Judge … by …`, `Take the position that…`). Never restate the title, never name a hook, format, length or closing — the writer draws those — and never hand back a fact the article already states: the writer opens with whatever you write here. For a release or announcement the headline change itself may be the angle's subject: name it and the test to watch.
   - Good: `Judge Postgres offerings by the four compatibility layers: the extensions you call decide the layer, and the layer decides the exit cost.`
   - Good: `Argue deletion vectors cut compaction 40% only where partitioning already matches query patterns; the win is the proof, not the premise.`
   - Bad: `Postgres compatibility splits into four layers; the extensions you depend on decide which layer you can exit from cheaply.` — a fact, so the post opens with it.

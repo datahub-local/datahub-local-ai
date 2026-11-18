@@ -193,8 +193,9 @@
               "EXTRA_PROMPT": "={{ $('select_article_to_post').item.json.EXTRA_PROMPT }}",
               "CONTENT": "={{ $('download_content').item.json.contentMkdown }}",
               "ENABLE_CHECK": "true",
-              "FEEDBACK": "={{ $('notification_retry_or_cancel').isExecuted && $('notification_retry_or_cancel').last().json.data.Feedback ? $('notification_retry_or_cancel').last().json.data.Feedback : '' }}",
+              "FEEDBACK": "={{ $('notification_retry_or_cancel').isExecuted && $('notification_retry_or_cancel').last().json.data ? ((String($('notification_retry_or_cancel').last().json.data.Directive || '').trim() && String($('notification_retry_or_cancel').last().json.data.Directive || '').trim() !== 'Other') ? '[' + String($('notification_retry_or_cancel').last().json.data.Directive || '').trim() + '] ' : '') + String($('notification_retry_or_cancel').last().json.data.Feedback || '') : '' }}",
               "HOOK": "={{ $('select_article_to_post').item.json.HOOK || '' }}",
+              "ANGLE": "={{ $('select_article_to_post').item.json.ANGLE || '' }}",
               "PREVIOUS_POST": "={{ $('execute_post_creator').isExecuted ? ($('execute_post_creator').last().json.text || '') : '' }}",
               "ROW_NUMBER": "={{ $('select_article_to_post').item.json.row_number }}"
             },
@@ -278,6 +279,16 @@
                 "display": true,
                 "canBeUsedToMatch": true,
                 "type": "string",
+                "removed": false
+              },
+              {
+                "id": "ANGLE",
+                "displayName": "ANGLE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
                 "removed": false
               },
               {
@@ -486,6 +497,33 @@
                     },
                     {
                       "option": "Cancel"
+                    }
+                  ]
+                },
+                "requiredField": true
+              },
+              {
+                "fieldLabel": "Directive",
+                "fieldType": "dropdown",
+                "fieldOptions": {
+                  "values": [
+                    {
+                      "option": "Structure or order wrong"
+                    },
+                    {
+                      "option": "Wrong focus"
+                    },
+                    {
+                      "option": "Change tone"
+                    },
+                    {
+                      "option": "Make concise"
+                    },
+                    {
+                      "option": "Explain more"
+                    },
+                    {
+                      "option": "Other"
                     }
                   ]
                 },
@@ -2083,7 +2121,9 @@
             "value": {
               "POST_CONTENT": "={{ $('execute_post_creator').item.json.text }}",
               "FEEDBACK": "={{ $('notification_retry_or_cancel_image').isExecuted && $('notification_retry_or_cancel_image').last().json.data.Feedback ? $('notification_retry_or_cancel_image').last().json.data.Feedback : '' }}",
-              "HOOK": "={{ $('select_article_to_post').item.json.HOOK || '' }}"
+              "HOOK": "={{ $('select_article_to_post').item.json.HOOK || '' }}",
+              "EVIDENCE": "={{ $('select_article_to_post').item.json.EVIDENCE || '' }}",
+              "ANGLE": "={{ $('select_article_to_post').item.json.ANGLE || '' }}"
             },
             "matchingColumns": [
               "POST_CONTENT"
@@ -2137,6 +2177,26 @@
                 "display": true,
                 "canBeUsedToMatch": true,
                 "type": "string",
+                "removed": false
+              },
+              {
+                "id": "EVIDENCE",
+                "displayName": "EVIDENCE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": false
+              },
+              {
+                "id": "ANGLE",
+                "displayName": "ANGLE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
                 "removed": false
               }
             ],
@@ -2298,7 +2358,7 @@
           "workflowInputs": {
             "mappingMode": "defineBelow",
             "value": {
-              "CONTENT": "={{ $('execute_post_creator').item.json.text }}",
+              "CONTENT": "={{ (($('select_article_to_post').item.json.EVIDENCE || $('select_article_to_post').item.json.ANGLE) ? \"The article's concrete detail: \" + ($('select_article_to_post').item.json.EVIDENCE || '') + \"\\nThe judged angle: \" + ($('select_article_to_post').item.json.ANGLE || '') + \"\\n\\n\" : '') + $('execute_post_creator').item.json.text }}",
               "ASSET_TYPES": "animation_linkedin_video",
               "FEEDBACK": "={{ $('build_retry_feedback').isExecuted ? $('build_retry_feedback').last().json.FEEDBACK : ($('notification_retry_or_cancel_animation').isExecuted ? ($('notification_retry_or_cancel_animation').last().json.data.Feedback || '') : '') }}",
               "FORCE": "={{ $('select_article_to_post').item.json.VISUAL_FORM || 'auto' }}",
@@ -4487,8 +4547,9 @@
             "EXTRA_PROMPT": "={{ $('select_article_to_post').item.json.EXTRA_PROMPT }}",
             "CONTENT": "={{ $('download_content').item.json.contentMkdown }}",
             "ENABLE_CHECK": "true",
-            "FEEDBACK": "={{ $('notification_retry_or_cancel').isExecuted && $('notification_retry_or_cancel').last().json.data.Feedback ? $('notification_retry_or_cancel').last().json.data.Feedback : '' }}",
+            "FEEDBACK": "={{ $('notification_retry_or_cancel').isExecuted && $('notification_retry_or_cancel').last().json.data ? ((String($('notification_retry_or_cancel').last().json.data.Directive || '').trim() && String($('notification_retry_or_cancel').last().json.data.Directive || '').trim() !== 'Other') ? '[' + String($('notification_retry_or_cancel').last().json.data.Directive || '').trim() + '] ' : '') + String($('notification_retry_or_cancel').last().json.data.Feedback || '') : '' }}",
             "HOOK": "={{ $('select_article_to_post').item.json.HOOK || '' }}",
+            "ANGLE": "={{ $('select_article_to_post').item.json.ANGLE || '' }}",
             "PREVIOUS_POST": "={{ $('execute_post_creator').isExecuted ? ($('execute_post_creator').last().json.text || '') : '' }}",
             "ROW_NUMBER": "={{ $('select_article_to_post').item.json.row_number }}"
           },
@@ -4572,6 +4633,16 @@
               "display": true,
               "canBeUsedToMatch": true,
               "type": "string",
+              "removed": false
+            },
+            {
+              "id": "ANGLE",
+              "displayName": "ANGLE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
               "removed": false
             },
             {
@@ -4780,6 +4851,33 @@
                   },
                   {
                     "option": "Cancel"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Directive",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Structure or order wrong"
+                  },
+                  {
+                    "option": "Wrong focus"
+                  },
+                  {
+                    "option": "Change tone"
+                  },
+                  {
+                    "option": "Make concise"
+                  },
+                  {
+                    "option": "Explain more"
+                  },
+                  {
+                    "option": "Other"
                   }
                 ]
               },
@@ -6377,7 +6475,9 @@
           "value": {
             "POST_CONTENT": "={{ $('execute_post_creator').item.json.text }}",
             "FEEDBACK": "={{ $('notification_retry_or_cancel_image').isExecuted && $('notification_retry_or_cancel_image').last().json.data.Feedback ? $('notification_retry_or_cancel_image').last().json.data.Feedback : '' }}",
-            "HOOK": "={{ $('select_article_to_post').item.json.HOOK || '' }}"
+            "HOOK": "={{ $('select_article_to_post').item.json.HOOK || '' }}",
+            "EVIDENCE": "={{ $('select_article_to_post').item.json.EVIDENCE || '' }}",
+            "ANGLE": "={{ $('select_article_to_post').item.json.ANGLE || '' }}"
           },
           "matchingColumns": [
             "POST_CONTENT"
@@ -6431,6 +6531,26 @@
               "display": true,
               "canBeUsedToMatch": true,
               "type": "string",
+              "removed": false
+            },
+            {
+              "id": "EVIDENCE",
+              "displayName": "EVIDENCE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ANGLE",
+              "displayName": "ANGLE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
               "removed": false
             }
           ],
@@ -6592,7 +6712,7 @@
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "CONTENT": "={{ $('execute_post_creator').item.json.text }}",
+            "CONTENT": "={{ (($('select_article_to_post').item.json.EVIDENCE || $('select_article_to_post').item.json.ANGLE) ? \"The article's concrete detail: \" + ($('select_article_to_post').item.json.EVIDENCE || '') + \"\\nThe judged angle: \" + ($('select_article_to_post').item.json.ANGLE || '') + \"\\n\\n\" : '') + $('execute_post_creator').item.json.text }}",
             "ASSET_TYPES": "animation_linkedin_video",
             "FEEDBACK": "={{ $('build_retry_feedback').isExecuted ? $('build_retry_feedback').last().json.FEEDBACK : ($('notification_retry_or_cancel_animation').isExecuted ? ($('notification_retry_or_cancel_animation').last().json.data.Feedback || '') : '') }}",
             "FORCE": "={{ $('select_article_to_post').item.json.VISUAL_FORM || 'auto' }}",

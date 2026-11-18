@@ -63,8 +63,13 @@ them.** Pi gets a prompt and a proxy and returns text; the server decides the pa
 artifacts, re-reads the sources and counts the words. `session-lib` is that ownership written as
 functions, so the tests exercise it without spawning Pi or binding a port.
 
-The other turns are review, not drafting:
+The other turns are review or planning, not drafting:
 
+- `task: "outline"` plans the article before it is drafted: two or three candidate indexes, each a
+  shape from `prompts/article_structures.md`, a one-line outcome and three to eight named sections
+  with a one-line job each. It runs `--no-tools` in the row's session, spends no lookup and writes
+  nothing: the answer comes back inside one `<outline>` block, parsed into `outline.options`, and
+  the caller puts the choice in front of the owner before the draft is paid for.
 - `task: "audit"` judges the draft **with tools**: it reads `article.md`, the derived
   `sources.json` and the session transcript, greps for a claim it doubts and may fetch a page. The
   adapter derives the ledger first and hands it the blocks no page carries plus the URLs the
@@ -143,8 +148,8 @@ proof available inside the pod.
 | field | meaning |
 | --- | --- |
 | `lane` | `article` (default) or `post`. A post turn has only `draft` and `review`, needs a `brief`, and runs with no tools |
-| `task` | `draft` (default), `review`, `audit`, `aspects` or `improve`; the post lane serves `draft` and `review` |
-| `brief` | the entry's fields: `topic`, `description`, `url`, `max_words`, `max_figures`, `asset_types`, `audience`, `extra_prompt`, `content`, `feedback`. The post lane adds `post_type`, `min_words`, `previous_post`, `hook` and `hook_opening`. The server renders the prompt from its own files |
+| `task` | `draft` (default), `outline`, `review`, `audit`, `aspects` or `improve`; the post lane serves `draft` and `review` |
+| `brief` | the entry's fields: `topic`, `description`, `url`, `max_words`, `max_figures`, `asset_types`, `audience`, `extra_prompt`, `content`, `feedback`, `outline`. The post lane adds `post_type`, `min_words`, `previous_post`, `hook`, `hook_opening` and `angle`. The server renders the prompt from its own files |
 | `article` | the draft of record for `review`, `aspects` and `improve`: `{ title, text }`. The caller resolves it, so the turn reviews exactly what the caller decided |
 | `post` | the draft of record for a post `review`: `{ text }`. The caller resolves it from what it parsed |
 | `findings` | the merged aspect findings for `improve`, as one text block |
@@ -159,7 +164,11 @@ The response carries `article: { name, ledger, title, text, word_count, sources,
 fence no scraped page carried, and `error` is non-empty when the turn scraped nothing. A `review`
 answer adds
 `review: { pass, explanation }`; an `aspects` answer adds
-`findings: [{ aspect, focus, error, text, count }]`.
+`findings: [{ aspect, focus, error, text, count }]`. An `outline` answer carries
+`outline: { options: [{ shape, outcome, sections: [{ name, job }] }], error }` and no `article`, and
+`options` is empty with `error` naming the reason when the block did not follow the form. A drafted
+article written to an approved outline is given it as `brief.outline`; the drafting and improvement
+prompts state that the sections follow it, and feedback outranks it.
 
 A post turn answers `post: { text }` instead of `article`. The text is always wrapped in the tags
 the caller's parsers read: `<output>…</output>` for a draft, and

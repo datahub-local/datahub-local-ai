@@ -5,6 +5,10 @@ Read `{{ POST_CONTENT }}`. Identify the strongest claim or surprise, usually in 
 Hook treatment — the post opens as {{ HOOK }}. Shape the composition this way:
 {{ HOOK_TREATMENT }}
 
+The article's concrete detail: {{ EVIDENCE }}
+The judged angle: {{ ANGLE }}
+The visual anchors this fact; when both are empty this block adds nothing and the post text alone decides.
+
 Motif vocabulary for this post:
 - Subject anchors — render this post's subject as one of these concrete things:
 {{ SUBJECT_ANCHORS }}

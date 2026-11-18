@@ -17,10 +17,13 @@ by the composer agent, gif, inside the platform's GIF cap), `animation_linkedin_
 (authored by the composer agent, mp4, at the feed's aspect), `tiles` (authored by the
 composer agent, a looping tiled pattern drawn by a seeded walk, mp4, at the feed's
 aspect), `tiles_wide` (the same loop at 16:9), `svg` (authored by the composer agent, a
-self-contained animated SVG), `svg_wide` (the same animated SVG at 16:9), `deck`
-(authored by the composer agent, a self-contained HTML presentation that the same run also
-renders to mp4) and `launch_card` (authored by the composer agent, a still png at the
-announcement frame).
+self-contained animated SVG), `svg_wide` (the same animated SVG at 16:9), `sketch`
+(authored by the composer agent, a hand-drawn diagram whose strokes draw themselves on,
+mp4 at 16:9), `sketch_svg` (the same drawing as a self-contained animated SVG at 16:9),
+`figure` (authored by the composer agent, a self-contained static SVG at 16:9 that
+illustrates the section brief it was given), `deck` (authored by the composer agent, a
+self-contained HTML presentation that the same run also renders to mp4) and `launch_card`
+(authored by the composer agent, a still png at the announcement frame).
 
 A type MUST NOT require a frozen final frame: an animated type's declared budget SHALL
 NOT mandate a hold during which nothing moves. A type whose shape is a continuous pattern
@@ -51,6 +54,13 @@ rate it declares, so its length is a registry value.
 - **THEN** it declares no per-scene floor
 - **AND** a caller's scene count does not stretch it, because its shape is one continuous
   field
+
+#### Scenario: A sketch declares no scene plan
+- **WHEN** a sketch type is read
+- **THEN** it declares no per-scene floor and no intro scene
+- **AND** a caller's scene count does not stretch it
+- **AND** the composer's own storyboard may still sequence the drawing, because the registry
+  constrains what a type declares, not what a form forbids
 
 ### Requirement: The requested set is a trigger parameter
 
@@ -246,7 +256,8 @@ requested form, the style, the output budget and the shared motion rules.
 
 The system SHALL let a request pin the form of an authored visual with `FORCE`, and SHALL
 let the agent choose the form when `FORCE` is `auto`. A forced form MUST be honoured or
-reported, never silently replaced.
+reported, never silently replaced. `FORCE` SHALL accept `sketch`, which asks for a
+hand-drawn diagram whose strokes draw themselves on.
 
 #### Scenario: A forced form is honoured
 - **WHEN** a request sets `FORCE=diagram`
@@ -255,6 +266,12 @@ reported, never silently replaced.
 #### Scenario: Auto lets the agent choose
 - **WHEN** a request sets `FORCE=auto`
 - **THEN** the agent picks the form that fits the content
+
+#### Scenario: A sketch is honoured
+- **WHEN** a request sets `FORCE=sketch`
+- **THEN** the authored asset is a hand-drawn diagram whose strokes draw themselves on
+- **AND** it keeps the brand's palette and typeface, roughening geometry rather than
+  introducing a sketch typeface
 
 ### Requirement: The style is a brand scheme
 

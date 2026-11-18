@@ -99,26 +99,44 @@
 
 ## 5. Behaviour verification
 
-- [ ] 5.1 `POST /webhook/visual-studio` with `ASSET_TYPES=sketch`, `FORCE=sketch`, no `SESSION_ID`:
+- [x] 5.1 `POST /webhook/visual-studio` with `ASSET_TYPES=sketch`, `FORCE=sketch`, no `SESSION_ID`:
       `STATUS: COMPLETE`, one mp4 asset, `ffprobe` 1280x720 / ~12 s / 30 fps, key
       `visual-studio/<RUN_ID>-sketch.mp4`.
-      **Blocked on the push, and the first attempt proves why.** Run 16947 (2026-11-17, executor:
-      enums applied, registry edited locally) answered `HTTP 200`, `STATUS: FAILED`, one asset
-      `sketch` with `STATUS: UNKNOWN`, `ERROR: unknown asset type: sketch`. The registry is fetched
-      by `download_registry` through `DownloadTemplate` from `BACKUP_GITHUB_REPO_*` on `main`, so a
-      type exists live only once the dataset is pushed — the enum apply alone cannot make it
-      resolvable.
+      **Verified 2026-11-17, run 16955** (after the push; run 16947 had answered `unknown asset type:
+      sketch`). `HTTP 200` in ~7 min, `STATUS: COMPLETE`, one asset `sketch` `RENDERED` `video/mp4`,
+      key `visual-studio/16955-sketch.mp4`, 974,030 B, `CONFORMED: none`. ffprobe: h264 **1280x720,
+      30/1 fps, 360 frames, 12.000 s** — exactly the declared container. The review loop ran and
+      `VERDICT: ok` after three findings were fixed in the same session and re-rendered.
 
-- [ ] 5.2 The same for `ASSET_TYPES=sketch_svg`: an `.svg` asset whose first frame is the drawing's
+- [x] 5.2 The same for `ASSET_TYPES=sketch_svg`: an `.svg` asset whose first frame is the drawing's
       opening state and whose `STORYBOARD` names the sketch form and its seed.
+      **Verified run 16965.** `STATUS: COMPLETE`, one asset `sketch_svg` `RENDERED` `static` `svg`,
+      key `visual-studio/16965-sketch_svg.svg`, 15,067 B, `DURATION_MS 12000`, `VERDICT: ok` after a
+      layout finding (bronze/silver borders touching) was fixed in place. The file is self-contained:
+      no `<script>`, no remote reference (the only `http` is the SVG namespace), 7 `@keyframes` and
+      four `stroke-dashoffset` rules — the draw-on is CSS, and the last still is the settled drawing.
 
-- [ ] 5.3 Check the picture against the definition, since that is the only test of a form: a labelled
+- [x] 5.3 Check the picture against the definition, since that is the only test of a form: a labelled
       diagram on a wobbly stroke, drawn on in reading order, no shading or gradient, in the requested
       brand scheme, with the drawing still legible at the end and no frozen tail. Record what the
       renders show, including anything the definition failed to produce.
+      **Verified from the stills** (`/tmp/opencode/sketch-form/art/`). Both artifacts read as the
+      form: wobbly ink boxes, hand-drawn arrows, seeded jitter, brand moss on near-black, Space
+      Grotesk lettering, no shading or gradient, the settled frame complete and legible. Three
+      findings, all recorded in `design.md` rather than fixed here:
+      1. the **mp4 opened on a title scene** and sequenced five scenes, while the **svg is one
+         frame** — same form, two shapes;
+      2. the mp4's draw-on is slow against its scene length: at 7.5 s the frame holds ~5% of its ink;
+      3. the svg's own sidecar declares `duration: 15` against the type's 12 s, and nothing enforces
+         it because a `static` svg has no encoder.
 
-- [ ] 5.4 Confirm the feed lane's routing without a real post: a `content_queue` row carrying
+- [x] 5.4 Confirm the feed lane's routing without a real post: a `content_queue` row carrying
       `VISUAL_FORM=sketch` reaches the studio as `FORCE=sketch` with `ASSET_TYPES=animation_linkedin_video`.
+      **Verified by reading the lane** (nothing flipped, no post run): `execute_visual_studio` sends
+      `ASSET_TYPES: "animation_linkedin_video"`, `FORCE` is
+      `$('select_article_to_post').item.json.VISUAL_FORM || 'auto'`, and `check_animation_result`
+      still matches `want = 'animation_linkedin_video'`. A row whose `VISUAL_FORM` is `sketch` reaches
+      the composer as `FORCE=sketch` on the feed's own type.
 
 ## 6. Documentation
 
@@ -128,5 +146,10 @@
       `DrawSVGPlugin` and a sketch typeface are all absent from the image.
   **Landed.**
 
-- [ ] 6.2 Archive only when 4.x and 5.x have landed: `openspec archive add-sketch-form`, folding the
+- [x] 6.2 Archive only when 4.x and 5.x have landed: `openspec archive add-sketch-form`, folding the
       delta into `openspec/specs/visual-studio/spec.md`, then `openspec validate --all`.
+  **Archived 2026-11-17 as `2026-11-17-add-sketch-form`**, all 18 tasks `[x]`. One wording change was
+  made at the fold, from the measured render: the delta's scene clause became "a sketch declares no
+  scene plan" — the registry constrains what a type declares, not what a form forbids — because
+  run 16955 opened on a title scene while run 16965 stayed one drawing, and the owner accepted both
+  shapes. The `FORCE` requirement gained `sketch`; the registry requirement gained both ids.

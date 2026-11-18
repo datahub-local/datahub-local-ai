@@ -94,6 +94,27 @@ if (prompt.includes("You review one article draft")) {
   process.stdout.write("<findings>1. opening: PROBE_" + aspect.toUpperCase() + " - tighten it</findings>");
   process.exit(0);
 }
+// The outline turn answers only inside its block, and the server parses it: an answer the form
+// rejects is data with a reason, not a failed turn.
+if (prompt.includes("You plan one article")) {
+  if (prompt.includes("OUTLINE_UNPARSABLE")) {
+    process.stdout.write("I could not plan this article.");
+    process.exit(0);
+  }
+  process.stdout.write(
+    "<outline>\\n" +
+      "Option 1\\nshape: Getting started\\noutcome: the reader has installed the probe\\nsections:\\n" +
+      "- What to prepare — name the cluster and the CLI before anything runs\\n" +
+      "- The smallest install — run it and show what success looks like\\n" +
+      "- Where it breaks — the trap that stops this walk-through\\n" +
+      "Option 2\\nshape: Introduction to a thing\\noutcome: the reader knows why the probe exists\\nsections:\\n" +
+      "- The problem — what the reader does today\\n" +
+      "- The probe — what it changes\\n" +
+      "- The boundary — when it is the wrong choice\\n" +
+      "</outline>"
+  );
+  process.exit(0);
+}
 if (prompt.includes("You edit one article draft")) {
   // One block the page carries and one it does not: the edit rewrote the article, so the
   // ledger must be re-derived against this text.
@@ -328,6 +349,7 @@ test("a brief is rendered from the adapter's own prompt files", async () => {
       content: "PROBE_CONTENT",
       feedback: "PROBE_FEEDBACK",
       previous_draft: "PROBE_PREVIOUS",
+      outline: "PROBE_OUTLINE_INDEX",
     },
   });
   assert.equal(res.status, 200);
@@ -339,6 +361,7 @@ test("a brief is rendered from the adapter's own prompt files", async () => {
     "PROBE_CONTENT",
     "PROBE_FEEDBACK",
     "PROBE_PREVIOUS",
+    "PROBE_OUTLINE_INDEX",
     "900",
     "image_wide,svg_wide",
     "## One spine",
@@ -570,6 +593,79 @@ test("the aspect pass answers one findings block per aspect", async () => {
   }
 });
 
+test("an outline turn plans in the same session, with no tools and no artifact", async () => {
+  const res = await turn({
+    task: "outline",
+    session_id: "article-outline",
+    brief: {
+      topic: "PROBE_OUTLINE_TOPIC",
+      description: "PROBE_OUTLINE_DESCRIPTION",
+      url: "https://github.com/datahub-local/datahub-local-ai",
+      content: "PROBE_OUTLINE_SEED",
+      audience: "LOW",
+      extra_prompt: "PROBE_OUTLINE_EXTRA",
+      max_words: 900,
+      asset_types: "image_wide",
+    },
+  });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.task, "outline");
+  assert.equal(body.outline.error, "");
+  assert.equal(body.outline.options.length, 2);
+  assert.equal(body.outline.options[0].shape, "Getting started");
+  assert.deepEqual(body.outline.options[0].sections[0], {
+    name: "What to prepare",
+    job: "name the cluster and the CLI before anything runs",
+  });
+  // The plan precedes the draft, so the answer carries no article artifact.
+  assert.equal(body.article, undefined);
+
+  const prompt = await readFile(join(workspace, "runs", "article-outline", "prompt.txt"), "utf8");
+  for (const value of [
+    "PROBE_OUTLINE_TOPIC",
+    "PROBE_OUTLINE_DESCRIPTION",
+    "PROBE_OUTLINE_SEED",
+    "PROBE_OUTLINE_EXTRA",
+    "## One spine",
+    "## LOW",
+  ]) {
+    assert.ok(prompt.includes(value), `${value} did not reach the outline prompt`);
+  }
+  assert.ok(!/\{\{\s*[A-Z_]+\s*\}\}/.test(prompt), "an outline placeholder was left unrendered");
+  const args = await readFile(join(workspace, "runs", "article-outline", "args.txt"), "utf8");
+  assert.match(args, /--no-tools/);
+  await assert.rejects(readFile(join(workspace, "runs", "article-outline", "article.md"), "utf8"));
+});
+
+test("an outline that does not follow the block is data with a reason, not a failed turn", async () => {
+  const res = await turn({
+    task: "outline",
+    session_id: "article-outline-bad",
+    brief: {
+      topic: "Probe",
+      audience: "LOW",
+      max_words: 900,
+      asset_types: "image_wide",
+      extra_prompt: "OUTLINE_UNPARSABLE",
+    },
+  });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.deepEqual(body.outline.options, []);
+  assert.match(body.outline.error, /<outline>/);
+});
+
+test("an unknown task is still refused by name", async () => {
+  const res = await turn({
+    task: "outliner",
+    session_id: "article-unknown-task",
+    brief: { topic: "Probe" },
+  });
+  assert.equal(res.status, 400);
+  assert.match((await res.json()).error.message, /unknown task outliner/);
+});
+
 test("a review of a session with a draft reads it when the request carries none", async () => {
   // The creator sends the parsed draft, but a resumed round may name only the session.
   // The server then reviews the session's own article rather than an empty one.
@@ -612,6 +708,7 @@ test("an improve turn writes the edited article the model returned", async () =>
       max_words: 900,
       asset_types: "image_wide",
       feedback: "PROBE_HUMAN_FEEDBACK",
+      outline: "PROBE_APPROVED_OUTLINE",
     },
     article: { title: "Probe", text: "## Install\n\nUse it." },
     findings: "PROBE_FINDINGS: tighten the opening",
@@ -635,6 +732,7 @@ test("an improve turn writes the edited article the model returned", async () =>
   const prompt = await readFile(join(workspace, "runs", "article-improve", "prompt.txt"), "utf8");
   assert.match(prompt, /PROBE_HUMAN_FEEDBACK/);
   assert.match(prompt, /PROBE_FINDINGS: tighten the opening/);
+  assert.match(prompt, /PROBE_APPROVED_OUTLINE/, "the improve turn writes to the approved outline too");
   assert.match(prompt, /hosts `github\.com`/, "the edit names the hosts it may fetch to quote a block");
   // An edit that must quote a page has to be able to read it, so tools stay on.
   const args = await readFile(join(workspace, "runs", "article-improve", "args.txt"), "utf8");
@@ -839,4 +937,32 @@ test("a gate on a session with no stored directives draws and records one", asyn
   const stored = JSON.parse(await readFile(join(workspace, "runs", "post-fresh-review", "directives.json"), "utf8"));
   assert.match(stored.directives, /- Format — /);
   assert.match(stored.directives, /- Closing — /);
+});
+
+test("the judge's angle reaches the draft prompt", async () => {
+  const res = await turn({
+    lane: "post",
+    task: "draft",
+    session_id: "post-angle",
+    brief: { ...postBrief, angle: "PROBE_POST_ANGLE: argue that migration cost decides the tooling" },
+  });
+  assert.equal(res.status, 200);
+  const prompt = await readFile(join(workspace, "runs", "post-angle", "prompt.txt"), "utf8");
+  assert.match(prompt, /PROBE_POST_ANGLE: argue that migration cost decides the tooling/);
+  assert.ok(!/\{\{\s*ANGLE\s*\}\}/.test(prompt), "the angle placeholder was left unrendered");
+});
+
+test("a post without an angle renders an empty angle block", async () => {
+  // The column is empty on most rows, so an absent direction cannot leak a placeholder into
+  // the prompt: the drafter reads the section with nothing in it and ignores it.
+  const res = await turn({
+    lane: "post",
+    task: "draft",
+    session_id: "post-no-angle",
+    brief: { ...postBrief, angle: "" },
+  });
+  assert.equal(res.status, 200);
+  const prompt = await readFile(join(workspace, "runs", "post-no-angle", "prompt.txt"), "utf8");
+  assert.ok(!/\{\{\s*ANGLE\s*\}\}/.test(prompt), "the angle placeholder was left unrendered");
+  assert.ok(!prompt.includes("PROBE_POST_ANGLE"), "an angle reached a post that named none");
 });

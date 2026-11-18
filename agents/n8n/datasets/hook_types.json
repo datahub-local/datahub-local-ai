@@ -65,7 +65,7 @@
       "id": "NEWS_REACTION",
       "group": "news",
       "when": "the article centres on a datable announcement, release or event",
-      "opening": "open with your immediate, opinionated take on the announcement or release",
+      "opening": "open with your immediate, opinionated take, naming what was announced in the same breath",
       "visual": { "form": "poster", "scenes": 0 },
       "image": "One just-landed object or dated marker, centre-frame and accented, with the frame still settling around it: motion lines, displaced dust, or a before/after split at the edge. The headline is the immediate verdict, not a description."
     },
@@ -73,7 +73,7 @@
       "id": "RELEASE",
       "group": "news",
       "when": "the article describes a new version or capability and its implications are arguable",
-      "opening": "open with the capability that changed and the implication to watch",
+      "opening": "open by naming the headline change — what is new, spelled exactly as the article states it — then the implication to watch",
       "visual": { "form": "poster", "scenes": 0 },
       "image": "A new component slotting into an existing assembly, the new part accented and the old outline dim behind it. The headline names the capability."
     },

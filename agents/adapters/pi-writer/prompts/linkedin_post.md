@@ -6,6 +6,12 @@ Extra Rules:
 
 {{ EXTRA_PROMPT }}
 
+## Angle
+
+The direction the classification judged this post should argue: {{ ANGLE }}
+
+Follow it unless the Reviewer Feedback names another. If the block is empty, ignore this section.
+
 ## Variety Directives For This Post
 
 MANDATORY, and they override any pattern in the examples below:

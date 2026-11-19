@@ -745,6 +745,16 @@ function splitOutlineSection(text) {
   return [value, ""];
 }
 
+// A section's form is the bracket the outline prompt asks for. A form the vocabulary does not
+// know is a planning miss, not a failed plan: it reads as prose, which fences nothing.
+const OUTLINE_FORMS = new Set(["prose", "list", "table", "code"]);
+function splitOutlineForm(text) {
+  const match = /\s*\[([A-Za-z]+)\]\s*$/.exec(text);
+  if (!match) return [text, "prose"];
+  const form = match[1].toLowerCase();
+  return [text.slice(0, match.index).trim(), OUTLINE_FORMS.has(form) ? form : "prose"];
+}
+
 // The outline answer as data. The block is the whole contract — the caller never reads model
 // text — so anything that breaks the pinned form answers no options and the reason, the same
 // degrade the findings and the verdict use. The counts are the format's, not a gate's: the
@@ -773,13 +783,16 @@ export function parseOutline(text) {
       current[name] = field[2].trim();
       continue;
     }
-    const bullet = /^[-*]\s+(.+)$/.exec(line);
-    if (bullet) {
-      const [name, job] = splitOutlineSection(bullet[1]);
+    // Numbered is the prompt's form; a bullet is the same line with the marker a model reaches
+    // for, and reading both costs one alternation.
+    const section = /^(?:\d+[.)]|[-*])\s+(.+)$/.exec(line);
+    if (section) {
+      const [name, rest] = splitOutlineSection(section[1]);
+      const [job, form] = splitOutlineForm(rest);
       if (!name || !job) {
         return { options: [], error: `a section line in option ${options.length} carries no "name — job": ${line.slice(0, 60)}` };
       }
-      current.sections.push({ name, job });
+      current.sections.push({ name, job, form });
       continue;
     }
     return { options: [], error: `the block carries a line that is not part of its form: ${line.slice(0, 60)}` };

@@ -46,14 +46,14 @@ const option = (n, shape, sections) =>
     `shape: ${shape}`,
     `outcome: outcome of option ${n}`,
     "sections:",
-    ...sections.map(([name, job]) => `- ${name} — ${job}`),
+    ...sections.map(([name, job, form], index) => `${index + 1}. ${name} — ${job}${form ? ` [${form}]` : ""}`),
   ].join("\n");
 
 const sections = [
-  ["What to prepare", "name the cluster and the CLI before anything runs"],
-  ["The smallest install", "run it and show what success looks like"],
-  ["Where it breaks", "the trap that stops this walk-through — and its fix"],
-  ["What is next", "the first change to make after the install"],
+  ["What to prepare", "name the cluster and the CLI before anything runs", "prose"],
+  ["The smallest install", "run it and show what success looks like", "code"],
+  ["Where it breaks", "the trap that stops this walk-through — and its fix", "prose"],
+  ["What is next", "the first change to make after the install", "prose"],
 ];
 
 test("a two-option answer parses into shapes, outcomes and sections", () => {
@@ -67,10 +67,27 @@ test("a two-option answer parses into shapes, outcomes and sections", () => {
   assert.deepEqual(options[0].sections[0], {
     name: "What to prepare",
     job: "name the cluster and the CLI before anything runs",
+    form: "prose",
   });
   // The job's own dash is not a second separator: only the first one splits the line.
   assert.equal(options[0].sections[2].job, "the trap that stops this walk-through — and its fix");
+  assert.equal(options[0].sections[1].form, "code");
   assert.equal(options[1].shape, "A comparison");
+});
+
+test("a section carries its form, and anything else reads as prose", () => {
+  const text = `<outline>\n${option(1, "A comparison", [
+    ["What each is", "the deciding dimensions", "table"],
+    ["Migration cost", "the work each move takes", "diagram"],
+    ["Who picks which", "the boundary", undefined],
+    ["Licence", "what each permits", "list"],
+  ])}\n${option(2, "A comparison", sections)}\n</outline>`;
+  const { options, error } = parseOutline(text);
+  assert.equal(error, "");
+  assert.deepEqual(options[0].sections.map((section) => section.form), ["table", "prose", "prose", "list"]);
+  // The unknown bracket is the form's slot, not part of the job.
+  assert.equal(options[0].sections[1].job, "the work each move takes");
+  assert.equal(options[0].sections.filter((section) => section.form === "code").length, 0);
 });
 
 test("three options are accepted, and the answer may sit inside prose", () => {

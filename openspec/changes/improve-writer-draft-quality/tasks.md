@@ -240,6 +240,16 @@ here too.
       walk-throughs and how-tos earn blocks; a comparison, decision or analysis carries a
       block only when the command itself is the axis being compared; `article_structures.md`
       states the same on its one-block rule. The approved outline's outcome is the arbiter.
+- [ ] 10.9 The exception in 10.7 was rationalized away on the very next run (one
+      `python -m pip install dbt` block in a comparison), and the owner's answer was
+      structural: **the outline declares each section's content form**. `prose | list |
+      table | code`, chosen in the outline turn from the outcome, the extras and the
+      audience; the draft writes each section in its named form; a fence belongs only to
+      a `code` section. The gates count in code: `parse_article` and
+      `check_improved_draft` reject a draft with fences when the approved outline names
+      no `code` section (and reject a fence count above the `code` count), data-not-throw,
+      mirrored as the budget check is. Supersedes the shape-only rule; the forms subsume
+      it, and the human approving the outline is where that judgement lives.
 - [ ] 10.8 The research rule should tell the writer to read a truncated scrape's spill
       file: the lint-page scrape was cut by the tool-output cap, its full text spilled to
       a file the model never read, and the `[sqlfluff]` block it wrote from memory was

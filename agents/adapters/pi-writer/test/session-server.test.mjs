@@ -114,13 +114,13 @@ if (prompt.includes("You plan one article")) {
   process.stdout.write(
     "<outline>\\n" +
       "Option 1\\nshape: Getting started\\noutcome: the reader has installed the probe\\nsections:\\n" +
-      "- What to prepare — name the cluster and the CLI before anything runs\\n" +
-      "- The smallest install — run it and show what success looks like\\n" +
-      "- Where it breaks — the trap that stops this walk-through\\n" +
+      "1. What to prepare — name the cluster and the CLI before anything runs [prose]\\n" +
+      "2. The smallest install — run it and show what success looks like [code]\\n" +
+      "3. Where it breaks — the trap that stops this walk-through [prose]\\n" +
       "Option 2\\nshape: Introduction to a thing\\noutcome: the reader knows why the probe exists\\nsections:\\n" +
-      "- The problem — what the reader does today\\n" +
-      "- The probe — what it changes\\n" +
-      "- The boundary — when it is the wrong choice\\n" +
+      "1. The problem — what the reader does today [prose]\\n" +
+      "2. The probe — what it changes [prose]\\n" +
+      "3. The boundary — when it is the wrong choice [prose]\\n" +
       "</outline>"
   );
   process.exit(0);
@@ -627,7 +627,9 @@ test("an outline turn plans in the same session, with no tools and no artifact",
   assert.deepEqual(body.outline.options[0].sections[0], {
     name: "What to prepare",
     job: "name the cluster and the CLI before anything runs",
+    form: "prose",
   });
+  assert.equal(body.outline.options[0].sections[1].form, "code", "the plan's form reaches the caller");
   // The plan precedes the draft, so the answer carries no article artifact.
   assert.equal(body.article, undefined);
 

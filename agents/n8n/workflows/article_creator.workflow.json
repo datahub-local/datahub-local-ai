@@ -1,7 +1,7 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "8cebd0e2-4f4a-4ab2-9604-60338fb4288b",
+    "versionId": "c5cb5eae-4227-4fc7-833d-7a0bb37211b2",
     "workflowId": "nPBkIpeObC1Om0LH",
     "nodes": [
       {
@@ -614,61 +614,6 @@
         }
       },
       {
-        "id": "7454b1fc-762c-4378-8798-2c11b1748b18",
-        "name": "build_outline_request",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          -16448,
-          -864
-        ],
-        "parameters": {
-          "jsCode": "// The outline turn plans the article before it is drafted, from the entry's fields and the\n// row's seed: no feedback and no previous draft, because there is no draft yet. The session\n// id is the row's, so the plan and its draft are one thread; `--no-tools` in the adapter\n// means this turn fetches no page, which is why no source hosts ride on it.\nconst req = $('main_trigger').first().json;\nconst config = $('set_workflow_vars').first().json;\nconst row = String(req.ROW_NUMBER || '').trim();\nif (!row) throw new Error('ROW_NUMBER is required: the session id is article-<row>');\nconst base = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!base) throw new Error('ARTICLE_WRITER_URL is not set; the outline turn cannot be reached');\nconst sessionId = ('article-' + row).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 80);\nreturn [{ json: {\n  OUTLINE_URL: base + '/v1/chat/completions',\n  OUTLINE_BODY: JSON.stringify({\n    lane: 'article',\n    task: 'outline',\n    session_id: sessionId,\n    attempt: $runIndex + 1,\n    brief: {\n      topic: String(req.TOPIC || ''),\n      description: String(req.DESCRIPTION || ''),\n      url: String(req.URL || ''),\n      content: String(req.CONTENT || ''),\n      audience: String(config.AUDIENCE || 'NONE'),\n      extra_prompt: String(req.EXTRA_PROMPT || ''),\n      max_words: Number(req.MAX_WORDS) || 0,\n      asset_types: String(req.ASSET_TYPES || ''),\n    },\n  }),\n} }];"
-        }
-      },
-      {
-        "id": "64a221e3-d555-40b3-bc59-4849c2010593",
-        "name": "request_outline",
-        "notes": "One --no-tools planning turn: 600 s, against the draft's 1800 s, because the plan reads no page.",
-        "type": "n8n-nodes-base.httpRequest",
-        "typeVersion": 4.4,
-        "onError": "continueErrorOutput",
-        "position": [
-          -16288,
-          -864
-        ],
-        "parameters": {
-          "method": "POST",
-          "url": "={{ $json.OUTLINE_URL }}",
-          "sendBody": true,
-          "specifyBody": "json",
-          "jsonBody": "={{ $json.OUTLINE_BODY }}",
-          "options": {
-            "timeout": 600000,
-            "response": {
-              "response": {
-                "neverError": true,
-                "fullResponse": true,
-                "responseFormat": "json"
-              }
-            }
-          }
-        }
-      },
-      {
-        "id": "9ae7d544-e471-422c-adfb-acdc3bd1ccfd",
-        "name": "outline_answer",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          -16128,
-          -864
-        ],
-        "parameters": {
-          "jsCode": "// Both outputs of the outline call meet here, the way `review_note` joins the reviewer's: the\n// regular one carries {statusCode, body}, the error one carries json.error and no status. The\n// caller reads OPTIONS and OUTLINE_ERROR and never the model's text - the adapter parsed the\n// <outline> block into this structure, per the design's \"the graph never reads raw model text\".\nconst res = $input.first().json || {};\nconst note = (value) => String(value == null ? '' : value).replace(/\\s+/g, ' ').trim();\nconst transport = res.error ? note((res.error && res.error.message) || res.error) : '';\nif (transport) return [{ json: { OPTIONS: [], OUTLINE_ERROR: 'OUTLINE: ' + transport } }];\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nif (status >= 400) {\n  const message = note((body.error && body.error.message) || body.error || body.message);\n  return [{ json: { OPTIONS: [], OUTLINE_ERROR: 'OUTLINE: HTTP ' + status + (message ? ': ' + message : ' the outline turn failed') } }];\n}\nconst outline = body.outline && typeof body.outline === 'object' ? body.outline : {};\nconst failure = note(outline.error);\nif (failure) return [{ json: { OPTIONS: [], OUTLINE_ERROR: 'OUTLINE: ' + failure } }];\nconst options = (Array.isArray(outline.options) ? outline.options : []).map((option) => ({\n  shape: note(option && option.shape),\n  outcome: note(option && option.outcome),\n  sections: (Array.isArray(option && option.sections) ? option.sections : []).map((section) => ({\n    name: note(section && section.name),\n    job: note(section && section.job),\n  })),\n}));\nreturn [{ json: { OPTIONS: options, OUTLINE_ERROR: '' } }];"
-        }
-      },
-      {
         "id": "e2b5c8d3-0000-4000-8000-000000000001",
         "name": "gate_verdict",
         "type": "n8n-nodes-base.code",
@@ -734,6 +679,61 @@
         "parameters": {
           "jsCode": "// The reviewer advises; it does not reject. Its findings ride with the draft to the human\n// review, and a transport failure is a note like any other: a review that cannot answer\n// must not cost a seven-minute draft (2026-11-09).\nconst res = $input.first().json;\nconst note = (value) => String(value == null ? '' : value).replace(/\\s+/g, ' ').trim();\nconst transport = res.error ? note((res.error && res.error.message) || res.error) : '';\nif (transport) return [{ json: { REVIEW_NOTE: 'REVIEW: ' + transport, REVIEW_FINDINGS: '' } }];\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nif (status >= 400) {\n  const message = note((body.error && body.error.message) || body.error || body.message);\n  return [{ json: { REVIEW_NOTE: 'REVIEW: HTTP ' + status + (message ? ': ' + message : ' the review turn failed'), REVIEW_FINDINGS: '' } }];\n}\nconst review = body.review || {};\nconst findings = (Array.isArray(body.findings) ? body.findings : []).map((f) => note(f && f.text)).filter(Boolean).join(' ');\nreturn [{ json: { REVIEW_NOTE: note(review.explanation || 'the reviewer returned no verdict'), REVIEW_FINDINGS: findings } }];"
         }
+      },
+      {
+        "id": "7454b1fc-762c-4378-8798-2c11b1748b18",
+        "name": "build_outline_request",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -16448,
+          -864
+        ],
+        "parameters": {
+          "jsCode": "// The outline turn plans the article before it is drafted, from the entry's fields and the\n// row's seed: no feedback and no previous draft, because there is no draft yet. The session\n// id is the row's, so the plan and its draft are one thread; `--no-tools` in the adapter\n// means this turn fetches no page, which is why no source hosts ride on it.\nconst req = $('main_trigger').first().json;\nconst config = $('set_workflow_vars').first().json;\nconst row = String(req.ROW_NUMBER || '').trim();\nif (!row) throw new Error('ROW_NUMBER is required: the session id is article-<row>');\nconst base = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!base) throw new Error('ARTICLE_WRITER_URL is not set; the outline turn cannot be reached');\nconst sessionId = ('article-' + row).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 80);\nreturn [{ json: {\n  OUTLINE_URL: base + '/v1/chat/completions',\n  OUTLINE_BODY: JSON.stringify({\n    lane: 'article',\n    task: 'outline',\n    session_id: sessionId,\n    attempt: $runIndex + 1,\n    brief: {\n      topic: String(req.TOPIC || ''),\n      description: String(req.DESCRIPTION || ''),\n      url: String(req.URL || ''),\n      content: String(req.CONTENT || ''),\n      audience: String(config.AUDIENCE || 'NONE'),\n      extra_prompt: String(req.EXTRA_PROMPT || ''),\n      max_words: Number(req.MAX_WORDS) || 0,\n      asset_types: String(req.ASSET_TYPES || ''),\n    },\n  }),\n} }];"
+        }
+      },
+      {
+        "id": "64a221e3-d555-40b3-bc59-4849c2010593",
+        "name": "request_outline",
+        "notes": "One --no-tools planning turn: 600 s, against the draft's 1800 s, because the plan reads no page.",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.4,
+        "onError": "continueErrorOutput",
+        "position": [
+          -16288,
+          -864
+        ],
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $json.OUTLINE_URL }}",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ $json.OUTLINE_BODY }}",
+          "options": {
+            "timeout": 600000,
+            "response": {
+              "response": {
+                "neverError": true,
+                "fullResponse": true,
+                "responseFormat": "json"
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": "9ae7d544-e471-422c-adfb-acdc3bd1ccfd",
+        "name": "outline_answer",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -16128,
+          -864
+        ],
+        "parameters": {
+          "jsCode": "// Both outputs of the outline call meet here, the way `review_note` joins the reviewer's: the\n// regular one carries {statusCode, body}, the error one carries json.error and no status. The\n// caller reads OPTIONS and OUTLINE_ERROR and never the model's text - the adapter parsed the\n// <outline> block into this structure, per the design's \"the graph never reads raw model text\".\nconst res = $input.first().json || {};\nconst note = (value) => String(value == null ? '' : value).replace(/\\s+/g, ' ').trim();\nconst transport = res.error ? note((res.error && res.error.message) || res.error) : '';\nif (transport) return [{ json: { OPTIONS: [], OUTLINE_ERROR: 'OUTLINE: ' + transport } }];\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nif (status >= 400) {\n  const message = note((body.error && body.error.message) || body.error || body.message);\n  return [{ json: { OPTIONS: [], OUTLINE_ERROR: 'OUTLINE: HTTP ' + status + (message ? ': ' + message : ' the outline turn failed') } }];\n}\nconst outline = body.outline && typeof body.outline === 'object' ? body.outline : {};\nconst failure = note(outline.error);\nif (failure) return [{ json: { OPTIONS: [], OUTLINE_ERROR: 'OUTLINE: ' + failure } }];\nconst options = (Array.isArray(outline.options) ? outline.options : []).map((option) => ({\n  shape: note(option && option.shape),\n  outcome: note(option && option.outcome),\n  sections: (Array.isArray(option && option.sections) ? option.sections : []).map((section) => ({\n    name: note(section && section.name),\n    job: note(section && section.job),\n  })),\n}));\nreturn [{ json: { OPTIONS: options, OUTLINE_ERROR: '' } }];"
+        }
       }
     ],
     "connections": {
@@ -766,35 +766,6 @@
               "index": 0,
               "node": "request_improve",
               "type": "main"
-            }
-          ]
-        ]
-      },
-      "build_outline_request": {
-        "main": [
-          [
-            {
-              "node": "request_outline",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "request_outline": {
-        "main": [
-          [
-            {
-              "node": "outline_answer",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "outline_answer",
-              "type": "main",
-              "index": 0
             }
           ]
         ]
@@ -1008,6 +979,35 @@
             }
           ]
         ]
+      },
+      "build_outline_request": {
+        "main": [
+          [
+            {
+              "node": "request_outline",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "request_outline": {
+        "main": [
+          [
+            {
+              "node": "outline_answer",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "outline_answer",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
       }
     },
     "nodeGroups": [],
@@ -1015,10 +1015,10 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-11-10T21:37:21.331Z",
-    "updatedAt": "2026-11-10T21:37:21.331Z"
+    "createdAt": "2026-11-18T21:25:06.871Z",
+    "updatedAt": "2026-11-18T21:25:06.871Z"
   },
-  "activeVersionId": "8cebd0e2-4f4a-4ab2-9604-60338fb4288b",
+  "activeVersionId": "c5cb5eae-4227-4fc7-833d-7a0bb37211b2",
   "connections": {
     "build_article_request": {
       "main": [
@@ -1049,35 +1049,6 @@
             "index": 0,
             "node": "request_improve",
             "type": "main"
-          }
-        ]
-      ]
-    },
-    "build_outline_request": {
-      "main": [
-        [
-          {
-            "node": "request_outline",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "request_outline": {
-      "main": [
-        [
-          {
-            "node": "outline_answer",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "outline_answer",
-            "type": "main",
-            "index": 0
           }
         ]
       ]
@@ -1286,6 +1257,35 @@
         [
           {
             "node": "set_output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "build_outline_request": {
+      "main": [
+        [
+          {
+            "node": "request_outline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "request_outline": {
+      "main": [
+        [
+          {
+            "node": "outline_answer",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "outline_answer",
             "type": "main",
             "index": 0
           }
@@ -1910,61 +1910,6 @@
       }
     },
     {
-      "id": "7454b1fc-762c-4378-8798-2c11b1748b18",
-      "name": "build_outline_request",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        -16448,
-        -864
-      ],
-      "parameters": {
-        "jsCode": "// The outline turn plans the article before it is drafted, from the entry's fields and the\n// row's seed: no feedback and no previous draft, because there is no draft yet. The session\n// id is the row's, so the plan and its draft are one thread; `--no-tools` in the adapter\n// means this turn fetches no page, which is why no source hosts ride on it.\nconst req = $('main_trigger').first().json;\nconst config = $('set_workflow_vars').first().json;\nconst row = String(req.ROW_NUMBER || '').trim();\nif (!row) throw new Error('ROW_NUMBER is required: the session id is article-<row>');\nconst base = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!base) throw new Error('ARTICLE_WRITER_URL is not set; the outline turn cannot be reached');\nconst sessionId = ('article-' + row).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 80);\nreturn [{ json: {\n  OUTLINE_URL: base + '/v1/chat/completions',\n  OUTLINE_BODY: JSON.stringify({\n    lane: 'article',\n    task: 'outline',\n    session_id: sessionId,\n    attempt: $runIndex + 1,\n    brief: {\n      topic: String(req.TOPIC || ''),\n      description: String(req.DESCRIPTION || ''),\n      url: String(req.URL || ''),\n      content: String(req.CONTENT || ''),\n      audience: String(config.AUDIENCE || 'NONE'),\n      extra_prompt: String(req.EXTRA_PROMPT || ''),\n      max_words: Number(req.MAX_WORDS) || 0,\n      asset_types: String(req.ASSET_TYPES || ''),\n    },\n  }),\n} }];"
-      }
-    },
-    {
-      "id": "64a221e3-d555-40b3-bc59-4849c2010593",
-      "name": "request_outline",
-      "notes": "One --no-tools planning turn: 600 s, against the draft's 1800 s, because the plan reads no page.",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "onError": "continueErrorOutput",
-      "position": [
-        -16288,
-        -864
-      ],
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $json.OUTLINE_URL }}",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ $json.OUTLINE_BODY }}",
-        "options": {
-          "timeout": 600000,
-          "response": {
-            "response": {
-              "neverError": true,
-              "fullResponse": true,
-              "responseFormat": "json"
-            }
-          }
-        }
-      }
-    },
-    {
-      "id": "9ae7d544-e471-422c-adfb-acdc3bd1ccfd",
-      "name": "outline_answer",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        -16128,
-        -864
-      ],
-      "parameters": {
-        "jsCode": "// Both outputs of the outline call meet here, the way `review_note` joins the reviewer's: the\n// regular one carries {statusCode, body}, the error one carries json.error and no status. The\n// caller reads OPTIONS and OUTLINE_ERROR and never the model's text - the adapter parsed the\n// <outline> block into this structure, per the design's \"the graph never reads raw model text\".\nconst res = $input.first().json || {};\nconst note = (value) => String(value == null ? '' : value).replace(/\\s+/g, ' ').trim();\nconst transport = res.error ? note((res.error && res.error.message) || res.error) : '';\nif (transport) return [{ json: { OPTIONS: [], OUTLINE_ERROR: 'OUTLINE: ' + transport } }];\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nif (status >= 400) {\n  const message = note((body.error && body.error.message) || body.error || body.message);\n  return [{ json: { OPTIONS: [], OUTLINE_ERROR: 'OUTLINE: HTTP ' + status + (message ? ': ' + message : ' the outline turn failed') } }];\n}\nconst outline = body.outline && typeof body.outline === 'object' ? body.outline : {};\nconst failure = note(outline.error);\nif (failure) return [{ json: { OPTIONS: [], OUTLINE_ERROR: 'OUTLINE: ' + failure } }];\nconst options = (Array.isArray(outline.options) ? outline.options : []).map((option) => ({\n  shape: note(option && option.shape),\n  outcome: note(option && option.outcome),\n  sections: (Array.isArray(option && option.sections) ? option.sections : []).map((section) => ({\n    name: note(section && section.name),\n    job: note(section && section.job),\n  })),\n}));\nreturn [{ json: { OPTIONS: options, OUTLINE_ERROR: '' } }];"
-      }
-    },
-    {
       "id": "e2b5c8d3-0000-4000-8000-000000000001",
       "name": "gate_verdict",
       "type": "n8n-nodes-base.code",
@@ -2030,6 +1975,61 @@
       "parameters": {
         "jsCode": "// The reviewer advises; it does not reject. Its findings ride with the draft to the human\n// review, and a transport failure is a note like any other: a review that cannot answer\n// must not cost a seven-minute draft (2026-11-09).\nconst res = $input.first().json;\nconst note = (value) => String(value == null ? '' : value).replace(/\\s+/g, ' ').trim();\nconst transport = res.error ? note((res.error && res.error.message) || res.error) : '';\nif (transport) return [{ json: { REVIEW_NOTE: 'REVIEW: ' + transport, REVIEW_FINDINGS: '' } }];\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nif (status >= 400) {\n  const message = note((body.error && body.error.message) || body.error || body.message);\n  return [{ json: { REVIEW_NOTE: 'REVIEW: HTTP ' + status + (message ? ': ' + message : ' the review turn failed'), REVIEW_FINDINGS: '' } }];\n}\nconst review = body.review || {};\nconst findings = (Array.isArray(body.findings) ? body.findings : []).map((f) => note(f && f.text)).filter(Boolean).join(' ');\nreturn [{ json: { REVIEW_NOTE: note(review.explanation || 'the reviewer returned no verdict'), REVIEW_FINDINGS: findings } }];"
       }
+    },
+    {
+      "id": "7454b1fc-762c-4378-8798-2c11b1748b18",
+      "name": "build_outline_request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -16448,
+        -864
+      ],
+      "parameters": {
+        "jsCode": "// The outline turn plans the article before it is drafted, from the entry's fields and the\n// row's seed: no feedback and no previous draft, because there is no draft yet. The session\n// id is the row's, so the plan and its draft are one thread; `--no-tools` in the adapter\n// means this turn fetches no page, which is why no source hosts ride on it.\nconst req = $('main_trigger').first().json;\nconst config = $('set_workflow_vars').first().json;\nconst row = String(req.ROW_NUMBER || '').trim();\nif (!row) throw new Error('ROW_NUMBER is required: the session id is article-<row>');\nconst base = String($env.ARTICLE_WRITER_URL || '').replace(/\\/+$/, '');\nif (!base) throw new Error('ARTICLE_WRITER_URL is not set; the outline turn cannot be reached');\nconst sessionId = ('article-' + row).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 80);\nreturn [{ json: {\n  OUTLINE_URL: base + '/v1/chat/completions',\n  OUTLINE_BODY: JSON.stringify({\n    lane: 'article',\n    task: 'outline',\n    session_id: sessionId,\n    attempt: $runIndex + 1,\n    brief: {\n      topic: String(req.TOPIC || ''),\n      description: String(req.DESCRIPTION || ''),\n      url: String(req.URL || ''),\n      content: String(req.CONTENT || ''),\n      audience: String(config.AUDIENCE || 'NONE'),\n      extra_prompt: String(req.EXTRA_PROMPT || ''),\n      max_words: Number(req.MAX_WORDS) || 0,\n      asset_types: String(req.ASSET_TYPES || ''),\n    },\n  }),\n} }];"
+      }
+    },
+    {
+      "id": "64a221e3-d555-40b3-bc59-4849c2010593",
+      "name": "request_outline",
+      "notes": "One --no-tools planning turn: 600 s, against the draft's 1800 s, because the plan reads no page.",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "onError": "continueErrorOutput",
+      "position": [
+        -16288,
+        -864
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.OUTLINE_URL }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.OUTLINE_BODY }}",
+        "options": {
+          "timeout": 600000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "9ae7d544-e471-422c-adfb-acdc3bd1ccfd",
+      "name": "outline_answer",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -16128,
+        -864
+      ],
+      "parameters": {
+        "jsCode": "// Both outputs of the outline call meet here, the way `review_note` joins the reviewer's: the\n// regular one carries {statusCode, body}, the error one carries json.error and no status. The\n// caller reads OPTIONS and OUTLINE_ERROR and never the model's text - the adapter parsed the\n// <outline> block into this structure, per the design's \"the graph never reads raw model text\".\nconst res = $input.first().json || {};\nconst note = (value) => String(value == null ? '' : value).replace(/\\s+/g, ' ').trim();\nconst transport = res.error ? note((res.error && res.error.message) || res.error) : '';\nif (transport) return [{ json: { OPTIONS: [], OUTLINE_ERROR: 'OUTLINE: ' + transport } }];\nconst status = Number(res.statusCode || res.status || 0);\nconst body = res.body && typeof res.body === 'object' ? res.body : {};\nif (status >= 400) {\n  const message = note((body.error && body.error.message) || body.error || body.message);\n  return [{ json: { OPTIONS: [], OUTLINE_ERROR: 'OUTLINE: HTTP ' + status + (message ? ': ' + message : ' the outline turn failed') } }];\n}\nconst outline = body.outline && typeof body.outline === 'object' ? body.outline : {};\nconst failure = note(outline.error);\nif (failure) return [{ json: { OPTIONS: [], OUTLINE_ERROR: 'OUTLINE: ' + failure } }];\nconst options = (Array.isArray(outline.options) ? outline.options : []).map((option) => ({\n  shape: note(option && option.shape),\n  outcome: note(option && option.outcome),\n  sections: (Array.isArray(option && option.sections) ? option.sections : []).map((section) => ({\n    name: note(section && section.name),\n    job: note(section && section.job),\n  })),\n}));\nreturn [{ json: { OPTIONS: options, OUTLINE_ERROR: '' } }];"
+      }
     }
   ],
   "pinData": {},
@@ -2052,6 +2052,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 0,
-  "updatedAt": "2026-11-10T21:37:21.378Z",
-  "versionId": "8cebd0e2-4f4a-4ab2-9604-60338fb4288b"
+  "updatedAt": "2026-11-18T21:25:06.865Z",
+  "versionId": "c5cb5eae-4227-4fc7-833d-7a0bb37211b2"
 }

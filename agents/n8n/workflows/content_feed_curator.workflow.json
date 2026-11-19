@@ -1,7 +1,7 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "cdd275c2-6d2d-4ed3-8fc2-47e4e06dd682",
+    "versionId": "b8ce1da4-5b76-4310-a360-b58ed4df54e5",
     "workflowId": "iIA5QN5HuK21TmBX",
     "nodes": [
       {
@@ -1023,10 +1023,6 @@
               "TOPIC": "={{ $json.TOPIC }}",
               "SOURCE": "={{ $json.SOURCE }}",
               "RATIONALE": "={{ $json.RATIONALE }}",
-              "HOOK": "={{ $json.HOOK }}",
-              "VISUAL_FORM": "={{ $json.VISUAL_FORM }}",
-              "POST_MEDIA": "={{ $json.POST_MEDIA }}",
-              "SCENES": "={{ $json.SCENES }}",
               "EXTRA_PROMPT": "={{ $json.EXTRA_PROMPT }}",
               "MAX_WORDS": "={{ $json.MAX_WORDS }}",
               "PUBLISHED_AT": "={{ $json.PUBLISHED_AT }}",
@@ -1035,7 +1031,11 @@
               "LINKEDIN_URL": "",
               "ENTRY_ID": "={{ $json.ENTRY_ID }}",
               "ERROR": "",
-              "EXECUTION_ID": "={{ $json.EXECUTION_ID }}"
+              "EXECUTION_ID": "={{ $json.EXECUTION_ID }}",
+              "HOOK": "={{ $json.HOOK }}",
+              "VISUAL_FORM": "={{ $json.VISUAL_FORM }}",
+              "SCENES": "={{ $json.SCENES }}",
+              "POST_MEDIA": "={{ $json.POST_MEDIA }}"
             },
             "matchingColumns": [],
             "schema": [
@@ -2166,10 +2166,10 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-11-17T21:17:21.320Z",
-    "updatedAt": "2026-11-17T21:17:21.320Z"
+    "createdAt": "2026-11-18T21:25:02.076Z",
+    "updatedAt": "2026-11-18T21:25:02.076Z"
   },
-  "activeVersionId": "cdd275c2-6d2d-4ed3-8fc2-47e4e06dd682",
+  "activeVersionId": "b8ce1da4-5b76-4310-a360-b58ed4df54e5",
   "connections": {
     "click_trigger": {
       "main": [
@@ -3635,10 +3635,6 @@
             "TOPIC": "={{ $json.TOPIC }}",
             "SOURCE": "={{ $json.SOURCE }}",
             "RATIONALE": "={{ $json.RATIONALE }}",
-            "HOOK": "={{ $json.HOOK }}",
-            "VISUAL_FORM": "={{ $json.VISUAL_FORM }}",
-            "POST_MEDIA": "={{ $json.POST_MEDIA }}",
-            "SCENES": "={{ $json.SCENES }}",
             "EXTRA_PROMPT": "={{ $json.EXTRA_PROMPT }}",
             "MAX_WORDS": "={{ $json.MAX_WORDS }}",
             "PUBLISHED_AT": "={{ $json.PUBLISHED_AT }}",
@@ -3647,7 +3643,11 @@
             "LINKEDIN_URL": "",
             "ENTRY_ID": "={{ $json.ENTRY_ID }}",
             "ERROR": "",
-            "EXECUTION_ID": "={{ $json.EXECUTION_ID }}"
+            "EXECUTION_ID": "={{ $json.EXECUTION_ID }}",
+            "HOOK": "={{ $json.HOOK }}",
+            "VISUAL_FORM": "={{ $json.VISUAL_FORM }}",
+            "SCENES": "={{ $json.SCENES }}",
+            "POST_MEDIA": "={{ $json.POST_MEDIA }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -4362,6 +4362,6 @@
   },
   "tags": [],
   "triggerCount": 1,
-  "updatedAt": "2026-11-17T21:17:21.311Z",
-  "versionId": "cdd275c2-6d2d-4ed3-8fc2-47e4e06dd682"
+  "updatedAt": "2026-11-18T21:25:02.041Z",
+  "versionId": "b8ce1da4-5b76-4310-a360-b58ed4df54e5"
 }

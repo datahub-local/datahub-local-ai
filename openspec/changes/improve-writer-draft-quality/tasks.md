@@ -17,10 +17,10 @@
       `agents/adapters/pi-writer/test/` (empty, malformed, well-formed answers), matching
       the aspect-findings test style; `node --test` green — `test/outline.test.mjs` (10)
       plus `session-server.test.mjs` extended for the task and its degraded answer.
-- [ ] 1.5 Rebuild the writer image (it now carries the outline prompt, the post angle
-      fill and the two `{{ OUTLINE }}` sections), pin the digest into
-      `agents/sympozium/values/default.yaml.gotmpl`, and roll out before
-      any graph apply names the outline task. `blocked by` the image pipeline.
+- [x] 1.5 Rebuild the writer image, pin the digest and roll out before any graph apply
+      names the outline task. **Done twice over**: 2026-11-18 (the outline/`glm-5.3` image,
+      digest `6351a258…`) and 2026-11-19 (the audience/coherence/research pass,
+      digest `a81b2f9b…`, CI green, bot-pinned, ArgoCD synced, pod running).
 
 ## 2. Outline phase (article graphs)
 
@@ -122,9 +122,10 @@
       is a generic mirror that copies **every** `opencode_go/*` row from LiteLLM's own cost
       map onto the `openai/<id>` dispatch key, so `glm-5.3` is priced as soon as the map
       carries it. Verified by reading the file.
-- [ ] 6.3 Rollout (`helmfile apply` in `agents/sympozium/`), then one live outline + draft
-      run on the new model; the drafting turn's word-count discipline still holds.
-      `[UNVERIFIED]`
+- [x] 6.3 Rollout, then one live outline + draft run on the new model. **Done, twice**:
+      row 4 (2026-11-18 evening, both turns) and row 4 again (2026-11-19 morning) ran
+      the outline turn and the drafting turn on `glm-5.3` through the real gateway, and
+      the drafting turn's word-count discipline held (975 of 1200).
 - [ ] 6.4 The curator judge's `MODEL` moves to `opencode-go/glm-5.3`
       (`set_workflow_vars`, both copies; `MODEL_FALLBACK` stays `glm-5.3-flash`): the
       decisions that bind the writer — hook, visual intent, postability — are made by the
@@ -223,8 +224,13 @@ here too.
       allowlist change. `[UNVERIFIED] live until 10.6`
 - [ ] 10.4 Block relevance, from 9.4: a block earns its place only where the prose needs
       it; never repeat one; the recommended path's command is the one shown.
-- [ ] 10.5 The `[sqlfluff]` ledger-matching miss (the gate rejected a block the read page
-      carries word for word): diagnose from that session's `sources.json`.
-      `[UNVERIFIED]`
+- [x] 10.5 The `[sqlfluff]` ledger-matching miss — **diagnosed from the live transcript
+      and fixed**: the lint page's scrape was truncated by the tool-output cap, the
+      `{"markdown": …}` wrapper was cut mid-string, `unwrapScrapeText`'s JSON.parse threw
+      and fell back to the escaped raw text, whose literal `\n` sequences glued the block's
+      lines into single tokens — no `findExcerpt` match, no ledger entry, a gate rejection
+      of a block the session verifiably read. The unwrap now unescapes the truncated
+      wrapper best-effort; the live block matches as `mode: "quoted"`. Suite 102/102 with
+      a fails-without-the-change check.
 - [ ] 10.6 Rebuild the writer image, pin the digest (the CI pin job), roll the pod, and
       re-run the row 4 test with the owner's `ARTICLE_FEEDBACK` in place.

@@ -177,6 +177,34 @@ test("Firecrawl's JSON wrapper is unwrapped before matching", () => {
   assert.equal(transcriptPages(rows)[0].text, "apiVersion: v1\nkind: Secret");
 });
 
+test("a wrapper the output cap cut mid-string still yields the page's real line breaks", () => {
+  // Measured live on dbt's lint docs: the scrape hit the tool-output cap after its opening
+  // brace, so the JSON is unterminated and its markdown stayed escaped. Glued to one line, the
+  // `[sqlfluff]` block the session read verbatim matched nothing and was rejected.
+  const page = "# About dbt lint command\n\n```ini\n[sqlfluff]\ntemplater = dbt\n```\n\nthe rest was cut\n";
+  const wrapped = JSON.stringify({ markdown: page });
+  const cut = wrapped.indexOf("\\n```", wrapped.indexOf("templater")) + "\\n```".length;
+  const truncated = `Warning: truncated output (original token count: 5538)\nTotal output lines: 14\n\n${wrapped.slice(0, cut)}`;
+  const rows = scrapeRows("https://docs.getdbt.com/reference/commands/lint", truncated);
+  const pages = transcriptPages(rows);
+  assert.match(pages[0].text, /\[sqlfluff\]\ntemplater = dbt\n```/);
+
+  const article = "# T\n\n```ini\n[sqlfluff]\ntemplater = dbt\n```\n";
+  const { sources, unquoted } = deriveLedger({ article, pages });
+  assert.deepEqual(unquoted, []);
+  assert.equal(sources.length, 1);
+  assert.equal(sources[0].mode, "quoted");
+  assert.equal(sources[0].url, "https://docs.getdbt.com/reference/commands/lint");
+});
+
+test("text with no wrapper shape is returned unchanged", () => {
+  // The page's own text may carry braces; a cut one is still not a markdown payload.
+  const prose = "A page with {braces} in it, cut off at the cap";
+  assert.equal(transcriptPages(scrapeRows("https://github.com/o/r/blob/main/x.md", prose))[0].text, prose);
+  const other = '{"foo": "bar"';
+  assert.equal(transcriptPages(scrapeRows("https://github.com/o/r/blob/main/y.md", other))[0].text, other);
+});
+
 test("the truncated text the model saw is what a block is matched against", () => {
   // Pi prefixes a truncated result; text beyond the cut was never read, so a fence that only
   // exists past it must not verify.

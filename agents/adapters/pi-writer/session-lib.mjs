@@ -574,6 +574,32 @@ export function transcriptPages(rows) {
   return pages;
 }
 
+function unescapeTruncatedMarkdown(value) {
+  const match = /"markdown"\s*:\s*"/.exec(value);
+  if (!match) return null;
+  const source = value.slice(match.index + match[0].length);
+  const simple = { n: "\n", t: "\t", r: "\r", b: "\b", f: "\f", '"': '"', "\\": "\\", "/": "/" };
+  let out = "";
+  for (let i = 0; i < source.length; i++) {
+    const char = source[i];
+    if (char === '"') break;
+    if (char !== "\\") {
+      out += char;
+      continue;
+    }
+    const next = source[i + 1];
+    if (next === undefined) break;
+    if (next === "u" && /^[0-9a-fA-F]{4}$/.test(source.slice(i + 2, i + 6))) {
+      out += String.fromCharCode(parseInt(source.slice(i + 2, i + 6), 16));
+      i += 5;
+      continue;
+    }
+    out += Object.prototype.hasOwnProperty.call(simple, next) ? simple[next] : `\\${next}`;
+    i += 1;
+  }
+  return out;
+}
+
 // Firecrawl answers markdown directly or wraps it in `{"markdown": ...}` depending on the
 // server version; both reach the transcript, and the wrapper is not part of the page.
 function unwrapScrapeText(text) {
@@ -586,7 +612,10 @@ function unwrapScrapeText(text) {
     if (typeof body?.markdown === "string") return body.markdown;
     if (typeof body?.data?.markdown === "string") return body.data.markdown;
   } catch {
-    // not a wrapper: the page's own text, which may contain braces
+    // A tool result the output cap truncated is not parseable JSON, but it is still the page's
+    // text, escaped — measured on dbt's lint docs, whose `[sqlfluff]` block went unmatched.
+    const partial = unescapeTruncatedMarkdown(raw.slice(start));
+    if (partial !== null) return partial;
   }
   return raw;
 }

@@ -15,7 +15,7 @@
     {
       "id": "flow",
       "prompt": "article_aspect_flow.md",
-      "focus": "redundancy, transitions and pacing"
+      "focus": "redundancy, transitions, pacing, and how each section relates to the next"
     }
   ]
 }

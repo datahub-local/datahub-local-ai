@@ -164,11 +164,67 @@
 
 ## 9. Live applies and verification
 
-- [ ] 9.1 Show the owner the export diffs, then apply each graph with
-      `scripts/apply_workflow_changes.py` `--changes` batches guarded by
-      `--require-edge`; read back, re-activate, diff against the exports.
+- [x] 9.1 Applied live 2026-11-18 via `apply_workflow_changes.py` `--changes` batches,
+      one spec per workflow generated from the live-vs-export diff, each guarded by an
+      anchor edge present in both graphs. All six verified in `activeVersion`. Two
+      lessons added to the tool's usage: a `nodes` entry REPLACES the whole named field
+      — `parameters` must be the full object, not a fragment (a `{message}`-only spec
+      wiped a Slack node's five other keys and activation refused until the full object
+      was re-applied); and after any single-node apply, re-read `activeVersion` and run
+      the deactivate/activate cycle — the PUT edits the draft and the published version
+      lags until then (parse_outline landed, the first review-message PUT did not).
 - [ ] 9.2 Drive one article row end to end from a webhook probe: outline form → approval
       → draft follows the outline → retry directive reaches the improved draft. One post
       row end to end: blank `HOOK` → the writer answers `<hook>` → the row is classified
-      before the visual branch reads it.
-- [ ] 9.3 `openspec validate --all` and the full adapter test run green.
+      before the visual branch reads it. **Half verified live 2026-11-18**: row 4's
+      outline turn ran on `glm-5.3`, the bounded form posted and was approved, `OUTLINE`
+      was written to the row, the draft ran to the improvement pass; row 48 was drafted
+      with a writer-chosen `BENCHMARK` hook and `update_hook_columns` wrote the row
+      before the approval wait. **Two live defects found and fixed**: the outline form
+      and the review message both died as Slack `invalid_blocks` — model text of 4.4 kB
+      and 3.2 kB in single 3 000-character sections — bounded live (names-only + a
+      2 800 cap; reviewer notes sliced to 800/500). The review form still has to
+      complete a run, and so has the visual/publish half of the post lane.
+- [x] 9.3 `openspec validate --all` and the full adapter test run green.
+- [x] 9.4 ~~Prompt gaps found in the first live draft~~ — promoted to group 10 and
+      implemented there, on the owner's direction, the morning after.
+
+## 10. The audience, coherence and research pass
+
+Found in the first live `glm-5.3` draft (row 4, dbt comparison, `AUDIENCE=LOW`) and
+ordered by the owner the morning after. All of it lives in the writer image's prompts, so
+it ships with the next image rebuild; the block-relevance rule from 9.4 is folded in
+here too.
+
+- [x] 10.1 The audience is honored and checked: `article_task.md` states the level as a
+      contract (every sentence at the level, a section only a deeper level needs is out,
+      and the final pass re-reads for it); `article_outline.md` phrases outcomes and
+      section jobs at the row's level; `article_review.md` gains the audience check; the
+      clarity aspect reports level failures. **The level already reached the gate**:
+      `build_review_request` has carried `brief.audience` (from
+      `set_workflow_vars.AUDIENCE`), and the adapter's review render has filled
+      `{{ AUDIENCE }}` and `{{ AUDIENCES }}` — no export edit. What was missing: the live
+      article gate is `task: "audit"`, not `"review"`, so `article_audit.md` had the level
+      *label* and no definitions and no level check. The check and `{{ AUDIENCES }}` are
+      now in both prompts, so the gate that runs sees what the drafter sees. Also fixed
+      while there: `article_writer_system.md` said "floor" and `article_review.md`'s term
+      check ended "a term the level assumes is a failure to explain" — both contradicted
+      the level. The clause is gone; the system prompt says "at the level it names".
+- [x] 10.2 Cross-section coherence, checked: `article_task.md` Shape gains the rule
+      (each section opens on what the previous established, nothing explained twice, no
+      contradictions, a section the chain does not need is cut); `article_review.md`
+      lists the coherence check, and `article_audit.md` carries it as finding 6;
+      `article_aspect_flow.md` covers relation between sections, with the registry's
+      `flow` focus saying so.
+- [x] 10.3 The research budget rises to thirty lookups (six searches, twenty-four
+      scrapes) and research becomes outline-directed: the approved outline is the research
+      plan, walked section by section until each is grounded on pages this run read, with
+      the seed page as the start and not the ceiling. Adapter suite 100/100; no proxy or
+      allowlist change. `[UNVERIFIED] live until 10.6`
+- [ ] 10.4 Block relevance, from 9.4: a block earns its place only where the prose needs
+      it; never repeat one; the recommended path's command is the one shown.
+- [ ] 10.5 The `[sqlfluff]` ledger-matching miss (the gate rejected a block the read page
+      carries word for word): diagnose from that session's `sources.json`.
+      `[UNVERIFIED]`
+- [ ] 10.6 Rebuild the writer image, pin the digest (the CI pin job), roll the pod, and
+      re-run the row 4 test with the owner's `ARTICLE_FEEDBACK` in place.

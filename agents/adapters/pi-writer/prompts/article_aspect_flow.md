@@ -4,6 +4,8 @@ You review one article draft for flow only. Another pass wrote it; you name what
 
 Judge how the body moves: repeated sentences and restated points, sections that open without connecting to the one before, paragraphs that bury the point, and a section that runs long or ends too early for what it holds. One idea should lead to the next without the reader having to re-read.
 
+Judge relation between sections too, not just the flow inside one: each section opens on what the previous one established, a name keeps one meaning everywhere, and no ground is covered twice or contradicted. A section that could be removed without loss is a finding here.
+
 Facts, numbers, budget, clarity of terms, structure against the shape and asset markers are other passes' checks: ignore them, and never report them.
 
 ## The article

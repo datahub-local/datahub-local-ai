@@ -1,7 +1,7 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "1e08b025-c3c5-466b-83bc-f0d7b3110523",
+    "versionId": "33db735a-0cee-4d6d-a753-ca1b43095816",
     "workflowId": "sKsjxDDW40TATaS6",
     "nodes": [
       {
@@ -608,6 +608,727 @@
         ],
         "parameters": {
           "jsCode": "// One item out of either branch, carrying the fetched text and whether it was used.\n//\n// The flag is set here and never read off the failing node's own output: a non-AI node with\n// continueRegularOutput forwards its input unchanged, so `$json.error` is absent and a branch\n// on it would take the success path. What is read is whether the download ran and what it\n// returned, which this node can see either way.\nconst row = $('select_article_to_queue').first().json;\nconst link = String(row.LINK || '').trim();\nlet content = '';\nif ($('download_content').isExecuted) {\n  const out = $('download_content').first().json || {};\n  content = String(typeof out.data === 'string' ? out.data : out.data || '').trim().slice(0, 60000);\n}\nconst used = content.length > 0;\nif (link && !used) console.log('link not used: ' + link);\nreturn [{ json: { ...row, LINK_USED: used, LINK_TEXT: content } }];\n"
+        }
+      },
+      {
+        "id": "8f2cc641-36c4-4065-9115-2992158158b5",
+        "name": "if_outline_present",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.2,
+        "position": [
+          2464,
+          -176
+        ],
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "loose",
+              "version": 2
+            },
+            "conditions": [
+              {
+                "id": "outline-present",
+                "leftValue": "={{ $('select_article_to_queue').first().json.OUTLINE || '' }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "string",
+                  "operation": "notEmpty"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "looseTypeValidation": true,
+          "options": {}
+        }
+      },
+      {
+        "id": "1931e10e-515e-4ba9-95f1-950ec51351b9",
+        "name": "execute_article_outline",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.3,
+        "onError": "continueErrorOutput",
+        "position": [
+          2688,
+          -448
+        ],
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "nPBkIpeObC1Om0LH",
+            "mode": "list",
+            "cachedResultUrl": "/workflow/nPBkIpeObC1Om0LH",
+            "cachedResultName": "Article Creator"
+          },
+          "workflowInputs": {
+            "attemptToConvertTypes": false,
+            "convertFieldsToString": true,
+            "mappingMode": "defineBelow",
+            "matchingColumns": [],
+            "schema": [
+              {
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
+                "displayName": "TASK",
+                "id": "TASK",
+                "removed": false,
+                "required": false,
+                "type": "string"
+              },
+              {
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
+                "displayName": "TOPIC",
+                "id": "TOPIC",
+                "removed": false,
+                "required": false,
+                "type": "string"
+              },
+              {
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
+                "displayName": "DESCRIPTION",
+                "id": "DESCRIPTION",
+                "removed": false,
+                "required": false,
+                "type": "string"
+              },
+              {
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
+                "displayName": "URL",
+                "id": "URL",
+                "removed": false,
+                "required": false,
+                "type": "string"
+              },
+              {
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
+                "displayName": "CONTENT",
+                "id": "CONTENT",
+                "removed": false,
+                "required": false,
+                "type": "string"
+              },
+              {
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
+                "displayName": "MAX_WORDS",
+                "id": "MAX_WORDS",
+                "removed": false,
+                "required": false,
+                "type": "number"
+              },
+              {
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
+                "displayName": "ASSET_TYPES",
+                "id": "ASSET_TYPES",
+                "removed": false,
+                "required": false,
+                "type": "string"
+              },
+              {
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
+                "displayName": "EXTRA_PROMPT",
+                "id": "EXTRA_PROMPT",
+                "removed": false,
+                "required": false,
+                "type": "string"
+              },
+              {
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
+                "displayName": "AUDIENCE",
+                "id": "AUDIENCE",
+                "removed": false,
+                "required": false,
+                "type": "string"
+              },
+              {
+                "canBeUsedToMatch": true,
+                "defaultMatch": false,
+                "display": true,
+                "displayName": "ROW_NUMBER",
+                "id": "ROW_NUMBER",
+                "removed": false,
+                "required": false,
+                "type": "number"
+              }
+            ],
+            "value": {
+              "ASSET_TYPES": "={{ $('select_article_to_queue').first().json.REQUESTED_ASSETS || '' }}",
+              "AUDIENCE": "={{ $('select_article_to_queue').first().json.AUDIENCE || 'NONE' }}",
+              "CONTENT": "={{ $('set_link_flags').first().json.LINK_TEXT || '' }}",
+              "DESCRIPTION": "={{ $('select_article_to_queue').first().json.DESCRIPTION || '' }}",
+              "EXTRA_PROMPT": "={{ $('select_article_to_queue').first().json.EXTRA_PROMPT || '' }}",
+              "MAX_WORDS": "={{ $('select_article_to_queue').first().json.MAX_WORDS }}",
+              "ROW_NUMBER": "={{ $('select_article_to_queue').first().json.row_number }}",
+              "TASK": "outline",
+              "TOPIC": "={{ $('select_article_to_queue').first().json.TOPIC || '' }}",
+              "URL": "={{ $('select_article_to_queue').first().json.LINK || '' }}"
+            }
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "1307aeb9-8392-428a-ab7f-136fa907b981",
+        "name": "parse_outline",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          2912,
+          -448
+        ],
+        "parameters": {
+          "jsCode": "// The outline turn's answer, read as data: Article Creator's own parser has already turned the\n// model's <outline> block into options, so this node only decides whether the owner is asked,\n// and builds the form text from that same structure. A thrown call arrives with `error` set and\n// no OPTIONS; a failed or empty plan arrives as OUTLINE_ERROR or as an empty list, and the\n// design's rule is that both retry once and then fail the row rather than draft blind.\nconst res = $input.first().json || {};\nconst note = (value) => String(value == null ? '' : value).replace(/\\s+/g, ' ').trim();\nconst thrown = res.error ? note((res.error && res.error.message) || res.error) : '';\nconst options = Array.isArray(res.OPTIONS) ? res.OPTIONS : [];\nconst failure = note(res.OUTLINE_ERROR)\n  || (thrown ? 'OUTLINE: ' + thrown : '')\n  || (options.length ? '' : 'OUTLINE: the outline turn returned no options');\nif (failure) return [{ json: { OK: false, ERROR: failure, OPTIONS: [], OUTLINE_MESSAGE: '' } }];\nconst row = $('select_article_to_queue').first().json;\n// The form shows shape, outcome and section NAMES only - the jobs stay in the row's OUTLINE\n// cell for the drafting turn. A message that included the jobs hit Slack's 3000-character\n// section limit and the approval died as invalid_blocks (execution 17044, 2026-11-18).\nconst blocks = options.map((option, index) => {\n  const lines = ['*Option ' + (index + 1) + '* - ' + note(option.shape)];\n  lines.push('Outcome: ' + note(option.outcome).slice(0, 200));\n  (option.sections || []).forEach((section, k) => {\n    lines.push((k + 1) + '. ' + note(section.name).slice(0, 80));\n  });\n  return lines.join('\\n');\n});\nconst header = 'Review the outline for row ' + row.row_number + ' - ' + note(row.TOPIC)\n  + ' before it is drafted. Pick the index the article should follow, or Cancel. Edits are applied on top of the one you choose.';\nlet message = [header, ...blocks].join('\\n\\n');\n// The hard cap: a Slack section refuses more than 3000 characters, and the model's verbosity\n// is not a thing this node controls. The jobs are on the row, so cutting here loses nothing.\nif (message.length > 2800) message = message.slice(0, 2800) + ' \\u2026';\nreturn [{ json: { OK: true, ERROR: '', OPTIONS: options, OUTLINE_MESSAGE: message } }];\n"
+        }
+      },
+      {
+        "id": "9ccecf67-fe66-4cc2-8e70-2ac19efaf774",
+        "name": "switch_outline_ok",
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.2,
+        "position": [
+          3136,
+          -448
+        ],
+        "parameters": {
+          "rules": {
+            "values": [
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "id": "outline-ok",
+                      "leftValue": "={{ String($json.OK) }}",
+                      "rightValue": "true",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                }
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "id": "outline-give-up",
+                      "leftValue": "={{ $runIndex + 1 }}",
+                      "rightValue": "1",
+                      "operator": {
+                        "type": "number",
+                        "operation": "gt"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                }
+              }
+            ]
+          },
+          "options": {
+            "fallbackOutput": "extra"
+          }
+        }
+      },
+      {
+        "id": "9dcbb450-cf35-4efc-ab66-222020d2ad82",
+        "name": "notify_outline_approval",
+        "webhookId": "41d3220b-6fab-4e8b-b97a-5f55a6d4f971",
+        "type": "n8n-nodes-base.slack",
+        "typeVersion": 2.3,
+        "position": [
+          3360,
+          -448
+        ],
+        "parameters": {
+          "operation": "sendAndWait",
+          "select": "channel",
+          "channelId": {
+            "__rl": true,
+            "value": "C08RQNXQV3P",
+            "mode": "list",
+            "cachedResultName": "workflows"
+          },
+          "message": "={{ $('parse_outline').first().json.OUTLINE_MESSAGE }}",
+          "responseType": "customForm",
+          "formFields": {
+            "values": [
+              {
+                "fieldLabel": "Option",
+                "fieldType": "dropdown",
+                "fieldOptions": {
+                  "values": [
+                    {
+                      "option": "Option 1"
+                    },
+                    {
+                      "option": "Option 2"
+                    },
+                    {
+                      "option": "Option 3"
+                    },
+                    {
+                      "option": "Cancel"
+                    }
+                  ]
+                },
+                "requiredField": true
+              },
+              {
+                "fieldLabel": "Edits",
+                "fieldType": "textarea",
+                "placeholder": "Changes to the chosen outline, applied on top of it. Leave empty to use it as proposed."
+              }
+            ]
+          },
+          "options": {
+            "messageButtonLabel": "Respond",
+            "responseFormTitle": "Article - approve the outline",
+            "appendAttribution": true
+          }
+        },
+        "credentials": {
+          "slackApi": {
+            "id": "DszMmPE7WwOjHQjz",
+            "name": "Slack account"
+          }
+        }
+      },
+      {
+        "id": "d7fe099d-dd5d-47ac-b6e8-6a4a8994824b",
+        "name": "switch_outline_accept",
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.2,
+        "position": [
+          3584,
+          -448
+        ],
+        "parameters": {
+          "rules": {
+            "values": [
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "id": "outline-option-1",
+                      "leftValue": "={{ $json.data.Option }}",
+                      "rightValue": "Option 1",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                }
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "id": "outline-option-2",
+                      "leftValue": "={{ $json.data.Option }}",
+                      "rightValue": "Option 2",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                }
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "id": "outline-option-3",
+                      "leftValue": "={{ $json.data.Option }}",
+                      "rightValue": "Option 3",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                }
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 2
+                  },
+                  "conditions": [
+                    {
+                      "id": "outline-cancel",
+                      "leftValue": "={{ $json.data.Option }}",
+                      "rightValue": "Cancel",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                }
+              }
+            ]
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "aab58594-60ff-4d60-8c1a-e36603ac02b0",
+        "name": "build_outline_pick",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          3808,
+          -448
+        ],
+        "parameters": {
+          "jsCode": "// The approved plan as one text block: the chosen index's shape and outcome, its sections in\n// order with each one's job, and the owner's edits appended when they typed any. The numbering\n// is what the draft-review message reads back as section names, so the shape here and\n// `first_draft` agree. A choice the turn did not offer throws: writing an empty plan would\n// spend a draft against nothing.\nconst form = ($json && $json.data) || {};\nconst pick = String(form.Option || '').trim();\nconst index = Number((/^option\\s*(\\d+)$/i.exec(pick) || [])[1] || 0);\nconst offered = $('parse_outline').first().json.OPTIONS;\nconst options = Array.isArray(offered) ? offered : [];\nconst chosen = options[index - 1];\nif (!chosen) throw new Error('the outline form answered \"' + pick + '\" but the turn offered ' + options.length + ' option(s)');\nconst edits = String(form.Edits || '').trim();\nconst lines = ['Shape: ' + String(chosen.shape || ''), 'Outcome: ' + String(chosen.outcome || '')];\n(chosen.sections || []).forEach((section, k) => {\n  lines.push((k + 1) + '. ' + String(section.name || '') + ' - ' + String(section.job || ''));\n});\nif (edits) lines.push('Owner edits: ' + edits);\nconst row = $('select_article_to_queue').first().json;\nreturn [{ json: { ROW_NUMBER: row.row_number, OUTLINE: lines.join('\\n') } }];"
+        }
+      },
+      {
+        "id": "7b3f7470-00e1-489d-b6eb-6fe7c766c9d9",
+        "name": "update_article_outline",
+        "type": "n8n-nodes-base.googleSheets",
+        "typeVersion": 4.6,
+        "retryOnFail": true,
+        "maxTries": 3,
+        "position": [
+          4032,
+          -448
+        ],
+        "parameters": {
+          "operation": "update",
+          "documentId": {
+            "__rl": true,
+            "value": "1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI",
+            "mode": "list",
+            "cachedResultName": "content_planner",
+            "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit?usp=drivesdk"
+          },
+          "sheetName": {
+            "__rl": true,
+            "value": "article_queue",
+            "mode": "name",
+            "cachedResultName": "article_queue"
+          },
+          "columns": {
+            "mappingMode": "defineBelow",
+            "value": {
+              "row_number": "={{ $json.ROW_NUMBER }}",
+              "OUTLINE": "={{ $json.OUTLINE }}",
+              "UPDATE_DATE": "={{ (new Date()).toISOString() }}"
+            },
+            "matchingColumns": [
+              "row_number"
+            ],
+            "schema": [
+              {
+                "id": "ENTRY_ID",
+                "displayName": "ENTRY_ID",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "TOPIC",
+                "displayName": "TOPIC",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "DESCRIPTION",
+                "displayName": "DESCRIPTION",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "LINK",
+                "displayName": "LINK",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "CATEGORIES",
+                "displayName": "CATEGORIES",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "ASSET_TYPES",
+                "displayName": "ASSET_TYPES",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "MAX_WORDS",
+                "displayName": "MAX_WORDS",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "EXTRA_PROMPT",
+                "displayName": "EXTRA_PROMPT",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "PRIORITY",
+                "displayName": "PRIORITY",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "ORIGIN",
+                "displayName": "ORIGIN",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "STATUS",
+                "displayName": "STATUS",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "ARTICLE_STATUS",
+                "displayName": "ARTICLE_STATUS",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "ARTICLE_ROUND",
+                "displayName": "ARTICLE_ROUND",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "ARTICLE_FEEDBACK",
+                "displayName": "ARTICLE_FEEDBACK",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "ARTICLE_TITLE",
+                "displayName": "ARTICLE_TITLE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "ARTICLE_REF",
+                "displayName": "ARTICLE_REF",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "PUBLISHED_URL",
+                "displayName": "PUBLISHED_URL",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "COMMIT_REF",
+                "displayName": "COMMIT_REF",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "PUBLISHED_AT",
+                "displayName": "PUBLISHED_AT",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "EXECUTION_ID",
+                "displayName": "EXECUTION_ID",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "ERROR",
+                "displayName": "ERROR",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "UPDATE_DATE",
+                "displayName": "UPDATE_DATE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": false
+              },
+              {
+                "id": "SOURCES",
+                "displayName": "SOURCES",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": true
+              },
+              {
+                "id": "OUTLINE",
+                "displayName": "OUTLINE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": false,
+                "removed": false
+              }
+            ]
+          },
+          "options": {}
+        },
+        "credentials": {
+          "googleSheetsOAuth2Api": {
+            "id": "pGARJmt50qz64xOo",
+            "name": "Google Sheets account"
+          }
         }
       },
       {
@@ -4864,727 +5585,6 @@
         "parameters": {
           "jsCode": "// Collapse the retire update's one-item-per-row answer back to the run's single item: the\n// draft read behind this node filters on the selector, and N copies of the plan would fan the\n// studio out N times.\nreturn [{ json: $('select_article_to_queue').first().json }];\n"
         }
-      },
-      {
-        "id": "8f2cc641-36c4-4065-9115-2992158158b5",
-        "name": "if_outline_present",
-        "type": "n8n-nodes-base.if",
-        "typeVersion": 2.2,
-        "position": [
-          2464,
-          -176
-        ],
-        "parameters": {
-          "conditions": {
-            "options": {
-              "caseSensitive": true,
-              "leftValue": "",
-              "typeValidation": "loose",
-              "version": 2
-            },
-            "conditions": [
-              {
-                "id": "outline-present",
-                "leftValue": "={{ $('select_article_to_queue').first().json.OUTLINE || '' }}",
-                "rightValue": "",
-                "operator": {
-                  "type": "string",
-                  "operation": "notEmpty"
-                }
-              }
-            ],
-            "combinator": "and"
-          },
-          "looseTypeValidation": true,
-          "options": {}
-        }
-      },
-      {
-        "id": "1931e10e-515e-4ba9-95f1-950ec51351b9",
-        "name": "execute_article_outline",
-        "type": "n8n-nodes-base.executeWorkflow",
-        "typeVersion": 1.3,
-        "onError": "continueErrorOutput",
-        "position": [
-          2688,
-          -448
-        ],
-        "parameters": {
-          "workflowId": {
-            "__rl": true,
-            "value": "nPBkIpeObC1Om0LH",
-            "mode": "list",
-            "cachedResultUrl": "/workflow/nPBkIpeObC1Om0LH",
-            "cachedResultName": "Article Creator"
-          },
-          "workflowInputs": {
-            "attemptToConvertTypes": false,
-            "convertFieldsToString": true,
-            "mappingMode": "defineBelow",
-            "matchingColumns": [],
-            "schema": [
-              {
-                "canBeUsedToMatch": true,
-                "defaultMatch": false,
-                "display": true,
-                "displayName": "TASK",
-                "id": "TASK",
-                "removed": false,
-                "required": false,
-                "type": "string"
-              },
-              {
-                "canBeUsedToMatch": true,
-                "defaultMatch": false,
-                "display": true,
-                "displayName": "TOPIC",
-                "id": "TOPIC",
-                "removed": false,
-                "required": false,
-                "type": "string"
-              },
-              {
-                "canBeUsedToMatch": true,
-                "defaultMatch": false,
-                "display": true,
-                "displayName": "DESCRIPTION",
-                "id": "DESCRIPTION",
-                "removed": false,
-                "required": false,
-                "type": "string"
-              },
-              {
-                "canBeUsedToMatch": true,
-                "defaultMatch": false,
-                "display": true,
-                "displayName": "URL",
-                "id": "URL",
-                "removed": false,
-                "required": false,
-                "type": "string"
-              },
-              {
-                "canBeUsedToMatch": true,
-                "defaultMatch": false,
-                "display": true,
-                "displayName": "CONTENT",
-                "id": "CONTENT",
-                "removed": false,
-                "required": false,
-                "type": "string"
-              },
-              {
-                "canBeUsedToMatch": true,
-                "defaultMatch": false,
-                "display": true,
-                "displayName": "MAX_WORDS",
-                "id": "MAX_WORDS",
-                "removed": false,
-                "required": false,
-                "type": "number"
-              },
-              {
-                "canBeUsedToMatch": true,
-                "defaultMatch": false,
-                "display": true,
-                "displayName": "ASSET_TYPES",
-                "id": "ASSET_TYPES",
-                "removed": false,
-                "required": false,
-                "type": "string"
-              },
-              {
-                "canBeUsedToMatch": true,
-                "defaultMatch": false,
-                "display": true,
-                "displayName": "EXTRA_PROMPT",
-                "id": "EXTRA_PROMPT",
-                "removed": false,
-                "required": false,
-                "type": "string"
-              },
-              {
-                "canBeUsedToMatch": true,
-                "defaultMatch": false,
-                "display": true,
-                "displayName": "AUDIENCE",
-                "id": "AUDIENCE",
-                "removed": false,
-                "required": false,
-                "type": "string"
-              },
-              {
-                "canBeUsedToMatch": true,
-                "defaultMatch": false,
-                "display": true,
-                "displayName": "ROW_NUMBER",
-                "id": "ROW_NUMBER",
-                "removed": false,
-                "required": false,
-                "type": "number"
-              }
-            ],
-            "value": {
-              "ASSET_TYPES": "={{ $('select_article_to_queue').first().json.REQUESTED_ASSETS || '' }}",
-              "AUDIENCE": "={{ $('select_article_to_queue').first().json.AUDIENCE || 'NONE' }}",
-              "CONTENT": "={{ $('set_link_flags').first().json.LINK_TEXT || '' }}",
-              "DESCRIPTION": "={{ $('select_article_to_queue').first().json.DESCRIPTION || '' }}",
-              "EXTRA_PROMPT": "={{ $('select_article_to_queue').first().json.EXTRA_PROMPT || '' }}",
-              "MAX_WORDS": "={{ $('select_article_to_queue').first().json.MAX_WORDS }}",
-              "ROW_NUMBER": "={{ $('select_article_to_queue').first().json.row_number }}",
-              "TASK": "outline",
-              "TOPIC": "={{ $('select_article_to_queue').first().json.TOPIC || '' }}",
-              "URL": "={{ $('select_article_to_queue').first().json.LINK || '' }}"
-            }
-          },
-          "options": {}
-        }
-      },
-      {
-        "id": "1307aeb9-8392-428a-ab7f-136fa907b981",
-        "name": "parse_outline",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          2912,
-          -448
-        ],
-        "parameters": {
-          "jsCode": "// The outline turn's answer, read as data: Article Creator's own parser has already turned the\n// model's <outline> block into options, so this node only decides whether the owner is asked,\n// and builds the form text from that same structure. A thrown call arrives with `error` set and\n// no OPTIONS; a failed or empty plan arrives as OUTLINE_ERROR or as an empty list, and the\n// design's rule is that both retry once and then fail the row rather than draft blind.\nconst res = $input.first().json || {};\nconst note = (value) => String(value == null ? '' : value).replace(/\\s+/g, ' ').trim();\nconst thrown = res.error ? note((res.error && res.error.message) || res.error) : '';\nconst options = Array.isArray(res.OPTIONS) ? res.OPTIONS : [];\nconst failure = note(res.OUTLINE_ERROR)\n  || (thrown ? 'OUTLINE: ' + thrown : '')\n  || (options.length ? '' : 'OUTLINE: the outline turn returned no options');\nif (failure) return [{ json: { OK: false, ERROR: failure, OPTIONS: [], OUTLINE_MESSAGE: '' } }];\nconst row = $('select_article_to_queue').first().json;\n// The form shows shape, outcome and section NAMES only - the jobs stay in the row's OUTLINE\n// cell for the drafting turn. A message that included the jobs hit Slack's 3000-character\n// section limit and the approval died as invalid_blocks (execution 17044, 2026-11-18).\nconst blocks = options.map((option, index) => {\n  const lines = ['*Option ' + (index + 1) + '* - ' + note(option.shape)];\n  lines.push('Outcome: ' + note(option.outcome).slice(0, 200));\n  (option.sections || []).forEach((section, k) => {\n    lines.push((k + 1) + '. ' + note(section.name).slice(0, 80));\n  });\n  return lines.join('\\n');\n});\nconst header = 'Review the outline for row ' + row.row_number + ' - ' + note(row.TOPIC)\n  + ' before it is drafted. Pick the index the article should follow, or Cancel. Edits are applied on top of the one you choose.';\nlet message = [header, ...blocks].join('\\n\\n');\n// The hard cap: a Slack section refuses more than 3000 characters, and the model's verbosity\n// is not a thing this node controls. The jobs are on the row, so cutting here loses nothing.\nif (message.length > 2800) message = message.slice(0, 2800) + ' \\u2026';\nreturn [{ json: { OK: true, ERROR: '', OPTIONS: options, OUTLINE_MESSAGE: message } }];\n"
-        }
-      },
-      {
-        "id": "9ccecf67-fe66-4cc2-8e70-2ac19efaf774",
-        "name": "switch_outline_ok",
-        "type": "n8n-nodes-base.switch",
-        "typeVersion": 3.2,
-        "position": [
-          3136,
-          -448
-        ],
-        "parameters": {
-          "rules": {
-            "values": [
-              {
-                "conditions": {
-                  "options": {
-                    "caseSensitive": true,
-                    "leftValue": "",
-                    "typeValidation": "strict",
-                    "version": 2
-                  },
-                  "conditions": [
-                    {
-                      "id": "outline-ok",
-                      "leftValue": "={{ String($json.OK) }}",
-                      "rightValue": "true",
-                      "operator": {
-                        "type": "string",
-                        "operation": "equals"
-                      }
-                    }
-                  ],
-                  "combinator": "and"
-                }
-              },
-              {
-                "conditions": {
-                  "options": {
-                    "caseSensitive": true,
-                    "leftValue": "",
-                    "typeValidation": "strict",
-                    "version": 2
-                  },
-                  "conditions": [
-                    {
-                      "id": "outline-give-up",
-                      "leftValue": "={{ $runIndex + 1 }}",
-                      "rightValue": "1",
-                      "operator": {
-                        "type": "number",
-                        "operation": "gt"
-                      }
-                    }
-                  ],
-                  "combinator": "and"
-                }
-              }
-            ]
-          },
-          "options": {
-            "fallbackOutput": "extra"
-          }
-        }
-      },
-      {
-        "id": "9dcbb450-cf35-4efc-ab66-222020d2ad82",
-        "name": "notify_outline_approval",
-        "webhookId": "41d3220b-6fab-4e8b-b97a-5f55a6d4f971",
-        "type": "n8n-nodes-base.slack",
-        "typeVersion": 2.3,
-        "position": [
-          3360,
-          -448
-        ],
-        "parameters": {
-          "operation": "sendAndWait",
-          "select": "channel",
-          "channelId": {
-            "__rl": true,
-            "value": "C08RQNXQV3P",
-            "mode": "list",
-            "cachedResultName": "workflows"
-          },
-          "message": "={{ $('parse_outline').first().json.OUTLINE_MESSAGE }}",
-          "responseType": "customForm",
-          "formFields": {
-            "values": [
-              {
-                "fieldLabel": "Option",
-                "fieldType": "dropdown",
-                "fieldOptions": {
-                  "values": [
-                    {
-                      "option": "Option 1"
-                    },
-                    {
-                      "option": "Option 2"
-                    },
-                    {
-                      "option": "Option 3"
-                    },
-                    {
-                      "option": "Cancel"
-                    }
-                  ]
-                },
-                "requiredField": true
-              },
-              {
-                "fieldLabel": "Edits",
-                "fieldType": "textarea",
-                "placeholder": "Changes to the chosen outline, applied on top of it. Leave empty to use it as proposed."
-              }
-            ]
-          },
-          "options": {
-            "messageButtonLabel": "Respond",
-            "responseFormTitle": "Article - approve the outline",
-            "appendAttribution": true
-          }
-        },
-        "credentials": {
-          "slackApi": {
-            "id": "DszMmPE7WwOjHQjz",
-            "name": "Slack account"
-          }
-        }
-      },
-      {
-        "id": "d7fe099d-dd5d-47ac-b6e8-6a4a8994824b",
-        "name": "switch_outline_accept",
-        "type": "n8n-nodes-base.switch",
-        "typeVersion": 3.2,
-        "position": [
-          3584,
-          -448
-        ],
-        "parameters": {
-          "rules": {
-            "values": [
-              {
-                "conditions": {
-                  "options": {
-                    "caseSensitive": true,
-                    "leftValue": "",
-                    "typeValidation": "strict",
-                    "version": 2
-                  },
-                  "conditions": [
-                    {
-                      "id": "outline-option-1",
-                      "leftValue": "={{ $json.data.Option }}",
-                      "rightValue": "Option 1",
-                      "operator": {
-                        "type": "string",
-                        "operation": "equals"
-                      }
-                    }
-                  ],
-                  "combinator": "and"
-                }
-              },
-              {
-                "conditions": {
-                  "options": {
-                    "caseSensitive": true,
-                    "leftValue": "",
-                    "typeValidation": "strict",
-                    "version": 2
-                  },
-                  "conditions": [
-                    {
-                      "id": "outline-option-2",
-                      "leftValue": "={{ $json.data.Option }}",
-                      "rightValue": "Option 2",
-                      "operator": {
-                        "type": "string",
-                        "operation": "equals"
-                      }
-                    }
-                  ],
-                  "combinator": "and"
-                }
-              },
-              {
-                "conditions": {
-                  "options": {
-                    "caseSensitive": true,
-                    "leftValue": "",
-                    "typeValidation": "strict",
-                    "version": 2
-                  },
-                  "conditions": [
-                    {
-                      "id": "outline-option-3",
-                      "leftValue": "={{ $json.data.Option }}",
-                      "rightValue": "Option 3",
-                      "operator": {
-                        "type": "string",
-                        "operation": "equals"
-                      }
-                    }
-                  ],
-                  "combinator": "and"
-                }
-              },
-              {
-                "conditions": {
-                  "options": {
-                    "caseSensitive": true,
-                    "leftValue": "",
-                    "typeValidation": "strict",
-                    "version": 2
-                  },
-                  "conditions": [
-                    {
-                      "id": "outline-cancel",
-                      "leftValue": "={{ $json.data.Option }}",
-                      "rightValue": "Cancel",
-                      "operator": {
-                        "type": "string",
-                        "operation": "equals"
-                      }
-                    }
-                  ],
-                  "combinator": "and"
-                }
-              }
-            ]
-          },
-          "options": {}
-        }
-      },
-      {
-        "id": "aab58594-60ff-4d60-8c1a-e36603ac02b0",
-        "name": "build_outline_pick",
-        "type": "n8n-nodes-base.code",
-        "typeVersion": 2,
-        "position": [
-          3808,
-          -448
-        ],
-        "parameters": {
-          "jsCode": "// The approved plan as one text block: the chosen index's shape and outcome, its sections in\n// order with each one's job, and the owner's edits appended when they typed any. The numbering\n// is what the draft-review message reads back as section names, so the shape here and\n// `first_draft` agree. A choice the turn did not offer throws: writing an empty plan would\n// spend a draft against nothing.\nconst form = ($json && $json.data) || {};\nconst pick = String(form.Option || '').trim();\nconst index = Number((/^option\\s*(\\d+)$/i.exec(pick) || [])[1] || 0);\nconst offered = $('parse_outline').first().json.OPTIONS;\nconst options = Array.isArray(offered) ? offered : [];\nconst chosen = options[index - 1];\nif (!chosen) throw new Error('the outline form answered \"' + pick + '\" but the turn offered ' + options.length + ' option(s)');\nconst edits = String(form.Edits || '').trim();\nconst lines = ['Shape: ' + String(chosen.shape || ''), 'Outcome: ' + String(chosen.outcome || '')];\n(chosen.sections || []).forEach((section, k) => {\n  lines.push((k + 1) + '. ' + String(section.name || '') + ' - ' + String(section.job || ''));\n});\nif (edits) lines.push('Owner edits: ' + edits);\nconst row = $('select_article_to_queue').first().json;\nreturn [{ json: { ROW_NUMBER: row.row_number, OUTLINE: lines.join('\\n') } }];"
-        }
-      },
-      {
-        "id": "7b3f7470-00e1-489d-b6eb-6fe7c766c9d9",
-        "name": "update_article_outline",
-        "type": "n8n-nodes-base.googleSheets",
-        "typeVersion": 4.6,
-        "retryOnFail": true,
-        "maxTries": 3,
-        "position": [
-          4032,
-          -448
-        ],
-        "parameters": {
-          "operation": "update",
-          "documentId": {
-            "__rl": true,
-            "value": "1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI",
-            "mode": "list",
-            "cachedResultName": "content_planner",
-            "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit?usp=drivesdk"
-          },
-          "sheetName": {
-            "__rl": true,
-            "value": "article_queue",
-            "mode": "name",
-            "cachedResultName": "article_queue"
-          },
-          "columns": {
-            "mappingMode": "defineBelow",
-            "value": {
-              "row_number": "={{ $json.ROW_NUMBER }}",
-              "OUTLINE": "={{ $json.OUTLINE }}",
-              "UPDATE_DATE": "={{ (new Date()).toISOString() }}"
-            },
-            "matchingColumns": [
-              "row_number"
-            ],
-            "schema": [
-              {
-                "id": "ENTRY_ID",
-                "displayName": "ENTRY_ID",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": false,
-                "removed": true
-              },
-              {
-                "id": "TOPIC",
-                "displayName": "TOPIC",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": false,
-                "removed": true
-              },
-              {
-                "id": "DESCRIPTION",
-                "displayName": "DESCRIPTION",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": false,
-                "removed": true
-              },
-              {
-                "id": "LINK",
-                "displayName": "LINK",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": false,
-                "removed": true
-              },
-              {
-                "id": "CATEGORIES",
-                "displayName": "CATEGORIES",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": false,
-                "removed": true
-              },
-              {
-                "id": "ASSET_TYPES",
-                "displayName": "ASSET_TYPES",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": false,
-                "removed": true
-              },
-              {
-                "id": "MAX_WORDS",
-                "displayName": "MAX_WORDS",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": false,
-                "removed": true
-              },
-              {
-                "id": "EXTRA_PROMPT",
-                "displayName": "EXTRA_PROMPT",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": false,
-                "removed": true
-              },
-              {
-                "id": "PRIORITY",
-                "displayName": "PRIORITY",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": false,
-                "removed": true
-              },
-              {
-                "id": "ORIGIN",
-                "displayName": "ORIGIN",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": false,
-                "removed": true
-              },
-              {
-                "id": "STATUS",
-                "displayName": "STATUS",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": false,
-                "removed": true
-              },
-              {
-                "id": "ARTICLE_STATUS",
-                "displayName": "ARTICLE_STATUS",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": false,
-                "removed": true
-              },
-              {
-                "id": "ARTICLE_ROUND",
-                "displayName": "ARTICLE_ROUND",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": false,
-                "removed": true
-              },
-              {
-                "id": "ARTICLE_FEEDBACK",
-                "displayName": "ARTICLE_FEEDBACK",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": false,
-                "removed": true
-              },
-              {
-                "id": "ARTICLE_TITLE",
-                "displayName": "ARTICLE_TITLE",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": false,
-                "removed": true
-              },
-              {
-                "id": "ARTICLE_REF",
-                "displayName": "ARTICLE_REF",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": false,
-                "removed": true
-              },
-              {
-                "id": "PUBLISHED_URL",
-                "displayName": "PUBLISHED_URL",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": false,
-                "removed": true
-              },
-              {
-                "id": "COMMIT_REF",
-                "displayName": "COMMIT_REF",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": false,
-                "removed": true
-              },
-              {
-                "id": "PUBLISHED_AT",
-                "displayName": "PUBLISHED_AT",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": false,
-                "removed": true
-              },
-              {
-                "id": "EXECUTION_ID",
-                "displayName": "EXECUTION_ID",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": false,
-                "removed": true
-              },
-              {
-                "id": "ERROR",
-                "displayName": "ERROR",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": false,
-                "removed": true
-              },
-              {
-                "id": "UPDATE_DATE",
-                "displayName": "UPDATE_DATE",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": false,
-                "removed": false
-              },
-              {
-                "id": "SOURCES",
-                "displayName": "SOURCES",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": false,
-                "removed": true
-              },
-              {
-                "id": "OUTLINE",
-                "displayName": "OUTLINE",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": false,
-                "removed": false
-              }
-            ]
-          },
-          "options": {}
-        },
-        "credentials": {
-          "googleSheetsOAuth2Api": {
-            "id": "pGARJmt50qz64xOo",
-            "name": "Google Sheets account"
-          }
-        }
       }
     ],
     "connections": {
@@ -5746,6 +5746,143 @@
           [
             {
               "node": "if_outline_present",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "if_outline_present": {
+        "main": [
+          [
+            {
+              "node": "execute_article_creator",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "execute_article_outline",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "execute_article_outline": {
+        "main": [
+          [
+            {
+              "node": "parse_outline",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "parse_outline",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "parse_outline": {
+        "main": [
+          [
+            {
+              "node": "switch_outline_ok",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "switch_outline_ok": {
+        "main": [
+          [
+            {
+              "node": "notify_outline_approval",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "build_failure",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "execute_article_outline",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "notify_outline_approval": {
+        "main": [
+          [
+            {
+              "node": "switch_outline_accept",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "switch_outline_accept": {
+        "main": [
+          [
+            {
+              "node": "build_outline_pick",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "build_outline_pick",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "build_outline_pick",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "update_status_cancelled",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "build_outline_pick": {
+        "main": [
+          [
+            {
+              "node": "update_article_outline",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "update_article_outline": {
+        "main": [
+          [
+            {
+              "node": "execute_article_creator",
               "type": "main",
               "index": 0
             }
@@ -6609,143 +6746,6 @@
             }
           ]
         ]
-      },
-      "if_outline_present": {
-        "main": [
-          [
-            {
-              "node": "execute_article_creator",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "execute_article_outline",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "execute_article_outline": {
-        "main": [
-          [
-            {
-              "node": "parse_outline",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "parse_outline",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "parse_outline": {
-        "main": [
-          [
-            {
-              "node": "switch_outline_ok",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "switch_outline_ok": {
-        "main": [
-          [
-            {
-              "node": "notify_outline_approval",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "build_failure",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "execute_article_outline",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "notify_outline_approval": {
-        "main": [
-          [
-            {
-              "node": "switch_outline_accept",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "switch_outline_accept": {
-        "main": [
-          [
-            {
-              "node": "build_outline_pick",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "build_outline_pick",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "build_outline_pick",
-              "type": "main",
-              "index": 0
-            }
-          ],
-          [
-            {
-              "node": "update_status_cancelled",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "build_outline_pick": {
-        "main": [
-          [
-            {
-              "node": "update_article_outline",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "update_article_outline": {
-        "main": [
-          [
-            {
-              "node": "execute_article_creator",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
       }
     },
     "nodeGroups": [],
@@ -6753,10 +6753,10 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-11-18T21:58:14.516Z",
-    "updatedAt": "2026-11-18T21:58:14.516Z"
+    "createdAt": "2026-11-10T21:40:16.676Z",
+    "updatedAt": "2026-11-10T21:40:16.676Z"
   },
-  "activeVersionId": "1e08b025-c3c5-466b-83bc-f0d7b3110523",
+  "activeVersionId": "33db735a-0cee-4d6d-a753-ca1b43095816",
   "connections": {
     "click_trigger": {
       "main": [
@@ -6916,6 +6916,143 @@
         [
           {
             "node": "if_outline_present",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if_outline_present": {
+      "main": [
+        [
+          {
+            "node": "execute_article_creator",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "execute_article_outline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "execute_article_outline": {
+      "main": [
+        [
+          {
+            "node": "parse_outline",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "parse_outline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "parse_outline": {
+      "main": [
+        [
+          {
+            "node": "switch_outline_ok",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "switch_outline_ok": {
+      "main": [
+        [
+          {
+            "node": "notify_outline_approval",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "build_failure",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "execute_article_outline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "notify_outline_approval": {
+      "main": [
+        [
+          {
+            "node": "switch_outline_accept",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "switch_outline_accept": {
+      "main": [
+        [
+          {
+            "node": "build_outline_pick",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "build_outline_pick",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "build_outline_pick",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "update_status_cancelled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "build_outline_pick": {
+      "main": [
+        [
+          {
+            "node": "update_article_outline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "update_article_outline": {
+      "main": [
+        [
+          {
+            "node": "execute_article_creator",
             "type": "main",
             "index": 0
           }
@@ -7779,143 +7916,6 @@
           }
         ]
       ]
-    },
-    "if_outline_present": {
-      "main": [
-        [
-          {
-            "node": "execute_article_creator",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "execute_article_outline",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "execute_article_outline": {
-      "main": [
-        [
-          {
-            "node": "parse_outline",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "parse_outline",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "parse_outline": {
-      "main": [
-        [
-          {
-            "node": "switch_outline_ok",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "switch_outline_ok": {
-      "main": [
-        [
-          {
-            "node": "notify_outline_approval",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "build_failure",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "execute_article_outline",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "notify_outline_approval": {
-      "main": [
-        [
-          {
-            "node": "switch_outline_accept",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "switch_outline_accept": {
-      "main": [
-        [
-          {
-            "node": "build_outline_pick",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "build_outline_pick",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "build_outline_pick",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "update_status_cancelled",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "build_outline_pick": {
-      "main": [
-        [
-          {
-            "node": "update_article_outline",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "update_article_outline": {
-      "main": [
-        [
-          {
-            "node": "execute_article_creator",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
     }
   },
   "createdAt": "2026-10-16T03:27:31.927Z",
@@ -8529,6 +8529,727 @@
       ],
       "parameters": {
         "jsCode": "// One item out of either branch, carrying the fetched text and whether it was used.\n//\n// The flag is set here and never read off the failing node's own output: a non-AI node with\n// continueRegularOutput forwards its input unchanged, so `$json.error` is absent and a branch\n// on it would take the success path. What is read is whether the download ran and what it\n// returned, which this node can see either way.\nconst row = $('select_article_to_queue').first().json;\nconst link = String(row.LINK || '').trim();\nlet content = '';\nif ($('download_content').isExecuted) {\n  const out = $('download_content').first().json || {};\n  content = String(typeof out.data === 'string' ? out.data : out.data || '').trim().slice(0, 60000);\n}\nconst used = content.length > 0;\nif (link && !used) console.log('link not used: ' + link);\nreturn [{ json: { ...row, LINK_USED: used, LINK_TEXT: content } }];\n"
+      }
+    },
+    {
+      "id": "8f2cc641-36c4-4065-9115-2992158158b5",
+      "name": "if_outline_present",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2464,
+        -176
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "outline-present",
+              "leftValue": "={{ $('select_article_to_queue').first().json.OUTLINE || '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "1931e10e-515e-4ba9-95f1-950ec51351b9",
+      "name": "execute_article_outline",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "onError": "continueErrorOutput",
+      "position": [
+        2688,
+        -448
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "nPBkIpeObC1Om0LH",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/nPBkIpeObC1Om0LH",
+          "cachedResultName": "Article Creator"
+        },
+        "workflowInputs": {
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true,
+          "mappingMode": "defineBelow",
+          "matchingColumns": [],
+          "schema": [
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "TASK",
+              "id": "TASK",
+              "removed": false,
+              "required": false,
+              "type": "string"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "TOPIC",
+              "id": "TOPIC",
+              "removed": false,
+              "required": false,
+              "type": "string"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "DESCRIPTION",
+              "id": "DESCRIPTION",
+              "removed": false,
+              "required": false,
+              "type": "string"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "URL",
+              "id": "URL",
+              "removed": false,
+              "required": false,
+              "type": "string"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "CONTENT",
+              "id": "CONTENT",
+              "removed": false,
+              "required": false,
+              "type": "string"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "MAX_WORDS",
+              "id": "MAX_WORDS",
+              "removed": false,
+              "required": false,
+              "type": "number"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "ASSET_TYPES",
+              "id": "ASSET_TYPES",
+              "removed": false,
+              "required": false,
+              "type": "string"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "EXTRA_PROMPT",
+              "id": "EXTRA_PROMPT",
+              "removed": false,
+              "required": false,
+              "type": "string"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "AUDIENCE",
+              "id": "AUDIENCE",
+              "removed": false,
+              "required": false,
+              "type": "string"
+            },
+            {
+              "canBeUsedToMatch": true,
+              "defaultMatch": false,
+              "display": true,
+              "displayName": "ROW_NUMBER",
+              "id": "ROW_NUMBER",
+              "removed": false,
+              "required": false,
+              "type": "number"
+            }
+          ],
+          "value": {
+            "ASSET_TYPES": "={{ $('select_article_to_queue').first().json.REQUESTED_ASSETS || '' }}",
+            "AUDIENCE": "={{ $('select_article_to_queue').first().json.AUDIENCE || 'NONE' }}",
+            "CONTENT": "={{ $('set_link_flags').first().json.LINK_TEXT || '' }}",
+            "DESCRIPTION": "={{ $('select_article_to_queue').first().json.DESCRIPTION || '' }}",
+            "EXTRA_PROMPT": "={{ $('select_article_to_queue').first().json.EXTRA_PROMPT || '' }}",
+            "MAX_WORDS": "={{ $('select_article_to_queue').first().json.MAX_WORDS }}",
+            "ROW_NUMBER": "={{ $('select_article_to_queue').first().json.row_number }}",
+            "TASK": "outline",
+            "TOPIC": "={{ $('select_article_to_queue').first().json.TOPIC || '' }}",
+            "URL": "={{ $('select_article_to_queue').first().json.LINK || '' }}"
+          }
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "1307aeb9-8392-428a-ab7f-136fa907b981",
+      "name": "parse_outline",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2912,
+        -448
+      ],
+      "parameters": {
+        "jsCode": "// The outline turn's answer, read as data: Article Creator's own parser has already turned the\n// model's <outline> block into options, so this node only decides whether the owner is asked,\n// and builds the form text from that same structure. A thrown call arrives with `error` set and\n// no OPTIONS; a failed or empty plan arrives as OUTLINE_ERROR or as an empty list, and the\n// design's rule is that both retry once and then fail the row rather than draft blind.\nconst res = $input.first().json || {};\nconst note = (value) => String(value == null ? '' : value).replace(/\\s+/g, ' ').trim();\nconst thrown = res.error ? note((res.error && res.error.message) || res.error) : '';\nconst options = Array.isArray(res.OPTIONS) ? res.OPTIONS : [];\nconst failure = note(res.OUTLINE_ERROR)\n  || (thrown ? 'OUTLINE: ' + thrown : '')\n  || (options.length ? '' : 'OUTLINE: the outline turn returned no options');\nif (failure) return [{ json: { OK: false, ERROR: failure, OPTIONS: [], OUTLINE_MESSAGE: '' } }];\nconst row = $('select_article_to_queue').first().json;\n// The form shows shape, outcome and section NAMES only - the jobs stay in the row's OUTLINE\n// cell for the drafting turn. A message that included the jobs hit Slack's 3000-character\n// section limit and the approval died as invalid_blocks (execution 17044, 2026-11-18).\nconst blocks = options.map((option, index) => {\n  const lines = ['*Option ' + (index + 1) + '* - ' + note(option.shape)];\n  lines.push('Outcome: ' + note(option.outcome).slice(0, 200));\n  (option.sections || []).forEach((section, k) => {\n    lines.push((k + 1) + '. ' + note(section.name).slice(0, 80));\n  });\n  return lines.join('\\n');\n});\nconst header = 'Review the outline for row ' + row.row_number + ' - ' + note(row.TOPIC)\n  + ' before it is drafted. Pick the index the article should follow, or Cancel. Edits are applied on top of the one you choose.';\nlet message = [header, ...blocks].join('\\n\\n');\n// The hard cap: a Slack section refuses more than 3000 characters, and the model's verbosity\n// is not a thing this node controls. The jobs are on the row, so cutting here loses nothing.\nif (message.length > 2800) message = message.slice(0, 2800) + ' \\u2026';\nreturn [{ json: { OK: true, ERROR: '', OPTIONS: options, OUTLINE_MESSAGE: message } }];\n"
+      }
+    },
+    {
+      "id": "9ccecf67-fe66-4cc2-8e70-2ac19efaf774",
+      "name": "switch_outline_ok",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        3136,
+        -448
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "outline-ok",
+                    "leftValue": "={{ String($json.OK) }}",
+                    "rightValue": "true",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "outline-give-up",
+                    "leftValue": "={{ $runIndex + 1 }}",
+                    "rightValue": "1",
+                    "operator": {
+                      "type": "number",
+                      "operation": "gt"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      }
+    },
+    {
+      "id": "9dcbb450-cf35-4efc-ab66-222020d2ad82",
+      "name": "notify_outline_approval",
+      "webhookId": "41d3220b-6fab-4e8b-b97a-5f55a6d4f971",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        3360,
+        -448
+      ],
+      "parameters": {
+        "operation": "sendAndWait",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "C08RQNXQV3P",
+          "mode": "list",
+          "cachedResultName": "workflows"
+        },
+        "message": "={{ $('parse_outline').first().json.OUTLINE_MESSAGE }}",
+        "responseType": "customForm",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Option",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Option 1"
+                  },
+                  {
+                    "option": "Option 2"
+                  },
+                  {
+                    "option": "Option 3"
+                  },
+                  {
+                    "option": "Cancel"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Edits",
+              "fieldType": "textarea",
+              "placeholder": "Changes to the chosen outline, applied on top of it. Leave empty to use it as proposed."
+            }
+          ]
+        },
+        "options": {
+          "messageButtonLabel": "Respond",
+          "responseFormTitle": "Article - approve the outline",
+          "appendAttribution": true
+        }
+      },
+      "credentials": {
+        "slackApi": {
+          "id": "DszMmPE7WwOjHQjz",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "id": "d7fe099d-dd5d-47ac-b6e8-6a4a8994824b",
+      "name": "switch_outline_accept",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        3584,
+        -448
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "outline-option-1",
+                    "leftValue": "={{ $json.data.Option }}",
+                    "rightValue": "Option 1",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "outline-option-2",
+                    "leftValue": "={{ $json.data.Option }}",
+                    "rightValue": "Option 2",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "outline-option-3",
+                    "leftValue": "={{ $json.data.Option }}",
+                    "rightValue": "Option 3",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "outline-cancel",
+                    "leftValue": "={{ $json.data.Option }}",
+                    "rightValue": "Cancel",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "aab58594-60ff-4d60-8c1a-e36603ac02b0",
+      "name": "build_outline_pick",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3808,
+        -448
+      ],
+      "parameters": {
+        "jsCode": "// The approved plan as one text block: the chosen index's shape and outcome, its sections in\n// order with each one's job, and the owner's edits appended when they typed any. The numbering\n// is what the draft-review message reads back as section names, so the shape here and\n// `first_draft` agree. A choice the turn did not offer throws: writing an empty plan would\n// spend a draft against nothing.\nconst form = ($json && $json.data) || {};\nconst pick = String(form.Option || '').trim();\nconst index = Number((/^option\\s*(\\d+)$/i.exec(pick) || [])[1] || 0);\nconst offered = $('parse_outline').first().json.OPTIONS;\nconst options = Array.isArray(offered) ? offered : [];\nconst chosen = options[index - 1];\nif (!chosen) throw new Error('the outline form answered \"' + pick + '\" but the turn offered ' + options.length + ' option(s)');\nconst edits = String(form.Edits || '').trim();\nconst lines = ['Shape: ' + String(chosen.shape || ''), 'Outcome: ' + String(chosen.outcome || '')];\n(chosen.sections || []).forEach((section, k) => {\n  lines.push((k + 1) + '. ' + String(section.name || '') + ' - ' + String(section.job || ''));\n});\nif (edits) lines.push('Owner edits: ' + edits);\nconst row = $('select_article_to_queue').first().json;\nreturn [{ json: { ROW_NUMBER: row.row_number, OUTLINE: lines.join('\\n') } }];"
+      }
+    },
+    {
+      "id": "7b3f7470-00e1-489d-b6eb-6fe7c766c9d9",
+      "name": "update_article_outline",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "position": [
+        4032,
+        -448
+      ],
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI",
+          "mode": "list",
+          "cachedResultName": "content_planner",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "article_queue",
+          "mode": "name",
+          "cachedResultName": "article_queue"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "row_number": "={{ $json.ROW_NUMBER }}",
+            "OUTLINE": "={{ $json.OUTLINE }}",
+            "UPDATE_DATE": "={{ (new Date()).toISOString() }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "ENTRY_ID",
+              "displayName": "ENTRY_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "TOPIC",
+              "displayName": "TOPIC",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "DESCRIPTION",
+              "displayName": "DESCRIPTION",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "LINK",
+              "displayName": "LINK",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "CATEGORIES",
+              "displayName": "CATEGORIES",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ASSET_TYPES",
+              "displayName": "ASSET_TYPES",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "MAX_WORDS",
+              "displayName": "MAX_WORDS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "EXTRA_PROMPT",
+              "displayName": "EXTRA_PROMPT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "PRIORITY",
+              "displayName": "PRIORITY",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ORIGIN",
+              "displayName": "ORIGIN",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "STATUS",
+              "displayName": "STATUS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ARTICLE_STATUS",
+              "displayName": "ARTICLE_STATUS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ARTICLE_ROUND",
+              "displayName": "ARTICLE_ROUND",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ARTICLE_FEEDBACK",
+              "displayName": "ARTICLE_FEEDBACK",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ARTICLE_TITLE",
+              "displayName": "ARTICLE_TITLE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ARTICLE_REF",
+              "displayName": "ARTICLE_REF",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "PUBLISHED_URL",
+              "displayName": "PUBLISHED_URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "COMMIT_REF",
+              "displayName": "COMMIT_REF",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "PUBLISHED_AT",
+              "displayName": "PUBLISHED_AT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "EXECUTION_ID",
+              "displayName": "EXECUTION_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "ERROR",
+              "displayName": "ERROR",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "UPDATE_DATE",
+              "displayName": "UPDATE_DATE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            },
+            {
+              "id": "SOURCES",
+              "displayName": "SOURCES",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": true
+            },
+            {
+              "id": "OUTLINE",
+              "displayName": "OUTLINE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false,
+              "removed": false
+            }
+          ]
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "pGARJmt50qz64xOo",
+          "name": "Google Sheets account"
+        }
       }
     },
     {
@@ -12785,727 +13506,6 @@
       "parameters": {
         "jsCode": "// Collapse the retire update's one-item-per-row answer back to the run's single item: the\n// draft read behind this node filters on the selector, and N copies of the plan would fan the\n// studio out N times.\nreturn [{ json: $('select_article_to_queue').first().json }];\n"
       }
-    },
-    {
-      "id": "8f2cc641-36c4-4065-9115-2992158158b5",
-      "name": "if_outline_present",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        2464,
-        -176
-      ],
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose",
-            "version": 2
-          },
-          "conditions": [
-            {
-              "id": "outline-present",
-              "leftValue": "={{ $('select_article_to_queue').first().json.OUTLINE || '' }}",
-              "rightValue": "",
-              "operator": {
-                "type": "string",
-                "operation": "notEmpty"
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "looseTypeValidation": true,
-        "options": {}
-      }
-    },
-    {
-      "id": "1931e10e-515e-4ba9-95f1-950ec51351b9",
-      "name": "execute_article_outline",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.3,
-      "onError": "continueErrorOutput",
-      "position": [
-        2688,
-        -448
-      ],
-      "parameters": {
-        "workflowId": {
-          "__rl": true,
-          "value": "nPBkIpeObC1Om0LH",
-          "mode": "list",
-          "cachedResultUrl": "/workflow/nPBkIpeObC1Om0LH",
-          "cachedResultName": "Article Creator"
-        },
-        "workflowInputs": {
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": true,
-          "mappingMode": "defineBelow",
-          "matchingColumns": [],
-          "schema": [
-            {
-              "canBeUsedToMatch": true,
-              "defaultMatch": false,
-              "display": true,
-              "displayName": "TASK",
-              "id": "TASK",
-              "removed": false,
-              "required": false,
-              "type": "string"
-            },
-            {
-              "canBeUsedToMatch": true,
-              "defaultMatch": false,
-              "display": true,
-              "displayName": "TOPIC",
-              "id": "TOPIC",
-              "removed": false,
-              "required": false,
-              "type": "string"
-            },
-            {
-              "canBeUsedToMatch": true,
-              "defaultMatch": false,
-              "display": true,
-              "displayName": "DESCRIPTION",
-              "id": "DESCRIPTION",
-              "removed": false,
-              "required": false,
-              "type": "string"
-            },
-            {
-              "canBeUsedToMatch": true,
-              "defaultMatch": false,
-              "display": true,
-              "displayName": "URL",
-              "id": "URL",
-              "removed": false,
-              "required": false,
-              "type": "string"
-            },
-            {
-              "canBeUsedToMatch": true,
-              "defaultMatch": false,
-              "display": true,
-              "displayName": "CONTENT",
-              "id": "CONTENT",
-              "removed": false,
-              "required": false,
-              "type": "string"
-            },
-            {
-              "canBeUsedToMatch": true,
-              "defaultMatch": false,
-              "display": true,
-              "displayName": "MAX_WORDS",
-              "id": "MAX_WORDS",
-              "removed": false,
-              "required": false,
-              "type": "number"
-            },
-            {
-              "canBeUsedToMatch": true,
-              "defaultMatch": false,
-              "display": true,
-              "displayName": "ASSET_TYPES",
-              "id": "ASSET_TYPES",
-              "removed": false,
-              "required": false,
-              "type": "string"
-            },
-            {
-              "canBeUsedToMatch": true,
-              "defaultMatch": false,
-              "display": true,
-              "displayName": "EXTRA_PROMPT",
-              "id": "EXTRA_PROMPT",
-              "removed": false,
-              "required": false,
-              "type": "string"
-            },
-            {
-              "canBeUsedToMatch": true,
-              "defaultMatch": false,
-              "display": true,
-              "displayName": "AUDIENCE",
-              "id": "AUDIENCE",
-              "removed": false,
-              "required": false,
-              "type": "string"
-            },
-            {
-              "canBeUsedToMatch": true,
-              "defaultMatch": false,
-              "display": true,
-              "displayName": "ROW_NUMBER",
-              "id": "ROW_NUMBER",
-              "removed": false,
-              "required": false,
-              "type": "number"
-            }
-          ],
-          "value": {
-            "ASSET_TYPES": "={{ $('select_article_to_queue').first().json.REQUESTED_ASSETS || '' }}",
-            "AUDIENCE": "={{ $('select_article_to_queue').first().json.AUDIENCE || 'NONE' }}",
-            "CONTENT": "={{ $('set_link_flags').first().json.LINK_TEXT || '' }}",
-            "DESCRIPTION": "={{ $('select_article_to_queue').first().json.DESCRIPTION || '' }}",
-            "EXTRA_PROMPT": "={{ $('select_article_to_queue').first().json.EXTRA_PROMPT || '' }}",
-            "MAX_WORDS": "={{ $('select_article_to_queue').first().json.MAX_WORDS }}",
-            "ROW_NUMBER": "={{ $('select_article_to_queue').first().json.row_number }}",
-            "TASK": "outline",
-            "TOPIC": "={{ $('select_article_to_queue').first().json.TOPIC || '' }}",
-            "URL": "={{ $('select_article_to_queue').first().json.LINK || '' }}"
-          }
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "1307aeb9-8392-428a-ab7f-136fa907b981",
-      "name": "parse_outline",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        2912,
-        -448
-      ],
-      "parameters": {
-        "jsCode": "// The outline turn's answer, read as data: Article Creator's own parser has already turned the\n// model's <outline> block into options, so this node only decides whether the owner is asked,\n// and builds the form text from that same structure. A thrown call arrives with `error` set and\n// no OPTIONS; a failed or empty plan arrives as OUTLINE_ERROR or as an empty list, and the\n// design's rule is that both retry once and then fail the row rather than draft blind.\nconst res = $input.first().json || {};\nconst note = (value) => String(value == null ? '' : value).replace(/\\s+/g, ' ').trim();\nconst thrown = res.error ? note((res.error && res.error.message) || res.error) : '';\nconst options = Array.isArray(res.OPTIONS) ? res.OPTIONS : [];\nconst failure = note(res.OUTLINE_ERROR)\n  || (thrown ? 'OUTLINE: ' + thrown : '')\n  || (options.length ? '' : 'OUTLINE: the outline turn returned no options');\nif (failure) return [{ json: { OK: false, ERROR: failure, OPTIONS: [], OUTLINE_MESSAGE: '' } }];\nconst row = $('select_article_to_queue').first().json;\n// The form shows shape, outcome and section NAMES only - the jobs stay in the row's OUTLINE\n// cell for the drafting turn. A message that included the jobs hit Slack's 3000-character\n// section limit and the approval died as invalid_blocks (execution 17044, 2026-11-18).\nconst blocks = options.map((option, index) => {\n  const lines = ['*Option ' + (index + 1) + '* - ' + note(option.shape)];\n  lines.push('Outcome: ' + note(option.outcome).slice(0, 200));\n  (option.sections || []).forEach((section, k) => {\n    lines.push((k + 1) + '. ' + note(section.name).slice(0, 80));\n  });\n  return lines.join('\\n');\n});\nconst header = 'Review the outline for row ' + row.row_number + ' - ' + note(row.TOPIC)\n  + ' before it is drafted. Pick the index the article should follow, or Cancel. Edits are applied on top of the one you choose.';\nlet message = [header, ...blocks].join('\\n\\n');\n// The hard cap: a Slack section refuses more than 3000 characters, and the model's verbosity\n// is not a thing this node controls. The jobs are on the row, so cutting here loses nothing.\nif (message.length > 2800) message = message.slice(0, 2800) + ' \\u2026';\nreturn [{ json: { OK: true, ERROR: '', OPTIONS: options, OUTLINE_MESSAGE: message } }];\n"
-      }
-    },
-    {
-      "id": "9ccecf67-fe66-4cc2-8e70-2ac19efaf774",
-      "name": "switch_outline_ok",
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 3.2,
-      "position": [
-        3136,
-        -448
-      ],
-      "parameters": {
-        "rules": {
-          "values": [
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict",
-                  "version": 2
-                },
-                "conditions": [
-                  {
-                    "id": "outline-ok",
-                    "leftValue": "={{ String($json.OK) }}",
-                    "rightValue": "true",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              }
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict",
-                  "version": 2
-                },
-                "conditions": [
-                  {
-                    "id": "outline-give-up",
-                    "leftValue": "={{ $runIndex + 1 }}",
-                    "rightValue": "1",
-                    "operator": {
-                      "type": "number",
-                      "operation": "gt"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              }
-            }
-          ]
-        },
-        "options": {
-          "fallbackOutput": "extra"
-        }
-      }
-    },
-    {
-      "id": "9dcbb450-cf35-4efc-ab66-222020d2ad82",
-      "name": "notify_outline_approval",
-      "webhookId": "41d3220b-6fab-4e8b-b97a-5f55a6d4f971",
-      "type": "n8n-nodes-base.slack",
-      "typeVersion": 2.3,
-      "position": [
-        3360,
-        -448
-      ],
-      "parameters": {
-        "operation": "sendAndWait",
-        "select": "channel",
-        "channelId": {
-          "__rl": true,
-          "value": "C08RQNXQV3P",
-          "mode": "list",
-          "cachedResultName": "workflows"
-        },
-        "message": "={{ $('parse_outline').first().json.OUTLINE_MESSAGE }}",
-        "responseType": "customForm",
-        "formFields": {
-          "values": [
-            {
-              "fieldLabel": "Option",
-              "fieldType": "dropdown",
-              "fieldOptions": {
-                "values": [
-                  {
-                    "option": "Option 1"
-                  },
-                  {
-                    "option": "Option 2"
-                  },
-                  {
-                    "option": "Option 3"
-                  },
-                  {
-                    "option": "Cancel"
-                  }
-                ]
-              },
-              "requiredField": true
-            },
-            {
-              "fieldLabel": "Edits",
-              "fieldType": "textarea",
-              "placeholder": "Changes to the chosen outline, applied on top of it. Leave empty to use it as proposed."
-            }
-          ]
-        },
-        "options": {
-          "messageButtonLabel": "Respond",
-          "responseFormTitle": "Article - approve the outline",
-          "appendAttribution": true
-        }
-      },
-      "credentials": {
-        "slackApi": {
-          "id": "DszMmPE7WwOjHQjz",
-          "name": "Slack account"
-        }
-      }
-    },
-    {
-      "id": "d7fe099d-dd5d-47ac-b6e8-6a4a8994824b",
-      "name": "switch_outline_accept",
-      "type": "n8n-nodes-base.switch",
-      "typeVersion": 3.2,
-      "position": [
-        3584,
-        -448
-      ],
-      "parameters": {
-        "rules": {
-          "values": [
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict",
-                  "version": 2
-                },
-                "conditions": [
-                  {
-                    "id": "outline-option-1",
-                    "leftValue": "={{ $json.data.Option }}",
-                    "rightValue": "Option 1",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              }
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict",
-                  "version": 2
-                },
-                "conditions": [
-                  {
-                    "id": "outline-option-2",
-                    "leftValue": "={{ $json.data.Option }}",
-                    "rightValue": "Option 2",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              }
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict",
-                  "version": 2
-                },
-                "conditions": [
-                  {
-                    "id": "outline-option-3",
-                    "leftValue": "={{ $json.data.Option }}",
-                    "rightValue": "Option 3",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              }
-            },
-            {
-              "conditions": {
-                "options": {
-                  "caseSensitive": true,
-                  "leftValue": "",
-                  "typeValidation": "strict",
-                  "version": 2
-                },
-                "conditions": [
-                  {
-                    "id": "outline-cancel",
-                    "leftValue": "={{ $json.data.Option }}",
-                    "rightValue": "Cancel",
-                    "operator": {
-                      "type": "string",
-                      "operation": "equals"
-                    }
-                  }
-                ],
-                "combinator": "and"
-              }
-            }
-          ]
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "aab58594-60ff-4d60-8c1a-e36603ac02b0",
-      "name": "build_outline_pick",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        3808,
-        -448
-      ],
-      "parameters": {
-        "jsCode": "// The approved plan as one text block: the chosen index's shape and outcome, its sections in\n// order with each one's job, and the owner's edits appended when they typed any. The numbering\n// is what the draft-review message reads back as section names, so the shape here and\n// `first_draft` agree. A choice the turn did not offer throws: writing an empty plan would\n// spend a draft against nothing.\nconst form = ($json && $json.data) || {};\nconst pick = String(form.Option || '').trim();\nconst index = Number((/^option\\s*(\\d+)$/i.exec(pick) || [])[1] || 0);\nconst offered = $('parse_outline').first().json.OPTIONS;\nconst options = Array.isArray(offered) ? offered : [];\nconst chosen = options[index - 1];\nif (!chosen) throw new Error('the outline form answered \"' + pick + '\" but the turn offered ' + options.length + ' option(s)');\nconst edits = String(form.Edits || '').trim();\nconst lines = ['Shape: ' + String(chosen.shape || ''), 'Outcome: ' + String(chosen.outcome || '')];\n(chosen.sections || []).forEach((section, k) => {\n  lines.push((k + 1) + '. ' + String(section.name || '') + ' - ' + String(section.job || ''));\n});\nif (edits) lines.push('Owner edits: ' + edits);\nconst row = $('select_article_to_queue').first().json;\nreturn [{ json: { ROW_NUMBER: row.row_number, OUTLINE: lines.join('\\n') } }];"
-      }
-    },
-    {
-      "id": "7b3f7470-00e1-489d-b6eb-6fe7c766c9d9",
-      "name": "update_article_outline",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.6,
-      "retryOnFail": true,
-      "maxTries": 3,
-      "position": [
-        4032,
-        -448
-      ],
-      "parameters": {
-        "operation": "update",
-        "documentId": {
-          "__rl": true,
-          "value": "1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI",
-          "mode": "list",
-          "cachedResultName": "content_planner",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI/edit?usp=drivesdk"
-        },
-        "sheetName": {
-          "__rl": true,
-          "value": "article_queue",
-          "mode": "name",
-          "cachedResultName": "article_queue"
-        },
-        "columns": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "row_number": "={{ $json.ROW_NUMBER }}",
-            "OUTLINE": "={{ $json.OUTLINE }}",
-            "UPDATE_DATE": "={{ (new Date()).toISOString() }}"
-          },
-          "matchingColumns": [
-            "row_number"
-          ],
-          "schema": [
-            {
-              "id": "ENTRY_ID",
-              "displayName": "ENTRY_ID",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": false,
-              "removed": true
-            },
-            {
-              "id": "TOPIC",
-              "displayName": "TOPIC",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": false,
-              "removed": true
-            },
-            {
-              "id": "DESCRIPTION",
-              "displayName": "DESCRIPTION",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": false,
-              "removed": true
-            },
-            {
-              "id": "LINK",
-              "displayName": "LINK",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": false,
-              "removed": true
-            },
-            {
-              "id": "CATEGORIES",
-              "displayName": "CATEGORIES",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": false,
-              "removed": true
-            },
-            {
-              "id": "ASSET_TYPES",
-              "displayName": "ASSET_TYPES",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": false,
-              "removed": true
-            },
-            {
-              "id": "MAX_WORDS",
-              "displayName": "MAX_WORDS",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": false,
-              "removed": true
-            },
-            {
-              "id": "EXTRA_PROMPT",
-              "displayName": "EXTRA_PROMPT",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": false,
-              "removed": true
-            },
-            {
-              "id": "PRIORITY",
-              "displayName": "PRIORITY",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": false,
-              "removed": true
-            },
-            {
-              "id": "ORIGIN",
-              "displayName": "ORIGIN",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": false,
-              "removed": true
-            },
-            {
-              "id": "STATUS",
-              "displayName": "STATUS",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": false,
-              "removed": true
-            },
-            {
-              "id": "ARTICLE_STATUS",
-              "displayName": "ARTICLE_STATUS",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": false,
-              "removed": true
-            },
-            {
-              "id": "ARTICLE_ROUND",
-              "displayName": "ARTICLE_ROUND",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": false,
-              "removed": true
-            },
-            {
-              "id": "ARTICLE_FEEDBACK",
-              "displayName": "ARTICLE_FEEDBACK",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": false,
-              "removed": true
-            },
-            {
-              "id": "ARTICLE_TITLE",
-              "displayName": "ARTICLE_TITLE",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": false,
-              "removed": true
-            },
-            {
-              "id": "ARTICLE_REF",
-              "displayName": "ARTICLE_REF",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": false,
-              "removed": true
-            },
-            {
-              "id": "PUBLISHED_URL",
-              "displayName": "PUBLISHED_URL",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": false,
-              "removed": true
-            },
-            {
-              "id": "COMMIT_REF",
-              "displayName": "COMMIT_REF",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": false,
-              "removed": true
-            },
-            {
-              "id": "PUBLISHED_AT",
-              "displayName": "PUBLISHED_AT",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": false,
-              "removed": true
-            },
-            {
-              "id": "EXECUTION_ID",
-              "displayName": "EXECUTION_ID",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": false,
-              "removed": true
-            },
-            {
-              "id": "ERROR",
-              "displayName": "ERROR",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": false,
-              "removed": true
-            },
-            {
-              "id": "UPDATE_DATE",
-              "displayName": "UPDATE_DATE",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": false,
-              "removed": false
-            },
-            {
-              "id": "SOURCES",
-              "displayName": "SOURCES",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": false,
-              "removed": true
-            },
-            {
-              "id": "OUTLINE",
-              "displayName": "OUTLINE",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": false,
-              "removed": false
-            }
-          ]
-        },
-        "options": {}
-      },
-      "credentials": {
-        "googleSheetsOAuth2Api": {
-          "id": "pGARJmt50qz64xOo",
-          "name": "Google Sheets account"
-        }
-      }
     }
   ],
   "pinData": {},
@@ -13539,6 +13539,6 @@
   },
   "tags": [],
   "triggerCount": 2,
-  "updatedAt": "2026-11-18T21:58:14.501Z",
-  "versionId": "1e08b025-c3c5-466b-83bc-f0d7b3110523"
+  "updatedAt": "2026-11-10T21:40:16.715Z",
+  "versionId": "33db735a-0cee-4d6d-a753-ca1b43095816"
 }

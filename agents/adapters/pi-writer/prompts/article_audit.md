@@ -32,6 +32,12 @@ Your findings do not reject the draft and must not ask for a new article: name t
 - Source the entry links: {{ URL }}
 - Reviewer feedback: {{ FEEDBACK }}
 
+## Audience
+
+The level under The draft is the reader this article is for. What that level assumes needs no explanation; what it does not is explained where it first appears.
+
+{{ AUDIENCES }}
+
 ## The gate already rejected these blocks
 
 A fenced block publishes when it is a word-for-word copy of a page this session read, or when every name it uses is on one. The gate found these blocks failing both:
@@ -52,6 +58,8 @@ If the entry asked for a section whose block lives on a page this session never 
 2. **The ask.** The entry's Topic, Description and Reviewer Feedback are what the article is for. A requested section the body does not carry is a finding; say which one and what it should contain.
 3. **Educative value.** A reader who follows the body ends with the result the opening promises: the commands run in order, every name a later step uses was created earlier, and the section that teaches the thing is not thinner than the sections that decorate it.
 4. **Wrong, not merely different.** Do not report the word budget, asset markers, heading numbering or the Source line: code counts those, and a finding there is noise. Do not ask for a section you think could be worded better. The blocks above are the only fence findings: do not invent another.
+5. **The level.** The body reads at the level under The draft: a term that level does not assume, used without its explanation where it first appears, or a section only a deeper level needs, is a finding. A term the level assumes is not.
+6. **Section coherence.** A section that could be removed without loss, an explanation repeated in two sections, two sections that contradict each other, or a name introduced differently in two places is a finding.
 
 ## How to work
 

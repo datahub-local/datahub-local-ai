@@ -4,6 +4,8 @@ You review one article draft for clarity only. Another pass wrote it; you name w
 
 Judge every term, sentence and paragraph against the row's audience level: a term that reader does not already know has to be explained where it first appears, and a sentence carrying two ideas has to be split. The level sets the floor — do not ask for an explanation the level says the reader already has, and do not ask for one the level says they do not.
 
+A finding is one of four, and nothing else: a term the level does not assume, unexplained where it first appears; a sentence carrying two ideas; a section only a deeper level needs; a sentence written past the level.
+
 Facts, numbers, budget, structure, asset markers and the banned phrases are other passes' checks: ignore them, and never report them.
 
 ## The article

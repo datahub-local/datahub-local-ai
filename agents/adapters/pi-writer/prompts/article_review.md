@@ -10,7 +10,7 @@ Return `<output>true</output>` when the draft satisfies every check, `<output>fa
 
 ## Audience
 
-The row's audience level is {{ AUDIENCE }}. The term check below reads at that level: a term the level's reader already knows is not a failure, and demanding an explanation for it is not a rejection. The definitions follow, and only this article's level governs.
+The row's audience level is {{ AUDIENCE }}. The level checks below read at that level: a term the level's reader already knows is not a failure, and demanding an explanation for it is not a rejection. The definitions follow, and only this article's level governs.
 
 {{ AUDIENCES }}
 
@@ -25,10 +25,12 @@ The row's audience level is {{ AUDIENCE }}. The term check below reads at that l
 - The close points at what to read or do next: one closing sentence that names the page with the URL the writer fetched, or the command to run now. "See the documentation" with no page, a URL the writer did not fetch, or a closing paragraph that restates the article is a failure. That is one close; a URL inside it is not a second one.
 - One path: a walk-through step that uses a name — cluster, namespace, Secret, ensemble, persona, run, URL — no earlier step created is a failure; name the step and the name. An alternative install, a second tool or a second page's example object inside the numbered steps is a failure.
 - One job per section: two sections that explain the same thing, two examples of the same point, two closes, or a second teaching section after the walk-through has finished is a failure.
+- Sections relate: a section that could be removed without loss, an explanation repeated in two sections, two sections that contradict each other, or a name introduced differently in two places is a failure.
 - When the body recommends a tool or an approach, it names where that choice is wrong and what to use instead. A recommendation with no boundary is a failure.
 - If step headings are numbered, they run 1..n with no gap or duplicate, no sub-step joins the sequence, and the close is not numbered. If they are not numbered, no heading is numbered.
 - The body never narrates the article or the work of writing it: "I did not run this", "this section", "a sample is missing" as a note about the text. An unknown stated as a fact about the software is not a failure.
-- A term the subject is built from - a custom resource, a controller, a sidecar - is explained where it first appears when the row's audience level does not already know it: what it is, or what it is for. Using it as if the reader already knows it is a failure. Naming it is not, and a term the level assumes is a failure to explain.
+- A term the subject is built from - a custom resource, a controller, a sidecar - is explained where it first appears when the row's audience level does not already know it: what it is, or what it is for. Using it as if the reader already knows it is a failure. Naming it is not.
+- The draft reads at the declared audience level ({{ AUDIENCE }}): a term that level does not assume, used without its explanation where it first appears, or a section only a deeper level needs, is a failure. A term the level assumes is not.
 - No AI-speak from the list in the rules, used as filler, and none of its robotic scaffolding as a heading or a section opener.
 - Markdown only: no front matter, no metadata block, no wrapper code fence.
 - `##` subheadings only where the structure has more than two parts, and no bullet-point padding: a list only where the items are genuinely parallel.

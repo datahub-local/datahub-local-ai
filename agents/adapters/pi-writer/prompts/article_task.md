@@ -11,7 +11,7 @@ Write one article for the blog.
 
 ## Audience
 
-The row's audience level is {{ AUDIENCE }}. Write at the depth that level names, and take it as a floor rather than a ceiling: what that reader already knows is not explained, and what they do not know is explained where it first appears. The whole vocabulary follows; only this article's level governs.
+The row's audience level is {{ AUDIENCE }}. Every sentence is written at that level: a term the level does not assume is explained where it first appears, and a section only a deeper level needs is not in the article. What that reader already knows is not explained either. The whole vocabulary follows; only this article's level governs.
 
 {{ AUDIENCES }}
 
@@ -39,7 +39,9 @@ Write no caption, path or filename beside a marker; the publishing step adds tho
 
 Use the Firecrawl MCP server (`mcp__firecrawl__firecrawl_search`, `firecrawl_scrape`, `firecrawl_map`) as the sandbox map describes: the source link first, then the pages it cites. `curl` has no route in this pod and no other search tool is offered, so Firecrawl is the only way to read a page. A search, a map and a scrape each count as one lookup.
 
-Two budgets sit inside twenty lookups: at most four searches and sixteen scrapes. A search returns pointers, so spend it once you know what to look for and not again for the same query.
+Two budgets sit inside thirty lookups: at most six searches and twenty-four scrapes. A search returns pointers, so spend it once you know what to look for and not again for the same query.
+
+The approved outline is the research plan. Walk its sections in order; before writing a section, hold the pages that carry its subject — the command it shows, the number it quotes, the failure it names — and spend the lookups section by section until each one is grounded. A section is written from pages this run read: when its own page exists and was not fetched, that is the failure this rule exists to prevent. The seed page is the start, not the ceiling.
 
 Spend them on what the article will show, in this order, and stop only when the pages you hold carry its claims:
 
@@ -96,6 +98,7 @@ The article is this outline: its sections in this order, each doing the job it n
 ## Shape
 
 - Open on the problem in the author's own framing, not on a definition and not on "In this article".
+- Each section opens on what the previous one established, nothing is explained twice, and two sections never contradict. A section the chain does not need is cut before answering.
 - Then the reasoning, with the concrete specifics the inputs give: names, versions, configuration, quantities, trade-offs.
 - When the article walks the reader through commands, every step is one action: the command, then what success looks like when the source material carries it, then one sentence on why it is there. Never paste two pages' examples into one path: a step that uses a name no earlier step created is a defect.
 - Close by pointing at what to read or do next — the follow-up page, the first command, the one thing to change. One or two sentences, and never a summary of the article you just wrote: name the exact page with the URL you fetched, or the exact command to run now. A URL in that sentence is part of the close, not a second one, and it does not replace the `Source:` line below. "See the documentation" is not a close.
@@ -104,4 +107,4 @@ The article is this outline: its sections in this order, each doing the job it n
 - When the source link is set, end the body with a single line: `Source: {{ URL }}`.
 - No bullet-point padding: a list only where the items are genuinely parallel.
 
-Answer inside a single `<article>` block, in Markdown, starting with the H1 title. Run `check-article` before you answer and cut the body until the count it prints is inside the limit; do not estimate the count.
+Answer inside a single `<article>` block, in Markdown, starting with the H1 title. Run `check-article` before you answer and cut the body until the count it prints is inside the limit; do not estimate the count. Then re-read the body at the row's audience level and cut or explain anything past it.

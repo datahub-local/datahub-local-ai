@@ -1288,13 +1288,39 @@ carries no index, because an index is a number the model gets wrong and the pars
 the markers in document order. `derive_asset_plan` is the one derivation: it reads the stored draft
 and the run's asset rows, emits the hero types plus `figure_1…figure_N`, each figure with its section
 heading and the section's text, and everything downstream — `split_pending_types`, the publish gate,
-`build_commit_files` — reads that item. The studio is asked for the registry type `figure` once per
+`build_commit_files` — reads that plan. The studio is asked for the registry type `figure` once per
 slot with the section as the brief, so five figures are five sections, not five readings of the
 opening; the row keeps the slot name (`figure_2`), so its own review, S3 key and committed path stay
 separate. `build_commit_files` replaces the k-th marker with the `figure_<k>` reference and refuses
 the commit when the marker count and the row count disagree. `retire_figures` cancels the previous
 draft's `figure_*` rows when an article is re-approved, because a new draft can move or drop a slot;
 the hero keeps its approval.
+
+**Placement is part of the asset, and a figure is its section's mechanics.** `derive_asset_plan`
+emits an `ASSETS` list — the hero types as `lead`, each `figure_<k>` as `inline` with its section
+heading and text — and `split_pending_types` and `build_commit_files` read that field instead of
+re-deriving placement from the type name. The commit references the lead at the page's text width
+after the opening, and a figure inside a `<figure markdown>` block at the site's inline
+`{ width="80%" }`, with the section heading as its alt text; both are Markdown extensions the site
+already enables (`attr_list` and `md_in_html`). The figure's brief carries the section and states
+that the lead image already carries the article's thesis, so the figure shows the section's own
+flow, step or comparison row and never a second overview; it also states the inline reading size —
+one idea, labels legible at 80% of the text column, no code text as imagery. `visual_motion_rules.md`
+states the page rule: the lead is the one moving asset, a section figure is still. Row 4
+(2026-11-19) is the case: its section restated the thesis, so the lead and the figure converged on
+one picture.
+
+**Every asset commits on its own item, and identity rides the item link.** The publish chain runs
+`plan_asset_uploads` → (`presign_asset_publish` → `asset_publish_url` → `download_asset_publish` →
+`asset_bytes_from_download`) → `create_blobs`, one item per asset. An HTTP node that parses JSON
+answers with the MCP body alone: the item's `S3_KEY` and path are gone from `json`. So the two
+parsers read every answer (`$input.all()`), pair each with its source through n8n's
+`itemMatching(i)` — the answer's paired item — and the download step matches its own `S3_KEY`
+against the plan. A `.first()` anywhere in this chain shipped one blob for two assets (execution
+17163, 2026-11-19); `collect_tree_entries`' count assertion caught it and stays as the regression
+detector. `create_blobs` keeps each item (its response is taken as a file), so the tree step pairs
+the blob sha with that item's own path and asserts the byte count it was sent, rather than trusting
+the order of the two branches.
 
 **A row whose assets are all approved publishes when its article is re-approved, instead of failing
 the pending check.** The draft branch ended at `read_draft_for_assets` unconditionally, and

@@ -2,10 +2,10 @@
 
 ## 1. Placement on the asset
 
-- [ ] 1.1 `derive_asset_plan` (both copies): each item carries `PLACEMENT` (`lead` or
+- [x] 1.1 `derive_asset_plan` (both copies): each item carries `PLACEMENT` (`lead` or
       `inline`) and, for an inline figure, `HEADING` + `SECTION` (it already carries
       the latter two) — one derivation, read by the brief and the commit.
-- [ ] 1.2 `build_commit_files` (both copies): the lead is referenced full-width after the
+- [x] 1.2 `build_commit_files` (both copies): the lead is referenced full-width after the
       opening; each figure is referenced inside a figure block at the site's inline width,
       alt text from its section heading, at its `figure_<k>` path.
 
@@ -15,9 +15,9 @@
       `derive_asset_plan`): carries the section and the rule that the lead image already
       states the article's thesis — the figure shows this section's mechanics, never a
       second overview. Live 2026-11-19.
-- [ ] 2.2 The figure brief states the inline reading size: one idea, labels legible at
+- [x] 2.2 The figure brief states the inline reading size: one idea, labels legible at
       80% of the text column, no code text as imagery.
-- [ ] 2.3 `visual_motion_rules.md` (or the type's declared brief): the lead is the page's
+- [x] 2.3 `visual_motion_rules.md` (or the type's declared brief): the lead is the page's
       one moving asset; figures are still.
 
 ## 3. The publish chain, per item
@@ -42,9 +42,9 @@
 
 ## 5. Docs
 
-- [ ] 5.1 `docs/agent/n8n.md`'s publish-chain paragraph describes the single-asset-era
+- [x] 5.1 `docs/agent/n8n.md`'s publish-chain paragraph describes the single-asset-era
       chain (`first()` parses); update it to the per-item contract and the paired-item
       constraint (a JSON-returning HTTP node replaces `json`, so identity rides the
       paired item, not the payload).
-- [ ] 5.2 The article-lane asset section states the placement contract (lead at the text
+- [x] 5.2 The article-lane asset section states the placement contract (lead at the text
       width, figure inline at 80%, alt from the heading) once task 1.2 lands.

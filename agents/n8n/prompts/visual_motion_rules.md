@@ -20,6 +20,12 @@ checklist to report back.
 - **Seed imperfection where a handmade feel is wanted**, with an index-derived offset —
   never a clock and never unseeded randomness.
 
+## A still is read at rest
+
+When the brief asks for a still, its final state is the artifact: compose it complete and let
+nothing animate. An article page carries one moving visual, its lead image; every section
+figure beside it is still, and its labels are read at the width it is rendered at.
+
 ## Prove it
 
 `check` verifies motion only when the composition ships a sidecar, so ship one:

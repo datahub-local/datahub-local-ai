@@ -33,9 +33,9 @@ Propose two or three indexes for this one article. Each is a different order for
 
 Phrase every outcome and every section job at the audience level above: an option whose outcome reads like a practitioner's deep-dive is rewritten at that level before it is offered, and a section only a deeper level needs is left out.
 
-Every section carries one form: `prose`, `list`, `table` or `code`. The form names what the section carries — a comparison's dimensions are `table` or `prose`, an enumeration is `list` — chosen from the outcome, the extras and the audience.
+Every section carries one form: `prose`, `list`, `table` or `code`. The form names what the section carries — a comparison's dimensions are `table` or `prose`, an enumeration is `list`.
 
-`code` is only for a section the reader runs: the command and what success looks like. A boundary, an explanation, a set of features is `prose`, `list` or `table`.
+The outcome decides the forms, not the subject of a section. A choice-shaped outcome — the reader can pick, decide or compare — has no `code` section at all, even the one naming the recommended option: installing, configuring and running something is what the chosen option's own documentation is for. `code` belongs to an outcome of "the reader has done this", where a section's whole job is a step they run.
 
 You have no tools: plan from the entry and the source material above. Do not fetch, do not write the article, and answer with nothing outside the block.
 

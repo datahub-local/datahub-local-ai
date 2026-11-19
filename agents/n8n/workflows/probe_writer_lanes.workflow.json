@@ -1,0 +1,394 @@
+{
+  "active": true,
+  "activeVersion": {
+    "versionId": "506c99d2-12da-48b5-ab4e-137a0f0ff0ad",
+    "workflowId": "sOIx1RaL84em2FhE",
+    "nodes": [
+      {
+        "id": "p1",
+        "name": "probe_webhook",
+        "webhookId": "probe-writer-lanes-wh",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          0,
+          0
+        ],
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "probe-writer-lanes",
+          "responseMode": "onReceived",
+          "options": {}
+        }
+      },
+      {
+        "id": "p2",
+        "name": "pick_target",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          220,
+          0
+        ],
+        "parameters": {
+          "jsCode": "const target = String($json.body && $json.body.target || '').trim().toLowerCase();\nreturn [{ json: { target } }];"
+        }
+      },
+      {
+        "id": "p3",
+        "name": "switch_target",
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.2,
+        "position": [
+          440,
+          0
+        ],
+        "parameters": {
+          "rules": {
+            "values": [
+              {
+                "conditions": {
+                  "options": {
+                    "version": 2,
+                    "leftValue": "",
+                    "caseSensitive": true,
+                    "typeValidation": "strict"
+                  },
+                  "conditions": [
+                    {
+                      "id": "t-article",
+                      "leftValue": "={{ $json.target }}",
+                      "rightValue": "article",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                }
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "version": 2,
+                    "leftValue": "",
+                    "caseSensitive": true,
+                    "typeValidation": "strict"
+                  },
+                  "conditions": [
+                    {
+                      "id": "t-post",
+                      "leftValue": "={{ $json.target }}",
+                      "rightValue": "post",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                }
+              }
+            ]
+          },
+          "options": {}
+        }
+      },
+      {
+        "id": "p4",
+        "name": "fire_article_lane",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          660,
+          -80
+        ],
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "sKsjxDDW40TATaS6",
+            "mode": "id",
+            "cachedResultName": "Article Content Writer"
+          },
+          "options": {
+            "waitForSubWorkflow": false
+          }
+        }
+      },
+      {
+        "id": "p5",
+        "name": "fire_post_lane",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          660,
+          80
+        ],
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "oxARWWyxenKgmv6A",
+            "mode": "id",
+            "cachedResultName": "LinkedIn Post Sharing"
+          },
+          "options": {
+            "waitForSubWorkflow": false
+          }
+        }
+      }
+    ],
+    "connections": {
+      "probe_webhook": {
+        "main": [
+          [
+            {
+              "node": "pick_target",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "pick_target": {
+        "main": [
+          [
+            {
+              "node": "switch_target",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "switch_target": {
+        "main": [
+          [
+            {
+              "node": "fire_article_lane",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "fire_post_lane",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "nodeGroups": [],
+    "authors": "no name",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "createdAt": "2026-11-18T21:26:09.444Z",
+    "updatedAt": "2026-11-18T21:26:09.444Z"
+  },
+  "activeVersionId": "506c99d2-12da-48b5-ab4e-137a0f0ff0ad",
+  "connections": {
+    "probe_webhook": {
+      "main": [
+        [
+          {
+            "node": "pick_target",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "pick_target": {
+      "main": [
+        [
+          {
+            "node": "switch_target",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "switch_target": {
+      "main": [
+        [
+          {
+            "node": "fire_article_lane",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "fire_post_lane",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2026-11-18T21:26:09.444Z",
+  "id": "sOIx1RaL84em2FhE",
+  "isArchived": false,
+  "meta": null,
+  "name": "Probe Writer Lanes",
+  "nodeGroups": [],
+  "nodes": [
+    {
+      "id": "p1",
+      "name": "probe_webhook",
+      "webhookId": "probe-writer-lanes-wh",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "probe-writer-lanes",
+        "responseMode": "onReceived",
+        "options": {}
+      }
+    },
+    {
+      "id": "p2",
+      "name": "pick_target",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const target = String($json.body && $json.body.target || '').trim().toLowerCase();\nreturn [{ json: { target } }];"
+      }
+    },
+    {
+      "id": "p3",
+      "name": "switch_target",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "t-article",
+                    "leftValue": "={{ $json.target }}",
+                    "rightValue": "article",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "version": 2,
+                  "leftValue": "",
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "t-post",
+                    "leftValue": "={{ $json.target }}",
+                    "rightValue": "post",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "p4",
+      "name": "fire_article_lane",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        660,
+        -80
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "sKsjxDDW40TATaS6",
+          "mode": "id",
+          "cachedResultName": "Article Content Writer"
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      }
+    },
+    {
+      "id": "p5",
+      "name": "fire_post_lane",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        660,
+        80
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "oxARWWyxenKgmv6A",
+          "mode": "id",
+          "cachedResultName": "LinkedIn Post Sharing"
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      }
+    }
+  ],
+  "pinData": null,
+  "settings": {
+    "errorWorkflow": "fejq5nN6LP3F820w",
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "role": "workflow:owner",
+      "workflowId": "sOIx1RaL84em2FhE",
+      "projectId": "zcGU09G6dy4Oah3l",
+      "createdAt": "2026-11-18T21:26:09.444Z",
+      "updatedAt": "2026-11-18T21:26:09.444Z"
+    }
+  ],
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2026-11-18T21:26:09.444Z",
+  "versionId": "506c99d2-12da-48b5-ab4e-137a0f0ff0ad"
+}

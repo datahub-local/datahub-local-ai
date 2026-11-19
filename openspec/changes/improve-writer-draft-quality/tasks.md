@@ -232,5 +232,17 @@ here too.
       of a block the session verifiably read. The unwrap now unescapes the truncated
       wrapper best-effort; the live block matches as `mode: "quoted"`. Suite 102/102 with
       a fails-without-the-change check.
-- [ ] 10.6 Rebuild the writer image, pin the digest (the CI pin job), roll the pod, and
+- [x] 10.6 Rebuild the writer image, pin the digest (the CI pin job), roll the pod, and
       re-run the row 4 test with the owner's `ARTICLE_FEEDBACK` in place.
+- [x] 10.7 **Blocks serve the outline's outcome** (owner review of the first new-image
+      draft, 2026-11-19): a comparison pasted three shell one-liners that carried none of
+      the deciding axes. `article_task.md`'s block rule no longer sets a quota —
+      walk-throughs and how-tos earn blocks; a comparison, decision or analysis carries a
+      block only when the command itself is the axis being compared; `article_structures.md`
+      states the same on its one-block rule. The approved outline's outcome is the arbiter.
+- [ ] 10.8 The research rule should tell the writer to read a truncated scrape's spill
+      file: the lint-page scrape was cut by the tool-output cap, its full text spilled to
+      a file the model never read, and the `[sqlfluff]` block it wrote from memory was
+      correctly flagged unsourced by the audit — then incorrectly kept by the improver.
+      Two gaps: the spill-read instruction in `article_task.md`, and the improver's
+      contract on unapplied findings. Found live 2026-11-19.

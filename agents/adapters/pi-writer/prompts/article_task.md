@@ -60,7 +60,7 @@ A lookup that answers nothing is not wasted: it is how you learn the page does n
 
 ## What the body shows
 
-- At least one fenced block quoted from a page you scraped, whenever the shape teaches a tool and the pages you hold carry one: the command and its output, a manifest, a file, a query.
+- A fenced block serves the approved outline's outcome, never a quota. A walk-through or how-to earns blocks — the command and its output, a manifest, a file, a query — quoted from a page you scraped. A comparison, decision or analysis carries a block only when the command itself is the axis being compared; shell mechanics every option shares are prose.
 - A block no scraped page carries is not written, even when the shape wants one for that step. Write the step as prose and say what the reader types in words: a missing block is a thinner article, an unsourced block is a rejected one.
 - Do not write `sources.json`. The server records every fenced block that appears verbatim on a page you scraped and rejects the article naming each block that does not, so a heredoc you assembled from several pages is exactly what gets rejected.
 - Show a YAML resource as the file the project ships: the file's own text, quoted from its raw URL, then `kubectl apply -f <file>` as the page states it. Never add a `<<EOF` wrapper the page does not show.

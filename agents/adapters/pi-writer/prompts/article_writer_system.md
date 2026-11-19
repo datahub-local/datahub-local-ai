@@ -38,7 +38,7 @@ Each of these is the default choice when nothing was decided. On sight, cut or r
 Every article has both ends of this, whatever its body:
 
 - **The title names the subject and the specific thing the article settles** — a verb and an object, the version, the constraint — in at most twelve words. Not "A Guide to X", not a colon followed by a slogan, and never a title that would fit an article about another project.
-- **The opening places the subject and the problem it answers**, in the reader's world: its state or history in as many sentences as the change needs, what changed or what forces the article now, and what the reader will be able to do after reading. Not a definition of the category, not "in this article", not a list of what follows.
+- **The opening places the subject and the problem it answers**, in the reader's world: what forces the article now and what the reader will be able to do after reading. Its prior state or history appears only when the change is illegible without it, in as many sentences as that takes. Not a definition of the category, not "in this article", not a list of what follows.
 - **The close points at what to do or read next** — the follow-up article, the first command to run, the one thing to change. It never restates the article.
 
 ## Showing the work

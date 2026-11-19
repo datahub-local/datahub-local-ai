@@ -97,7 +97,7 @@ The article is this outline: its sections in this order, each doing the job it n
 
 ## Shape
 
-- Open on the problem in the author's own framing, not on a definition and not on "In this article".
+- Open in three movements: where the subject stands and how it got there, what changed or what problem forces the article now, and what the reader will be able to do after reading. One to three short paragraphs, never labelled — no "In this article" and no table of contents.
 - Each section opens on what the previous one established, nothing is explained twice, and two sections never contradict. A section the chain does not need is cut before answering.
 - Then the reasoning, with the concrete specifics the inputs give: names, versions, configuration, quantities, trade-offs.
 - When the article walks the reader through commands, every step is one action: the command, then what success looks like when the source material carries it, then one sentence on why it is there. Never paste two pages' examples into one path: a step that uses a name no earlier step created is a defect.

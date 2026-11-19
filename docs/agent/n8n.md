@@ -1319,8 +1319,8 @@ parsers read every answer (`$input.all()`), pair each with its source through n8
 against the plan. A `.first()` anywhere in this chain shipped one blob for two assets (execution
 17163, 2026-11-19); `collect_tree_entries`' count assertion caught it and stays as the regression
 detector. `create_blobs` keeps each item (its response is taken as a file), so the tree step pairs
-the blob sha with that item's own path and asserts the byte count it was sent, rather than trusting
-the order of the two branches.
+the blob sha with that item's own path rather than trusting the order of the two branches; the blob
+API answers `{sha, url}` and no size, so the path, not a byte count, is the identity.
 
 **A row whose assets are all approved publishes when its article is re-approved, instead of failing
 the pending check.** The draft branch ended at `read_draft_for_assets` unconditionally, and

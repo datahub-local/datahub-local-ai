@@ -2344,12 +2344,12 @@
           "workflowInputs": {
             "mappingMode": "defineBelow",
             "value": {
-              "CONTENT": "={{ ($('select_article_to_post').item.json.RATIONALE ? \"The article's concrete detail: \" + ($('select_article_to_post').item.json.RATIONALE || '') + \"\\n\\n\" : '') + $('execute_post_creator').item.json.text }}",
+              "CONTENT": "={{ $('execute_post_creator').item.json.text }}",
               "ASSET_TYPES": "animation_linkedin_video",
               "FEEDBACK": "={{ $('build_retry_feedback').isExecuted ? $('build_retry_feedback').last().json.FEEDBACK : ($('notification_retry_or_cancel_animation').isExecuted ? ($('notification_retry_or_cancel_animation').last().json.data.Feedback || '') : '') }}",
               "FORCE": "={{ $('select_article_to_post').item.json.VISUAL_FORM || 'auto' }}",
               "SCENES": "={{ String($('select_article_to_post').item.json.SCENES || '') }}",
-              "SESSION_ID": "=lips-{{ $('select_article_to_post').item.json.row_number }}"
+              "SESSION_ID": "={{ $('build_hook_columns').first().json.STUDIO_SESSION_ID }}"
             },
             "matchingColumns": [],
             "schema": [
@@ -3099,7 +3099,7 @@
           -768
         ],
         "parameters": {
-          "jsCode": "// The writer classified on this turn, so its choice becomes the row's. HOOK and the\n// registry's visual defaults for it are written before the text approval, which is what\n// the animated branch, the still fallback and the review read. The snapshot this run\n// selected is stamped too: those branches read $('select_article_to_post').item.json, and\n// a sheet write alone would not reach an item read at the top of the run. Both status\n// columns stay untouched; a Cancel at the approval leaves these cells and the row is\n// CANCELED there anyway.\nconst row = $('select_article_to_post').first().json;\nconst draft = $('execute_post_creator').first().json || {};\nconst HOOK = String(draft.HOOK || '').trim().toUpperCase();\nconst VISUAL_FORM = String(draft.VISUAL_FORM || '').trim().toLowerCase();\nconst SCENES = String(draft.SCENES == null ? '' : draft.SCENES).trim();\nif (!HOOK) {\n  throw new Error('the post creator returned no hook: row ' + row.row_number + ' would publish without its classification');\n}\nrow.HOOK = HOOK;\nrow.VISUAL_FORM = VISUAL_FORM;\nrow.SCENES = SCENES;\nconsole.log('build_hook_columns: row ' + row.row_number + ' ' + HOOK + ' / ' + (VISUAL_FORM || 'auto') + ' / scenes ' + (SCENES || '0'));\nreturn [{ json: { row_number: row.row_number, HOOK, VISUAL_FORM, SCENES } }];\n"
+          "jsCode": "// The writer classified on this turn, so its choice becomes the row's. HOOK and the\n// registry's visual defaults for it are written before the text approval, which is what\n// the animated branch, the still fallback and the review read. The snapshot this run\n// selected is stamped too: those branches read $('select_article_to_post').item.json, and\n// a sheet write alone would not reach an item read at the top of the run. Both status\n// columns stay untouched; a Cancel at the approval leaves these cells and the row is\n// CANCELED there anyway.\nconst row = $('select_article_to_post').first().json;\nconst draft = $('execute_post_creator').first().json || {};\nconst HOOK = String(draft.HOOK || '').trim().toUpperCase();\nconst VISUAL_FORM = String(draft.VISUAL_FORM || '').trim().toLowerCase();\nconst SCENES = String(draft.SCENES == null ? '' : draft.SCENES).trim();\n// The video's session is the article, not the sheet row: expiring rows renumber the\n// queue, so a reused row number would edit the previous article's composition in place.\nconst url = String(row.URL || '').trim();\nif (!url) throw new Error('the row carries no URL: the video session cannot be named');\nconst hashed = [...url].reduce((h, ch) => Math.imul(h ^ ch.codePointAt(0), 16777619), 2166136261);\nconst STUDIO_SESSION_ID = 'lips-' + (hashed >>> 0).toString(36);\nif (!HOOK) {\n  throw new Error('the post creator returned no hook: row ' + row.row_number + ' would publish without its classification');\n}\nrow.HOOK = HOOK;\nrow.VISUAL_FORM = VISUAL_FORM;\nrow.SCENES = SCENES;\nconsole.log('build_hook_columns: row ' + row.row_number + ' ' + HOOK + ' / ' + (VISUAL_FORM || 'auto') + ' / scenes ' + (SCENES || '0'));\nreturn [{ json: { row_number: row.row_number, HOOK, VISUAL_FORM, SCENES, STUDIO_SESSION_ID } }];\n"
         }
       },
       {
@@ -7014,12 +7014,12 @@
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "CONTENT": "={{ ($('select_article_to_post').item.json.RATIONALE ? \"The article's concrete detail: \" + ($('select_article_to_post').item.json.RATIONALE || '') + \"\\n\\n\" : '') + $('execute_post_creator').item.json.text }}",
+            "CONTENT": "={{ $('execute_post_creator').item.json.text }}",
             "ASSET_TYPES": "animation_linkedin_video",
             "FEEDBACK": "={{ $('build_retry_feedback').isExecuted ? $('build_retry_feedback').last().json.FEEDBACK : ($('notification_retry_or_cancel_animation').isExecuted ? ($('notification_retry_or_cancel_animation').last().json.data.Feedback || '') : '') }}",
             "FORCE": "={{ $('select_article_to_post').item.json.VISUAL_FORM || 'auto' }}",
             "SCENES": "={{ String($('select_article_to_post').item.json.SCENES || '') }}",
-            "SESSION_ID": "=lips-{{ $('select_article_to_post').item.json.row_number }}"
+            "SESSION_ID": "={{ $('build_hook_columns').first().json.STUDIO_SESSION_ID }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -7769,7 +7769,7 @@
         -768
       ],
       "parameters": {
-        "jsCode": "// The writer classified on this turn, so its choice becomes the row's. HOOK and the\n// registry's visual defaults for it are written before the text approval, which is what\n// the animated branch, the still fallback and the review read. The snapshot this run\n// selected is stamped too: those branches read $('select_article_to_post').item.json, and\n// a sheet write alone would not reach an item read at the top of the run. Both status\n// columns stay untouched; a Cancel at the approval leaves these cells and the row is\n// CANCELED there anyway.\nconst row = $('select_article_to_post').first().json;\nconst draft = $('execute_post_creator').first().json || {};\nconst HOOK = String(draft.HOOK || '').trim().toUpperCase();\nconst VISUAL_FORM = String(draft.VISUAL_FORM || '').trim().toLowerCase();\nconst SCENES = String(draft.SCENES == null ? '' : draft.SCENES).trim();\nif (!HOOK) {\n  throw new Error('the post creator returned no hook: row ' + row.row_number + ' would publish without its classification');\n}\nrow.HOOK = HOOK;\nrow.VISUAL_FORM = VISUAL_FORM;\nrow.SCENES = SCENES;\nconsole.log('build_hook_columns: row ' + row.row_number + ' ' + HOOK + ' / ' + (VISUAL_FORM || 'auto') + ' / scenes ' + (SCENES || '0'));\nreturn [{ json: { row_number: row.row_number, HOOK, VISUAL_FORM, SCENES } }];\n"
+        "jsCode": "// The writer classified on this turn, so its choice becomes the row's. HOOK and the\n// registry's visual defaults for it are written before the text approval, which is what\n// the animated branch, the still fallback and the review read. The snapshot this run\n// selected is stamped too: those branches read $('select_article_to_post').item.json, and\n// a sheet write alone would not reach an item read at the top of the run. Both status\n// columns stay untouched; a Cancel at the approval leaves these cells and the row is\n// CANCELED there anyway.\nconst row = $('select_article_to_post').first().json;\nconst draft = $('execute_post_creator').first().json || {};\nconst HOOK = String(draft.HOOK || '').trim().toUpperCase();\nconst VISUAL_FORM = String(draft.VISUAL_FORM || '').trim().toLowerCase();\nconst SCENES = String(draft.SCENES == null ? '' : draft.SCENES).trim();\n// The video's session is the article, not the sheet row: expiring rows renumber the\n// queue, so a reused row number would edit the previous article's composition in place.\nconst url = String(row.URL || '').trim();\nif (!url) throw new Error('the row carries no URL: the video session cannot be named');\nconst hashed = [...url].reduce((h, ch) => Math.imul(h ^ ch.codePointAt(0), 16777619), 2166136261);\nconst STUDIO_SESSION_ID = 'lips-' + (hashed >>> 0).toString(36);\nif (!HOOK) {\n  throw new Error('the post creator returned no hook: row ' + row.row_number + ' would publish without its classification');\n}\nrow.HOOK = HOOK;\nrow.VISUAL_FORM = VISUAL_FORM;\nrow.SCENES = SCENES;\nconsole.log('build_hook_columns: row ' + row.row_number + ' ' + HOOK + ' / ' + (VISUAL_FORM || 'auto') + ' / scenes ' + (SCENES || '0'));\nreturn [{ json: { row_number: row.row_number, HOOK, VISUAL_FORM, SCENES, STUDIO_SESSION_ID } }];\n"
       }
     },
     {

@@ -564,6 +564,10 @@ the automated gate. The **brief carries the motion grammar**, from the one commi
 change, live on push, and it is not restated in the workflow. The brief also carries the
 request's `FEEDBACK` (a reviewer's correction) and `EXTRA_PROMPT` (the caller's free
 direction) verbatim, appended last, so a rejection reaches the composer on the next turn.
+It also carries `prompts/visual_scene.md` for every scene-bearing type, whose rule is that
+the composition summarises the content and every claim and number on screen traces to a
+sentence in it; `prompts/visual_review_composition.md` gives the critic the same rule, so
+copy the content does not support is a finding rather than a matter of taste.
 The image **installs the engine from `package.json` and takes its contract from the
 binary**: the composer runs `hyperframes docs compositions|data-attributes|gsap|rendering`
 (and `troubleshooting` when a render fails), and `docker build` asserts those topics exist at
@@ -891,12 +895,23 @@ Four things about the branch are deliberate:
   unanswered failure forever.
 - **A rejection continues the thread.** A post has one media asset, so nothing needs
   keeping in step; the retry form's feedback is passed straight back to the studio as
-  `FEEDBACK`, and the animated branch names a session derived from the article
-  (`lips-<row_number>`), so the retry *edits* the composition the rejection named instead of
-  authoring a new one. This reverses the earlier "free to re-author" stance, which was
-  chosen when the composer could not see its own previous work; the cost of losing an
-  approved composition now outweighs the freedom, and a caller that genuinely wants a fresh
-  take sends no `SESSION_ID`. See *A session is a thread* above.
+  `FEEDBACK`, and the animated branch names a session derived from the article — an
+  FNV-1a hash of its URL (`lips-<hash>`), the same identity the post session uses, because
+  a row number moves when expiring rows renumber the queue and a reused row would make the
+  retry *edit the previous article's* composition. So the retry edits the composition the
+  rejection named instead of authoring a new one. This reverses the earlier "free to
+  re-author" stance, which was chosen when the composer could not see its own previous
+  work; the cost of losing an approved composition now outweighs the freedom, and a caller
+  that genuinely wants a fresh take sends no `SESSION_ID`. See *A session is a thread* above.
+- **The video is briefed with the post alone, because it is the post's summary.** The
+  still path hands the image model the article's evidence line as its own `EVIDENCE` field,
+  where the prompt makes it one anchored fact; the animated branch used to prepend the same
+  line to `CONTENT`, and a brief that opens with an article-level fact is how a post's video
+  became an explainer of the article (2026-11-20: `lips-60` titled
+  "The ticker you can trust" against a post whose claim was conditional, and a scene
+  asserting the lakehouse is "not the source"). The composer now receives the post text and
+  `prompts/visual_scene.md`'s rule that the content is the only source, and the critic
+  judges fidelity against it.
 - **The reviewer sees the motion**: the asset is uploaded to Slack before the double
   approval, and the approval names the studio run, the frame count and the content type.
 

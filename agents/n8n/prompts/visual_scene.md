@@ -11,6 +11,18 @@ read. Scenes play in the order the storyboard names.
 - A scene has no fixed length; give each the time its idea needs to read, and keep the
   composition's total to the declared duration.
 
+## The content is the only source
+
+The composition summarizes the content the brief carries. That content's own claim is the
+spine — the outcome, the condition, the figure it states — and the scenes carry it.
+
+- Every claim and every number on screen traces to a sentence in the content. A claim, a
+  role, a comparison or a figure the content does not state is a defect, even when it is
+  true of the subject.
+- Keep the content's qualifications. A claim made with a condition keeps it: never drop
+  the condition, invert a role, or promote "only when X" to always.
+- A scene may compress the content; it may not add to it.
+
 ## Copy on screen
 
 A clip is watched, not read: the scene leaves before anyone finishes a sentence, so the

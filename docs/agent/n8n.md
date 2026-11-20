@@ -1291,7 +1291,9 @@ heading and the section's text, and everything downstream — `split_pending_typ
 `build_commit_files` — reads that plan. The studio is asked for the registry type `figure` once per
 slot with the section as the brief, so five figures are five sections, not five readings of the
 opening; the row keeps the slot name (`figure_2`), so its own review, S3 key and committed path stay
-separate. `build_commit_files` replaces the k-th marker with the `figure_<k>` reference and refuses
+separate. `split_assets` reads the slot per studio answer, from the answer's item link back to
+`split_pending_types`: a hero and a figure pending together are two calls, and reading the first
+call's slot once for the whole node stored the figure under the hero's type. `build_commit_files` replaces the k-th marker with the `figure_<k>` reference and refuses
 the commit when the marker count and the row count disagree. `retire_figures` cancels the previous
 draft's `figure_*` rows when an article is re-approved, because a new draft can move or drop a slot;
 the hero keeps its approval.

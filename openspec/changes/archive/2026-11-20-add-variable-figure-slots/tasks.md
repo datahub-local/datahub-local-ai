@@ -60,6 +60,8 @@
       active.
 - [x] 5.5 `openspec validate --all` and `node --test 'agents/adapters/pi-writer/test/*.test.mjs'`.
 
-- [ ] 5.6 Rebuild and publish the `pi-writer` image for the prompt change (`MAX_FIGURES`, the hero and
+- [x] 5.6 Rebuild and publish the `pi-writer` image for the prompt change (`MAX_FIGURES`, the hero and
       figure contract) and pin its digest before the drafting turn can place figure slots.
-      `blocked by` the image pipeline, as in the previous adapter change. `[UNVERIFIED]`
+      `blocked by` the image pipeline, as in the previous adapter change. **Superseded**: the image
+      has been rebuilt and bot-pinned three times since (2026-11-18 `6351a258…`, 2026-11-19
+      `a81b2f9b…` and `392e2439…`), and every later drafting run used the newer image.

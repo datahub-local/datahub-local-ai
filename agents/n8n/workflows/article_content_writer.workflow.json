@@ -4567,7 +4567,7 @@
           416
         ],
         "parameters": {
-          "jsCode": "// The retry is only worth anything if the second PATCH also failed: a first failure means the\n// branch moved, and the tree and commit above were rebuilt on the branch's new head. A second\n// failure is reported rather than looped, which is what the spec asks for.\nconst resp = $input.first().json || {};\nif (resp.error || resp.message) {\n  throw new Error('the commit could not be fast-forwarded twice: ' + String(resp.message || resp.error).slice(0, 300));\n}\nreturn [{ json: { ...$('collect_tree_entries').first().json, COMMIT_SHA: resp.sha || ($('create_commit_again').isExecuted ? $('create_commit_again').item.json.sha : $('create_commit').item.json.sha) } }];\n"
+          "jsCode": "// The retry is only worth anything if the second PATCH also failed: a first failure means the\n// branch moved, and the tree and commit above were rebuilt on the branch's new head. A second\n// failure is reported rather than looped, which is what the spec asks for.\nconst resp = $input.first().json || {};\nif (resp.error || resp.message) {\n  throw new Error('the commit could not be fast-forwarded twice: ' + String(resp.message || resp.error).slice(0, 300));\n}\nreturn [{ json: { ...$('collect_tree_entries').first().json, COMMIT_SHA: resp.sha || ($('create_commit_again').isExecuted ? $('create_commit_again').first().json.sha : $('create_commit').first().json.sha) } }];\n"
         }
       },
       {
@@ -4599,10 +4599,10 @@
           "columns": {
             "mappingMode": "defineBelow",
             "value": {
-              "row_number": "={{ $('select_article_to_queue').item.json.row_number }}",
+              "row_number": "={{ $('select_article_to_queue').first().json.row_number }}",
               "STATUS": "PUBLISHED",
               "PUBLISHED_URL": "={{ $('build_commit_files').first().json.PUBLISHED_URL }}",
-              "COMMIT_REF": "={{ $('create_commit_again').isExecuted ? $('create_commit_again').item.json.sha : $('create_commit').item.json.sha }}",
+              "COMMIT_REF": "={{ $('create_commit_again').isExecuted ? $('create_commit_again').first().json.sha : $('create_commit').first().json.sha }}",
               "PUBLISHED_AT": "={{ (new Date()).toISOString() }}",
               "ERROR": "",
               "UPDATE_DATE": "={{ (new Date()).toISOString() }}"
@@ -5007,7 +5007,7 @@
             "mode": "list",
             "cachedResultName": "workflows"
           },
-          "text": "=Published row {{ $('select_article_to_queue').item.json.row_number }}: {{ $('build_commit_files').first().json.PUBLISHED_URL }} (commit {{ $('create_commit').item.json.sha }}, {{ $('collect_tree_entries').first().json.FILE_COUNT }} files, one commit)",
+          "text": "=Published row {{ $('select_article_to_queue').first().json.row_number }}: {{ $('build_commit_files').first().json.PUBLISHED_URL }} (commit {{ $('create_commit').first().json.sha }}, {{ $('collect_tree_entries').first().json.FILE_COUNT }} files, one commit)",
           "otherOptions": {
             "includeLinkToWorkflow": true
           }
@@ -12493,7 +12493,7 @@
         416
       ],
       "parameters": {
-        "jsCode": "// The retry is only worth anything if the second PATCH also failed: a first failure means the\n// branch moved, and the tree and commit above were rebuilt on the branch's new head. A second\n// failure is reported rather than looped, which is what the spec asks for.\nconst resp = $input.first().json || {};\nif (resp.error || resp.message) {\n  throw new Error('the commit could not be fast-forwarded twice: ' + String(resp.message || resp.error).slice(0, 300));\n}\nreturn [{ json: { ...$('collect_tree_entries').first().json, COMMIT_SHA: resp.sha || ($('create_commit_again').isExecuted ? $('create_commit_again').item.json.sha : $('create_commit').item.json.sha) } }];\n"
+        "jsCode": "// The retry is only worth anything if the second PATCH also failed: a first failure means the\n// branch moved, and the tree and commit above were rebuilt on the branch's new head. A second\n// failure is reported rather than looped, which is what the spec asks for.\nconst resp = $input.first().json || {};\nif (resp.error || resp.message) {\n  throw new Error('the commit could not be fast-forwarded twice: ' + String(resp.message || resp.error).slice(0, 300));\n}\nreturn [{ json: { ...$('collect_tree_entries').first().json, COMMIT_SHA: resp.sha || ($('create_commit_again').isExecuted ? $('create_commit_again').first().json.sha : $('create_commit').first().json.sha) } }];\n"
       }
     },
     {
@@ -12525,10 +12525,10 @@
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "row_number": "={{ $('select_article_to_queue').item.json.row_number }}",
+            "row_number": "={{ $('select_article_to_queue').first().json.row_number }}",
             "STATUS": "PUBLISHED",
             "PUBLISHED_URL": "={{ $('build_commit_files').first().json.PUBLISHED_URL }}",
-            "COMMIT_REF": "={{ $('create_commit_again').isExecuted ? $('create_commit_again').item.json.sha : $('create_commit').item.json.sha }}",
+            "COMMIT_REF": "={{ $('create_commit_again').isExecuted ? $('create_commit_again').first().json.sha : $('create_commit').first().json.sha }}",
             "PUBLISHED_AT": "={{ (new Date()).toISOString() }}",
             "ERROR": "",
             "UPDATE_DATE": "={{ (new Date()).toISOString() }}"
@@ -12933,7 +12933,7 @@
           "mode": "list",
           "cachedResultName": "workflows"
         },
-        "text": "=Published row {{ $('select_article_to_queue').item.json.row_number }}: {{ $('build_commit_files').first().json.PUBLISHED_URL }} (commit {{ $('create_commit').item.json.sha }}, {{ $('collect_tree_entries').first().json.FILE_COUNT }} files, one commit)",
+        "text": "=Published row {{ $('select_article_to_queue').first().json.row_number }}: {{ $('build_commit_files').first().json.PUBLISHED_URL }} (commit {{ $('create_commit').first().json.sha }}, {{ $('collect_tree_entries').first().json.FILE_COUNT }} files, one commit)",
         "otherOptions": {
           "includeLinkToWorkflow": true
         }

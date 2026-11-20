@@ -1320,7 +1320,11 @@ against the plan. A `.first()` anywhere in this chain shipped one blob for two a
 17163, 2026-11-19); `collect_tree_entries`' count assertion caught it and stays as the regression
 detector. `create_blobs` keeps each item (its response is taken as a file), so the tree step pairs
 the blob sha with that item's own path rather than trusting the order of the two branches; the blob
-API answers `{sha, url}` and no size, so the path, not a byte count, is the identity.
+API answers `{sha, url}` and no size, so the path, not a byte count, is the identity. The terminal
+nodes — `record_published`, `send_published_notification`, `check_ref_retry` — read the row and the
+commit sha with `.first()`: the commit fan-in ends the paired-item chain at `plan_asset_uploads`,
+which emits new items without a link, so `$('select_article_to_queue').item` throws "Paired item
+data … unavailable" *after* the commit has landed (execution 17189, 2026-11-20).
 
 **A row whose assets are all approved publishes when its article is re-approved, instead of failing
 the pending check.** The draft branch ended at `read_draft_for_assets` unconditionally, and

@@ -2377,7 +2377,7 @@
           "workflowInputs": {
             "mappingMode": "defineBelow",
             "value": {
-              "CONTENT": "={{ $('execute_post_creator').item.json.text }}",
+              "CONTENT": "={{ $('execute_post_creator').item.json.text + \"\\n\\nSource: \" + String($('select_article_to_post').item.json.URL || '').replace(/^https?:\\/\\/(www\\.)?/i, '').split('/')[0] }}",
               "ASSET_TYPES": "animation_linkedin_video",
               "FEEDBACK": "={{ $('build_retry_feedback').isExecuted ? $('build_retry_feedback').last().json.FEEDBACK : ($('notification_retry_or_cancel_animation').isExecuted && $('notification_retry_or_cancel_animation').last().json.data ? ((String($('notification_retry_or_cancel_animation').last().json.data.Directive || '').trim() && String($('notification_retry_or_cancel_animation').last().json.data.Directive || '').trim() !== 'Other') ? '[' + String($('notification_retry_or_cancel_animation').last().json.data.Directive || '').trim() + '] ' : '') + String($('notification_retry_or_cancel_animation').last().json.data.Feedback || '') : '') }}",
               "FORCE": "={{ $('select_article_to_post').item.json.VISUAL_FORM || 'auto' }}",
@@ -7113,7 +7113,7 @@
         "workflowInputs": {
           "mappingMode": "defineBelow",
           "value": {
-            "CONTENT": "={{ $('execute_post_creator').item.json.text }}",
+            "CONTENT": "={{ $('execute_post_creator').item.json.text + \"\\n\\nSource: \" + String($('select_article_to_post').item.json.URL || '').replace(/^https?:\\/\\/(www\\.)?/i, '').split('/')[0] }}",
             "ASSET_TYPES": "animation_linkedin_video",
             "FEEDBACK": "={{ $('build_retry_feedback').isExecuted ? $('build_retry_feedback').last().json.FEEDBACK : ($('notification_retry_or_cancel_animation').isExecuted && $('notification_retry_or_cancel_animation').last().json.data ? ((String($('notification_retry_or_cancel_animation').last().json.data.Directive || '').trim() && String($('notification_retry_or_cancel_animation').last().json.data.Directive || '').trim() !== 'Other') ? '[' + String($('notification_retry_or_cancel_animation').last().json.data.Directive || '').trim() + '] ' : '') + String($('notification_retry_or_cancel_animation').last().json.data.Feedback || '') : '') }}",
             "FORCE": "={{ $('select_article_to_post').item.json.VISUAL_FORM || 'auto' }}",

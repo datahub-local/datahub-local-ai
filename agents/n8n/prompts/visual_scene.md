@@ -39,5 +39,8 @@ finishes a sentence, so the words must land in the time it has.
   give the rest of the frame to the subject and its motion.
 - A label names a thing that moves or a part that matters; it is never a caption and
   never a second sentence.
+- When the brief ends with a `Source:` line, the closing scene prints that line exactly as
+  it is given and nothing else: no panel beside it, no second line, no rewording and no
+  placeholder. It is data, not copy to compose.
 - These govern what plays: a video, a GIF and a deck's rendered video. A slide the reader
   clicks through may carry its supporting points, and an SVG on a page may carry a label.

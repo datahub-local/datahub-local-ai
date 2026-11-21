@@ -469,7 +469,10 @@ export function transcodeArgs(format, { fps, width, height, frames, durationSeco
 // No model call, and no new dependency: Chromium and ffmpeg are what the render already uses.
 // The first sample is the opening scene: a clip is briefed to introduce its subject there,
 // and a quarter of a 30 s clip (7.5 s) skipped it, so a cold open was never in a still.
-export const DEFAULT_STILL_OFFSETS = [0.1, 0.4, 0.7];
+// Eight samples sit about three seconds apart, which is what makes the review cover a clip
+// rather than sample it: a 30 s clip with its seven scenes was seen in three moments and its
+// last frame, so a defect in any other scene reached the human unseen (2026-11-21).
+export const DEFAULT_STILL_OFFSETS = [0.08, 0.2, 0.32, 0.44, 0.56, 0.68, 0.8, 0.92];
 
 // The seek that reaches a clip's final frame. ffmpeg's `-sseof` shorter than one frame
 // interval exits 0 and writes NOTHING: on the 8 fps artifact this pipeline derives from 24

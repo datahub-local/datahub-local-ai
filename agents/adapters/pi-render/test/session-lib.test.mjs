@@ -385,13 +385,17 @@ test("stillArgs screenshots an animated document after its entrances run", () =>
 
 test("stillArgs samples a clip and always includes its final frame", () => {
   const jobs = stillArgs({ format: "mp4", runDir: "/runs/x", width: 1280, durationSeconds: 30 });
-  assert.deepEqual(jobs.map((j) => j.output), ["review-1.jpg", "review-2.jpg", "review-3.jpg", "review-final.jpg"]);
+  assert.deepEqual(
+    jobs.map((j) => j.output),
+    ["review-1.jpg", "review-2.jpg", "review-3.jpg", "review-4.jpg", "review-5.jpg", "review-6.jpg", "review-7.jpg", "review-8.jpg", "review-final.jpg"]
+  );
   assert.ok(jobs.every((j) => j.command === "ffmpeg" && j.mime === "image/jpeg"));
-  // The offsets are the declared duration's, and the last frame is seeked from the end.
-  // The first sample is the opening scene, where a clip is briefed to name its subject: a
-  // quarter of thirty seconds (7.5) skipped it, so the first still now lands at 3.0.
-  assert.ok(jobs[0].args.includes("3"), "a tenth of thirty seconds reaches the opening");
-  assert.ok(jobs[3].args.includes("-sseof"), "the final frame is not a timestamp guess");
+  // The offsets are the declared duration's, about three seconds apart so every scene of a
+  // 30 s clip is seen, and the last frame is seeked from the end. The first sample is the
+  // opening scene, where a clip is briefed to name its subject: a quarter of thirty seconds
+  // (7.5) skipped it, so the first still lands at 2.4.
+  assert.ok(jobs[0].args.includes("2.4"), "the first tenth of thirty seconds reaches the opening");
+  assert.ok(jobs[8].args.includes("-sseof"), "the final frame is not a timestamp guess");
   // A clip whose duration is unknown still yields its final frame rather than nothing.
   const bare = stillArgs({ format: "gif", runDir: "/runs/x" });
   assert.equal(bare.length, 1);

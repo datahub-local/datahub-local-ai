@@ -465,10 +465,10 @@ render already uses (Chromium for an SVG or a deck, `ffmpeg` frames for a clip, 
 always, since "nothing fully stops" means a frozen clip hides there) — and serves them beside
 the artifact, because the artifact is in the pod and the gateway cannot reach the pod's route.
 The workflow fetches them, asks a **different** vision model on the gateway
-(`opencode-go/glm-5.3-flash`, reusing `generate_image`'s bearer credential) with
+(`opencode-go/glm-5.3`, reusing `generate_image`'s bearer credential) with
 `prompts/visual_review_composition.md` and the brief the composer was given, and on findings
 takes another authoring turn **in the same session** with them as the reviewer's correction,
-bounded by `REVIEW_CYCLES` (2). **The critic's call is the workflow's, never the adapter's**: the
+bounded by `REVIEW_CYCLES` (3). **The critic's call is the workflow's, never the adapter's**: the
 agent renders and reports what it rendered, and deciding whether that is good is orchestration —
 an API call inside the adapter was the first shape and was rejected for putting a model
 dependency and an opinion inside the agent. The verdict is data (`VERDICT`, `RETRY`, and a
@@ -476,10 +476,17 @@ dependency and an opinion inside the agent. The verdict is data (`VERDICT`, `RET
 records the review as not run rather than failing the asset, and an unreadable verdict is a pass
 with the raw answer kept — the other direction spends every cycle and ships the same defect.
 What it cannot see is motion, which the framework's `check` gate owns, and the stills' bytes are
-the only bytes the review adds to the graph. **A critique is expensive and slow**: four stills took
-102 s on the first live call (2026-10-17), so the critic's node allows 300 s and — this matters more
-— carries `onError: continueRegularOutput`, because a critic that cannot answer must not fail the
-run it was checking. The first live review proved the cost of not having that: its second call hit a
+the only bytes the review adds to the graph. **A critique is expensive and slow**: four stills
+took 102 s on the first live call (2026-10-17), so the critic's node allows 600 s — raised with
+the wider sampling, because a call that times out is an unreadable verdict and therefore a
+pass — and it carries `onError: continueRegularOutput`, because a critic that cannot answer
+must not fail the run it was checking. **Coverage is what the review buys**: a clip used to be
+sampled at 0.1, 0.4 and 0.7 of its duration plus the final frame, so a 30 s clip with seven
+scenes was seen in three moments and its last frame — and the overlap, the arrow drawn before
+its boxes or the text outside its box that reached a human was in a scene the critic had never
+been shown (2026-11-21). It now samples eight moments about three seconds apart plus the final
+frame, which is at least one look at every scene of a seven-scene clip. The first live review
+proved the cost of not having `onError: continueRegularOutput`: its second call hit a
 120 s node timeout, the authoring run errored, and an asset that had already been fixed once died
 with it (execution 13762). One asset with one fix cycle is ≈ 18 minutes against ≈ 8 without. **A still of an animated
 document must be captured after its entrances run**: Chromium screenshots an SVG at t=0, so the
@@ -941,7 +948,11 @@ Five things about the branch are deliberate:
   "The ticker you can trust" against a post whose claim was conditional, and a scene
   asserting the lakehouse is "not the source"). The composer now receives the post text and
   `prompts/visual_scene.md`'s rule that the content is the only source, and the critic
-  judges fidelity against it.
+  judges fidelity against it. The brief ends with the source as data —
+  `Source: <host>`, derived from the row's URL by the video call, never typed into a
+  feedback note — and the closing scene prints it verbatim; before that the composer took
+  the word "website" from a reviewer's sentence literally and shipped `Source: website`
+  (execution 17458, 2026-11-21).
 - **The reviewer sees the motion**: the asset is uploaded to Slack before the double
   approval, and the approval names the studio run, the frame count and the content type.
 

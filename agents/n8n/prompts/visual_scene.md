@@ -25,14 +25,19 @@ spine — the outcome, the condition, the figure it states — and the scenes ca
 
 ## Copy on screen
 
-A clip is watched, not read: the scene leaves before anyone finishes a sentence, so the
-words must land in the time it has.
+A clip is watched, not read: a scene is read once, on a phone, and leaves before anyone
+finishes a sentence, so the words must land in the time it has.
 
-- One line per scene, six words at most, plus one figure when the idea is a number.
+- Everything visible counts against one budget: one line of six words at most, up to
+  three labels of one or two words naming what is shown, and one figure when the idea is
+  a number. No eyebrow, subtitle, legend, caption or closing line adds to it. At the ten
+  seconds a LinkedIn scene holds, that is what fits; a shorter scene carries less, and a
+  scene that needs more is two scenes or copy that gets cut — a smaller font never fits it.
 - Put the outcome on screen, not the explanation: "3x faster", "one pipeline", "zero
   retries". The sentence behind it belongs in the post text.
 - Type is the message. Size the line to be read at phone width in the first second, and
   give the rest of the frame to the subject and its motion.
-- One short label names a thing that moves; never caption it.
+- A label names a thing that moves or a part that matters; it is never a caption and
+  never a second sentence.
 - These govern what plays: a video, a GIF and a deck's rendered video. A slide the reader
   clicks through may carry its supporting points, and an SVG on a page may carry a label.

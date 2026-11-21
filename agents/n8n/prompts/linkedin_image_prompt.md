@@ -31,9 +31,9 @@ Hero:
 - The image prompt must state composition/camera, fused metaphor and anchor, lighting, background, accent color, wordmark/emblem/headline text, size and placement, the `@alvsanand` mark, relative size, and {{ IMAGE_ASPECT_RATIO }} portrait format.
 
 Infographic:
-- One idea, not a summary. Compose a single bold infographic: the headline as its title, three to five labelled blocks or steps, and arrows that show how they relate. Exactly one block or arrow is highlighted in the accent color; every other one stays dim. Nothing is decorative.
+- One idea, not a summary. Compose a single bold infographic: the headline as its title, three labelled blocks or steps, and arrows that show how they relate — every arrow starts on one block and ends on another, none points into empty space, and three blocks in a row carry two arrows. Exactly one block or arrow is highlighted in the accent color; every other one stays dim. Nothing is decorative.
 - Build each block, arrow and container out of the anchor material from the motif vocabulary above, so the diagram itself reads as software/data/AI rather than as a generic org chart. Render exactly in this style: {{ ART_DIRECTION }}.
-- Labels are exact quoted text in caps, 1–3 words each, at most five labels total, at most one short number per block. Never a paragraph, legend, axis, table, or a label smaller than the headline's half. No fake dashboards, fake UI, or dense charts.
+- Labels are exact quoted text in caps, 1–2 words each, at most three labels in all and at most one short number. Never a paragraph, legend, axis, table, caption or closing line, or a label smaller than the headline's half. No fake dashboards, fake UI, or dense charts.
 - State the layout (left-to-right flow, top-to-bottom stack, or hub with spokes), the block order, the arrow direction, which block or arrow carries the accent, the palette and {{ IMAGE_ASPECT_RATIO }} portrait format, and that every label sits fully inside the frame at large size.
 - The image prompt must state the infographic structure and layout, the fused subject material, lighting and background, accent color, wordmark/emblem/headline text, size and placement, the `@alvsanand` mark, and {{ IMAGE_ASPECT_RATIO }} portrait format.
 

@@ -578,8 +578,19 @@ request's `FEEDBACK` (a reviewer's correction) and `EXTRA_PROMPT` (the caller's 
 direction) verbatim, appended last, so a rejection reaches the composer on the next turn.
 It also carries `prompts/visual_scene.md` for every scene-bearing type, whose rule is that
 the composition summarises the content and every claim and number on screen traces to a
-sentence in it; `prompts/visual_review_composition.md` gives the critic the same rule, so
-copy the content does not support is a finding rather than a matter of taste.
+sentence in it. The same file owns the copy budget: a scene is read once, on a phone, in
+the ten seconds it holds, so one line of six words, up to three labels of one or two words
+and one figure, with no eyebrow, legend, caption or closing line on top — a scene that
+needs more is two scenes. The budget is measured, not aspirational: the 2026-11-20
+LinkedIn clip (`lips-60`) ran seven scenes in 31 seconds carrying up to a dozen labels
+plus an eyebrow and a verdict line each, about four seconds a scene, which is no time to
+read any of it. `prompts/visual_review_composition.md` gives the critic the content rule
+and the copy budget, and its geometry pass names shapes, not only glyphs — a shape on
+another shape, a label on a shape it does not belong to, a connector through a box it does
+not connect — because "anything printed on top of anything else" left an overlap between
+two cards or panels to inference. Arrows get their own item, because a well-drawn arrow
+can still be wrong: a head in empty space, a line that stops short of its box, a reversed
+direction, or a link the sequence needs and never draws (owner, 2026-11-21).
 The image **installs the engine from `package.json` and takes its contract from the
 binary**: the composer runs `hyperframes docs compositions|data-attributes|gsap|rendering`
 (and `troubleshooting` when a render fails), and `docker build` asserts those topics exist at
@@ -872,7 +883,10 @@ composer's form and `SCENES` carries a list's item count. `POST_MEDIA` is writte
 curator from the judge's intent and stays human-editable, so a person can force either way
 by editing it — one media column, not two. An animated row asks `Visual Studio` for
 `animation_linkedin_video` (mp4, the feed's 4:5 aspect) and attaches the approved asset; a
-blank or `STATIC` row takes the `LinkedIn Image Creator` path exactly as before.
+blank or `STATIC` row takes the `LinkedIn Image Creator` path exactly as before. That
+still is budgeted for a glance rather than a read — one headline, one wordmark and three
+labels of one or two words (`agents/n8n/prompts/linkedin_image_prompt.md`) — and it has no
+critic pass, so its prompt is the only gate on how much text reaches the image.
 
 Both media kinds pass through the same **decision point**, `if_video_publish`, which sits
 on the text approval's output and reads the asset's own `CONTENT_TYPE`, never the

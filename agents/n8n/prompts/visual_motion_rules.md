@@ -9,6 +9,9 @@ checklist to report back.
   stop; a move that eases to zero reads as frozen.
 - **Stagger entrances at offsets shorter than the animations they offset**, so an
   arrival reads as one overlapping wave instead of a queue.
+- **A connector follows its endpoints.** Draw an arrow only once both shapes it joins are
+  on screen, with each head on the shape's edge: an arrow that arrives before its boxes
+  points at nothing.
 - **Compound a property only when it tells one story** — position and scale moving one
   object. Do not stack unrelated changes on an element for their own sake.
 - **Overshoot belongs on transforms, never on a number.** A counter settles on its

@@ -589,8 +589,12 @@ and the copy budget, and its geometry pass names shapes, not only glyphs — a s
 another shape, a label on a shape it does not belong to, a connector through a box it does
 not connect — because "anything printed on top of anything else" left an overlap between
 two cards or panels to inference. Arrows get their own item, because a well-drawn arrow
-can still be wrong: a head in empty space, a line that stops short of its box, a reversed
-direction, or a link the sequence needs and never draws (owner, 2026-11-21).
+can still be wrong: it exists only between two shapes already on screen — both ends on a
+drawn shape, never an implied one or space where a box was meant to be — and it appears
+only once both are there, so an arrow drawn before its boxes have arrived is the same
+defect seen in an earlier still. A head in empty space, a line that stops short of its
+box, a reversed direction, or a link the sequence needs and never draws (owner,
+2026-11-21).
 The image **installs the engine from `package.json` and takes its contract from the
 binary**: the composer runs `hyperframes docs compositions|data-attributes|gsap|rendering`
 (and `troubleshooting` when a render fails), and `docker build` asserts those topics exist at
@@ -906,7 +910,7 @@ answered `201` from `linkedin_post_video` with `urn:li:ugcPost:75164018110257192
 back out of `x-restli-id`. The `animation_linkedin`
 GIF type stays available for a caller that wants the animated image.
 
-Four things about the branch are deliberate:
+Five things about the branch are deliberate:
 
 - **It branches on the asset, not the run.** The studio reports its run `STATUS: PARTIAL`
   whenever a requested type is unavailable, so `check_animation_result` tests the asset's
@@ -940,6 +944,15 @@ Four things about the branch are deliberate:
   judges fidelity against it.
 - **The reviewer sees the motion**: the asset is uploaded to Slack before the double
   approval, and the approval names the studio run, the frame count and the content type.
+
+**A visual rejection names a category as well as prose.** The video and still retry forms —
+and the article lane's asset form — carry the same `Directive` dropdown the post form uses:
+too much text, shapes overlap, arrow wrong or missing, hard to read, wrong focus, adds a
+claim not in the text, off-brand, other. The label is prepended to `FEEDBACK` as `[label]`,
+so the composer reads the category before the sentence, and the options are the critic's own
+items (`prompts/visual_review_composition.md`), so a person and the critic name a defect the
+same way. The render-failure form keeps free text only: the asset's failure reason is the
+correction there, not a rejected composition.
 
 The GIF type's budget (8 fps, 48 frames, 776 px = 36,130,560 pixels) is what keeps the GIF
 inside LinkedIn's documented cap of 500 frames or 36,152,320 pixels; frames and viewport

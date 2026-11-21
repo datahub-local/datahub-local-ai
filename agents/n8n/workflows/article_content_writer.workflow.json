@@ -2300,7 +2300,7 @@
             "value": {
               "CONTENT": "={{ $('read_draft_for_assets').first().json.ARTICLE_TEXT }}",
               "ASSET_TYPES": "={{ $json.ASSET_TYPE }}",
-              "FEEDBACK": "={{ $('notification_retry_or_cancel_asset').isExecuted ? ($('notification_retry_or_cancel_asset').last().json.data.Feedback || '') : '' }}",
+              "FEEDBACK": "={{ $('notification_retry_or_cancel_asset').isExecuted && $('notification_retry_or_cancel_asset').last().json.data ? ((String($('notification_retry_or_cancel_asset').last().json.data.Directive || '').trim() && String($('notification_retry_or_cancel_asset').last().json.data.Directive || '').trim() !== 'Other') ? '[' + String($('notification_retry_or_cancel_asset').last().json.data.Directive || '').trim() + '] ' : '') + String($('notification_retry_or_cancel_asset').last().json.data.Feedback || '') : '' }}",
               "EXTRA_PROMPT": "={{ $json.EXTRA_PROMPT || '' }}",
               "SESSION_ID": "={{ $json.SESSION_ID || ('blog-' + $json.ENTRY_ID) }}"
             },
@@ -2956,7 +2956,7 @@
             "mode": "list",
             "cachedResultName": "workflows"
           },
-          "message": "=Asset {{ $('split_assets').item.json.ASSET_TYPE }} for row {{ $('split_assets').item.json.row_number }} was not approved. Choose Retry or Cancel, and say what must change.",
+          "message": "=Asset {{ $('split_assets').item.json.ASSET_TYPE }} for row {{ $('split_assets').item.json.row_number }} was not approved. Choose Retry or Cancel, pick what is wrong, and say what must change.",
           "responseType": "customForm",
           "formFields": {
             "values": [
@@ -2970,6 +2970,39 @@
                     },
                     {
                       "option": "Cancel"
+                    }
+                  ]
+                },
+                "requiredField": true
+              },
+              {
+                "fieldLabel": "Directive",
+                "fieldType": "dropdown",
+                "fieldOptions": {
+                  "values": [
+                    {
+                      "option": "Too much text"
+                    },
+                    {
+                      "option": "Shapes overlap"
+                    },
+                    {
+                      "option": "Arrow wrong or missing"
+                    },
+                    {
+                      "option": "Hard to read"
+                    },
+                    {
+                      "option": "Wrong focus"
+                    },
+                    {
+                      "option": "Adds a claim not in the text"
+                    },
+                    {
+                      "option": "Off-brand"
+                    },
+                    {
+                      "option": "Other"
                     }
                   ]
                 },
@@ -10226,7 +10259,7 @@
           "value": {
             "CONTENT": "={{ $('read_draft_for_assets').first().json.ARTICLE_TEXT }}",
             "ASSET_TYPES": "={{ $json.ASSET_TYPE }}",
-            "FEEDBACK": "={{ $('notification_retry_or_cancel_asset').isExecuted ? ($('notification_retry_or_cancel_asset').last().json.data.Feedback || '') : '' }}",
+            "FEEDBACK": "={{ $('notification_retry_or_cancel_asset').isExecuted && $('notification_retry_or_cancel_asset').last().json.data ? ((String($('notification_retry_or_cancel_asset').last().json.data.Directive || '').trim() && String($('notification_retry_or_cancel_asset').last().json.data.Directive || '').trim() !== 'Other') ? '[' + String($('notification_retry_or_cancel_asset').last().json.data.Directive || '').trim() + '] ' : '') + String($('notification_retry_or_cancel_asset').last().json.data.Feedback || '') : '' }}",
             "EXTRA_PROMPT": "={{ $json.EXTRA_PROMPT || '' }}",
             "SESSION_ID": "={{ $json.SESSION_ID || ('blog-' + $json.ENTRY_ID) }}"
           },
@@ -10882,7 +10915,7 @@
           "mode": "list",
           "cachedResultName": "workflows"
         },
-        "message": "=Asset {{ $('split_assets').item.json.ASSET_TYPE }} for row {{ $('split_assets').item.json.row_number }} was not approved. Choose Retry or Cancel, and say what must change.",
+        "message": "=Asset {{ $('split_assets').item.json.ASSET_TYPE }} for row {{ $('split_assets').item.json.row_number }} was not approved. Choose Retry or Cancel, pick what is wrong, and say what must change.",
         "responseType": "customForm",
         "formFields": {
           "values": [
@@ -10896,6 +10929,39 @@
                   },
                   {
                     "option": "Cancel"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Directive",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Too much text"
+                  },
+                  {
+                    "option": "Shapes overlap"
+                  },
+                  {
+                    "option": "Arrow wrong or missing"
+                  },
+                  {
+                    "option": "Hard to read"
+                  },
+                  {
+                    "option": "Wrong focus"
+                  },
+                  {
+                    "option": "Adds a claim not in the text"
+                  },
+                  {
+                    "option": "Off-brand"
+                  },
+                  {
+                    "option": "Other"
                   }
                 ]
               },

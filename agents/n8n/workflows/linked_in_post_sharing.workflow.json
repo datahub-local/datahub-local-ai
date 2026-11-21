@@ -2057,7 +2057,7 @@
             "mode": "list",
             "cachedResultName": "workflows"
           },
-          "message": "=The image for {{ $('select_article_to_post').item.json.URL }} was not approved. Choose Retry or Cancel, and say what must change.",
+          "message": "=The image for {{ $('select_article_to_post').item.json.URL }} was not approved. Choose Retry or Cancel, pick what is wrong, and say what must change.",
           "responseType": "customForm",
           "formFields": {
             "values": [
@@ -2071,6 +2071,39 @@
                     },
                     {
                       "option": "Cancel"
+                    }
+                  ]
+                },
+                "requiredField": true
+              },
+              {
+                "fieldLabel": "Directive",
+                "fieldType": "dropdown",
+                "fieldOptions": {
+                  "values": [
+                    {
+                      "option": "Too much text"
+                    },
+                    {
+                      "option": "Shapes overlap"
+                    },
+                    {
+                      "option": "Arrow wrong or missing"
+                    },
+                    {
+                      "option": "Hard to read"
+                    },
+                    {
+                      "option": "Wrong focus"
+                    },
+                    {
+                      "option": "Adds a claim not in the text"
+                    },
+                    {
+                      "option": "Off-brand"
+                    },
+                    {
+                      "option": "Other"
                     }
                   ]
                 },
@@ -2117,7 +2150,7 @@
             "mappingMode": "defineBelow",
             "value": {
               "POST_CONTENT": "={{ $('execute_post_creator').item.json.text }}",
-              "FEEDBACK": "={{ $('notification_retry_or_cancel_image').isExecuted && $('notification_retry_or_cancel_image').last().json.data.Feedback ? $('notification_retry_or_cancel_image').last().json.data.Feedback : '' }}",
+              "FEEDBACK": "={{ $('notification_retry_or_cancel_image').isExecuted && $('notification_retry_or_cancel_image').last().json.data ? ((String($('notification_retry_or_cancel_image').last().json.data.Directive || '').trim() && String($('notification_retry_or_cancel_image').last().json.data.Directive || '').trim() !== 'Other') ? '[' + String($('notification_retry_or_cancel_image').last().json.data.Directive || '').trim() + '] ' : '') + String($('notification_retry_or_cancel_image').last().json.data.Feedback || '') : '' }}",
               "HOOK": "={{ $('select_article_to_post').item.json.HOOK || '' }}",
               "EVIDENCE": "={{ $('select_article_to_post').item.json.RATIONALE || '' }}"
             },
@@ -2346,7 +2379,7 @@
             "value": {
               "CONTENT": "={{ $('execute_post_creator').item.json.text }}",
               "ASSET_TYPES": "animation_linkedin_video",
-              "FEEDBACK": "={{ $('build_retry_feedback').isExecuted ? $('build_retry_feedback').last().json.FEEDBACK : ($('notification_retry_or_cancel_animation').isExecuted ? ($('notification_retry_or_cancel_animation').last().json.data.Feedback || '') : '') }}",
+              "FEEDBACK": "={{ $('build_retry_feedback').isExecuted ? $('build_retry_feedback').last().json.FEEDBACK : ($('notification_retry_or_cancel_animation').isExecuted && $('notification_retry_or_cancel_animation').last().json.data ? ((String($('notification_retry_or_cancel_animation').last().json.data.Directive || '').trim() && String($('notification_retry_or_cancel_animation').last().json.data.Directive || '').trim() !== 'Other') ? '[' + String($('notification_retry_or_cancel_animation').last().json.data.Directive || '').trim() + '] ' : '') + String($('notification_retry_or_cancel_animation').last().json.data.Feedback || '') : '') }}",
               "FORCE": "={{ $('select_article_to_post').item.json.VISUAL_FORM || 'auto' }}",
               "SCENES": "={{ String($('select_article_to_post').item.json.SCENES || '') }}",
               "SESSION_ID": "={{ $('build_hook_columns').first().json.STUDIO_SESSION_ID }}"
@@ -2612,7 +2645,7 @@
             "mode": "list",
             "cachedResultName": "workflows"
           },
-          "message": "=The animated infographic for {{ $('select_article_to_post').item.json.URL }} was not approved. Choose Retry or Cancel, and say what must change.",
+          "message": "=The animated infographic for {{ $('select_article_to_post').item.json.URL }} was not approved. Choose Retry or Cancel, pick what is wrong, and say what must change.",
           "responseType": "customForm",
           "formFields": {
             "values": [
@@ -2626,6 +2659,39 @@
                     },
                     {
                       "option": "Cancel"
+                    }
+                  ]
+                },
+                "requiredField": true
+              },
+              {
+                "fieldLabel": "Directive",
+                "fieldType": "dropdown",
+                "fieldOptions": {
+                  "values": [
+                    {
+                      "option": "Too much text"
+                    },
+                    {
+                      "option": "Shapes overlap"
+                    },
+                    {
+                      "option": "Arrow wrong or missing"
+                    },
+                    {
+                      "option": "Hard to read"
+                    },
+                    {
+                      "option": "Wrong focus"
+                    },
+                    {
+                      "option": "Adds a claim not in the text"
+                    },
+                    {
+                      "option": "Off-brand"
+                    },
+                    {
+                      "option": "Other"
                     }
                   ]
                 },
@@ -6727,7 +6793,7 @@
           "mode": "list",
           "cachedResultName": "workflows"
         },
-        "message": "=The image for {{ $('select_article_to_post').item.json.URL }} was not approved. Choose Retry or Cancel, and say what must change.",
+        "message": "=The image for {{ $('select_article_to_post').item.json.URL }} was not approved. Choose Retry or Cancel, pick what is wrong, and say what must change.",
         "responseType": "customForm",
         "formFields": {
           "values": [
@@ -6741,6 +6807,39 @@
                   },
                   {
                     "option": "Cancel"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Directive",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Too much text"
+                  },
+                  {
+                    "option": "Shapes overlap"
+                  },
+                  {
+                    "option": "Arrow wrong or missing"
+                  },
+                  {
+                    "option": "Hard to read"
+                  },
+                  {
+                    "option": "Wrong focus"
+                  },
+                  {
+                    "option": "Adds a claim not in the text"
+                  },
+                  {
+                    "option": "Off-brand"
+                  },
+                  {
+                    "option": "Other"
                   }
                 ]
               },
@@ -6787,7 +6886,7 @@
           "mappingMode": "defineBelow",
           "value": {
             "POST_CONTENT": "={{ $('execute_post_creator').item.json.text }}",
-            "FEEDBACK": "={{ $('notification_retry_or_cancel_image').isExecuted && $('notification_retry_or_cancel_image').last().json.data.Feedback ? $('notification_retry_or_cancel_image').last().json.data.Feedback : '' }}",
+            "FEEDBACK": "={{ $('notification_retry_or_cancel_image').isExecuted && $('notification_retry_or_cancel_image').last().json.data ? ((String($('notification_retry_or_cancel_image').last().json.data.Directive || '').trim() && String($('notification_retry_or_cancel_image').last().json.data.Directive || '').trim() !== 'Other') ? '[' + String($('notification_retry_or_cancel_image').last().json.data.Directive || '').trim() + '] ' : '') + String($('notification_retry_or_cancel_image').last().json.data.Feedback || '') : '' }}",
             "HOOK": "={{ $('select_article_to_post').item.json.HOOK || '' }}",
             "EVIDENCE": "={{ $('select_article_to_post').item.json.RATIONALE || '' }}"
           },
@@ -7016,7 +7115,7 @@
           "value": {
             "CONTENT": "={{ $('execute_post_creator').item.json.text }}",
             "ASSET_TYPES": "animation_linkedin_video",
-            "FEEDBACK": "={{ $('build_retry_feedback').isExecuted ? $('build_retry_feedback').last().json.FEEDBACK : ($('notification_retry_or_cancel_animation').isExecuted ? ($('notification_retry_or_cancel_animation').last().json.data.Feedback || '') : '') }}",
+            "FEEDBACK": "={{ $('build_retry_feedback').isExecuted ? $('build_retry_feedback').last().json.FEEDBACK : ($('notification_retry_or_cancel_animation').isExecuted && $('notification_retry_or_cancel_animation').last().json.data ? ((String($('notification_retry_or_cancel_animation').last().json.data.Directive || '').trim() && String($('notification_retry_or_cancel_animation').last().json.data.Directive || '').trim() !== 'Other') ? '[' + String($('notification_retry_or_cancel_animation').last().json.data.Directive || '').trim() + '] ' : '') + String($('notification_retry_or_cancel_animation').last().json.data.Feedback || '') : '') }}",
             "FORCE": "={{ $('select_article_to_post').item.json.VISUAL_FORM || 'auto' }}",
             "SCENES": "={{ String($('select_article_to_post').item.json.SCENES || '') }}",
             "SESSION_ID": "={{ $('build_hook_columns').first().json.STUDIO_SESSION_ID }}"
@@ -7282,7 +7381,7 @@
           "mode": "list",
           "cachedResultName": "workflows"
         },
-        "message": "=The animated infographic for {{ $('select_article_to_post').item.json.URL }} was not approved. Choose Retry or Cancel, and say what must change.",
+        "message": "=The animated infographic for {{ $('select_article_to_post').item.json.URL }} was not approved. Choose Retry or Cancel, pick what is wrong, and say what must change.",
         "responseType": "customForm",
         "formFields": {
           "values": [
@@ -7296,6 +7395,39 @@
                   },
                   {
                     "option": "Cancel"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Directive",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Too much text"
+                  },
+                  {
+                    "option": "Shapes overlap"
+                  },
+                  {
+                    "option": "Arrow wrong or missing"
+                  },
+                  {
+                    "option": "Hard to read"
+                  },
+                  {
+                    "option": "Wrong focus"
+                  },
+                  {
+                    "option": "Adds a claim not in the text"
+                  },
+                  {
+                    "option": "Off-brand"
+                  },
+                  {
+                    "option": "Other"
                   }
                 ]
               },

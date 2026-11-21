@@ -6,8 +6,8 @@ band name (`length` only); the last column is the directive the drafter reads.
 
 ## format
 
-2 | | LIST BODY: a two-sentence lead, then exactly one list of 3-4 one-line items marked with "-", then a two-to-three-sentence close
-2 | | PURE PROSE: no bullet points at all, 3-4 flowing paragraphs of two to three sentences each
+3 | | LIST BODY: a two-sentence lead, then exactly one list of 3-4 one-line items marked with "-", then a two-to-three-sentence close
+1 | | PURE PROSE: no bullet points at all, 3-4 flowing paragraphs of two to three sentences each
 1 | | NUMBERED LIST: a two-sentence lead, then exactly one list of 3-4 one-line items marked "1." to "4.", then a two-to-three-sentence close
 
 ## length

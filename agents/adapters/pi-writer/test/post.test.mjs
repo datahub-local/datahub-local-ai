@@ -18,11 +18,12 @@ test("a zero draw takes the first weighted option and puts the length inside the
 });
 
 test("the draw reads the weights as duplication, not as a percentage", () => {
-  // format carries 2 | LIST BODY, 2 | PURE PROSE, 1 | NUMBERED LIST: a draw at 0.4 is the
-  // first PURE PROSE slot, and 0.8 is the numbered list. A plain average of three would
-  // put 0.4 inside the list slots and quietly change the distribution.
-  assert.match(draw(() => 0.4).directives, /PURE PROSE/);
-  assert.match(draw(() => 0.8).directives, /NUMBERED LIST/);
+  // format carries 3 | LIST BODY, 1 | PURE PROSE, 1 | NUMBERED LIST: the first three slots
+  // are the same option, 0.7 is the prose slot and 0.9 the numbered list. A plain average
+  // of three would put 0.7 inside the list slots and quietly change the distribution.
+  assert.match(draw(() => 0.2).directives, /LIST BODY/);
+  assert.match(draw(() => 0.7).directives, /PURE PROSE/);
+  assert.match(draw(() => 0.9).directives, /NUMBERED LIST/);
 });
 
 test("the hook opening is the row's decision, and a row without one leaves the shape to the writer", () => {

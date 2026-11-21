@@ -345,7 +345,16 @@ Eight structural things worth knowing before editing an export:
   host-aware: `alvsanand.com` is the subject's own site, where first person may claim
   the work; every other host keeps the third-party reading, and the gate rejects
   "my rule"/"my finding" about their analysis. Both prompts receive the URL through
-  the same `{{ URL }}` fill, so the host test cannot drift between them.
+  the same `{{ URL }}` fill, so the host test cannot drift between them. On 2026-11-21
+  the gate let the mirror image through: a post about Shopify's CDC pipeline opened
+  "Kai Waehner splits truth … three systems" and claimed the article's condition as
+  "My one condition" (execution 17350, row 48 — and the retry wrote it correctly as
+  "Shopify replaced…"/"Kai Waehner's own condition"). So the rule now says which side
+  owns what: the work belongs to the organisation that runs the system, its parts keep
+  the roles the piece assigns them, and the author is named only for what they claim
+  themselves; a piece that is the author's own argument may still name the author as
+  its subject, and the gate's banned first-person forms now include "my condition",
+  "my claim" and "my take".
 - **The examples are the slop source, and a one-line stack is the other failure.**
   The `MISCONCEPTION` sample taught the opener "A common misconception is that…" and
   the shared-experience sample taught "Curious how other teams…", and both came back
@@ -361,9 +370,12 @@ Eight structural things worth knowing before editing an export:
   list of three or four one-line items marked `-` (or `1.` for NUMBERED LIST), and a
   two-to-three-sentence close, with no second list, no nesting and no bold. `PURE PROSE`
   keeps the paragraph shape: three or four paragraphs, two to three sentences each,
-  never two single-sentence paragraphs in a row. Both halves of the gate count the
-  shape, because a directive that asks for one-liners and a rule that forbids them is
-  the loop that produced this twice.
+  never two single-sentence paragraphs in a row. The format weights are 3 for the list
+  body, 1 for `PURE PROSE` and 1 for `NUMBERED LIST`, so a list is the usual body: on
+  2026-11-21 a draw of `PURE PROSE` went to a human who asked for the list instead
+  (execution 17350), which is a preference the pool should already express. Both halves
+  of the gate count the shape, because a directive that asks for one-liners and a rule
+  that forbids them is the loop that produced this twice.
 - **A `PUT` edits the draft; only publishing changes what runs, and publishing
   validates every node.** Adding the animated-media branch left live's top-level
   graph at 40 nodes while `activeVersion` still held 29 — the schedule would have

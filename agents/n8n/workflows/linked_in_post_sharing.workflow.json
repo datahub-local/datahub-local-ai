@@ -205,7 +205,9 @@
               "FEEDBACK": "={{ $('notification_retry_or_cancel').isExecuted && $('notification_retry_or_cancel').last().json.data ? ((String($('notification_retry_or_cancel').last().json.data.Directive || '').trim() && String($('notification_retry_or_cancel').last().json.data.Directive || '').trim() !== 'Other') ? '[' + String($('notification_retry_or_cancel').last().json.data.Directive || '').trim() + '] ' : '') + String($('notification_retry_or_cancel').last().json.data.Feedback || '') : '' }}",
               "HOOK": "={{ $('select_article_to_post').item.json.HOOK || '' }}",
               "PREVIOUS_POST": "={{ $('execute_post_creator').isExecuted ? ($('execute_post_creator').last().json.text || '') : '' }}",
-              "ROW_NUMBER": "={{ $('select_article_to_post').item.json.row_number }}"
+              "ROW_NUMBER": "={{ $('select_article_to_post').item.json.row_number }}",
+              "VISUAL_FORM": "={{ $('select_article_to_post').item.json.VISUAL_FORM || '' }}",
+              "SCENES": "={{ String($('select_article_to_post').item.json.SCENES || '') }}"
             },
             "matchingColumns": [],
             "schema": [
@@ -307,6 +309,26 @@
                 "display": true,
                 "canBeUsedToMatch": true,
                 "type": "number",
+                "removed": false
+              },
+              {
+                "id": "VISUAL_FORM",
+                "displayName": "VISUAL_FORM",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "SCENES",
+                "displayName": "SCENES",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
                 "removed": false
               }
             ],
@@ -700,16 +722,6 @@
                 "removed": true
               },
               {
-                "id": "RATIONALE",
-                "displayName": "RATIONALE",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": true,
-                "removed": true
-              },
-              {
                 "id": "EXTRA_PROMPT",
                 "displayName": "EXTRA_PROMPT",
                 "required": false,
@@ -941,16 +953,6 @@
                 "removed": true
               },
               {
-                "id": "RATIONALE",
-                "displayName": "RATIONALE",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": true,
-                "removed": true
-              },
-              {
                 "id": "EXTRA_PROMPT",
                 "displayName": "EXTRA_PROMPT",
                 "required": false,
@@ -1174,16 +1176,6 @@
               {
                 "id": "SOURCE",
                 "displayName": "SOURCE",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": true,
-                "removed": true
-              },
-              {
-                "id": "RATIONALE",
-                "displayName": "RATIONALE",
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
@@ -1476,16 +1468,6 @@
                 "removed": true
               },
               {
-                "id": "RATIONALE",
-                "displayName": "RATIONALE",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": true,
-                "removed": true
-              },
-              {
                 "id": "EXTRA_PROMPT",
                 "displayName": "EXTRA_PROMPT",
                 "required": false,
@@ -1766,16 +1748,6 @@
               {
                 "id": "SOURCE",
                 "displayName": "SOURCE",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": true,
-                "removed": true
-              },
-              {
-                "id": "RATIONALE",
-                "displayName": "RATIONALE",
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
@@ -2152,7 +2124,7 @@
               "POST_CONTENT": "={{ $('execute_post_creator').item.json.text }}",
               "FEEDBACK": "={{ $('notification_retry_or_cancel_image').isExecuted && $('notification_retry_or_cancel_image').last().json.data ? ((String($('notification_retry_or_cancel_image').last().json.data.Directive || '').trim() && String($('notification_retry_or_cancel_image').last().json.data.Directive || '').trim() !== 'Other') ? '[' + String($('notification_retry_or_cancel_image').last().json.data.Directive || '').trim() + '] ' : '') + String($('notification_retry_or_cancel_image').last().json.data.Feedback || '') : '' }}",
               "HOOK": "={{ $('select_article_to_post').item.json.HOOK || '' }}",
-              "EVIDENCE": "={{ $('select_article_to_post').item.json.RATIONALE || '' }}"
+              "EVIDENCE": "={{ $('execute_post_creator').item.json.text || '' }}"
             },
             "matchingColumns": [
               "POST_CONTENT"
@@ -2380,9 +2352,10 @@
               "CONTENT": "={{ $('execute_post_creator').item.json.text + \"\\n\\nSource: \" + String($('select_article_to_post').item.json.URL || '').replace(/^https?:\\/\\/(www\\.)?/i, '').split('/')[0] }}",
               "ASSET_TYPES": "animation_linkedin_video",
               "FEEDBACK": "={{ $('build_retry_feedback').isExecuted ? $('build_retry_feedback').last().json.FEEDBACK : ($('notification_retry_or_cancel_animation').isExecuted && $('notification_retry_or_cancel_animation').last().json.data ? ((String($('notification_retry_or_cancel_animation').last().json.data.Directive || '').trim() && String($('notification_retry_or_cancel_animation').last().json.data.Directive || '').trim() !== 'Other') ? '[' + String($('notification_retry_or_cancel_animation').last().json.data.Directive || '').trim() + '] ' : '') + String($('notification_retry_or_cancel_animation').last().json.data.Feedback || '') : '') }}",
-              "FORCE": "={{ $('select_article_to_post').item.json.VISUAL_FORM || 'auto' }}",
-              "SCENES": "={{ String($('select_article_to_post').item.json.SCENES || '') }}",
-              "SESSION_ID": "={{ $('build_hook_columns').first().json.STUDIO_SESSION_ID }}"
+              "FORCE": "={{ $('build_hook_columns').first().json.VISUAL_FORM || $('select_article_to_post').item.json.VISUAL_FORM || 'auto' }}",
+              "SCENES": "={{ String($('build_hook_columns').first().json.SCENES || $('select_article_to_post').item.json.SCENES || '') }}",
+              "SESSION_ID": "={{ $('build_hook_columns').first().json.STUDIO_SESSION_ID }}",
+              "EXTRA_PROMPT": "={{ $('select_article_to_post').item.json.EXTRA_PROMPT || '' }}"
             },
             "matchingColumns": [],
             "schema": [
@@ -2439,6 +2412,16 @@
               {
                 "id": "SESSION_ID",
                 "displayName": "SESSION_ID",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "EXTRA_PROMPT",
+                "displayName": "EXTRA_PROMPT",
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
@@ -3278,16 +3261,6 @@
               {
                 "id": "SOURCE",
                 "displayName": "SOURCE",
-                "required": false,
-                "defaultMatch": false,
-                "display": true,
-                "type": "string",
-                "canBeUsedToMatch": true,
-                "removed": true
-              },
-              {
-                "id": "RATIONALE",
-                "displayName": "RATIONALE",
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
@@ -4941,7 +4914,9 @@
             "FEEDBACK": "={{ $('notification_retry_or_cancel').isExecuted && $('notification_retry_or_cancel').last().json.data ? ((String($('notification_retry_or_cancel').last().json.data.Directive || '').trim() && String($('notification_retry_or_cancel').last().json.data.Directive || '').trim() !== 'Other') ? '[' + String($('notification_retry_or_cancel').last().json.data.Directive || '').trim() + '] ' : '') + String($('notification_retry_or_cancel').last().json.data.Feedback || '') : '' }}",
             "HOOK": "={{ $('select_article_to_post').item.json.HOOK || '' }}",
             "PREVIOUS_POST": "={{ $('execute_post_creator').isExecuted ? ($('execute_post_creator').last().json.text || '') : '' }}",
-            "ROW_NUMBER": "={{ $('select_article_to_post').item.json.row_number }}"
+            "ROW_NUMBER": "={{ $('select_article_to_post').item.json.row_number }}",
+            "VISUAL_FORM": "={{ $('select_article_to_post').item.json.VISUAL_FORM || '' }}",
+            "SCENES": "={{ String($('select_article_to_post').item.json.SCENES || '') }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -5043,6 +5018,26 @@
               "display": true,
               "canBeUsedToMatch": true,
               "type": "number",
+              "removed": false
+            },
+            {
+              "id": "VISUAL_FORM",
+              "displayName": "VISUAL_FORM",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "SCENES",
+              "displayName": "SCENES",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
               "removed": false
             }
           ],
@@ -5436,16 +5431,6 @@
               "removed": true
             },
             {
-              "id": "RATIONALE",
-              "displayName": "RATIONALE",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": true
-            },
-            {
               "id": "EXTRA_PROMPT",
               "displayName": "EXTRA_PROMPT",
               "required": false,
@@ -5677,16 +5662,6 @@
               "removed": true
             },
             {
-              "id": "RATIONALE",
-              "displayName": "RATIONALE",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": true
-            },
-            {
               "id": "EXTRA_PROMPT",
               "displayName": "EXTRA_PROMPT",
               "required": false,
@@ -5910,16 +5885,6 @@
             {
               "id": "SOURCE",
               "displayName": "SOURCE",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": true
-            },
-            {
-              "id": "RATIONALE",
-              "displayName": "RATIONALE",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -6212,16 +6177,6 @@
               "removed": true
             },
             {
-              "id": "RATIONALE",
-              "displayName": "RATIONALE",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": true
-            },
-            {
               "id": "EXTRA_PROMPT",
               "displayName": "EXTRA_PROMPT",
               "required": false,
@@ -6502,16 +6457,6 @@
             {
               "id": "SOURCE",
               "displayName": "SOURCE",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": true
-            },
-            {
-              "id": "RATIONALE",
-              "displayName": "RATIONALE",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -6888,7 +6833,7 @@
             "POST_CONTENT": "={{ $('execute_post_creator').item.json.text }}",
             "FEEDBACK": "={{ $('notification_retry_or_cancel_image').isExecuted && $('notification_retry_or_cancel_image').last().json.data ? ((String($('notification_retry_or_cancel_image').last().json.data.Directive || '').trim() && String($('notification_retry_or_cancel_image').last().json.data.Directive || '').trim() !== 'Other') ? '[' + String($('notification_retry_or_cancel_image').last().json.data.Directive || '').trim() + '] ' : '') + String($('notification_retry_or_cancel_image').last().json.data.Feedback || '') : '' }}",
             "HOOK": "={{ $('select_article_to_post').item.json.HOOK || '' }}",
-            "EVIDENCE": "={{ $('select_article_to_post').item.json.RATIONALE || '' }}"
+            "EVIDENCE": "={{ $('execute_post_creator').item.json.text || '' }}"
           },
           "matchingColumns": [
             "POST_CONTENT"
@@ -7116,9 +7061,10 @@
             "CONTENT": "={{ $('execute_post_creator').item.json.text + \"\\n\\nSource: \" + String($('select_article_to_post').item.json.URL || '').replace(/^https?:\\/\\/(www\\.)?/i, '').split('/')[0] }}",
             "ASSET_TYPES": "animation_linkedin_video",
             "FEEDBACK": "={{ $('build_retry_feedback').isExecuted ? $('build_retry_feedback').last().json.FEEDBACK : ($('notification_retry_or_cancel_animation').isExecuted && $('notification_retry_or_cancel_animation').last().json.data ? ((String($('notification_retry_or_cancel_animation').last().json.data.Directive || '').trim() && String($('notification_retry_or_cancel_animation').last().json.data.Directive || '').trim() !== 'Other') ? '[' + String($('notification_retry_or_cancel_animation').last().json.data.Directive || '').trim() + '] ' : '') + String($('notification_retry_or_cancel_animation').last().json.data.Feedback || '') : '') }}",
-            "FORCE": "={{ $('select_article_to_post').item.json.VISUAL_FORM || 'auto' }}",
-            "SCENES": "={{ String($('select_article_to_post').item.json.SCENES || '') }}",
-            "SESSION_ID": "={{ $('build_hook_columns').first().json.STUDIO_SESSION_ID }}"
+            "FORCE": "={{ $('build_hook_columns').first().json.VISUAL_FORM || $('select_article_to_post').item.json.VISUAL_FORM || 'auto' }}",
+            "SCENES": "={{ String($('build_hook_columns').first().json.SCENES || $('select_article_to_post').item.json.SCENES || '') }}",
+            "SESSION_ID": "={{ $('build_hook_columns').first().json.STUDIO_SESSION_ID }}",
+            "EXTRA_PROMPT": "={{ $('select_article_to_post').item.json.EXTRA_PROMPT || '' }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -7175,6 +7121,16 @@
             {
               "id": "SESSION_ID",
               "displayName": "SESSION_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "EXTRA_PROMPT",
+              "displayName": "EXTRA_PROMPT",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -8014,16 +7970,6 @@
             {
               "id": "SOURCE",
               "displayName": "SOURCE",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": true
-            },
-            {
-              "id": "RATIONALE",
-              "displayName": "RATIONALE",
               "required": false,
               "defaultMatch": false,
               "display": true,

@@ -10,7 +10,7 @@ Extra Rules:
 
 {{ HOOKS }}
 
-When the block above lists hooks, choose exactly one whose `when` this content satisfies — never force one that does not fit; when in doubt take the lower-commitment one. Write the opening per that hook's `opening`, and answer `<hook>ID</hook>` on the line after the `</output>` block.
+When the block above lists hooks, choose exactly one whose `when` this content satisfies — never force one that does not fit; when in doubt take the lower-commitment one. When more than one `when` fits, choose by argument before topic: `argument`, then `narrative`, then `evidence`, then `news`, then `reference`. A `reference` hook (`ARCHITECTURE`, `LANDSCAPE`, `ROUNDUP`, `COMPARISON`, `CHECKLIST`) is for a post whose point is the structure or the survey; if the article also argues a cost, a correction or a failure, that argument is the hook. Write the opening per that hook's `opening`, and answer `<hook>ID</hook>` on the line after the `</output>` block.
 When the block is empty, a hook is already assigned in the Variety Directives: write to it and answer no `<hook>` tag.
 
 ## Variety Directives For This Post

@@ -925,8 +925,9 @@ writer's own variety), `visual` (`form` one of `FORCE`, `scenes`) and `image`.
 every admitted row is `POST_MEDIA=ANIMATED`; the still-image path is only the fallback
 when the visual author fails, and the manual `POST_MEDIA=STATIC` override.
 
-The judge is a **selection gate only**: `postability`, `blocked` and `evidence` (written
-to `RATIONALE`) are its whole verdict, and it runs on `glm-5.3` with `glm-5.3-flash` as
+The judge is a **selection gate only**: `postability`, `blocked` and `evidence` are its
+whole verdict — the evidence is shown in the Slack digest and is not stored in the queue,
+since the `RATIONALE` column was deleted — and it runs on `glm-5.3` with `glm-5.3-flash` as
 fallback. It no longer classifies — the judge-written `angle` was removed outright (a
 ≤30-word direction from one model was steering a smarter one that could not overrule
 it), and the hook/visual choice moved to the drafting turn, which is when classification
@@ -940,7 +941,20 @@ stored directives carry the chosen hook, so a re-draft does not re-choose. The b
 re-judge pass is retired: a hook-less queued row is the normal pre-draft state, not a
 defect. The registry is read from GitHub `main`, so that half is live on push; the post
 prompts live in the writer adapter's image and ship with it, and the workflow edits are
-live only after `scripts/apply_workflow_changes.py`. The shape above is the committed
+live only after `scripts/apply_workflow_changes.py`.
+
+**The hook's visual is a default, not a decision.** A row that pins `VISUAL_FORM` or `SCENES`
+keeps it: `LinkedIn Post Sharing` passes both to the post creator, and a non-empty cell wins
+over the hook's `visual`. That is what the registry comment always claimed, and what
+`parse_llm_output` did not do until 2026-11-22 — it overwrote both with the registry default
+every time, so an architecture article could not be told to be a story without changing its
+hook. The hook itself is chosen by argument before topic: when several `when` clauses fit, the
+writer takes `argument`, then `narrative`, `evidence`, `news`, `reference`, and a reference hook
+(`ARCHITECTURE`, `LANDSCAPE`, `ROUNDUP`, `COMPARISON`, `CHECKLIST`) is for a post whose point
+**is** the structure or the survey. Measured: `ARCHITECTURE` → `diagram` was chosen for an
+article whose payload was observability, and execution 17543's 30 s clip became a tour of the
+stack; `VISUAL_FORM=story` plus `SCENES=3` on the row is the override that does not rewrite the
+post. The shape above is the committed
 design — the live instance still runs the judge-classified variant until the applies
 land. `[UNVERIFIED] live`
 

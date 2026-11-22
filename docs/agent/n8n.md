@@ -503,11 +503,14 @@ on one closing frame, and for the two middle slides to state their points. The c
 both — merged the close and added "So nobody notices." and "No dual write." — and the critic
 removed all three, calling the new lines over budget and quoting `visual_scene.md`'s Source
 rule to fade the conclusion out. The clip shipped with the request reverted, so the owner
-reported that nothing had been done. Both files now say a line the feedback asks for, and one
-added because the feedback says a scene does not make its point, stays; the critic cuts a
-label or simplifies the scene instead, and the Source shares its frame with a requested
-conclusion. The exception is narrow on purpose: feedback is the only thing that outranks
-those rules, and it names the line or the point it wants.
+reported that nothing had been done. Both files now say a line the person's feedback asks
+for, and one added because the feedback says a scene does not make its point, stays; the
+critic cuts a label or simplifies the scene instead, and the Source shares its frame with a
+requested conclusion. The graph carries that feedback as `HUMAN_FEEDBACK` across review
+turns: `review_feedback` used to overwrite the same field with the critic's findings, so
+from the first correction turn the composer no longer saw the person at all. The exception
+is narrow on purpose: the person's feedback is the only thing that outranks those rules,
+and it names the line or the point it wants.
 
 **Motion is one decode pass.** `freezedetect=n=0.003:d=0.5,blackdetect=d=0.1:pix_th=0.02:pic_th=0.99`
 gives freeze and black spans and `scdet=threshold=10` gives cuts (`lavfi.scd.time`). The black

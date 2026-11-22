@@ -28,7 +28,7 @@ spine — the outcome, the condition, the figure it states — and the scenes ca
 A clip is watched, not read: a scene is read once, on a phone, and leaves before anyone
 finishes a sentence, so the words must land in the time it has.
 
-The brief's feedback is a requirement, not advice. A line it asks for stays even where
+The person's feedback is a requirement, not advice. A line it asks for stays even where
 the budget below says otherwise; so does a line added because the feedback says a scene
 does not make its point. Make room by cutting another label, never by dropping either
 line. An internal review finding that conflicts with the feedback is resolved without
@@ -47,7 +47,7 @@ losing what the feedback asked for.
   never a second sentence.
 - When the brief ends with a `Source:` line, the closing scene prints that line exactly as
   it is given: no rewording and no placeholder. It is alone only when the brief asks for
-  nothing else there. When the feedback asks for a conclusion on that scene, both stay on
-  screen, separated, and neither fades the other out.
+  nothing else there. When the person's feedback asks for a conclusion on that scene, both
+  stay on screen, separated, and neither fades the other out.
 - These govern what plays: a video, a GIF and a deck's rendered video. A slide the reader
   clicks through may carry its supporting points, and an SVG on a page may carry a label.

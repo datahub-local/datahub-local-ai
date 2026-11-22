@@ -1,0 +1,67 @@
+{
+  "ok": false,
+  "browserSkipped": false,
+  "lint": {
+    "ok": false,
+    "errorCount": 1,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": [
+      {
+        "code": "container_overflow",
+        "severity": "error",
+        "time": 1.4,
+        "selector": "#t-grid",
+        "containerSelector": "#sc-title",
+        "message": "the table is taller than the card that holds it",
+        "fixHint": "drop a row or shrink the card's row height",
+        "rect": { "x": 40, "y": 120, "width": 900, "height": 640 },
+        "bbox": [40, 120, 900, 640]
+      }
+    ]
+  },
+  "layout": {
+    "ok": false,
+    "errorCount": 0,
+    "warningCount": 1,
+    "infoCount": 0,
+    "findings": [
+      {
+        "code": "overlap",
+        "severity": "warning",
+        "time": 12.4,
+        "selector": "#d-lake",
+        "containerSelector": "#d-panel",
+        "message": "the lake label overlaps the panel edge",
+        "fixHint": "move the label inside the panel",
+        "rect": { "x": 0, "y": 0, "width": 0, "height": 0 },
+        "bbox": { "x": 10, "y": 20, "width": 300, "height": 120 },
+        "dataAttributes": { "id": "d-lake", "role": "label" }
+      }
+    ]
+  },
+  "craft": {
+    "ok": false,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 1,
+    "findings": [
+      {
+        "code": "first_frame_empty",
+        "severity": "info",
+        "time": 0,
+        "selector": "#stage",
+        "message": "the first frame has no subject",
+        "bbox": { "x": 0, "y": 0, "width": 1280, "height": 720 },
+        "dataAttributes": { "scene": "05" }
+      }
+    ]
+  },
+  "audio": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": []
+  }
+}

@@ -478,60 +478,86 @@ the record instead of hidden inside the bytes. A render that already matches pay
 encode, and a conformance that cannot run is a note with `fit: unknown` rather than a lost
 asset.
 
-**A render is looked at before a human is asked to look at it, and the workflow does the
-looking.** `Visual Studio` runs a bounded self-review after the authoring turn. The session
-hands back stills of what it rendered — `stills: [...]` in the response, made with the tools the
-render already uses (Chromium for an SVG or a deck, `ffmpeg` frames for a clip, the final frame
-always, since "nothing fully stops" means a frozen clip hides there) — and serves them beside
-the artifact, because the artifact is in the pod and the gateway cannot reach the pod's route.
-The workflow fetches them, asks a **different** vision model on the gateway
-(`opencode-go/minimax-m3`, reusing `generate_image`'s bearer credential) with
-`prompts/visual_review_composition.md` and the brief the composer was given, and on findings
-takes another authoring turn **in the same session** with them as the reviewer's correction,
-bounded by `REVIEW_CYCLES` (3). **The critic must be a vision model**, and that is measured
-rather than assumed: moving it to `glm-5.3` for a stronger read answered
-`400 model features vision not support`, the call errored, `parse_verdict` read no answer,
-and an unreadable verdict is a **pass** — so one run shipped unreviewed and the human got the
-same geometry it had rejected before (execution 17502, 2026-11-22). A model swap here needs a
-still in front of it first; the model that answers prose must also be the one that can see.
-`minimax-m3` passed that test: the same still arrives as 2,125 prompt tokens and it read the
-closing frame's words back in 2.1 s, where `hy4-preview` dropped the image (38 tokens),
-reasoned "there is an image not visible" and answered `""` — which is why it is absent from
-the gateway rather than flagged text-only.
-**The call gets one retry**: `if_critique_failed` sends the same stills to
-`opencode-go/glm-5.3-flash` when the first call errors **or comes back empty**, before
-`parse_verdict` reads anything. A 200 with no content used to read as a pass, and that is the
-shape every non-vision model takes on a still. A second failure still reads as a pass with the
-raw answer kept, which is the deliberate trade: an unreviewed asset ships, and the run record
-says `UNREADABLE: true`.
-**The critic's call is the workflow's, never the adapter's**: the
-agent renders and reports what it rendered, and deciding whether that is good is orchestration —
-an API call inside the adapter was the first shape and was rejected for putting a model
-dependency and an opinion inside the agent. The verdict is data (`VERDICT`, `RETRY`, and a
-`REVIEW` that rides on the asset), a still that cannot be made or a prompt that is missing
-records the review as not run rather than failing the asset, and an unreadable verdict is a pass
-with the raw answer kept — the other direction spends every cycle and ships the same defect.
-What it cannot see is motion, which the framework's `check` gate owns, and the stills' bytes are
-the only bytes the review adds to the graph. **A critique is expensive and slow**: four stills
-took 102 s on the first live call (2026-10-17), so the critic's node allows 600 s — raised with
-the wider sampling, because a call that times out is an unreadable verdict and therefore a
-pass — and it carries `onError: continueRegularOutput`, because a critic that cannot answer
-must not fail the run it was checking. **Coverage is what the review buys**: a clip used to be
-sampled at 0.1, 0.4 and 0.7 of its duration plus the final frame, so a 30 s clip with seven
-scenes was seen in three moments and its last frame — and the overlap, the arrow drawn before
-its boxes or the text outside its box that reached a human was in a scene the critic had never
-been shown (2026-11-21). It now samples eight moments about three seconds apart plus the final
-frame, which is at least one look at every scene of a seven-scene clip. The first live review
-proved the cost of not having `onError: continueRegularOutput`: its second call hit a
-120 s node timeout, the authoring run errored, and an asset that had already been fixed once died
-with it (execution 13762). One asset with one fix cycle is ≈ 18 minutes against ≈ 8 without. **A still of an animated
-document must be captured after its entrances run**: Chromium screenshots an SVG at t=0, so the
-first live review's finding was "no diagram content is visible" on a frame no reader ever sees
-(execution 13770), and a fix cycle went on it. `--virtual-time-budget` advances the page's clock
-before the capture and costs no wall time — measured against a page whose content appears after 3 s:
-3,886 bytes at t=0, 8,011 with the budget — so an animated SVG gets the declared duration's offsets
-plus its settled frame, and a deck (whose page is not a timeline) one settled shot. The clip case
-was already right: `ffmpeg` frames plus the final one.
+**A render is checked before it is looked at, and the gate is the engine's, not a prompt.** After
+the authoring turn the adapter runs `hyperframes check --json --at-transitions` against the run
+directory and returns the envelope as `check` on the asset beside the stills. Its flags are the
+installed binary's: 0.9.1 rejects `--no-cache` and `--budget` with `Unknown flag: --cache`
+(measured 2026-11-22 in the deployed pod), so the gate would have reported "did not run" on every
+clip before it ran once. `--timeout=45000` replaces the 10 s render-ready default. `check.ran ===
+false` is `MOTION_GATE: absent`, never clean: for an mp4/gif/webp the workflow raises
+`Xcheck-absent`, for an svg or png it records the absence because the engine cannot check that
+medium. Errors are severity 1, a layout/motion/contrast warning severity 2, and a finding keeps its
+`fixHint` so the correction turn gets the engine's own instruction.
+
+**The copy budget is measured, not prompted.** Four craft warnings are findings: `line_unread`,
+`text_below_floor`, `dead_stretch`, `first_frame_empty`. On `lips-60` — the 31 s clip a human
+cancelled for "too much text" — the live check reported six `line_unread` lines (`"Watch it, or
+trust a ghost" (6 words) is on screen 1.27 s, under its 1.72 s floor`) and `100 text elements under
+the 28 px floor`, while `film_silent` is ignored because a silent clip is not a visual defect. The
+budget was a rule in `visual_scene.md` and a sentence in the critic prompt; it is now a
+measurement the correction turn can act on.
+
+**Motion is one decode pass.** `freezedetect=n=0.003:d=0.5,blackdetect=d=0.1:pix_th=0.02:pic_th=0.99`
+gives freeze and black spans and `scdet=threshold=10` gives cuts (`lavfi.scd.time`). The black
+threshold is 2%, not the 10% default: at 10% the dark brand surface of `lips-60` reports seven
+"black" spans that are the background, while 2% reports none on both real clips and still catches a
+synthetic true-black second. Only three spans become findings: black at frame 0 (severity 1), any
+other black span of 0.3 s or more (severity 2), and a freeze that reaches the end of the clip
+(severity 2). A mid-clip hold is not a finding: the motion rules let a scene hold long enough to
+read, and the 17510 session's clip has many 0.5-1.3 s holds.
+
+**A connector is declared and drawn from its endpoints.** A composition that draws an arrow writes
+`connectors.json` (`{id, from, to, head}`) and calls the staged `HFConnectors.draw`. The helper
+measures both boxes, draws the line and a head inside one overlay, and sets `data-hf-connectors` to
+`ok` or `error:<ids>`; the adapter reads that off the settled DOM. A `diagram` brief with no
+declaration, an unresolved endpoint, or a DOM with no status is a severity-1 finding, so the helper
+is not optional and the head cannot point at nothing. Verified live in the pod: the resolved pair
+produced a `data-connector` and a `data-connector-head`, the missing id produced `error:y`. This is
+the 17510 defect class made unrepresentable: that run's composer had hand-placed nine connectors,
+written their positions as quoted GSAP strings, and nine never drew.
+
+**The critic is a ledger, not a verdict.** `parse_verdict` carries findings across turns by id,
+with severity and a `seen` count. The critic is shown the open ids and answers `resolved` plus the
+findings it still sees; an id it neither resolves nor re-reports stays open, because silence is not
+a fix. A finding `seen` twice survived a correction, so it is `stalled` and does not spend another
+turn. An unreadable answer — no object, `verdict: unread`, or no usable verdict and no findings — is
+`VERDICT: unread` with `NEEDS_REVIEW: true`, never a pass; the spec already said this and the code
+defaulted to `ok`. `RETRY` is `seen === 1` within the cycle bound, for check findings too: a
+deterministic error that persists after a correction is not retried until the budget is gone. This
+is 17510's shape: two runs, three corrections each, six findings still open at the end of the
+first, the same connector defect at the end of the second, and both assets reported `COMPLETE`.
+
+**The critic is one vision call, and it must be able to see.** `opencode-go/minimax-m3` receives the
+stills and the brief; `if_critique_failed` retries `glm-5.3-flash` once when the call errors or
+answers empty, before `parse_verdict` reads anything. The model swap is measured: `glm-5.3`
+answered `400 model features vision not support`, and `hy4-preview` dropped the image and answered
+`""`; a 200 with no content is the shape every non-vision model takes on a still, which is why an
+unread answer is now `needs_review` rather than a pass. The node allows 600 s because four stills
+took 102 s on the first live call (2026-10-17), and it carries `onError: continueRegularOutput` so
+a critic that cannot answer does not fail the asset. An animated SVG's still is captured after its
+entrances with `--virtual-time-budget` (3,886 bytes at t=0 against 8,011 once a 3 s entrance ran),
+and a capture counts only when it wrote bytes.
+
+**A correction is ordered and the human sees what survived.** `review_feedback` lists the open
+findings by severity with their ids, and the LinkedIn approval prints `This render still has N open
+finding(s)` with one `- F1 severity 1: ...` line each, or `could not be reviewed` when the ledger is
+empty and the review was unread. Approving still posts it; the difference is that nobody is shown a
+`fix` asset as one the review passed. The measured cost of not having this: 17510 spent 80 minutes,
+one human retry, and a cancel on a render whose defects the critic had already named twice.
+
+**Stills follow the cuts, when there are any.** The clip's own cut structure from `scdet` gives
+scene intervals; each contributes a still at its midpoint, with frames straddling the cut when the
+cap allows. The real 17510 clip is one continuous animation: `select=gt(scene,0.3)` selects zero
+frames, so the fallback is a uniform grid of `ceil(duration/2.5)` samples (8 to 12), which is one
+still per 2.5 s instead of the old eight across 30 s. `SCENES_SEEN`/`SCENES_COVERED` record which
+path ran; a missing still is still absent rather than the previous turn's frame, and the settled
+frame is always one of them. A clip also carries one **contact sheet** at 1 frame per second, sent
+before the detailed stills: it answers what plays between them for one image instead of thirty
+full stills (which would cost about 64k prompt tokens and dilute the call). The 12 s
+`sketch-16955` sheet shows a near-empty transition at t=2 s that no settled still contained; the
+31 s `lips-60` sheet shows the `0` counter and the two-sentence closing frame. Geometry and copy
+are still judged on the detailed stills, because the sheet's tiles are 213 px wide and their small
+text is not reliably readable.
 
 **A correction turn keeps the container the request declared, and a still is of the turn it
 judges.** Both came out of run 13785 (2026-10-17), a `tiles_wide` request whose registry entry
@@ -610,10 +636,13 @@ animated type.
 **The composer's guide is sandbox facts; the brief is the work.**
 `agents/adapters/pi-render/prompts/authoring.md` states only what the brief cannot and the
 framework does not: the working directory, `hyperframes` on `PATH`, the skills path, the
-vendored GSAP, no network, how to run the render, and that the composer cannot see images.
+vendored GSAP and the adapter's staged connector helper, no network, how to run the render, and that the composer
+cannot see images.
 It must not regain a method section, a composition-contract restatement or a review
 checklist: the framework's own skills own the contract and `hyperframes lint`/`check` are
-the automated gate. The **brief carries the motion grammar**, from the one committed copy
+the automated gate. It does carry the connector contract, because that is a fact of this
+sandbox (`connectors.js` is a sibling of `gsap.min.js`, and `connectors.json` is the
+declaration the adapter verifies), not a method. The **brief carries the motion grammar**, from the one committed copy
 `agents/n8n/prompts/visual_motion_rules.md`, which `download_visual_rules` →
 `visual_rules` fetches the way `brand.json` is; changing the grammar is a prompt-file
 change, live on push, and it is not restated in the workflow. The brief also carries the

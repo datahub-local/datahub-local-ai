@@ -38,7 +38,7 @@ import {
   transcodeArgs,
   conformanceNote,
   CONFORMED_TEMP,
-  stageVendorAssets,
+  stageRunAssets,
   compositionMarker,
   turnInstruction,
   expiredRunDirs,
@@ -50,6 +50,13 @@ import {
   stillArgs,
   captureStill,
   outputFps,
+  sheetArgs,
+  parseCheckReport,
+  parseMotionSignals,
+  stillTimesFor,
+  connectorsVerification,
+  checkArgs,
+  MOTION_FILTER,
 } from "./session-lib.mjs";
 
 const port = Number(process.env.SYMPOZIUM_SESSION_PORT || "8080");
@@ -342,24 +349,28 @@ function runPi(prompt, sessionID, onOutput, signal, cwd = workDir) {
   });
 }
 
-// A bounded child process (ffmpeg, ffprobe) whose failure names its stderr, so a transcode
-// problem is legible rather than a bare exit code. `capture` resolves the child's stdout,
-// which is how ffprobe's container report is read.
-function runCommand(command, args, cwd, { capture = false } = {}) {
+// A bounded child process (ffmpeg, ffprobe, chromium, hyperframes) whose failure names its
+// stderr, so a problem is legible rather than a bare exit code. `capture` resolves the child's
+// stdout, which is how ffprobe's container report and chromium's DOM dump are read.
+// `allowExit` resolves `{code, stdout, stderr}` instead of rejecting: the check report and the
+// motion detector both write their finding to the stream even when the process exits non-zero.
+function runCommand(command, args, cwd, { capture = false, maxStdout = 100_000, maxStderr = 4_000, allowExit = false } = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { cwd, env: process.env, stdio: ["ignore", "pipe", "pipe"] });
     let stderr = "";
     let stdout = "";
+    const keepStdout = capture || allowExit;
     child.stdout.setEncoding("utf8");
     child.stdout.on("data", (chunk) => {
-      if (capture && stdout.length < 100_000) stdout += chunk;
+      if (keepStdout && stdout.length < maxStdout) stdout += chunk.slice(0, maxStdout - stdout.length);
     });
     child.stderr.setEncoding("utf8");
     child.stderr.on("data", (chunk) => {
-      if (stderr.length < 4000) stderr += chunk;
+      if (stderr.length < maxStderr) stderr += chunk.slice(0, maxStderr - stderr.length);
     });
     child.on("error", reject);
     child.on("close", (code) => {
+      if (allowExit) return resolve({ code, stdout, stderr });
       if (code === 0) return resolve(capture ? stdout : undefined);
       reject(new Error(`${command} exited ${code}: ${stderr.slice(-1000)}`));
     });
@@ -436,9 +447,9 @@ function writeSSE(res, value) {
 // The stills of the render, produced here because the artifact is here and left in the run
 // directory for the studio to fetch. This server makes no model call: the review is the
 // workflow's, and all it needs from here is something to look at.
-async function makeStills(dir, { format, width, height, durationSeconds, fps }) {
+async function makeStills(dir, { format, width, height, durationSeconds, fps, times }) {
   const f = safeFormat(format);
-  const jobs = stillArgs({ format: f, runDir: dir, width, height, durationSeconds, fps });
+  const jobs = stillArgs({ format: f, runDir: dir, width, height, durationSeconds, fps, times });
   if (!jobs.length) {
     // A still png IS the still, and the launch card is one: nothing to sample.
     return [artifactName(f)];
@@ -452,6 +463,116 @@ async function makeStills(dir, { format, width, height, durationSeconds, fps }) 
     if (made) names.push(job.output);
   }
   return names;
+}
+
+// The deterministic gate over the artifact this server just produced. The engine and ffmpeg
+// decide the perceptual facts (overlap, contrast, freeze, black, cut structure) and Chromium
+// reports whether the connector helper resolved every declaration; the critic only decides
+// what none of them can. Each part fails to a reported absence, never to a pass.
+const EMPTY_SIGNALS = { freeze: [], black: [], cuts: [], scenes: [], scenesSeen: 0 };
+const NO_CHECK = (reason) => ({ ran: false, ok: false, reason, counts: { error: 0, warning: 0, info: 0 }, findings: [] });
+
+// `hyperframes check` launches its own Chrome and takes tens of seconds, so it runs once, on
+// the delivered artifact. A non-zero exit still carries the report, which is why the code is
+// read and the body parsed rather than the exit taken as the answer.
+async function runCheck(dir, format) {
+  if (safeFormat(format) === "svg" || safeFormat(format) === "png") {
+    return NO_CHECK("the engine does not check this medium");
+  }
+  if (!(await exists(join(dir, "index.html")))) {
+    // `hyperframes check` looks for index.html; a deck's out.html is a page, not a composition.
+    const deck = await exists(join(dir, "out.html"));
+    return NO_CHECK(deck ? "the deck's page is not a composition the engine checks" : "the run has no HTML composition to check");
+  }
+  try {
+    const { code, stdout } = await runCommand("hyperframes", checkArgs(dir), dir, {
+      allowExit: true,
+      maxStdout: 2_000_000,
+      maxStderr: 40_000,
+    });
+    const report = parseCheckReport(stdout);
+    if (!report.ran) return NO_CHECK(`the check report could not be read (exit ${code})`);
+    return report;
+  } catch (err) {
+    return NO_CHECK(err instanceof Error ? err.message : "the check did not run");
+  }
+}
+
+// Two decode passes: freeze/black spans from the detectors, cut times from scdet. Their
+// stderr is the result even when ffmpeg exits non-zero (a truncated clip), so both are parsed.
+async function runMotion(dir, format, durationSeconds) {
+  if (!["mp4", "gif", "webp"].includes(safeFormat(format))) return EMPTY_SIGNALS;
+  const artifact = artifactName(format);
+  let stderr = "";
+  for (const filter of [MOTION_FILTER, "scdet=threshold=10"]) {
+    try {
+      const result = await runCommand(
+        "ffmpeg",
+        ["-hide_banner", "-nostats", "-i", artifact, "-vf", filter, "-f", "null", "-"],
+        dir,
+        { allowExit: true, maxStdout: 0, maxStderr: 4_000_000 }
+      );
+      stderr += result.stderr;
+    } catch {
+      // no decoder, no signals: reported as an empty shape rather than guessed
+    }
+  }
+  return parseMotionSignals(stderr, durationSeconds);
+}
+
+// The declarations the composer wrote beside the composition. A missing or unreadable file is
+// no declarations, not a failure of the turn.
+async function readConnectorDeclarations(dir) {
+  try {
+    const parsed = JSON.parse(await readFile(join(dir, "connectors.json"), "utf8"));
+    return Array.isArray(parsed?.connectors) ? parsed.connectors : [];
+  } catch {
+    return [];
+  }
+}
+
+// Whether the helper ran and drew what was declared. Chromium dumps the settled DOM and the
+// helper's own status attribute is read off it; a pass that could not run is an error naming
+// the declaration count, so "no browser" never reads as "no arrows declared".
+async function validateConnectors(dir, { declarations, durationSeconds }) {
+  if (!declarations.length) return { declared: 0, drawn: 0, errors: [] };
+  const seconds = Number(durationSeconds);
+  const budget = Math.ceil((Number.isFinite(seconds) && seconds > 0 ? seconds : 3) * 1000) + 1000;
+  const browserPath = process.env.HYPERFRAMES_BROWSER_PATH || "chromium";
+  try {
+    const { stdout } = await runCommand(
+      browserPath,
+      [
+        "--headless=new",
+        "--no-sandbox",
+        "--disable-gpu",
+        "--hide-scrollbars",
+        `--virtual-time-budget=${budget}`,
+        "--dump-dom",
+        `file://${join(dir, "index.html")}`,
+      ],
+      dir,
+      { allowExit: true, maxStdout: 5_000_000, maxStderr: 20_000 }
+    );
+    return connectorsVerification(stdout, declarations);
+  } catch (err) {
+    return {
+      declared: declarations.length,
+      drawn: 0,
+      errors: [{ id: "*", reason: err instanceof Error ? err.message : "the DOM dump did not run" }],
+    };
+  }
+}
+
+// A clip's 1 fps contact sheet, made from the delivered artifact after the stills. It is one
+// image for the whole clip rather than a sample of it, so a defect between two stills is still
+// on the sheet. A sheet that could not be made is omitted, not reported as one.
+async function makeSheet(dir, { format, durationSeconds, width }) {
+  const f = safeFormat(format);
+  if (!["mp4", "gif", "webp"].includes(f)) return "";
+  const job = sheetArgs({ runDir: dir, durationSeconds, width });
+  const made = await captureStill({ dir, output: job.output, run: () => runCommand(job.command, job.args, dir) });
+  return made ? job.output : "";
 }
 
 // One turn at a time: Pi's session file is a shared resource and concurrent
@@ -528,7 +649,7 @@ http
       await mkdir(dir, { recursive: true });
       // The vendored GSAP resolves as a sibling of the composition; stage it before
       // the turn so the composer's `<script src="gsap.min.js">` is served.
-      await stageVendorAssets(dir);
+      await stageRunAssets(dir);
       // The instruction follows the directory, not the caller: a session that already
       // holds a composition is edited, so a declaration and a swept session agree.
       const isIteration = await exists(join(dir, compositionMarker(format)));
@@ -562,6 +683,17 @@ http
       const { conformed, reason } = await transcode(dir, format, containerOpts);
       const conformance = conformanceNote({ opts: containerOpts, actual: engineContainer, conformed, reason });
 
+      // The deterministic gate, before the stills: what the engine and ffmpeg can decide about
+      // the bytes just delivered, and what the connector helper left in the DOM. It is evidence
+      // for the review, not a verdict, and a part that could not run says so.
+      const deliveredFps = outputFps({ frames, durationSeconds, fps });
+      const check = await runCheck(dir, format);
+      const signals = await runMotion(dir, format, durationSeconds);
+      const declarations =
+        safeFormat(format) === "svg" || safeFormat(format) === "png" ? [] : await readConnectorDeclarations(dir);
+      const connectors = await validateConnectors(dir, { declarations, durationSeconds });
+      const { times, scenesCovered } = stillTimesFor(signals, durationSeconds, { fps: deliveredFps });
+
       // Then hand back stills of it. The studio's critic looks at these; the review, its
       // bound and its verdict belong to the workflow, not to this server. They are made
       // after the conformance so the critic sees the artifact the caller receives.
@@ -572,8 +704,11 @@ http
       // 1/30 s and lose its settled frame.
       const stills = await makeStills(dir, {
         format, width, height, durationSeconds,
-        fps: outputFps({ frames, durationSeconds, fps }),
+        fps: deliveredFps,
+        times,
       });
+      // One frame per second, in one image: coverage of every second the stills sample past.
+      const sheet = await makeSheet(dir, { format, durationSeconds, width });
 
       await sweepIfDue(sessionID);
 
@@ -597,6 +732,10 @@ http
         choices: [{ index: 0, message: { role: "assistant", content: response }, finish_reason: "stop" }],
         stills,
         conformance,
+        check,
+        signals: { ...signals, scenesCovered },
+        connectors,
+        ...(sheet ? { sheet } : {}),
       });
       res.writeHead(200, { "content-type": "application/json", "content-length": Buffer.byteLength(body) }).end(body);
     } catch (err) {

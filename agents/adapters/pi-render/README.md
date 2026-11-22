@@ -363,7 +363,7 @@ source, and the variable is honoured the day a passthrough exists.
 
 `prompts/authoring.md` names only what the brief cannot and the framework does not: the
 working directory, `hyperframes` on `PATH`, which `hyperframes docs` topics to read, the
-catalog's read tools, the vendored GSAP, no network at render, how to run the render, and
+catalog's read tools, the vendored GSAP and the staged connector helper, no network at render, how to run the render, and
 that the composer cannot see images. The composition contract, the motion method, the pacing numbers and the pre-render
 review were removed on 2026-10-11 (`openspec/changes/upgrade-visual-studio-authoring/`): they
 were our own harness competing with the framework's own guidance, and their pacing rules

@@ -34,6 +34,18 @@ above is the work; this file is only a map of the sandbox you run in.
   you author: never put a remote reference or an image URL in the composition. No clocks and
   no unseeded randomness.
 
+## Connectors
+
+An arrow is declared data, never hand-placed geometry. Write `connectors.json` beside the
+composition, one entry per arrow, and pass the same array to `HFConnectors.draw(list)` after
+both endpoints are on screen so the boxes are laid out:
+
+```json
+{"connectors": [{"id": "db-kafka", "from": "db", "to": "kafka", "head": true}]}
+```
+
+`connectors.js` is a sibling of `gsap.min.js`. Never place an arrow's line or head by hand.
+
 ## How to work
 
 0. When the brief asks for `out.svg`, the engine's gate does not apply: `hyperframes lint`

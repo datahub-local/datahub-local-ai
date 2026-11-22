@@ -10,8 +10,8 @@
         "type": "n8n-nodes-base.switch",
         "typeVersion": 3.2,
         "position": [
-          9248,
-          -864
+          0,
+          192
         ],
         "parameters": {
           "rules": {
@@ -73,8 +73,8 @@
         "type": "n8n-nodes-base.set",
         "typeVersion": 3.4,
         "position": [
-          12832,
-          -1488
+          3584,
+          576
         ],
         "parameters": {
           "assignments": {
@@ -96,8 +96,8 @@
         "type": "n8n-nodes-base.executeWorkflow",
         "typeVersion": 1.2,
         "position": [
-          8128,
-          -864
+          896,
+          384
         ],
         "parameters": {
           "workflowId": {
@@ -140,8 +140,8 @@
         "type": "n8n-nodes-base.switch",
         "typeVersion": 3.2,
         "position": [
-          8576,
-          -928
+          1344,
+          384
         ],
         "parameters": {
           "rules": {
@@ -183,8 +183,8 @@
         "type": "n8n-nodes-base.executeWorkflow",
         "typeVersion": 1.2,
         "position": [
-          8352,
-          -864
+          1120,
+          384
         ],
         "parameters": {
           "workflowId": {
@@ -326,8 +326,8 @@
         "retryOnFail": true,
         "maxTries": 3,
         "position": [
-          7456,
-          -864
+          224,
+          384
         ],
         "parameters": {
           "documentId": {
@@ -364,8 +364,8 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          7680,
-          -864
+          448,
+          384
         ],
         "parameters": {
           "jsCode": "// Pick the one article this run publishes, out of the curator's backlog.\n//\n// Topic rotation, added when content_queue became a durable backlog: the curator used to\n// hand over a fresh five-item slate whose diversity caps were fought over inside a single\n// run, and the four it did not publish were expired. Now it just tops the backlog up, and\n// variety is decided here instead - where it can be guaranteed across a week rather than\n// inside one slate. Skipping the topics of the last AVOID_LAST published posts is enough:\n// it is deterministic, needs no state of its own, and costs nothing.\n//\n// Deliberately NOT random. Random selection would throw away the ranking the curator paid\n// an LLM to produce, and it only pays for itself as exploration - which needs a reward\n// signal. Nothing reads LinkedIn engagement back into this sheet yet, so there is nothing\n// to explore against. Revisit if that changes.\n// AVOID_LAST must leave at least TWO categories eligible, or rotation stops being a\n// tiebreak and becomes a strict round-robin that overrides the ranking entirely. It was 2\n// while the curator ran five categories; the curator now runs three (Data/AI/DevOps), so 2\n// would leave exactly one eligible category and a VERY_HIGH row would wait behind a LOW one\n// purely because of publish order. At 1 the same topic can never go out twice in a row -\n// which is the whole point - and PRIORITY still chooses between the other two.\nconst AVOID_LAST = 1;\n\nconst priorityOrder = {\n  VERY_HIGH: 0,\n  HIGH: 1,\n  MEDIUM: 2,\n  LOW: 3\n};\nconst topicOf = (r) => String(r.TOPIC || '').trim();\nconst byPriorityThenRow = (a, b) => {\n  const aPriority = priorityOrder[a.PRIORITY] ?? 4;\n  const bPriority = priorityOrder[b.PRIORITY] ?? 4;\n  if (aPriority !== bPriority) {\n    return aPriority - bPriority; // sort by priority\n  }\n  return a.row_number - b.row_number; // sort by row_number ascending\n};\n\nconst rows = $input.all().map((item) => item.json).filter((item) => item && item.URL);\n\n// Most recently published first. RELEASE_DATE is written by update_status_published_a;\n// rows that predate it fall back to UPDATE_DATE so the rotation still sees them.\nconst recentTopics = rows\n  .filter((r) => /^PUBLISHED$/.test(String(r.STATUS || '').trim()))\n  .map((r) => ({ topic: topicOf(r), at: Date.parse(r.RELEASE_DATE || '') || Date.parse(r.UPDATE_DATE || '') || 0 }))\n  .filter((r) => r.topic && r.at)\n  .sort((a, b) => b.at - a.at)\n  .slice(0, AVOID_LAST)\n  .map((r) => r.topic);\n\nconst queue = rows.filter((item) => /^(QUEUE)$/.test(item.STATUS)).toSorted(byPriorityThenRow);\nconst rotated = queue.filter((r) => !recentTopics.includes(topicOf(r)));\n\n// Rotation must never be the reason nothing gets published: if every queued row is on a\n// topic we just covered, publish the best one anyway rather than skipping the slot.\nconst pool = rotated.length ? rotated : queue;\nconsole.log(\n  'select_article_to_post: ' + queue.length + ' queued, avoiding [' + recentTopics.join(', ') + '], ' +\n    rotated.length + ' on a fresh topic' + (rotated.length ? '' : ' - rotation relaxed to fill the slot')\n);\n\nreturn pool.slice(0, 1);\n"
@@ -378,8 +378,8 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          13056,
-          -1488
+          3808,
+          576
         ],
         "parameters": {
           "select": "channel",
@@ -407,8 +407,8 @@
         "type": "n8n-nodes-base.switch",
         "typeVersion": 3.2,
         "position": [
-          9696,
-          -1488
+          448,
+          192
         ],
         "parameters": {
           "rules": {
@@ -469,8 +469,8 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          9472,
-          -1488
+          224,
+          192
         ],
         "parameters": {
           "operation": "sendAndWait",
@@ -554,8 +554,8 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          9024,
-          -864
+          2240,
+          0
         ],
         "parameters": {
           "operation": "sendAndWait",
@@ -591,8 +591,8 @@
         "retryOnFail": true,
         "maxTries": 3,
         "position": [
-          8800,
-          -864
+          2016,
+          0
         ],
         "parameters": {
           "operation": "update",
@@ -831,8 +831,8 @@
         "retryOnFail": true,
         "maxTries": 3,
         "position": [
-          12608,
-          -1488
+          3360,
+          576
         ],
         "parameters": {
           "operation": "update",
@@ -1072,8 +1072,8 @@
         "retryOnFail": true,
         "maxTries": 3,
         "position": [
-          7904,
-          -864
+          672,
+          384
         ],
         "parameters": {
           "operation": "update",
@@ -1312,8 +1312,8 @@
         "type": "n8n-nodes-base.stickyNote",
         "typeVersion": 1,
         "position": [
-          7664,
-          -1792
+          448,
+          -16
         ],
         "parameters": {
           "content": "## Link to the [Google Sheet](https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI)",
@@ -1327,8 +1327,8 @@
         "type": "n8n-nodes-base.manualTrigger",
         "typeVersion": 1,
         "position": [
-          7232,
-          -768
+          0,
+          384
         ],
         "parameters": {}
       },
@@ -1339,8 +1339,8 @@
         "type": "n8n-nodes-base.scheduleTrigger",
         "typeVersion": 1.2,
         "position": [
-          7232,
-          -960
+          0,
+          576
         ],
         "parameters": {
           "rule": {
@@ -1365,8 +1365,8 @@
         "retryOnFail": true,
         "maxTries": 3,
         "position": [
-          11264,
-          -1632
+          2016,
+          768
         ],
         "parameters": {
           "operation": "update",
@@ -1605,8 +1605,8 @@
         "type": "n8n-nodes-base.linkedIn",
         "typeVersion": 1,
         "position": [
-          13504,
-          -1056
+          3136,
+          0
         ],
         "parameters": {
           "person": "ZK1zEXWkav",
@@ -1631,8 +1631,8 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          13728,
-          -1200
+          4480,
+          384
         ],
         "parameters": {
           "select": "channel",
@@ -1662,8 +1662,8 @@
         "retryOnFail": true,
         "maxTries": 3,
         "position": [
-          13952,
-          -1200
+          4704,
+          384
         ],
         "parameters": {
           "operation": "update",
@@ -1903,8 +1903,8 @@
         "type": "n8n-nodes-base.switch",
         "typeVersion": 3.2,
         "position": [
-          11040,
-          -1152
+          1792,
+          576
         ],
         "parameters": {
           "rules": {
@@ -1946,8 +1946,8 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          11712,
-          -1104
+          2464,
+          576
         ],
         "parameters": {
           "operation": "sendAndWait",
@@ -1981,8 +1981,8 @@
         "type": "n8n-nodes-base.switch",
         "typeVersion": 3.2,
         "position": [
-          11936,
-          -1104
+          2688,
+          576
         ],
         "parameters": {
           "rules": {
@@ -2045,8 +2045,8 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          12160,
-          -880
+          2912,
+          768
         ],
         "parameters": {
           "operation": "sendAndWait",
@@ -2135,8 +2135,8 @@
         "type": "n8n-nodes-base.executeWorkflow",
         "typeVersion": 1.3,
         "position": [
-          10816,
-          -1072
+          1568,
+          576
         ],
         "parameters": {
           "workflowId": {
@@ -2231,8 +2231,8 @@
         "type": "n8n-nodes-base.switch",
         "typeVersion": 3.2,
         "position": [
-          12384,
-          -864
+          3136,
+          768
         ],
         "parameters": {
           "rules": {
@@ -2293,8 +2293,8 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          11488,
-          -1104
+          2240,
+          576
         ],
         "parameters": {
           "resource": "file",
@@ -2316,8 +2316,8 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          11264,
-          -1104
+          2016,
+          576
         ],
         "parameters": {
           "jsCode": "const data = JSON.parse($input.first().json[\"omImage \"]);\nconst base64Data = data.url.split(',')[1];\nconst buffer = Buffer.from(base64Data, 'base64');\n\nreturn  [{\n  json: {},\n  binary: {\n    data: {\n      mimeType: 'image/png',\n      fileName: 'ai_image.png',\n      fileExtension: 'png',\n      data: buffer,\n    }\n  }\n}];"
@@ -2329,8 +2329,8 @@
         "type": "n8n-nodes-base.if",
         "typeVersion": 2.2,
         "position": [
-          9472,
-          -768
+          224,
+          576
         ],
         "parameters": {
           "conditions": {
@@ -2363,8 +2363,8 @@
         "type": "n8n-nodes-base.executeWorkflow",
         "typeVersion": 1.3,
         "position": [
-          9696,
-          -240
+          448,
+          576
         ],
         "parameters": {
           "workflowId": {
@@ -2461,11 +2461,11 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          9920,
-          -528
+          672,
+          576
         ],
         "parameters": {
-          "jsCode": "// The studio's own run STATUS is PARTIAL whenever a requested type is unavailable, so the\n// asset's status is what this branches on. The LinkedIn branch asks the studio for the\n// composer-authored video type; both animated opt-ins (ANIMATED, AGENT) share it.\n// The asset is located by its object key rather than by a data URL: the studio stores\n// the render in the temp bucket through the utils MCP server and never carries its\n// bytes, which is what keeps a 60 MB asset out of the studio's execution record.\nconst r = $input.first().json || {};\nconst assets = r.ASSETS || [];\nconst req = $('select_article_to_post').first().json;\nconst want = 'animation_linkedin_video';\nconst a = assets.find((x) => x.ASSET_TYPE === want) || null;\nconst ok = Boolean(a && a.STATUS === 'RENDERED' && a.S3_KEY);\nreturn [{ json: {\n  RUN_ID: r.RUN_ID || '',\n  RUN_STATUS: r.STATUS || '',\n  ASSET_TYPE: a ? a.ASSET_TYPE : '',\n  ASSET_STATUS: a ? a.STATUS : 'MISSING',\n  CONTENT_TYPE: a ? (a.CONTENT_TYPE || '') : '',\n  S3_KEY: a && a.S3_KEY ? a.S3_KEY : '',\n  DURATION_MS: a ? (a.DURATION_MS || '') : '',\n  FRAME_COUNT: a ? (a.FRAME_COUNT || '') : '',\n  ERROR: ok ? '' : ('animated media unavailable: ' + ((a && (a.ERROR || a.STATUS)) || 'no asset returned')),\n} }];"
+          "jsCode": "// The studio's own run STATUS is PARTIAL whenever a requested type is unavailable, so the\n// asset's status is what this branches on. The LinkedIn branch asks the studio for the\n// composer-authored video type; both animated opt-ins (ANIMATED, AGENT) share it.\n// The asset is located by its object key rather than by a data URL: the studio stores\n// the render in the temp bucket through the utils MCP server and never carries its\n// bytes, which is what keeps a 60 MB asset out of the studio's execution record.\nconst r = $input.first().json || {};\nconst assets = r.ASSETS || [];\nconst req = $('select_article_to_post').first().json;\nconst want = 'animation_linkedin_video';\nconst a = assets.find((x) => x.ASSET_TYPE === want) || null;\nconst ok = Boolean(a && a.STATUS === 'RENDERED' && a.S3_KEY);\n// The review's own state, so the approval can name what is still open instead of presenting a\n// `fix` asset as one the review passed.\nconst open = (() => {\n  try {\n    const parsed = JSON.parse(String((a && a.OPEN_FINDINGS) || '[]'));\n    return Array.isArray(parsed) ? parsed : [];\n  } catch (e) { return []; }\n})();\nreturn [{ json: {\n  RUN_ID: r.RUN_ID || '',\n  RUN_STATUS: r.STATUS || '',\n  ASSET_TYPE: a ? a.ASSET_TYPE : '',\n  ASSET_STATUS: a ? a.STATUS : 'MISSING',\n  CONTENT_TYPE: a ? (a.CONTENT_TYPE || '') : '',\n  S3_KEY: a && a.S3_KEY ? a.S3_KEY : '',\n  DURATION_MS: a ? (a.DURATION_MS || '') : '',\n  FRAME_COUNT: a ? (a.FRAME_COUNT || '') : '',\n  VERDICT: a ? (a.VERDICT || '') : '',\n  NEEDS_REVIEW: a ? a.NEEDS_REVIEW === true : false,\n  OPEN_COUNT: open.length,\n  OPEN_FINDINGS: a ? (a.OPEN_FINDINGS || '[]') : '[]',\n  STALLED: a ? (a.STALLED || '[]') : '[]',\n  CHECK_OK: a ? a.CHECK_OK === true : false,\n  CHECK_REASON: a ? (a.CHECK_REASON || '') : '',\n  ERROR: ok ? '' : ('animated media unavailable: ' + ((a && (a.ERROR || a.STATUS)) || 'no asset returned')),\n} }];\n"
         }
       },
       {
@@ -2474,8 +2474,8 @@
         "type": "n8n-nodes-base.if",
         "typeVersion": 2.2,
         "position": [
-          10144,
-          -528
+          896,
+          576
         ],
         "parameters": {
           "conditions": {
@@ -2510,8 +2510,8 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          11488,
-          -576
+          1792,
+          384
         ],
         "parameters": {
           "resource": "file",
@@ -2534,8 +2534,8 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          11712,
-          -576
+          2016,
+          384
         ],
         "parameters": {
           "operation": "sendAndWait",
@@ -2546,7 +2546,7 @@
             "mode": "list",
             "cachedResultName": "workflows"
           },
-          "message": "=Waiting for final approval of the animated infographic for a LinkedIn Post...\n\nstudio run {{ $('check_animation_result').item.json.RUN_ID }}, {{ $('check_animation_result').item.json.FRAME_COUNT }} frames, {{ $('check_animation_result').item.json.CONTENT_TYPE }}",
+          "message": "=Waiting for final approval of the animated infographic for a LinkedIn Post...\n\n{{ $('check_animation_result').item.json.NEEDS_REVIEW ? ($('check_animation_result').item.json.OPEN_COUNT > 0 ? 'This render still has ' + $('check_animation_result').item.json.OPEN_COUNT + ' open finding(s):' + '\\n' + JSON.parse($('check_animation_result').item.json.OPEN_FINDINGS || '[]').map(function (f) { return '- ' + (f.id || 'finding') + ' severity ' + (f.severity || 2) + ': ' + (f.what || 'a defect'); }).join('\\n') + '\\n\\nApproving posts it anyway.' : 'This render could not be reviewed; approving posts it without a review.') : 'studio run ' + $('check_animation_result').item.json.RUN_ID + ', ' + $('check_animation_result').item.json.FRAME_COUNT + ' frames, '+ $('check_animation_result').item.json.CONTENT_TYPE }}",
           "approvalOptions": {
             "values": {
               "approvalType": "double"
@@ -2569,8 +2569,8 @@
         "type": "n8n-nodes-base.switch",
         "typeVersion": 3.2,
         "position": [
-          11936,
-          -576
+          2240,
+          384
         ],
         "parameters": {
           "rules": {
@@ -2633,8 +2633,8 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          12160,
-          -448
+          2464,
+          768
         ],
         "parameters": {
           "operation": "sendAndWait",
@@ -2723,8 +2723,8 @@
         "type": "n8n-nodes-base.switch",
         "typeVersion": 3.2,
         "position": [
-          12384,
-          -336
+          2688,
+          768
         ],
         "parameters": {
           "rules": {
@@ -2785,8 +2785,8 @@
         "type": "n8n-nodes-base.if",
         "typeVersion": 2.2,
         "position": [
-          12160,
-          -1200
+          2912,
+          192
         ],
         "parameters": {
           "conditions": {
@@ -2819,8 +2819,8 @@
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
         "position": [
-          13280,
-          -1248
+          4032,
+          576
         ],
         "parameters": {
           "method": "POST",
@@ -2864,8 +2864,8 @@
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
         "position": [
-          12608,
-          -1248
+          3360,
+          384
         ],
         "parameters": {
           "method": "POST",
@@ -2903,8 +2903,8 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          13056,
-          -1248
+          3808,
+          384
         ],
         "parameters": {
           "jsCode": "// The ugcPosts body for the video the register step returned. Commentary is\n// escaped the way the LinkedIn node escapes it (LinkedIn's \"little text\" rule),\n// so a reserved character in the post cannot make the API reject it.\nconst reg = $('linkedin_register_video').first().json.value || {};\nconst asset = reg.asset;\nif (!asset) throw new Error('registerUpload returned no asset');\nconst text = String($('execute_post_creator').first().json.text || '');\nconst commentary = text.replace(/[(*)\\[\\]{}<>@|~_]/gm, (c) => '\\\\' + c);\nconst body = {\n  author: 'urn:li:person:ZK1zEXWkav',\n  lifecycleState: 'PUBLISHED',\n  specificContent: { 'com.linkedin.ugc.ShareContent': {\n    shareCommentary: { text: commentary },\n    shareMediaCategory: 'VIDEO',\n    media: [{ status: 'READY', media: asset }],\n  } },\n  visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' },\n};\nreturn [{ json: { POST_BODY: JSON.stringify(body), ASSET: asset } }];\n"
@@ -2916,8 +2916,8 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          12384,
-          -1248
+          3136,
+          192
         ],
         "parameters": {
           "jsCode": "// Build the registerUpload request from the approved asset. A video post goes\n// through the LinkedIn API directly because the n8n LinkedIn node cannot upload\n// video; nothing here guesses a value.\n// The metadata comes from the check, not from the download: a file response\n// carries no JSON of its own, so reading it there would silently fall back.\nconst a = $('check_animation_result').first().json || {};\nconst registerRequest = {\n  registerUploadRequest: {\n    recipes: ['urn:li:digitalmediaRecipe:feedshare-video'],\n    owner: 'urn:li:person:ZK1zEXWkav',\n    serviceRelationships: [{ relationshipType: 'OWNER', identifier: 'urn:li:userGeneratedContent' }],\n  },\n};\nreturn [{ json: { REGISTER_BODY: JSON.stringify(registerRequest), CONTENT_TYPE: a.CONTENT_TYPE || 'video/mp4' } }];\n"
@@ -2930,8 +2930,8 @@
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
         "position": [
-          12832,
-          -1248
+          3584,
+          384
         ],
         "parameters": {
           "method": "PUT",
@@ -2959,8 +2959,8 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          13504,
-          -1248
+          4256,
+          576
         ],
         "parameters": {
           "jsCode": "// ugcPosts returns 201 with the new post's id in the x-restli-id header, so the\n// header is captured (fullResponse) and a missing id fails loudly rather than\n// recording an empty link.\nconst r = $input.first().json || {};\nconst h = r.headers || {};\nconst urn = h['x-restli-id'] || h['X-Restli-Id'] || '';\nif (!urn) throw new Error('LinkedIn returned no post id: ' + JSON.stringify(r).slice(0, 300));\nreturn [{ json: { urn: urn } }];\n"
@@ -2972,8 +2972,8 @@
         "type": "n8n-nodes-base.stopAndError",
         "typeVersion": 1,
         "position": [
-          11488,
-          -1632
+          2240,
+          768
         ],
         "parameters": {
           "errorMessage": "={{ $json.ERROR || $json.error || 'post failed' }} ({{ $('select_article_to_post').item.json.URL }})"
@@ -2985,8 +2985,8 @@
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
         "position": [
-          10816,
-          -576
+          1120,
+          192
         ],
         "parameters": {
           "method": "POST",
@@ -3014,8 +3014,8 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          11040,
-          -576
+          1344,
+          192
         ],
         "parameters": {
           "jsCode": "// The signed download URL the temp-bucket server answered with, so the bytes can be\n// fetched without this workflow holding a bucket credential at all. The answer is one\n// line of key=value pairs, split the way a caller does rather than matched as prose; a\n// failure is a line beginning ERROR: and is raised here so the run reports it rather\n// than uploading something else.\nconst resp = $input.first().json || {};\nconst content = resp.result && resp.result.content;\nconst text = content && content[0] && content[0].text;\nif (typeof text !== 'string') throw new Error('the temp-bucket server answered no text');\nif (text.indexOf('ERROR:') === 0) throw new Error(text.slice(0, 500));\nconst pairs = {};\nfor (const part of text.trim().split(/\\s+/)) {\n  const eq = part.indexOf('=');\n  if (eq > 0) pairs[part.slice(0, eq)] = part.slice(eq + 1);\n}\nif (!pairs.url) throw new Error('no signed url in: ' + text.slice(0, 300));\nreturn [{ json: {\n  URL: pairs.url, KEY: pairs.key || '', BYTES: Number(pairs.bytes || 0),\n  CONTENT_TYPE: pairs['content-type'] || '', EXPIRES: Number(pairs.expires || 0),\n} }];\n"
@@ -3029,8 +3029,8 @@
         "retryOnFail": true,
         "maxTries": 3,
         "position": [
-          11264,
-          -576
+          1568,
+          384
         ],
         "parameters": {
           "url": "={{ $json.URL }}",
@@ -3051,8 +3051,8 @@
         "type": "n8n-nodes-base.slack",
         "typeVersion": 2.3,
         "position": [
-          10368,
-          -432
+          1120,
+          768
         ],
         "parameters": {
           "operation": "sendAndWait",
@@ -3114,8 +3114,8 @@
         "type": "n8n-nodes-base.if",
         "typeVersion": 2.2,
         "position": [
-          10592,
-          -432
+          1344,
+          768
         ],
         "parameters": {
           "conditions": {
@@ -3148,8 +3148,8 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          10816,
-          -352
+          1568,
+          768
         ],
         "parameters": {
           "jsCode": "// The asset's own failure reason is the whole of this retry: it is what the\n// composer must author against. A reviewer's note is added when the form carried\n// one. The latest check is read rather than the first, so a second failure carries\n// its own reason and not the previous one's.\nconst data = $input.first().json.data || {};\nconst reason = $('check_animation_result').last().json.ERROR || '';\nconst note = String(data.Feedback || '').trim();\nconst feedback = [note, reason && ('the previous attempt failed: ' + reason)]\n  .filter(Boolean)\n  .join(' | ');\nreturn [{ json: { FEEDBACK: feedback } }];\n"
@@ -3161,8 +3161,8 @@
         "type": "n8n-nodes-base.code",
         "typeVersion": 2,
         "position": [
-          8576,
-          -768
+          1568,
+          0
         ],
         "parameters": {
           "jsCode": "// The writer classified on this turn, so its choice becomes the row's. HOOK and the\n// registry's visual defaults for it are written before the text approval, which is what\n// the animated branch, the still fallback and the review read. The snapshot this run\n// selected is stamped too: those branches read $('select_article_to_post').item.json, and\n// a sheet write alone would not reach an item read at the top of the run. Both status\n// columns stay untouched; a Cancel at the approval leaves these cells and the row is\n// CANCELED there anyway.\nconst row = $('select_article_to_post').first().json;\nconst draft = $('execute_post_creator').first().json || {};\nconst HOOK = String(draft.HOOK || '').trim().toUpperCase();\nconst VISUAL_FORM = String(draft.VISUAL_FORM || '').trim().toLowerCase();\nconst SCENES = String(draft.SCENES == null ? '' : draft.SCENES).trim();\n// The video's session is the article, not the sheet row: expiring rows renumber the\n// queue, so a reused row number would edit the previous article's composition in place.\nconst url = String(row.URL || '').trim();\nif (!url) throw new Error('the row carries no URL: the video session cannot be named');\nconst hashed = [...url].reduce((h, ch) => Math.imul(h ^ ch.codePointAt(0), 16777619), 2166136261);\nconst STUDIO_SESSION_ID = 'lips-' + (hashed >>> 0).toString(36);\nif (!HOOK) {\n  throw new Error('the post creator returned no hook: row ' + row.row_number + ' would publish without its classification');\n}\nrow.HOOK = HOOK;\nrow.VISUAL_FORM = VISUAL_FORM;\nrow.SCENES = SCENES;\nconsole.log('build_hook_columns: row ' + row.row_number + ' ' + HOOK + ' / ' + (VISUAL_FORM || 'auto') + ' / scenes ' + (SCENES || '0'));\nreturn [{ json: { row_number: row.row_number, HOOK, VISUAL_FORM, SCENES, STUDIO_SESSION_ID } }];\n"
@@ -3176,8 +3176,8 @@
         "retryOnFail": true,
         "maxTries": 3,
         "position": [
-          8688,
-          -768
+          1792,
+          0
         ],
         "parameters": {
           "operation": "update",
@@ -4746,8 +4746,8 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        9248,
-        -864
+        0,
+        192
       ],
       "parameters": {
         "rules": {
@@ -4809,8 +4809,8 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        12832,
-        -1488
+        3584,
+        576
       ],
       "parameters": {
         "assignments": {
@@ -4832,8 +4832,8 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        8128,
-        -864
+        896,
+        384
       ],
       "parameters": {
         "workflowId": {
@@ -4876,8 +4876,8 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        8576,
-        -928
+        1344,
+        384
       ],
       "parameters": {
         "rules": {
@@ -4919,8 +4919,8 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        8352,
-        -864
+        1120,
+        384
       ],
       "parameters": {
         "workflowId": {
@@ -5062,8 +5062,8 @@
       "retryOnFail": true,
       "maxTries": 3,
       "position": [
-        7456,
-        -864
+        224,
+        384
       ],
       "parameters": {
         "documentId": {
@@ -5100,8 +5100,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        7680,
-        -864
+        448,
+        384
       ],
       "parameters": {
         "jsCode": "// Pick the one article this run publishes, out of the curator's backlog.\n//\n// Topic rotation, added when content_queue became a durable backlog: the curator used to\n// hand over a fresh five-item slate whose diversity caps were fought over inside a single\n// run, and the four it did not publish were expired. Now it just tops the backlog up, and\n// variety is decided here instead - where it can be guaranteed across a week rather than\n// inside one slate. Skipping the topics of the last AVOID_LAST published posts is enough:\n// it is deterministic, needs no state of its own, and costs nothing.\n//\n// Deliberately NOT random. Random selection would throw away the ranking the curator paid\n// an LLM to produce, and it only pays for itself as exploration - which needs a reward\n// signal. Nothing reads LinkedIn engagement back into this sheet yet, so there is nothing\n// to explore against. Revisit if that changes.\n// AVOID_LAST must leave at least TWO categories eligible, or rotation stops being a\n// tiebreak and becomes a strict round-robin that overrides the ranking entirely. It was 2\n// while the curator ran five categories; the curator now runs three (Data/AI/DevOps), so 2\n// would leave exactly one eligible category and a VERY_HIGH row would wait behind a LOW one\n// purely because of publish order. At 1 the same topic can never go out twice in a row -\n// which is the whole point - and PRIORITY still chooses between the other two.\nconst AVOID_LAST = 1;\n\nconst priorityOrder = {\n  VERY_HIGH: 0,\n  HIGH: 1,\n  MEDIUM: 2,\n  LOW: 3\n};\nconst topicOf = (r) => String(r.TOPIC || '').trim();\nconst byPriorityThenRow = (a, b) => {\n  const aPriority = priorityOrder[a.PRIORITY] ?? 4;\n  const bPriority = priorityOrder[b.PRIORITY] ?? 4;\n  if (aPriority !== bPriority) {\n    return aPriority - bPriority; // sort by priority\n  }\n  return a.row_number - b.row_number; // sort by row_number ascending\n};\n\nconst rows = $input.all().map((item) => item.json).filter((item) => item && item.URL);\n\n// Most recently published first. RELEASE_DATE is written by update_status_published_a;\n// rows that predate it fall back to UPDATE_DATE so the rotation still sees them.\nconst recentTopics = rows\n  .filter((r) => /^PUBLISHED$/.test(String(r.STATUS || '').trim()))\n  .map((r) => ({ topic: topicOf(r), at: Date.parse(r.RELEASE_DATE || '') || Date.parse(r.UPDATE_DATE || '') || 0 }))\n  .filter((r) => r.topic && r.at)\n  .sort((a, b) => b.at - a.at)\n  .slice(0, AVOID_LAST)\n  .map((r) => r.topic);\n\nconst queue = rows.filter((item) => /^(QUEUE)$/.test(item.STATUS)).toSorted(byPriorityThenRow);\nconst rotated = queue.filter((r) => !recentTopics.includes(topicOf(r)));\n\n// Rotation must never be the reason nothing gets published: if every queued row is on a\n// topic we just covered, publish the best one anyway rather than skipping the slot.\nconst pool = rotated.length ? rotated : queue;\nconsole.log(\n  'select_article_to_post: ' + queue.length + ' queued, avoiding [' + recentTopics.join(', ') + '], ' +\n    rotated.length + ' on a fresh topic' + (rotated.length ? '' : ' - rotation relaxed to fill the slot')\n);\n\nreturn pool.slice(0, 1);\n"
@@ -5114,8 +5114,8 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        13056,
-        -1488
+        3808,
+        576
       ],
       "parameters": {
         "select": "channel",
@@ -5143,8 +5143,8 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        9696,
-        -1488
+        448,
+        192
       ],
       "parameters": {
         "rules": {
@@ -5205,8 +5205,8 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        9472,
-        -1488
+        224,
+        192
       ],
       "parameters": {
         "operation": "sendAndWait",
@@ -5290,8 +5290,8 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        9024,
-        -864
+        2240,
+        0
       ],
       "parameters": {
         "operation": "sendAndWait",
@@ -5327,8 +5327,8 @@
       "retryOnFail": true,
       "maxTries": 3,
       "position": [
-        8800,
-        -864
+        2016,
+        0
       ],
       "parameters": {
         "operation": "update",
@@ -5567,8 +5567,8 @@
       "retryOnFail": true,
       "maxTries": 3,
       "position": [
-        12608,
-        -1488
+        3360,
+        576
       ],
       "parameters": {
         "operation": "update",
@@ -5808,8 +5808,8 @@
       "retryOnFail": true,
       "maxTries": 3,
       "position": [
-        7904,
-        -864
+        672,
+        384
       ],
       "parameters": {
         "operation": "update",
@@ -6048,8 +6048,8 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        7664,
-        -1792
+        448,
+        -16
       ],
       "parameters": {
         "content": "## Link to the [Google Sheet](https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI)",
@@ -6063,8 +6063,8 @@
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
       "position": [
-        7232,
-        -768
+        0,
+        384
       ],
       "parameters": {}
     },
@@ -6075,8 +6075,8 @@
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
-        7232,
-        -960
+        0,
+        576
       ],
       "parameters": {
         "rule": {
@@ -6101,8 +6101,8 @@
       "retryOnFail": true,
       "maxTries": 3,
       "position": [
-        11264,
-        -1632
+        2016,
+        768
       ],
       "parameters": {
         "operation": "update",
@@ -6341,8 +6341,8 @@
       "type": "n8n-nodes-base.linkedIn",
       "typeVersion": 1,
       "position": [
-        13504,
-        -1056
+        3136,
+        0
       ],
       "parameters": {
         "person": "ZK1zEXWkav",
@@ -6367,8 +6367,8 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        13728,
-        -1200
+        4480,
+        384
       ],
       "parameters": {
         "select": "channel",
@@ -6398,8 +6398,8 @@
       "retryOnFail": true,
       "maxTries": 3,
       "position": [
-        13952,
-        -1200
+        4704,
+        384
       ],
       "parameters": {
         "operation": "update",
@@ -6639,8 +6639,8 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        11040,
-        -1152
+        1792,
+        576
       ],
       "parameters": {
         "rules": {
@@ -6682,8 +6682,8 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        11712,
-        -1104
+        2464,
+        576
       ],
       "parameters": {
         "operation": "sendAndWait",
@@ -6717,8 +6717,8 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        11936,
-        -1104
+        2688,
+        576
       ],
       "parameters": {
         "rules": {
@@ -6781,8 +6781,8 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        12160,
-        -880
+        2912,
+        768
       ],
       "parameters": {
         "operation": "sendAndWait",
@@ -6871,8 +6871,8 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
       "position": [
-        10816,
-        -1072
+        1568,
+        576
       ],
       "parameters": {
         "workflowId": {
@@ -6967,8 +6967,8 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        12384,
-        -864
+        3136,
+        768
       ],
       "parameters": {
         "rules": {
@@ -7029,8 +7029,8 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        11488,
-        -1104
+        2240,
+        576
       ],
       "parameters": {
         "resource": "file",
@@ -7052,8 +7052,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        11264,
-        -1104
+        2016,
+        576
       ],
       "parameters": {
         "jsCode": "const data = JSON.parse($input.first().json[\"omImage \"]);\nconst base64Data = data.url.split(',')[1];\nconst buffer = Buffer.from(base64Data, 'base64');\n\nreturn  [{\n  json: {},\n  binary: {\n    data: {\n      mimeType: 'image/png',\n      fileName: 'ai_image.png',\n      fileExtension: 'png',\n      data: buffer,\n    }\n  }\n}];"
@@ -7065,8 +7065,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        9472,
-        -768
+        224,
+        576
       ],
       "parameters": {
         "conditions": {
@@ -7099,8 +7099,8 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.3,
       "position": [
-        9696,
-        -240
+        448,
+        576
       ],
       "parameters": {
         "workflowId": {
@@ -7197,11 +7197,11 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        9920,
-        -528
+        672,
+        576
       ],
       "parameters": {
-        "jsCode": "// The studio's own run STATUS is PARTIAL whenever a requested type is unavailable, so the\n// asset's status is what this branches on. The LinkedIn branch asks the studio for the\n// composer-authored video type; both animated opt-ins (ANIMATED, AGENT) share it.\n// The asset is located by its object key rather than by a data URL: the studio stores\n// the render in the temp bucket through the utils MCP server and never carries its\n// bytes, which is what keeps a 60 MB asset out of the studio's execution record.\nconst r = $input.first().json || {};\nconst assets = r.ASSETS || [];\nconst req = $('select_article_to_post').first().json;\nconst want = 'animation_linkedin_video';\nconst a = assets.find((x) => x.ASSET_TYPE === want) || null;\nconst ok = Boolean(a && a.STATUS === 'RENDERED' && a.S3_KEY);\nreturn [{ json: {\n  RUN_ID: r.RUN_ID || '',\n  RUN_STATUS: r.STATUS || '',\n  ASSET_TYPE: a ? a.ASSET_TYPE : '',\n  ASSET_STATUS: a ? a.STATUS : 'MISSING',\n  CONTENT_TYPE: a ? (a.CONTENT_TYPE || '') : '',\n  S3_KEY: a && a.S3_KEY ? a.S3_KEY : '',\n  DURATION_MS: a ? (a.DURATION_MS || '') : '',\n  FRAME_COUNT: a ? (a.FRAME_COUNT || '') : '',\n  ERROR: ok ? '' : ('animated media unavailable: ' + ((a && (a.ERROR || a.STATUS)) || 'no asset returned')),\n} }];"
+        "jsCode": "// The studio's own run STATUS is PARTIAL whenever a requested type is unavailable, so the\n// asset's status is what this branches on. The LinkedIn branch asks the studio for the\n// composer-authored video type; both animated opt-ins (ANIMATED, AGENT) share it.\n// The asset is located by its object key rather than by a data URL: the studio stores\n// the render in the temp bucket through the utils MCP server and never carries its\n// bytes, which is what keeps a 60 MB asset out of the studio's execution record.\nconst r = $input.first().json || {};\nconst assets = r.ASSETS || [];\nconst req = $('select_article_to_post').first().json;\nconst want = 'animation_linkedin_video';\nconst a = assets.find((x) => x.ASSET_TYPE === want) || null;\nconst ok = Boolean(a && a.STATUS === 'RENDERED' && a.S3_KEY);\n// The review's own state, so the approval can name what is still open instead of presenting a\n// `fix` asset as one the review passed.\nconst open = (() => {\n  try {\n    const parsed = JSON.parse(String((a && a.OPEN_FINDINGS) || '[]'));\n    return Array.isArray(parsed) ? parsed : [];\n  } catch (e) { return []; }\n})();\nreturn [{ json: {\n  RUN_ID: r.RUN_ID || '',\n  RUN_STATUS: r.STATUS || '',\n  ASSET_TYPE: a ? a.ASSET_TYPE : '',\n  ASSET_STATUS: a ? a.STATUS : 'MISSING',\n  CONTENT_TYPE: a ? (a.CONTENT_TYPE || '') : '',\n  S3_KEY: a && a.S3_KEY ? a.S3_KEY : '',\n  DURATION_MS: a ? (a.DURATION_MS || '') : '',\n  FRAME_COUNT: a ? (a.FRAME_COUNT || '') : '',\n  VERDICT: a ? (a.VERDICT || '') : '',\n  NEEDS_REVIEW: a ? a.NEEDS_REVIEW === true : false,\n  OPEN_COUNT: open.length,\n  OPEN_FINDINGS: a ? (a.OPEN_FINDINGS || '[]') : '[]',\n  STALLED: a ? (a.STALLED || '[]') : '[]',\n  CHECK_OK: a ? a.CHECK_OK === true : false,\n  CHECK_REASON: a ? (a.CHECK_REASON || '') : '',\n  ERROR: ok ? '' : ('animated media unavailable: ' + ((a && (a.ERROR || a.STATUS)) || 'no asset returned')),\n} }];\n"
       }
     },
     {
@@ -7210,8 +7210,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        10144,
-        -528
+        896,
+        576
       ],
       "parameters": {
         "conditions": {
@@ -7246,8 +7246,8 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        11488,
-        -576
+        1792,
+        384
       ],
       "parameters": {
         "resource": "file",
@@ -7270,8 +7270,8 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        11712,
-        -576
+        2016,
+        384
       ],
       "parameters": {
         "operation": "sendAndWait",
@@ -7282,7 +7282,7 @@
           "mode": "list",
           "cachedResultName": "workflows"
         },
-        "message": "=Waiting for final approval of the animated infographic for a LinkedIn Post...\n\nstudio run {{ $('check_animation_result').item.json.RUN_ID }}, {{ $('check_animation_result').item.json.FRAME_COUNT }} frames, {{ $('check_animation_result').item.json.CONTENT_TYPE }}",
+        "message": "=Waiting for final approval of the animated infographic for a LinkedIn Post...\n\n{{ $('check_animation_result').item.json.NEEDS_REVIEW ? ($('check_animation_result').item.json.OPEN_COUNT > 0 ? 'This render still has ' + $('check_animation_result').item.json.OPEN_COUNT + ' open finding(s):' + '\\n' + JSON.parse($('check_animation_result').item.json.OPEN_FINDINGS || '[]').map(function (f) { return '- ' + (f.id || 'finding') + ' severity ' + (f.severity || 2) + ': ' + (f.what || 'a defect'); }).join('\\n') + '\\n\\nApproving posts it anyway.' : 'This render could not be reviewed; approving posts it without a review.') : 'studio run ' + $('check_animation_result').item.json.RUN_ID + ', ' + $('check_animation_result').item.json.FRAME_COUNT + ' frames, '+ $('check_animation_result').item.json.CONTENT_TYPE }}",
         "approvalOptions": {
           "values": {
             "approvalType": "double"
@@ -7305,8 +7305,8 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        11936,
-        -576
+        2240,
+        384
       ],
       "parameters": {
         "rules": {
@@ -7369,8 +7369,8 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        12160,
-        -448
+        2464,
+        768
       ],
       "parameters": {
         "operation": "sendAndWait",
@@ -7459,8 +7459,8 @@
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
       "position": [
-        12384,
-        -336
+        2688,
+        768
       ],
       "parameters": {
         "rules": {
@@ -7521,8 +7521,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        12160,
-        -1200
+        2912,
+        192
       ],
       "parameters": {
         "conditions": {
@@ -7555,8 +7555,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        13280,
-        -1248
+        4032,
+        576
       ],
       "parameters": {
         "method": "POST",
@@ -7600,8 +7600,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        12608,
-        -1248
+        3360,
+        384
       ],
       "parameters": {
         "method": "POST",
@@ -7639,8 +7639,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        13056,
-        -1248
+        3808,
+        384
       ],
       "parameters": {
         "jsCode": "// The ugcPosts body for the video the register step returned. Commentary is\n// escaped the way the LinkedIn node escapes it (LinkedIn's \"little text\" rule),\n// so a reserved character in the post cannot make the API reject it.\nconst reg = $('linkedin_register_video').first().json.value || {};\nconst asset = reg.asset;\nif (!asset) throw new Error('registerUpload returned no asset');\nconst text = String($('execute_post_creator').first().json.text || '');\nconst commentary = text.replace(/[(*)\\[\\]{}<>@|~_]/gm, (c) => '\\\\' + c);\nconst body = {\n  author: 'urn:li:person:ZK1zEXWkav',\n  lifecycleState: 'PUBLISHED',\n  specificContent: { 'com.linkedin.ugc.ShareContent': {\n    shareCommentary: { text: commentary },\n    shareMediaCategory: 'VIDEO',\n    media: [{ status: 'READY', media: asset }],\n  } },\n  visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' },\n};\nreturn [{ json: { POST_BODY: JSON.stringify(body), ASSET: asset } }];\n"
@@ -7652,8 +7652,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        12384,
-        -1248
+        3136,
+        192
       ],
       "parameters": {
         "jsCode": "// Build the registerUpload request from the approved asset. A video post goes\n// through the LinkedIn API directly because the n8n LinkedIn node cannot upload\n// video; nothing here guesses a value.\n// The metadata comes from the check, not from the download: a file response\n// carries no JSON of its own, so reading it there would silently fall back.\nconst a = $('check_animation_result').first().json || {};\nconst registerRequest = {\n  registerUploadRequest: {\n    recipes: ['urn:li:digitalmediaRecipe:feedshare-video'],\n    owner: 'urn:li:person:ZK1zEXWkav',\n    serviceRelationships: [{ relationshipType: 'OWNER', identifier: 'urn:li:userGeneratedContent' }],\n  },\n};\nreturn [{ json: { REGISTER_BODY: JSON.stringify(registerRequest), CONTENT_TYPE: a.CONTENT_TYPE || 'video/mp4' } }];\n"
@@ -7666,8 +7666,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        12832,
-        -1248
+        3584,
+        384
       ],
       "parameters": {
         "method": "PUT",
@@ -7695,8 +7695,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        13504,
-        -1248
+        4256,
+        576
       ],
       "parameters": {
         "jsCode": "// ugcPosts returns 201 with the new post's id in the x-restli-id header, so the\n// header is captured (fullResponse) and a missing id fails loudly rather than\n// recording an empty link.\nconst r = $input.first().json || {};\nconst h = r.headers || {};\nconst urn = h['x-restli-id'] || h['X-Restli-Id'] || '';\nif (!urn) throw new Error('LinkedIn returned no post id: ' + JSON.stringify(r).slice(0, 300));\nreturn [{ json: { urn: urn } }];\n"
@@ -7708,8 +7708,8 @@
       "type": "n8n-nodes-base.stopAndError",
       "typeVersion": 1,
       "position": [
-        11488,
-        -1632
+        2240,
+        768
       ],
       "parameters": {
         "errorMessage": "={{ $json.ERROR || $json.error || 'post failed' }} ({{ $('select_article_to_post').item.json.URL }})"
@@ -7721,8 +7721,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        10816,
-        -576
+        1120,
+        192
       ],
       "parameters": {
         "method": "POST",
@@ -7750,8 +7750,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        11040,
-        -576
+        1344,
+        192
       ],
       "parameters": {
         "jsCode": "// The signed download URL the temp-bucket server answered with, so the bytes can be\n// fetched without this workflow holding a bucket credential at all. The answer is one\n// line of key=value pairs, split the way a caller does rather than matched as prose; a\n// failure is a line beginning ERROR: and is raised here so the run reports it rather\n// than uploading something else.\nconst resp = $input.first().json || {};\nconst content = resp.result && resp.result.content;\nconst text = content && content[0] && content[0].text;\nif (typeof text !== 'string') throw new Error('the temp-bucket server answered no text');\nif (text.indexOf('ERROR:') === 0) throw new Error(text.slice(0, 500));\nconst pairs = {};\nfor (const part of text.trim().split(/\\s+/)) {\n  const eq = part.indexOf('=');\n  if (eq > 0) pairs[part.slice(0, eq)] = part.slice(eq + 1);\n}\nif (!pairs.url) throw new Error('no signed url in: ' + text.slice(0, 300));\nreturn [{ json: {\n  URL: pairs.url, KEY: pairs.key || '', BYTES: Number(pairs.bytes || 0),\n  CONTENT_TYPE: pairs['content-type'] || '', EXPIRES: Number(pairs.expires || 0),\n} }];\n"
@@ -7765,8 +7765,8 @@
       "retryOnFail": true,
       "maxTries": 3,
       "position": [
-        11264,
-        -576
+        1568,
+        384
       ],
       "parameters": {
         "url": "={{ $json.URL }}",
@@ -7787,8 +7787,8 @@
       "type": "n8n-nodes-base.slack",
       "typeVersion": 2.3,
       "position": [
-        10368,
-        -432
+        1120,
+        768
       ],
       "parameters": {
         "operation": "sendAndWait",
@@ -7850,8 +7850,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        10592,
-        -432
+        1344,
+        768
       ],
       "parameters": {
         "conditions": {
@@ -7884,8 +7884,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        10816,
-        -352
+        1568,
+        768
       ],
       "parameters": {
         "jsCode": "// The asset's own failure reason is the whole of this retry: it is what the\n// composer must author against. A reviewer's note is added when the form carried\n// one. The latest check is read rather than the first, so a second failure carries\n// its own reason and not the previous one's.\nconst data = $input.first().json.data || {};\nconst reason = $('check_animation_result').last().json.ERROR || '';\nconst note = String(data.Feedback || '').trim();\nconst feedback = [note, reason && ('the previous attempt failed: ' + reason)]\n  .filter(Boolean)\n  .join(' | ');\nreturn [{ json: { FEEDBACK: feedback } }];\n"
@@ -7897,8 +7897,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        8576,
-        -768
+        1568,
+        0
       ],
       "parameters": {
         "jsCode": "// The writer classified on this turn, so its choice becomes the row's. HOOK and the\n// registry's visual defaults for it are written before the text approval, which is what\n// the animated branch, the still fallback and the review read. The snapshot this run\n// selected is stamped too: those branches read $('select_article_to_post').item.json, and\n// a sheet write alone would not reach an item read at the top of the run. Both status\n// columns stay untouched; a Cancel at the approval leaves these cells and the row is\n// CANCELED there anyway.\nconst row = $('select_article_to_post').first().json;\nconst draft = $('execute_post_creator').first().json || {};\nconst HOOK = String(draft.HOOK || '').trim().toUpperCase();\nconst VISUAL_FORM = String(draft.VISUAL_FORM || '').trim().toLowerCase();\nconst SCENES = String(draft.SCENES == null ? '' : draft.SCENES).trim();\n// The video's session is the article, not the sheet row: expiring rows renumber the\n// queue, so a reused row number would edit the previous article's composition in place.\nconst url = String(row.URL || '').trim();\nif (!url) throw new Error('the row carries no URL: the video session cannot be named');\nconst hashed = [...url].reduce((h, ch) => Math.imul(h ^ ch.codePointAt(0), 16777619), 2166136261);\nconst STUDIO_SESSION_ID = 'lips-' + (hashed >>> 0).toString(36);\nif (!HOOK) {\n  throw new Error('the post creator returned no hook: row ' + row.row_number + ' would publish without its classification');\n}\nrow.HOOK = HOOK;\nrow.VISUAL_FORM = VISUAL_FORM;\nrow.SCENES = SCENES;\nconsole.log('build_hook_columns: row ' + row.row_number + ' ' + HOOK + ' / ' + (VISUAL_FORM || 'auto') + ' / scenes ' + (SCENES || '0'));\nreturn [{ json: { row_number: row.row_number, HOOK, VISUAL_FORM, SCENES, STUDIO_SESSION_ID } }];\n"
@@ -7912,8 +7912,8 @@
       "retryOnFail": true,
       "maxTries": 3,
       "position": [
-        8688,
-        -768
+        1792,
+        0
       ],
       "parameters": {
         "operation": "update",

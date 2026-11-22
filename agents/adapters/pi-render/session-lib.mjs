@@ -16,8 +16,8 @@ export const SESSION_ID_RE = /^(?!\.{1,2}$)[a-zA-Z0-9._-]{1,80}$/;
 const ARTIFACT_NAME_RE = /^out\.(mp4|gif|webp|png|svg|html)$/;
 // The stills of a render, served beside it: the studio's critic fetches one of these. They
 // are the only other names this server writes, so the route stays a whitelist rather than a
-// path a caller can steer.
-const STILL_NAME_RE = /^review-(final|\d+)\.(png|jpg)$/;
+// path a caller can steer. The contact sheet is one of them: the critic fetches it by name.
+const STILL_NAME_RE = /^review-(final|\d+|sheet)\.(png|jpg)$/;
 
 export const DEFAULT_FORMAT = "mp4";
 
@@ -63,21 +63,27 @@ export function runDir(workspace, sessionId) {
   return join(workspace, "runs", safeSessionId(sessionId));
 }
 
-// The vendored GSAP the composition loads. It lives in the image at
-// /opt/hyperframes/vendor/gsap.min.js, but the served document resolves a sibling
-// path: an absolute filesystem path 404s at render time (hit live). Staging it next
-// to the composition as gsap.min.js is what makes `<script src="gsap.min.js">` work.
+// The assets the composition loads as siblings. An absolute /opt path 404s at render
+// time (hit live), so each is staged next to the composition. Two sources, because
+// they are different things: `vendor/` is third-party and never edited (`gsap.min.js`),
+// `runtime/` is this adapter's own browser code (`connectors.js`). Keeping them apart
+// is what stops a future "vendored" edit from rewriting our helper, or the reverse.
 export const VENDOR_DIR = process.env.SYMPOZIUM_VENDOR_DIR || "/opt/hyperframes/vendor";
+export const RUNTIME_DIR = process.env.SYMPOZIUM_RUNTIME_DIR || "/opt/hyperframes/runtime";
 export const VENDOR_ASSETS = ["gsap.min.js"];
+export const RUNTIME_ASSETS = ["connectors.js"];
 
-// Copy the vendored assets into a run directory before the composer runs. Best effort:
+// Copy the served assets into a run directory before the composer runs. Best effort:
 // a missing asset is a render-time failure the composer reports, not a reason to fail
 // the turn. Returns the names staged.
-export async function stageVendorAssets(dir, vendorDir = VENDOR_DIR) {
+export async function stageRunAssets(dir, vendorDir = VENDOR_DIR, runtimeDir = RUNTIME_DIR) {
   const staged = [];
-  for (const name of VENDOR_ASSETS) {
+  for (const [source, name] of [
+    ...VENDOR_ASSETS.map((n) => [vendorDir, n]),
+    ...RUNTIME_ASSETS.map((n) => [runtimeDir, n]),
+  ]) {
     try {
-      await copyFile(join(vendorDir, name), join(dir, name));
+      await copyFile(join(source, name), join(dir, name));
       staged.push(name);
     } catch {
       // left out of staged; the composition fails loudly if it needs it
@@ -472,6 +478,8 @@ export function transcodeArgs(format, { fps, width, height, frames, durationSeco
 // Eight samples sit about three seconds apart, which is what makes the review cover a clip
 // rather than sample it: a 30 s clip with its seven scenes was seen in three moments and its
 // last frame, so a defect in any other scene reached the human unseen (2026-11-21).
+// The server now samples by scene (`stillTimesFor`); these remain the fallback for a caller
+// that computed no times.
 export const DEFAULT_STILL_OFFSETS = [0.08, 0.2, 0.32, 0.44, 0.56, 0.68, 0.8, 0.92];
 
 // The seek that reaches a clip's final frame. ffmpeg's `-sseof` shorter than one frame
@@ -506,12 +514,50 @@ export async function captureStill({ dir, output, run } = {}) {
   }
 }
 
+// A clip's contact sheet: one tile per second, in one image. The scene-aware stills sample the
+// moments a cut defines, so a defect between two of them is invisible; a 30 s clip read as
+// 8-12 stills covered a fraction of its seconds. The sheet trades resolution for coverage --
+// it shows layout and where a frame is empty, not whether small text is legible, so it
+// complements the full-size stills rather than replacing them.
+// The grid is near-square (capped at six columns) because a single row is a strip, not a
+// sheet: 12 s is the 4x3 sheet verified in the pod, 30 s is 6x5.
+export const SHEET_NAME = "review-sheet.jpg";
+
+export function sheetArgs({ runDir, durationSeconds, width = 1280 } = {}) {
+  const dir = String(runDir || "").replace(/\/+$/, "");
+  const w = Number(width) > 0 ? Number(width) : 1280;
+  const seconds = Number(durationSeconds);
+  const n = Math.max(1, Math.round(Number.isFinite(seconds) && seconds > 0 ? seconds : 1));
+  const cols = Math.min(6, Math.max(1, Math.ceil(Math.sqrt(n))));
+  const rows = Math.ceil(n / cols);
+  const tileWidth = Math.max(120, Math.floor(w / cols));
+  return {
+    command: "ffmpeg",
+    args: [
+      "-y",
+      "-i",
+      "out.mp4",
+      "-vf",
+      `fps=1,scale=${tileWidth}:-2,tile=${cols}x${rows}:padding=2:margin=2`,
+      "-frames:v",
+      "1",
+      `${dir}/${SHEET_NAME}`,
+    ],
+    output: SHEET_NAME,
+    mime: "image/jpeg",
+  };
+}
+
 // The stills to make, per medium. A clip's FINAL frame is always one of them: "nothing fully
 // stops" is the rule, so a frozen clip hides in its last frame. An SVG or a deck has no
 // composition to render for the svg type (the composer writes no index.html), so Chromium
 // screenshots the artifact itself at the declared frame. A still png IS the still, so it
 // needs no command -- the artifact is what the critic looks at.
-export function stillArgs({ format, runDir, width, height, durationSeconds, fps, offsets = DEFAULT_STILL_OFFSETS } = {}) {
+//
+// `times` are absolute seconds from `stillTimesFor`; they replace the uniform `offsets` for a
+// clip, so the samples follow the render's own cuts. An authored document keeps its own timing
+// (a page's clock is advanced by a budget, not seeked), so `times` does not apply there.
+export function stillArgs({ format, runDir, width, height, durationSeconds, fps, offsets = DEFAULT_STILL_OFFSETS, times } = {}) {
   const f = safeFormat(format);
   const dir = String(runDir || "").replace(/\/+$/, "");
   const w = Math.max(1, Math.round(Number(width) || 1280));
@@ -552,8 +598,13 @@ export function stillArgs({ format, runDir, width, height, durationSeconds, fps,
   if (f === "png") return [];
   const artifact = artifactName(f);
   const seconds = Number(durationSeconds);
-  const times = Number.isFinite(seconds) && seconds > 0 ? offsets.map((o) => Math.round(seconds * o * 100) / 100) : [];
-  const out = times.map((t, i) => ({
+  const seekTimes =
+    Array.isArray(times) && times.length
+      ? times.filter((t) => Number.isFinite(t) && t >= 0)
+      : Number.isFinite(seconds) && seconds > 0
+        ? offsets.map((o) => Math.round(seconds * o * 100) / 100)
+        : [];
+  const out = seekTimes.map((t, i) => ({
     command: "ffmpeg",
     args: ["-y", "-ss", String(t), "-i", artifact, "-frames:v", "1", "-vf", "scale='min(1280,iw)':-2", `${dir}/review-${i + 1}.jpg`],
     output: `review-${i + 1}.jpg`,
@@ -566,4 +617,347 @@ export function stillArgs({ format, runDir, width, height, durationSeconds, fps,
     mime: "image/jpeg",
   });
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// The deterministic gate. The engine and ffmpeg already decide the perceptual facts
+// (overlaps, freezes, black frames, cut structure); this adapter is the only place that
+// can run them against the bytes it delivered. Everything here is a pure parser of what
+// those processes wrote: session-server.mjs spawns them, so a report shape can be tested
+// without a browser or an encoder.
+//
+// A gate that did not run is not a pass: `ran: false` with a reason is what the asset
+// records, and the workflow treats it as absent evidence rather than as clean.
+
+// A pathological report must not bloat the execution record; errors and warnings come first.
+export const CHECK_FINDING_CAP = 25;
+
+// The sections of `hyperframes check --json` that expose `findings`. A release that renames
+// or drops one contributes nothing rather than failing the parse.
+const CHECK_SECTIONS = ["lint", "runtime", "layout", "motion", "contrast", "craft", "audio", "hdr"];
+const CHECK_SEVERITY_ORDER = { error: 0, warning: 1, info: 2 };
+
+// The engine the image pins is 0.9.1: it has no `--no-cache` (the parser reads it as
+// `--cache`, "Unknown flag", exit 2) and no `--budget`, and its render-ready wait defaults to
+// 10 s, which a 30 s composition does not settle in. The invocation lives here so the
+// argument list is a tested value rather than a line in the server.
+export const CHECK_TIMEOUT_MS = 45_000;
+export function checkArgs(dir) {
+  return ["check", dir, "--json", "--at-transitions", `--timeout=${CHECK_TIMEOUT_MS}`];
+}
+
+// A severity this parser does not recognise is kept as a warning: an unknown level is more
+// likely a louder finding than a quiet one, and dropping it would hide the finding entirely.
+function checkSeverity(value) {
+  const s = String(value ?? "").toLowerCase();
+  if (s === "error" || s === "err" || s === "fatal" || s === "1") return "error";
+  if (s === "info" || s === "note" || s === "hint" || s === "3") return "info";
+  return "warning";
+}
+
+function sectionFindings(section) {
+  if (Array.isArray(section)) return section;
+  if (section && typeof section === "object" && Array.isArray(section.findings)) return section.findings;
+  return [];
+}
+
+// A real finding carries `bbox` as `{x,y,width,height}`; some shapes carry `[x,y,w,h]`. Both
+// normalize to `{x,y,w,h}` so a consumer never branches on the report's shape.
+function bboxOf(value) {
+  if (Array.isArray(value)) {
+    if (value.length < 4) return null;
+    const [x, y, w, h] = value.slice(0, 4).map(Number);
+    return [x, y, w, h].every(Number.isFinite) ? { x, y, w, h } : null;
+  }
+  if (value && typeof value === "object") {
+    const box = {
+      x: Number(value.x),
+      y: Number(value.y),
+      w: Number(value.width ?? value.w),
+      h: Number(value.height ?? value.h),
+    };
+    return Object.values(box).every(Number.isFinite) ? box : null;
+  }
+  return null;
+}
+
+// The element identity a ledger entry keys on. A real finding names no `dataId`; it carries the
+// element's own `data-*` attributes, whose `id` is the stable name (the rest as a capped JSON
+// string, so a selector that moved still has something to match). An element with no `data-*`
+// attributes at all has no identity here: `"{}"` is not one.
+function dataIdOf(raw) {
+  if (raw.dataId != null && raw.dataId !== "") return String(raw.dataId);
+  const attributes = raw.dataAttributes;
+  if (!attributes || typeof attributes !== "object" || !Object.keys(attributes).length) return "";
+  if (attributes.id != null && attributes.id !== "") return String(attributes.id);
+  try {
+    const json = JSON.stringify(attributes);
+    return json.length > 120 ? `${json.slice(0, 117)}...` : json;
+  } catch {
+    return "";
+  }
+}
+
+// `hyperframes check --json` writes one envelope. A non-zero exit still carries it, so the
+// caller parses the bytes it got; only an unreadable body is `ran: false`.
+export function parseCheckReport(stdout) {
+  const empty = { ran: false, ok: false, reason: "the check report could not be read", counts: { error: 0, warning: 0, info: 0 }, findings: [] };
+  const text = String(stdout ?? "").trim();
+  if (!text) return empty;
+  let report = null;
+  // The engine can print a banner before the envelope, so the outermost object is the fallback.
+  for (const candidate of [text, text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1)]) {
+    if (!candidate) continue;
+    try {
+      report = JSON.parse(candidate);
+      break;
+    } catch {
+      // try the next shape
+    }
+  }
+  if (!report || typeof report !== "object" || Array.isArray(report)) return empty;
+
+  const all = [];
+  for (const name of CHECK_SECTIONS) {
+    for (const raw of sectionFindings(report[name])) {
+      if (!raw || typeof raw !== "object") continue;
+      all.push({
+        section: name,
+        code: String(raw.code ?? ""),
+        severity: checkSeverity(raw.severity),
+        selector: String(raw.selector ?? ""),
+        message: String(raw.message ?? ""),
+        fixHint: String(raw.fixHint || ""),
+        dataId: dataIdOf(raw),
+        time: Number.isFinite(Number(raw.time)) ? Number(raw.time) : null,
+        bbox: bboxOf(raw.bbox),
+      });
+    }
+  }
+  const counts = { error: 0, warning: 0, info: 0 };
+  for (const finding of all) counts[finding.severity] += 1;
+  const findings = all
+    .map((finding, index) => ({ finding, index }))
+    .sort((a, b) => CHECK_SEVERITY_ORDER[a.finding.severity] - CHECK_SEVERITY_ORDER[b.finding.severity] || a.index - b.index)
+    .slice(0, CHECK_FINDING_CAP)
+    .map((entry) => entry.finding);
+  return { ran: true, ok: report.ok === true, reason: "", counts, findings };
+}
+
+function escapedKey(key) {
+  return key.replace(/\./g, "\\.");
+}
+
+function timeValues(stderr, key) {
+  const values = [];
+  for (const match of String(stderr ?? "").matchAll(new RegExp(`${escapedKey(key)}:\\s*(-?\\d+(?:\\.\\d+)?)`, "g"))) {
+    const t = Number(match[1]);
+    if (Number.isFinite(t) && t >= 0) values.push(t);
+  }
+  return values.sort((a, b) => a - b);
+}
+
+// A detected span pairs the k-th start with the k-th end. A video that ends frozen writes no
+// end, so the span closes at the artifact's duration instead of being dropped.
+function spansOf(starts, ends, durationSeconds) {
+  const out = [];
+  for (let i = 0; i < starts.length; i += 1) {
+    const start = starts[i];
+    const end = ends[i] ?? (durationSeconds > start ? durationSeconds : null);
+    if (end === null || end < start) continue;
+    out.push({ start, end });
+  }
+  return out;
+}
+
+// What one `-f null` pass reported: freeze and black spans, and the cut times. Both the plain
+// `freeze_start: 1.2` and the `lavfi.freezedetect.freeze_start: 1.2` form match the same key.
+// Cuts closer than 0.2 s are one cut: a hard cut scores on adjacent frames.
+//
+// `pix_th=0.10` false-positived on the brand's own dark surface: `lips-60` reported seven
+// black spans (0-0.47 s, 4.3-5.27 s, ...) and `lips-j5n6da` likewise, while both report zero
+// at `pix_th=0.02:pic_th=0.99` and a synthetic 1 s true-black clip still reports 0-1 s.
+export const MOTION_FILTER = "freezedetect=n=0.003:d=0.5,blackdetect=d=0.1:pix_th=0.02:pic_th=0.99";
+
+export function parseMotionSignals(stderr, durationSeconds) {
+  const total = Number(durationSeconds);
+  const duration = Number.isFinite(total) && total > 0 ? total : 0;
+  const freeze = spansOf(timeValues(stderr, "freeze_start"), timeValues(stderr, "freeze_end"), duration);
+  const black = spansOf(timeValues(stderr, "black_start"), timeValues(stderr, "black_end"), duration);
+  const cuts = [];
+  for (const t of timeValues(stderr, "lavfi.scd.time")) {
+    if (duration && t >= duration) continue;
+    if (cuts.length && t - cuts.at(-1) < 0.2) continue;
+    cuts.push(t);
+  }
+  // Scenes are the intervals between cuts. No cut means nothing was detected, which is the
+  // fallback case `stillTimesFor` handles; a single "scene" is not assumed.
+  const scenes = [];
+  if (cuts.length && duration) {
+    const bounds = [0, ...cuts, duration];
+    for (let i = 0; i + 1 < bounds.length; i += 1) {
+      if (bounds[i + 1] > bounds[i]) scenes.push({ start: bounds[i], end: bounds[i + 1] });
+    }
+  } else if (cuts.length) {
+    for (let i = 0; i < cuts.length; i += 1) {
+      const start = i === 0 ? 0 : cuts[i - 1];
+      if (cuts[i] > start) scenes.push({ start, end: cuts[i] });
+    }
+  }
+  return { freeze, black, cuts, scenes, scenesSeen: scenes.length };
+}
+
+// Evenly spaced members of a list, so a cap drops samples across the whole render rather than
+// truncating its tail.
+function evenPick(list, count) {
+  if (count <= 0) return [];
+  if (list.length <= count) return [...list];
+  if (count === 1) return [list[Math.floor(list.length / 2)]];
+  const out = [];
+  for (let i = 0; i < count; i += 1) out.push(list[Math.round((i * (list.length - 1)) / (count - 1))]);
+  return out;
+}
+
+const roundTime = (t) => Math.round(t * 1000) / 1000;
+
+// The times to sample a clip at. Scene midpoints come first because they are the structure the
+// content has; the frames straddling a cut show the transition itself (where an arrow drifts or
+// a panel overlaps). Over the cap, midpoints are kept evenly and the straddles are dropped.
+//
+// No detected cut is not "one scene": the 17510 render is a single continuous animation with no
+// hard cut at all, so a sparse fixed list sampled it eight times across thirty seconds. The
+// fallback is a uniform grid of about one still per 2.5 s (at least eight, never more than the
+// cap), which keeps a cutless clip covered without pretending it has scenes.
+export function stillTimesFor(signals, durationSeconds, { max = 12, fps } = {}) {
+  const total = Number(durationSeconds);
+  const duration = Number.isFinite(total) && total > 0 ? total : 0;
+  const cap = Number.isFinite(Number(max)) && Number(max) > 0 ? Math.floor(Number(max)) : 12;
+  const rate = Number(fps) > 0 ? Number(fps) : 30;
+  const cutTimes = (signals?.cuts ?? []).filter((t) => Number.isFinite(t) && t > 0 && (!duration || t < duration));
+  const scenes = (signals?.scenes ?? []).filter((s) => Number.isFinite(s?.start) && Number.isFinite(s?.end) && s.end > s.start);
+
+  if (!cutTimes.length) {
+    if (!duration) return { times: [], scenesCovered: 0 };
+    const count = Math.min(Math.max(Math.ceil(duration / 2.5), 8), cap);
+    const times = Array.from({ length: count }, (_, i) => roundTime(((i + 0.5) / count) * duration));
+    return { times, scenesCovered: 0 };
+  }
+
+  const midpoints = evenPick(
+    scenes.map((s) => roundTime((s.start + s.end) / 2)),
+    cap
+  );
+  const times = [...midpoints];
+  let room = cap - times.length;
+  for (const cut of evenPick(cutTimes, Math.ceil(room / 2))) {
+    for (const t of [cut - 1 / rate, cut + 1 / rate]) {
+      if (room <= 0) break;
+      if (t <= 0 || (duration && t >= duration)) continue;
+      times.push(roundTime(t));
+      room -= 1;
+    }
+  }
+  // Straddles can land on a midpoint (a very short scene); one frame is one still.
+  const unique = [...new Set(times)].sort((a, b) => a - b);
+  return { times: unique.slice(0, cap), scenesCovered: midpoints.length };
+}
+
+// The geometry of one connector, in composition pixels. The line leaves the facing edge of
+// `from` and lands on the facing edge of `to`, each inset by a gap, so the two boxes never
+// touch the stroke. The head is a triangle at the target end and the line stops at its base.
+//
+// The same arithmetic is inlined in runtime/connectors.js, which runs in the browser with no
+// imports; the two implementations are kept identical on purpose (the unit test checks this
+// one, the DOM dump checks the other).
+const CONNECTOR_GAP = 8;
+const CONNECTOR_HEAD_LENGTH = 14;
+const CONNECTOR_HEAD_WIDTH = 10;
+
+function rectBox(value) {
+  if (!value || typeof value !== "object") return null;
+  const box = { x: Number(value.x), y: Number(value.y), w: Number(value.w), h: Number(value.h) };
+  if (!Object.values(box).every(Number.isFinite) || box.w <= 0 || box.h <= 0) return null;
+  return box;
+}
+
+const round2 = (n) => Math.round(n * 100) / 100;
+
+export function connectorGeometry(rects, { from, to, head = true } = {}) {
+  const a = rectBox(rects?.from);
+  const b = rectBox(rects?.to);
+  if (!a) return { ok: false, reason: `the ${from || "from"} box is missing` };
+  if (!b) return { ok: false, reason: `the ${to || "to"} box is missing` };
+  // Overlap is the one case where "the facing edge" is not defined; the critic sees the
+  // overlap itself, and drawing a line across it would only add noise.
+  if (a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h) {
+    return { ok: false, reason: `the ${from || "from"} box and the ${to || "to"} box overlap` };
+  }
+
+  const acx = a.x + a.w / 2;
+  const acy = a.y + a.h / 2;
+  const bcx = b.x + b.w / 2;
+  const bcy = b.y + b.h / 2;
+  const dx = bcx - acx;
+  const dy = bcy - acy;
+  let x1;
+  let y1;
+  let x2;
+  let y2;
+  let dirX = 0;
+  let dirY = 0;
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    dirX = dx >= 0 ? 1 : -1;
+    x1 = dirX > 0 ? a.x + a.w + CONNECTOR_GAP : a.x - CONNECTOR_GAP;
+    x2 = dirX > 0 ? b.x - CONNECTOR_GAP : b.x + b.w + CONNECTOR_GAP;
+    y1 = acy;
+    y2 = bcy;
+  } else {
+    dirY = dy >= 0 ? 1 : -1;
+    y1 = dirY > 0 ? a.y + a.h + CONNECTOR_GAP : a.y - CONNECTOR_GAP;
+    y2 = dirY > 0 ? b.y - CONNECTOR_GAP : b.y + b.h + CONNECTOR_GAP;
+    x1 = acx;
+    x2 = bcx;
+  }
+
+  const span = dirX ? dirX * (x2 - x1) : dirY * (y2 - y1);
+  // Two boxes closer than the two gaps leave no line: it collapses to the tip and the head
+  // still marks the target edge rather than pointing past it.
+  const back = head ? Math.min(CONNECTOR_HEAD_LENGTH, Math.max(0, span)) : 0;
+  const tipX = round2(x2);
+  const tipY = round2(y2);
+  const lineX = round2(x2 - dirX * back);
+  const lineY = round2(y2 - dirY * back);
+  const halfWidth = CONNECTOR_HEAD_WIDTH / 2;
+  const headPoints = head
+    ? {
+        points: [
+          [tipX, tipY],
+          [round2(lineX - dirY * halfWidth), round2(lineY - dirX * halfWidth)],
+          [round2(lineX + dirY * halfWidth), round2(lineY + dirX * halfWidth)],
+        ]
+          .map(([x, y]) => `${x},${y}`)
+          .join(" "),
+      }
+    : null;
+  return { x1: round2(x1), y1: round2(y1), x2: lineX, y2: lineY, head: headPoints, ok: true };
+}
+
+// The status the helper left on the document, and the lines it actually drew. A connector
+// declared but not drawn is the 17510 defect ("nine connectors never drew") in one number.
+export function connectorsVerification(domText, declarations) {
+  const declared = Array.isArray(declarations) ? declarations.length : 0;
+  const text = String(domText ?? "");
+  const status = /data-hf-connectors=(["'])([^"']*)\1/.exec(text);
+  const drawn = (text.match(/data-connector=(?:"[^"]*"|'[^']*')/g) ?? []).length;
+  if (!status) {
+    if (!declared) return { declared, drawn: 0, errors: [] };
+    return { declared, drawn: 0, errors: [{ id: "*", reason: "the connector helper did not run" }] };
+  }
+  const value = status[2].trim();
+  if (value === "ok") return { declared, drawn, errors: [] };
+  const ids = value.replace(/^error:?/, "").split(",").map((id) => id.trim()).filter(Boolean);
+  if (!ids.length) {
+    return { declared, drawn, errors: [{ id: "*", reason: "the connector helper reported an error without naming a declaration" }] };
+  }
+  return { declared, drawn, errors: ids.map((id) => ({ id, reason: "the connector's element was not found" })) };
 }

@@ -349,6 +349,92 @@ test("a turn reports the stills a critic can look at", async () => {
   assert.ok(Array.isArray(body.stills), "the stills are reported");
 });
 
+test("a turn reports the deterministic gate as data on the asset", async () => {
+  // The gate is evidence, not a verdict: every turn carries what the engine, the decoder and
+  // the DOM could say, and a part that could not run reports that rather than a clean result.
+  const res = await fetch(`${base}/v1/chat/completions`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "make a card" }], session_id: "run_gate", durationSeconds: 12 }),
+  });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+
+  // `check` shape: either a parsed envelope or an absence with a reason. CI has no engine,
+  // so the common case here is `ran: false`, and that must be legible.
+  assert.equal(typeof body.check.ran, "boolean");
+  assert.equal(typeof body.check.ok, "boolean");
+  assert.deepEqual(Object.keys(body.check.counts).sort(), ["error", "info", "warning"]);
+  assert.ok(Array.isArray(body.check.findings));
+  if (!body.check.ran) assert.ok(body.check.reason, "a check that did not run says why");
+
+  // `signals` shape: the detector's spans, always present, with the coverage the stills got.
+  for (const key of ["freeze", "black", "cuts", "scenes"]) assert.ok(Array.isArray(body.signals[key]), key);
+  assert.equal(typeof body.signals.scenesSeen, "number");
+  assert.equal(typeof body.signals.scenesCovered, "number");
+
+  // No `connectors.json` was written, so no connector was declared and nothing failed.
+  assert.deepEqual(body.connectors, { declared: 0, drawn: 0, errors: [] });
+});
+
+test("a medium the engine cannot check says so instead of reporting clean", async () => {
+  // A standalone SVG is not a composition the engine validates; the asset must record the
+  // absence (design: an animated type with no gate is `MOTION_GATE: absent`, not a pass).
+  const res = await fetch(`${base}/v1/chat/completions`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "make an svg" }], session_id: "run_svg_gate", format: "svg" }),
+  });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.deepEqual(body.check, {
+    ran: false,
+    ok: false,
+    reason: "the engine does not check this medium",
+    counts: { error: 0, warning: 0, info: 0 },
+    findings: [],
+  });
+  assert.deepEqual(body.signals, { freeze: [], black: [], cuts: [], scenes: [], scenesSeen: 0, scenesCovered: 0 });
+  assert.deepEqual(body.connectors, { declared: 0, drawn: 0, errors: [] });
+  assert.equal("sheet" in body, false, "an authored document has no clip to sheet");
+});
+
+test("a clip turn offers a 1 fps contact sheet of the whole render", { skip: !hasFfmpeg && "ffmpeg is not installed" }, async () => {
+  // One frame per second in one image: the stills sample the clip, the sheet covers it, so a
+  // defect between two stills is still on the sheet. VALID_MP4 makes the stub write a clip
+  // ffmpeg can read; without ffmpeg there is no sheet at all, which is the skip.
+  const res = await fetch(`${base}/v1/chat/completions`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      messages: [{ role: "user", content: "make a card VALID_MP4" }],
+      session_id: "run_sheet",
+      format: "mp4",
+      durationSeconds: 12,
+    }),
+  });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.sheet, "review-sheet.jpg");
+  const sheet = await fetch(`${base}/artifacts/run_sheet/review-sheet.jpg`);
+  assert.equal(sheet.status, 200, "the sheet is served beside the artifact");
+  assert.equal(sheet.headers.get("content-type"), "image/jpeg");
+  assert.ok((await sheet.arrayBuffer()).byteLength > 0);
+});
+
+test("a turn whose artifact is not a clip offers no sheet", async () => {
+  // The stub writes eight bytes of ftyp, so ffmpeg cannot read it even where it is installed;
+  // either way there is no sheet, and the field is omitted rather than reporting a name.
+  const res = await fetch(`${base}/v1/chat/completions`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "make a card" }], session_id: "run_nosheet", format: "mp4" }),
+  });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal("sheet" in body, false);
+});
+
 test("the artifact route serves the stills beside the artifact, and nothing else", async () => {
   // The stub render leaves a still behind, so this needs neither a browser nor ffmpeg.
   const still = await fetch(`${base}/artifacts/run_a/review-1.png`);
@@ -391,5 +477,6 @@ test("a still png type hands back its artifact as the still", { skip: !hasFfmpeg
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.deepEqual(body.stills, ["out.png"]);
+  assert.equal("sheet" in body, false, "a still png is not a clip");
   assert.equal((await fetch(`${base}/artifacts/run_png/out.png`)).status, 200);
 });

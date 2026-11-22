@@ -59,7 +59,8 @@ WORKDIR /app
 # longer depends on another image's layout.
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
-COPY vendor/gsap.min.js ./vendor/gsap.min.js
+COPY vendor/gsap.min.js ./vendor/
+COPY runtime/connectors.js ./runtime/
 
 # Pi, installed exactly as the upstream adapter installs it: the pinned package,
 # lifecycle scripts disabled. It is pure JS — verified to install and run on this
@@ -72,8 +73,9 @@ RUN npm install --global --ignore-scripts --no-audit --no-fund \
 RUN mkdir -p /opt/hyperframes /opt/pi-render/prompts \
     && cp -r /app/node_modules /opt/hyperframes/node_modules \
     && ln -s /opt/hyperframes/node_modules/.bin/hyperframes /usr/local/bin/hyperframes \
-    && mkdir -p /opt/hyperframes/vendor \
-    && cp /app/vendor/gsap.min.js /opt/hyperframes/vendor/gsap.min.js
+    && mkdir -p /opt/hyperframes/vendor /opt/hyperframes/runtime \
+    && cp /app/vendor/gsap.min.js /opt/hyperframes/vendor/ \
+    && cp /app/runtime/connectors.js /opt/hyperframes/runtime/
 
 # The composer's contract comes from the engine binary, not from a skill tree. Upstream
 # retired the separate authoring skills at v0.8.185 and folded them into one entry skill,

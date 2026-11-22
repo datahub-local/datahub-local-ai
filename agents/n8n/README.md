@@ -9,7 +9,7 @@ datasets/     JSON fetched at run time by DownloadTemplate
 prompts/      prompt templates still fetched by DownloadTemplate; the article and post prompts live in agents/adapters/pi-writer/prompts/
 templates/    HTML/SVG markup the animated and SVG asset types assemble
 render/       the standalone video render service (its own README)
-scripts/      operational scripts: apply a change to live, extract brand tokens
+scripts/      operational scripts: apply a change to live, tidy a layout, extract brand tokens
 ```
 
 ## Gates

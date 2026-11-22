@@ -42,8 +42,9 @@ error workflow for a manual execution. When adding a workflow, state in the PR w
 categories it is and how its failure surfaces.
 
 **A workflow edit is not done until it is tidy.** Two halves, and only the first is
-automatable. `agents/n8n/scripts/test_workflow_invariants.py` holds the objective part,
-parametrized over every export: both copies of the graph agree, node names are unique and
+automatable. `agents/n8n/scripts/test_workflow_invariants.py` held the objective part
+until it was removed with the other export tests (2026-11-07), parametrized over every
+export: both copies of the graph agree, node names are unique and
 non-empty, no node is left with no connection in either direction, no two nodes share a
 position, every literal `$('node')` reference resolves, every literal
 `executeWorkflow`/`errorWorkflow` target is a workflow the repository has, and no `main`
@@ -56,11 +57,30 @@ so that node ran, read input 0, found nothing and emitted nothing, which took th
 chain with it: `merge_branches` never fired, `set_result` never ran, the studio answered
 with no items at all, and the caller's run ended `success` with no fallback and no error.
 An edge onto an input that does not exist is silent in every direction. The
-judgement half is yours: node names that read the same way as their neighbours, grouping
-and stickies, and spacing in the editor — a fixed box size would fail a legitimate layout,
-so only exact-duplicate positions are an error. Tidy the export *and* the live instance:
-apply, read back, and diff (above), because a tidy export that nothing applied is a tidy
-file and an untidy graph.
+judgement half is yours: node names that read the same way as their neighbours, grouping,
+stickies and what a note says. Spacing is no longer judgement: `tidy_workflow.py` below
+owns it. Tidy the export *and* the live instance: apply, read back, and diff (above),
+because a tidy export that nothing applied is a tidy file and an untidy graph.
+
+**Tidy is one command, and it runs before the apply.** `agents/n8n/scripts/tidy_workflow.py`
+lays every node out on n8n's own grid — 96 px boxes, 224 px columns, 192 px rows, snapped
+to 16 — stacks disconnected components, reserves a lane for an edge that skips a column,
+reverses AI sub-node edges so a model or tool sits beside the agent it serves, and moves a
+sticky with the nodes it covers. With no flag it is a check and exits non-zero on a file
+whose positions are not that layout, so a hand-dragged node cannot reach live. `--write`
+rewrites both copies of the graph, and `--changes` merges exactly those positions into the
+`apply_workflow_changes.py` spec, which is the apply that makes them real:
+
+```
+python3 agents/n8n/scripts/tidy_workflow.py agents/n8n/workflows/*.workflow.json
+python3 agents/n8n/scripts/tidy_workflow.py --write --changes /tmp/tidy.json \
+    agents/n8n/workflows/<name>.workflow.json
+```
+
+The layout is generated, not authored, and that is the trade for a rule that can be
+checked. It is deliberately not a CI gate: the export is the 02:00 backup's output, so a
+nightly backup of an untidied live graph would fail CI every morning, and the fix belongs
+to the live graph.
 
 **Always ask before applying workflow changes to the live instance.** Editing
 the JSON here is cheap and reviewable; writing it back is not. `PUT
@@ -465,10 +485,26 @@ render already uses (Chromium for an SVG or a deck, `ffmpeg` frames for a clip, 
 always, since "nothing fully stops" means a frozen clip hides there) — and serves them beside
 the artifact, because the artifact is in the pod and the gateway cannot reach the pod's route.
 The workflow fetches them, asks a **different** vision model on the gateway
-(`opencode-go/glm-5.3`, reusing `generate_image`'s bearer credential) with
+(`opencode-go/minimax-m3`, reusing `generate_image`'s bearer credential) with
 `prompts/visual_review_composition.md` and the brief the composer was given, and on findings
 takes another authoring turn **in the same session** with them as the reviewer's correction,
-bounded by `REVIEW_CYCLES` (3). **The critic's call is the workflow's, never the adapter's**: the
+bounded by `REVIEW_CYCLES` (3). **The critic must be a vision model**, and that is measured
+rather than assumed: moving it to `glm-5.3` for a stronger read answered
+`400 model features vision not support`, the call errored, `parse_verdict` read no answer,
+and an unreadable verdict is a **pass** — so one run shipped unreviewed and the human got the
+same geometry it had rejected before (execution 17502, 2026-11-22). A model swap here needs a
+still in front of it first; the model that answers prose must also be the one that can see.
+`minimax-m3` passed that test: the same still arrives as 2,125 prompt tokens and it read the
+closing frame's words back in 2.1 s, where `hy4-preview` dropped the image (38 tokens),
+reasoned "there is an image not visible" and answered `""` — which is why it is absent from
+the gateway rather than flagged text-only.
+**The call gets one retry**: `if_critique_failed` sends the same stills to
+`opencode-go/glm-5.3-flash` when the first call errors **or comes back empty**, before
+`parse_verdict` reads anything. A 200 with no content used to read as a pass, and that is the
+shape every non-vision model takes on a still. A second failure still reads as a pass with the
+raw answer kept, which is the deliberate trade: an unreviewed asset ships, and the run record
+says `UNREADABLE: true`.
+**The critic's call is the workflow's, never the adapter's**: the
 agent renders and reports what it rendered, and deciding whether that is good is orchestration —
 an API call inside the adapter was the first shape and was rejected for putting a model
 dependency and an opinion inside the agent. The verdict is data (`VERDICT`, `RETRY`, and a

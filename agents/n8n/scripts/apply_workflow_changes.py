@@ -10,6 +10,10 @@ reconciles is not done when it is merged.
 It never posts a whole exported body. It reads each workflow live, sets only
 the named fields on the named nodes, and PUTs name/nodes/connections/settings.
 
+Node positions are a field like any other, but they are generated: run
+`tidy_workflow.py --write --changes <file>` on the export first and pass that
+file here, so the layout the file gained is the layout live gets.
+
 Reachable in-cluster only -- the public host routes /api/ through
 oauth2-proxy, which an API key does not satisfy:
 

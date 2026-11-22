@@ -1707,10 +1707,10 @@ the numbers above were collected over several runs.
 ## The post feed
 
 The post feed is the `content_queue` lane: `Content Feed Curator` fills it and `LinkedIn Post
-Sharing` drains it one row per run. It publishes on Data, AI and DevOps. A source is one of three
+Sharing` drains it one row per run. It publishes on Data and AI. A source is one of three
 kinds: a **company** (a subscribed Miniflux feed that is not a person), a **reference person** (a
-feed named in `reference_people` in `agents/n8n/datasets/curator_config.json`, currently 33 people
-across the three topics), or **community** (the Hacker News front page). The feed list stays in
+feed named in `reference_people` in `agents/n8n/datasets/curator_config.json`, currently 23 people
+across the two topics), or **community** (the Hacker News front page). The feed list stays in
 `datahub-local-core`; the config names which of those feeds are people, so it cannot subscribe a
 feed the cluster does not have. Matching is by feed host, which survives a writer linking to an
 external article; a platform profile shares that host with every other feed on the platform, so it

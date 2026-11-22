@@ -497,6 +497,18 @@ the 28 px floor`, while `film_silent` is ignored because a silent clip is not a 
 budget was a rule in `visual_scene.md` and a sentence in the critic prompt; it is now a
 measurement the correction turn can act on.
 
+**A human retry is a requirement the copy budget and the closing-scene rule cannot overrule.**
+Execution 17575 (2026-11-22) is the case: the owner asked for the conclusion and the Source
+on one closing frame, and for the two middle slides to state their points. The composer did
+both — merged the close and added "So nobody notices." and "No dual write." — and the critic
+removed all three, calling the new lines over budget and quoting `visual_scene.md`'s Source
+rule to fade the conclusion out. The clip shipped with the request reverted, so the owner
+reported that nothing had been done. Both files now say a line the feedback asks for, and one
+added because the feedback says a scene does not make its point, stays; the critic cuts a
+label or simplifies the scene instead, and the Source shares its frame with a requested
+conclusion. The exception is narrow on purpose: feedback is the only thing that outranks
+those rules, and it names the line or the point it wants.
+
 **Motion is one decode pass.** `freezedetect=n=0.003:d=0.5,blackdetect=d=0.1:pix_th=0.02:pic_th=0.99`
 gives freeze and black spans and `scdet=threshold=10` gives cuts (`lavfi.scd.time`). The black
 threshold is 2%, not the 10% default: at 10% the dark brand surface of `lips-60` reports seven
@@ -652,8 +664,8 @@ It also carries `prompts/visual_scene.md` for every scene-bearing type, whose ru
 the composition summarises the content and every claim and number on screen traces to a
 sentence in it. The same file owns the copy budget: a scene is read once, on a phone, in
 the ten seconds it holds, so one line of six words, up to three labels of one or two words
-and one figure, with no eyebrow, legend, caption or closing line on top — a scene that
-needs more is two scenes. The budget is measured, not aspirational: the 2026-11-20
+and one figure, with no eyebrow, legend, caption or closing line on top unless the brief's
+feedback asks for one — a scene that needs more is two scenes. The budget is measured, not aspirational: the 2026-11-20
 LinkedIn clip (`lips-60`) ran seven scenes in 31 seconds carrying up to a dozen labels
 plus an eyebrow and a verdict line each, about four seconds a scene, which is no time to
 read any of it. `prompts/visual_review_composition.md` gives the critic the content rule

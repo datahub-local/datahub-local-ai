@@ -1,7 +1,7 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "07304e7e-2b19-4f9c-af39-3cac6f58de27",
+    "versionId": "1d164c76-6379-4e6b-b5b8-f3e3d7e528bc",
     "workflowId": "oxARWWyxenKgmv6A",
     "nodes": [
       {
@@ -722,6 +722,16 @@
                 "removed": true
               },
               {
+                "id": "RATIONALE",
+                "displayName": "RATIONALE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
                 "id": "EXTRA_PROMPT",
                 "displayName": "EXTRA_PROMPT",
                 "required": false,
@@ -945,6 +955,16 @@
               {
                 "id": "SOURCE",
                 "displayName": "SOURCE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "RATIONALE",
+                "displayName": "RATIONALE",
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
@@ -1184,6 +1204,16 @@
                 "removed": true
               },
               {
+                "id": "RATIONALE",
+                "displayName": "RATIONALE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
                 "id": "EXTRA_PROMPT",
                 "displayName": "EXTRA_PROMPT",
                 "required": false,
@@ -1304,8 +1334,8 @@
         "type": "n8n-nodes-base.stickyNote",
         "typeVersion": 1,
         "position": [
-          448,
-          -16
+          368,
+          -384
         ],
         "parameters": {
           "content": "## Link to the [Google Sheet](https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI)",
@@ -1460,6 +1490,16 @@
               {
                 "id": "SOURCE",
                 "displayName": "SOURCE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "RATIONALE",
+                "displayName": "RATIONALE",
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
@@ -1748,6 +1788,16 @@
               {
                 "id": "SOURCE",
                 "displayName": "SOURCE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "RATIONALE",
+                "displayName": "RATIONALE",
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
@@ -2448,7 +2498,7 @@
           576
         ],
         "parameters": {
-          "jsCode": "// The studio's own run STATUS is PARTIAL whenever a requested type is unavailable, so the\n// asset's status is what this branches on. The LinkedIn branch asks the studio for the\n// composer-authored video type; both animated opt-ins (ANIMATED, AGENT) share it.\n// The asset is located by its object key rather than by a data URL: the studio stores\n// the render in the temp bucket through the utils MCP server and never carries its\n// bytes, which is what keeps a 60 MB asset out of the studio's execution record.\nconst r = $input.first().json || {};\nconst assets = r.ASSETS || [];\nconst req = $('select_article_to_post').first().json;\nconst want = 'animation_linkedin_video';\nconst a = assets.find((x) => x.ASSET_TYPE === want) || null;\nconst ok = Boolean(a && a.STATUS === 'RENDERED' && a.S3_KEY);\n// The review's own state, so the approval can name what is still open instead of presenting a\n// `fix` asset as one the review passed.\nconst open = (() => {\n  try {\n    const parsed = JSON.parse(String((a && a.OPEN_FINDINGS) || '[]'));\n    return Array.isArray(parsed) ? parsed : [];\n  } catch (e) { return []; }\n})();\nreturn [{ json: {\n  RUN_ID: r.RUN_ID || '',\n  RUN_STATUS: r.STATUS || '',\n  ASSET_TYPE: a ? a.ASSET_TYPE : '',\n  ASSET_STATUS: a ? a.STATUS : 'MISSING',\n  CONTENT_TYPE: a ? (a.CONTENT_TYPE || '') : '',\n  S3_KEY: a && a.S3_KEY ? a.S3_KEY : '',\n  DURATION_MS: a ? (a.DURATION_MS || '') : '',\n  FRAME_COUNT: a ? (a.FRAME_COUNT || '') : '',\n  VERDICT: a ? (a.VERDICT || '') : '',\n  NEEDS_REVIEW: a ? a.NEEDS_REVIEW === true : false,\n  OPEN_COUNT: open.length,\n  OPEN_FINDINGS: a ? (a.OPEN_FINDINGS || '[]') : '[]',\n  STALLED: a ? (a.STALLED || '[]') : '[]',\n  CHECK_OK: a ? a.CHECK_OK === true : false,\n  CHECK_REASON: a ? (a.CHECK_REASON || '') : '',\n  ERROR: ok ? '' : ('animated media unavailable: ' + ((a && (a.ERROR || a.STATUS)) || 'no asset returned')),\n} }];\n"
+          "jsCode": "// The studio's own run STATUS is PARTIAL whenever a requested type is unavailable, so the\n// asset's status is what this branches on. The LinkedIn branch asks the studio for the\n// composer-authored video type; both animated opt-ins (ANIMATED, AGENT) share it.\n// The asset is located by its object key rather than by a data URL: the studio stores\n// the render in the temp bucket through the utils MCP server and never carries its\n// bytes, which is what keeps a 60 MB asset out of the studio's execution record.\nconst r = $input.first().json || {};\nconst assets = r.ASSETS || [];\nconst req = $('select_article_to_post').first().json;\nconst want = 'animation_linkedin_video';\nconst a = assets.find((x) => x.ASSET_TYPE === want) || null;\nconst ok = Boolean(a && a.STATUS === 'RENDERED' && a.S3_KEY);\nreturn [{ json: {\n  RUN_ID: r.RUN_ID || '',\n  RUN_STATUS: r.STATUS || '',\n  ASSET_TYPE: a ? a.ASSET_TYPE : '',\n  ASSET_STATUS: a ? a.STATUS : 'MISSING',\n  CONTENT_TYPE: a ? (a.CONTENT_TYPE || '') : '',\n  S3_KEY: a && a.S3_KEY ? a.S3_KEY : '',\n  DURATION_MS: a ? (a.DURATION_MS || '') : '',\n  FRAME_COUNT: a ? (a.FRAME_COUNT || '') : '',\n  ERROR: ok ? '' : ('animated media unavailable: ' + ((a && (a.ERROR || a.STATUS)) || 'no asset returned')),\n} }];"
         }
       },
       {
@@ -2529,7 +2579,7 @@
             "mode": "list",
             "cachedResultName": "workflows"
           },
-          "message": "=Waiting for final approval of the animated infographic for a LinkedIn Post...\n\n{{ $('check_animation_result').item.json.NEEDS_REVIEW ? ($('check_animation_result').item.json.OPEN_COUNT > 0 ? 'This render still has ' + $('check_animation_result').item.json.OPEN_COUNT + ' open finding(s):' + '\\n' + JSON.parse($('check_animation_result').item.json.OPEN_FINDINGS || '[]').map(function (f) { return '- ' + (f.id || 'finding') + ' severity ' + (f.severity || 2) + ': ' + (f.what || 'a defect'); }).join('\\n') + '\\n\\nApproving posts it anyway.' : 'This render could not be reviewed; approving posts it without a review.') : 'studio run ' + $('check_animation_result').item.json.RUN_ID + ', ' + $('check_animation_result').item.json.FRAME_COUNT + ' frames, '+ $('check_animation_result').item.json.CONTENT_TYPE }}",
+          "message": "=Waiting for final approval of the animated infographic for a LinkedIn Post...\n\nstudio run {{ $('check_animation_result').item.json.RUN_ID }}, {{ $('check_animation_result').item.json.FRAME_COUNT }} frames, {{ $('check_animation_result').item.json.CONTENT_TYPE }}",
           "approvalOptions": {
             "values": {
               "approvalType": "double"
@@ -3261,6 +3311,16 @@
               {
                 "id": "SOURCE",
                 "displayName": "SOURCE",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "type": "string",
+                "canBeUsedToMatch": true,
+                "removed": true
+              },
+              {
+                "id": "RATIONALE",
+                "displayName": "RATIONALE",
                 "required": false,
                 "defaultMatch": false,
                 "display": true,
@@ -4064,10 +4124,10 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-11-21T14:49:05.786Z",
-    "updatedAt": "2026-11-21T14:49:05.786Z"
+    "createdAt": "2026-11-22T19:54:26.508Z",
+    "updatedAt": "2026-11-22T19:54:26.508Z"
   },
-  "activeVersionId": "07304e7e-2b19-4f9c-af39-3cac6f58de27",
+  "activeVersionId": "1d164c76-6379-4e6b-b5b8-f3e3d7e528bc",
   "connections": {
     "switch_user_accept": {
       "main": [
@@ -5431,6 +5491,16 @@
               "removed": true
             },
             {
+              "id": "RATIONALE",
+              "displayName": "RATIONALE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
               "id": "EXTRA_PROMPT",
               "displayName": "EXTRA_PROMPT",
               "required": false,
@@ -5654,6 +5724,16 @@
             {
               "id": "SOURCE",
               "displayName": "SOURCE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "RATIONALE",
+              "displayName": "RATIONALE",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -5893,6 +5973,16 @@
               "removed": true
             },
             {
+              "id": "RATIONALE",
+              "displayName": "RATIONALE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
               "id": "EXTRA_PROMPT",
               "displayName": "EXTRA_PROMPT",
               "required": false,
@@ -6013,8 +6103,8 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        448,
-        -16
+        368,
+        -384
       ],
       "parameters": {
         "content": "## Link to the [Google Sheet](https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI)",
@@ -6169,6 +6259,16 @@
             {
               "id": "SOURCE",
               "displayName": "SOURCE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "RATIONALE",
+              "displayName": "RATIONALE",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -6457,6 +6557,16 @@
             {
               "id": "SOURCE",
               "displayName": "SOURCE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "RATIONALE",
+              "displayName": "RATIONALE",
               "required": false,
               "defaultMatch": false,
               "display": true,
@@ -7157,7 +7267,7 @@
         576
       ],
       "parameters": {
-        "jsCode": "// The studio's own run STATUS is PARTIAL whenever a requested type is unavailable, so the\n// asset's status is what this branches on. The LinkedIn branch asks the studio for the\n// composer-authored video type; both animated opt-ins (ANIMATED, AGENT) share it.\n// The asset is located by its object key rather than by a data URL: the studio stores\n// the render in the temp bucket through the utils MCP server and never carries its\n// bytes, which is what keeps a 60 MB asset out of the studio's execution record.\nconst r = $input.first().json || {};\nconst assets = r.ASSETS || [];\nconst req = $('select_article_to_post').first().json;\nconst want = 'animation_linkedin_video';\nconst a = assets.find((x) => x.ASSET_TYPE === want) || null;\nconst ok = Boolean(a && a.STATUS === 'RENDERED' && a.S3_KEY);\n// The review's own state, so the approval can name what is still open instead of presenting a\n// `fix` asset as one the review passed.\nconst open = (() => {\n  try {\n    const parsed = JSON.parse(String((a && a.OPEN_FINDINGS) || '[]'));\n    return Array.isArray(parsed) ? parsed : [];\n  } catch (e) { return []; }\n})();\nreturn [{ json: {\n  RUN_ID: r.RUN_ID || '',\n  RUN_STATUS: r.STATUS || '',\n  ASSET_TYPE: a ? a.ASSET_TYPE : '',\n  ASSET_STATUS: a ? a.STATUS : 'MISSING',\n  CONTENT_TYPE: a ? (a.CONTENT_TYPE || '') : '',\n  S3_KEY: a && a.S3_KEY ? a.S3_KEY : '',\n  DURATION_MS: a ? (a.DURATION_MS || '') : '',\n  FRAME_COUNT: a ? (a.FRAME_COUNT || '') : '',\n  VERDICT: a ? (a.VERDICT || '') : '',\n  NEEDS_REVIEW: a ? a.NEEDS_REVIEW === true : false,\n  OPEN_COUNT: open.length,\n  OPEN_FINDINGS: a ? (a.OPEN_FINDINGS || '[]') : '[]',\n  STALLED: a ? (a.STALLED || '[]') : '[]',\n  CHECK_OK: a ? a.CHECK_OK === true : false,\n  CHECK_REASON: a ? (a.CHECK_REASON || '') : '',\n  ERROR: ok ? '' : ('animated media unavailable: ' + ((a && (a.ERROR || a.STATUS)) || 'no asset returned')),\n} }];\n"
+        "jsCode": "// The studio's own run STATUS is PARTIAL whenever a requested type is unavailable, so the\n// asset's status is what this branches on. The LinkedIn branch asks the studio for the\n// composer-authored video type; both animated opt-ins (ANIMATED, AGENT) share it.\n// The asset is located by its object key rather than by a data URL: the studio stores\n// the render in the temp bucket through the utils MCP server and never carries its\n// bytes, which is what keeps a 60 MB asset out of the studio's execution record.\nconst r = $input.first().json || {};\nconst assets = r.ASSETS || [];\nconst req = $('select_article_to_post').first().json;\nconst want = 'animation_linkedin_video';\nconst a = assets.find((x) => x.ASSET_TYPE === want) || null;\nconst ok = Boolean(a && a.STATUS === 'RENDERED' && a.S3_KEY);\nreturn [{ json: {\n  RUN_ID: r.RUN_ID || '',\n  RUN_STATUS: r.STATUS || '',\n  ASSET_TYPE: a ? a.ASSET_TYPE : '',\n  ASSET_STATUS: a ? a.STATUS : 'MISSING',\n  CONTENT_TYPE: a ? (a.CONTENT_TYPE || '') : '',\n  S3_KEY: a && a.S3_KEY ? a.S3_KEY : '',\n  DURATION_MS: a ? (a.DURATION_MS || '') : '',\n  FRAME_COUNT: a ? (a.FRAME_COUNT || '') : '',\n  ERROR: ok ? '' : ('animated media unavailable: ' + ((a && (a.ERROR || a.STATUS)) || 'no asset returned')),\n} }];"
       }
     },
     {
@@ -7238,7 +7348,7 @@
           "mode": "list",
           "cachedResultName": "workflows"
         },
-        "message": "=Waiting for final approval of the animated infographic for a LinkedIn Post...\n\n{{ $('check_animation_result').item.json.NEEDS_REVIEW ? ($('check_animation_result').item.json.OPEN_COUNT > 0 ? 'This render still has ' + $('check_animation_result').item.json.OPEN_COUNT + ' open finding(s):' + '\\n' + JSON.parse($('check_animation_result').item.json.OPEN_FINDINGS || '[]').map(function (f) { return '- ' + (f.id || 'finding') + ' severity ' + (f.severity || 2) + ': ' + (f.what || 'a defect'); }).join('\\n') + '\\n\\nApproving posts it anyway.' : 'This render could not be reviewed; approving posts it without a review.') : 'studio run ' + $('check_animation_result').item.json.RUN_ID + ', ' + $('check_animation_result').item.json.FRAME_COUNT + ' frames, '+ $('check_animation_result').item.json.CONTENT_TYPE }}",
+        "message": "=Waiting for final approval of the animated infographic for a LinkedIn Post...\n\nstudio run {{ $('check_animation_result').item.json.RUN_ID }}, {{ $('check_animation_result').item.json.FRAME_COUNT }} frames, {{ $('check_animation_result').item.json.CONTENT_TYPE }}",
         "approvalOptions": {
           "values": {
             "approvalType": "double"
@@ -7978,6 +8088,16 @@
               "removed": true
             },
             {
+              "id": "RATIONALE",
+              "displayName": "RATIONALE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
               "id": "HOOK",
               "displayName": "HOOK",
               "required": false,
@@ -8169,6 +8289,6 @@
   },
   "tags": [],
   "triggerCount": 1,
-  "updatedAt": "2026-11-21T14:49:05.765Z",
-  "versionId": "07304e7e-2b19-4f9c-af39-3cac6f58de27"
+  "updatedAt": "2026-11-22T19:54:26.500Z",
+  "versionId": "1d164c76-6379-4e6b-b5b8-f3e3d7e528bc"
 }

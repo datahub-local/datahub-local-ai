@@ -1,7 +1,7 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "24b0fbce-71a9-445b-becb-d5087304a7fb",
+    "versionId": "41386a16-a764-46c2-aef3-9c301ab762ea",
     "workflowId": "2pSrRNmYR2jkX1JG",
     "nodes": [
       {
@@ -1280,7 +1280,7 @@
         }
       },
       {
-        "id": "a91cb767-f34b-4132-90ce-8e07a63c06ef",
+        "id": "924deefb-e178-4bd3-b3de-db3c74b571e9",
         "name": "if_critique_failed",
         "type": "n8n-nodes-base.if",
         "typeVersion": 2.2,
@@ -1315,21 +1315,15 @@
         }
       },
       {
-        "id": "c3ee5a1e-e2a3-4085-98e3-41bbb917489b",
+        "id": "fd0e74f7-bd4b-4cd7-ac92-3c2ad20fb929",
         "name": "critique_fallback",
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.4,
+        "onError": "continueRegularOutput",
         "position": [
           6048,
           768
         ],
-        "credentials": {
-          "httpBearerAuth": {
-            "id": "LitellmN8nBera01",
-            "name": "LiteLLM account (bearer)"
-          }
-        },
-        "onError": "continueRegularOutput",
         "parameters": {
           "method": "POST",
           "url": "http://datahub-local-core-data-litellm.data.svc.cluster.local:4000/v1/chat/completions",
@@ -1340,6 +1334,12 @@
           "jsonBody": "={{ $('encode_stills').first().json.CRITIQUE_BODY_FALLBACK }}",
           "options": {
             "timeout": 600000
+          }
+        },
+        "credentials": {
+          "httpBearerAuth": {
+            "id": "LitellmN8nBera01",
+            "name": "LiteLLM account (bearer)"
           }
         }
       }
@@ -1944,10 +1944,10 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-11-21T15:21:33.417Z",
-    "updatedAt": "2026-11-21T15:21:33.417Z"
+    "createdAt": "2026-11-22T18:59:18.672Z",
+    "updatedAt": "2026-11-22T18:59:18.672Z"
   },
-  "activeVersionId": "24b0fbce-71a9-445b-becb-d5087304a7fb",
+  "activeVersionId": "41386a16-a764-46c2-aef3-9c301ab762ea",
   "connections": {
     "main_trigger": {
       "main": [
@@ -3865,17 +3865,11 @@
       "name": "critique_fallback",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
+      "onError": "continueRegularOutput",
       "position": [
         6048,
         768
       ],
-      "credentials": {
-        "httpBearerAuth": {
-          "id": "LitellmN8nBera01",
-          "name": "LiteLLM account (bearer)"
-        }
-      },
-      "onError": "continueRegularOutput",
       "parameters": {
         "method": "POST",
         "url": "http://datahub-local-core-data-litellm.data.svc.cluster.local:4000/v1/chat/completions",
@@ -3886,6 +3880,12 @@
         "jsonBody": "={{ $('encode_stills').first().json.CRITIQUE_BODY_FALLBACK }}",
         "options": {
           "timeout": 600000
+        }
+      },
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "LitellmN8nBera01",
+          "name": "LiteLLM account (bearer)"
         }
       }
     }
@@ -3913,6 +3913,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 2,
-  "updatedAt": "2026-11-21T15:21:33.401Z",
-  "versionId": "24b0fbce-71a9-445b-becb-d5087304a7fb"
+  "updatedAt": "2026-11-22T18:59:18.663Z",
+  "versionId": "41386a16-a764-46c2-aef3-9c301ab762ea"
 }

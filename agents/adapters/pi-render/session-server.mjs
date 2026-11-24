@@ -41,6 +41,8 @@ import {
   stageRunAssets,
   compositionMarker,
   turnInstruction,
+  planInstruction,
+  parsePlan,
   expiredRunDirs,
   expiredTranscripts,
   DEFAULT_SESSION_WORKSPACE,
@@ -65,6 +67,7 @@ const maxOutput = 2_000_000;
 // The session PVC is mounted at /tmp, so Pi's transcript survives a pod restart.
 const sessionDir = "/tmp/pi-sessions";
 const promptPath = "/opt/pi-render/prompts/authoring.md";
+const planPromptPath = "/opt/pi-render/prompts/plan.md";
 // A session container mounts the session PVC at /tmp and does **not** mount
 // /workspace (only the Job path does), so the workspace must default under the PVC.
 // The caller can still override it.
@@ -221,13 +224,13 @@ await writeFile(
 process.env.HYPERFRAMES_BROWSER_PATH = browser;
 process.env.HYPERFRAMES_SKIP_SKILLS = "1";
 
-async function authoringMethod() {
+async function promptFile(path, label) {
   try {
-    return await readFile(promptPath, "utf8");
+    return await readFile(path, "utf8");
   } catch {
     // A missing prompt is loud on the first turn rather than fatal at startup:
     // the session still comes up and the error names the path.
-    return `The authoring method file is missing at ${promptPath}. Report that rather than improvising.`;
+    return `The ${label} file is missing at ${path}. Report that rather than improvising.`;
   }
 }
 
@@ -279,7 +282,7 @@ function piFailure(code, stderr) {
 
 // Pi emits its response on stdout; forwarding each chunk keeps `stream: true`
 // genuine rather than a UI replaying a finished answer.
-function runPi(prompt, sessionID, onOutput, signal, cwd = workDir) {
+function runPi(prompt, sessionID, onOutput, signal, cwd = workDir, options = {}) {
   return new Promise((resolve, reject) => {
     const args = [
       "--print",
@@ -289,6 +292,9 @@ function runPi(prompt, sessionID, onOutput, signal, cwd = workDir) {
       // see, and a skill found in the run directory or HOME would compete with the engine's
       // own documentation, which is the only contract this adapter relies on.
       "--no-skills",
+      // The plan turn writes nothing and renders nothing, so it runs with no tools at all:
+      // an instruction not to author is weaker than being unable to.
+      ...(options.noTools ? ["--no-tools"] : []),
       // Discovery stays off, but MCP is a built-in extension and `--no-extensions` would
       // take it with the rest: only the catalog client is loaded back.
       "--no-extensions",
@@ -579,7 +585,8 @@ async function makeSheet(dir, { format, durationSeconds, width }) {
 // turns against it interleave. The contract asks adapters to serialize.
 let queue = Promise.resolve();
 
-const method = await authoringMethod();
+const method = await promptFile(promptPath, "authoring method");
+const planMethod = await promptFile(planPromptPath, "plan method");
 
 http
   .createServer(async (req, res) => {
@@ -629,11 +636,45 @@ http
       const frames = Number(request.frames);
       const durationSeconds = Number(request.durationSeconds);
       const stream = request.stream === true;
+      // Absent `task` is the authoring turn every caller has always sent. `plan` is the
+      // storyboard turn; a task this server does not serve is refused, not guessed at.
+      const task = String(request.task ?? "").trim();
+      if (task && task !== "plan") throw new Error(`unknown task ${task}`);
       const id = `chatcmpl-${randomUUID()}`;
       const cancellation = new AbortController();
       res.once("close", () => {
         if (!res.writableEnded) cancellation.abort();
       });
+
+      // A plan turn buys the storyboard before the authoring turn is paid for: Pi runs with
+      // no tools, the answer is parsed, and nothing is authored — no render, no transcode,
+      // no stills, no check, and no run directory written. It answers JSON even when the
+      // caller streamed, because the plan is the object, not the prose around it.
+      if (task === "plan") {
+        // The session's directory is consulted, never created: the plan reads whether a
+        // composition already exists, and a plan-only session leaves nothing behind. It
+        // sweeps nothing either: expiring sessions is the authoring turn's job.
+        const planDir = resolveRunDir(workDir, sessionID);
+        const isIteration = await exists(join(planDir, compositionMarker(format)));
+        const prompt = `${brief}\n\n---\n\n${planInstruction({ format, isIteration })}\n\n${planMethod}`;
+        const response = await (queue = queue.catch(() => undefined).then(() =>
+          runPi(prompt, sessionID, undefined, cancellation.signal, workDir, { noTools: true })
+        ));
+        const { plan, error } = parsePlan(response);
+        const body = JSON.stringify({
+          id,
+          object: "chat.completion",
+          created: Math.floor(Date.now() / 1000),
+          model: process.env.MODEL_NAME,
+          choices: [{ index: 0, message: { role: "assistant", content: response }, finish_reason: "stop" }],
+          plan,
+          raw: response,
+          ...(error ? { error } : {}),
+        });
+        res.writeHead(200, { "content-type": "application/json", "content-length": Buffer.byteLength(body) }).end(body);
+        return;
+      }
+
       if (stream) {
         res.writeHead(200, {
           "content-type": "text/event-stream",

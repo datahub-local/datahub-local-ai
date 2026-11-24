@@ -13,6 +13,15 @@ Extra Rules:
 When the block above lists hooks, choose exactly one whose `when` this content satisfies — never force one that does not fit; when in doubt take the lower-commitment one. When more than one `when` fits, choose by argument before topic: `argument`, then `narrative`, then `evidence`, then `news`, then `reference`. A `reference` hook (`ARCHITECTURE`, `LANDSCAPE`, `ROUNDUP`, `COMPARISON`, `CHECKLIST`) is for a post whose point is the structure or the survey; if the article also argues a cost, a correction or a failure, that argument is the hook. Write the opening per that hook's `opening`, and answer `<hook>ID</hook>` on the line after the `</output>` block.
 When the block is empty, a hook is already assigned in the Variety Directives: write to it and answer no `<hook>` tag.
 
+## Form
+
+{{ FORMS }}
+
+{{ FORM_RULES }}
+
+When the block lists forms, choose exactly one whose shape fits this post's argument, using the mapping: a sequence, a mechanism or a failure over time is `story`; a structure is `diagram`; a measured comparison is `chart` or `data`; one claim is `poster`; a change over time is `timeline`. The hook's default is only a fallback, never the reason to choose. Answer `<form>ID</form>` on the line after the `</output>` block, beside `<hook>`.
+When the block is empty, answer no `<form>` tag.
+
 ## Variety Directives For This Post
 
 MANDATORY, and they override any pattern in the examples below:

@@ -99,6 +99,9 @@ RUN cd /opt/hyperframes \
 # reviewable on its own and not buried in shell. Copied world-readable: the agent
 # runs as UID 1000 and reads it.
 COPY --chmod=0644 prompts/authoring.md /opt/pi-render/prompts/authoring.md
+# The plan turn's method, appended instead of the authoring one when the caller asks for
+# the storyboard first. Same rule: the prompt is a file, read at run time.
+COPY --chmod=0644 prompts/plan.md /opt/pi-render/prompts/plan.md
 
 # $HOME must stay writable: a read-only root filesystem means Chrome fails with
 # "Failed to create headless user data directory container" unless HOME points at

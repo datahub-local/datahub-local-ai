@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
-import { chooseDirectives, parsePostHook, applyChosenHook, renderHookList } from "../session-lib.mjs";
+import { chooseDirectives, parsePostHook, applyChosenHook, renderHookList, parsePostForm, renderFormList } from "../session-lib.mjs";
 
 const variety = await readFile(fileURLToPath(new URL("../prompts/linkedin_variety.md", import.meta.url)), "utf8");
 
@@ -88,6 +88,34 @@ test("an assigned hook needs no tag, and an empty list offers nothing to fail on
     error: "",
   });
   assert.deepEqual(parsePostHook("post body", { hooks: [] }), { hook: "", opening: "", error: "" });
+});
+
+test("the form tag is the choice, and an id off the list fails by name", () => {
+  const forms = ["story", "diagram", "chart"];
+  const chosen = parsePostForm("<output>body</output>\n<form>Diagram</form>", { forms });
+  assert.deepEqual(chosen, { form: "diagram", error: "" });
+  // The id is a tag, not an enum the model must case: a different case is the same form.
+  assert.deepEqual(parsePostForm("<form>STORY</form>", { forms }), { form: "story", error: "" });
+
+  const missing = parsePostForm("post body", { forms });
+  assert.equal(missing.form, "");
+  assert.match(missing.error, /carries no <form> tag although the brief offered 3/);
+
+  const unknown = parsePostForm("<output>body</output><form>poster</form>", { forms });
+  assert.equal(unknown.form, "");
+  assert.match(unknown.error, /<form>poster<\/form>, which the brief's form list does not carry/);
+});
+
+test("an assigned form needs no tag, and an empty list offers nothing to fail on", () => {
+  const forms = ["story", "diagram", "chart"];
+  assert.deepEqual(parsePostForm("post body", { forms, assigned: "Chart" }), { form: "chart", error: "" });
+  assert.deepEqual(parsePostForm("post body", { forms: [] }), { form: "", error: "" });
+});
+
+test("the form list carries one id per line and omits blanks", () => {
+  assert.equal(renderFormList(["story", "", " diagram "]), "- story\n- diagram");
+  assert.equal(renderFormList(["story", null, {}]), "- story");
+  assert.equal(renderFormList(undefined), "");
 });
 
 test("the chosen hook rewrites the stored directive and its id, so the gate judges that shape", () => {

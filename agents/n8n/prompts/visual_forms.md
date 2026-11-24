@@ -2,6 +2,22 @@ The form is the composition shape of an authored visual. One is chosen per reque
 the hook's default, or another when the content clearly needs it. `auto` pins nothing
 and lets the author choose from this list. Build the definition, not the name.
 
+## Choosing the form
+
+Choose from the post's argument, not the article's topic. The hook's `visual` is the
+fallback; a row that pins a form wins.
+
+- a sequence, a mechanism or a failure over time → `story`
+- a structure: components and the connections between them → `diagram`
+- a measured comparison → `chart`; one measured value → `data`
+- one claim → `poster`
+- a change over time → `timeline`
+- code, config or a diff → `code`
+- a screen, a scroll or a cursor → `ui`
+- the source's own words → `quote`
+- something we ship → `launch`
+- a drawing that explains itself → `sketch`
+
 - `diagram`: make the structure or flow explicit - labelled nodes, boxes and arrows laid out so the path reads at a glance.
 - `story`: tell it as a sequence in time - scenes that follow one another (cause, escalation, resolution), not one frame.
 - `data`: make the numbers the message - the measured value is the subject, shown as a figure or a comparison that settles on it.

@@ -42,6 +42,9 @@ import {
   DEFAULT_GATEWAY_STREAM_TIMEOUT_MS,
   agentSettings,
   mcpConfig,
+  PLAN_FORMS,
+  parsePlan,
+  planInstruction,
 } from "../session-lib.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -914,4 +917,93 @@ test("the runtime helper's geometry matches the library's and survives a missing
   assert.equal(sandbox.__hfConnectors.drawn, 0);
   assert.equal(sandbox.__hfConnectors.errors[0].id, "f-w3");
   assert.equal(appended.length, 3, "the overlay is appended before the declarations are walked");
+});
+
+// ---------------------------------------------------------------------------
+// The plan turn's contract: a storyboard object before the authoring turn is paid
+// for. `parsePlan` is the only reader, so its tolerance (a fence, prose) and its
+// refusals (no object, a missing field) are tested here rather than in prose.
+
+const PLAN = {
+  form: "diagram",
+  subject: "Kafka between the database and the lakehouse",
+  question: "Where does an agent read the balance it acts on?",
+  scenes: [
+    { n: 1, beat: "the database commits", line: "one transaction", device: "a labelled box", motion: "slides in", transition: "cut to the log" },
+    { n: 2, beat: "Kafka announces the change", line: "every move is a message", device: "an arrow to a topic", motion: "draws on", transition: "settle" },
+  ],
+  close: { line: "The log earns its place when its lag is visible.", source: "kai-waehner.de" },
+  arc: "the question, the mechanism, the condition",
+};
+
+test("a plan is read from a clean JSON object", () => {
+  const { plan, error } = parsePlan(JSON.stringify(PLAN));
+  assert.equal(error, "");
+  assert.equal(plan.form, "diagram");
+  assert.equal(plan.scenes.length, 2);
+  assert.deepEqual(plan.close, PLAN.close);
+  assert.equal(parsePlan(JSON.stringify({ ...PLAN, form: "Poster" })).plan.form, "poster", "the id is normalized");
+});
+
+test("a plan is read through a code fence and the prose around it", () => {
+  const answer = `Here is the storyboard.\n\n\`\`\`json\n${JSON.stringify(PLAN, null, 2)}\n\`\`\`\n\nThe first scene asks the question.`;
+  const { plan, error } = parsePlan(answer);
+  assert.equal(error, "");
+  assert.deepEqual(plan, PLAN);
+});
+
+test("a plan that cannot be read is an error, not a throw", () => {
+  for (const answer of ["", "no object in this answer", "{\"form\": \"diagram\"", "[1, 2, 3]", "{}{}"]) {
+    const { plan, error } = parsePlan(answer);
+    assert.equal(plan, null, `a plan was parsed from ${JSON.stringify(answer)}`);
+    assert.ok(error, `a failed parse from ${JSON.stringify(answer)} names no reason`);
+  }
+});
+
+test("a plan missing a required field names the field", () => {
+  const missingScenes = { ...PLAN };
+  delete missingScenes.scenes;
+  const scenes = parsePlan(JSON.stringify(missingScenes));
+  assert.equal(scenes.plan, null);
+  assert.match(scenes.error, /scenes/);
+
+  const missingClose = { ...PLAN };
+  delete missingClose.close;
+  const close = parsePlan(JSON.stringify(missingClose));
+  assert.equal(close.plan, null);
+  assert.match(close.error, /close/);
+
+  const emptyClose = parsePlan(JSON.stringify({ ...PLAN, close: { line: "a conclusion" } }));
+  assert.equal(emptyClose.error, "", "a close with no source is valid when the brief cites nobody");
+  assert.equal(emptyClose.plan.close.source, "");
+
+  const noLine = parsePlan(JSON.stringify({ ...PLAN, close: { source: "kai-waehner.de" } }));
+  assert.equal(noLine.plan, null);
+  assert.match(noLine.error, /line/);
+
+  const scene = parsePlan(JSON.stringify({ ...PLAN, scenes: [{ ...PLAN.scenes[0], motion: "" }] }));
+  assert.equal(scene.plan, null);
+  assert.match(scene.error, /scene 1/);
+  assert.match(scene.error, /motion/);
+});
+
+test("a plan names a form from the vocabulary, not an invented one", () => {
+  for (const form of PLAN_FORMS) {
+    assert.equal(parsePlan(JSON.stringify({ ...PLAN, form })).error, "", form);
+  }
+  const { plan, error } = parsePlan(JSON.stringify({ ...PLAN, form: "infographic" }));
+  assert.equal(plan, null);
+  assert.match(error, /infographic/);
+});
+
+test("the plan instruction forbids authoring and asks for one idea per scene", () => {
+  const first = planInstruction({ format: "mp4", isIteration: false });
+  assert.match(first, /no render/i);
+  assert.match(first, /one idea per scene/i);
+  assert.match(first, /one JSON object/i);
+  assert.match(first, /Source/);
+  assert.match(first, /mp4/);
+  const edit = planInstruction({ format: "mp4", isIteration: true });
+  assert.match(edit, /already holds/);
+  assert.notEqual(edit, first, "an edit is not planned as a first authoring");
 });

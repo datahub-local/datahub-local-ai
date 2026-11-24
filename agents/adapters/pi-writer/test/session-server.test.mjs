@@ -86,7 +86,9 @@ if (prompt.includes("You are a writing assistant for creating LinkedIn posts."))
       : prompt.includes("PROBE_HOOK_BOGUS")
         ? "\\n<hook>WAR_STORY</hook>"
         : "";
-  process.stdout.write("<output>PROBE_POST_BODY\\n\\nSource here: SOME_URL\\n\\n#Probe</output>" + tag);
+  // The form choice is written beside the hook, from the argument the stub was handed.
+  const formTag = prompt.includes("PROBE_FORM_STORY") ? "\\n<form>STORY</form>" : "";
+  process.stdout.write("<output>PROBE_POST_BODY\\n\\nSource here: SOME_URL\\n\\n#Probe</output>" + tag + formTag);
   process.exit(0);
 }
 if (prompt.includes("You review a LinkedIn post for formatting, tone and compliance.")) {
@@ -853,6 +855,8 @@ test("a post draft is one writer turn and answers in the block the caller parses
   assert.match(body.post.text, /^<output>PROBE_POST_BODY/);
   assert.match(body.post.directives, /- Hook — TRADE_OFF: open by framing the trade-off most people ignore\./);
   assert.equal(body.post.hook, "TRADE_OFF");
+  // The brief carried no forms, so no tag was required and no form is claimed.
+  assert.equal(body.post.form, "");
 
   // The prompt is the adapter's: the entry's values reach it and no placeholder survives.
   const prompt = await readFile(join(workspace, "runs", "post-1", "prompt.txt"), "utf8");
@@ -869,6 +873,36 @@ test("a post draft is one writer turn and answers in the block the caller parses
   // The set is kept on disk so the gate reads the same one.
   const stored = JSON.parse(await readFile(join(workspace, "runs", "post-1", "directives.json"), "utf8"));
   assert.equal(stored.directives, body.post.directives);
+});
+
+test("a brief's forms and mapping reach the post prompt and the chosen form is returned", async () => {
+  const brief = {
+    ...postBrief,
+    forms: ["story", "diagram", "PROBE_FORMS"],
+    form_rules: "PROBE_FORM_RULES",
+    extra_prompt: "PROBE_FORM_STORY",
+  };
+  const res = await turn({ lane: "post", task: "draft", session_id: "post-form", brief });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.post.form, "story");
+  // The tag is the decision, never part of the post the caller publishes.
+  assert.ok(!/<form>/.test(body.post.text), body.post.text);
+
+  const prompt = await readFile(join(workspace, "runs", "post-form", "prompt.txt"), "utf8");
+  for (const value of ["PROBE_FORMS", "PROBE_FORM_RULES", "<form>ID</form>"]) {
+    assert.ok(prompt.includes(value), `${value} did not reach the post prompt`);
+  }
+});
+
+test("an answer with no <form> when forms were offered fails by name", async () => {
+  const brief = { ...postBrief, forms: ["story", "diagram"] };
+  const res = await turn({ lane: "post", task: "draft", session_id: "post-bad-form", brief });
+  assert.equal(res.status, 400);
+  assert.match(
+    (await res.json()).error.message,
+    /carries no <form> tag although the brief offered 2 visual form\(s\)/
+  );
 });
 
 test("the gate reviews the caller's post against the directives the draft was given", async () => {

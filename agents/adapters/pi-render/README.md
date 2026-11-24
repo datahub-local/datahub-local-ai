@@ -308,6 +308,17 @@ The per-run directory is the point: turns are serialized, but a later run must n
 overwrite an earlier run's artifact before its caller has fetched it. `session-lib.mjs`
 holds the path and format rules, unit-tested under `test/`.
 
+### The storyboard turn
+
+A caller that wants the plan before paying for the render sends `task: "plan"`. The same
+endpoint runs the same Pi session with `--no-tools` and the caller's brief, appends
+`prompts/plan.md` instead of the authoring method, and returns the normal chat body plus
+`plan` (the object the method defines: `form`, `subject`, `question`, `scenes`, `close`,
+`arc`) and `raw` (Pi's answer, for diagnosis). `error` names why a plan could not be
+read; `plan` is then `null` rather than the turn failing, so the caller can retry cheaply.
+Nothing is written, transcoded, checked or captured, and a plan-only session creates no run
+directory. A request with no `task` is the authoring turn, unchanged.
+
 ### The stills a review looks at
 
 The same response carries `stills: [...]`, frames of the served artifact the workflow's

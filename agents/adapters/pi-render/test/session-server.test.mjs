@@ -28,32 +28,49 @@ let serverLog = "";
 
 // A stand-in for Pi: it writes the two files the real agent writes, in its cwd
 // (the per-run directory), and reports on stdout. It also records the prompt it was
-// handed, so the test can assert the author/edit instruction the server chose.
+// handed, so the test can assert the author/edit instruction the server chose. With
+// `--no-tools` it writes no artifact and answers a plan, as a plan turn must.
 const STUB_PI = `#!/usr/bin/env node
 const fs = require("node:fs");
 const { spawnSync } = require("node:child_process");
-fs.writeFileSync("index.html", "<div>stub</div>");
-fs.writeFileSync("out.html", "<html>stub deck</html>");
-fs.writeFileSync("out.mp4", Buffer.from([0, 0, 0, 0x18, 0x66, 0x74, 0x79, 0x70]));
-fs.writeFileSync("out.png", Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
-fs.writeFileSync("review-1.png", Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
-fs.writeFileSync("prompt.txt", process.argv.at(-1) || "");
-fs.writeFileSync("args.log", process.argv.slice(2).join("\\n"));
-fs.appendFileSync("prompts.log", (process.argv.at(-1) || "") + "\\n---TURN---\\n");
-// A format change needs a render ffmpeg can read; the eight-byte header above is only
-// enough for the paths that must NOT transcode. The test that asks for png says so.
-if ((process.argv.at(-1) || "").includes("VALID_MP4")) {
-  const made = spawnSync("ffmpeg", ["-loglevel", "error", "-f", "lavfi", "-i",
-    "color=c=black:s=64x64:d=1:r=30", "-pix_fmt", "yuv420p", "-y", "out.mp4"]);
-  if (made.status !== 0) process.exit(3);
+const args = process.argv.slice(2);
+const prompt = process.argv.at(-1) || "";
+const noTools = args.includes("--no-tools");
+fs.writeFileSync("prompt.txt", prompt);
+fs.writeFileSync("args.log", args.join("\\n"));
+fs.appendFileSync("prompts.log", prompt + "\\n---TURN---\\n");
+if (!noTools) {
+  fs.writeFileSync("index.html", "<div>stub</div>");
+  fs.writeFileSync("out.html", "<html>stub deck</html>");
+  fs.writeFileSync("out.mp4", Buffer.from([0, 0, 0, 0x18, 0x66, 0x74, 0x79, 0x70]));
+  fs.writeFileSync("out.png", Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  fs.writeFileSync("review-1.png", Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  // A format change needs a render ffmpeg can read; the eight-byte header above is only
+  // enough for the paths that must NOT transcode. The test that asks for png says so.
+  if (prompt.includes("VALID_MP4")) {
+    const made = spawnSync("ffmpeg", ["-loglevel", "error", "-f", "lavfi", "-i",
+      "color=c=black:s=64x64:d=1:r=30", "-pix_fmt", "yuv420p", "-y", "out.mp4"]);
+    if (made.status !== 0) process.exit(3);
+  }
 }
 // The failure path: Pi reports a stalled model call as one word of its own, and
 // names no endpoint unless the server adds it.
-if ((process.argv.at(-1) || "").includes("FAIL_PROBE")) {
+if (prompt.includes("FAIL_PROBE")) {
   process.stderr.write("noise before the reason\\nstream terminated by peer");
   process.exit(9);
 }
-process.stdout.write("rendered 1 frame");
+if (noTools) {
+  process.stdout.write(JSON.stringify({
+    form: "poster",
+    subject: "a plan subject",
+    question: "does the plan parse?",
+    scenes: [{ n: 1, beat: "one beat", line: "one line", device: "one device", motion: "one motion", transition: "one cut" }],
+    close: { line: "the conclusion", source: "example.invalid" },
+    arc: "question to close",
+  }));
+} else {
+  process.stdout.write("rendered 1 frame");
+}
 `;
 
 // A stand-in for the gateway's chat endpoint: it answers the critic's call with the verdict
@@ -479,4 +496,54 @@ test("a still png type hands back its artifact as the still", { skip: !hasFfmpeg
   assert.deepEqual(body.stills, ["out.png"]);
   assert.equal("sheet" in body, false, "a still png is not a clip");
   assert.equal((await fetch(`${base}/artifacts/run_png/out.png`)).status, 200);
+});
+
+test("a plan turn returns the storyboard and writes no artifact", async () => {
+  // The plan is evidence before the expensive turn: Pi runs with no tools, the answer is
+  // parsed, and nothing below the branch (transcode, check, stills) runs at all.
+  const res = await fetch(`${base}/v1/chat/completions`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      task: "plan",
+      messages: [{ role: "user", content: "make a card" }],
+      session_id: "run_plan",
+      format: "mp4",
+    }),
+  });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.plan.form, "poster");
+  assert.equal(body.plan.scenes.length, 1);
+  assert.ok(body.raw.includes('"form"'), "the raw answer is returned for diagnosis");
+  assert.equal("error" in body, false, "a readable plan reports no error");
+  for (const field of ["stills", "conformance", "check", "signals", "connectors", "sheet"]) {
+    assert.equal(field in body, false, `a plan turn reported ${field}`);
+  }
+
+  // The turn's own request: no tools, the caller's brief, the plan instruction, and not
+  // the authoring method's render command.
+  const planArgs = await readFile(join(workspace, "args.log"), "utf8");
+  assert.ok(planArgs.split("\n").includes("--no-tools"), "the plan turn could write and render");
+  const prompt = await readFile(join(workspace, "prompt.txt"), "utf8");
+  assert.ok(prompt.includes("make a card"), "the caller's brief reaches the plan turn");
+  assert.match(prompt, /run no render/);
+  assert.match(prompt, /one idea per scene/i);
+  assert.ok(!prompt.includes("hyperframes render"), "the plan turn carried the authoring method");
+
+  // A plan-only session leaves no run directory and serves no artifact.
+  assert.equal((await fetch(`${base}/artifacts/run_plan/out.mp4`)).status, 404);
+  await assert.rejects(readFile(join(workspace, "runs", "run_plan", "index.html")), "a plan turn wrote a composition");
+
+  // An absent task is still the authoring turn.
+  const authoring = await fetch(`${base}/v1/chat/completions`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "make a card" }], session_id: "run_after_plan" }),
+  });
+  assert.equal(authoring.status, 200);
+  const authored = await authoring.json();
+  assert.ok(Array.isArray(authored.stills), "a request with no task takes the authoring path");
+  const authoringArgs = await readFile(join(workspace, "runs", "run_after_plan", "args.log"), "utf8");
+  assert.ok(!authoringArgs.split("\n").includes("--no-tools"), "the authoring turn lost its tools");
 });

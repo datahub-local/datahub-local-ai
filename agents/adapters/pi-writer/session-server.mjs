@@ -68,6 +68,8 @@ import {
   applyChosenHook,
   parsePostHook,
   renderHookList,
+  parsePostForm,
+  renderFormList,
   ARTICLE_NAME,
   LEDGER_NAME,
   POST_DIRECTIVES_NAME,
@@ -556,6 +558,8 @@ async function postDraftPrompt({ brief, directives, assignedHook = "" }) {
     EXTRA_PROMPT: brief.extra_prompt ?? "",
     CONTENT: brief.content ?? "",
     HOOKS: assignedHook ? "" : renderHookList(brief.hooks),
+    FORMS: renderFormList(brief.forms),
+    FORM_RULES: brief.form_rules ?? "",
     VARIETY_DIRECTIVES: directives,
     FEEDBACK: brief.feedback ?? "",
     PREVIOUS_POST: brief.previous_post ?? "",
@@ -603,12 +607,15 @@ async function resolvePostDirectives(dir, brief) {
 
 // The draft answers inside one `<output>` block and the gate answers the verdict and its
 // explanation. Both are rebuilt here so the caller reads the same tags it read from the model
-// node, whatever wrapper the turn used. The `<hook>` tag is the classification, not the post:
-// a model that puts it inside the block would otherwise publish it.
+// node, whatever wrapper the turn used. The `<hook>` and `<form>` tags are decisions, not the
+// post: a model that puts one inside the block would otherwise publish it.
 function postDraftAnswer(response) {
   const raw = String(response ?? "").trim();
   const block = /<output>([\s\S]*?)<\/output>/.exec(raw);
-  const text = (block ? block[1] : raw).replace(/<hook>[\s\S]*?<\/hook>/gi, "").trim();
+  const text = (block ? block[1] : raw)
+    .replace(/<hook>[\s\S]*?<\/hook>/gi, "")
+    .replace(/<form>[\s\S]*?<\/form>/gi, "")
+    .trim();
   if (!text) throw new Error("the post turn returned no text");
   return `<output>${text}</output>`;
 }
@@ -1212,9 +1219,18 @@ http
                 stored = applyChosenHook(chosen, { hook: parsed.hook, hookOpening: parsed.opening });
                 await writeFile(join(dir, POST_DIRECTIVES_NAME), `${JSON.stringify(stored, null, 2)}\n`);
               }
+              // The form is chosen from the post just written, so the media branch stops
+              // falling back to the hook's default when the argument is a different shape.
+              const form = parsePostForm(response, { forms: direct.forms });
+              if (form.error) throw new Error(form.error);
               return {
                 response,
-                post: { text: postDraftAnswer(response), hook: stored.hook_id || parsed.hook, directives: stored.directives },
+                post: {
+                  text: postDraftAnswer(response),
+                  hook: stored.hook_id || parsed.hook,
+                  form: form.form,
+                  directives: stored.directives,
+                },
               };
             }
             const prompt = await postReviewPrompt({

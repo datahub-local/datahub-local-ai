@@ -149,7 +149,7 @@ proof available inside the pod.
 | --- | --- |
 | `lane` | `article` (default) or `post`. A post turn has only `draft` and `review`, needs a `brief`, and runs with no tools |
 | `task` | `draft` (default), `outline`, `review`, `audit`, `aspects` or `improve`; the post lane serves `draft` and `review` |
-| `brief` | the entry's fields: `topic`, `description`, `url`, `max_words`, `max_figures`, `asset_types`, `audience`, `extra_prompt`, `content`, `feedback`, `outline`. The post lane adds `post_type`, `min_words`, `previous_post`, `hook`, `hook_opening` and `hooks` (the eligibility list the writer chooses from when no hook is assigned). The server renders the prompt from its own files |
+| `brief` | the entry's fields: `topic`, `description`, `url`, `max_words`, `max_figures`, `asset_types`, `audience`, `extra_prompt`, `content`, `feedback`, `outline`. The post lane adds `post_type`, `min_words`, `previous_post`, `hook`, `hook_opening`, `hooks` (the eligibility list the writer chooses from when no hook is assigned), `forms` (the visual form ids it may choose from) and `form_rules` (the mapping from the post's argument to a form). The server renders the prompt from its own files |
 | `article` | the draft of record for `review`, `aspects` and `improve`: `{ title, text }`. The caller resolves it, so the turn reviews exactly what the caller decided |
 | `post` | the draft of record for a post `review`: `{ text }`. The caller resolves it from what it parsed |
 | `findings` | the merged aspect findings for `improve`, as one text block |
@@ -170,7 +170,7 @@ answer adds
 article written to an approved outline is given it as `brief.outline`; the drafting and improvement
 prompts state that the sections follow it, and feedback outranks it.
 
-A post turn answers `post: { text, hook }` instead of `article`. The text is always wrapped in
+A post turn answers `post: { text, hook, form }` instead of `article`. The text is always wrapped in
 the tags the caller's parsers read: `<output>…</output>` for a draft, and
 `<output>true|false</output><explanation>…</explanation>` for a review. A draft also returns the
 directives it was given (`post.directives`). When the brief carries a `hooks` list and no
@@ -179,7 +179,10 @@ block; that tag is the `post.hook` the caller writes to the row, and an answer t
 of the list is refused by name rather than returned blank. The chosen set is written to
 `directives.json` in the run directory — the chosen hook included — and reused by every later
 turn of the session, so the gate judges the shape the drafter was given and a retry does not
-re-choose.
+re-choose. When the brief carries a `forms` list, the writer answers `<form>ID</form>` beside
+the hook, choosing from the argument the post makes rather than the hook's default; that tag
+is `post.form`, an answer off the list is refused by name, and both tags are stripped from
+`post.text`. With no `forms`, no tag is required and `post.form` is empty.
 
 `GET /artifacts/<session_id>/article.md|sources.json` serves the two files. No other name
 is reachable.

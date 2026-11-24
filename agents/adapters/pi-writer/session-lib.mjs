@@ -947,6 +947,42 @@ export function parsePostHook(answer, { hooks = [], assigned = "" } = {}) {
   return { hook: entry.id, opening: entry.opening, error: "" };
 }
 
+// The visual forms a brief offers, one id per line. The ids are the caller's vocabulary,
+// so an unknown one is the caller's bug and is left as written for the parse to reject.
+export function renderFormList(forms) {
+  return (Array.isArray(forms) ? forms : [])
+    .map((form) => {
+      const id = String((form && typeof form === "object" ? form.id : form) ?? "").trim();
+      return id ? `- ${id}` : "";
+    })
+    .filter(Boolean)
+    .join("\n");
+}
+
+// The visual form the writer chose from its own post, read from the tag beside its hook. A
+// row that already pins a form has nothing to choose; an answer off the offered list is a
+// failure naming the tag, never a blank the media branch would fill with the hook default.
+export function parsePostForm(answer, { forms = [], assigned = "" } = {}) {
+  const chosen = String(assigned ?? "").trim().toLowerCase();
+  if (chosen) return { form: chosen, error: "" };
+  const offered = (Array.isArray(forms) ? forms : [])
+    .map((form) => String((form && typeof form === "object" ? form.id : form) ?? "").trim().toLowerCase())
+    .filter(Boolean);
+  if (!offered.length) return { form: "", error: "" };
+  const tagged = /<form>\s*([A-Za-z0-9_]+)\s*<\/form>/i.exec(String(answer ?? ""));
+  if (!tagged) {
+    return {
+      form: "",
+      error: `the post answer carries no <form> tag although the brief offered ${offered.length} visual form(s)`,
+    };
+  }
+  const id = tagged[1].toLowerCase();
+  if (!offered.includes(id)) {
+    return { form: "", error: `the post answer chose <form>${id}</form>, which the brief's form list does not carry` };
+  }
+  return { form: id, error: "" };
+}
+
 // The gate reads the directives the drafter was given, so a hook chosen on the draft turn
 // rewrites that one directive: the review and every later turn of the session judge the
 // shape the drafter actually wrote.

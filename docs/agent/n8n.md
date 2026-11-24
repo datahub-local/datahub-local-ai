@@ -560,6 +560,15 @@ empty and the review was unread. Approving still posts it; the difference is tha
 `fix` asset as one the review passed. The measured cost of not having this: 17510 spent 80 minutes,
 one human retry, and a cancel on a render whose defects the critic had already named twice.
 
+**The review judges the story before the pixels.** The critic reads the person's requirements
+first, then the approved plan, then each scene's one takeaway, the order of the beats, attention and
+metaphor, and only then geometry, arrows, legibility, copy, fit, fidelity and brand. A finding that
+removes a line the person required is invalid, whatever style rule it cites; the close carries the
+conclusion and the Source together. The composer's `STORYBOARD` and the approved `PLAN` are part of
+the critic's evidence, so a technically clean scene that does not make its point is a finding. The
+17579/17587 rounds are the gate: the critic asked for the Source alone and a fade before the Source
+after the person had asked for both, and the human rejected both renders.
+
 **Stills follow the cuts, when there are any.** The clip's own cut structure from `scdet` gives
 scene intervals; each contributes a still at its midpoint, with frames straddling the cut when the
 cap allows. The real 17510 clip is one continuous animation: `select=gt(scene,0.3)` selects zero
@@ -598,9 +607,18 @@ while the review prompt tells the critic to judge geometry on the last still. A 
 not produced is now removed-first and absent from `stills`, so the review judges one frame fewer
 rather than the wrong turn's frame, and never fails the asset.
 
-**Authoring is one composer turn.** For an agent type the request's `CONTENT` is a brief
-sent to the `pi-render` session, which plans a **storyboard** (form, style, scenes) and
-then authors a HyperFrames composition and renders it, in the same turn. The workflow
+**Authoring is a plan turn, then one composer turn.** For an agent type the workflow first
+asks the same `pi-render` session for a **plan** (`task: "plan"`, no tools, nothing
+written): form, subject, the intro question, one beat per scene with its line, device,
+motion and transition, the close (conclusion and Source) and the arc. A text critic,
+`prompts/visual_review_plan.md`, reviews it against the post, the content and the person's
+feedback before any render; a failed plan is revised once, and a plan still failing after
+that renders with its findings on the asset. Only an approved plan reaches the authoring
+turn, which authors the HyperFrames composition and renders it in one turn. A correction
+turn (`REVIEW_ROUND > 0`) skips the plan gate: the composition and the feedback are the
+plan. The composer's report is kept on the asset as `STORYBOARD`; the approved plan is
+`PLAN`, and the review gets both.
+The workflow
 never sees the composition markup, only the rendered file; the composer's own report is
 kept on the asset as `STORYBOARD` in the run record, so a bad visual is diagnosable.
 There is no typed content spec and no markup template: the old `spec_markup`/`spec_raster`/
@@ -1755,6 +1773,14 @@ draft was given; the gate is the same session with `task: "review"`. `parse_llm_
 `parse_llm_check_output`, `MAX_TRIES` and `ENABLE_CHECK` are unchanged, and the export holds no
 `ai_languageModel` node. The reason is the 2026-09-30 rule pair: a rule the drafter and the gate
 share is now one directory in the image instead of two files fetched at run time.
+
+**The writer chooses the form, the row can still pin it.** The draft answers `<form>ID</form>`
+beside `<hook>`, from `prompts/visual_forms.md` and its argument-to-form mapping: a sequence, a
+mechanism or a failure over time is `story`; a structure is `diagram`; a measured comparison is
+`chart` or `data`; one claim is `poster`; a change over time is `timeline`. The post creator writes
+it to `VISUAL_FORM` when the row is empty; the hook's `visual` is only the fallback, and a row that
+pins a form wins. Row 48 is the evidence: four `ARCHITECTURE`/`diagram` runs failed and the same
+content shipped when the row was changed to `story`.
 
 ## Content board intake and the queue ceiling
 

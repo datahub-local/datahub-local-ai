@@ -150,6 +150,122 @@ export function turnInstruction({ format, isIteration } = {}) {
     : "Write the composition to `index.html` here and render it to `out.mp4` in this same directory.";
 }
 
+// The forms a plan may name, copied from the vocabulary in
+// `agents/n8n/prompts/visual_forms.md`. A caller routes on the id, so an id this adapter
+// does not know is an error rather than a shape the caller has to guess at. `auto` is not
+// here: it is a caller's request to choose, not a form a plan can settle on.
+export const PLAN_FORMS = [
+  "diagram",
+  "story",
+  "data",
+  "chart",
+  "code",
+  "timeline",
+  "quote",
+  "poster",
+  "ui",
+  "manga",
+  "retro",
+  "launch",
+  "tiles",
+  "sketch",
+];
+
+// The first JSON object in a model answer, tolerating a code fence and prose around it.
+// The scan is brace-matched rather than a slice between the first `{` and the last `}`:
+// two objects in one answer would otherwise be cut into one unparsable string.
+function firstJsonObject(text) {
+  for (let start = text.indexOf("{"); start !== -1; start = text.indexOf("{", start + 1)) {
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    for (let i = start; i < text.length; i += 1) {
+      const ch = text[i];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (ch === "\\") escaped = true;
+        else if (ch === '"') inString = false;
+        continue;
+      }
+      if (ch === '"') inString = true;
+      else if (ch === "{") depth += 1;
+      else if (ch === "}") {
+        depth -= 1;
+        if (depth === 0) {
+          try {
+            const value = JSON.parse(text.slice(start, i + 1));
+            if (value && typeof value === "object" && !Array.isArray(value)) return value;
+          } catch {
+            // not an object after all; the next opening brace may start one
+          }
+          break;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+const PLAN_FIELDS = ["form", "subject", "question", "scenes", "close", "arc"];
+const PLAN_SCENE_FIELDS = ["n", "beat", "line", "device", "motion", "transition"];
+const PLAN_CLOSE_FIELDS = ["line"];
+
+function blank(value) {
+  if (value === undefined || value === null) return true;
+  return typeof value === "string" && !value.trim();
+}
+
+function plainObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+// The storyboard a plan turn returned, or why it cannot be read. It never throws: a bad
+// answer is the caller's signal to retry or ask again, not a failed turn, and the raw
+// answer is returned beside the plan so the caller can report what the model wrote.
+export function parsePlan(answer) {
+  const plan = firstJsonObject(String(answer ?? ""));
+  if (!plan) return { plan: null, error: "the answer carries no JSON object" };
+  for (const field of PLAN_FIELDS) {
+    if (blank(plan[field])) return { plan: null, error: `the plan carries no ${field}` };
+  }
+  const form = String(plan.form).trim().toLowerCase();
+  if (!PLAN_FORMS.includes(form)) {
+    return { plan: null, error: `the plan names form "${plan.form}", which is not in the form vocabulary` };
+  }
+  plan.form = form;
+  if (!Array.isArray(plan.scenes) || !plan.scenes.length) {
+    return { plan: null, error: "the plan carries no scenes" };
+  }
+  for (const [index, scene] of plan.scenes.entries()) {
+    const label = `scene ${index + 1}`;
+    if (!plainObject(scene)) return { plan: null, error: `${label} is not an object` };
+    for (const field of PLAN_SCENE_FIELDS) {
+      if (blank(scene[field])) return { plan: null, error: `${label} carries no ${field}` };
+    }
+  }
+  if (!plainObject(plan.close)) return { plan: null, error: "the plan's close is not an object" };
+  for (const field of PLAN_CLOSE_FIELDS) {
+    if (blank(plan.close[field])) return { plan: null, error: `the close carries no ${field}` };
+  }
+  plan.close.source = String(plan.close.source ?? "").trim();
+  return { plan, error: "" };
+}
+
+// The plan turn's mechanical instruction, as `turnInstruction` is the authoring turn's:
+// the caller's brief carries the content, this says that nothing is authored and what the
+// answer must hold. The planning method beside it is `prompts/plan.md`.
+export function planInstruction({ format, isIteration } = {}) {
+  return [
+    `Plan the ${safeFormat(format)} visual the brief above asks for, before it is authored.`,
+    "This is a plan turn: write no file, run no render, and call no tool.",
+    "Answer with one JSON object and nothing else - no prose around it and no code fence.",
+    "One idea per scene: name the intro question the first scene asks, the conclusion the close settles, and the Source the brief cites.",
+    isIteration
+      ? "This session already holds an authored artifact; plan the change the brief asks for, not a fresh piece."
+      : "Plan the storyboard the brief calls for, from the beginning.",
+  ].join(" ");
+}
+
 // Pi names a transcript `<ISO timestamp>_<session id>.jsonl`; the timestamp carries
 // no underscore, so the id is everything after the first one. Returns null for a
 // name this server did not write, so a foreign file is never swept.

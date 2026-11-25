@@ -56,7 +56,7 @@
 
 ## 5. Apply and verify
 
-- [ ] 5.1 Finish `close-visual-review-holes` 7.4: deploy the adapter image, roll the
+- [x] 5.1 Finish `close-visual-review-holes` 7.4: deploy the adapter image, roll the
       session, apply both workflow exports, re-activate, and confirm the approval names the
       open findings.
 - [ ] 5.2 Replay the five labelled runs through the plan/story criteria; confirm 17579's

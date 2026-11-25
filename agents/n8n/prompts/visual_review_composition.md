@@ -25,6 +25,8 @@ For every scene, state the one idea a viewer should take away in `scene_takeaway
 
 A scene must be understood without the post text. If it needs a word the post carries, put that word on screen or split the scene. The clip makes one argument; it does not summarize the article.
 
+A single-card clip that reduces a post with a sequence, a mechanism or several results to one number is a finding: the clip must carry the post's argument, not only its headline figure.
+
 ### 3. Attention and devices
 
 - Every scene needs one focal point and one emphasis device that lands on the point: a highlight, a pulse, a counter, a build, a camera move. A scene that is a flat wall of labels, or whose emphasis is decoration, is a finding.

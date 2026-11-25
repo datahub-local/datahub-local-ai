@@ -10,11 +10,13 @@ Read `Feedback from the person` first. Every requirement it makes is a hard cons
 
 The clip makes one argument. It is not a summary of the article, and it does not try to cover every fact. Name the argument in one sentence; if the plan does not have one, that is a finding.
 
+A one-card plan is for a post with one claim. If the post carries a sequence, a mechanism, a before and after, a failure mode, or more than one number, a one-scene or `poster` plan is a finding: the clip has to show the beats, not only the headline figure. Name the dropped beat and the form the post needs.
+
 ### 2. The arc
 
 - The intro names the subject and the question the clip answers. A title that only names the subject is not an intro.
 - The middle explains the mechanism or the trade-off in an order a viewer can follow: cause before effect, the state before the change, the failure after the design.
-- The conclusion answers the intro's question with the content's own outcome. It is not a summary and not a generic closer.
+- The conclusion answers the intro's question with the content's own outcome. It is not a summary and not a generic closer. A close that states the topic without answering the question is a finding.
 - The Source closes. When there is a conclusion, the conclusion and the Source share the closing frame.
 
 A missing, repeated or misplaced beat is a finding.
@@ -25,7 +27,7 @@ For every scene, state the one idea it must leave with the viewer. If you cannot
 
 ### 4. The form
 
-The form follows the post's argument, not the article's topic. A sequence, a mechanism or a failure over time is `story`; a structure is `diagram`; a measured comparison is `chart` or `data`; one claim is `poster`; a change over time is `timeline`. A plan whose form does not fit the argument is a finding even when every scene is legible.
+The form follows the post's argument, not the article's topic. A sequence, a mechanism or a failure over time is `story`; a structure is `diagram`; a measured comparison is `chart` or `data`; one claim is `poster`; a change over time is `timeline`. `poster` is one claim: a release with a mechanism and several results is not a poster, even when one number is the headline. A plan whose form hides the post's argument is a finding even when every scene is legible.
 
 ### 5. Attention and devices
 

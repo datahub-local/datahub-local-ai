@@ -102,6 +102,10 @@ COPY --chmod=0644 prompts/authoring.md /opt/pi-render/prompts/authoring.md
 # The plan turn's method, appended instead of the authoring one when the caller asks for
 # the storyboard first. Same rule: the prompt is a file, read at run time.
 COPY --chmod=0644 prompts/plan.md /opt/pi-render/prompts/plan.md
+# The form-options and plan-options methods, read by those turns beside the authoring
+# brief. Prompts are files, never inlined in the session server.
+COPY --chmod=0644 prompts/forms.md /opt/pi-render/prompts/forms.md
+COPY --chmod=0644 prompts/plans.md /opt/pi-render/prompts/plans.md
 
 # $HOME must stay writable: a read-only root filesystem means Chrome fails with
 # "Failed to create headless user data directory container" unless HOME points at

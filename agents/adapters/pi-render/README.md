@@ -319,6 +319,19 @@ read; `plan` is then `null` rather than the turn failing, so the caller can retr
 Nothing is written, transcoded, checked or captured, and a plan-only session creates no run
 directory. A request with no `task` is the authoring turn, unchanged.
 
+### The form- and plan-options turns
+
+A caller that wants the shape chosen from candidates before it pays for a plan sends
+`task: "forms"` with `options` (2 or 3). The same endpoint runs with `--no-tools`, appends
+`prompts/forms.md`, and returns `forms`: up to that many options, each `{id, form, why,
+sketch}` with `form` from the vocabulary the caller's brief carries. A caller that has a
+form and wants storyboards sends `task: "plans"` with `form` and `options`; it appends
+`prompts/plans.md` and `prompts/plan.md` and returns `plans`, each `{id, plan}` with the
+plan object the method defines. Both return `raw` and `error`; an option that names an
+unknown form, carries no rationale, or fails the plan validation is dropped and named in
+`error` while the valid options are still returned. Neither turn writes a file or creates a
+run directory, and `plans` refuses a request with no known `form` rather than guessing one.
+
 ### The stills a review looks at
 
 The same response carries `stills: [...]`, frames of the served artifact the workflow's

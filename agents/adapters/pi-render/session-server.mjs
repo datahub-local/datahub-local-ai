@@ -43,6 +43,11 @@ import {
   turnInstruction,
   planInstruction,
   parsePlan,
+  parseFormOptions,
+  parsePlanOptions,
+  formOptionsInstruction,
+  planOptionsInstruction,
+  PLAN_FORMS,
   expiredRunDirs,
   expiredTranscripts,
   DEFAULT_SESSION_WORKSPACE,
@@ -68,6 +73,8 @@ const maxOutput = 2_000_000;
 const sessionDir = "/tmp/pi-sessions";
 const promptPath = "/opt/pi-render/prompts/authoring.md";
 const planPromptPath = "/opt/pi-render/prompts/plan.md";
+const formsPromptPath = "/opt/pi-render/prompts/forms.md";
+const plansPromptPath = "/opt/pi-render/prompts/plans.md";
 // A session container mounts the session PVC at /tmp and does **not** mount
 // /workspace (only the Job path does), so the workspace must default under the PVC.
 // The caller can still override it.
@@ -587,6 +594,8 @@ let queue = Promise.resolve();
 
 const method = await promptFile(promptPath, "authoring method");
 const planMethod = await promptFile(planPromptPath, "plan method");
+const formsMethod = await promptFile(formsPromptPath, "form options method");
+const plansMethod = await promptFile(plansPromptPath, "plan options method");
 
 http
   .createServer(async (req, res) => {
@@ -637,9 +646,10 @@ http
       const durationSeconds = Number(request.durationSeconds);
       const stream = request.stream === true;
       // Absent `task` is the authoring turn every caller has always sent. `plan` is the
-      // storyboard turn; a task this server does not serve is refused, not guessed at.
+      // storyboard turn, `forms` the form-options turn and `plans` the plan-options turn; a
+      // task this server does not serve is refused, not guessed at.
       const task = String(request.task ?? "").trim();
-      if (task && task !== "plan") throw new Error(`unknown task ${task}`);
+      if (task && !["plan", "forms", "plans"].includes(task)) throw new Error(`unknown task ${task}`);
       const id = `chatcmpl-${randomUUID()}`;
       const cancellation = new AbortController();
       res.once("close", () => {
@@ -670,6 +680,40 @@ http
           plan,
           raw: response,
           ...(error ? { error } : {}),
+        });
+        res.writeHead(200, { "content-type": "application/json", "content-length": Buffer.byteLength(body) }).end(body);
+        return;
+      }
+
+      // The form-options and plan-options turns are the same shape as the plan turn: no
+      // tools, no directory, no artifact. The options are data; a rejected option is named
+      // in `error` while the valid ones are returned, so the caller can still choose.
+      if (task === "forms" || task === "plans") {
+        const count = Number(request.options);
+        const form = String(request.form ?? "").trim().toLowerCase();
+        if (task === "plans" && !PLAN_FORMS.includes(form)) {
+          throw new Error(`unknown form ${form || "(none)"}; the plans turn needs a chosen form`);
+        }
+        const instruction = task === "forms"
+          ? `${formOptionsInstruction({ format, count })}\n\n${formsMethod}`
+          : `${planOptionsInstruction({ format, form, count })}\n\n${plansMethod}\n\n${planMethod}`;
+        const prompt = `${brief}\n\n---\n\n${instruction}`;
+        const response = await (queue = queue.catch(() => undefined).then(() =>
+          runPi(prompt, sessionID, undefined, cancellation.signal, workDir, { noTools: true })
+        ));
+        const parsed = task === "forms"
+          ? parseFormOptions(response)
+          : parsePlanOptions(response, { form });
+        const fields = task === "forms" ? { forms: parsed.forms } : { plans: parsed.plans };
+        const body = JSON.stringify({
+          id,
+          object: "chat.completion",
+          created: Math.floor(Date.now() / 1000),
+          model: process.env.MODEL_NAME,
+          choices: [{ index: 0, message: { role: "assistant", content: response }, finish_reason: "stop" }],
+          ...fields,
+          raw: response,
+          ...(parsed.error ? { error: parsed.error } : {}),
         });
         res.writeHead(200, { "content-type": "application/json", "content-length": Buffer.byteLength(body) }).end(body);
         return;

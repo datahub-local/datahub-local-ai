@@ -45,6 +45,10 @@ import {
   PLAN_FORMS,
   parsePlan,
   planInstruction,
+  parseFormOptions,
+  parsePlanOptions,
+  formOptionsInstruction,
+  planOptionsInstruction,
 } from "../session-lib.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -1006,4 +1010,103 @@ test("the plan instruction forbids authoring and asks for one idea per scene", (
   const edit = planInstruction({ format: "mp4", isIteration: true });
   assert.match(edit, /already holds/);
   assert.notEqual(edit, first, "an edit is not planned as a first authoring");
+});
+
+// ---------------------------------------------------------------------------
+// Choosing the shape from options: a form turn, then a plan-options turn. The
+// parsers keep the valid options and name the rejected ones, so a stage that
+// cannot decide has a first option to fall back to rather than a failed run.
+
+const FORM_OPTIONS = [
+  { id: "launch", form: "launch", why: "the post announces a GA and its features", sketch: "a badge, a headline and three chips" },
+  { id: "sequence", form: "story", why: "the migration loop is a sequence", sketch: "three beats, one per phase" },
+];
+
+test("form options are read from a clean JSON object", () => {
+  const { forms, error } = parseFormOptions(JSON.stringify({ options: FORM_OPTIONS }));
+  assert.equal(error, "");
+  assert.deepEqual(forms, FORM_OPTIONS);
+  // The id is normalized on the form, as a plan's is.
+  const mixed = parseFormOptions(JSON.stringify({ options: [{ ...FORM_OPTIONS[0], form: "Launch" }] }));
+  assert.equal(mixed.error, "");
+  assert.equal(mixed.forms[0].form, "launch");
+});
+
+test("a form option outside the vocabulary is named and dropped", () => {
+  const { forms, error } = parseFormOptions(JSON.stringify({
+    options: [FORM_OPTIONS[0], { ...FORM_OPTIONS[1], form: "infographic" }],
+  }));
+  assert.equal(forms.length, 1);
+  assert.equal(forms[0].id, "launch");
+  assert.match(error, /infographic/);
+  assert.match(error, /option "sequence"/);
+});
+
+test("an unreadable form answer is an error, not a throw", () => {
+  for (const answer of ["", "no object in this answer", "{\"options\": []}", "{\"options\": {}}", null]) {
+    const { forms, error } = parseFormOptions(answer);
+    assert.deepEqual(forms, [], `options were parsed from ${JSON.stringify(answer)}`);
+    assert.ok(error, `a failed parse from ${JSON.stringify(answer)} names no reason`);
+  }
+});
+
+test("a form option missing its why or sketch is rejected", () => {
+  const missing = parseFormOptions(JSON.stringify({ options: [{ ...FORM_OPTIONS[0], why: " " }] }));
+  assert.deepEqual(missing.forms, []);
+  assert.match(missing.error, /why/);
+  const sketch = parseFormOptions(JSON.stringify({ options: [{ ...FORM_OPTIONS[0], sketch: "" }] }));
+  assert.deepEqual(sketch.forms, []);
+  assert.match(sketch.error, /sketch/);
+});
+
+test("plan options are read and each plan is validated", () => {
+  const { plans, error } = parsePlanOptions(JSON.stringify({ options: [{ id: "a", plan: PLAN }, { id: "b", plan: { ...PLAN, subject: "another subject" } }] }));
+  assert.equal(error, "");
+  assert.equal(plans.length, 2);
+  assert.equal(plans[1].plan.subject, "another subject");
+  // A plan for another form is not an option for the form the caller chose.
+  const wrong = parsePlanOptions(JSON.stringify({ options: [{ id: "a", plan: { ...PLAN, form: "poster" } }] }), { form: "diagram" });
+  assert.deepEqual(wrong.plans, []);
+  assert.match(wrong.error, /not the chosen "diagram"/);
+});
+
+test("one invalid plan option is named while the valid ones survive", () => {
+  const noScenes = { ...PLAN };
+  delete noScenes.scenes;
+  const { plans, error } = parsePlanOptions(JSON.stringify({
+    options: [{ id: "good", plan: PLAN }, { id: "broken", plan: noScenes }],
+  }));
+  assert.deepEqual(plans.map((p) => p.id), ["good"]);
+  assert.match(error, /plan option "broken"/);
+  assert.match(error, /scenes/);
+});
+
+test("an unreadable plan-options answer is an error, not a throw", () => {
+  for (const answer of ["", "not json", "{\"options\": []}", undefined]) {
+    const { plans, error } = parsePlanOptions(answer);
+    assert.deepEqual(plans, [], `plans were parsed from ${JSON.stringify(answer)}`);
+    assert.ok(error, `a failed parse from ${JSON.stringify(answer)} names no reason`);
+  }
+});
+
+test("the form-options and plan-options instructions name the stage and the count", () => {
+  const forms = formOptionsInstruction({ format: "mp4", count: 2 });
+  assert.match(forms, /form-options turn/i);
+  assert.match(forms, /up to 2 options/);
+  assert.match(forms, /no tool/i);
+  assert.match(forms, /one JSON object/i);
+  assert.match(forms, /mp4/);
+  // The count is bounded to the 2-3 the stage promises.
+  assert.match(formOptionsInstruction({ format: "mp4", count: 9 }), /up to 3 options/);
+  assert.match(formOptionsInstruction({ format: "mp4", count: 1 }), /up to 2 options/);
+
+  const plans = planOptionsInstruction({ format: "mp4", form: "diagram", count: 3 });
+  assert.match(plans, /plan-options turn/i);
+  assert.match(plans, /up to 3 options/);
+  assert.match(plans, /the diagram form/);
+  assert.match(plans, /Every option uses the diagram form/);
+  assert.match(plans, /no tool/i);
+  assert.match(plans, /one JSON object/i);
+  // A missing form leaves the choice to the composer rather than inventing one.
+  assert.match(planOptionsInstruction({ format: "mp4" }), /the form the content needs/);
 });

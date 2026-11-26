@@ -622,8 +622,54 @@ The workflow
 never sees the composition markup, only the rendered file; the composer's own report is
 kept on the asset as `STORYBOARD` in the run record, so a bad visual is diagnosable.
 
-**A boolean gate is a `boolean` operator, not `string/notEmpty`.** The three IF nodes that
-carry the plan bound (`if_needs_plan`, `if_plan_ok`, `if_plan_retry`) read expressions such as
+**A type with no form gets its shape from options, and its storyboard from options.**
+`animation_linkedin_video`, `animation`, `animation_linkedin`, `svg`, `launch_card` and
+`deck` declare no form, so on a first authoring turn their shape is chosen before the plan:
+`if_needs_form` is true when `REVIEW_ROUND === 0`, no plan is approved or exhausted, the
+type declares no `form`, and `FORCE` is `auto`. `build_forms_brief` asks the same session
+for the form stage (`task: "forms"`, no tools): two or three options, each `{id, form, why,
+sketch}`, where `form` is an id from `prompts/visual_forms.md` and `why`/`sketch` are one
+line each. `review_forms` is a text critic on `prompts/visual_review_forms.md` — the plan
+rubric plus "does this shape carry what the post announces?" — on `minimax-m3` through the
+same gateway as the plan critic, with a 300 s timeout and `neverError`; it answers
+`{"choice":"<id>","why":"..."}`. `parse_form_choice` records the options as `FORM_OPTIONS`,
+the chosen id as `FORM_CHOICE` and the form as `FORM`.
+
+The chosen form then buys storyboards: `build_plans_brief` asks for `task: "plans"` with
+that `form`, and the composer returns two or three options, each `{id, plan}` using the
+existing plan schema. Each option is validated through `parsePlan`, and one that plans
+another form is rejected by name rather than used. `review_plans` is a second text critic on
+`prompts/visual_review_plans.md`, whose rubric is the plan critic's (the person's
+requirements, the arc, one idea per scene, the close and its Source, the metaphor,
+standalone, fidelity). `parse_plan_choice` records `PLAN_OPTIONS` and `PLAN_CHOICE`, sets
+`PLAN` to the chosen storyboard and `PLAN_APPROVED=true`, so the chosen plan goes straight
+to `build_author_brief` and `execute_author` without the single-plan revision loop.
+
+The form stage is skipped for a type that declares its form (`svg_wide` → `diagram`,
+`poster_gif` → `poster`, `tiles*` → `tiles`, `figure` → `diagram`, `sketch*` → `sketch`)
+and for a pinned `FORCE`, but both still buy storyboards: `if_needs_form`'s false branch
+goes to `if_plan_options_start`, true on a first authoring turn with a fixed form (`FORM`
+non-empty or `FORCE` not `auto`), which starts `build_plans_brief` with that form. The
+single-plan path (`build_plan_brief` → `execute_plan` → `review_plan` and its one retry)
+remains the fallback when a stage cannot decide, through `if_needs_plan`. A correction
+turn, an approved plan or an exhausted plan skips the plan gate and goes straight to
+authoring. So the article's `svg_wide`/`figure` diagrams get multiple storyboards with
+their declared form, and the form stage still never runs for them.
+
+**A stage that cannot decide falls back, and says so.** An unreadable composer answer, a
+critic that names no valid option, or an answer whose every option is invalid leaves the
+first valid option as the result and sets `OPTIONS_FALLBACK=true` and `NEEDS_REVIEW=true`;
+the media approval names the form, the plan and the fallback. With no valid option at all
+the stage cannot run, and the graph takes the existing single-plan path instead of blocking
+the render; the asset still records `OPTIONS_FALLBACK` and the approval names it. This
+mirrors `parse_verdict`: a stage that could not decide is never reported as
+a clean decision, and the chosen form, plan, options and fallback all ride on the asset
+beside `PLAN`/`STORYBOARD` (`FORM_OPTIONS`, `FORM_CHOICE`, `PLAN_OPTIONS`, `PLAN_CHOICE`,
+`OPTIONS_FALLBACK`).
+
+**A boolean gate is a `boolean` operator, not `string/notEmpty`.** Every IF node that
+carries a plan or option bound (`if_needs_form`, `if_plan_options_start`, `if_needs_plan`,
+`if_form_options`, `if_plan_options`, `if_plan_ok`, `if_plan_retry`) reads expressions such as
 `$json.PLAN_APPROVED === true`; with `string/notEmpty` the expression's `false` becomes the
 string `"false"`, which is non-empty, so every gate took its true branch. On 2026-11-25 that
 made `if_plan_ok` send a rejected plan to `build_author_brief` and `if_needs_plan` ask for
@@ -977,10 +1023,17 @@ fallback. It no longer classifies — the judge-written `angle` was removed outr
 ≤30-word direction from one model was steering a smarter one that could not overrule
 it), and the hook/visual choice moved to the drafting turn, which is when classification
 matters and which the stronger model performs anyway. `admit_to_backlog` writes `HOOK`,
-`VISUAL_FORM` and `SCENES` blank; `LinkedIn Post Sharing` writes them
+`VISUAL_FORM` and `SCENES` blank; `LinkedIn Post Sharing` writes `HOOK` only
 (`update_hook_columns`) once the draft's `<hook>` answer is parsed and validated against
-the registry in code, so the animated branch and the still fallback read the row exactly
-as before — classify-once holds, later. A row whose `HOOK` is already set — a human edit,
+the registry in code. The writer's own form and scene count are **hints**, carried to the
+studio as `SUGGESTED_FORM`/`SUGGESTED_SCENES` and never written back to the row: writing
+them would turn this run's answer into the next run's pin. A non-empty `VISUAL_FORM` or
+`SCENES` cell is therefore a person's edit, read at run start
+(`select_article_to_post.VISUAL_FORM`) as `FORM_PIN`, and a pin wins: it becomes `FORCE` and
+skips the form stage. The studio's form critic owns the decision otherwise, and a later run
+never reads a previous writer's answer as a human pin. Rows written before this change can
+still hold a writer's form in `VISUAL_FORM`; a non-empty cell is read as a pin, so those
+cells are cleared once and a pin is only a person's edit after that. A row whose `HOOK` is already set — a human edit,
 a pre-change row — keeps the assigned shape, and a retry continues the session whose
 stored directives carry the chosen hook, so a re-draft does not re-choose. The backfill
 re-judge pass is retired: a hook-less queued row is the normal pre-draft state, not a
@@ -993,13 +1046,15 @@ keeps it: `LinkedIn Post Sharing` passes both to the post creator, and a non-emp
 over the hook's `visual`. That is what the registry comment always claimed, and what
 `parse_llm_output` did not do until 2026-11-22 — it overwrote both with the registry default
 every time, so an architecture article could not be told to be a story without changing its
-hook. The hook itself is chosen by argument before topic: when several `when` clauses fit, the
-writer takes `argument`, then `narrative`, `evidence`, `news`, `reference`, and a reference hook
-(`ARCHITECTURE`, `LANDSCAPE`, `ROUNDUP`, `COMPARISON`, `CHECKLIST`) is for a post whose point
-**is** the structure or the survey. Measured: `ARCHITECTURE` → `diagram` was chosen for an
-article whose payload was observability, and execution 17543's 30 s clip became a tour of the
-stack; `VISUAL_FORM=story` plus `SCENES=3` on the row is the override that does not rewrite the
-post. The shape above is the committed
+hook. The writer's answer is now a hint too: the hook's `visual` reaches the studio as
+`SUGGESTED_FORM`/`SUGGESTED_SCENES`, and the studio's form stage chooses among the shapes
+that fit the content. The hook itself is chosen by argument before topic: when several
+`when` clauses fit, the writer takes `argument`, then `narrative`, `evidence`, `news`,
+`reference`, and a reference hook (`ARCHITECTURE`, `LANDSCAPE`, `ROUNDUP`, `COMPARISON`,
+`CHECKLIST`) is for a post whose point **is** the structure or the survey. Measured:
+`ARCHITECTURE` → `diagram` was chosen for an article whose payload was observability, and
+execution 17543's 30 s clip became a tour of the stack; `VISUAL_FORM=story` plus `SCENES=3`
+on the row is the override that does not rewrite the post. The shape above is the committed
 design — the live instance still runs the judge-classified variant until the applies
 land. `[UNVERIFIED] live`
 
@@ -1013,13 +1068,16 @@ the title).
 
 `LinkedIn Post Sharing` carries one media item per post, and which one is the **row's**
 decision: `content_queue.POST_MEDIA` of `ANIMATED`/`AGENT` requests the animation and
-anything else (`STATIC` or blank) takes the still path; `VISUAL_FORM` forces the
-composer's form and `SCENES` carries a list's item count. `POST_MEDIA` is written by the
+anything else (`STATIC` or blank) takes the still path. A non-empty `VISUAL_FORM` on the
+row is a **human pin** that becomes `FORCE` and skips the form stage, and `SCENES` pins a
+list's item count; neither is written by this lane. `POST_MEDIA` is written by the
 curator from the judge's intent and stays human-editable, so a person can force either way
 by editing it — one media column, not two. An animated row asks `Visual Studio` for
-`animation_linkedin_video` (mp4, the feed's 4:5 aspect) and attaches the approved asset; a
-blank or `STATIC` row takes the `LinkedIn Image Creator` path exactly as before. That
-still is budgeted for a glance rather than a read — one headline, one wordmark and three
+`animation_linkedin_video` (mp4, the feed's 4:5 aspect, 30 s) and attaches the approved
+asset; a blank or `STATIC` row takes the `LinkedIn Image Creator` path exactly as before.
+`poster_gif` remains a supported type for a caller that requests it explicitly; the
+animated branch no longer maps a `poster` form to it. That still is budgeted for a glance
+rather than a read — one headline, one wordmark and three
 labels of one or two words (`agents/n8n/prompts/linkedin_image_prompt.md`) — and it has no
 critic pass, so its prompt is the only gate on how much text reaches the image.
 

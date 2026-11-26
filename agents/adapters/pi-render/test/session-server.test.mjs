@@ -60,14 +60,34 @@ if (prompt.includes("FAIL_PROBE")) {
   process.exit(9);
 }
 if (noTools) {
-  process.stdout.write(JSON.stringify({
-    form: "poster",
-    subject: "a plan subject",
-    question: "does the plan parse?",
-    scenes: [{ n: 1, beat: "one beat", line: "one line", device: "one device", motion: "one motion", transition: "one cut" }],
-    close: { line: "the conclusion", source: "example.invalid" },
-    arc: "question to close",
-  }));
+  if (prompt.includes("form-options turn")) {
+    process.stdout.write(JSON.stringify({ options: [
+      { id: "launch", form: "launch", why: "the post announces a release", sketch: "a badge and three chips" },
+      { id: "sequence", form: "story", why: "the loop is a sequence", sketch: "three beats, one per phase" },
+    ] }));
+  } else if (prompt.includes("plan-options turn")) {
+    process.stdout.write(JSON.stringify({ options: [
+      { id: "first", plan: {
+        form: "diagram", subject: "a plan subject", question: "does the plan parse?",
+        scenes: [{ n: 1, beat: "one beat", line: "one line", device: "one device", motion: "one motion", transition: "one cut" }],
+        close: { line: "the conclusion", source: "example.invalid" }, arc: "question to close",
+      } },
+      { id: "second", plan: {
+        form: "diagram", subject: "a second subject", question: "does the second parse?",
+        scenes: [{ n: 1, beat: "another beat", line: "another line", device: "another device", motion: "another motion", transition: "another cut" }],
+        close: { line: "another conclusion", source: "" }, arc: "another question to close",
+      } },
+    ] }));
+  } else {
+    process.stdout.write(JSON.stringify({
+      form: "poster",
+      subject: "a plan subject",
+      question: "does the plan parse?",
+      scenes: [{ n: 1, beat: "one beat", line: "one line", device: "one device", motion: "one motion", transition: "one cut" }],
+      close: { line: "the conclusion", source: "example.invalid" },
+      arc: "question to close",
+    }));
+  }
 } else {
   process.stdout.write("rendered 1 frame");
 }
@@ -546,4 +566,84 @@ test("a plan turn returns the storyboard and writes no artifact", async () => {
   assert.ok(Array.isArray(authored.stills), "a request with no task takes the authoring path");
   const authoringArgs = await readFile(join(workspace, "runs", "run_after_plan", "args.log"), "utf8");
   assert.ok(!authoringArgs.split("\n").includes("--no-tools"), "the authoring turn lost its tools");
+});
+
+test("a forms turn returns the form options and writes no artifact", async () => {
+  const res = await fetch(`${base}/v1/chat/completions`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      task: "forms",
+      options: 2,
+      messages: [{ role: "user", content: "announce the GA" }],
+      session_id: "run_forms",
+      format: "mp4",
+    }),
+  });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.deepEqual(body.forms.map((f) => f.form), ["launch", "story"]);
+  assert.equal(body.forms[0].id, "launch");
+  assert.equal("error" in body, false, "readable options report no error");
+  for (const field of ["plan", "plans", "stills", "conformance", "check", "signals", "connectors", "sheet"]) {
+    assert.equal(field in body, false, `a forms turn reported ${field}`);
+  }
+  const args = await readFile(join(workspace, "args.log"), "utf8");
+  assert.ok(args.split("\n").includes("--no-tools"), "the forms turn could write and render");
+  const prompt = await readFile(join(workspace, "prompt.txt"), "utf8");
+  assert.ok(prompt.includes("announce the GA"), "the caller's brief reaches the forms turn");
+  assert.match(prompt, /form-options turn/i);
+  assert.match(prompt, /up to 2 options/);
+  assert.equal((await fetch(`${base}/artifacts/run_forms/out.mp4`)).status, 404);
+  await assert.rejects(readFile(join(workspace, "runs", "run_forms", "index.html")), "a forms turn wrote a composition");
+});
+
+test("a plans turn returns storyboards for the chosen form and writes no artifact", async () => {
+  const res = await fetch(`${base}/v1/chat/completions`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      task: "plans",
+      form: "diagram",
+      options: 3,
+      messages: [{ role: "user", content: "draw the loop" }],
+      session_id: "run_plans",
+      format: "mp4",
+    }),
+  });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.deepEqual(body.plans.map((p) => p.id), ["first", "second"]);
+  assert.equal(body.plans[0].plan.form, "diagram");
+  assert.equal(body.plans[1].plan.subject, "a second subject");
+  assert.equal("error" in body, false);
+  for (const field of ["plan", "forms", "stills", "conformance", "check", "signals", "connectors", "sheet"]) {
+    assert.equal(field in body, false, `a plans turn reported ${field}`);
+  }
+  const args = await readFile(join(workspace, "args.log"), "utf8");
+  assert.ok(args.split("\n").includes("--no-tools"), "the plans turn could write and render");
+  const prompt = await readFile(join(workspace, "prompt.txt"), "utf8");
+  assert.ok(prompt.includes("draw the loop"), "the caller's brief reaches the plans turn");
+  assert.match(prompt, /plan-options turn/i);
+  assert.match(prompt, /the diagram form/);
+  assert.equal((await fetch(`${base}/artifacts/run_plans/out.mp4`)).status, 404);
+  await assert.rejects(readFile(join(workspace, "runs", "run_plans", "index.html")), "a plans turn wrote a composition");
+});
+
+test("a plans turn without a form is refused, not guessed at", async () => {
+  for (const form of [undefined, "infographic"]) {
+    const res = await fetch(`${base}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        task: "plans",
+        ...(form ? { form } : {}),
+        messages: [{ role: "user", content: "draw it" }],
+        session_id: "run_plans_bad",
+      }),
+    });
+    assert.equal(res.status, 400, `${form ?? "no form"} was accepted`);
+    const body = await res.json();
+    assert.match(body.error.message, /unknown form/);
+  }
 });

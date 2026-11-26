@@ -266,6 +266,136 @@ export function planInstruction({ format, isIteration } = {}) {
   ].join(" ");
 }
 
+// The first form-options answer, or why nothing in it can be used. An option that names
+// a form outside the vocabulary, or carries no rationale or sketch, is named and dropped:
+// the caller keeps the valid options and reports the rest, rather than guessing at one.
+// `firstJsonObject` already tolerates a fence and prose; the contract is one object.
+export function parseFormOptions(answer) {
+  const value = firstJsonObject(String(answer ?? ""));
+  if (!value) return { forms: [], error: "the answer carries no JSON object" };
+  if (!Array.isArray(value.options)) return { forms: [], error: "the answer carries no options array" };
+  const forms = [];
+  const rejected = [];
+  const ids = new Set();
+  for (const [index, option] of value.options.entries()) {
+    const label = plainObject(option) && !blank(option.id) ? `option "${option.id}"` : `option ${index + 1}`;
+    if (!plainObject(option)) {
+      rejected.push(`${label} is not an object`);
+      continue;
+    }
+    if (blank(option.id)) {
+      rejected.push(`${label} carries no id`);
+      continue;
+    }
+    const form = String(option.form ?? "").trim().toLowerCase();
+    if (!PLAN_FORMS.includes(form)) {
+      rejected.push(`${label} names form "${option.form ?? ""}", which is not in the form vocabulary`);
+      continue;
+    }
+    if (blank(option.why)) {
+      rejected.push(`${label} carries no why`);
+      continue;
+    }
+    if (blank(option.sketch)) {
+      rejected.push(`${label} carries no sketch`);
+      continue;
+    }
+    const id = String(option.id).trim();
+    if (ids.has(id)) {
+      rejected.push(`${label} repeats an id`);
+      continue;
+    }
+    ids.add(id);
+    forms.push({ id, form, why: String(option.why).trim(), sketch: String(option.sketch).trim() });
+  }
+  const error = forms.length
+    ? (rejected.length ? `rejected ${rejected.join("; ")}` : "")
+    : (rejected.length ? `no valid form option: ${rejected.join("; ")}` : "the answer carries no form options");
+  return { forms, error };
+}
+
+// The storyboard options for a chosen form, or why none is usable. Each plan is validated
+// through `parsePlan`; when `form` is given, an option that plans another form is rejected
+// too, because the caller asked for storyboards of the form it chose.
+export function parsePlanOptions(answer, { form = "" } = {}) {
+  const value = firstJsonObject(String(answer ?? ""));
+  if (!value) return { plans: [], error: "the answer carries no JSON object" };
+  if (!Array.isArray(value.options)) return { plans: [], error: "the answer carries no options array" };
+  const wanted = String(form ?? "").trim().toLowerCase();
+  const plans = [];
+  const rejected = [];
+  const ids = new Set();
+  for (const [index, option] of value.options.entries()) {
+    const label = plainObject(option) && !blank(option.id) ? `plan option "${option.id}"` : `plan option ${index + 1}`;
+    if (!plainObject(option)) {
+      rejected.push(`${label} is not an object`);
+      continue;
+    }
+    if (blank(option.id)) {
+      rejected.push(`${label} carries no id`);
+      continue;
+    }
+    if (!plainObject(option.plan)) {
+      rejected.push(`${label} carries no plan object`);
+      continue;
+    }
+    const id = String(option.id).trim();
+    if (ids.has(id)) {
+      rejected.push(`${label} repeats an id`);
+      continue;
+    }
+    const { plan, error } = parsePlan(JSON.stringify(option.plan));
+    if (!plan) {
+      rejected.push(`${label}: ${error}`);
+      continue;
+    }
+    if (wanted && plan.form !== wanted) {
+      rejected.push(`${label} names form "${plan.form}", not the chosen "${wanted}"`);
+      continue;
+    }
+    ids.add(id);
+    plans.push({ id, plan });
+  }
+  const error = plans.length
+    ? (rejected.length ? `rejected ${rejected.join("; ")}` : "")
+    : (rejected.length ? `no valid plan option: ${rejected.join("; ")}` : "the answer carries no plan options");
+  return { plans, error };
+}
+
+function optionCount(count) {
+  const n = Number(count);
+  return Number.isFinite(n) ? Math.min(3, Math.max(2, Math.round(n))) : 3;
+}
+
+// The form-options turn's mechanical instruction, beside `prompts/forms.md`. The caller's
+// brief carries the content; this says nothing is authored, what the answer holds, and
+// how many options to return.
+export function formOptionsInstruction({ format, count = 3 } = {}) {
+  const n = optionCount(count);
+  return [
+    `Propose the forms the ${safeFormat(format)} visual could take, before any storyboard is planned.`,
+    "This is a form-options turn: write no file, run no render, and call no tool.",
+    "Answer with one JSON object and nothing else - no prose around it and no code fence.",
+    `Return up to ${n} options, each {"id","form","why","sketch"}: the id is short and unique, the form is one id from the form vocabulary, why is one line on why this content needs that shape, and sketch is one line on the composition.`,
+    "The options must differ in composition, not in wording.",
+  ].join(" ");
+}
+
+// The plan-options turn's mechanical instruction. The plan method is `prompts/plan.md`,
+// which defines the plan object; `prompts/plans.md` defines the wrapper.
+export function planOptionsInstruction({ format, form = "", count = 3 } = {}) {
+  const n = optionCount(count);
+  const chosen = String(form ?? "").trim().toLowerCase();
+  return [
+    `Plan the ${safeFormat(format)} visual as ${chosen ? `the ${chosen} form` : "the form the content needs"}, before it is authored.`,
+    "This is a plan-options turn: write no file, run no render, and call no tool.",
+    "Answer with one JSON object and nothing else - no prose around it and no code fence.",
+    `Return up to ${n} options, each {"id","plan"}, where plan carries the fields the plan method defines: form, subject, question, scenes, close and arc.`,
+    chosen ? `Every option uses the ${chosen} form.` : "Choose the form from the brief for each option.",
+    "The options are different storyboards of the same subject, not paraphrases of one.",
+  ].join(" ");
+}
+
 // Pi names a transcript `<ISO timestamp>_<session id>.jsonl`; the timestamp carries
 // no underscore, so the id is everything after the first one. Returns null for a
 // name this server did not write, so a foreign file is never swept.

@@ -1334,8 +1334,8 @@
         "type": "n8n-nodes-base.stickyNote",
         "typeVersion": 1,
         "position": [
-          368,
-          -384
+          448,
+          -208
         ],
         "parameters": {
           "content": "## Link to the [Google Sheet](https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI)",
@@ -2400,12 +2400,14 @@
             "mappingMode": "defineBelow",
             "value": {
               "CONTENT": "={{ $('execute_post_creator').item.json.text + \"\\n\\nSource: \" + String($('select_article_to_post').item.json.URL || '').replace(/^https?:\\/\\/(www\\.)?/i, '').split('/')[0] }}",
-              "ASSET_TYPES": "={{ String($('build_hook_columns').first().json.VISUAL_FORM || $('select_article_to_post').item.json.VISUAL_FORM || '').toLowerCase() === 'poster' ? 'poster_gif' : 'animation_linkedin_video' }}",
+              "ASSET_TYPES": "animation_linkedin_video",
               "FEEDBACK": "={{ $('build_retry_feedback').isExecuted ? $('build_retry_feedback').last().json.FEEDBACK : ($('notification_retry_or_cancel_animation').isExecuted && $('notification_retry_or_cancel_animation').last().json.data ? ((String($('notification_retry_or_cancel_animation').last().json.data.Directive || '').trim() && String($('notification_retry_or_cancel_animation').last().json.data.Directive || '').trim() !== 'Other') ? '[' + String($('notification_retry_or_cancel_animation').last().json.data.Directive || '').trim() + '] ' : '') + String($('notification_retry_or_cancel_animation').last().json.data.Feedback || '') : '') }}",
-              "FORCE": "={{ $('build_hook_columns').first().json.VISUAL_FORM || $('select_article_to_post').item.json.VISUAL_FORM || 'auto' }}",
-              "SCENES": "={{ String($('build_hook_columns').first().json.SCENES || $('select_article_to_post').item.json.SCENES || '') }}",
+              "FORCE": "={{ $('build_hook_columns').first().json.FORM_PIN || 'auto' }}",
+              "SCENES": "={{ String($('build_hook_columns').first().json.SCENES_PIN || '') }}",
               "SESSION_ID": "={{ $('build_hook_columns').first().json.STUDIO_SESSION_ID }}",
-              "EXTRA_PROMPT": "={{ $('select_article_to_post').item.json.EXTRA_PROMPT || '' }}"
+              "EXTRA_PROMPT": "={{ $('select_article_to_post').item.json.EXTRA_PROMPT || '' }}",
+              "SUGGESTED_FORM": "={{ $('build_hook_columns').first().json.SUGGESTED_FORM || '' }}",
+              "SUGGESTED_SCENES": "={{ String($('build_hook_columns').first().json.SUGGESTED_SCENES || '') }}"
             },
             "matchingColumns": [],
             "schema": [
@@ -2478,6 +2480,26 @@
                 "canBeUsedToMatch": true,
                 "type": "string",
                 "removed": false
+              },
+              {
+                "id": "SUGGESTED_FORM",
+                "displayName": "SUGGESTED_FORM",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
+              },
+              {
+                "id": "SUGGESTED_SCENES",
+                "displayName": "SUGGESTED_SCENES",
+                "required": false,
+                "defaultMatch": false,
+                "display": true,
+                "canBeUsedToMatch": true,
+                "type": "string",
+                "removed": false
               }
             ],
             "attemptToConvertTypes": false,
@@ -2498,7 +2520,7 @@
           576
         ],
         "parameters": {
-          "jsCode": "// The studio's own run STATUS is PARTIAL whenever a requested type is unavailable, so the\n// asset's status is what this branches on. The LinkedIn branch asks the studio for the\n// composer-authored video type; both animated opt-ins (ANIMATED, AGENT) share it.\n// The asset is located by its object key rather than by a data URL: the studio stores\n// the render in the temp bucket through the utils MCP server and never carries its\n// bytes, which is what keeps a 60 MB asset out of the studio's execution record.\nconst r = $input.first().json || {};\nconst assets = r.ASSETS || [];\nconst req = $('select_article_to_post').first().json;\nconst want = ['animation_linkedin_video', 'poster_gif'];\nconst a = assets.find((x) => want.includes(x.ASSET_TYPE)) || null;\nconst ok = Boolean(a && a.STATUS === 'RENDERED' && a.S3_KEY);\nconst planError = String((a && a.PLAN_ERROR) || '').trim();\n// The review's own state, so the approval can name what is still open instead of presenting a\n// `fix` asset as one the review passed.\nconst open = (() => {\n  try {\n    const parsed = JSON.parse(String((a && a.OPEN_FINDINGS) || '[]'));\n    return Array.isArray(parsed) ? parsed : [];\n  } catch (e) { return []; }\n})();\nreturn [{ json: {\n  RUN_ID: r.RUN_ID || '',\n  RUN_STATUS: r.STATUS || '',\n  ASSET_TYPE: a ? a.ASSET_TYPE : '',\n  ASSET_STATUS: a ? a.STATUS : 'MISSING',\n  CONTENT_TYPE: a ? (a.CONTENT_TYPE || '') : '',\n  S3_KEY: a && a.S3_KEY ? a.S3_KEY : '',\n  DURATION_MS: a ? (a.DURATION_MS || '') : '',\n  FRAME_COUNT: a ? (a.FRAME_COUNT || '') : '',\n  VERDICT: a ? (a.VERDICT || '') : '',\n  NEEDS_REVIEW: (a ? a.NEEDS_REVIEW === true : false) || Boolean(planError),\n  OPEN_COUNT: open.length,\n  OPEN_FINDINGS: a ? (a.OPEN_FINDINGS || '[]') : '[]',\n  STALLED: a ? (a.STALLED || '[]') : '[]',\n  CHECK_OK: a ? a.CHECK_OK === true : false,\n  CHECK_REASON: a ? (a.CHECK_REASON || '') : '',\n  PLAN_APPROVED: a ? a.PLAN_APPROVED === true : false,\n  PLAN_ERROR: planError,\n  ERROR: ok ? '' : ('animated media unavailable: ' + ((a && (a.ERROR || a.STATUS)) || 'no asset returned')),\n} }];\n"
+          "jsCode": "// The studio's own run STATUS is PARTIAL whenever a requested type is unavailable, so the\n// asset's status is what this branches on. The LinkedIn branch asks the studio for the\n// composer-authored video type; both animated opt-ins (ANIMATED, AGENT) share it.\n// `poster_gif` is still accepted, because a caller may request it explicitly.\n// The asset is located by its object key rather than by a data URL: the studio stores\n// the render in the temp bucket through the utils MCP server and never carries its\n// bytes, which is what keeps a 60 MB asset out of the studio's execution record.\nconst r = $input.first().json || {};\nconst assets = r.ASSETS || [];\nconst want = ['animation_linkedin_video', 'poster_gif'];\nconst expected = 'animation_linkedin_video';\nconst a = assets.find((x) => want.includes(x.ASSET_TYPE)) || null;\nconst ok = Boolean(a && a.STATUS === 'RENDERED' && a.S3_KEY);\nconst planError = String((a && a.PLAN_ERROR) || '').trim();\n// The review's own state, so the approval can name what is still open instead of presenting a\n// `fix` asset as one the review passed.\nconst open = (() => {\n  try {\n    const parsed = JSON.parse(String((a && a.OPEN_FINDINGS) || '[]'));\n    return Array.isArray(parsed) ? parsed : [];\n  } catch (e) { return []; }\n})();\n// The stage records ride on the asset so the approval can name the chosen form and plan,\n// and say when a stage could not decide and fell back to the first valid option.\nconst fallback = a ? a.OPTIONS_FALLBACK === true : false;\n// The single-plan path has no FORM_CHOICE: its form is inside PLAN, and the approval\n// names it rather than reporting no form.\nconst planForm = (() => {\n  try {\n    const plan = JSON.parse(String((a && a.PLAN) || '{}'));\n    return plan && typeof plan.form === 'string' ? plan.form : '';\n  } catch (e) { return ''; }\n})();\nreturn [{ json: {\n  RUN_ID: r.RUN_ID || '',\n  RUN_STATUS: r.STATUS || '',\n  ASSET_TYPE: a ? a.ASSET_TYPE : '',\n  ASSET_STATUS: a ? a.STATUS : 'MISSING',\n  CONTENT_TYPE: a ? (a.CONTENT_TYPE || '') : '',\n  S3_KEY: a && a.S3_KEY ? a.S3_KEY : '',\n  DURATION_MS: a ? (a.DURATION_MS || '') : '',\n  FRAME_COUNT: a ? (a.FRAME_COUNT || '') : '',\n  VERDICT: a ? (a.VERDICT || '') : '',\n  NEEDS_REVIEW: (a ? a.NEEDS_REVIEW === true : false) || Boolean(planError) || fallback,\n  OPEN_COUNT: open.length,\n  OPEN_FINDINGS: a ? (a.OPEN_FINDINGS || '[]') : '[]',\n  STALLED: a ? (a.STALLED || '[]') : '[]',\n  CHECK_OK: a ? a.CHECK_OK === true : false,\n  CHECK_REASON: a ? (a.CHECK_REASON || '') : '',\n  PLAN_APPROVED: a ? a.PLAN_APPROVED === true : false,\n  PLAN_ERROR: planError,\n  FORM: a ? (a.FORM || planForm) : '',\n  FORM_CHOICE: a ? (a.FORM_CHOICE || '') : '',\n  PLAN_CHOICE: a ? (a.PLAN_CHOICE || '') : '',\n  OPTIONS_FALLBACK: fallback,\n  ERROR: ok ? '' : ('animated media unavailable (expected ' + expected + '): ' + ((a && (a.ERROR || a.STATUS)) || 'no asset returned')),\n} }];\n"
         }
       },
       {
@@ -2579,7 +2601,7 @@
             "mode": "list",
             "cachedResultName": "workflows"
           },
-          "message": "=Waiting for final approval of the animated infographic for a LinkedIn Post...\n\n{{ $('check_animation_result').item.json.PLAN_ERROR ? 'The plan review did not approve the storyboard:\\n' + $('check_animation_result').item.json.PLAN_ERROR + '\\n\\nApproving posts it anyway.' : ($('check_animation_result').item.json.NEEDS_REVIEW ? ($('check_animation_result').item.json.OPEN_COUNT > 0 ? 'This render still has ' + $('check_animation_result').item.json.OPEN_COUNT + ' open finding(s):' + '\\n' + JSON.parse($('check_animation_result').item.json.OPEN_FINDINGS || '[]').map(function (f) { return '- ' + (f.id || 'finding') + ' severity ' + (f.severity || 2) + ': ' + (f.what || 'a defect'); }).join('\\n') + '\\n\\nApproving posts it anyway.' : 'This render could not be reviewed; approving posts it without a review.') : 'studio run ' + $('check_animation_result').item.json.RUN_ID + ', ' + $('check_animation_result').item.json.FRAME_COUNT + ' frames, '+ $('check_animation_result').item.json.CONTENT_TYPE) }}",
+          "message": "=Waiting for final approval of the animated visual for a LinkedIn Post...\n\n{{ 'Form ' + ($('check_animation_result').item.json.FORM_CHOICE || $('check_animation_result').item.json.FORM || 'none') + ', plan ' + ($('check_animation_result').item.json.PLAN_CHOICE || ($('check_animation_result').item.json.PLAN_APPROVED ? 'single-plan' : 'none')) + '.' }}{{ $('check_animation_result').item.json.OPTIONS_FALLBACK ? ' The form/plan stages could not decide; the first valid option was used, so review it closely.' : '' }}\n\n{{ $('check_animation_result').item.json.PLAN_ERROR ? 'The plan review did not approve the storyboard:\\n' + $('check_animation_result').item.json.PLAN_ERROR + '\\n\\nApproving posts it anyway.' : ($('check_animation_result').item.json.NEEDS_REVIEW ? ($('check_animation_result').item.json.OPEN_COUNT > 0 ? 'This render still has ' + $('check_animation_result').item.json.OPEN_COUNT + ' open finding(s):' + '\\n' + JSON.parse($('check_animation_result').item.json.OPEN_FINDINGS || '[]').map(function (f) { return '- ' + (f.id || 'finding') + ' severity ' + (f.severity || 2) + ': ' + (f.what || 'a defect'); }).join('\\n') + '\\n\\nApproving posts it anyway.' : 'This render could not be reviewed; approving posts it without a review.') : 'studio run ' + $('check_animation_result').item.json.RUN_ID + ', ' + $('check_animation_result').item.json.FRAME_COUNT + ' frames, ' + $('check_animation_result').item.json.CONTENT_TYPE) }}",
           "approvalOptions": {
             "values": {
               "approvalType": "double"
@@ -3198,7 +3220,7 @@
           0
         ],
         "parameters": {
-          "jsCode": "// The writer classified on this turn, so its choice becomes the row's. HOOK and the\n// registry's visual defaults for it are written before the text approval, which is what\n// the animated branch, the still fallback and the review read. The snapshot this run\n// selected is stamped too: those branches read $('select_article_to_post').item.json, and\n// a sheet write alone would not reach an item read at the top of the run. Both status\n// columns stay untouched; a Cancel at the approval leaves these cells and the row is\n// CANCELED there anyway.\nconst row = $('select_article_to_post').first().json;\nconst draft = $('execute_post_creator').first().json || {};\nconst HOOK = String(draft.HOOK || '').trim().toUpperCase();\nconst VISUAL_FORM = String(draft.VISUAL_FORM || '').trim().toLowerCase();\nconst SCENES = String(draft.SCENES == null ? '' : draft.SCENES).trim();\n// The video's session is the article, not the sheet row: expiring rows renumber the\n// queue, so a reused row number would edit the previous article's composition in place.\nconst url = String(row.URL || '').trim();\nif (!url) throw new Error('the row carries no URL: the video session cannot be named');\nconst hashed = [...url].reduce((h, ch) => Math.imul(h ^ ch.codePointAt(0), 16777619), 2166136261);\nconst STUDIO_SESSION_ID = 'lips-' + (hashed >>> 0).toString(36);\nif (!HOOK) {\n  throw new Error('the post creator returned no hook: row ' + row.row_number + ' would publish without its classification');\n}\nrow.HOOK = HOOK;\nrow.VISUAL_FORM = VISUAL_FORM;\nrow.SCENES = SCENES;\nconsole.log('build_hook_columns: row ' + row.row_number + ' ' + HOOK + ' / ' + (VISUAL_FORM || 'auto') + ' / scenes ' + (SCENES || '0'));\nreturn [{ json: { row_number: row.row_number, HOOK, VISUAL_FORM, SCENES, STUDIO_SESSION_ID } }];\n"
+          "jsCode": "// The writer classified on this turn, so its HOOK becomes the row's, written before the\n// text approval. Its form and scene count are hints, not decisions: they ride along as\n// SUGGESTED_FORM/SUGGESTED_SCENES and the studio's form stage weighs them. Only HOOK is\n// written back, so a non-empty VISUAL_FORM on the row is a person's pin (FORM_PIN) and a\n// writer's answer can never become a pin on the next run. Both status columns stay\n// untouched; a Cancel at the approval leaves these cells and the row is CANCELED there anyway.\nconst row = $('select_article_to_post').first().json;\nconst draft = $('execute_post_creator').first().json || {};\nconst HOOK = String(draft.HOOK || '').trim().toUpperCase();\nconst SUGGESTED_FORM = String(draft.VISUAL_FORM || '').trim().toLowerCase();\nconst SUGGESTED_SCENES = String(draft.SCENES == null ? '' : draft.SCENES).trim();\n// A row cell is read at run start, before this node writes anything: a non-empty\n// VISUAL_FORM is a human edit, never this workflow's own previous answer.\nconst FORM_PIN = String(row.VISUAL_FORM || '').trim().toLowerCase();\nconst SCENES_PIN = String(row.SCENES == null ? '' : row.SCENES).trim();\n// The video's session is the article, not the sheet row: expiring rows renumber the\n// queue, so a reused row number would edit the previous article's composition in place.\nconst url = String(row.URL || '').trim();\nif (!url) throw new Error('the row carries no URL: the video session cannot be named');\nconst hashed = [...url].reduce((h, ch) => Math.imul(h ^ ch.codePointAt(0), 16777619), 2166136261);\nconst STUDIO_SESSION_ID = 'lips-' + (hashed >>> 0).toString(36);\nif (!HOOK) {\n  throw new Error('the post creator returned no hook: row ' + row.row_number + ' would publish without its classification');\n}\nrow.HOOK = HOOK;\nconsole.log('build_hook_columns: row ' + row.row_number + ' ' + HOOK\n  + ' / hint ' + (SUGGESTED_FORM || 'auto') + ' / scenes ' + (SUGGESTED_SCENES || '0')\n  + (FORM_PIN ? ' / pin ' + FORM_PIN : ''));\nreturn [{ json: { row_number: row.row_number, HOOK, SUGGESTED_FORM, SUGGESTED_SCENES, FORM_PIN, SCENES_PIN, STUDIO_SESSION_ID } }];\n"
         }
       },
       {
@@ -3230,9 +3252,7 @@
             "mappingMode": "defineBelow",
             "value": {
               "row_number": "={{ $json.row_number }}",
-              "HOOK": "={{ $json.HOOK }}",
-              "VISUAL_FORM": "={{ $json.VISUAL_FORM }}",
-              "SCENES": "={{ $json.SCENES }}"
+              "HOOK": "={{ $json.HOOK }}"
             },
             "matchingColumns": [
               "row_number"
@@ -3346,7 +3366,7 @@
                 "display": true,
                 "type": "string",
                 "canBeUsedToMatch": true,
-                "removed": false
+                "removed": true
               },
               {
                 "id": "POST_MEDIA",
@@ -3366,7 +3386,7 @@
                 "display": true,
                 "type": "string",
                 "canBeUsedToMatch": true,
-                "removed": false
+                "removed": true
               },
               {
                 "id": "EXTRA_PROMPT",
@@ -6103,8 +6123,8 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        368,
-        -384
+        448,
+        -208
       ],
       "parameters": {
         "content": "## Link to the [Google Sheet](https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI)",
@@ -7169,12 +7189,14 @@
           "mappingMode": "defineBelow",
           "value": {
             "CONTENT": "={{ $('execute_post_creator').item.json.text + \"\\n\\nSource: \" + String($('select_article_to_post').item.json.URL || '').replace(/^https?:\\/\\/(www\\.)?/i, '').split('/')[0] }}",
-            "ASSET_TYPES": "={{ String($('build_hook_columns').first().json.VISUAL_FORM || $('select_article_to_post').item.json.VISUAL_FORM || '').toLowerCase() === 'poster' ? 'poster_gif' : 'animation_linkedin_video' }}",
+            "ASSET_TYPES": "animation_linkedin_video",
             "FEEDBACK": "={{ $('build_retry_feedback').isExecuted ? $('build_retry_feedback').last().json.FEEDBACK : ($('notification_retry_or_cancel_animation').isExecuted && $('notification_retry_or_cancel_animation').last().json.data ? ((String($('notification_retry_or_cancel_animation').last().json.data.Directive || '').trim() && String($('notification_retry_or_cancel_animation').last().json.data.Directive || '').trim() !== 'Other') ? '[' + String($('notification_retry_or_cancel_animation').last().json.data.Directive || '').trim() + '] ' : '') + String($('notification_retry_or_cancel_animation').last().json.data.Feedback || '') : '') }}",
-            "FORCE": "={{ $('build_hook_columns').first().json.VISUAL_FORM || $('select_article_to_post').item.json.VISUAL_FORM || 'auto' }}",
-            "SCENES": "={{ String($('build_hook_columns').first().json.SCENES || $('select_article_to_post').item.json.SCENES || '') }}",
+            "FORCE": "={{ $('build_hook_columns').first().json.FORM_PIN || 'auto' }}",
+            "SCENES": "={{ String($('build_hook_columns').first().json.SCENES_PIN || '') }}",
             "SESSION_ID": "={{ $('build_hook_columns').first().json.STUDIO_SESSION_ID }}",
-            "EXTRA_PROMPT": "={{ $('select_article_to_post').item.json.EXTRA_PROMPT || '' }}"
+            "EXTRA_PROMPT": "={{ $('select_article_to_post').item.json.EXTRA_PROMPT || '' }}",
+            "SUGGESTED_FORM": "={{ $('build_hook_columns').first().json.SUGGESTED_FORM || '' }}",
+            "SUGGESTED_SCENES": "={{ String($('build_hook_columns').first().json.SUGGESTED_SCENES || '') }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -7247,6 +7269,26 @@
               "canBeUsedToMatch": true,
               "type": "string",
               "removed": false
+            },
+            {
+              "id": "SUGGESTED_FORM",
+              "displayName": "SUGGESTED_FORM",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "SUGGESTED_SCENES",
+              "displayName": "SUGGESTED_SCENES",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
             }
           ],
           "attemptToConvertTypes": false,
@@ -7267,7 +7309,7 @@
         576
       ],
       "parameters": {
-        "jsCode": "// The studio's own run STATUS is PARTIAL whenever a requested type is unavailable, so the\n// asset's status is what this branches on. The LinkedIn branch asks the studio for the\n// composer-authored video type; both animated opt-ins (ANIMATED, AGENT) share it.\n// The asset is located by its object key rather than by a data URL: the studio stores\n// the render in the temp bucket through the utils MCP server and never carries its\n// bytes, which is what keeps a 60 MB asset out of the studio's execution record.\nconst r = $input.first().json || {};\nconst assets = r.ASSETS || [];\nconst req = $('select_article_to_post').first().json;\nconst want = ['animation_linkedin_video', 'poster_gif'];\nconst a = assets.find((x) => want.includes(x.ASSET_TYPE)) || null;\nconst ok = Boolean(a && a.STATUS === 'RENDERED' && a.S3_KEY);\nconst planError = String((a && a.PLAN_ERROR) || '').trim();\n// The review's own state, so the approval can name what is still open instead of presenting a\n// `fix` asset as one the review passed.\nconst open = (() => {\n  try {\n    const parsed = JSON.parse(String((a && a.OPEN_FINDINGS) || '[]'));\n    return Array.isArray(parsed) ? parsed : [];\n  } catch (e) { return []; }\n})();\nreturn [{ json: {\n  RUN_ID: r.RUN_ID || '',\n  RUN_STATUS: r.STATUS || '',\n  ASSET_TYPE: a ? a.ASSET_TYPE : '',\n  ASSET_STATUS: a ? a.STATUS : 'MISSING',\n  CONTENT_TYPE: a ? (a.CONTENT_TYPE || '') : '',\n  S3_KEY: a && a.S3_KEY ? a.S3_KEY : '',\n  DURATION_MS: a ? (a.DURATION_MS || '') : '',\n  FRAME_COUNT: a ? (a.FRAME_COUNT || '') : '',\n  VERDICT: a ? (a.VERDICT || '') : '',\n  NEEDS_REVIEW: (a ? a.NEEDS_REVIEW === true : false) || Boolean(planError),\n  OPEN_COUNT: open.length,\n  OPEN_FINDINGS: a ? (a.OPEN_FINDINGS || '[]') : '[]',\n  STALLED: a ? (a.STALLED || '[]') : '[]',\n  CHECK_OK: a ? a.CHECK_OK === true : false,\n  CHECK_REASON: a ? (a.CHECK_REASON || '') : '',\n  PLAN_APPROVED: a ? a.PLAN_APPROVED === true : false,\n  PLAN_ERROR: planError,\n  ERROR: ok ? '' : ('animated media unavailable: ' + ((a && (a.ERROR || a.STATUS)) || 'no asset returned')),\n} }];\n"
+        "jsCode": "// The studio's own run STATUS is PARTIAL whenever a requested type is unavailable, so the\n// asset's status is what this branches on. The LinkedIn branch asks the studio for the\n// composer-authored video type; both animated opt-ins (ANIMATED, AGENT) share it.\n// `poster_gif` is still accepted, because a caller may request it explicitly.\n// The asset is located by its object key rather than by a data URL: the studio stores\n// the render in the temp bucket through the utils MCP server and never carries its\n// bytes, which is what keeps a 60 MB asset out of the studio's execution record.\nconst r = $input.first().json || {};\nconst assets = r.ASSETS || [];\nconst want = ['animation_linkedin_video', 'poster_gif'];\nconst expected = 'animation_linkedin_video';\nconst a = assets.find((x) => want.includes(x.ASSET_TYPE)) || null;\nconst ok = Boolean(a && a.STATUS === 'RENDERED' && a.S3_KEY);\nconst planError = String((a && a.PLAN_ERROR) || '').trim();\n// The review's own state, so the approval can name what is still open instead of presenting a\n// `fix` asset as one the review passed.\nconst open = (() => {\n  try {\n    const parsed = JSON.parse(String((a && a.OPEN_FINDINGS) || '[]'));\n    return Array.isArray(parsed) ? parsed : [];\n  } catch (e) { return []; }\n})();\n// The stage records ride on the asset so the approval can name the chosen form and plan,\n// and say when a stage could not decide and fell back to the first valid option.\nconst fallback = a ? a.OPTIONS_FALLBACK === true : false;\n// The single-plan path has no FORM_CHOICE: its form is inside PLAN, and the approval\n// names it rather than reporting no form.\nconst planForm = (() => {\n  try {\n    const plan = JSON.parse(String((a && a.PLAN) || '{}'));\n    return plan && typeof plan.form === 'string' ? plan.form : '';\n  } catch (e) { return ''; }\n})();\nreturn [{ json: {\n  RUN_ID: r.RUN_ID || '',\n  RUN_STATUS: r.STATUS || '',\n  ASSET_TYPE: a ? a.ASSET_TYPE : '',\n  ASSET_STATUS: a ? a.STATUS : 'MISSING',\n  CONTENT_TYPE: a ? (a.CONTENT_TYPE || '') : '',\n  S3_KEY: a && a.S3_KEY ? a.S3_KEY : '',\n  DURATION_MS: a ? (a.DURATION_MS || '') : '',\n  FRAME_COUNT: a ? (a.FRAME_COUNT || '') : '',\n  VERDICT: a ? (a.VERDICT || '') : '',\n  NEEDS_REVIEW: (a ? a.NEEDS_REVIEW === true : false) || Boolean(planError) || fallback,\n  OPEN_COUNT: open.length,\n  OPEN_FINDINGS: a ? (a.OPEN_FINDINGS || '[]') : '[]',\n  STALLED: a ? (a.STALLED || '[]') : '[]',\n  CHECK_OK: a ? a.CHECK_OK === true : false,\n  CHECK_REASON: a ? (a.CHECK_REASON || '') : '',\n  PLAN_APPROVED: a ? a.PLAN_APPROVED === true : false,\n  PLAN_ERROR: planError,\n  FORM: a ? (a.FORM || planForm) : '',\n  FORM_CHOICE: a ? (a.FORM_CHOICE || '') : '',\n  PLAN_CHOICE: a ? (a.PLAN_CHOICE || '') : '',\n  OPTIONS_FALLBACK: fallback,\n  ERROR: ok ? '' : ('animated media unavailable (expected ' + expected + '): ' + ((a && (a.ERROR || a.STATUS)) || 'no asset returned')),\n} }];\n"
       }
     },
     {
@@ -7348,7 +7390,7 @@
           "mode": "list",
           "cachedResultName": "workflows"
         },
-        "message": "=Waiting for final approval of the animated infographic for a LinkedIn Post...\n\n{{ $('check_animation_result').item.json.PLAN_ERROR ? 'The plan review did not approve the storyboard:\\n' + $('check_animation_result').item.json.PLAN_ERROR + '\\n\\nApproving posts it anyway.' : ($('check_animation_result').item.json.NEEDS_REVIEW ? ($('check_animation_result').item.json.OPEN_COUNT > 0 ? 'This render still has ' + $('check_animation_result').item.json.OPEN_COUNT + ' open finding(s):' + '\\n' + JSON.parse($('check_animation_result').item.json.OPEN_FINDINGS || '[]').map(function (f) { return '- ' + (f.id || 'finding') + ' severity ' + (f.severity || 2) + ': ' + (f.what || 'a defect'); }).join('\\n') + '\\n\\nApproving posts it anyway.' : 'This render could not be reviewed; approving posts it without a review.') : 'studio run ' + $('check_animation_result').item.json.RUN_ID + ', ' + $('check_animation_result').item.json.FRAME_COUNT + ' frames, '+ $('check_animation_result').item.json.CONTENT_TYPE) }}",
+        "message": "=Waiting for final approval of the animated visual for a LinkedIn Post...\n\n{{ 'Form ' + ($('check_animation_result').item.json.FORM_CHOICE || $('check_animation_result').item.json.FORM || 'none') + ', plan ' + ($('check_animation_result').item.json.PLAN_CHOICE || ($('check_animation_result').item.json.PLAN_APPROVED ? 'single-plan' : 'none')) + '.' }}{{ $('check_animation_result').item.json.OPTIONS_FALLBACK ? ' The form/plan stages could not decide; the first valid option was used, so review it closely.' : '' }}\n\n{{ $('check_animation_result').item.json.PLAN_ERROR ? 'The plan review did not approve the storyboard:\\n' + $('check_animation_result').item.json.PLAN_ERROR + '\\n\\nApproving posts it anyway.' : ($('check_animation_result').item.json.NEEDS_REVIEW ? ($('check_animation_result').item.json.OPEN_COUNT > 0 ? 'This render still has ' + $('check_animation_result').item.json.OPEN_COUNT + ' open finding(s):' + '\\n' + JSON.parse($('check_animation_result').item.json.OPEN_FINDINGS || '[]').map(function (f) { return '- ' + (f.id || 'finding') + ' severity ' + (f.severity || 2) + ': ' + (f.what || 'a defect'); }).join('\\n') + '\\n\\nApproving posts it anyway.' : 'This render could not be reviewed; approving posts it without a review.') : 'studio run ' + $('check_animation_result').item.json.RUN_ID + ', ' + $('check_animation_result').item.json.FRAME_COUNT + ' frames, ' + $('check_animation_result').item.json.CONTENT_TYPE) }}",
         "approvalOptions": {
           "values": {
             "approvalType": "double"
@@ -7967,7 +8009,7 @@
         0
       ],
       "parameters": {
-        "jsCode": "// The writer classified on this turn, so its choice becomes the row's. HOOK and the\n// registry's visual defaults for it are written before the text approval, which is what\n// the animated branch, the still fallback and the review read. The snapshot this run\n// selected is stamped too: those branches read $('select_article_to_post').item.json, and\n// a sheet write alone would not reach an item read at the top of the run. Both status\n// columns stay untouched; a Cancel at the approval leaves these cells and the row is\n// CANCELED there anyway.\nconst row = $('select_article_to_post').first().json;\nconst draft = $('execute_post_creator').first().json || {};\nconst HOOK = String(draft.HOOK || '').trim().toUpperCase();\nconst VISUAL_FORM = String(draft.VISUAL_FORM || '').trim().toLowerCase();\nconst SCENES = String(draft.SCENES == null ? '' : draft.SCENES).trim();\n// The video's session is the article, not the sheet row: expiring rows renumber the\n// queue, so a reused row number would edit the previous article's composition in place.\nconst url = String(row.URL || '').trim();\nif (!url) throw new Error('the row carries no URL: the video session cannot be named');\nconst hashed = [...url].reduce((h, ch) => Math.imul(h ^ ch.codePointAt(0), 16777619), 2166136261);\nconst STUDIO_SESSION_ID = 'lips-' + (hashed >>> 0).toString(36);\nif (!HOOK) {\n  throw new Error('the post creator returned no hook: row ' + row.row_number + ' would publish without its classification');\n}\nrow.HOOK = HOOK;\nrow.VISUAL_FORM = VISUAL_FORM;\nrow.SCENES = SCENES;\nconsole.log('build_hook_columns: row ' + row.row_number + ' ' + HOOK + ' / ' + (VISUAL_FORM || 'auto') + ' / scenes ' + (SCENES || '0'));\nreturn [{ json: { row_number: row.row_number, HOOK, VISUAL_FORM, SCENES, STUDIO_SESSION_ID } }];\n"
+        "jsCode": "// The writer classified on this turn, so its HOOK becomes the row's, written before the\n// text approval. Its form and scene count are hints, not decisions: they ride along as\n// SUGGESTED_FORM/SUGGESTED_SCENES and the studio's form stage weighs them. Only HOOK is\n// written back, so a non-empty VISUAL_FORM on the row is a person's pin (FORM_PIN) and a\n// writer's answer can never become a pin on the next run. Both status columns stay\n// untouched; a Cancel at the approval leaves these cells and the row is CANCELED there anyway.\nconst row = $('select_article_to_post').first().json;\nconst draft = $('execute_post_creator').first().json || {};\nconst HOOK = String(draft.HOOK || '').trim().toUpperCase();\nconst SUGGESTED_FORM = String(draft.VISUAL_FORM || '').trim().toLowerCase();\nconst SUGGESTED_SCENES = String(draft.SCENES == null ? '' : draft.SCENES).trim();\n// A row cell is read at run start, before this node writes anything: a non-empty\n// VISUAL_FORM is a human edit, never this workflow's own previous answer.\nconst FORM_PIN = String(row.VISUAL_FORM || '').trim().toLowerCase();\nconst SCENES_PIN = String(row.SCENES == null ? '' : row.SCENES).trim();\n// The video's session is the article, not the sheet row: expiring rows renumber the\n// queue, so a reused row number would edit the previous article's composition in place.\nconst url = String(row.URL || '').trim();\nif (!url) throw new Error('the row carries no URL: the video session cannot be named');\nconst hashed = [...url].reduce((h, ch) => Math.imul(h ^ ch.codePointAt(0), 16777619), 2166136261);\nconst STUDIO_SESSION_ID = 'lips-' + (hashed >>> 0).toString(36);\nif (!HOOK) {\n  throw new Error('the post creator returned no hook: row ' + row.row_number + ' would publish without its classification');\n}\nrow.HOOK = HOOK;\nconsole.log('build_hook_columns: row ' + row.row_number + ' ' + HOOK\n  + ' / hint ' + (SUGGESTED_FORM || 'auto') + ' / scenes ' + (SUGGESTED_SCENES || '0')\n  + (FORM_PIN ? ' / pin ' + FORM_PIN : ''));\nreturn [{ json: { row_number: row.row_number, HOOK, SUGGESTED_FORM, SUGGESTED_SCENES, FORM_PIN, SCENES_PIN, STUDIO_SESSION_ID } }];\n"
       }
     },
     {
@@ -7999,9 +8041,7 @@
           "mappingMode": "defineBelow",
           "value": {
             "row_number": "={{ $json.row_number }}",
-            "HOOK": "={{ $json.HOOK }}",
-            "VISUAL_FORM": "={{ $json.VISUAL_FORM }}",
-            "SCENES": "={{ $json.SCENES }}"
+            "HOOK": "={{ $json.HOOK }}"
           },
           "matchingColumns": [
             "row_number"
@@ -8115,7 +8155,7 @@
               "display": true,
               "type": "string",
               "canBeUsedToMatch": true,
-              "removed": false
+              "removed": true
             },
             {
               "id": "POST_MEDIA",
@@ -8135,7 +8175,7 @@
               "display": true,
               "type": "string",
               "canBeUsedToMatch": true,
-              "removed": false
+              "removed": true
             },
             {
               "id": "EXTRA_PROMPT",

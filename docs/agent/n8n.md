@@ -621,6 +621,18 @@ plan. The composer's report is kept on the asset as `STORYBOARD`; the approved p
 The workflow
 never sees the composition markup, only the rendered file; the composer's own report is
 kept on the asset as `STORYBOARD` in the run record, so a bad visual is diagnosable.
+
+**A boolean gate is a `boolean` operator, not `string/notEmpty`.** The three IF nodes that
+carry the plan bound (`if_needs_plan`, `if_plan_ok`, `if_plan_retry`) read expressions such as
+`$json.PLAN_APPROVED === true`; with `string/notEmpty` the expression's `false` becomes the
+string `"false"`, which is non-empty, so every gate took its true branch. On 2026-11-25 that
+made `if_plan_ok` send a rejected plan to `build_author_brief` and `if_needs_plan` ask for
+another plan, 33 times in a row; the parent `LinkedIn Post Sharing` hit its one-hour
+`executionTimeout` at 22:20 and canceled Visual Studio 17859 mid-plan, leaving row 49
+`WAITING_APPROVAL`. The fix is `boolean:true` on the expression, which a real boolean `false`
+fails; the poster probe on 2026-11-26 (execution 17920) is the run that confirmed it. A
+`string` comparison would need `{{ $json.PLAN_APPROVED ? 'true' : 'false' }}` equals `"true"`,
+because the IF node stringifies its left value before the operator sees it.
 There is no typed content spec and no markup template: the old `spec_markup`/`spec_raster`/
 `spec_service` branches, the browser frame capture and the render service are all gone.
 The `image` type stays on Gemini — a different medium, not a fallback for an animation.
@@ -1324,15 +1336,22 @@ deliberate direction.
 **The draft is a session turn, not an agent node, and the prompt belongs to the adapter.**
 `build_article_request` sends the entry's fields — topic, description, link, budget, asset types,
 audience, extra rules, source text, feedback and the previous draft — to the `pi-writer`
-`HarnessSession` as a `brief`, with `session_id: article-<row_number>`, the attempt number and the
+`HarnessSession` as a `brief`, with `session_id: article-<hash>`, the attempt number and the
 `SOURCE_HOSTS` allowlist. The adapter renders `article_writer_system.md`, `article_task.md`,
 `article_structures.md` and `article_audiences.md` from its own image and never receives prompt
 text, so the graph cannot drift from the words the model reads. `request_article` posts it,
 `fetch_article` and
 `fetch_sources` read `article.md` and the server-rewritten `sources.json`, and `parse_article`
 checks the draft against that ledger. The graph holds no tool node and no drafting model node:
-the only `ai_languageModel` edges left are the reviewer's. `ROW_NUMBER` is what makes a retry
-continue the row's session directory instead of paying for every source again.
+the only `ai_languageModel` edges left are the reviewer's. The hash is FNV-1a over the entry's
+URL, or over its topic when the entry has no link, so a retry continues the session directory
+instead of paying for every source again and a different entry on a reused row number starts
+clean. It was `article-<ROW_NUMBER>` until 2026-11-26: row 5 held the dbt-2 article on 17 Nov
+and gh-95 on 26 Nov, so the writer resumed a 5.9 MB (352k-token) session for the wrong
+article, drifted into the old research and looped for 58 minutes. `request_article`'s
+30-minute timeout aborted the call at 12:19, the row was marked `ERROR`, and the writer kept
+running until 12:47 — after the failure had already been recorded. The post lane had the same
+row-number bug on 2026-11-11 and uses a URL hash for the same reason.
 
 The adapter is its own image (`datahub-local-ai-pi-writer-adapter`), not a profile of
 `pi-render`: the writer reads pages and validates a manifest, the renderer paints a composition,

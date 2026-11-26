@@ -75,6 +75,24 @@
       }
     },
     {
+      "id": "poster_gif",
+      "brandKind": "diagrammatic",
+      "name": "Poster (LinkedIn, animated GIF)",
+      "author": "agent",
+      "render": "video",
+      "format": "gif",
+      "aspect": "4:5",
+      "form": "poster",
+      "introScene": false,
+      "durationSeconds": 6,
+      "available": true,
+      "budget": {
+        "fps": 4,
+        "frames": 24,
+        "viewport": 1080
+      }
+    },
+    {
       "id": "animation_linkedin_video",
       "brandKind": "diagrammatic",
       "name": "Animation (LinkedIn, video)",

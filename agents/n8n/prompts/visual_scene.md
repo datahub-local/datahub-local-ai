@@ -86,7 +86,8 @@ losing what the feedback asked for.
   of eight words or fewer is allowed; prefer cutting a label to cutting that line.
 - A poster is one page, not a scene: it may carry the headline, up to three figures, up to
   four short points and the Source on one card. It is still one argument, not a summary;
-  every line must earn its place.
+  every line must earn its place. Animate the page with a few moving lines, shapes or
+  light; do not turn it into a sequence of scenes.
 - Put the outcome on screen, not the explanation: "3x faster", "one pipeline", "zero
   retries". The sentence behind it belongs in the post text.
 - Type is the message. Size the line to be read at phone width in the first second, and

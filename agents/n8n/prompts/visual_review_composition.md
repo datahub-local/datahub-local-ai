@@ -25,7 +25,7 @@ For every scene, state the one idea a viewer should take away in `scene_takeaway
 
 A scene must be understood without the post text. If it needs a word the post carries, put that word on screen or split the scene. The clip makes one argument; it does not summarize the article.
 
-A `poster` may be one card, but it must carry the post's whole argument: the headline, the key figures, the short points and the Source. A poster that only carries the headline number is a finding. A video or story clip that reduces a multi-beat post to one card is a finding.
+A `poster` may be one card, but it must carry the post's whole argument: the headline, the key figures, the short points and the Source. A poster that only carries the headline number is a finding. Its motion is ambient - a line, a shape or a light moving on the page - not a sequence; a poster that plays as a sequence of scenes is a finding. A video or story clip that reduces a multi-beat post to one card is a finding.
 
 ### 3. Attention and devices
 

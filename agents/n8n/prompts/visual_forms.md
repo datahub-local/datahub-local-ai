@@ -25,7 +25,7 @@ fallback; a row that pins a form wins.
 - `code`: show the code - a snippet, a config, a diff or a terminal window, type-led, with the line that matters marked.
 - `timeline`: place the events on a time axis - what happened, in order, and the gaps between them.
 - `quote`: give the source its own words - one sentence, attributed, and nothing of ours.
-- `poster`: one page carrying the post's whole argument - a headline, up to three figures, up to four short points and the Source, in one type-led card; not a one-number card.
+- `poster`: one page carrying the post's whole argument - a headline, up to three figures, up to four short points and the Source, in one type-led card; not a one-number card. Animate the page with a few moving lines, shapes or light; it is one card, not a sequence.
 - `ui`: show the interface - a screen, a scroll or a cursor, with callouts on what changed.
 - `manga`: draw it as comic panels - one heavy-bordered ink panel per subject, halftone tone and speed lines behind it, a shouted sfx word, each panel slamming in on its own beat.
 - `retro`: draw it as a 16-bit console screen - chunky pixel art on a coarse grid, a small palette, hard-edged HUD frames and bitmap lettering, each subject snapping in on its own beat.

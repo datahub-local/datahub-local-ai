@@ -10,7 +10,7 @@ Read `Feedback from the person` first. Every requirement it makes is a hard cons
 
 The clip makes one argument. It is not a summary of the article, and it does not try to cover every fact. Name the argument in one sentence; if the plan does not have one, that is a finding.
 
-A `poster` is one page, not one number: it may carry the post's headline, up to three figures, up to four short points and the Source in one card. A poster that carries the whole argument is valid; a poster that carries only the headline figure, or drops the mechanism or the residual risk, is a finding. For a video or story form, a one-scene plan for a post with a sequence, a mechanism, a before and after, a failure mode, or more than one number is a finding: the clip has to show the beats. Name the dropped beat and the form the post needs.
+A `poster` is one page, not one number: it may carry the post's headline, up to three figures, up to four short points and the Source in one card. A poster that carries the whole argument is valid; a poster that carries only the headline figure, or drops the mechanism or the residual risk, is a finding. A poster's motion is ambient - a line, a shape or a light moving on the page - not a sequence of scenes. For a video or story form, a one-scene plan for a post with a sequence, a mechanism, a before and after, a failure mode, or more than one number is a finding: the clip has to show the beats. Name the dropped beat and the form the post needs.
 
 ### 2. The arc
 

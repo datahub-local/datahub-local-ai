@@ -1018,8 +1018,8 @@ when the visual author fails, and the manual `POST_MEDIA=STATIC` override.
 
 The judge is a **selection gate only**: `postability`, `blocked` and `evidence` are its
 whole verdict — the evidence is shown in the Slack digest and is not stored in the queue,
-since the `RATIONALE` column was deleted — and it runs on `glm-5.3` with `glm-5.3-flash` as
-fallback. It no longer classifies — the judge-written `angle` was removed outright (a
+since the `RATIONALE` column was deleted — and it runs on `glm-5.3-flash`. It no longer
+classifies — the judge-written `angle` was removed outright (a
 ≤30-word direction from one model was steering a smarter one that could not overrule
 it), and the hook/visual choice moved to the drafting turn, which is when classification
 matters and which the stronger model performs anyway. `admit_to_backlog` writes `HOOK`,

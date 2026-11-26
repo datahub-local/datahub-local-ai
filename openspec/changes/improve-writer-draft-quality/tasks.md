@@ -131,6 +131,14 @@
       decisions that bind the writer — hook, visual intent, postability — are made by the
       tier that writes. Judge calls are small and bounded per run, so the cost is cents.
       Applied with the curator graph in 9.1. `[UNVERIFIED] until the next live run`
+- [x] 6.5 **The §6 upgrade is reversed (2026-11-26):** `sympozium_pi_writer.model.name`
+      and the curator judge's `MODEL` both go back to `opencode-go/glm-5.3-flash`. Owner
+      decision, "too expensive": the improve-writer-draft-quality writer session looped
+      58 minutes on a 352k-token session (run 17929), and opencode-go meters a flat
+      subscription with a **shared 5-hour window**, not the monthly dollar allowance D7
+      reasoned from — the pro tier's ~9× token price drained it. D7 and D8 carry the
+      reversal and its reasoning. Live rollout still pending: `helmfile apply` for the
+      writer pod and the curator graph apply for `MODEL`.
 
 ## 8. Writer-side classification
 

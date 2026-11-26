@@ -124,6 +124,15 @@ thinking level stays `minimal`, and the prompt discipline (word counting via
 `check-article`) is model-agnostic, but the first draft on the new model is the real
 test, not an assumption.
 
+**Reversed 2026-11-26.** `sympozium_pi_writer.model.name` is `opencode-go/glm-5.3-flash`
+again. The allowance reasoning above was right about the size of the bucket and wrong
+about the drain: opencode-go meters a flat subscription with a **5-hour window shared
+across the account's models**, not a monthly dollar allowance, and the writer session
+looped for 58 minutes on a 352k-token (5.9 MB) session (run 17929, 2026-11-26). At ~9×
+flash's token price the pro tier empties that window; the shared-window caveat above was
+the real limit and the monthly figure was not. The stronger model is not refunded by
+quality that a loop can spend.
+
 ### D8 — The curator selects; the writer classifies and writes
 
 Two owner decisions in one direction. The judge's `MODEL` moves to `opencode-go/glm-5.3`
@@ -132,6 +141,11 @@ Two owner decisions in one direction. The judge's `MODEL` moves to `opencode-go/
 the tier that writes. Its calls are small (≤12k characters in, a short JSON verdict out,
 one per finalist, bounded per run), so the cost is cents. `MODEL_FALLBACK` stays
 `glm-5.3-flash`; a fallback inside the same provider's quota is the known caveat.
+
+**Reversed 2026-11-26.** The judge's `MODEL` is `opencode-go/glm-5.3-flash` again. The
+selection gate draws on the same 5-hour opencode-go window as the writer, so raising it to
+pro spent the budget the writer needs, for calls this design already measured as cents.
+`MODEL_FALLBACK` is unchanged and now names the same model as `MODEL`.
 
 The judge no longer categorizes. The `angle` field is removed outright — a ≤30-word
 direction written by one model was steering a smarter one that could not overrule it (the

@@ -84,6 +84,9 @@ losing what the feedback asked for.
 - The budget is a ceiling, not a target. When a scene is over, cut a label before the line
   that states the point. When the shapes alone do not make the idea, one explanatory line
   of eight words or fewer is allowed; prefer cutting a label to cutting that line.
+- A poster is one page, not a scene: it may carry the headline, up to three figures, up to
+  four short points and the Source on one card. It is still one argument, not a summary;
+  every line must earn its place.
 - Put the outcome on screen, not the explanation: "3x faster", "one pipeline", "zero
   retries". The sentence behind it belongs in the post text.
 - Type is the message. Size the line to be read at phone width in the first second, and

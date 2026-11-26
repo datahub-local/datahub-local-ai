@@ -10,7 +10,7 @@ Read `Feedback from the person` first. Every requirement it makes is a hard cons
 
 The clip makes one argument. It is not a summary of the article, and it does not try to cover every fact. Name the argument in one sentence; if the plan does not have one, that is a finding.
 
-A one-card plan is for a post with one claim. If the post carries a sequence, a mechanism, a before and after, a failure mode, or more than one number, a one-scene or `poster` plan is a finding: the clip has to show the beats, not only the headline figure. Name the dropped beat and the form the post needs.
+A `poster` is one page, not one number: it may carry the post's headline, up to three figures, up to four short points and the Source in one card. A poster that carries the whole argument is valid; a poster that carries only the headline figure, or drops the mechanism or the residual risk, is a finding. For a video or story form, a one-scene plan for a post with a sequence, a mechanism, a before and after, a failure mode, or more than one number is a finding: the clip has to show the beats. Name the dropped beat and the form the post needs.
 
 ### 2. The arc
 
@@ -27,7 +27,7 @@ For every scene, state the one idea it must leave with the viewer. If you cannot
 
 ### 4. The form
 
-The form follows the post's argument, not the article's topic. A sequence, a mechanism or a failure over time is `story`; a structure is `diagram`; a measured comparison is `chart` or `data`; one claim is `poster`; a change over time is `timeline`. `poster` is one claim: a release with a mechanism and several results is not a poster, even when one number is the headline. A plan whose form hides the post's argument is a finding even when every scene is legible.
+The form follows the post's argument, not the article's topic. A sequence, a mechanism or a failure over time is `story`; a structure is `diagram`; a measured comparison is `chart` or `data`; a whole-argument page is `poster`; a change over time is `timeline`. A `poster` is valid for a release when the page carries the mechanism, the figures and the risk, not only the headline number. A plan whose form hides the post's argument is a finding even when every scene is legible.
 
 ### 5. Attention and devices
 

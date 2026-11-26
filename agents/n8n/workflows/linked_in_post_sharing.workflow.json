@@ -1,7 +1,7 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "1d164c76-6379-4e6b-b5b8-f3e3d7e528bc",
+    "versionId": "5bce7f36-f442-43ca-8e06-dd2f429d108e",
     "workflowId": "oxARWWyxenKgmv6A",
     "nodes": [
       {
@@ -1334,8 +1334,8 @@
         "type": "n8n-nodes-base.stickyNote",
         "typeVersion": 1,
         "position": [
-          448,
-          -208
+          368,
+          -384
         ],
         "parameters": {
           "content": "## Link to the [Google Sheet](https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI)",
@@ -4124,10 +4124,10 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-11-22T19:54:26.508Z",
-    "updatedAt": "2026-11-22T19:54:26.508Z"
+    "createdAt": "2026-11-25T20:55:58.330Z",
+    "updatedAt": "2026-11-25T20:55:58.330Z"
   },
-  "activeVersionId": "1d164c76-6379-4e6b-b5b8-f3e3d7e528bc",
+  "activeVersionId": "5bce7f36-f442-43ca-8e06-dd2f429d108e",
   "connections": {
     "switch_user_accept": {
       "main": [
@@ -6103,8 +6103,8 @@
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        448,
-        -208
+        368,
+        -384
       ],
       "parameters": {
         "content": "## Link to the [Google Sheet](https://docs.google.com/spreadsheets/d/1HdJsvIaWuWu8_dDtoU-lql3ZLgbFMAe0xZ4AnYnMgPI)",
@@ -8289,6 +8289,6 @@
   },
   "tags": [],
   "triggerCount": 1,
-  "updatedAt": "2026-11-22T19:54:26.500Z",
-  "versionId": "1d164c76-6379-4e6b-b5b8-f3e3d7e528bc"
+  "updatedAt": "2026-11-25T20:55:58.227Z",
+  "versionId": "5bce7f36-f442-43ca-8e06-dd2f429d108e"
 }

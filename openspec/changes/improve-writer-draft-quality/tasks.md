@@ -137,8 +137,16 @@
       58 minutes on a 352k-token session (run 17929), and opencode-go meters a flat
       subscription with a **shared 5-hour window**, not the monthly dollar allowance D7
       reasoned from — the pro tier's ~9× token price drained it. D7 and D8 carry the
-      reversal and its reasoning. Live rollout still pending: `helmfile apply` for the
-      writer pod and the curator graph apply for `MODEL`.
+      reversal and its reasoning. **Landed 2026-11-27**: the writer pod already ran
+      `glm-5.3-flash` (the `sympozium` Helm sync), and the curator's `MODEL` was applied
+      live with `apply_workflow_changes.py` — read back `glm-5.3-flash` on both vars, so
+      live and the export agree and the next backup run has no revert to commit. The
+      cross-repo half of the safety net: `datahub-local-core` LiteLLM now routes
+      `opencode-go/glm-5.3-flash` and `opencode-go/glm-5.3` onto
+      `openrouter/z-ai/glm-5.3-flash`, the same model on a different provider, because a
+      fallback inside the Go subscription's shared window is not a fallback. Verified
+      live 2026-11-27: a `glm-5.3-flash` call that hit the weekly limit fell back and
+      answered 200.
 
 ## 8. Writer-side classification
 

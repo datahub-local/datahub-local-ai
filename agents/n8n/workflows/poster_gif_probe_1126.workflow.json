@@ -1,0 +1,159 @@
+{
+  "active": false,
+  "activeVersion": null,
+  "activeVersionId": null,
+  "connections": {
+    "schedule_trigger": {
+      "main": [
+        [
+          {
+            "node": "call_studio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "createdAt": "2026-11-26T06:42:19.564Z",
+  "id": "YGy7A2wuv85AHwGq",
+  "isArchived": false,
+  "meta": null,
+  "name": "poster-gif-probe-1126",
+  "nodeGroups": [],
+  "nodes": [
+    {
+      "id": "b1000000-0000-4000-8000-000000000001",
+      "name": "schedule_trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 * * * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "b1000000-0000-4000-8000-000000000002",
+      "name": "call_studio",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        224,
+        0
+      ],
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "2pSrRNmYR2jkX1JG",
+          "mode": "list",
+          "cachedResultName": "Visual Studio"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "CONTENT": "Genie Migrate for Lakehouse is now generally available, and Databricks says more than 90% of files convert correctly per source, with median migration time down 25% over six months. MIXI got about 85% of tested BigQuery data marts running with no manual edits, and the rest needed one-line fixes from a two-person team. The check-and-revise loop catches its own syntax and semantic errors, custom skills encode naming and type conventions, and lineage visibility moves dependencies together. The residual risk is semantic: code that compiles and runs can still compute the wrong number, so validation shifts to verifying results against the source. Source: databricks.com",
+            "ASSET_TYPES": "poster_gif",
+            "FEEDBACK": "",
+            "FORCE": "poster",
+            "STYLE": "dark"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "CONTENT",
+              "displayName": "CONTENT",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "ASSET_TYPES",
+              "displayName": "ASSET_TYPES",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "FEEDBACK",
+              "displayName": "FEEDBACK",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "FORCE",
+              "displayName": "FORCE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "STYLE",
+              "displayName": "STYLE",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      }
+    }
+  ],
+  "pinData": null,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "shared": [
+    {
+      "role": "workflow:owner",
+      "workflowId": "YGy7A2wuv85AHwGq",
+      "projectId": "zcGU09G6dy4Oah3l",
+      "createdAt": "2026-11-26T06:42:19.564Z",
+      "updatedAt": "2026-11-26T06:42:19.564Z"
+    }
+  ],
+  "staticData": {
+    "node:schedule_trigger": {
+      "recurrenceRules": [
+        null
+      ],
+      "recurrenceRuleSignatures": [
+        null
+      ]
+    }
+  },
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2026-11-26T06:42:19.564Z",
+  "versionId": "b55f45cd-5c74-41fe-ab3e-8d33976f3a4f"
+}

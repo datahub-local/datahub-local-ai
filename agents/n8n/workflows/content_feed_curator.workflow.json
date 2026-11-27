@@ -68,7 +68,7 @@
               {
                 "id": "8a1c0f70-0001-4a10-9a11-000000000001",
                 "name": "MODEL",
-                "value": "opencode-go/glm-5.3-flash",
+                "value": "opencode-go/glm-5.3",
                 "type": "string"
               },
               {
@@ -2649,7 +2649,7 @@
             {
               "id": "8a1c0f70-0001-4a10-9a11-000000000001",
               "name": "MODEL",
-              "value": "opencode-go/glm-5.3-flash",
+              "value": "opencode-go/glm-5.3",
               "type": "string"
             },
             {

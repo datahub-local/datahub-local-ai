@@ -1,7 +1,7 @@
 {
   "active": true,
   "activeVersion": {
-    "versionId": "29c3b25e-ab8d-4b6f-9600-c5c668aee3ab",
+    "versionId": "dcf8fb33-7bb8-41fa-a35d-a3b7c356e6ac",
     "workflowId": "iIA5QN5HuK21TmBX",
     "nodes": [
       {
@@ -68,7 +68,7 @@
               {
                 "id": "8a1c0f70-0001-4a10-9a11-000000000001",
                 "name": "MODEL",
-                "value": "opencode-go/glm-5.3",
+                "value": "opencode-go/glm-5.3-flash",
                 "type": "string"
               },
               {
@@ -2135,10 +2135,10 @@
     "name": null,
     "description": null,
     "autosaved": false,
-    "createdAt": "2026-11-22T19:54:24.363Z",
-    "updatedAt": "2026-11-22T19:54:24.363Z"
+    "createdAt": "2026-11-27T19:16:58.481Z",
+    "updatedAt": "2026-11-27T19:16:58.481Z"
   },
-  "activeVersionId": "29c3b25e-ab8d-4b6f-9600-c5c668aee3ab",
+  "activeVersionId": "dcf8fb33-7bb8-41fa-a35d-a3b7c356e6ac",
   "connections": {
     "click_trigger": {
       "main": [
@@ -2649,7 +2649,7 @@
             {
               "id": "8a1c0f70-0001-4a10-9a11-000000000001",
               "name": "MODEL",
-              "value": "opencode-go/glm-5.3",
+              "value": "opencode-go/glm-5.3-flash",
               "type": "string"
             },
             {
@@ -4300,6 +4300,6 @@
   },
   "tags": [],
   "triggerCount": 1,
-  "updatedAt": "2026-11-22T19:54:24.348Z",
-  "versionId": "29c3b25e-ab8d-4b6f-9600-c5c668aee3ab"
+  "updatedAt": "2026-11-27T19:16:58.469Z",
+  "versionId": "dcf8fb33-7bb8-41fa-a35d-a3b7c356e6ac"
 }
